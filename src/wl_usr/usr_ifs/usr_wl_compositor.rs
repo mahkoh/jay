@@ -1,14 +1,19 @@
 use {
     crate::{
-        wire::{wl_compositor::CreateSurface, WlCompositorId},
+        object::Version,
+        wire::{
+            wl_compositor::{CreateSurface, WlCompositorEventHandler},
+            WlCompositorId,
+        },
         wl_usr::{usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlCompositor {
     pub id: WlCompositorId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrWlCompositor {
@@ -16,6 +21,7 @@ impl UsrWlCompositor {
         let sfc = Rc::new(UsrWlSurface {
             id: self.con.id(),
             con: self.con.clone(),
+            version: self.version,
         });
         self.con.request(CreateSurface {
             self_id: self.id,
@@ -26,8 +32,13 @@ impl UsrWlCompositor {
     }
 }
 
+impl WlCompositorEventHandler for UsrWlCompositor {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrWlCompositor, WlCompositor;
+    self = UsrWlCompositor = WlCompositor;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlCompositor {

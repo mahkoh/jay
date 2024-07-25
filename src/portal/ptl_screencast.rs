@@ -4,6 +4,7 @@ use {
     crate::{
         dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply},
         pipewire::{
+            pw_con::PwCon,
             pw_ifs::pw_client_node::{
                 PwClientNode, PwClientNodeBufferConfig, PwClientNodeOwner, PwClientNodePort,
                 PwClientNodePortSupportedFormats, SUPPORTED_META_VIDEO_CROP,
@@ -56,6 +57,7 @@ shared_ids!(ScreencastSessionId);
 pub struct ScreencastSession {
     _id: ScreencastSessionId,
     state: Rc<PortalState>,
+    pw_con: Rc<PwCon>,
     pub app: String,
     session_obj: DbusObject,
     pub phase: CloneCell<ScreencastPhase>,
@@ -234,7 +236,7 @@ impl PwClientNodeOwner for StartedScreencast {
 
 impl SelectingScreencastCore {
     pub fn starting(&self, dpy: &Rc<PortalDisplay>, target: ScreencastTarget) {
-        let node = dpy.state.pw_con.create_client_node(&[
+        let node = self.session.pw_con.create_client_node(&[
             ("media.class".to_string(), "Video/Source".to_string()),
             ("node.name".to_string(), "jay-desktop-portal".to_string()),
             ("node.driver".to_string(), "true".to_string()),
@@ -462,11 +464,16 @@ impl UsrJayScreencastOwner for StartedScreencast {
     }
 }
 
-pub(super) fn add_screencast_dbus_members(state_: &Rc<PortalState>, object: &DbusObject) {
+pub(super) fn add_screencast_dbus_members(
+    state_: &Rc<PortalState>,
+    pw_con: &Rc<PwCon>,
+    object: &DbusObject,
+) {
     use org::freedesktop::impl_::portal::screen_cast::*;
     let state = state_.clone();
+    let pw_con = pw_con.clone();
     object.add_method::<CreateSession, _>(move |req, pr| {
-        dbus_create_session(&state, req, pr);
+        dbus_create_session(&state, &pw_con, req, pr);
     });
     let state = state_.clone();
     object.add_method::<SelectSources, _>(move |req, pr| {
@@ -483,6 +490,7 @@ pub(super) fn add_screencast_dbus_members(state_: &Rc<PortalState>, object: &Dbu
 
 fn dbus_create_session(
     state: &Rc<PortalState>,
+    pw_con: &Rc<PwCon>,
     req: CreateSession,
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
@@ -501,6 +509,7 @@ fn dbus_create_session(
     let session = Rc::new(ScreencastSession {
         _id: state.id(),
         state: state.clone(),
+        pw_con: pw_con.clone(),
         app: req.app_id.to_string(),
         session_obj: obj,
         phase: CloneCell::new(ScreencastPhase::Init),

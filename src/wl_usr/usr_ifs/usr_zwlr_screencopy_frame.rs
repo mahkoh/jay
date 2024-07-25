@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{zwlr_screencopy_frame_v1::*, ZwlrScreencopyFrameV1Id},
         wl_usr::{usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrZwlrScreencopyFrame {
     pub id: ZwlrScreencopyFrameV1Id,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrZwlrScreencopyFrameOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrZwlrScreencopyFrameOwner {
@@ -58,57 +57,54 @@ impl UsrZwlrScreencopyFrame {
             buffer: buffer.id,
         });
     }
+}
 
-    fn buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Buffer = self.con.parse(self, parser)?;
+impl ZwlrScreencopyFrameV1EventHandler for UsrZwlrScreencopyFrame {
+    type Error = Infallible;
+
+    fn buffer(&self, ev: Buffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.buffer(&ev);
         }
         Ok(())
     }
 
-    fn flags(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Flags = self.con.parse(self, parser)?;
+    fn flags(&self, ev: Flags, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.flags(&ev);
         }
         Ok(())
     }
 
-    fn ready(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Ready = self.con.parse(self, parser)?;
+    fn ready(&self, ev: Ready, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.ready(&ev);
         }
         Ok(())
     }
 
-    fn failed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Failed = self.con.parse(self, parser)?;
+    fn failed(&self, _ev: Failed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.failed();
         }
         Ok(())
     }
 
-    fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Damage = self.con.parse(self, parser)?;
+    fn damage(&self, ev: Damage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.damage(&ev);
         }
         Ok(())
     }
 
-    fn linux_dmabuf(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: LinuxDmabuf = self.con.parse(self, parser)?;
+    fn linux_dmabuf(&self, ev: LinuxDmabuf, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.linux_dmabuf(&ev);
         }
         Ok(())
     }
 
-    fn buffer_done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: BufferDone = self.con.parse(self, parser)?;
+    fn buffer_done(&self, _ev: BufferDone, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.buffer_done();
         }
@@ -117,15 +113,8 @@ impl UsrZwlrScreencopyFrame {
 }
 
 usr_object_base! {
-    UsrZwlrScreencopyFrame, ZwlrScreencopyFrameV1;
-
-    BUFFER => buffer,
-    FLAGS => flags,
-    READY => ready,
-    FAILED => failed,
-    DAMAGE => damage,
-    LINUX_DMABUF => linux_dmabuf,
-    BUFFER_DONE => buffer_done,
+    self = UsrZwlrScreencopyFrame = ZwlrScreencopyFrameV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrZwlrScreencopyFrame {

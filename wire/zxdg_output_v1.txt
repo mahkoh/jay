@@ -16,10 +16,10 @@ event logical_size {
 
 event done { }
 
-event name {
+event name (since = 2) {
     name: str,
 }
 
-event description {
+event description (since = 2) {
     description: str,
 }

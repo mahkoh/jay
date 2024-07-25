@@ -1,6 +1,6 @@
 use {
     anyhow::{bail, Context, Result},
-    bstr::{BStr, BString, ByteSlice},
+    bstr::{BString, ByteSlice},
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -54,14 +54,14 @@ pub struct Token<'a> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum TokenKind<'a> {
-    Ident(&'a BStr),
+    Ident(&'a str),
     Num(u32),
     Tree {
         delim: TreeDelim,
         body: Vec<Token<'a>>,
     },
     Symbol(Symbol),
-    String(BString),
+    String(String),
 }
 
 impl TokenKind<'_> {
@@ -148,7 +148,7 @@ impl<'a> Tokenizer<'a> {
                 {
                     c.pos += 1;
                 }
-                TokenKind::Ident(c.s[b_pos..c.pos].as_bstr())
+                TokenKind::Ident(c.s[b_pos..c.pos].as_bstr().to_str()?)
             }
             b'0'..=b'9' => {
                 c.pos -= 1;
@@ -201,7 +201,7 @@ impl<'a> Tokenizer<'a> {
                     bail!("Unterminated string in line {}", self.line);
                 }
                 c.pos += 1;
-                TokenKind::String(res.into())
+                TokenKind::String(BString::from(res).to_string())
             }
             _ => bail!("Unexpected byte {:?} in line {}", b as char, self.line),
         };

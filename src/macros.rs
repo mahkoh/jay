@@ -12,39 +12,26 @@ macro_rules! efrom {
 }
 
 macro_rules! usr_object_base {
-    ($oname:ident, $iname:ident; $($code:ident => $f:ident,)*) => {
+    ($self:ident = $oname:ident = $iname:ident; version = $version:expr;) => {
         impl crate::wl_usr::usr_object::UsrObjectBase for $oname {
-            fn id(&self) -> crate::object::ObjectId {
-                self.id.into()
+            fn id(&$self) -> crate::object::ObjectId {
+                $self.id.into()
             }
 
-            #[allow(unused_variables, unreachable_code)]
+            fn version(&$self) -> crate::object::Version {
+                $version
+            }
+
             fn handle_event(
-                self: std::rc::Rc<Self>,
+                $self: std::rc::Rc<Self>,
+                con: &crate::wl_usr::UsrCon,
                 event: u32,
                 parser: crate::utils::buffd::MsgParser<'_, '_>,
-            ) -> Result<(), crate::wl_usr::usr_object::UsrObjectError> {
-                let res: std::result::Result<(), _> = match event {
-                    $(
-                        $code => $oname::$f(&self, parser).map_err(|e| crate::wl_usr::usr_object::UsrObjectErrorType::EventError {
-                            event: stringify!($f),
-                            error: Box::new(e),
-                        }),
-                    )*
-                    _ => Err(crate::wl_usr::usr_object::UsrObjectErrorType::UnknownEventError {
-                        event,
-                    }),
-                };
-                if let Err(e) = res {
-                    return Err(crate::wl_usr::usr_object::UsrObjectError {
-                        interface: crate::wire::$iname,
-                        ty: e,
-                    });
-                }
-                Ok(())
+            ) -> Result<(), crate::wl_usr::UsrConError> {
+                $self.handle_event_impl(con, event, parser)
             }
 
-            fn interface(&self) -> crate::object::Interface {
+            fn interface(&$self) -> crate::object::Interface {
                 crate::wire::$iname
             }
         }

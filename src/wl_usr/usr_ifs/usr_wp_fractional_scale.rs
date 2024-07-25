@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{wp_fractional_scale_v1::*, WpFractionalScaleV1Id},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWpFractionalScale {
     pub id: WpFractionalScaleV1Id,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrWpFractionalScaleOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrWpFractionalScaleOwner {
@@ -22,9 +21,10 @@ pub trait UsrWpFractionalScaleOwner {
     }
 }
 
-impl UsrWpFractionalScale {
-    fn preferred_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: PreferredScale = self.con.parse(self, parser)?;
+impl WpFractionalScaleV1EventHandler for UsrWpFractionalScale {
+    type Error = Infallible;
+
+    fn preferred_scale(&self, ev: PreferredScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.preferred_scale(&ev);
         }
@@ -33,9 +33,8 @@ impl UsrWpFractionalScale {
 }
 
 usr_object_base! {
-    UsrWpFractionalScale, WpFractionalScaleV1;
-
-    PREFERRED_SCALE => preferred_scale,
+    self = UsrWpFractionalScale = WpFractionalScaleV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrWpFractionalScale {

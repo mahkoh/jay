@@ -1,10 +1,8 @@
 use {
     crate::{
         ifs::jay_compositor::Cap,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{jay_compositor::*, JayCompositorId},
         wl_usr::{
             usr_ifs::{
@@ -19,7 +17,7 @@ use {
             UsrCon,
         },
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayCompositor {
@@ -27,6 +25,7 @@ pub struct UsrJayCompositor {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayCompositorOwner>>>,
     pub caps: UsrJayCompositorCaps,
+    pub version: Version,
 }
 
 #[derive(Default)]
@@ -51,6 +50,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(GetRenderCtx {
             self_id: self.id,
@@ -65,6 +65,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
             pending_buffers: Default::default(),
             pending_planes: Default::default(),
             pending_config: Default::default(),
@@ -82,6 +83,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(GetOutput {
             self_id: self.id,
@@ -98,6 +100,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(WatchWorkspaces {
             self_id: self.id,
@@ -111,6 +114,7 @@ impl UsrJayCompositor {
         let jp = Rc::new(UsrJayPointer {
             id: self.con.id(),
             con: self.con.clone(),
+            version: self.version,
         });
         self.con.add_object(jp.clone());
         self.con.request(GetPointer {
@@ -126,6 +130,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(SelectToplevel {
             self_id: self.id,
@@ -141,6 +146,7 @@ impl UsrJayCompositor {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(SelectWorkspace {
             self_id: self.id,
@@ -150,25 +156,26 @@ impl UsrJayCompositor {
         self.con.add_object(sc.clone());
         sc
     }
+}
 
-    fn client_id(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ClientId = self.con.parse(self, parser)?;
+impl JayCompositorEventHandler for UsrJayCompositor {
+    type Error = Infallible;
+
+    fn client_id(&self, ev: ClientId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.client_id(ev);
         }
         Ok(())
     }
 
-    fn seat(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Seat = self.con.parse(self, parser)?;
+    fn seat(&self, ev: Seat<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.seat(ev);
         }
         Ok(())
     }
 
-    fn capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Capabilities = self.con.parse(self, parser)?;
+    fn capabilities(&self, ev: Capabilities<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         for &cap in ev.cap {
             match cap {
                 Cap::NONE => {}
@@ -182,11 +189,8 @@ impl UsrJayCompositor {
 }
 
 usr_object_base! {
-    UsrJayCompositor, JayCompositor;
-
-    CLIENT_ID => client_id,
-    SEAT => seat,
-    CAPABILITIES => capabilities,
+    self = UsrJayCompositor = JayCompositor;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayCompositor {

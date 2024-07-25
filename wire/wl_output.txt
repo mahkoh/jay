@@ -24,18 +24,18 @@ event mode {
     refresh  : i32,
 }
 
-event done {
+event done (since = 2) {
 
 }
 
-event scale {
+event scale (since = 2) {
     factor: i32,
 }
 
-event name {
+event name (since = 4) {
     name: str,
 }
 
-event description {
+event description (since = 4) {
     description: str,
 }

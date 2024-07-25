@@ -330,6 +330,9 @@ impl<'a> Parser<'a> {
             });
             let safe_name = match name {
                 "move" => "move_",
+                "type" => "type_",
+                "drop" => "drop_",
+                "id" => "id_",
                 _ => name,
             };
             Ok(Lined {
@@ -717,18 +720,50 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     Ok(())
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum RequestHandlerDirection {
+    Request,
+    Event,
+}
+
 fn write_request_handler<W: Write>(
     f: &mut W,
     camel_obj_name: &str,
-    messages: &ParseResult,
+    messages: &[Lined<Message>],
+    direction: RequestHandlerDirection,
 ) -> Result<()> {
+    let snake_direction;
+    let camel_direction;
+    let parent;
+    let parser;
+    let error;
+    let param;
     writeln!(f)?;
+    match direction {
+        RequestHandlerDirection::Request => {
+            snake_direction = "request";
+            camel_direction = "Request";
+            parent = "crate::object::Object";
+            parser = "crate::client::Client";
+            error = "crate::client::ClientError";
+            param = "req";
+        }
+        RequestHandlerDirection::Event => {
+            snake_direction = "event";
+            camel_direction = "Event";
+            parent = "crate::wl_usr::usr_object::UsrObject";
+            parser = "crate::wl_usr::UsrCon";
+            error = "crate::wl_usr::UsrConError";
+            param = "ev";
+            writeln!(f, "    #[allow(dead_code)]")?;
+        }
+    }
     writeln!(
         f,
-        "    pub trait {camel_obj_name}RequestHandler: crate::object::Object + Sized {{"
+        "    pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{"
     )?;
     writeln!(f, "        type Error: std::error::Error;")?;
-    for message in &messages.requests {
+    for message in messages {
         let msg = &message.val;
         let lt = match msg.has_reference_type {
             true => "<'_>",
@@ -737,34 +772,31 @@ fn write_request_handler<W: Write>(
         writeln!(f)?;
         writeln!(
             f,
-            "        fn {}(&self, req: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
+            "        fn {}(&self, {param}: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
             msg.safe_name, msg.camel_name
         )?;
     }
     writeln!(f)?;
     writeln!(f, "        #[inline(always)]")?;
-    writeln!(f, "        fn handle_request_impl(")?;
+    writeln!(f, "        fn handle_{snake_direction}_impl(")?;
     writeln!(f, "            self: Rc<Self>,")?;
-    writeln!(f, "            client: &crate::client::Client,")?;
+    writeln!(f, "            client: &{parser},")?;
     writeln!(f, "            req: u32,")?;
     writeln!(
         f,
         "            parser: crate::utils::buffd::MsgParser<'_, '_>,"
     )?;
-    writeln!(f, "        ) -> Result<(), crate::client::ClientError> {{")?;
-    if messages.requests.is_empty() {
+    writeln!(f, "        ) -> Result<(), {error}> {{")?;
+    if messages.is_empty() {
         writeln!(f, "            #![allow(unused_variables)]")?;
-        writeln!(
-            f,
-            "            Err(crate::client::ClientError::InvalidMethod)"
-        )?;
+        writeln!(f, "            Err({error}::InvalidMethod)")?;
     } else {
         writeln!(f, "            let method;")?;
         writeln!(
             f,
             "            let error: Box<dyn std::error::Error> = match req {{"
         )?;
-        for message in &messages.requests {
+        for message in messages {
             let msg = &message.val;
             write!(f, "                {} ", msg.id)?;
             if let Some(since) = msg.attribs.since {
@@ -793,13 +825,10 @@ fn write_request_handler<W: Write>(
         }
         writeln!(
             f,
-            "                _ => return Err(crate::client::ClientError::InvalidMethod),"
+            "                _ => return Err({error}::InvalidMethod),"
         )?;
         writeln!(f, "            }};")?;
-        writeln!(
-            f,
-            "            Err(crate::client::ClientError::MethodError {{"
-        )?;
+        writeln!(f, "            Err({error}::MethodError {{")?;
         writeln!(f, "                interface: {camel_obj_name},")?;
         writeln!(f, "                method,")?;
         writeln!(f, "                error,")?;
@@ -832,7 +861,18 @@ fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     for message in messages.requests.iter().chain(messages.events.iter()) {
         write_message(f, &camel_obj_name, &message.val)?;
     }
-    write_request_handler(f, &camel_obj_name, &messages)?;
+    write_request_handler(
+        f,
+        &camel_obj_name,
+        &messages.requests,
+        RequestHandlerDirection::Request,
+    )?;
+    write_request_handler(
+        f,
+        &camel_obj_name,
+        &messages.events,
+        RequestHandlerDirection::Event,
+    )?;
     writeln!(f, "}}")?;
     Ok(())
 }

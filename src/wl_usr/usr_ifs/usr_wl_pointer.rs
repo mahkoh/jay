@@ -1,14 +1,12 @@
 use {
     crate::{
         ifs::wl_seat::wl_pointer::PendingScroll,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{wl_pointer::*, WlPointerId},
         wl_usr::{usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject, UsrCon},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlPointer {
@@ -17,6 +15,7 @@ pub struct UsrWlPointer {
     pub owner: CloneCell<Option<Rc<dyn UsrWlPointerOwner>>>,
     pub any_scroll_events: Cell<bool>,
     pub pending_scroll: PendingScroll,
+    pub version: Version,
 }
 
 pub trait UsrWlPointerOwner {
@@ -52,41 +51,40 @@ impl UsrWlPointer {
             hotspot_y: hot_y,
         });
     }
+}
 
-    fn enter(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Enter = self.con.parse(self, parser)?;
+impl WlPointerEventHandler for UsrWlPointer {
+    type Error = Infallible;
+
+    fn enter(&self, ev: Enter, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.enter(&ev);
         }
         Ok(())
     }
 
-    fn leave(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Leave = self.con.parse(self, parser)?;
+    fn leave(&self, ev: Leave, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.leave(&ev);
         }
         Ok(())
     }
 
-    fn motion(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Motion = self.con.parse(self, parser)?;
+    fn motion(&self, ev: Motion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.motion(&ev);
         }
         Ok(())
     }
 
-    fn button(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Button = self.con.parse(self, parser)?;
+    fn button(&self, ev: Button, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.button(&ev);
         }
         Ok(())
     }
 
-    fn axis(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Axis = self.con.parse(self, parser)?;
+    fn axis(&self, ev: Axis, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending_scroll.time_usec.set(ev.time as u64 * 1000);
         if ev.axis < 2 {
             self.pending_scroll.px[ev.axis as usize].set(Some(ev.value));
@@ -95,8 +93,7 @@ impl UsrWlPointer {
         Ok(())
     }
 
-    fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Frame = self.con.parse(self, parser)?;
+    fn frame(&self, _ev: Frame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.any_scroll_events.take() {
             let pe = self.pending_scroll.take();
             if let Some(owner) = self.owner.get() {
@@ -106,15 +103,13 @@ impl UsrWlPointer {
         Ok(())
     }
 
-    fn axis_source(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: AxisSource = self.con.parse(self, parser)?;
+    fn axis_source(&self, ev: AxisSource, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending_scroll.source.set(Some(ev.axis_source));
         self.any_scroll_events.set(true);
         Ok(())
     }
 
-    fn axis_stop(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: AxisStop = self.con.parse(self, parser)?;
+    fn axis_stop(&self, ev: AxisStop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending_scroll.time_usec.set(ev.time as u64 * 1000);
         if ev.axis < 2 {
             self.pending_scroll.stop[ev.axis as usize].set(true);
@@ -123,35 +118,31 @@ impl UsrWlPointer {
         Ok(())
     }
 
-    fn axis_discrete(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: AxisDiscrete = self.con.parse(self, parser)?;
+    fn axis_discrete(&self, _ev: AxisDiscrete, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.any_scroll_events.set(true);
         Ok(())
     }
 
-    fn axis_value120(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: AxisValue120 = self.con.parse(self, parser)?;
+    fn axis_value120(&self, ev: AxisValue120, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if ev.axis < 2 {
             self.pending_scroll.v120[ev.axis as usize].set(Some(ev.value120));
         }
         self.any_scroll_events.set(true);
         Ok(())
     }
+
+    fn axis_relative_direction(
+        &self,
+        _ev: AxisRelativeDirection,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 usr_object_base! {
-    UsrWlPointer, WlPointer;
-
-    ENTER => enter,
-    LEAVE => leave,
-    MOTION => motion,
-    BUTTON => button,
-    AXIS => axis,
-    FRAME => frame,
-    AXIS_SOURCE => axis_source,
-    AXIS_STOP => axis_stop,
-    AXIS_DISCRETE => axis_discrete,
-    AXIS_VALUE120 => axis_value120,
+    self = UsrWlPointer = WlPointer;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlPointer {

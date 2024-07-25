@@ -1,20 +1,19 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         video::dmabuf::DmaBuf,
         wire::{zwp_linux_buffer_params_v1::*, ZwpLinuxBufferParamsV1Id},
         wl_usr::{usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject, UsrCon},
     },
-    std::{ops::Deref, rc::Rc},
+    std::{convert::Infallible, ops::Deref, rc::Rc},
 };
 
 pub struct UsrLinuxBufferParams {
     pub id: ZwpLinuxBufferParamsV1Id,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrLinuxBufferParamsOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrLinuxBufferParamsOwner {
@@ -46,13 +45,17 @@ impl UsrLinuxBufferParams {
             flags: 0,
         });
     }
+}
 
-    fn created(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Created = self.con.parse(self, parser)?;
+impl ZwpLinuxBufferParamsV1EventHandler for UsrLinuxBufferParams {
+    type Error = Infallible;
+
+    fn created(&self, ev: Created, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let buffer = Rc::new(UsrWlBuffer {
             id: ev.buffer,
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.add_object(buffer.clone());
         if let Some(owner) = self.owner.get() {
@@ -63,8 +66,7 @@ impl UsrLinuxBufferParams {
         Ok(())
     }
 
-    fn failed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Failed = self.con.parse(self, parser)?;
+    fn failed(&self, _ev: Failed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.failed();
         }
@@ -73,10 +75,8 @@ impl UsrLinuxBufferParams {
 }
 
 usr_object_base! {
-    UsrLinuxBufferParams, ZwpLinuxBufferParamsV1;
-
-    CREATED => created,
-    FAILED => failed,
+    self = UsrLinuxBufferParams = ZwpLinuxBufferParamsV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrLinuxBufferParams {

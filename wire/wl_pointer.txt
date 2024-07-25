@@ -44,30 +44,30 @@ event axis {
     value: fixed,
 }
 
-event frame {
+event frame (since = 5) {
 
 }
 
-event axis_source {
+event axis_source (since = 5) {
     axis_source: u32,
 }
 
-event axis_stop {
+event axis_stop (since = 5) {
     time: u32,
     axis: u32,
 }
 
-event axis_discrete {
+event axis_discrete (since = 5) {
     axis: u32,
     discrete: i32,
 }
 
-event axis_value120 {
+event axis_value120 (since = 8) {
     axis: u32,
     value120: i32,
 }
 
-event axis_relative_direction {
+event axis_relative_direction (since = 9) {
     axis: u32,
     direction: u32,
 }

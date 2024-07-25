@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{zwlr_layer_surface_v1::*, ZwlrLayerSurfaceV1Id},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlrLayerSurface {
     pub id: ZwlrLayerSurfaceV1Id,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrWlrLayerSurfaceOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrWlrLayerSurfaceOwner {
@@ -48,9 +47,12 @@ impl UsrWlrLayerSurface {
             layer,
         });
     }
+}
 
-    fn configure(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Configure = self.con.parse(self, parser)?;
+impl ZwlrLayerSurfaceV1EventHandler for UsrWlrLayerSurface {
+    type Error = Infallible;
+
+    fn configure(&self, ev: Configure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.configure(&ev);
         }
@@ -61,8 +63,7 @@ impl UsrWlrLayerSurface {
         Ok(())
     }
 
-    fn closed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Closed = self.con.parse(self, parser)?;
+    fn closed(&self, _ev: Closed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.closed();
         }
@@ -71,10 +72,8 @@ impl UsrWlrLayerSurface {
 }
 
 usr_object_base! {
-    UsrWlrLayerSurface, ZwlrLayerSurfaceV1;
-
-    CONFIGURE => configure,
-    CLOSED => closed,
+    self = UsrWlrLayerSurface = ZwlrLayerSurfaceV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlrLayerSurface {

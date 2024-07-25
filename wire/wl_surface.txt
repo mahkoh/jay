@@ -61,10 +61,10 @@ event leave {
     output: id(wl_output),
 }
 
-event preferred_buffer_scale {
+event preferred_buffer_scale (since = 6) {
     factor: i32,
 }
 
-event preferred_buffer_transform {
+event preferred_buffer_transform (since = 6) {
     transform: u32,
 }

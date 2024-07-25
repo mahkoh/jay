@@ -1,28 +1,28 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{jay_toplevel::*, JayToplevelId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayToplevel {
     pub id: JayToplevelId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayToplevelOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrJayToplevelOwner {
     fn destroyed(&self) {}
 }
 
-impl UsrJayToplevel {
-    fn destroyed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Destroyed = self.con.parse(self, parser)?;
+impl JayToplevelEventHandler for UsrJayToplevel {
+    type Error = Infallible;
+
+    fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.destroyed();
         }
@@ -31,9 +31,8 @@ impl UsrJayToplevel {
 }
 
 usr_object_base! {
-    UsrJayToplevel, JayToplevel;
-
-    DESTROYED => destroyed,
+    self = UsrJayToplevel = JayToplevel;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayToplevel {
