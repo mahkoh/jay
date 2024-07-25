@@ -146,8 +146,6 @@ pub trait WlrIpcVtable: IpcVtable<Device = ZwlrDataControlDeviceV1> {
 }
 
 pub trait IpcVtable: Sized {
-    const LOCATION: IpcLocation;
-
     type Device;
     type Source: DataSource;
     type Offer: DataOffer<Device = Self::Device>;

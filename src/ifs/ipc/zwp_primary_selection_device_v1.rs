@@ -6,7 +6,7 @@ use {
                 break_device_loops, destroy_data_device,
                 zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
-                IpcLocation, IpcVtable, IterableIpcVtable, OfferData, Role,
+                IpcVtable, IterableIpcVtable, OfferData, Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
@@ -109,8 +109,6 @@ impl IterableIpcVtable for PrimarySelectionIpc {
 }
 
 impl IpcVtable for PrimarySelectionIpc {
-    const LOCATION: IpcLocation = IpcLocation::PrimarySelection;
-
     type Device = ZwpPrimarySelectionDeviceV1;
     type Source = ZwpPrimarySelectionSourceV1;
     type Offer = ZwpPrimarySelectionOfferV1;

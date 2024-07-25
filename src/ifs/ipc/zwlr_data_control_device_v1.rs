@@ -217,7 +217,6 @@ impl<T: WlrIpc> WlrIpcVtable for WlrIpcImpl<T> {
 }
 
 impl<T: WlrIpc> IpcVtable for WlrIpcImpl<T> {
-    const LOCATION: IpcLocation = T::LOCATION;
     type Device = ZwlrDataControlDeviceV1;
     type Source = ZwlrDataControlSourceV1;
     type Offer = ZwlrDataControlOfferV1;

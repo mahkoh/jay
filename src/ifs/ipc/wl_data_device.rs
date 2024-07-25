@@ -5,8 +5,8 @@ use {
         ifs::{
             ipc::{
                 break_device_loops, destroy_data_device, wl_data_offer::WlDataOffer,
-                wl_data_source::WlDataSource, DeviceData, IpcLocation, IpcVtable,
-                IterableIpcVtable, OfferData, Role,
+                wl_data_source::WlDataSource, DeviceData, IpcVtable, IterableIpcVtable, OfferData,
+                Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
             wl_surface::WlSurfaceError,
@@ -162,8 +162,6 @@ impl IterableIpcVtable for ClipboardIpc {
 }
 
 impl IpcVtable for ClipboardIpc {
-    const LOCATION: IpcLocation = IpcLocation::Clipboard;
-
     type Device = WlDataDevice;
     type Source = WlDataSource;
     type Offer = WlDataOffer;
