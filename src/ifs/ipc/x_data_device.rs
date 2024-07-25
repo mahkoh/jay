@@ -65,7 +65,6 @@ impl XIpc for XPrimarySelectionIpc {
 }
 
 impl<T: XIpc> IpcVtable for T {
-    const LOCATION: IpcLocation = T::LOCATION;
     type Device = XIpcDevice;
     type Source = XDataSource;
     type Offer = XDataOffer;
