@@ -1142,6 +1142,18 @@ The table has the following fields:
 
   The value of this field should be a [Tearing](#types-Tearing).
 
+- `libei` (optional):
+
+  Configures the libei settings.
+  
+  - Example:
+  
+    ```toml
+    libei.enable-socket = true
+    ```
+
+  The value of this field should be a [Libei](#types-Libei).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2043,6 +2055,32 @@ The table has the following fields:
   and `path` has to be defined.
 
   The value of this field should be a string.
+
+
+<a name="types-Libei"></a>
+### `Libei`
+
+Describes libei settings.
+
+- Example:
+
+  ```toml
+  libei.enable-socket = "true"
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `enable-socket` (optional):
+
+  Enables or disables the unauthenticated libei socket.
+  
+  Even if the socket is disabled, application can still request access via the portal.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
 
 
 <a name="types-LogLevel"></a>

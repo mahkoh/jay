@@ -655,3 +655,86 @@ macro_rules! pw_object_base {
         }
     }
 }
+
+macro_rules! ei_id {
+    ($name:ident) => {
+        #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+        pub struct $name(u64);
+
+        #[allow(dead_code)]
+        impl $name {
+            pub const NONE: Self = $name(0);
+
+            pub const fn from_raw(raw: u64) -> Self {
+                Self(raw)
+            }
+
+            pub fn raw(self) -> u64 {
+                self.0
+            }
+
+            pub fn is_some(self) -> bool {
+                self.0 != 0
+            }
+
+            pub fn is_none(self) -> bool {
+                self.0 == 0
+            }
+        }
+
+        impl From<crate::ei::ei_object::EiObjectId> for $name {
+            fn from(f: crate::ei::ei_object::EiObjectId) -> Self {
+                Self(f.raw())
+            }
+        }
+
+        impl From<$name> for crate::ei::ei_object::EiObjectId {
+            fn from(f: $name) -> Self {
+                crate::ei::ei_object::EiObjectId::from_raw(f.0)
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+
+        impl std::fmt::LowerHex for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::LowerHex::fmt(&self.0, f)
+            }
+        }
+    };
+}
+
+macro_rules! ei_object_base {
+    ($self:ident = $oname:ident; version = $version:expr;) => {
+        impl crate::ei::ei_object::EiObjectBase for $oname {
+            fn id(&$self) -> crate::ei::ei_object::EiObjectId {
+                $self.id.into()
+            }
+
+            fn version(&$self) -> crate::ei::ei_object::EiVersion {
+                $version
+            }
+
+            fn client(&$self) -> &crate::ei::ei_client::EiClient {
+                &$self.client
+            }
+
+            fn handle_request(
+                $self: std::rc::Rc<Self>,
+                client: &crate::ei::ei_client::EiClient,
+                request: u32,
+                parser: crate::utils::buffd::EiMsgParser<'_, '_>,
+            ) -> Result<(), crate::ei::ei_client::EiClientError> {
+                $self.handle_request_impl(client, request, parser)
+            }
+
+            fn interface(&$self) -> crate::ei::ei_object::EiInterface {
+                crate::wire_ei::$oname
+            }
+        }
+    };
+}

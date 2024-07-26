@@ -37,6 +37,10 @@ impl<T> SyncQueue<T> {
         unsafe { self.el.get().deref_mut().is_empty() }
     }
 
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
     pub fn swap(&self, queue: &mut VecDeque<T>) {
         unsafe {
             mem::swap(self.el.get().deref_mut(), queue);

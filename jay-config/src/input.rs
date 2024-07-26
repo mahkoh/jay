@@ -564,3 +564,12 @@ pub enum SwitchEvent {
     /// event of this kind is generated.
     ConvertedToTablet,
 }
+
+/// Enables or disables the unauthenticated libei socket.
+///
+/// Even if the socket is disabled, application can still request access via the portal.
+///
+/// The default is `false`.
+pub fn set_libei_socket_enabled(enabled: bool) {
+    get!().set_ei_socket_enabled(enabled);
+}

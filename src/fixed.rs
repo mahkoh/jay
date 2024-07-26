@@ -19,8 +19,16 @@ impl Fixed {
         Self((f * 256.0) as i32)
     }
 
+    pub fn from_f32(f: f32) -> Self {
+        Self::from_f64(f as f64)
+    }
+
     pub fn to_f64(self) -> f64 {
         self.0 as f64 / 256.0
+    }
+
+    pub fn to_f32(self) -> f32 {
+        self.0 as f32 / 256.0
     }
 
     pub fn from_1616(i: i32) -> Self {

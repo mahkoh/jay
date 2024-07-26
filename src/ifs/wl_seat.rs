@@ -25,6 +25,7 @@ use {
         async_engine::SpawnedFuture,
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
+        ei::ei_ifs::ei_seat::EiSeat,
         fixed::Fixed,
         globals::{Global, GlobalName},
         ifs::{
@@ -84,6 +85,7 @@ use {
             WlSeatId, WlTouchId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
             ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
+        wire_ei::EiSeatId,
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
     },
     ahash::AHashMap,
@@ -195,6 +197,7 @@ pub struct WlSeatGlobal {
     pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
     tablet: TabletSeatData,
+    ei_seats: CopyHashMap<(ClientId, EiSeatId), Rc<EiSeat>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -263,6 +266,7 @@ impl WlSeatGlobal {
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
             tablet: Default::default(),
+            ei_seats: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -280,10 +284,14 @@ impl WlSeatGlobal {
         slf
     }
 
-    fn update_capabilities(&self) {
+    pub fn update_capabilities(&self) {
         let mut caps = POINTER | KEYBOARD;
         if self.num_touch_devices.get() > 0 {
             caps |= TOUCH;
+        } else {
+            if self.ei_seats.lock().values().any(|s| s.is_touch_input()) {
+                caps |= TOUCH;
+            }
         }
         if self.capabilities.replace(caps) != caps {
             for client in self.bindings.borrow().values() {
@@ -481,6 +489,9 @@ impl WlSeatGlobal {
     }
 
     fn handle_xkb_state_change(&self, old: &XkbState, new: &XkbState) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_xkb_state_change(old.kb_state.id, &new.kb_state);
+        });
         let Some(surface) = self.keyboard_node.get().node_into_surface() else {
             return;
         };
@@ -888,6 +899,7 @@ impl WlSeatGlobal {
         self.hold_bindings.clear();
         self.cursor_user_group.detach();
         self.tablet_clear();
+        self.ei_seats.clear();
     }
 
     pub fn id(&self) -> SeatId {
@@ -981,6 +993,30 @@ impl WlSeatGlobal {
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
         self.pointer_owner
             .set_window_management_enabled(self, enabled);
+    }
+
+    pub fn add_ei_seat(&self, ei: &Rc<EiSeat>) {
+        self.ei_seats.set((ei.client.id, ei.id), ei.clone());
+        self.update_capabilities();
+    }
+
+    pub fn remove_ei_seat(&self, ei: &EiSeat) {
+        self.ei_seats.remove(&(ei.client.id, ei.id));
+        self.update_capabilities();
+    }
+
+    pub fn seat_xkb_state(&self) -> Rc<dyn DynKeyboardState> {
+        self.seat_xkb_state.get()
+    }
+
+    pub fn latest_xkb_state(&self) -> Rc<dyn DynKeyboardState> {
+        self.latest_kb_state.get()
+    }
+
+    pub fn output_extents_changed(&self) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.regions_changed();
+        });
     }
 }
 

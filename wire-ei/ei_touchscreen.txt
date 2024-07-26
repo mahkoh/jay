@@ -1,0 +1,38 @@
+request release {
+}
+
+request client_down (sender) {
+    touchid: u32,
+    x: f32,
+    y: f32,
+}
+
+request client_motion (sender) {
+    touchid: u32,
+    x: f32,
+    y: f32,
+}
+
+request client_up (sender) {
+    touchid: u32,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event server_down (receiver) {
+    touchid: u32,
+    x: f32,
+    y: f32,
+}
+
+event server_motion (receiver) {
+    touchid: u32,
+    x: f32,
+    y: f32,
+}
+
+event server_up (receiver) {
+    touchid: u32,
+}

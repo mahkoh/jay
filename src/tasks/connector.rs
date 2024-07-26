@@ -199,7 +199,7 @@ impl ConnectorHandler {
         self.state.outputs.set(self.id, output_data);
         on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
-        self.state.root.update_extents();
+        self.state.output_extents_changed();
         global.opt.node.set(Some(on.clone()));
         global.opt.global.set(Some(global.clone()));
         let mut ws_to_move = VecDeque::new();
@@ -280,7 +280,7 @@ impl ConnectorHandler {
         }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
-        self.state.root.update_extents();
+        self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();
         {

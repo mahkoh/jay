@@ -6,8 +6,9 @@ use {
         wire::{jay_compositor::*, JayCompositorId},
         wl_usr::{
             usr_ifs::{
-                usr_jay_output::UsrJayOutput, usr_jay_pointer::UsrJayPointer,
-                usr_jay_render_ctx::UsrJayRenderCtx, usr_jay_screencast::UsrJayScreencast,
+                usr_jay_ei_session_builder::UsrJayEiSessionBuilder, usr_jay_output::UsrJayOutput,
+                usr_jay_pointer::UsrJayPointer, usr_jay_render_ctx::UsrJayRenderCtx,
+                usr_jay_screencast::UsrJayScreencast,
                 usr_jay_select_toplevel::UsrJaySelectToplevel,
                 usr_jay_select_workspace::UsrJaySelectWorkspace,
                 usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
@@ -155,6 +156,20 @@ impl UsrJayCompositor {
         });
         self.con.add_object(sc.clone());
         sc
+    }
+
+    pub fn create_ei_session(&self) -> Rc<UsrJayEiSessionBuilder> {
+        let obj = Rc::new(UsrJayEiSessionBuilder {
+            id: self.con.id(),
+            con: self.con.clone(),
+            version: self.version,
+        });
+        self.con.request(CreateEiSession {
+            self_id: self.id,
+            id: obj.id,
+        });
+        self.con.add_object(obj.clone());
+        obj
     }
 }
 

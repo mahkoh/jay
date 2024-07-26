@@ -1,0 +1,15 @@
+request release (since = 5) {
+
+}
+
+event destroyed (since = 5) {
+
+}
+
+event created (since = 5) {
+    fd: fd,
+}
+
+event failed (since = 5) {
+    reason: str,
+}

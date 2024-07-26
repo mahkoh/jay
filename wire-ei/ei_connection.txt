@@ -1,0 +1,28 @@
+request sync {
+    callback: id(ei_callback),
+    version: u32,
+}
+
+request disconnect {
+}
+
+event disconnected {
+    last_serial: u32,
+    reason: u32,
+    explanation: optstr,
+}
+
+event seat {
+    seat: id(ei_seat),
+    version: u32,
+}
+
+event invalid_object {
+    last_serial: u32,
+    invalid_id: id(ei_object),
+}
+
+event ping {
+    ping: id(ei_pingpong),
+    version: u32,
+}

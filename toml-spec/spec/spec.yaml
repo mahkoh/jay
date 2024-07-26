@@ -2228,6 +2228,17 @@ Config:
           ```toml
           tearing.mode = "never"
           ```
+    libei:
+      ref: Libei
+      required: false
+      description: |
+        Configures the libei settings.
+        
+        - Example:
+        
+          ```toml
+          libei.enable-socket = true
+          ```
 
 
 Idle:
@@ -2457,3 +2468,25 @@ TearingMode:
       description: |
         Tearing is enabled when a single application is displayed and the application has
         requested tearing.
+
+
+Libei:
+  kind: table
+  description: |
+    Describes libei settings.
+    
+    - Example:
+    
+      ```toml
+      libei.enable-socket = "true"
+      ```
+  fields:
+    enable-socket:
+      kind: boolean
+      required: false
+      description: |
+        Enables or disables the unauthenticated libei socket.
+
+        Even if the socket is disabled, application can still request access via the portal.
+
+        The default is `false`.

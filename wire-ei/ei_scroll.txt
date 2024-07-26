@@ -1,0 +1,38 @@
+request release {
+}
+
+request client_scroll (sender) {
+    x: f32,
+    y: f32,
+}
+
+request client_scroll_discrete (sender) {
+    x: i32,
+    y: i32,
+}
+
+request client_scroll_stop (sender) {
+    x: u32,
+    y: u32,
+    is_cancel: u32,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event server_scroll (receiver) {
+    x: f32,
+    y: f32,
+}
+
+event server_scroll_discrete (receiver) {
+    x: i32,
+    y: i32,
+}
+
+event server_scroll_stop (receiver) {
+    x: u32,
+    y: u32,
+    is_cancel: u32,
+}

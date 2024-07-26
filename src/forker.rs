@@ -3,7 +3,7 @@ mod io;
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        compositor::{DISPLAY, WAYLAND_DISPLAY},
+        compositor::{DISPLAY, LIBEI_SOCKET, WAYLAND_DISPLAY},
         forker::io::{IoIn, IoOut},
         io_uring::IoUring,
         state::State,
@@ -151,14 +151,18 @@ impl ForkerProxy {
 
     pub async fn xwayland(
         &self,
+        state: &State,
         stderr: Rc<OwnedFd>,
         dfd: Rc<OwnedFd>,
         listenfd: Rc<OwnedFd>,
         wmfd: Rc<OwnedFd>,
         waylandfd: Rc<OwnedFd>,
     ) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
-        let (prog, args) = xwayland::build_args();
-        let env = vec![("WAYLAND_SOCKET".to_string(), "6".to_string())];
+        let (prog, args) = xwayland::build_args(state, self).await;
+        let env = vec![
+            ("WAYLAND_SOCKET".to_string(), Some("6".to_string())),
+            (LIBEI_SOCKET.to_string(), None),
+        ];
         let fds = vec![
             (2, stderr),
             (3, dfd),
@@ -175,7 +179,7 @@ impl ForkerProxy {
         &self,
         prog: String,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        env: Vec<(String, Option<String>)>,
         fds: Vec<(i32, Rc<OwnedFd>)>,
     ) {
         self.spawn_(prog, args, env, fds, None)
@@ -185,7 +189,7 @@ impl ForkerProxy {
         &self,
         prog: String,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        env: Vec<(String, Option<String>)>,
         fds: Vec<(i32, Rc<OwnedFd>)>,
         pidfd_id: Option<u32>,
     ) {
@@ -291,7 +295,7 @@ enum ServerMessage {
     Spawn {
         prog: String,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        env: Vec<(String, Option<String>)>,
         fds: Vec<i32>,
         pidfd_id: Option<u32>,
     },
@@ -408,7 +412,7 @@ impl Forker {
         self: &Rc<Self>,
         prog: String,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        env: Vec<(String, Option<String>)>,
         fds: Vec<i32>,
         io: &mut IoIn,
         pidfd_id: Option<u32>,
@@ -424,7 +428,7 @@ impl Forker {
         self: &Rc<Self>,
         prog: String,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        env: Vec<(String, Option<String>)>,
         fds: Vec<(i32, OwnedFd)>,
         pidfd_id: Option<u32>,
     ) {
@@ -502,7 +506,10 @@ impl Forker {
                         c::signal(c::SIGCHLD, c::SIG_DFL);
                     }
                     for (key, val) in env {
-                        env::set_var(&key, &val);
+                        match val {
+                            None => env::remove_var(&key),
+                            Some(val) => env::set_var(&key, &val),
+                        }
                     }
                     let prog = prog.into_ustr();
                     let mut argsnt = UstrPtr::new();

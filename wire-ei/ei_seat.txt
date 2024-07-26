@@ -1,0 +1,27 @@
+request release {
+}
+
+request bind {
+    capabilities: u64,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event name {
+    name: str,
+}
+
+event capability {
+    mask: u64,
+    interface: str,
+}
+
+event done {
+}
+
+event device {
+    device: id(ei_device),
+    version: u32,
+}

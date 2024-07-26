@@ -17,7 +17,8 @@ use {
         get_workspace,
         input::{
             capability::CAP_SWITCH, get_seat, input_devices, on_input_device_removed,
-            on_new_input_device, FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
+            on_new_input_device, set_libei_socket_enabled, FocusFollowsMouseMode, InputDevice,
+            Seat, SwitchEvent,
         },
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
@@ -1047,6 +1048,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             set_tearing_mode(mode);
         }
     }
+    set_libei_socket_enabled(config.libei.enable_socket.unwrap_or(false));
 }
 
 fn create_command(exec: &Exec) -> Command {

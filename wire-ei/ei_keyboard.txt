@@ -1,0 +1,30 @@
+request release {
+}
+
+request client_key (sender) {
+    key: u32,
+    state: u32,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event keymap {
+    keymap_type: u32,
+    size: u32,
+    keymap: fd,
+}
+
+event server_key (receiver) {
+    key: u32,
+    state: u32,
+}
+
+event modifiers {
+    serial: u32,
+    depressed: u32,
+    locked: u32,
+    latched: u32,
+    group: u32,
+}

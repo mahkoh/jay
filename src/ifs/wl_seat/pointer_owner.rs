@@ -13,7 +13,6 @@ use {
             wl_surface::{dnd_icon::DndIcon, WlSurface},
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
-        state::DeviceHandlerData,
         tree::{ContainingNode, FindTreeUsecase, FoundNode, Node, ToplevelNode, WorkspaceNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -73,15 +72,18 @@ impl PointerOwnerHolder {
         self.pending_scroll.stop[axis as usize].set(true);
     }
 
-    pub fn frame(&self, dev: &DeviceHandlerData, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
+    pub fn frame(&self, px_per_scroll_wheel: f64, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
         self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
         for axis in 0..2 {
             if let Some(dist) = pending.v120[axis].get() {
-                let px = (dist as f64 / AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
+                let px = (dist as f64 / AXIS_120 as f64) * px_per_scroll_wheel;
                 pending.px[axis].set(Some(Fixed::from_f64(px)));
             }
         }
+        seat.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_pending_scroll(time_usec, &pending);
+        });
         seat.state.for_each_seat_tester(|t| {
             t.send_axis(seat.id, time_usec, &pending);
         });

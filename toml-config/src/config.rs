@@ -299,6 +299,11 @@ pub struct Tearing {
     pub mode: Option<TearingMode>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Libei {
+    pub enable_socket: Option<bool>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Shortcut {
     pub mask: Modifiers,
@@ -334,6 +339,7 @@ pub struct Config {
     pub window_management_key: Option<ModifiedKeySym>,
     pub vrr: Option<Vrr>,
     pub tearing: Option<Tearing>,
+    pub libei: Libei,
 }
 
 #[derive(Debug, Error)]

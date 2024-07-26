@@ -506,6 +506,9 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         matrix: [[f32; 3]; 2],
     },
+    SetEiSocketEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

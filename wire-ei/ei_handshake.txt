@@ -1,0 +1,34 @@
+request client_handshake_version {
+    version: u32,
+}
+
+request finish {
+}
+
+request context_type {
+    context_type: u32,
+}
+
+request name {
+    name: str,
+}
+
+request client_interface_version {
+    name: str,
+    version: u32,
+}
+
+event server_handshake_version {
+    version: u32,
+}
+
+event server_interface_version {
+    name: str,
+    version: u32,
+}
+
+event connection {
+    serial: u32,
+    connection: id(ei_connection),
+    version: u32,
+}

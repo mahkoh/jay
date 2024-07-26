@@ -33,6 +33,7 @@ pub mod option_ext;
 pub mod oserror;
 pub mod page_size;
 pub mod pending_serial;
+pub mod pid_info;
 pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;
