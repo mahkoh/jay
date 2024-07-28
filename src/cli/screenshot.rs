@@ -7,7 +7,7 @@ use {
         video::{
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
-            gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            gbm::GbmDevice,
         },
         wire::{
             jay_compositor::TakeScreenshot,
@@ -137,7 +137,7 @@ pub fn buf_to_bytes(dev: &Rc<OwnedFd>, buf: &DmaBuf, format: ScreenshotFormat) -
             fatal!("Could not create a gbm device: {}", ErrorFmt(e));
         }
     };
-    let bo = match gbm.import_dmabuf(&buf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
+    let bo = match gbm.import_dmabuf(&buf, 0) {
         Ok(bo) => Rc::new(bo),
         Err(e) => {
             fatal!("Could not import screenshot dmabuf: {}", ErrorFmt(e));
