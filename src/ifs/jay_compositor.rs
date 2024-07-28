@@ -13,7 +13,7 @@ use {
             jay_randr::JayRandr,
             jay_render_ctx::JayRenderCtx,
             jay_screencast::JayScreencast,
-            jay_screenshot::JayScreenshot,
+            jay_screenshot::{JayScreenshot, PLANES_SINCE},
             jay_seat_events::JaySeatEvents,
             jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
             jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
@@ -69,7 +69,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        5
+        6
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -111,29 +111,41 @@ impl JayCompositor {
             id,
             client: self.client.clone(),
             tracker: Default::default(),
+            version: self.version,
+            bo: Cell::new(None),
         });
         track!(self.client, ss);
         self.client.add_client_obj(&ss)?;
         match take_screenshot(&self.client.state, include_cursor) {
             Ok(s) => {
                 let dmabuf = s.bo.dmabuf();
-                let plane = &dmabuf.planes[0];
-                ss.send_dmabuf(
-                    &s.drm,
-                    &plane.fd,
-                    dmabuf.width,
-                    dmabuf.height,
-                    plane.offset,
-                    plane.stride,
-                    dmabuf.modifier,
-                );
+                if ss.version < PLANES_SINCE {
+                    let plane = &dmabuf.planes[0];
+                    ss.send_dmabuf(
+                        &s.drm,
+                        &plane.fd,
+                        dmabuf.width,
+                        dmabuf.height,
+                        plane.offset,
+                        plane.stride,
+                        dmabuf.modifier,
+                    );
+                } else {
+                    for plane in &dmabuf.planes {
+                        ss.send_plane(&plane);
+                    }
+                    ss.send_format(&s.drm, dmabuf);
+                }
+                ss.bo.set(Some(s.bo));
             }
             Err(e) => {
                 let msg = ErrorFmt(e).to_string();
                 ss.send_error(&msg);
             }
         }
-        self.client.remove_obj(ss.deref())?;
+        if ss.version < PLANES_SINCE {
+            self.client.remove_obj(ss.deref())?;
+        }
         Ok(())
     }
 }

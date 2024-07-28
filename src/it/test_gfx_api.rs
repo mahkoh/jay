@@ -11,7 +11,7 @@ use {
             dmabuf::DmaBuf,
             drm::{sync_obj::SyncObjCtx, Drm, DrmError},
             gbm::{GbmBo, GbmDevice, GbmError},
-            LINEAR_MODIFIER,
+            INVALID_MODIFIER,
         },
     },
     ahash::AHashMap,
@@ -65,7 +65,7 @@ impl TestGfxCtx {
         let gbm = GbmDevice::new(drm).map_err(TestGfxError::CreateGbmDevice)?;
         let ctx = Rc::new(SyncObjCtx::new(drm.fd()));
         let mut modifiers = IndexSet::new();
-        modifiers.insert(LINEAR_MODIFIER);
+        modifiers.insert(INVALID_MODIFIER);
         let mut formats = AHashMap::new();
         for f in [XRGB8888, ARGB8888] {
             formats.insert(

@@ -6,8 +6,7 @@ use {
         state::State,
         video::{
             drm::DrmError,
-            gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            INVALID_MODIFIER, LINEAR_MODIFIER,
+            gbm::{GbmBo, GbmError, GBM_BO_USE_RENDERING},
         },
     },
     jay_config::video::Transform,
@@ -30,8 +29,8 @@ pub enum ScreenshooterError {
     DrmError(#[from] DrmError),
     #[error("Render context does not support XRGB8888")]
     XRGB8888,
-    #[error("Render context supports neither linear nor invalid modifier for XRGB8888 rendering")]
-    Linear,
+    #[error("Render context cannot render to XRGB8888")]
+    NoModifiers,
 }
 
 pub struct Screenshot {
@@ -52,16 +51,13 @@ pub fn take_screenshot(
         return Err(ScreenshooterError::EmptyDisplay);
     }
     let formats = ctx.formats();
-    let mut usage = GBM_BO_USE_RENDERING;
     let modifiers = match formats.get(&XRGB8888.drm) {
         None => return Err(ScreenshooterError::XRGB8888),
-        Some(f) if f.write_modifiers.contains(&LINEAR_MODIFIER) => &[LINEAR_MODIFIER],
-        Some(f) if f.write_modifiers.contains(&INVALID_MODIFIER) => {
-            usage |= GBM_BO_USE_LINEAR;
-            &[INVALID_MODIFIER]
-        }
-        Some(_) => return Err(ScreenshooterError::Linear),
+        Some(f) => &f.write_modifiers,
     };
+    if modifiers.is_empty() {
+        return Err(ScreenshooterError::NoModifiers);
+    }
     let gbm = ctx.gbm();
     let bo = gbm.create_bo(
         &state.dma_buf_ids,
@@ -69,7 +65,7 @@ pub fn take_screenshot(
         extents.height(),
         XRGB8888,
         modifiers,
-        usage,
+        GBM_BO_USE_RENDERING,
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
     fb.render_node(

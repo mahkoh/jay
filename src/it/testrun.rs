@@ -79,7 +79,7 @@ impl TestRun {
         let client = self.state.clients.get(client_id)?;
         Ok(Rc::new(TestClient {
             run: self.clone(),
-            server: client,
+            _server: client,
             tran,
             jc,
             comp: registry.get_compositor().await?,

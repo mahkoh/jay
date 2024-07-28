@@ -165,7 +165,7 @@ impl TestRegistry {
         get_jay_compositor,
         jay_compositor,
         jay_compositor,
-        1,
+        6,
         TestJayCompositor
     );
     create_singleton!(get_compositor, compositor, wl_compositor, 6, TestCompositor);

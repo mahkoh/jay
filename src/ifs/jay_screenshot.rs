@@ -1,18 +1,26 @@
 use {
     crate::{
-        client::Client,
+        client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
+        video::{
+            dmabuf::{DmaBuf, DmaBufPlane},
+            gbm::GbmBo,
+        },
         wire::{jay_screenshot::*, JayScreenshotId},
     },
-    std::{convert::Infallible, rc::Rc},
+    std::{cell::Cell, rc::Rc},
     uapi::OwnedFd,
 };
+
+pub const PLANES_SINCE: Version = Version(6);
 
 pub struct JayScreenshot {
     pub id: JayScreenshotId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
+    pub bo: Cell<Option<GbmBo>>,
 }
 
 impl JayScreenshot {
@@ -45,10 +53,36 @@ impl JayScreenshot {
             msg,
         });
     }
+
+    pub fn send_plane(&self, plane: &DmaBufPlane) {
+        self.client.event(Plane {
+            self_id: self.id,
+            fd: plane.fd.clone(),
+            offset: plane.offset,
+            stride: plane.stride,
+        });
+    }
+
+    pub fn send_format(&self, drm_dev: &Rc<OwnedFd>, dmabuf: &DmaBuf) {
+        self.client.event(Format {
+            self_id: self.id,
+            drm_dev: drm_dev.clone(),
+            format: dmabuf.format.drm,
+            width: dmabuf.width,
+            height: dmabuf.height,
+            modifier_lo: dmabuf.modifier as u32,
+            modifier_hi: (dmabuf.modifier >> 32) as u32,
+        });
+    }
 }
 
 impl JayScreenshotRequestHandler for JayScreenshot {
-    type Error = Infallible;
+    type Error = ClientError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
 }
 
 object_base! {

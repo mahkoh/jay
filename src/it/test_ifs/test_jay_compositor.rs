@@ -1,5 +1,6 @@
 use {
     crate::{
+        cli::screenshot::ScreenshotWithDevice,
         client::ClientId,
         it::{
             test_error::{TestError, TestResult},
@@ -11,7 +12,6 @@ use {
         utils::{buffd::MsgParser, cell_ext::CellExt},
         wire::{
             jay_compositor::{self, *},
-            jay_screenshot::Dmabuf,
             JayCompositorId,
         },
     },
@@ -49,10 +49,15 @@ impl TestJayCompositor {
         Ok(())
     }
 
-    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Dmabuf, TestError> {
+    pub async fn take_screenshot(
+        &self,
+        include_cursor: bool,
+    ) -> Result<(ScreenshotWithDevice, Rc<TestJayScreenshot>), TestError> {
         let js = Rc::new(TestJayScreenshot {
+            tran: self.tran.clone(),
             id: self.tran.id(),
             result: Cell::new(None),
+            planes: Default::default(),
         });
         self.tran.send(TakeScreenshot2 {
             self_id: self.id,
@@ -62,7 +67,7 @@ impl TestJayCompositor {
         self.tran.add_obj(js.clone())?;
         self.tran.sync().await;
         match js.result.take() {
-            Some(Ok(res)) => Ok(res),
+            Some(Ok(res)) => Ok((res, js)),
             Some(Err(res)) => bail!("Compositor could not take a screenshot: {}", res),
             None => bail!("Compositor did not send a screenshot"),
         }
