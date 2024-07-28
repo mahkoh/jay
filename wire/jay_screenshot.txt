@@ -1,4 +1,6 @@
-# events
+request destroy {
+
+}
 
 event dmabuf {
     drm_dev: fd,
@@ -13,4 +15,19 @@ event dmabuf {
 
 event error {
     msg: str,
+}
+
+event plane {
+    fd: fd,
+    offset: u32,
+    stride: u32,
+}
+
+event format {
+    drm_dev: fd,
+    format: u32,
+    width: i32,
+    height: i32,
+    modifier_lo: u32,
+    modifier_hi: u32,
 }
