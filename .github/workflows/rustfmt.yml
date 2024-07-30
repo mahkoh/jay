@@ -21,5 +21,5 @@ jobs:
         ldd --version
     - name: Install
       run: |
-        chmod o+r /dev/udmabuf
+        sudo chmod o+r /dev/udmabuf
         ls -lha /dev
