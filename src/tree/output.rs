@@ -436,7 +436,9 @@ impl OutputNode {
 
     pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
-            return ws;
+            if !ws.is_dummy {
+                return ws;
+            }
         }
         let name = 'name: {
             for i in 1.. {
