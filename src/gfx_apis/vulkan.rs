@@ -17,6 +17,7 @@ mod util;
 
 use {
     crate::{
+        allocator::Allocator,
         async_engine::AsyncEngine,
         format::Format,
         gfx_api::{
@@ -31,7 +32,7 @@ use {
         video::{
             dmabuf::DmaBuf,
             drm::{sync_obj::SyncObjCtx, Drm, DrmError},
-            gbm::{GbmDevice, GbmError},
+            gbm::GbmError,
         },
     },
     ahash::AHashMap,
@@ -209,8 +210,8 @@ impl GfxContext for Context {
         None
     }
 
-    fn render_node(&self) -> Rc<CString> {
-        self.0.device.render_node.clone()
+    fn render_node(&self) -> Option<Rc<CString>> {
+        Some(self.0.device.render_node.clone())
     }
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
@@ -255,8 +256,8 @@ impl GfxContext for Context {
         Ok(tex as _)
     }
 
-    fn gbm(&self) -> &GbmDevice {
-        &self.0.device.gbm
+    fn allocator(&self) -> Rc<dyn Allocator> {
+        self.0.device.gbm.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
@@ -276,8 +277,8 @@ impl GfxContext for Context {
         Ok(fb)
     }
 
-    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
-        &self.0.device.sync_ctx
+    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+        Some(&self.0.device.sync_ctx)
     }
 }
 

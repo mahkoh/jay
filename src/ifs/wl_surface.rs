@@ -202,7 +202,10 @@ impl Drop for SurfaceBuffer {
                 log::error!("Cannot signal release point because there is no render context");
                 return;
             };
-            let ctx = ctx.sync_obj_ctx();
+            let Some(ctx) = ctx.sync_obj_ctx() else {
+                log::error!("Cannot signal release point because there is no syncobj context");
+                return;
+            };
             if sync_files.is_not_empty() {
                 let res = ctx.import_sync_files(
                     &release.sync_obj,

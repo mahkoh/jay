@@ -3,6 +3,7 @@ use {
         client::Client,
         leaks::Tracker,
         object::{Object, Version},
+        video::dmabuf::{DmaBuf, DmaBufPlane},
         wire::{jay_screenshot::*, JayScreenshotId},
     },
     std::{convert::Infallible, rc::Rc},
@@ -44,6 +45,31 @@ impl JayScreenshot {
             self_id: self.id,
             msg,
         });
+    }
+
+    pub fn send_drm_dev(&self, drm: &Rc<OwnedFd>) {
+        self.client.event(DrmDev {
+            self_id: self.id,
+            drm_dev: drm.clone(),
+        })
+    }
+
+    pub fn send_plane(&self, plane: &DmaBufPlane) {
+        self.client.event(Plane {
+            self_id: self.id,
+            fd: plane.fd.clone(),
+            offset: plane.offset,
+            stride: plane.stride,
+        })
+    }
+
+    pub fn send_dmabuf2(&self, buf: &DmaBuf) {
+        self.client.event(Dmabuf2 {
+            self_id: self.id,
+            width: buf.width,
+            height: buf.height,
+            modifier: buf.modifier,
+        })
     }
 }
 

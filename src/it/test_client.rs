@@ -25,7 +25,7 @@ use {
 
 pub struct TestClient {
     pub run: Rc<TestRun>,
-    pub server: Rc<Client>,
+    pub _server: Rc<Client>,
     pub tran: Rc<TestTransport>,
     pub registry: Rc<TestRegistry>,
     pub jc: Rc<TestJayCompositor>,
@@ -92,12 +92,8 @@ impl TestClient {
     }
 
     pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
-        let dmabuf = self.jc.take_screenshot(include_cursor).await?;
-        let qoi = buf_to_bytes(
-            &self.server.state.dma_buf_ids,
-            &dmabuf,
-            ScreenshotFormat::Qoi,
-        );
+        let (dmabuf, dev) = self.jc.take_screenshot(include_cursor).await?;
+        let qoi = buf_to_bytes(dev.as_ref(), &dmabuf, ScreenshotFormat::Qoi)?;
         Ok(qoi)
     }
 

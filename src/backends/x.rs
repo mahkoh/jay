@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
             AxisSource, Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorEvent,

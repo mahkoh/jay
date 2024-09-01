@@ -43,7 +43,9 @@ impl WlDrmGlobal {
         track!(client, obj);
         client.add_client_obj(&obj)?;
         if let Some(rc) = client.state.render_ctx.get() {
-            obj.send_device(&rc.render_node());
+            if let Some(rn) = rc.render_node() {
+                obj.send_device(&rn);
+            }
             obj.send_capabilities(PRIME);
         }
         Ok(())

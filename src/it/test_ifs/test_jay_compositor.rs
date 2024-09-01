@@ -9,13 +9,14 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, cell_ext::CellExt},
+        video::dmabuf::DmaBuf,
         wire::{
             jay_compositor::{self, *},
-            jay_screenshot::Dmabuf,
             JayCompositorId,
         },
     },
     std::{cell::Cell, rc::Rc},
+    uapi::OwnedFd,
 };
 
 pub struct TestJayCompositor {
@@ -49,10 +50,16 @@ impl TestJayCompositor {
         Ok(())
     }
 
-    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Dmabuf, TestError> {
+    pub async fn take_screenshot(
+        &self,
+        include_cursor: bool,
+    ) -> Result<(DmaBuf, Option<Rc<OwnedFd>>), TestError> {
         let js = Rc::new(TestJayScreenshot {
             id: self.tran.id(),
-            result: Cell::new(None),
+            state: self.tran.run.state.clone(),
+            drm_dev: Default::default(),
+            planes: Default::default(),
+            result: Default::default(),
         });
         self.tran.send(TakeScreenshot2 {
             self_id: self.id,
@@ -62,7 +69,7 @@ impl TestJayCompositor {
         self.tran.add_obj(js.clone())?;
         self.tran.sync().await;
         match js.result.take() {
-            Some(Ok(res)) => Ok(res),
+            Some(Ok(res)) => Ok((res, js.drm_dev.take())),
             Some(Err(res)) => bail!("Compositor could not take a screenshot: {}", res),
             None => bail!("Compositor did not send a screenshot"),
         }

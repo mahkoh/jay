@@ -11,7 +11,7 @@ use {
 testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let _ds = run.create_default_setup().await?;
+    let _ds = run.create_default_setup2(false).await?;
 
     struct Waiter(Cell<bool>);
     impl SyncObjWaiter for Waiter {
@@ -23,7 +23,11 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let waiter = Rc::new(Waiter(Cell::new(false)));
 
     let eng = run.state.render_ctx.get().unwrap();
-    let syncobj = match eng.sync_obj_ctx().create_sync_obj() {
+    let Some(ctx) = eng.sync_obj_ctx() else {
+        log::warn!("Cannot test explicit sync on this system: render context does not support sync objects");
+        return Ok(());
+    };
+    let syncobj = match ctx.create_sync_obj() {
         Ok(s) => Rc::new(s),
         Err(e) => {
             log::warn!("Cannot test explicit sync on this system: {}", ErrorFmt(e));
@@ -56,7 +60,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
     tassert_eq!(waiter.0.get(), false);
 
-    eng.sync_obj_ctx().signal(&syncobj, SyncObjPoint(1))?;
+    ctx.signal(&syncobj, SyncObjPoint(1))?;
 
     client.sync().await;
     tassert_eq!(waiter.0.get(), true);

@@ -32,6 +32,7 @@ use {
 };
 
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
+pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
@@ -69,7 +70,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        5
+        6
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -117,16 +118,30 @@ impl JayCompositor {
         match take_screenshot(&self.client.state, include_cursor) {
             Ok(s) => {
                 let dmabuf = s.bo.dmabuf();
-                let plane = &dmabuf.planes[0];
-                ss.send_dmabuf(
-                    &s.drm,
-                    &plane.fd,
-                    dmabuf.width,
-                    dmabuf.height,
-                    plane.offset,
-                    plane.stride,
-                    dmabuf.modifier,
-                );
+                if self.version < SCREENSHOT_SPLITUP_SINCE {
+                    if let Some(drm) = &s.drm {
+                        let plane = &dmabuf.planes[0];
+                        ss.send_dmabuf(
+                            drm,
+                            &plane.fd,
+                            dmabuf.width,
+                            dmabuf.height,
+                            plane.offset,
+                            plane.stride,
+                            dmabuf.modifier,
+                        );
+                    } else {
+                        ss.send_error("Buffer has no associated DRM device");
+                    }
+                } else {
+                    if let Some(drm) = &s.drm {
+                        ss.send_drm_dev(drm);
+                    }
+                    for plane in &dmabuf.planes {
+                        ss.send_plane(plane);
+                    }
+                    ss.send_dmabuf2(dmabuf);
+                }
             }
             Err(e) => {
                 let msg = ErrorFmt(e).to_string();

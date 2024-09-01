@@ -1,0 +1,271 @@
+use {
+    crate::{
+        allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
+        format::Format,
+        utils::{oserror::OsError, page_size::page_size},
+        video::{
+            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
+            drm::Drm,
+            Modifier, LINEAR_MODIFIER,
+        },
+    },
+    std::{ptr, rc::Rc},
+    thiserror::Error,
+    uapi::{
+        c,
+        c::{
+            ioctl, mmap, munmap, F_SEAL_SHRINK, MAP_SHARED, MFD_ALLOW_SEALING, O_RDONLY, PROT_READ,
+            PROT_WRITE,
+        },
+        map_err, open, OwnedFd, _IOW,
+    },
+};
+
+#[derive(Debug, Error)]
+pub enum UdmabufError {
+    #[error("Could not open /dev/udmabuf")]
+    Open(#[source] OsError),
+    #[error("Only the linear modifier can be allocated")]
+    Modifier,
+    #[error("Format {0} is not supported")]
+    Format(&'static str),
+    #[error("Could not create a memfd")]
+    Memfd(#[source] OsError),
+    #[error("Size calculation overflowed")]
+    Overflow,
+    #[error("Could not resize the memfd")]
+    Truncate(#[source] OsError),
+    #[error("Could not seal the memfd")]
+    Seal(#[source] OsError),
+    #[error("Could not create a dmabuf")]
+    CreateDmabuf(#[source] OsError),
+    #[error("Only a single plane is supported")]
+    Planes,
+    #[error("Stride is invalid")]
+    Stride,
+    #[error("Could not stat the dmabuf")]
+    Stat(#[source] OsError),
+    #[error("Dmabuf is too small for required size")]
+    Size,
+    #[error("Could not map dmabuf")]
+    Map(#[source] OsError),
+}
+
+pub struct Udmabuf {
+    fd: OwnedFd,
+}
+
+impl Udmabuf {
+    pub fn new() -> Result<Self, UdmabufError> {
+        let fd = match open("/dev/udmabuf", O_RDONLY, 0) {
+            Ok(b) => b,
+            Err(e) => return Err(UdmabufError::Open(e.into())),
+        };
+        Ok(Self { fd })
+    }
+}
+
+impl Allocator for Udmabuf {
+    fn drm(&self) -> Option<&Drm> {
+        None
+    }
+
+    fn create_bo(
+        &self,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifiers: &[Modifier],
+        _usage: BufferUsage,
+    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
+        if !modifiers.contains(&LINEAR_MODIFIER) {
+            return Err(UdmabufError::Modifier.into());
+        }
+        let Some(shm_info) = &format.shm_info else {
+            return Err(UdmabufError::Format(format.name).into());
+        };
+        let height = height as u64;
+        let width = width as u64;
+        if height > 1 << 16 || width > 1 << 16 {
+            return Err(UdmabufError::Overflow.into());
+        }
+        let stride_mask = 255;
+        let stride = (width * shm_info.bpp as u64 + stride_mask) & !stride_mask;
+        let size_mask = page_size() as u64 - 1;
+        let size = (height * stride + size_mask) & !size_mask;
+        let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
+            Ok(f) => f,
+            Err(e) => return Err(UdmabufError::Memfd(e.into()).into()),
+        };
+        if let Err(e) = uapi::ftruncate(memfd.raw(), size as _) {
+            return Err(UdmabufError::Truncate(e.into()).into());
+        }
+        if let Err(e) = uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK) {
+            return Err(UdmabufError::Seal(e.into()).into());
+        }
+        let mut cmd = udmabuf_create {
+            memfd: memfd.raw() as u32,
+            flags: 0,
+            offset: 0,
+            size: size as u64,
+        };
+        let dmabuf = unsafe { ioctl(self.fd.raw(), UDMABUF_CREATE, &mut cmd) };
+        let dmabuf = match map_err!(dmabuf) {
+            Ok(d) => OwnedFd::new(d),
+            Err(e) => return Err(UdmabufError::CreateDmabuf(e.into()).into()),
+        };
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
+            offset: 0,
+            stride: stride as _,
+            fd: Rc::new(dmabuf),
+        });
+        let dmabuf = DmaBuf {
+            id: dma_buf_ids.next(),
+            width: width as _,
+            height: height as _,
+            format,
+            modifier: LINEAR_MODIFIER,
+            planes,
+        };
+        Ok(Rc::new(UdmabufBo {
+            buf: dmabuf,
+            size: size as _,
+        }))
+    }
+
+    fn import_dmabuf(
+        &self,
+        dmabuf: &DmaBuf,
+        _usage: BufferUsage,
+    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
+        if dmabuf.planes.len() != 1 {
+            return Err(UdmabufError::Planes.into());
+        }
+        if dmabuf.modifier != LINEAR_MODIFIER {
+            return Err(UdmabufError::Modifier.into());
+        }
+        let plane = &dmabuf.planes[0];
+        let Some(shm_info) = &dmabuf.format.shm_info else {
+            return Err(UdmabufError::Format(dmabuf.format.name).into());
+        };
+        let height = dmabuf.height as u64;
+        let width = dmabuf.width as u64;
+        let stride = plane.stride as u64;
+        let offset = plane.offset as u64;
+        if height > 1 << 16 || width > 1 << 16 {
+            return Err(UdmabufError::Overflow.into());
+        }
+        if stride < width * shm_info.bpp as u64 {
+            return Err(UdmabufError::Stride.into());
+        }
+        let size = offset + stride * height;
+        if usize::try_from(size).is_err() {
+            return Err(UdmabufError::Overflow.into());
+        }
+        let stat = match uapi::fstat(plane.fd.raw()) {
+            Ok(s) => s,
+            Err(e) => return Err(UdmabufError::Stat(e.into()).into()),
+        };
+        if (stat.st_size as u64) < size {
+            return Err(UdmabufError::Size.into());
+        }
+        Ok(Rc::new(UdmabufBo {
+            buf: dmabuf.clone(),
+            size: size as usize,
+        }))
+    }
+}
+
+struct UdmabufBo {
+    buf: DmaBuf,
+    size: usize,
+}
+
+impl BufferObject for UdmabufBo {
+    fn dmabuf(&self) -> &DmaBuf {
+        &self.buf
+    }
+
+    fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
+        self.map_write()
+    }
+
+    fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
+        let plane = &self.buf.planes[0];
+        unsafe {
+            let res = mmap(
+                ptr::null_mut(),
+                self.size,
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                plane.fd.raw(),
+                0,
+            );
+            if res == c::MAP_FAILED {
+                return Err(UdmabufError::Map(OsError::default()).into());
+            }
+            let offset = plane.offset as _;
+            let data =
+                std::slice::from_raw_parts_mut((res as *mut u8).add(offset), self.size - offset);
+            Ok(Box::new(UdmabufMap {
+                data,
+                stride: plane.stride as _,
+                ptr: res,
+                len: self.size,
+                _bo: self,
+            }))
+        }
+    }
+}
+
+struct UdmabufMap {
+    _bo: Rc<UdmabufBo>,
+    data: *mut [u8],
+    stride: i32,
+    ptr: *mut c::c_void,
+    len: usize,
+}
+
+impl Drop for UdmabufMap {
+    fn drop(&mut self) {
+        unsafe {
+            let res = munmap(self.ptr, self.len);
+            if let Err(e) = map_err!(res) {
+                log::error!("Could not unmap udmabuf: {}", OsError::from(e));
+            }
+        }
+    }
+}
+
+impl MappedBuffer for UdmabufMap {
+    unsafe fn data(&self) -> &[u8] {
+        &*self.data
+    }
+
+    fn data_ptr(&self) -> *mut u8 {
+        self.data as _
+    }
+
+    fn stride(&self) -> i32 {
+        self.stride
+    }
+}
+
+impl From<UdmabufError> for AllocatorError {
+    fn from(value: UdmabufError) -> Self {
+        Self(Box::new(value))
+    }
+}
+
+#[allow(non_camel_case_types)]
+#[repr(C)]
+struct udmabuf_create {
+    memfd: u32,
+    flags: u32,
+    offset: u64,
+    size: u64,
+}
+
+const UDMABUF_CREATE: u64 = _IOW::<udmabuf_create>(b'u' as u64, 0x42);

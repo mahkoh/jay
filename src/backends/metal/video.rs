@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent, Connector,
@@ -73,6 +74,7 @@ pub struct PendingDrmDevice {
 pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
+    pub gbm: Rc<GbmDevice>,
 }
 
 pub struct MetalDrmDevice {
@@ -91,7 +93,7 @@ pub struct MetalDrmDevice {
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
-    pub gbm: GbmDevice,
+    pub gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
@@ -2162,6 +2164,11 @@ impl MetalBackend {
             }
         }
 
+        let gbm = match GbmDevice::new(master) {
+            Ok(g) => Rc::new(g),
+            Err(e) => return Err(MetalError::GbmDevice(e)),
+        };
+
         let gfx = match self.state.create_gfx_context(master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
@@ -2169,12 +2176,8 @@ impl MetalBackend {
         let ctx = Rc::new(MetalRenderContext {
             dev_id: pending.id,
             gfx,
+            gbm: gbm.clone(),
         });
-
-        let gbm = match GbmDevice::new(master) {
-            Ok(g) => g,
-            Err(e) => return Err(MetalError::GbmDevice(e)),
-        };
 
         let mut is_nvidia = false;
         let mut is_amd = false;
@@ -2547,7 +2550,8 @@ impl MetalBackend {
     }
 
     fn set_gfx_api(&self, dev: &MetalDrmDevice, api: GfxApi) {
-        if dev.ctx.get().gfx.gfx_api() == api {
+        let old_ctx = dev.ctx.get();
+        if old_ctx.gfx.gfx_api() == api {
             return;
         }
         let gfx = match self.state.create_gfx_context(&dev.master, Some(api)) {
@@ -2566,6 +2570,7 @@ impl MetalBackend {
         dev.ctx.set(Rc::new(MetalRenderContext {
             dev_id: dev.id,
             gfx,
+            gbm: old_ctx.gbm.clone(),
         }));
         if dev.is_render_device() {
             self.make_render_device(dev, true);
@@ -2836,7 +2841,7 @@ impl MetalBackend {
                 return Err(MetalError::MissingRenderModifier(format.name));
             }
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            let render_bo = render_ctx.gfx.gbm().create_bo(
+            let render_bo = render_ctx.gbm.create_bo(
                 &self.state.dma_buf_ids,
                 width,
                 height,

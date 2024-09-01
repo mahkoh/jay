@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::Allocator,
         async_engine::SpawnedFuture,
         backend::{
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
@@ -15,14 +16,18 @@ use {
             test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
         },
         state::State,
+        udmabuf::Udmabuf,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, on_change::OnChange, oserror::OsError,
-            syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            on_change::OnChange, oserror::OsError, syncqueue::SyncQueue,
         },
-        video::drm::{ConnectorType, Drm},
+        video::{
+            drm::{ConnectorType, Drm},
+            gbm::{GbmDevice, GbmError},
+        },
     },
     bstr::ByteSlice,
-    std::{any::Any, cell::Cell, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
+    std::{any::Any, cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
     thiserror::Error,
     uapi::c,
 };
@@ -37,6 +42,10 @@ pub enum TestBackendError {
     OpenDrmNode(String, #[source] OsError),
     #[error("Could not create a render context")]
     RenderContext(#[source] GfxError),
+    #[error("Could not create a gbm device")]
+    CreateGbmDevice(#[source] GbmError),
+    #[error("Could not create any allocator")]
+    CreateAllocator,
 }
 
 pub struct TestBackend {
@@ -124,17 +133,21 @@ impl TestBackend {
         }
     }
 
-    pub fn install_render_context(&self) -> TestResult {
+    pub fn install_render_context(&self, prefer_udmabuf: bool) -> TestResult {
         if self.render_context_installed.get() {
             return Ok(());
         }
-        self.create_render_context()?;
+        self.create_render_context(prefer_udmabuf)?;
         self.render_context_installed.set(true);
         Ok(())
     }
 
     pub fn install_default(&self) -> TestResult {
-        self.install_render_context()?;
+        self.install_default2(true)
+    }
+
+    pub fn install_default2(&self, prefer_udmabuf: bool) -> TestResult {
+        self.install_render_context(prefer_udmabuf)?;
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
@@ -150,53 +163,85 @@ impl TestBackend {
         Ok(())
     }
 
-    fn create_render_context(&self) -> Result<(), TestBackendError> {
-        let dri = match std::fs::read_dir("/dev/dri") {
-            Ok(d) => d,
-            Err(e) => return Err(TestBackendError::ReadDri(e)),
-        };
-        let mut files = vec![];
-        for f in dri {
-            let f = match f {
-                Ok(f) => f,
-                Err(e) => return Err(TestBackendError::ReadDri(e)),
+    fn create_render_context(&self, prefer_udmabuf: bool) -> Result<(), TestBackendError> {
+        macro_rules! constructor {
+            ($c:expr) => {
+                (&|| {
+                    $c.map(|a| Rc::new(a) as Rc<dyn Allocator>)
+                        .map_err(|e| Box::new(e) as Box<dyn Error>)
+                }) as &dyn Fn() -> Result<Rc<dyn Allocator>, Box<dyn Error>>
             };
-            files.push(f.path());
         }
-        let node = 'node: {
-            for f in &files {
-                if let Some(file) = f.file_name() {
-                    if file.as_bytes().starts_with_str("renderD") {
-                        break 'node f;
-                    }
+        let udmabuf = ("udmabuf", constructor!(Udmabuf::new()));
+        let gbm = ("GBM", constructor!(create_gbm_allocator()));
+        let allocators = match prefer_udmabuf {
+            true => [udmabuf, gbm],
+            false => [gbm, udmabuf],
+        };
+        let mut allocator = None::<Rc<dyn Allocator>>;
+        for (name, f) in allocators {
+            match f() {
+                Ok(a) => {
+                    allocator = Some(a);
+                    break;
+                }
+                Err(e) => {
+                    log::error!("Could not create {name} allocator: {}", ErrorFmt(&*e));
                 }
             }
-            for f in &files {
-                if let Some(file) = f.file_name() {
-                    if file.as_bytes().starts_with_str("card") {
-                        break 'node f;
-                    }
-                }
-            }
-            return Err(TestBackendError::NoDrmNode);
-        };
-        let file = match uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0) {
-            Ok(f) => Rc::new(f),
-            Err(e) => {
-                return Err(TestBackendError::OpenDrmNode(
-                    node.as_os_str().as_bytes().as_bstr().to_string(),
-                    e.into(),
-                ))
-            }
-        };
-        let drm = Drm::open_existing(file);
-        let ctx = match TestGfxCtx::new(&drm) {
+        }
+        let allocator = allocator.ok_or(TestBackendError::CreateAllocator)?;
+        let ctx = match TestGfxCtx::new(allocator) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
         self.state.set_render_ctx(Some(ctx));
         Ok(())
     }
+}
+
+fn create_gbm_allocator() -> Result<GbmDevice, TestBackendError> {
+    let dri = match std::fs::read_dir("/dev/dri") {
+        Ok(d) => d,
+        Err(e) => return Err(TestBackendError::ReadDri(e)),
+    };
+    let mut files = vec![];
+    for f in dri {
+        let f = match f {
+            Ok(f) => f,
+            Err(e) => return Err(TestBackendError::ReadDri(e)),
+        };
+        files.push(f.path());
+    }
+    let node = 'node: {
+        for f in &files {
+            if let Some(file) = f.file_name() {
+                if file.as_bytes().starts_with_str("renderD") {
+                    break 'node f;
+                }
+            }
+        }
+        for f in &files {
+            if let Some(file) = f.file_name() {
+                if file.as_bytes().starts_with_str("card") {
+                    break 'node f;
+                }
+            }
+        }
+        return Err(TestBackendError::NoDrmNode);
+    };
+    let file = match uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0) {
+        Ok(f) => Rc::new(f),
+        Err(e) => {
+            return Err(TestBackendError::OpenDrmNode(
+                node.as_os_str().as_bytes().as_bstr().to_string(),
+                e.into(),
+            ))
+        }
+    };
+    let drm = Drm::open_existing(file);
+    let gbm = GbmDevice::new(&drm).map_err(TestBackendError::CreateGbmDevice)?;
+    Ok(gbm)
 }
 
 impl Backend for TestBackend {

@@ -36,9 +36,11 @@ impl DrmFeedback {
         ids: &DrmFeedbackIds,
         render_ctx: &dyn GfxContext,
     ) -> Result<Self, DrmFeedbackError> {
-        let main_device = uapi::fstat(render_ctx.gbm().drm.raw())
-            .map_err(OsError::from)?
-            .st_rdev;
+        let drm = match render_ctx.allocator().drm() {
+            Some(drm) => drm.raw(),
+            _ => return Err(DrmFeedbackError::NoDrmDevice),
+        };
+        let main_device = uapi::fstat(drm).map_err(OsError::from)?.st_rdev;
         let (data, index_map) = create_fd_data(render_ctx);
         let mut memfd =
             uapi::memfd_create("drm_feedback", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();
@@ -118,4 +120,6 @@ fn create_fd_data(ctx: &dyn GfxContext) -> (Vec<u8>, AHashMap<(u32, Modifier), u
 pub enum DrmFeedbackError {
     #[error("Could not stat drm device")]
     Stat(#[from] OsError),
+    #[error("Graphics API does not have a DRM device")]
+    NoDrmDevice,
 }

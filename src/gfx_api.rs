@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::Allocator,
         cursor::Cursor,
         damage::DamageVisualizer,
         fixed::Fixed,
@@ -11,7 +12,7 @@ use {
         theme::Color,
         tree::{Node, OutputNode},
         utils::{clonecell::UnsafeCellCloneSafe, transform_ext::TransformExt},
-        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, gbm::GbmDevice, Modifier},
+        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, Modifier},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -533,7 +534,7 @@ pub trait GfxTexture: Debug {
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
 
-    fn render_node(&self) -> Rc<CString>;
+    fn render_node(&self) -> Option<Rc<CString>>;
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
 
@@ -554,7 +555,7 @@ pub trait GfxContext: Debug {
         damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
-    fn gbm(&self) -> &GbmDevice;
+    fn allocator(&self) -> Rc<dyn Allocator>;
 
     fn gfx_api(&self) -> GfxApi;
 
@@ -566,7 +567,7 @@ pub trait GfxContext: Debug {
         format: &'static Format,
     ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 
-    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx>;
+    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>>;
 }
 
 #[derive(Debug)]

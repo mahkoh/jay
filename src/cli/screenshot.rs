@@ -1,23 +1,30 @@
 use {
     crate::{
+        allocator::{Allocator, AllocatorError, BO_USE_LINEAR, BO_USE_RENDERING},
         cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
         format::XRGB8888,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
+        udmabuf::{Udmabuf, UdmabufError},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue, windows::WindowsExt},
         video::{
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::Drm,
-            gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            drm::{Drm, DrmError},
+            gbm::{GbmDevice, GbmError},
         },
         wire::{
             jay_compositor::TakeScreenshot,
-            jay_screenshot::{Dmabuf, Error},
+            jay_screenshot::{Dmabuf, Dmabuf2, DrmDev, Error, Plane},
         },
     },
     chrono::Local,
     jay_algorithms::qoi::xrgb8888_encode_qoi,
     png::{BitDepth, ColorType, Encoder, SrgbRenderingIntent},
-    std::rc::Rc,
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
@@ -47,17 +54,62 @@ async fn run(screenshot: Rc<Screenshot>) {
     Error::handle(tc, sid, result.clone(), |res, err| {
         res.push(Err(err.msg.to_owned()));
     });
-    Dmabuf::handle(tc, sid, result.clone(), |res, buf| {
-        res.push(Ok(buf));
+    Dmabuf::handle(tc, sid, result.clone(), |res, ev| {
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
+            offset: ev.offset,
+            stride: ev.stride,
+            fd: ev.fd,
+        });
+        let buf = DmaBuf {
+            id: DmaBufIds::default().next(),
+            width: ev.width as _,
+            height: ev.height as _,
+            format: XRGB8888,
+            modifier: ((ev.modifier_hi as u64) << 32) | (ev.modifier_lo as u64),
+            planes,
+        };
+        res.push(Ok((buf, Some(ev.drm_dev))));
     });
-    let buf = match result.pop().await {
+    let drm_dev = Rc::new(Cell::new(None));
+    let planes = Rc::new(RefCell::new(PlaneVec::new()));
+    DrmDev::handle(tc, sid, drm_dev.clone(), |res, buf| {
+        res.set(Some(buf.drm_dev));
+    });
+    Plane::handle(tc, sid, planes.clone(), |res, buf| {
+        res.borrow_mut().push(DmaBufPlane {
+            offset: buf.offset,
+            stride: buf.stride,
+            fd: buf.fd,
+        });
+    });
+    Dmabuf2::handle(
+        tc,
+        sid,
+        (drm_dev, planes, result.clone()),
+        |(dev, planes, res), ev| {
+            let buf = DmaBuf {
+                id: DmaBufIds::default().next(),
+                width: ev.width,
+                height: ev.height,
+                format: XRGB8888,
+                modifier: ev.modifier,
+                planes: planes.take(),
+            };
+            res.push(Ok((buf, dev.take())))
+        },
+    );
+    let (buf, drm_dev) = match result.pop().await {
         Ok(b) => b,
         Err(e) => {
             fatal!("Could not take a screenshot: {}", e);
         }
     };
     let format = screenshot.args.format;
-    let data = buf_to_bytes(&DmaBufIds::default(), &buf, format);
+    let data = match buf_to_bytes(drm_dev.as_ref(), &buf, format) {
+        Ok(d) => d,
+        Err(e) => fatal!("{}", ErrorFmt(e)),
+    };
     let filename = match &screenshot.args.filename {
         Some(f) => f.clone(),
         _ => {
@@ -74,48 +126,48 @@ async fn run(screenshot: Rc<Screenshot>) {
     }
 }
 
-pub fn buf_to_bytes(dma_buf_ids: &DmaBufIds, buf: &Dmabuf, format: ScreenshotFormat) -> Vec<u8> {
-    let drm = match Drm::reopen(buf.drm_dev.raw(), false) {
-        Ok(drm) => drm,
-        Err(e) => {
-            fatal!("Could not open the drm device: {}", ErrorFmt(e));
+#[derive(Debug, Error)]
+pub enum ScreenshotError {
+    #[error("Could not open the drm device")]
+    OpenDrmDevice(#[source] DrmError),
+    #[error("Could not create a gbm device")]
+    CreateGbmDevice(#[source] GbmError),
+    #[error("Could not create a udmabuf allocator")]
+    CreateUdmabuf(#[source] UdmabufError),
+    #[error("Could not import a dmabuf")]
+    ImportDmabuf(#[source] AllocatorError),
+    #[error("Could not map a dmabuf")]
+    MapDmabuf(#[source] AllocatorError),
+}
+
+pub fn buf_to_bytes(
+    drm_dev: Option<&Rc<OwnedFd>>,
+    buf: &DmaBuf,
+    format: ScreenshotFormat,
+) -> Result<Vec<u8>, ScreenshotError> {
+    let allocator: Rc<dyn Allocator> = match drm_dev {
+        Some(drm_dev) => {
+            let drm = Drm::reopen(drm_dev.raw(), false).map_err(ScreenshotError::OpenDrmDevice)?;
+            GbmDevice::new(&drm)
+                .map(Rc::new)
+                .map_err(ScreenshotError::CreateGbmDevice)?
         }
+        None => Udmabuf::new()
+            .map(Rc::new)
+            .map_err(ScreenshotError::CreateUdmabuf)?,
     };
-    let gbm = match GbmDevice::new(&drm) {
-        Ok(g) => g,
-        Err(e) => {
-            fatal!("Could not create a gbm device: {}", ErrorFmt(e));
-        }
-    };
-    let mut planes = PlaneVec::new();
-    planes.push(DmaBufPlane {
-        offset: buf.offset,
-        stride: buf.stride,
-        fd: buf.fd.clone(),
-    });
-    let dmabuf = DmaBuf {
-        id: dma_buf_ids.next(),
-        width: buf.width as _,
-        height: buf.height as _,
-        format: XRGB8888,
-        modifier: (buf.modifier_hi as u64) << 32 | (buf.modifier_lo as u64),
-        planes,
-    };
-    let bo = match gbm.import_dmabuf(&dmabuf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
-        Ok(bo) => Rc::new(bo),
-        Err(e) => {
-            fatal!("Could not import screenshot dmabuf: {}", ErrorFmt(e));
-        }
-    };
-    let bo_map = match bo.map_read() {
-        Ok(map) => map,
-        Err(e) => {
-            fatal!("Could not map dmabuf: {}", ErrorFmt(e));
-        }
-    };
+    let bo = allocator
+        .import_dmabuf(buf, BO_USE_LINEAR | BO_USE_RENDERING)
+        .map_err(ScreenshotError::ImportDmabuf)?;
+    let bo_map = bo.map_read().map_err(ScreenshotError::MapDmabuf)?;
     let data = unsafe { bo_map.data() };
     if format == ScreenshotFormat::Qoi {
-        return xrgb8888_encode_qoi(data, buf.width, buf.height, bo_map.stride() as u32);
+        return Ok(xrgb8888_encode_qoi(
+            data,
+            buf.width as _,
+            buf.height as _,
+            bo_map.stride() as u32,
+        ));
     }
 
     let mut out = vec![];
@@ -128,12 +180,12 @@ pub fn buf_to_bytes(dma_buf_ids: &DmaBufIds, buf: &Dmabuf, format: ScreenshotFor
                 image_data.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255])
             }
         }
-        let mut encoder = Encoder::new(&mut out, buf.width, buf.height);
+        let mut encoder = Encoder::new(&mut out, buf.width as _, buf.height as _);
         encoder.set_color(ColorType::Rgba);
         encoder.set_depth(BitDepth::Eight);
         encoder.set_srgb(SrgbRenderingIntent::Perceptual);
         let mut writer = encoder.write_header().unwrap();
         writer.write_image_data(&image_data).unwrap();
     }
-    out
+    Ok(out)
 }

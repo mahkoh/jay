@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::{BufferObject, BO_USE_RENDERING},
         async_engine::{Phase, SpawnedFuture},
         cursor::KnownCursor,
         fixed::Fixed,
@@ -15,7 +16,6 @@ use {
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
-        video::gbm::{GbmBo, GBM_BO_USE_RENDERING},
         wire::{
             wp_fractional_scale_v1::PreferredScale, zwlr_layer_surface_v1::Configure,
             ZwpLinuxBufferParamsV1Id,
@@ -722,14 +722,15 @@ impl WindowData {
             log::error!("Render context cannot render to ARGB8888 format");
             return;
         }
+        let modifiers: Vec<_> = format.write_modifiers.iter().copied().collect();
         for _ in 0..NUM_BUFFERS {
-            let bo = match ctx.ctx.gbm().create_bo(
+            let bo = match ctx.ctx.allocator().create_bo(
                 &self.dpy.state.dma_buf_ids,
                 width,
                 height,
                 ARGB8888,
-                &format.write_modifiers,
-                GBM_BO_USE_RENDERING,
+                &modifiers,
+                BO_USE_RENDERING,
             ) {
                 Ok(b) => b,
                 Err(e) => {
@@ -844,13 +845,13 @@ pub struct GuiBuffer {
     pub wl: Rc<UsrWlBuffer>,
     pub window: Rc<WindowData>,
     pub fb: Rc<dyn GfxFramebuffer>,
-    pub _bo: Option<GbmBo>,
+    pub _bo: Option<Rc<dyn BufferObject>>,
     pub free: Cell<bool>,
     pub _size: (i32, i32),
 }
 
 struct GuiBufferPending {
-    pub bo: Cell<Option<GbmBo>>,
+    pub bo: Cell<Option<Rc<dyn BufferObject>>>,
     pub window: Rc<WindowData>,
     pub fb: Rc<dyn GfxFramebuffer>,
     pub params: Rc<UsrLinuxBufferParams>,
