@@ -360,11 +360,6 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
         render_highlight: bool,
     ) {
-        if self.result.is_some() {
-            for screencast in tl_data.jay_screencasts.lock().values() {
-                screencast.schedule_toplevel_screencast();
-            }
-        }
         if render_highlight {
             self.render_highlight(tl_data, bounds);
         }

@@ -185,6 +185,7 @@ impl ConnectorHandler {
             screencopies: Default::default(),
             title_visible: Default::default(),
             schedule,
+            latch_event: Default::default(),
         });
         on.update_visible();
         on.update_rects();

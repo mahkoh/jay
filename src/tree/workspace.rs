@@ -7,7 +7,9 @@ use {
             jay_workspace::JayWorkspace,
             wl_output::OutputId,
             wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
-            wl_surface::WlSurface,
+            wl_surface::{
+                x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel, WlSurface,
+            },
         },
         rect::Rect,
         renderer::Renderer,
@@ -16,7 +18,7 @@ use {
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode,
-            StackedNode, ToplevelNode,
+            PlaceholderNode, StackedNode, ToplevelNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -101,6 +103,26 @@ impl WorkspaceNode {
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
                 node.set_output(self.0);
+            }
+
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.tl_workspace_output_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
+                node.tl_workspace_output_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
+                node.tl_workspace_output_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+                node.tl_workspace_output_changed();
+                node.node_visit_children(self);
             }
         }
         let mut visitor = OutputSetter(output);
