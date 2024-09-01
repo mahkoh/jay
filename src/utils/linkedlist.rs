@@ -1,5 +1,5 @@
 use {
-    crate::utils::{numcell::NumCell, ptr_ext::PtrExt},
+    crate::utils::numcell::NumCell,
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
@@ -29,20 +29,8 @@ impl<T> Default for LinkedList<T> {
 
 impl<T> LinkedList<T> {
     pub fn new() -> Self {
-        let node = Box::into_raw(Box::new(NodeData {
-            rc: NumCell::new(LINKED_NODE_REF_COUNT),
-            prev: Cell::new(NonNull::dangling()),
-            next: Cell::new(NonNull::dangling()),
-            data: None,
-        }));
-        unsafe {
-            node.deref().prev.set(NonNull::new_unchecked(node));
-            node.deref().next.set(NonNull::new_unchecked(node));
-            Self {
-                root: LinkedNode {
-                    data: NonNull::new_unchecked(node),
-                },
-            }
+        Self {
+            root: LinkedNode::new(None),
         }
     }
 
@@ -290,12 +278,14 @@ impl<T> NodeRef<T> {
         self.peer(|d| &d.next)
     }
 
-    unsafe fn detach(&self) {
-        let data = self.data.as_ref();
-        data.prev.get().as_ref().next.set(data.next.get());
-        data.next.get().as_ref().prev.set(data.prev.get());
-        data.prev.set(self.data);
-        data.next.set(self.data);
+    pub fn detach(&self) {
+        unsafe {
+            let data = self.data.as_ref();
+            data.prev.get().as_ref().next.set(data.next.get());
+            data.next.get().as_ref().prev.set(data.prev.get());
+            data.prev.set(self.data);
+            data.next.set(self.data);
+        }
     }
 }
 
@@ -322,6 +312,23 @@ impl<T> Drop for LinkedNode<T> {
 }
 
 impl<T> LinkedNode<T> {
+    fn new(t: Option<T>) -> Self {
+        let node = Box::leak(Box::new(NodeData {
+            rc: NumCell::new(LINKED_NODE_REF_COUNT),
+            prev: Cell::new(NonNull::dangling()),
+            next: Cell::new(NonNull::dangling()),
+            data: t,
+        }));
+        let ptr = NonNull::from(&mut *node);
+        node.prev.set(ptr);
+        node.next.set(ptr);
+        LinkedNode { data: node.into() }
+    }
+
+    pub fn detached(t: T) -> Self {
+        Self::new(Some(t))
+    }
+
     pub fn to_ref(&self) -> NodeRef<T> {
         unsafe {
             self.data.as_ref().rc.fetch_add(1);
