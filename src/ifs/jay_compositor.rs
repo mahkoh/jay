@@ -325,7 +325,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn create_screencast(&self, req: CreateScreencast, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let sc = Rc::new(JayScreencast::new(req.id, &self.client));
+        let sc = Rc::new_cyclic(|slf| JayScreencast::new(req.id, &self.client, slf));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())

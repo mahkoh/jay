@@ -42,6 +42,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>);
     fn tl_extents_changed(&self);
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>);
+    fn tl_workspace_output_changed(&self);
     fn tl_change_extents(self: Rc<Self>, rect: &Rect);
     fn tl_set_visible(&self, visible: bool);
     fn tl_destroy(&self);
@@ -112,8 +113,20 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
-        data.workspace.set(Some(ws.clone()));
+        let prev = data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
+        let prev_id = prev.map(|p| p.output.get().id);
+        let new_id = Some(ws.output.get().id);
+        if prev_id != new_id {
+            self.tl_workspace_output_changed();
+        }
+    }
+
+    fn tl_workspace_output_changed(&self) {
+        let data = self.tl_data();
+        for sc in data.jay_screencasts.lock().values() {
+            sc.update_latch_listener();
+        }
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
@@ -484,6 +497,9 @@ impl ToplevelData {
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
         self.visible.set(visible);
         self.seat_state.set_visible(node, visible);
+        for sc in self.jay_screencasts.lock().values() {
+            sc.update_latch_listener();
+        }
         if !visible {
             return;
         }
@@ -506,6 +522,13 @@ impl ToplevelData {
         self.wants_attention.set(true);
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, true);
+        }
+    }
+
+    pub fn output(&self) -> Rc<OutputNode> {
+        match self.workspace.get() {
+            None => self.state.dummy_output.get().unwrap(),
+            Some(ws) => ws.output.get(),
         }
     }
 }

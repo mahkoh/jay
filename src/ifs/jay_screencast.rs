@@ -8,10 +8,11 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::State,
-        tree::{OutputNode, ToplevelNode, WorkspaceNode, WorkspaceNodeId},
+        tree::{LatchListener, OutputNode, ToplevelNode, WorkspaceNode, WorkspaceNodeId},
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             errorfmt::ErrorFmt,
+            event_listener::EventListener,
             numcell::NumCell,
             option_ext::OptionExt,
         },
@@ -29,7 +30,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     thiserror::Error,
 };
@@ -75,12 +76,19 @@ pub struct JayScreencast {
     pending: Pending,
     need_realloc: Cell<bool>,
     realloc_scheduled: Cell<bool>,
+    latch_listener: EventListener<dyn LatchListener>,
 }
 
 #[derive(Clone)]
 enum Target {
     Output(Rc<OutputNode>),
     Toplevel(Rc<dyn ToplevelNode>),
+}
+
+impl LatchListener for JayScreencast {
+    fn after_latch(self: Rc<Self>) {
+        self.schedule_toplevel_screencast();
+    }
 }
 
 unsafe impl UnsafeCellCloneSafe for Target {}
@@ -119,7 +127,7 @@ impl JayScreencast {
         false
     }
 
-    pub fn new(id: JayScreencastId, client: &Rc<Client>) -> Self {
+    pub fn new(id: JayScreencastId, client: &Rc<Client>, slf: &Weak<Self>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -139,10 +147,11 @@ impl JayScreencast {
             pending: Default::default(),
             need_realloc: Cell::new(false),
             realloc_scheduled: Cell::new(false),
+            latch_listener: EventListener::new(slf.clone()),
         }
     }
 
-    pub fn schedule_toplevel_screencast(self: &Rc<Self>) {
+    fn schedule_toplevel_screencast(self: &Rc<Self>) {
         if !self.running.get() {
             return;
         }
@@ -319,6 +328,7 @@ impl JayScreencast {
     }
 
     fn detach(&self) {
+        self.latch_listener.detach();
         if let Some(target) = self.target.take() {
             match target {
                 Target::Output(output) => {
@@ -425,6 +435,18 @@ impl JayScreencast {
                 }
             };
             self.client.state.damage(rect);
+        }
+    }
+
+    pub fn update_latch_listener(&self) {
+        let Some(Target::Toplevel(tl)) = self.target.get() else {
+            return;
+        };
+        let data = tl.tl_data();
+        if data.visible.get() {
+            self.latch_listener.attach(&data.output().latch_event);
+        } else {
+            self.latch_listener.detach();
         }
     }
 }
@@ -540,6 +562,9 @@ impl JayScreencastRequestHandler for JayScreencast {
                         let data = t.tl_data();
                         data.jay_screencasts
                             .set((self.client.id, self.id), slf.clone());
+                        if data.visible.get() {
+                            self.latch_listener.attach(&data.output().latch_event);
+                        }
                         new_target = Some(Target::Toplevel(t));
                     }
                 }

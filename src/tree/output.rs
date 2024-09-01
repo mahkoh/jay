@@ -37,8 +37,8 @@ use {
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt, linkedlist::LinkedList, scroller::Scroller,
-            transform_ext::TransformExt,
+            event_listener::EventSource, hash_map_ext::HashMapExt, linkedlist::LinkedList,
+            scroller::Scroller, transform_ext::TransformExt,
         },
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
@@ -80,6 +80,11 @@ pub struct OutputNode {
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
     pub title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
+    pub latch_event: EventSource<dyn LatchListener>,
+}
+
+pub trait LatchListener {
+    fn after_latch(self: Rc<Self>);
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -148,6 +153,9 @@ impl OutputNode {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
+        for listener in self.latch_event.iter() {
+            listener.after_latch();
+        }
         if let Some(workspace) = self.workspace.get() {
             if !workspace.may_capture.get() {
                 return;
@@ -436,7 +444,9 @@ impl OutputNode {
 
     pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
-            return ws;
+            if !ws.is_dummy {
+                return ws;
+            }
         }
         let name = 'name: {
             for i in 1.. {

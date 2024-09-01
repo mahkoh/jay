@@ -494,6 +494,7 @@ fn create_dummy_output(state: &Rc<State>) {
         screencopies: Default::default(),
         title_visible: Cell::new(false),
         schedule,
+        latch_event: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
