@@ -1,4 +1,5 @@
 mod allocator;
+mod bo_allocator;
 mod command;
 mod descriptor;
 mod device;
@@ -17,7 +18,7 @@ mod util;
 
 use {
     crate::{
-        allocator::Allocator,
+        allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
         format::Format,
         gfx_api::{
@@ -39,6 +40,7 @@ use {
     ash::{vk, LoadingError},
     gpu_alloc::{AllocationError, MapError},
     jay_config::video::GfxApi,
+    log::Level,
     once_cell::sync::Lazy,
     std::{
         cell::Cell,
@@ -180,6 +182,20 @@ pub enum VulkanError {
     GfxError(GfxError),
     #[error("Buffer format {0} is not supported for shm buffers in Vulkan context")]
     UnsupportedShmFormat(&'static str),
+    #[error("Only BO_USE_RENDERING and BO_USE_WRITE are supported")]
+    UnsupportedBufferUsage,
+    #[error("None of the supplied modifiers are supported")]
+    NoSupportedModifiers,
+    #[error("Could not retrieve the image modifier")]
+    GetModifier(#[source] vk::Result),
+    #[error("Vulkan allocated the image with an invalid modifier")]
+    InvalidModifier,
+    #[error("Could not export the DmaBuf")]
+    GetDmaBuf(#[source] vk::Result),
+    #[error("Could not wait for the device to become idle")]
+    WaitIdle(#[source] vk::Result),
+    #[error("Could not dup a DRM device")]
+    DupDrm(#[source] DrmError),
 }
 
 impl From<VulkanError> for GfxError {
@@ -196,10 +212,17 @@ pub fn create_graphics_context(
     ring: &Rc<IoUring>,
     drm: &Drm,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
-    let instance = VulkanInstance::new(eng, ring, *VULKAN_VALIDATION)?;
+    let instance = VulkanInstance::new(Level::Info, *VULKAN_VALIDATION)?;
     let device = instance.create_device(drm)?;
-    let renderer = device.create_renderer()?;
+    let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
+}
+
+pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
+    let instance = VulkanInstance::new(Level::Debug, *VULKAN_VALIDATION)?;
+    let device = instance.create_device(drm)?;
+    let allocator = device.create_bo_allocator(drm)?;
+    Ok(Rc::new(allocator))
 }
 
 #[derive(Debug)]

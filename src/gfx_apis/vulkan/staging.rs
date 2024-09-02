@@ -1,6 +1,8 @@
 use {
     crate::gfx_apis::vulkan::{
-        allocator::VulkanAllocation, device::VulkanDevice, renderer::VulkanRenderer, util::OnDrop,
+        allocator::{VulkanAllocation, VulkanAllocator},
+        device::VulkanDevice,
+        util::OnDrop,
         VulkanError,
     },
     ash::vk::{Buffer, BufferCreateInfo, BufferUsageFlags, MappedMemoryRange},
@@ -15,9 +17,10 @@ pub struct VulkanStagingBuffer {
     pub(super) size: u64,
 }
 
-impl VulkanRenderer {
+impl VulkanDevice {
     pub(super) fn create_staging_buffer(
         self: &Rc<Self>,
+        allocator: &Rc<VulkanAllocator>,
         size: u64,
         upload: bool,
         download: bool,
@@ -38,24 +41,22 @@ impl VulkanRenderer {
         }
         let buffer = {
             let create_info = BufferCreateInfo::default().size(size).usage(vk_usage);
-            let buffer = unsafe { self.device.device.create_buffer(&create_info, None) };
+            let buffer = unsafe { self.device.create_buffer(&create_info, None) };
             buffer.map_err(VulkanError::CreateBuffer)?
         };
-        let destroy_buffer = OnDrop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
-        let memory_requirements =
-            unsafe { self.device.device.get_buffer_memory_requirements(buffer) };
-        let allocation = self.allocator.alloc(&memory_requirements, usage, true)?;
+        let destroy_buffer = OnDrop(|| unsafe { self.device.destroy_buffer(buffer, None) });
+        let memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
+        let allocation = allocator.alloc(&memory_requirements, usage, true)?;
         {
             let res = unsafe {
                 self.device
-                    .device
                     .bind_buffer_memory(buffer, allocation.memory, allocation.offset)
             };
             res.map_err(VulkanError::BindBufferMemory)?;
         }
         destroy_buffer.forget();
         Ok(VulkanStagingBuffer {
-            device: self.device.clone(),
+            device: self.clone(),
             allocation,
             buffer,
             size,

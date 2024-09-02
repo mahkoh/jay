@@ -34,6 +34,7 @@ pub struct VulkanModifier {
     pub features: FormatFeatureFlags,
     pub render_max_extents: Option<VulkanMaxExtents>,
     pub texture_max_extents: Option<VulkanMaxExtents>,
+    pub transfer_max_extents: Option<VulkanMaxExtents>,
     pub render_needs_bridge: bool,
 }
 
@@ -58,24 +59,24 @@ const TEX_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
         | FormatFeatureFlags::TRANSFER_SRC.as_raw()
         | FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR.as_raw(),
 );
-const SHM_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
-    0 | FormatFeatureFlags::TRANSFER_SRC.as_raw()
-        | FormatFeatureFlags::TRANSFER_DST.as_raw()
-        | TEX_FEATURES.as_raw(),
+const TRANSFER_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
+    FormatFeatureFlags::TRANSFER_SRC.as_raw() | FormatFeatureFlags::TRANSFER_DST.as_raw(),
 );
+const SHM_FEATURES: FormatFeatureFlags =
+    FormatFeatureFlags::from_raw(TRANSFER_FEATURES.as_raw() | TEX_FEATURES.as_raw());
 
 const FRAMEBUFFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
-    0 | ImageUsageFlags::COLOR_ATTACHMENT.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
+    ImageUsageFlags::COLOR_ATTACHMENT.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
 );
 const FRAMEBUFFER_BRIDGED_USAGE: ImageUsageFlags = ImageUsageFlags::TRANSFER_DST;
 const TEX_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
-    0 | ImageUsageFlags::SAMPLED.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
+    ImageUsageFlags::SAMPLED.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
 );
-const SHM_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
-    0 | ImageUsageFlags::TRANSFER_SRC.as_raw()
-        | ImageUsageFlags::TRANSFER_DST.as_raw()
-        | TEX_USAGE.as_raw(),
+const TRANSFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
+    ImageUsageFlags::TRANSFER_SRC.as_raw() | ImageUsageFlags::TRANSFER_DST.as_raw(),
 );
+const SHM_USAGE: ImageUsageFlags =
+    ImageUsageFlags::from_raw(TRANSFER_USAGE.as_raw() | TEX_USAGE.as_raw());
 
 impl VulkanInstance {
     pub(super) fn load_formats(
@@ -209,6 +210,13 @@ impl VulkanInstance {
             )?;
             let texture_max_extents =
                 self.get_max_extents(phy_dev, format, TEX_FEATURES, TEX_USAGE, &modifier)?;
+            let transfer_max_extents = self.get_max_extents(
+                phy_dev,
+                format,
+                TRANSFER_FEATURES,
+                TRANSFER_USAGE,
+                &modifier,
+            )?;
             let mut render_needs_bridge = false;
             if render_max_extents.is_none() && modifier.drm_format_modifier == LINEAR_MODIFIER {
                 render_max_extents = self.get_fb_bridged_max_extents(
@@ -229,6 +237,7 @@ impl VulkanInstance {
                     features: modifier.drm_format_modifier_tiling_features,
                     render_max_extents,
                     texture_max_extents,
+                    transfer_max_extents,
                     render_needs_bridge,
                 },
             );

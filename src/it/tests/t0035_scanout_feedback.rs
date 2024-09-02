@@ -12,7 +12,7 @@ use {
 testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let ds = run.create_default_setup2(false).await?;
+    let ds = run.create_default_setup2(true).await?;
 
     let scanout_feedback = {
         let Some(base_fb) = run.state.drm_feedback.get() else {

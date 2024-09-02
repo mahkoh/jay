@@ -11,7 +11,7 @@ use {
 testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let _ds = run.create_default_setup2(false).await?;
+    let _ds = run.create_default_setup2(true).await?;
 
     struct Waiter(Cell<bool>);
     impl SyncObjWaiter for Waiter {

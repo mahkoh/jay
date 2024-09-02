@@ -104,9 +104,13 @@ impl VulkanShmImage {
             cpy = slice::from_ref(&cpy_one);
             total_size = img.height * img.stride;
         }
-        let staging = img
-            .renderer
-            .create_staging_buffer(total_size as u64, true, false, true)?;
+        let staging = img.renderer.device.create_staging_buffer(
+            &img.renderer.allocator,
+            total_size as u64,
+            true,
+            false,
+            true,
+        )?;
         staging.upload(|mem, _| unsafe {
             let buf = buffer.as_ptr() as *const u8;
             if damage.is_some() {
@@ -215,7 +219,7 @@ impl VulkanShmImage {
             }
         };
         let point = img.renderer.allocate_point();
-        let future = img.renderer.device.instance.eng.spawn(await_upload(
+        let future = img.renderer.eng.spawn(await_upload(
             point,
             img.clone(),
             cmd,
@@ -236,13 +240,7 @@ async fn await_upload(
     _fence: Rc<VulkanFence>,
     _staging: VulkanStagingBuffer,
 ) {
-    let res = img
-        .renderer
-        .device
-        .instance
-        .ring
-        .readable(&sync_file.0)
-        .await;
+    let res = img.renderer.ring.readable(&sync_file.0).await;
     if let Err(e) = res {
         log::error!(
             "Could not wait for sync file to become readable: {}",

@@ -1,3 +1,4 @@
+pub use vulkan::create_vulkan_allocator;
 use {
     crate::{
         async_engine::AsyncEngine,
