@@ -663,6 +663,7 @@ impl PwClientNode {
                 let maxsize = p1.read_uint()?;
 
                 chunks.push(mem.typed_at(offset));
+                offset += size_of::<spa_chunk>();
 
                 if !buffer_flags.contains(SPA_NODE_BUFFERS_FLAG_ALLOC) {
                     if ty == SPA_DATA_MemPtr {
