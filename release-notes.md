@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.5.0 (2024-09-02)
+
 - Add fine-grained damage tracking.
 - Add support for adaptive sync.
 - Add support for tearing.
