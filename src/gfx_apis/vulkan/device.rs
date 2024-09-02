@@ -49,7 +49,7 @@ use {
 pub struct VulkanDevice {
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
-    pub(super) gbm: GbmDevice,
+    pub(super) gbm: Rc<GbmDevice>,
     pub(super) sync_ctx: Rc<SyncObjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Device,
@@ -276,7 +276,7 @@ impl VulkanInstance {
             physical_device: phy_dev,
             render_node,
             sync_ctx: Rc::new(SyncObjCtx::new(gbm.drm.fd())),
-            gbm,
+            gbm: Rc::new(gbm),
             instance: self.clone(),
             device,
             external_memory_fd,

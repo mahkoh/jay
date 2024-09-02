@@ -43,6 +43,7 @@ mod macros;
 #[macro_use]
 mod leaks;
 mod acceptor;
+mod allocator;
 mod async_engine;
 mod backend;
 mod backends;
@@ -91,6 +92,7 @@ mod time;
 mod tools;
 mod tree;
 mod udev;
+mod udmabuf;
 mod user_session;
 mod utils;
 mod version;

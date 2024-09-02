@@ -21,10 +21,16 @@ impl JayRenderCtx {
     pub fn send_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
         let mut fd = None;
         if let Some(ctx) = ctx {
-            match ctx.gbm().drm.dup_render() {
-                Ok(d) => fd = Some(d.fd().clone()),
-                Err(e) => {
-                    log::error!("Could not dup drm fd: {}", ErrorFmt(e));
+            let allocator = ctx.allocator();
+            match allocator.drm() {
+                Some(drm) => match drm.dup_render() {
+                    Ok(d) => fd = Some(d.fd().clone()),
+                    Err(e) => {
+                        log::error!("Could not dup drm fd: {}", ErrorFmt(e));
+                    }
+                },
+                None => {
+                    log::error!("Allocator does not have a DRM device");
                 }
             }
         } else {

@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
             CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat,
@@ -7,12 +8,7 @@ use {
         },
         rect::Rect,
         theme::Color,
-        video::{
-            dmabuf::DmaBuf,
-            drm::{sync_obj::SyncObjCtx, Drm, DrmError},
-            gbm::{GbmBo, GbmDevice, GbmError},
-            LINEAR_MODIFIER,
-        },
+        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, LINEAR_MODIFIER},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -32,15 +28,9 @@ use {
 #[derive(Error, Debug)]
 enum TestGfxError {
     #[error("Could not map dmabuf")]
-    MapDmaBuf(#[source] GbmError),
+    MapDmaBuf(#[source] AllocatorError),
     #[error("Could not import dmabuf")]
-    ImportDmaBuf(#[source] GbmError),
-    #[error("Could not create a gbm device")]
-    CreateGbmDevice(#[source] GbmError),
-    #[error("Could not retrieve the render node path")]
-    GetRenderNode(#[source] DrmError),
-    #[error("Drm device does not have a render node")]
-    NoRenderNode,
+    ImportDmaBuf(#[source] AllocatorError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -51,19 +41,11 @@ impl From<TestGfxError> for GfxError {
 
 pub struct TestGfxCtx {
     formats: Rc<AHashMap<u32, GfxFormat>>,
-    sync_obj_ctx: Rc<SyncObjCtx>,
-    gbm: GbmDevice,
-    render_node: Rc<CString>,
+    allocator: Rc<dyn Allocator>,
 }
 
 impl TestGfxCtx {
-    pub fn new(drm: &Drm) -> Result<Rc<Self>, GfxError> {
-        let render_node = drm
-            .get_render_node()
-            .map_err(TestGfxError::GetRenderNode)?
-            .ok_or(TestGfxError::NoRenderNode)?;
-        let gbm = GbmDevice::new(drm).map_err(TestGfxError::CreateGbmDevice)?;
-        let ctx = Rc::new(SyncObjCtx::new(drm.fd()));
+    pub fn new(allocator: Rc<dyn Allocator>) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
         modifiers.insert(LINEAR_MODIFIER);
         let mut formats = AHashMap::new();
@@ -79,9 +61,7 @@ impl TestGfxCtx {
         }
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
-            sync_obj_ctx: ctx,
-            gbm,
-            render_node: Rc::new(render_node),
+            allocator,
         }))
     }
 }
@@ -97,8 +77,8 @@ impl GfxContext for TestGfxCtx {
         None
     }
 
-    fn render_node(&self) -> Rc<CString> {
-        self.render_node.clone()
+    fn render_node(&self) -> Option<Rc<CString>> {
+        None
     }
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
@@ -109,9 +89,8 @@ impl GfxContext for TestGfxCtx {
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
             bo: self
-                .gbm
-                .import_dmabuf(buf, 0)
-                .map(Rc::new)
+                .allocator
+                .import_dmabuf(buf, BufferUsage::none())
                 .map_err(TestGfxError::ImportDmaBuf)?,
         })))
     }
@@ -142,8 +121,8 @@ impl GfxContext for TestGfxCtx {
         })))
     }
 
-    fn gbm(&self) -> &GbmDevice {
-        &self.gbm
+    fn allocator(&self) -> Rc<dyn Allocator> {
+        self.allocator.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
@@ -170,8 +149,8 @@ impl GfxContext for TestGfxCtx {
         }))
     }
 
-    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
-        &self.sync_obj_ctx
+    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+        None
     }
 }
 
@@ -195,7 +174,7 @@ struct TestShmGfxImage {
 
 struct TestDmaBufGfxImage {
     buf: DmaBuf,
-    bo: Rc<GbmBo>,
+    bo: Rc<dyn BufferObject>,
 }
 
 impl TestGfxImage {
@@ -242,7 +221,7 @@ impl TestGfxImage {
                 );
             }
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.map_read().map_err(TestGfxError::MapDmaBuf)?;
+                let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                 unsafe {
                     copy(
                         map.stride(),
@@ -478,7 +457,7 @@ impl GfxFramebuffer for TestGfxFb {
                         s.format,
                     ),
                     TestGfxImage::DmaBuf(d) => {
-                        let map = d.bo.map_read().map_err(TestGfxError::MapDmaBuf)?;
+                        let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                         copy(
                             map.data_ptr(),
                             d.buf.width,
@@ -511,7 +490,7 @@ impl GfxFramebuffer for TestGfxFb {
                 s.format,
             )?,
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.map_write().map_err(TestGfxError::MapDmaBuf)?;
+                let map = d.bo.clone().map_write().map_err(TestGfxError::MapDmaBuf)?;
                 apply(
                     map.data_ptr(),
                     d.buf.width,

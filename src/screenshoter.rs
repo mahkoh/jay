@@ -1,14 +1,11 @@
 use {
     crate::{
+        allocator::{AllocatorError, BufferObject, BO_USE_LINEAR, BO_USE_RENDERING},
         format::XRGB8888,
         gfx_api::GfxError,
         scale::Scale,
         state::State,
-        video::{
-            drm::DrmError,
-            gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            INVALID_MODIFIER, LINEAR_MODIFIER,
-        },
+        video::{drm::DrmError, INVALID_MODIFIER, LINEAR_MODIFIER},
     },
     jay_config::video::Transform,
     std::{ops::Deref, rc::Rc},
@@ -23,7 +20,7 @@ pub enum ScreenshooterError {
     #[error("Display is empty")]
     EmptyDisplay,
     #[error(transparent)]
-    GbmError(#[from] GbmError),
+    AllocatorError(#[from] AllocatorError),
     #[error(transparent)]
     RenderError(#[from] GfxError),
     #[error(transparent)]
@@ -35,8 +32,8 @@ pub enum ScreenshooterError {
 }
 
 pub struct Screenshot {
-    pub drm: Rc<OwnedFd>,
-    pub bo: GbmBo,
+    pub drm: Option<Rc<OwnedFd>>,
+    pub bo: Rc<dyn BufferObject>,
 }
 
 pub fn take_screenshot(
@@ -52,18 +49,18 @@ pub fn take_screenshot(
         return Err(ScreenshooterError::EmptyDisplay);
     }
     let formats = ctx.formats();
-    let mut usage = GBM_BO_USE_RENDERING;
+    let mut usage = BO_USE_RENDERING;
     let modifiers = match formats.get(&XRGB8888.drm) {
         None => return Err(ScreenshooterError::XRGB8888),
         Some(f) if f.write_modifiers.contains(&LINEAR_MODIFIER) => &[LINEAR_MODIFIER],
         Some(f) if f.write_modifiers.contains(&INVALID_MODIFIER) => {
-            usage |= GBM_BO_USE_LINEAR;
+            usage |= BO_USE_LINEAR;
             &[INVALID_MODIFIER]
         }
         Some(_) => return Err(ScreenshooterError::Linear),
     };
-    let gbm = ctx.gbm();
-    let bo = gbm.create_bo(
+    let allocator = ctx.allocator();
+    let bo = allocator.create_bo(
         &state.dma_buf_ids,
         extents.width(),
         extents.height(),
@@ -83,6 +80,9 @@ pub fn take_screenshot(
         false,
         Transform::None,
     )?;
-    let drm = gbm.drm.dup_render()?.fd().clone();
+    let drm = match allocator.drm() {
+        Some(drm) => Some(drm.dup_render()?.fd().clone()),
+        _ => None,
+    };
     Ok(Screenshot { drm, bo })
 }

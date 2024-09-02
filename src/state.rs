@@ -429,7 +429,7 @@ impl State {
         self.cursors.set(None);
         self.drm_feedback.set(None);
         self.wait_for_sync_obj
-            .set_ctx(ctx.as_ref().map(|c| c.sync_obj_ctx().clone()));
+            .set_ctx(ctx.as_ref().and_then(|c| c.sync_obj_ctx().cloned()));
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -506,10 +506,12 @@ impl State {
             if !self.render_ctx_ever_initialized.replace(true) {
                 self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
                 self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
-                if ctx.sync_obj_ctx().supports_async_wait() && self.explicit_sync_enabled.get() {
-                    self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
-                        self.globals.name(),
-                    )));
+                if let Some(ctx) = ctx.sync_obj_ctx() {
+                    if ctx.supports_async_wait() && self.explicit_sync_enabled.get() {
+                        self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
+                            self.globals.name(),
+                        )));
+                    }
                 }
                 if let Some(config) = self.config.get() {
                     config.graphics_initialized();
@@ -1042,7 +1044,11 @@ impl State {
             log::error!("Cannot signal sync obj point because there is no render context");
             return;
         };
-        if let Err(e) = ctx.sync_obj_ctx().signal(sync_obj, point) {
+        let Some(ctx) = ctx.sync_obj_ctx() else {
+            log::error!("Cannot signal sync obj point because there is no syncobj context");
+            return;
+        };
+        if let Err(e) = ctx.signal(sync_obj, point) {
             log::error!("Could not signal sync obj: {}", ErrorFmt(e));
         }
     }

@@ -10,6 +10,7 @@ tasks:
       sudo rmmod bochs
       sudo modprobe vkms
       sudo chmod o+rw /dev/dri/card*
+      sudo chmod o+r /dev/udmabuf
   - build: |
       cd jay
       cargo build --features it

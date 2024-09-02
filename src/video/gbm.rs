@@ -2,6 +2,10 @@
 
 use {
     crate::{
+        allocator::{
+            Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer, BO_USE_CURSOR,
+            BO_USE_LINEAR, BO_USE_PROTECTED, BO_USE_RENDERING, BO_USE_SCANOUT, BO_USE_WRITE,
+        },
         format::{formats, Format},
         utils::oserror::OsError,
         video::{
@@ -36,6 +40,12 @@ pub enum GbmError {
     MapBo(#[source] OsError),
     #[error("Tried to allocate a buffer with no modifier")]
     NoModifier,
+}
+
+impl From<GbmError> for AllocatorError {
+    fn from(value: GbmError) -> Self {
+        Self(Box::new(value))
+    }
 }
 
 pub type Device = u8;
@@ -151,17 +161,16 @@ pub struct GbmBoMap {
     stride: i32,
 }
 
-impl GbmBoMap {
-    pub unsafe fn data(&self) -> &[u8] {
+impl MappedBuffer for GbmBoMap {
+    unsafe fn data(&self) -> &[u8] {
         &*self.data
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
-    pub fn data_ptr(&self) -> *mut u8 {
+    fn data_ptr(&self) -> *mut u8 {
         self.data as _
     }
 
-    pub fn stride(&self) -> i32 {
+    fn stride(&self) -> i32 {
         self.stride
     }
 }
@@ -290,6 +299,56 @@ impl GbmDevice {
     }
 }
 
+impl Allocator for GbmDevice {
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.drm)
+    }
+
+    fn create_bo(
+        &self,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifiers: &[Modifier],
+        usage: BufferUsage,
+    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
+        let usage = map_usage(usage);
+        self.create_bo(dma_buf_ids, width, height, format, modifiers, usage)
+            .map(|v| Rc::new(v) as _)
+            .map_err(|v| v.into())
+    }
+
+    fn import_dmabuf(
+        &self,
+        dmabuf: &DmaBuf,
+        usage: BufferUsage,
+    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
+        let usage = map_usage(usage);
+        self.import_dmabuf(dmabuf, usage)
+            .map(|v| Rc::new(v) as _)
+            .map_err(|v| v.into())
+    }
+}
+
+fn map_usage(usage: BufferUsage) -> u32 {
+    let mut gbm = 0;
+    macro_rules! map {
+        ($bu:ident to $gbu:ident) => {
+            if usage.contains($bu) {
+                gbm |= $gbu;
+            }
+        };
+    }
+    map!(BO_USE_SCANOUT to GBM_BO_USE_SCANOUT);
+    map!(BO_USE_CURSOR to GBM_BO_USE_CURSOR);
+    map!(BO_USE_RENDERING to GBM_BO_USE_RENDERING);
+    map!(BO_USE_WRITE to GBM_BO_USE_WRITE);
+    map!(BO_USE_LINEAR to GBM_BO_USE_LINEAR);
+    map!(BO_USE_PROTECTED to GBM_BO_USE_PROTECTED);
+    gbm
+}
+
 impl Drop for GbmDevice {
     fn drop(&mut self) {
         unsafe {
@@ -299,15 +358,10 @@ impl Drop for GbmDevice {
 }
 
 impl GbmBo {
-    pub fn dmabuf(&self) -> &DmaBuf {
-        &self.dmabuf
-    }
-
     pub fn map_read(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
         self.map2(GBM_BO_TRANSFER_READ)
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
         self.map2(GBM_BO_TRANSFER_READ_WRITE)
     }
@@ -337,6 +391,24 @@ impl GbmBo {
                 stride: stride as i32,
             })
         }
+    }
+}
+
+impl BufferObject for GbmBo {
+    fn dmabuf(&self) -> &DmaBuf {
+        &self.dmabuf
+    }
+
+    fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
+        GbmBo::map_read(&self)
+            .map(|v| Box::new(v) as _)
+            .map_err(|v| v.into())
+    }
+
+    fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
+        GbmBo::map_write(&self)
+            .map(|v| Box::new(v) as _)
+            .map_err(|v| v.into())
     }
 }
 

@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::Allocator,
         format::{Format, XRGB8888},
         gfx_api::{
             BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
@@ -240,8 +241,8 @@ impl GfxContext for GlRenderContext {
         self.reset_status()
     }
 
-    fn render_node(&self) -> Rc<CString> {
-        self.render_node()
+    fn render_node(&self) -> Option<Rc<CString>> {
+        Some(self.render_node())
     }
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
@@ -278,8 +279,8 @@ impl GfxContext for GlRenderContext {
             .map_err(|e| e.into())
     }
 
-    fn gbm(&self) -> &GbmDevice {
-        &self.gbm
+    fn allocator(&self) -> Rc<dyn Allocator> {
+        self.gbm.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
@@ -299,7 +300,7 @@ impl GfxContext for GlRenderContext {
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
     }
 
-    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
-        &self.sync_ctx
+    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+        Some(&self.sync_ctx)
     }
 }

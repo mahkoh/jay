@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::{AllocatorError, BufferObject, BO_USE_LINEAR, BO_USE_RENDERING},
         client::{Client, ClientError},
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
@@ -16,17 +17,11 @@ use {
             numcell::NumCell,
             option_ext::OptionExt,
         },
-        video::{
-            dmabuf::DmaBuf,
-            gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            Modifier, INVALID_MODIFIER, LINEAR_MODIFIER,
-        },
+        video::{dmabuf::DmaBuf, INVALID_MODIFIER, LINEAR_MODIFIER},
         wire::{jay_screencast::*, JayScreencastId},
     },
     ahash::AHashSet,
-    indexmap::{indexset, IndexSet},
     jay_config::video::Transform,
-    once_cell::sync::Lazy,
     std::{
         cell::{Cell, RefCell},
         ops::DerefMut,
@@ -108,7 +103,7 @@ struct Pending {
 }
 
 struct ScreencastBuffer {
-    _bo: GbmBo,
+    _bo: Rc<dyn BufferObject>,
     dmabuf: DmaBuf,
     fb: Rc<dyn GfxFramebuffer>,
     free: bool,
@@ -381,31 +376,27 @@ impl JayScreencast {
                 if width == 0 || height == 0 {
                     continue;
                 }
-                let mut usage = GBM_BO_USE_RENDERING;
+                let mut usage = BO_USE_RENDERING;
                 let modifiers = match self.linear.get() {
                     true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
-                        static MODS: Lazy<IndexSet<Modifier>> =
-                            Lazy::new(|| indexset![LINEAR_MODIFIER]);
-                        &MODS
+                        vec![LINEAR_MODIFIER]
                     }
                     true if format.write_modifiers.contains(&INVALID_MODIFIER) => {
-                        usage |= GBM_BO_USE_LINEAR;
-                        static MODS: Lazy<IndexSet<Modifier>> =
-                            Lazy::new(|| indexset![INVALID_MODIFIER]);
-                        &MODS
+                        usage |= BO_USE_LINEAR;
+                        vec![INVALID_MODIFIER]
                     }
                     true => return Err(JayScreencastError::Modifier),
                     false if format.write_modifiers.is_empty() => {
                         return Err(JayScreencastError::XRGB8888Writing)
                     }
-                    false => &format.write_modifiers,
+                    false => format.write_modifiers.iter().copied().collect(),
                 };
-                let buffer = ctx.gbm().create_bo(
+                let buffer = ctx.allocator().create_bo(
                     &self.client.state.dma_buf_ids,
                     width,
                     height,
                     XRGB8888,
-                    modifiers,
+                    &modifiers,
                     usage,
                 )?;
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
@@ -681,7 +672,7 @@ pub enum JayScreencastError {
     #[error("Buffer index {0} is out-of-bounds")]
     OutOfBounds(u32),
     #[error(transparent)]
-    GbmError(#[from] GbmError),
+    AllocatorError(#[from] AllocatorError),
     #[error(transparent)]
     GfxError(#[from] GfxError),
     #[error("Render context does not support XRGB8888 format")]
