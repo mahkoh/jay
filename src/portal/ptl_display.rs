@@ -218,7 +218,7 @@ impl UsrWlRegistryOwner for PortalDisplay {
                 version: Version(version.min(5)),
             });
             self.con.add_object(ls.clone());
-            self.registry.request_bind(name, version, ls.deref());
+            self.registry.request_bind(name, ls.version.0, ls.deref());
             self.dmabuf.set(Some(ls));
         }
     }
@@ -307,7 +307,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(5)),
                 });
                 dpy.con.add_object(jc.clone());
-                dpy.registry.request_bind(name, version, jc.deref());
+                dpy.registry.request_bind(name, jc.version.0, jc.deref());
                 jc_opt = Some(jc);
             } else if interface == WpFractionalScaleManagerV1.name() {
                 let ls = Rc::new(UsrWpFractionalScaleManager {
@@ -316,7 +316,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, version, ls.deref());
+                dpy.registry.request_bind(name, ls.version.0, ls.deref());
                 fsm_opt = Some(ls);
             } else if interface == ZwlrLayerShellV1.name() {
                 let ls = Rc::new(UsrWlrLayerShell {
@@ -325,7 +325,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, version, ls.deref());
+                dpy.registry.request_bind(name, ls.version.0, ls.deref());
                 ls_opt = Some(ls);
             } else if interface == WpViewporter.name() {
                 let ls = Rc::new(UsrWpViewporter {
@@ -334,7 +334,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, version, ls.deref());
+                dpy.registry.request_bind(name, ls.version.0, ls.deref());
                 vp_opt = Some(ls);
             } else if interface == WlCompositor.name() {
                 let ls = Rc::new(UsrWlCompositor {
@@ -343,7 +343,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(6)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, version, ls.deref());
+                dpy.registry.request_bind(name, ls.version.0, ls.deref());
                 comp_opt = Some(ls);
             } else if interface == ZwpLinuxDmabufV1.name() {
                 let ls = Rc::new(UsrLinuxDmabuf {
@@ -353,7 +353,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, version, ls.deref());
+                dpy.registry.request_bind(name, ls.version.0, ls.deref());
                 dmabuf_opt = Some(ls);
             } else if interface == WlOutput.name() {
                 outputs.push((name, version));
@@ -423,7 +423,7 @@ fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         version: Version(version.min(9)),
     });
     dpy.con.add_object(wl.clone());
-    dpy.registry.request_bind(name, version, wl.deref());
+    dpy.registry.request_bind(name, wl.version.0, wl.deref());
     let jay_pointer = dpy.jc.get_pointer(&wl);
     let js = Rc::new(PortalSeat {
         global_id: name,
@@ -447,7 +447,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         version: Version(version.min(4)),
     });
     dpy.con.add_object(wl.clone());
-    dpy.registry.request_bind(name, version, wl.deref());
+    dpy.registry.request_bind(name, wl.version.0, wl.deref());
     let jo = dpy.jc.get_output(&wl);
     let po = Rc::new(PortalOutput {
         global_id: name,
