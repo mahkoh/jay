@@ -454,9 +454,7 @@ impl UsrJayScreencastOwner for StartedScreencast {
         }
         io.buffer_id.store(ev.idx, Relaxed);
         io.status.store(SPA_STATUS_HAVE_DATA.0, Release);
-        if let Some(wfd) = self.port.node.transport_out.get() {
-            let _ = uapi::eventfd_write(wfd.raw(), 1);
-        }
+        self.port.node.drive();
     }
 
     fn destroyed(&self) {
