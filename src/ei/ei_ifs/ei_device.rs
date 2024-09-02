@@ -96,7 +96,7 @@ impl EiDevice {
             offset_y: rect.y1() as u32,
             width: rect.width() as u32,
             hight: rect.height() as u32,
-            scale: scale.to_f64() as f32,
+            scale: (1.0 / scale.to_f64()) as f32,
         });
     }
 
