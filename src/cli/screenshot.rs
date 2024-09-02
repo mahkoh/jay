@@ -161,10 +161,6 @@ pub fn buf_to_bytes(
     buf: &DmaBuf,
     format: ScreenshotFormat,
 ) -> Result<Vec<u8>, ScreenshotError> {
-    match drm_dev {
-        None => {}
-        Some(_) => {}
-    }
     let mut allocators =
         Vec::<Box<dyn FnOnce() -> Result<Rc<dyn Allocator>, ScreenshotError>>>::new();
     match drm_dev {
