@@ -1,6 +1,6 @@
 use {
     crate::{
-        allocator::Allocator,
+        allocator::{Allocator, AllocatorError},
         async_engine::SpawnedFuture,
         backend::{
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
@@ -12,6 +12,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxError,
+        gfx_apis::create_vulkan_allocator,
         it::{
             test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
         },
@@ -46,6 +47,8 @@ pub enum TestBackendError {
     CreateGbmDevice(#[source] GbmError),
     #[error("Could not create any allocator")]
     CreateAllocator,
+    #[error("Could not create a vulkan allocator")]
+    CreateVulkanAllocator(#[source] AllocatorError),
 }
 
 pub struct TestBackend {
@@ -133,21 +136,21 @@ impl TestBackend {
         }
     }
 
-    pub fn install_render_context(&self, prefer_udmabuf: bool) -> TestResult {
+    pub fn install_render_context(&self, need_drm: bool) -> TestResult {
         if self.render_context_installed.get() {
             return Ok(());
         }
-        self.create_render_context(prefer_udmabuf)?;
+        self.create_render_context(need_drm)?;
         self.render_context_installed.set(true);
         Ok(())
     }
 
     pub fn install_default(&self) -> TestResult {
-        self.install_default2(true)
+        self.install_default2(false)
     }
 
-    pub fn install_default2(&self, prefer_udmabuf: bool) -> TestResult {
-        self.install_render_context(prefer_udmabuf)?;
+    pub fn install_default2(&self, need_drm: bool) -> TestResult {
+        self.install_render_context(need_drm)?;
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
@@ -163,20 +166,25 @@ impl TestBackend {
         Ok(())
     }
 
-    fn create_render_context(&self, prefer_udmabuf: bool) -> Result<(), TestBackendError> {
+    fn create_render_context(&self, need_drm: bool) -> Result<(), TestBackendError> {
         macro_rules! constructor {
             ($c:expr) => {
-                (&|| {
-                    $c.map(|a| Rc::new(a) as Rc<dyn Allocator>)
-                        .map_err(|e| Box::new(e) as Box<dyn Error>)
-                }) as &dyn Fn() -> Result<Rc<dyn Allocator>, Box<dyn Error>>
+                constructor!($c, |a| Rc::new(a) as Rc<dyn Allocator>)
+            };
+            ($c:expr, nomap) => {
+                constructor!($c, |a| a)
+            };
+            ($c:expr, $map:expr) => {
+                (&|| $c.map($map).map_err(|e| Box::new(e) as Box<dyn Error>))
+                    as &dyn Fn() -> Result<Rc<dyn Allocator>, Box<dyn Error>>
             };
         }
         let udmabuf = ("udmabuf", constructor!(Udmabuf::new()));
+        let vulkan = ("Vulkan", constructor!(create_vk_allocator(), nomap));
         let gbm = ("GBM", constructor!(create_gbm_allocator()));
-        let allocators = match prefer_udmabuf {
-            true => [udmabuf, gbm],
-            false => [gbm, udmabuf],
+        let allocators = match need_drm {
+            true => [vulkan, gbm, udmabuf],
+            false => [udmabuf, vulkan, gbm],
         };
         let mut allocator = None::<Rc<dyn Allocator>>;
         for (name, f) in allocators {
@@ -201,6 +209,19 @@ impl TestBackend {
 }
 
 fn create_gbm_allocator() -> Result<GbmDevice, TestBackendError> {
+    create_drm_allocator(|drm| GbmDevice::new(&drm).map_err(TestBackendError::CreateGbmDevice))
+}
+
+fn create_vk_allocator() -> Result<Rc<dyn Allocator>, TestBackendError> {
+    create_drm_allocator(|drm| {
+        create_vulkan_allocator(&drm).map_err(TestBackendError::CreateVulkanAllocator)
+    })
+}
+
+fn create_drm_allocator<T, F>(f: F) -> Result<T, TestBackendError>
+where
+    F: FnOnce(Drm) -> Result<T, TestBackendError>,
+{
     let dri = match std::fs::read_dir("/dev/dri") {
         Ok(d) => d,
         Err(e) => return Err(TestBackendError::ReadDri(e)),
@@ -240,8 +261,7 @@ fn create_gbm_allocator() -> Result<GbmDevice, TestBackendError> {
         }
     };
     let drm = Drm::open_existing(file);
-    let gbm = GbmDevice::new(&drm).map_err(TestBackendError::CreateGbmDevice)?;
-    Ok(gbm)
+    f(drm)
 }
 
 impl Backend for TestBackend {

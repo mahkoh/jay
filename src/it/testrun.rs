@@ -106,14 +106,11 @@ impl TestRun {
     }
 
     pub async fn create_default_setup(&self) -> Result<DefaultSetup, TestError> {
-        self.create_default_setup2(true).await
+        self.create_default_setup2(false).await
     }
 
-    pub async fn create_default_setup2(
-        &self,
-        prefer_udmabuf: bool,
-    ) -> Result<DefaultSetup, TestError> {
-        self.backend.install_default2(prefer_udmabuf)?;
+    pub async fn create_default_setup2(&self, need_drm: bool) -> Result<DefaultSetup, TestError> {
+        self.backend.install_default2(need_drm)?;
         let seat = self.get_seat("default")?;
         self.state.eng.yield_now().await;
         let output = match self.state.root.outputs.lock().values().next() {

@@ -1,8 +1,9 @@
 use {
     crate::{
-        allocator::{Allocator, AllocatorError, BO_USE_LINEAR, BO_USE_RENDERING},
+        allocator::{Allocator, AllocatorError, BufferUsage, MappedBuffer},
         cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
         format::XRGB8888,
+        gfx_apis,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         udmabuf::{Udmabuf, UdmabufError},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue, windows::WindowsExt},
@@ -138,6 +139,21 @@ pub enum ScreenshotError {
     ImportDmabuf(#[source] AllocatorError),
     #[error("Could not map a dmabuf")]
     MapDmabuf(#[source] AllocatorError),
+    #[error("Could not create a vulkan allocator")]
+    CreateVulkanAllocator(#[source] AllocatorError),
+    #[error("Could not map the dmabuf with any allocator")]
+    MapDmabufAny,
+}
+
+fn map(
+    allocator: Rc<dyn Allocator>,
+    buf: &DmaBuf,
+) -> Result<Box<dyn MappedBuffer>, ScreenshotError> {
+    let bo = allocator
+        .import_dmabuf(buf, BufferUsage::none())
+        .map_err(ScreenshotError::ImportDmabuf)?;
+    let bo_map = bo.map_read().map_err(ScreenshotError::MapDmabuf)?;
+    Ok(bo_map)
 }
 
 pub fn buf_to_bytes(
@@ -145,21 +161,55 @@ pub fn buf_to_bytes(
     buf: &DmaBuf,
     format: ScreenshotFormat,
 ) -> Result<Vec<u8>, ScreenshotError> {
-    let allocator: Rc<dyn Allocator> = match drm_dev {
+    match drm_dev {
+        None => {}
+        Some(_) => {}
+    }
+    let mut allocators =
+        Vec::<Box<dyn FnOnce() -> Result<Rc<dyn Allocator>, ScreenshotError>>>::new();
+    match drm_dev {
         Some(drm_dev) => {
-            let drm = Drm::reopen(drm_dev.raw(), false).map_err(ScreenshotError::OpenDrmDevice)?;
-            GbmDevice::new(&drm)
-                .map(Rc::new)
-                .map_err(ScreenshotError::CreateGbmDevice)?
+            let drm = || Drm::reopen(drm_dev.raw(), false).map_err(ScreenshotError::OpenDrmDevice);
+            let gbm = Box::new(move || {
+                GbmDevice::new(&drm()?)
+                    .map(|d| Rc::new(d) as _)
+                    .map_err(ScreenshotError::CreateGbmDevice)
+            });
+            let vulkan = Box::new(move || {
+                gfx_apis::create_vulkan_allocator(&drm()?)
+                    .map_err(ScreenshotError::CreateVulkanAllocator)
+            });
+            allocators.push(vulkan);
+            allocators.push(gbm);
         }
-        None => Udmabuf::new()
-            .map(Rc::new)
-            .map_err(ScreenshotError::CreateUdmabuf)?,
+        None => {
+            let udmabuf = Box::new(|| {
+                Udmabuf::new()
+                    .map(|u| Rc::new(u) as _)
+                    .map_err(ScreenshotError::CreateUdmabuf)
+            });
+            allocators.push(udmabuf);
+        }
+    }
+    let bo_map = 'create_bo_map: {
+        for allocator in allocators {
+            let allocator = match allocator() {
+                Ok(a) => a,
+                Err(e) => {
+                    log::error!("Could not create allocator: {}", ErrorFmt(e));
+                    continue;
+                }
+            };
+            match map(allocator, buf) {
+                Ok(m) => break 'create_bo_map m,
+                Err(e) => {
+                    log::error!("Could not map dmabuf: {}", ErrorFmt(e));
+                    continue;
+                }
+            };
+        }
+        return Err(ScreenshotError::MapDmabufAny);
     };
-    let bo = allocator
-        .import_dmabuf(buf, BO_USE_LINEAR | BO_USE_RENDERING)
-        .map_err(ScreenshotError::ImportDmabuf)?;
-    let bo_map = bo.map_read().map_err(ScreenshotError::MapDmabuf)?;
     let data = unsafe { bo_map.data() };
     if format == ScreenshotFormat::Qoi {
         return Ok(xrgb8888_encode_qoi(

@@ -1,9 +1,5 @@
 use {
-    crate::{
-        async_engine::AsyncEngine,
-        gfx_apis::vulkan::{util::OnDrop, VulkanError, VULKAN_VALIDATION},
-        io_uring::IoUring,
-    },
+    crate::gfx_apis::vulkan::{util::OnDrop, VulkanError, VULKAN_VALIDATION},
     ahash::{AHashMap, AHashSet},
     ash::{
         ext::{debug_utils, validation_features},
@@ -35,16 +31,11 @@ pub struct VulkanInstance {
     pub(super) instance: Instance,
     pub(super) debug_utils: debug_utils::Instance,
     pub(super) messenger: DebugUtilsMessengerEXT,
-    pub(super) eng: Rc<AsyncEngine>,
-    pub(super) ring: Rc<IoUring>,
+    pub(super) log_level: Level,
 }
 
 impl VulkanInstance {
-    pub fn new(
-        eng: &Rc<AsyncEngine>,
-        ring: &Rc<IoUring>,
-        validation: bool,
-    ) -> Result<Rc<Self>, VulkanError> {
+    pub fn new(log_level: Level, validation: bool) -> Result<Rc<Self>, VulkanError> {
         static ENTRY: Lazy<Result<Entry, Arc<LoadingError>>> =
             Lazy::new(|| unsafe { Entry::load() }.map_err(Arc::new));
         let entry = match &*ENTRY {
@@ -127,8 +118,7 @@ impl VulkanInstance {
             instance,
             debug_utils,
             messenger,
-            eng: eng.clone(),
-            ring: ring.clone(),
+            log_level,
         }))
     }
 }

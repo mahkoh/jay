@@ -57,6 +57,7 @@ pub struct VulkanDevice {
     pub(super) external_semaphore_fd: external_semaphore_fd::Device,
     pub(super) external_fence_fd: external_fence_fd::Device,
     pub(super) push_descriptor: push_descriptor::Device,
+    pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
     pub(super) formats: AHashMap<u32, VulkanFormat>,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,
@@ -104,7 +105,8 @@ impl VulkanInstance {
             Err(e) => return Err(VulkanError::Fstat(e.into())),
         };
         let dev = stat.st_rdev;
-        log::info!(
+        log::log!(
+            self.log_level,
             "Searching for vulkan device with devnum {}:{}",
             uapi::major(dev),
             uapi::minor(dev)
@@ -153,8 +155,13 @@ impl VulkanInstance {
             let render_dev =
                 uapi::makedev(drm_props.render_major as _, drm_props.render_minor as _);
             if primary_dev == dev || render_dev == dev {
-                log::info!("Device with id {} matches", props.device_id);
-                log_device(&props, Some(&extensions), Some(&driver_props));
+                log::log!(self.log_level, "Device with id {} matches", props.device_id);
+                log_device(
+                    self.log_level,
+                    &props,
+                    Some(&extensions),
+                    Some(&driver_props),
+                );
                 return Ok(phy_dev);
             }
             devices.push((props, Some(extensions), Some(driver_props)));
@@ -166,7 +173,12 @@ impl VulkanInstance {
             for (props, extensions, driver_props) in devices.iter() {
                 log::warn!("Found the following devices but none matches:");
                 log::warn!("-----");
-                log_device(props, extensions.as_ref(), driver_props.as_ref());
+                log_device(
+                    self.log_level,
+                    props,
+                    extensions.as_ref(),
+                    driver_props.as_ref(),
+                );
             }
         }
         Err(VulkanError::NoDeviceFound(dev))
@@ -264,6 +276,8 @@ impl VulkanInstance {
         let external_semaphore_fd = external_semaphore_fd::Device::new(&self.instance, &device);
         let external_fence_fd = external_fence_fd::Device::new(&self.instance, &device);
         let push_descriptor = push_descriptor::Device::new(&self.instance, &device);
+        let image_drm_format_modifier =
+            image_drm_format_modifier::Device::new(&self.instance, &device);
         let memory_properties =
             unsafe { self.instance.get_physical_device_memory_properties(phy_dev) };
         let memory_types = memory_properties.memory_types
@@ -283,6 +297,7 @@ impl VulkanInstance {
             external_semaphore_fd,
             external_fence_fd,
             push_descriptor,
+            image_drm_format_modifier,
             formats,
             memory_types,
             graphics_queue,
@@ -302,20 +317,27 @@ const REQUIRED_DEVICE_EXTENSIONS: &[&CStr] = &[
 ];
 
 fn log_device(
+    level: log::Level,
     props: &PhysicalDeviceProperties,
     extensions: Option<&Extensions>,
     driver_props: Option<&PhysicalDeviceDriverProperties>,
 ) {
-    log::info!("  api version: {}", ApiVersionDisplay(props.api_version));
-    log::info!(
+    log::log!(
+        level,
+        "  api version: {}",
+        ApiVersionDisplay(props.api_version)
+    );
+    log::log!(
+        level,
         "  driver version: {}",
         ApiVersionDisplay(props.driver_version)
     );
-    log::info!("  vendor id: {}", props.vendor_id);
-    log::info!("  device id: {}", props.device_id);
-    log::info!("  device type: {:?}", props.device_type);
+    log::log!(level, "  vendor id: {}", props.vendor_id);
+    log::log!(level, "  device id: {}", props.device_id);
+    log::log!(level, "  device type: {:?}", props.device_type);
     unsafe {
-        log::info!(
+        log::log!(
+            level,
             "  device name: {}",
             Ustr::from_ptr(props.device_name.as_ptr()).display()
         );
@@ -330,7 +352,8 @@ fn log_device(
     }
     if let Some(driver_props) = driver_props {
         unsafe {
-            log::info!(
+            log::log!(
+                level,
                 "  driver: {} ({})",
                 Ustr::from_ptr(driver_props.driver_name.as_ptr()).display(),
                 Ustr::from_ptr(driver_props.driver_info.as_ptr()).display()

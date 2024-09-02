@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::SpawnedFuture,
+        async_engine::{AsyncEngine, SpawnedFuture},
         format::Format,
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
@@ -68,6 +68,8 @@ pub struct VulkanRenderer {
     pub(super) allocator: Rc<VulkanAllocator>,
     pub(super) last_point: NumCell<u64>,
     pub(super) buffer_resv_user: BufferResvUser,
+    pub(super) eng: Rc<AsyncEngine>,
+    pub(super) ring: Rc<IoUring>,
 }
 
 pub(super) struct UsedTexture {
@@ -111,7 +113,11 @@ pub(super) struct PendingFrame {
 }
 
 impl VulkanDevice {
-    pub fn create_renderer(self: &Rc<Self>) -> Result<Rc<VulkanRenderer>, VulkanError> {
+    pub fn create_renderer(
+        self: &Rc<Self>,
+        eng: &Rc<AsyncEngine>,
+        ring: &Rc<IoUring>,
+    ) -> Result<Rc<VulkanRenderer>, VulkanError> {
         let fill_pipeline = self.create_pipeline::<FillVertPushConstants, FillFragPushConstants>(
             PipelineCreateInfo {
                 vert: self.create_shader(FILL_VERT)?,
@@ -196,6 +202,8 @@ impl VulkanDevice {
             allocator,
             last_point: Default::default(),
             buffer_resv_user: Default::default(),
+            eng: eng.clone(),
+            ring: ring.clone(),
         }))
     }
 }
@@ -691,9 +699,9 @@ impl VulkanRenderer {
             _release_fence: memory.release_fence.take(),
         });
         self.pending_frames.set(frame.point, frame.clone());
-        let future = self.device.instance.eng.spawn(await_release(
+        let future = self.eng.spawn(await_release(
             memory.release_sync_file.clone(),
-            self.device.instance.ring.clone(),
+            self.ring.clone(),
             frame.clone(),
             self.clone(),
         ));
@@ -776,7 +784,9 @@ impl VulkanRenderer {
                 height: tex.height,
                 depth: 1,
             });
-        let staging = self.create_staging_buffer(size, false, true, true)?;
+        let staging =
+            self.device
+                .create_staging_buffer(&self.allocator, size, false, true, true)?;
         let initial_tex_barrier;
         let initial_buffer_barrier = BufferMemoryBarrier2::default()
             .buffer(staging.buffer)
