@@ -267,6 +267,11 @@ impl Connector {
     pub fn set_tearing_mode(self, mode: TearingMode) {
         get!().set_tearing_mode(Some(self), mode)
     }
+
+    /// Sets the format to use for framebuffers.
+    pub fn set_format(self, format: Format) {
+        get!().connector_set_format(self, format);
+    }
 }
 
 /// Returns all available DRM devices.
@@ -611,4 +616,39 @@ impl TearingMode {
 /// This setting can be overwritten on a per-connector basis with [Connector::set_tearing_mode].
 pub fn set_tearing_mode(mode: TearingMode) {
     get!().set_tearing_mode(None, mode)
+}
+
+/// A graphics format.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Format(pub u32);
+
+impl Format {
+    pub const ARGB8888: Self = Self(0);
+    pub const XRGB8888: Self = Self(1);
+    pub const ABGR8888: Self = Self(2);
+    pub const XBGR8888: Self = Self(3);
+    pub const R8: Self = Self(4);
+    pub const GR88: Self = Self(5);
+    pub const RGB888: Self = Self(6);
+    pub const BGR888: Self = Self(7);
+    pub const RGBA4444: Self = Self(8);
+    pub const RGBX4444: Self = Self(9);
+    pub const BGRA4444: Self = Self(10);
+    pub const BGRX4444: Self = Self(11);
+    pub const RGB565: Self = Self(12);
+    pub const BGR565: Self = Self(13);
+    pub const RGBA5551: Self = Self(14);
+    pub const RGBX5551: Self = Self(15);
+    pub const BGRA5551: Self = Self(16);
+    pub const BGRX5551: Self = Self(17);
+    pub const ARGB1555: Self = Self(18);
+    pub const XRGB1555: Self = Self(19);
+    pub const ARGB2101010: Self = Self(20);
+    pub const XRGB2101010: Self = Self(21);
+    pub const ABGR2101010: Self = Self(22);
+    pub const XBGR2101010: Self = Self(23);
+    pub const ABGR16161616: Self = Self(24);
+    pub const XBGR16161616: Self = Self(25);
+    pub const ABGR16161616F: Self = Self(26);
+    pub const XBGR16161616F: Self = Self(27);
 }

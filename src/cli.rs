@@ -17,10 +17,11 @@ use {
     crate::{
         cli::{damage_tracking::DamageTrackingArgs, input::InputArgs, randr::RandrArgs},
         compositor::start_compositor,
+        format::{ref_formats, Format},
         portal,
     },
     ::log::Level,
-    clap::{Args, Parser, Subcommand, ValueEnum},
+    clap::{builder::PossibleValue, Args, Parser, Subcommand, ValueEnum},
     clap_complete::Shell,
 };
 
@@ -229,6 +230,16 @@ pub struct GenerateArgs {
     /// The shell to generate completions for
     #[clap(value_enum)]
     shell: Shell,
+}
+
+impl ValueEnum for &'static Format {
+    fn value_variants<'a>() -> &'a [Self] {
+        ref_formats()
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(PossibleValue::new(self.name))
+    }
 }
 
 pub fn main() {

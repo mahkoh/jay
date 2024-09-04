@@ -13,6 +13,7 @@ use {
     },
     ahash::AHashMap,
     ash::vk,
+    jay_config::video::Format as ConfigFormat,
     once_cell::sync::Lazy,
     std::fmt::{Debug, Write},
 };
@@ -36,9 +37,10 @@ pub struct Format {
     pub pipewire: SpaVideoFormat,
     pub opaque: Option<&'static Format>,
     pub shm_info: Option<FormatShmInfo>,
+    pub config: ConfigFormat,
 }
 
-const fn default() -> Format {
+const fn default(config: ConfigFormat) -> Format {
     Format {
         name: "",
         vk_format: vk::Format::UNDEFINED,
@@ -49,6 +51,7 @@ const fn default() -> Format {
         pipewire: SPA_VIDEO_FORMAT_UNKNOWN,
         opaque: None,
         shm_info: None,
+        config,
     }
 }
 
@@ -78,10 +81,30 @@ static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::n
     map
 });
 
+static FORMATS_REFS: Lazy<Vec<&'static Format>> = Lazy::new(|| FORMATS.iter().collect());
+
+static FORMATS_NAMES: Lazy<AHashMap<&'static str, &'static Format>> = Lazy::new(|| {
+    let mut map = AHashMap::new();
+    for format in FORMATS {
+        assert!(map.insert(format.name, format).is_none());
+    }
+    map
+});
+
+static FORMATS_CONFIG: Lazy<AHashMap<ConfigFormat, &'static Format>> = Lazy::new(|| {
+    let mut map = AHashMap::new();
+    for format in FORMATS {
+        assert!(map.insert(format.config, format).is_none());
+    }
+    map
+});
+
 #[test]
 fn formats_dont_panic() {
     formats();
     pw_formats();
+    named_formats();
+    config_formats();
 }
 
 pub fn formats() -> &'static AHashMap<u32, &'static Format> {
@@ -90,6 +113,18 @@ pub fn formats() -> &'static AHashMap<u32, &'static Format> {
 
 pub fn pw_formats() -> &'static AHashMap<SpaVideoFormat, &'static Format> {
     &PW_FORMATS_MAP
+}
+
+pub fn ref_formats() -> &'static [&'static Format] {
+    &FORMATS_REFS
+}
+
+pub fn named_formats() -> &'static AHashMap<&'static str, &'static Format> {
+    &FORMATS_NAMES
+}
+
+pub fn config_formats() -> &'static AHashMap<ConfigFormat, &'static Format> {
+    &FORMATS_CONFIG
 }
 
 const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
@@ -136,6 +171,7 @@ pub static ARGB8888: &Format = &Format {
     has_alpha: true,
     pipewire: SPA_VIDEO_FORMAT_BGRA,
     opaque: Some(XRGB8888),
+    config: ConfigFormat::ARGB8888,
 };
 
 pub static XRGB8888: &Format = &Format {
@@ -153,6 +189,7 @@ pub static XRGB8888: &Format = &Format {
     has_alpha: false,
     pipewire: SPA_VIDEO_FORMAT_BGRx,
     opaque: None,
+    config: ConfigFormat::XRGB8888,
 };
 
 static ABGR8888: &Format = &Format {
@@ -170,6 +207,7 @@ static ABGR8888: &Format = &Format {
     has_alpha: true,
     pipewire: SPA_VIDEO_FORMAT_RGBA,
     opaque: Some(XBGR8888),
+    config: ConfigFormat::ABGR8888,
 };
 
 static XBGR8888: &Format = &Format {
@@ -187,6 +225,7 @@ static XBGR8888: &Format = &Format {
     has_alpha: false,
     pipewire: SPA_VIDEO_FORMAT_RGBx,
     opaque: None,
+    config: ConfigFormat::XBGR8888,
 };
 
 static R8: &Format = &Format {
@@ -194,14 +233,14 @@ static R8: &Format = &Format {
     vk_format: vk::Format::R8_UNORM,
     drm: fourcc_code('R', '8', ' ', ' '),
     pipewire: SPA_VIDEO_FORMAT_GRAY8,
-    ..default()
+    ..default(ConfigFormat::R8)
 };
 
 static GR88: &Format = &Format {
     name: "gr88",
     vk_format: vk::Format::R8G8_UNORM,
     drm: fourcc_code('G', 'R', '8', '8'),
-    ..default()
+    ..default(ConfigFormat::GR88)
 };
 
 static RGB888: &Format = &Format {
@@ -209,7 +248,7 @@ static RGB888: &Format = &Format {
     vk_format: vk::Format::B8G8R8_UNORM,
     drm: fourcc_code('R', 'G', '2', '4'),
     pipewire: SPA_VIDEO_FORMAT_BGR,
-    ..default()
+    ..default(ConfigFormat::RGB888)
 };
 
 static BGR888: &Format = &Format {
@@ -217,7 +256,7 @@ static BGR888: &Format = &Format {
     vk_format: vk::Format::R8G8B8_UNORM,
     drm: fourcc_code('B', 'G', '2', '4'),
     pipewire: SPA_VIDEO_FORMAT_RGB,
-    ..default()
+    ..default(ConfigFormat::BGR888)
 };
 
 static RGBA4444: &Format = &Format {
@@ -226,14 +265,14 @@ static RGBA4444: &Format = &Format {
     drm: fourcc_code('R', 'A', '1', '2'),
     has_alpha: true,
     opaque: Some(RGBX4444),
-    ..default()
+    ..default(ConfigFormat::RGBA4444)
 };
 
 static RGBX4444: &Format = &Format {
     name: "rgbx4444",
     vk_format: vk::Format::R4G4B4A4_UNORM_PACK16,
     drm: fourcc_code('R', 'X', '1', '2'),
-    ..default()
+    ..default(ConfigFormat::RGBX4444)
 };
 
 static BGRA4444: &Format = &Format {
@@ -242,14 +281,14 @@ static BGRA4444: &Format = &Format {
     drm: fourcc_code('B', 'A', '1', '2'),
     has_alpha: true,
     opaque: Some(BGRX4444),
-    ..default()
+    ..default(ConfigFormat::BGRA4444)
 };
 
 static BGRX4444: &Format = &Format {
     name: "bgrx4444",
     vk_format: vk::Format::B4G4R4A4_UNORM_PACK16,
     drm: fourcc_code('B', 'X', '1', '2'),
-    ..default()
+    ..default(ConfigFormat::BGRX4444)
 };
 
 static RGB565: &Format = &Format {
@@ -257,7 +296,7 @@ static RGB565: &Format = &Format {
     vk_format: vk::Format::R5G6B5_UNORM_PACK16,
     drm: fourcc_code('R', 'G', '1', '6'),
     pipewire: SPA_VIDEO_FORMAT_BGR16,
-    ..default()
+    ..default(ConfigFormat::RGB565)
 };
 
 static BGR565: &Format = &Format {
@@ -265,7 +304,7 @@ static BGR565: &Format = &Format {
     vk_format: vk::Format::B5G6R5_UNORM_PACK16,
     drm: fourcc_code('B', 'G', '1', '6'),
     pipewire: SPA_VIDEO_FORMAT_RGB16,
-    ..default()
+    ..default(ConfigFormat::BGR565)
 };
 
 static RGBA5551: &Format = &Format {
@@ -274,14 +313,14 @@ static RGBA5551: &Format = &Format {
     drm: fourcc_code('R', 'A', '1', '5'),
     has_alpha: true,
     opaque: Some(RGBX5551),
-    ..default()
+    ..default(ConfigFormat::RGBA5551)
 };
 
 static RGBX5551: &Format = &Format {
     name: "rgbx5551",
     vk_format: vk::Format::R5G5B5A1_UNORM_PACK16,
     drm: fourcc_code('R', 'X', '1', '5'),
-    ..default()
+    ..default(ConfigFormat::RGBX5551)
 };
 
 static BGRA5551: &Format = &Format {
@@ -290,14 +329,14 @@ static BGRA5551: &Format = &Format {
     drm: fourcc_code('B', 'A', '1', '5'),
     has_alpha: true,
     opaque: Some(BGRX5551),
-    ..default()
+    ..default(ConfigFormat::BGRA5551)
 };
 
 static BGRX5551: &Format = &Format {
     name: "bgrx5551",
     vk_format: vk::Format::B5G5R5A1_UNORM_PACK16,
     drm: fourcc_code('B', 'X', '1', '5'),
-    ..default()
+    ..default(ConfigFormat::BGRX5551)
 };
 
 static ARGB1555: &Format = &Format {
@@ -306,7 +345,7 @@ static ARGB1555: &Format = &Format {
     drm: fourcc_code('A', 'R', '1', '5'),
     has_alpha: true,
     opaque: Some(XRGB1555),
-    ..default()
+    ..default(ConfigFormat::ARGB1555)
 };
 
 static XRGB1555: &Format = &Format {
@@ -314,7 +353,7 @@ static XRGB1555: &Format = &Format {
     vk_format: vk::Format::A1R5G5B5_UNORM_PACK16,
     drm: fourcc_code('X', 'R', '1', '5'),
     pipewire: SPA_VIDEO_FORMAT_BGR15,
-    ..default()
+    ..default(ConfigFormat::XRGB1555)
 };
 
 static ARGB2101010: &Format = &Format {
@@ -324,7 +363,7 @@ static ARGB2101010: &Format = &Format {
     has_alpha: true,
     opaque: Some(XRGB2101010),
     pipewire: SPA_VIDEO_FORMAT_ARGB_210LE,
-    ..default()
+    ..default(ConfigFormat::ARGB2101010)
 };
 
 static XRGB2101010: &Format = &Format {
@@ -332,7 +371,7 @@ static XRGB2101010: &Format = &Format {
     vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
     drm: fourcc_code('X', 'R', '3', '0'),
     pipewire: SPA_VIDEO_FORMAT_xRGB_210LE,
-    ..default()
+    ..default(ConfigFormat::XRGB2101010)
 };
 
 static ABGR2101010: &Format = &Format {
@@ -342,7 +381,7 @@ static ABGR2101010: &Format = &Format {
     has_alpha: true,
     opaque: Some(XBGR2101010),
     pipewire: SPA_VIDEO_FORMAT_ABGR_210LE,
-    ..default()
+    ..default(ConfigFormat::ABGR2101010)
 };
 
 static XBGR2101010: &Format = &Format {
@@ -350,7 +389,7 @@ static XBGR2101010: &Format = &Format {
     vk_format: vk::Format::A2B10G10R10_UNORM_PACK32,
     drm: fourcc_code('X', 'B', '3', '0'),
     pipewire: SPA_VIDEO_FORMAT_xBGR_210LE,
-    ..default()
+    ..default(ConfigFormat::XBGR2101010)
 };
 
 static ABGR16161616: &Format = &Format {
@@ -359,14 +398,14 @@ static ABGR16161616: &Format = &Format {
     drm: fourcc_code('A', 'B', '4', '8'),
     has_alpha: true,
     opaque: Some(XBGR16161616),
-    ..default()
+    ..default(ConfigFormat::ABGR16161616)
 };
 
 static XBGR16161616: &Format = &Format {
     name: "xbgr16161616",
     vk_format: vk::Format::R16G16B16A16_UNORM,
     drm: fourcc_code('X', 'B', '4', '8'),
-    ..default()
+    ..default(ConfigFormat::XBGR16161616)
 };
 
 static ABGR16161616F: &Format = &Format {
@@ -375,14 +414,14 @@ static ABGR16161616F: &Format = &Format {
     drm: fourcc_code('A', 'B', '4', 'H'),
     has_alpha: true,
     opaque: Some(XBGR16161616F),
-    ..default()
+    ..default(ConfigFormat::ABGR16161616F)
 };
 
 static XBGR16161616F: &Format = &Format {
     name: "xbgr16161616f",
     vk_format: vk::Format::R16G16B16A16_SFLOAT,
     drm: fourcc_code('X', 'B', '4', 'H'),
-    ..default()
+    ..default(ConfigFormat::XBGR16161616F)
 };
 
 pub static FORMATS: &[Format] = &[

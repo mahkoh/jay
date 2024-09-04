@@ -11,6 +11,7 @@ use {
         compositor::TestFuture,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
+        format::XRGB8888,
         gfx_api::GfxError,
         gfx_apis::create_vulkan_allocator,
         ifs::wl_output::OutputId,

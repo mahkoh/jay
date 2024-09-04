@@ -250,6 +250,10 @@ impl ConnectorHandler {
                     ConnectorEvent::VrrChanged(enabled) => {
                         on.schedule.set_vrr_enabled(enabled);
                     }
+                    ConnectorEvent::FormatsChanged(formats, format) => {
+                        on.global.formats.set(formats);
+                        on.global.format.set(format);
+                    }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
             }

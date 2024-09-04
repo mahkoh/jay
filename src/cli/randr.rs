@@ -1,6 +1,7 @@
 use {
     crate::{
         cli::GlobalArgs,
+        format::{Format, XRGB8888},
         scale::Scale,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
@@ -44,6 +45,9 @@ pub struct ShowArgs {
     /// Show all available modes.
     #[arg(long)]
     pub modes: bool,
+    /// Show all available formats.
+    #[arg(long)]
+    pub formats: bool,
 }
 
 #[derive(Args, Debug)]
@@ -122,6 +126,8 @@ pub enum OutputCommand {
     Vrr(VrrArgs),
     /// Change tearing settings.
     Tearing(TearingArgs),
+    /// Change format settings.
+    Format(FormatSettings),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -175,6 +181,21 @@ pub enum VrrModeArg {
 pub struct CursorHzArgs {
     /// The rate at which the cursor will be updated on screen.
     pub rate: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FormatSettings {
+    #[clap(subcommand)]
+    pub command: FormatCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum FormatCommand {
+    /// Sets the format of the framebuffer.
+    Set {
+        #[clap(value_enum)]
+        format: &'static Format,
+    },
 }
 
 #[derive(Args, Debug, Clone)]
@@ -318,6 +339,8 @@ struct Output {
     pub vrr_mode: VrrMode,
     pub vrr_cursor_hz: Option<f64>,
     pub tearing_mode: TearingMode,
+    pub formats: Vec<String>,
+    pub format: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -546,6 +569,20 @@ impl Randr {
                     }
                 }
             }
+            OutputCommand::Format(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the framebuffer format: {}", msg);
+                });
+                match a.command {
+                    FormatCommand::Set { format } => {
+                        tc.send(jay_randr::SetFbFormat {
+                            self_id: randr,
+                            output: &args.output,
+                            format: format.name,
+                        });
+                    }
+                }
+            }
         }
         tc.round_trip().await;
     }
@@ -609,7 +646,7 @@ impl Randr {
                 .collect();
             connectors.sort_by_key(|c| &c.name);
             for c in connectors {
-                self.print_connector(c, args.modes);
+                self.print_connector(c, args.modes, args.formats);
             }
         }
         {
@@ -622,7 +659,7 @@ impl Randr {
                 connectors.sort_by_key(|c| &c.name);
                 println!("unbound connectors:");
                 for c in connectors {
-                    self.print_connector(c, args.modes);
+                    self.print_connector(c, args.modes, args.formats);
                 }
             }
         }
@@ -639,7 +676,7 @@ impl Randr {
         }
     }
 
-    fn print_connector(&self, connector: &Connector, modes: bool) {
+    fn print_connector(&self, connector: &Connector, modes: bool, formats: bool) {
         println!("      {}:", connector.name);
         let Some(o) = &connector.output else {
             if !connector.enabled {
@@ -701,6 +738,11 @@ impl Randr {
             print!("        mode: ");
             self.print_mode(mode, false);
         }
+        if let Some(format) = &o.format {
+            if format != XRGB8888.name {
+                println!("        format: {format}");
+            }
+        }
         if o.scale != 1.0 {
             println!("        scale: {}", o.scale);
         }
@@ -722,6 +764,12 @@ impl Randr {
             for mode in &o.modes {
                 print!("          ");
                 self.print_mode(mode, true);
+            }
+        }
+        if o.formats.is_not_empty() && formats {
+            println!("        formats:");
+            for format in &o.formats {
+                println!("          {format}");
             }
         }
     }
@@ -788,6 +836,8 @@ impl Randr {
                 vrr_mode: VrrMode::NEVER,
                 vrr_cursor_hz: None,
                 tearing_mode: TearingMode::NEVER,
+                formats: vec![],
+                format: None,
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -813,6 +863,8 @@ impl Randr {
                 vrr_mode: VrrMode::NEVER,
                 vrr_cursor_hz: None,
                 tearing_mode: TearingMode::NEVER,
+                formats: vec![],
+                format: None,
             });
         });
         jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
@@ -834,6 +886,15 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.tearing_mode = TearingMode(msg.mode);
+        });
+        jay_randr::FbFormat::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.formats.push(msg.name.to_string());
+            if msg.current != 0 {
+                output.format = Some(msg.name.to_string());
+            }
         });
         jay_randr::Mode::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

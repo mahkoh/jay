@@ -25,7 +25,7 @@ use {
         timer::Timer,
         video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, DrmDevice, GfxApi, Mode, TearingMode, Transform, VrrMode,
+            Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, Transform, VrrMode,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
@@ -752,6 +752,10 @@ impl Client {
 
     pub fn connector_set_scale(&self, connector: Connector, scale: f64) {
         self.send(&ClientMessage::ConnectorSetScale { connector, scale });
+    }
+
+    pub fn connector_set_format(&self, connector: Connector, format: Format) {
+        self.send(&ClientMessage::ConnectorSetFormat { connector, format });
     }
 
     pub fn connector_get_scale(&self, connector: Connector) -> f64 {

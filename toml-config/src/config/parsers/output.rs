@@ -5,6 +5,7 @@ use {
             extractor::{fltorint, opt, recover, s32, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
+                format::FormatParser,
                 mode::ModeParser,
                 output_match::{OutputMatchParser, OutputMatchParserError},
                 tearing::TearingParser,
@@ -48,8 +49,8 @@ impl<'a> Parser for OutputParser<'a> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val) =
-            ext.extract((
+        let (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val) = ext
+            .extract((
                 opt(str("name")),
                 val("match"),
                 recover(opt(s32("x"))),
@@ -59,6 +60,7 @@ impl<'a> Parser for OutputParser<'a> {
                 opt(val("mode")),
                 opt(val("vrr")),
                 opt(val("tearing")),
+                opt(val("format")),
             ))?;
         let transform = match transform {
             None => None,
@@ -119,6 +121,18 @@ impl<'a> Parser for OutputParser<'a> {
                 }
             }
         }
+        let mut format = None;
+        if let Some(value) = format_val {
+            match value.parse(&mut FormatParser) {
+                Ok(v) => format = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse framebuffer format setting: {}",
+                        self.cx.error(e)
+                    );
+                }
+            }
+        }
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
@@ -129,6 +143,7 @@ impl<'a> Parser for OutputParser<'a> {
             mode,
             vrr,
             tearing,
+            format,
         })
     }
 }

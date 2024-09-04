@@ -22,7 +22,7 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
-        video::{GfxApi, TearingMode, Transform, VrrMode},
+        video::{Format, GfxApi, TearingMode, Transform, VrrMode},
         Axis, Direction, Workspace,
     },
     std::{
@@ -208,6 +208,7 @@ pub struct Output {
     pub mode: Option<Mode>,
     pub vrr: Option<Vrr>,
     pub tearing: Option<Tearing>,
+    pub format: Option<Format>,
 }
 
 #[derive(Debug, Clone)]

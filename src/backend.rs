@@ -3,6 +3,7 @@ use {
         async_engine::SpawnedFuture,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
+        format::Format,
         gfx_api::{GfxFramebuffer, SyncFile},
         ifs::{
             wl_output::OutputId,
@@ -116,6 +117,9 @@ pub trait Connector {
     fn set_tearing_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+    fn set_fb_format(&self, format: &'static Format) {
+        let _ = format;
+    }
 }
 
 #[derive(Debug)]
@@ -128,6 +132,7 @@ pub enum ConnectorEvent {
     Unavailable,
     Available,
     VrrChanged(bool),
+    FormatsChanged(Rc<Vec<&'static Format>>, &'static Format),
 }
 
 pub trait HardwareCursor: Debug {

@@ -70,6 +70,11 @@ request set_tearing_mode (since = 3) {
     mode: u32,
 }
 
+request set_fb_format (since = 8) {
+    output: str,
+    format: str,
+}
+
 # events
 
 event global {
@@ -140,4 +145,9 @@ event vrr_cursor_hz (since = 2) {
 
 event tearing_state (since = 3) {
     mode: u32,
+}
+
+event fb_format (since = 8) {
+    name: str,
+    current: u32,
 }

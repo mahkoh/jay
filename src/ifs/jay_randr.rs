@@ -3,6 +3,7 @@ use {
         backend,
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
+        format::named_formats,
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
@@ -27,6 +28,7 @@ pub struct JayRandr {
 
 const VRR_CAPABLE_SINCE: Version = Version(2);
 const TEARING_SINCE: Version = Version(3);
+const FORMAT_SINCE: Version = Version(8);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -124,6 +126,23 @@ impl JayRandr {
                 self_id: self.id,
                 mode: node.global.persistent.tearing_mode.get().to_config().0,
             });
+        }
+        if self.version >= FORMAT_SINCE {
+            let current = node.global.format.get();
+            self.client.event(FbFormat {
+                self_id: self.id,
+                name: current.name,
+                current: 1,
+            });
+            for &format in &*node.global.formats.get() {
+                if format != current {
+                    self.client.event(FbFormat {
+                        self_id: self.id,
+                        name: format.name,
+                        current: 0,
+                    });
+                }
+            }
         }
         let current_mode = global.mode.get();
         for mode in &global.modes {
@@ -365,6 +384,17 @@ impl JayRandrRequestHandler for JayRandr {
         c.update_presentation_type();
         return Ok(());
     }
+
+    fn set_fb_format(&self, req: SetFbFormat<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(&format) = named_formats().get(req.format) else {
+            return Err(JayRandrError::UnknownFormat(req.format.to_string()));
+        };
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.global.connector.connector.set_fb_format(format);
+        Ok(())
+    }
 }
 
 object_base! {
@@ -384,5 +414,7 @@ pub enum JayRandrError {
     UnknownVrrMode(u32),
     #[error("Unknown tearing mode {0}")]
     UnknownTearingMode(u32),
+    #[error("Unknown format {0}")]
+    UnknownFormat(String),
 }
 efrom!(JayRandrError, ClientError);
