@@ -2,16 +2,21 @@ mod screencast_gui;
 
 use {
     crate::{
+        allocator::{AllocatorError, BufferObject, BO_USE_RENDERING},
         dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply},
+        format::{Format, XRGB8888},
+        ifs::jay_screencast::CLIENT_BUFFERS_SINCE,
         pipewire::{
             pw_con::PwCon,
             pw_ifs::pw_client_node::{
                 PwClientNode, PwClientNodeBufferConfig, PwClientNodeOwner, PwClientNodePort,
-                PwClientNodePortSupportedFormats, SUPPORTED_META_VIDEO_CROP,
+                PwClientNodePortSupportedFormat, PwClientNodePortSupportedFormats,
+                SUPPORTED_META_VIDEO_CROP,
             },
             pw_pod::{
                 spa_point, spa_rectangle, spa_region, PwPodRectangle, SPA_DATA_DmaBuf,
                 SPA_MEDIA_SUBTYPE_raw, SPA_MEDIA_TYPE_video, SpaChunkFlags, SPA_STATUS_HAVE_DATA,
+                SPA_VIDEO_FORMAT_UNKNOWN,
             },
         },
         portal::{
@@ -22,9 +27,10 @@ use {
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
         },
-        video::dmabuf::{DmaBuf, PlaneVec},
+        video::{dmabuf::DmaBuf, Modifier, LINEAR_MODIFIER},
         wire::jay_screencast::Ready,
         wire_dbus::{
             org,
@@ -37,11 +43,15 @@ use {
             },
         },
         wl_usr::usr_ifs::{
-            usr_jay_screencast::{UsrJayScreencast, UsrJayScreencastOwner},
+            usr_jay_screencast::{
+                UsrJayScreencast, UsrJayScreencastOwner, UsrJayScreencastServerConfig,
+            },
             usr_jay_select_toplevel::UsrJaySelectToplevel,
             usr_jay_select_workspace::UsrJaySelectWorkspace,
             usr_jay_toplevel::UsrJayToplevel,
             usr_jay_workspace::UsrJayWorkspace,
+            usr_linux_buffer_params::{UsrLinuxBufferParams, UsrLinuxBufferParamsOwner},
+            usr_wl_buffer::UsrWlBuffer,
         },
     },
     std::{
@@ -51,6 +61,7 @@ use {
         rc::Rc,
         sync::atomic::Ordering::{Acquire, Relaxed, Release},
     },
+    thiserror::Error,
 };
 
 shared_ids!(ScreencastSessionId);
@@ -120,10 +131,18 @@ pub struct StartedScreencast {
     session: Rc<ScreencastSession>,
     node: Rc<PwClientNode>,
     port: Rc<PwClientNodePort>,
-    buffers: RefCell<PlaneVec<DmaBuf>>,
+    buffer_objects: RefCell<Vec<Rc<dyn BufferObject>>>,
+    buffers: RefCell<Vec<DmaBuf>>,
+    pending_buffers: RefCell<Vec<Rc<UsrLinuxBufferParams>>>,
     buffers_valid: Cell<bool>,
     dpy: Rc<PortalDisplay>,
     jay_screencast: Rc<UsrJayScreencast>,
+    port_buffer_valid: Cell<bool>,
+    fixated: Cell<bool>,
+    format: Cell<&'static Format>,
+    modifier: Cell<Modifier>,
+    width: Cell<i32>,
+    height: Cell<i32>,
 }
 
 bitflags! {
@@ -164,7 +183,36 @@ impl PwClientNodeOwner for StartingScreencast {
                 results: Cow::Borrowed(variants),
             });
         }
-        let port = self.node.create_port(true);
+        let mut supported_formats = PwClientNodePortSupportedFormats {
+            media_type: Some(SPA_MEDIA_TYPE_video),
+            media_sub_type: Some(SPA_MEDIA_SUBTYPE_raw),
+            video_size: None,
+            formats: vec![PwClientNodePortSupportedFormat {
+                format: XRGB8888,
+                modifiers: vec![LINEAR_MODIFIER],
+            }],
+        };
+        if let Some(ctx) = self.dpy.render_ctx.get() {
+            if let Some(server_formats) = &ctx.server_formats {
+                supported_formats.formats.clear();
+                for format in server_formats.values() {
+                    if format.write_modifiers.is_empty() {
+                        continue;
+                    }
+                    if format.format.pipewire == SPA_VIDEO_FORMAT_UNKNOWN {
+                        continue;
+                    }
+                    let ptl_format = PwClientNodePortSupportedFormat {
+                        format: format.format,
+                        modifiers: format.write_modifiers.iter().copied().collect(),
+                    };
+                    supported_formats.formats.push(ptl_format);
+                }
+            }
+        }
+        let jsc_version = self.dpy.jc.version;
+        let num_buffers = (jsc_version >= CLIENT_BUFFERS_SINCE).then_some(3);
+        let port = self.node.create_port(true, supported_formats, num_buffers);
         port.can_alloc_buffers.set(true);
         port.supported_metas.set(SUPPORTED_META_VIDEO_CROP);
         let jsc = self.dpy.jc.create_screencast();
@@ -194,10 +242,18 @@ impl PwClientNodeOwner for StartingScreencast {
             session: self.session.clone(),
             node: self.node.clone(),
             port,
+            buffer_objects: Default::default(),
             buffers: Default::default(),
+            pending_buffers: Default::default(),
             buffers_valid: Cell::new(false),
             dpy: self.dpy.clone(),
             jay_screencast: jsc,
+            port_buffer_valid: Cell::new(false),
+            fixated: Cell::new(jsc_version < CLIENT_BUFFERS_SINCE),
+            format: Cell::new(XRGB8888),
+            modifier: Cell::new(LINEAR_MODIFIER),
+            width: Cell::new(1),
+            height: Cell::new(1),
         });
         self.session
             .phase
@@ -209,13 +265,84 @@ impl PwClientNodeOwner for StartingScreencast {
 
 impl PwClientNodeOwner for StartedScreencast {
     fn port_format_changed(&self, port: &Rc<PwClientNodePort>) {
-        self.node.send_port_update(port, false);
+        let format = &*port.negotiated_format.borrow();
+        if self.fixated.get() {
+            return;
+        }
+        let (Some(fmt), Some(modifiers)) = (format.format, &format.modifiers) else {
+            return;
+        };
+        let modifier;
+        let planes;
+        match self.allocate_buffer(fmt, modifiers, 1, 1) {
+            Ok(bo) => {
+                let dmabuf = bo.dmabuf();
+                modifier = dmabuf.modifier;
+                planes = dmabuf.planes.len();
+            }
+            Err(e) => {
+                log::error!("Could not allocate buffer: {}", ErrorFmt(e));
+                self.session.kill();
+                return;
+            }
+        };
+        self.port.supported_formats.borrow_mut().formats = vec![PwClientNodePortSupportedFormat {
+            format: fmt,
+            modifiers: vec![modifier],
+        }];
+        self.port.buffer_config.borrow_mut().planes = Some(planes);
+        self.node.send_port_update(&self.port, true);
+        self.format.set(fmt);
+        self.modifier.set(modifier);
+        self.fixated.set(true);
     }
 
-    fn use_buffers(&self, port: &Rc<PwClientNodePort>) {
+    fn use_buffers(self: Rc<Self>, port: &Rc<PwClientNodePort>) {
+        if self.jay_screencast.version < CLIENT_BUFFERS_SINCE {
+            self.node
+                .send_port_output_buffers(port, &self.buffers.borrow_mut());
+            self.buffers_valid.set(true);
+            return;
+        }
+        self.buffers_valid.set(false);
+        self.port_buffer_valid.set(false);
+        let Some(dmabuf) = self.dpy.dmabuf.get() else {
+            log::error!("Display does not support dmabuf");
+            self.session.kill();
+            return;
+        };
+        self.jay_screencast.clear_buffers();
+        self.jay_screencast.configure();
+        self.buffer_objects.borrow_mut().clear();
+        self.buffers.borrow_mut().clear();
+        for buffer in self.pending_buffers.borrow_mut().drain(..) {
+            self.dpy.con.remove_obj(&*buffer);
+        }
+        for _ in 0..self.port.buffers.borrow().len() {
+            let res = self.allocate_buffer(
+                self.format.get(),
+                &[self.modifier.get()],
+                self.width.get(),
+                self.height.get(),
+            );
+            match res {
+                Ok(b) => {
+                    let params = dmabuf.create_params();
+                    params.create(&b.dmabuf());
+                    params.owner.set(Some(self.clone()));
+                    self.buffers.borrow_mut().push(b.dmabuf().clone());
+                    self.buffer_objects.borrow_mut().push(b);
+                    self.pending_buffers.borrow_mut().push(params);
+                }
+                Err(e) => {
+                    log::error!("Could not allocate buffer: {}", ErrorFmt(e));
+                    self.session.kill();
+                    return;
+                }
+            }
+        }
         self.node
-            .send_port_output_buffers(port, &self.buffers.borrow_mut());
-        self.buffers_valid.set(true);
+            .send_port_output_buffers(&self.port, &self.buffers.borrow());
     }
 
     fn start(self: Rc<Self>) {
@@ -231,6 +358,37 @@ impl PwClientNodeOwner for StartedScreencast {
     fn suspend(self: Rc<Self>) {
         self.jay_screencast.set_running(false);
         self.jay_screencast.configure();
+    }
+}
+
+#[derive(Debug, Error)]
+enum BufferAllocationError {
+    #[error("Display has no render context")]
+    NoRenderContext,
+    #[error(transparent)]
+    Allocator(#[from] AllocatorError),
+}
+
+impl StartedScreencast {
+    fn allocate_buffer(
+        &self,
+        format: &'static Format,
+        modifiers: &[Modifier],
+        width: i32,
+        height: i32,
+    ) -> Result<Rc<dyn BufferObject>, BufferAllocationError> {
+        let Some(ctx) = self.dpy.render_ctx.get() else {
+            return Err(BufferAllocationError::NoRenderContext);
+        };
+        let buffer = ctx.ctx.ctx.allocator().create_bo(
+            &self.dpy.state.dma_buf_ids,
+            width,
+            height,
+            format,
+            modifiers,
+            BO_USE_RENDERING,
+        )?;
+        Ok(buffer)
     }
 }
 
@@ -300,6 +458,9 @@ impl ScreencastSession {
                 s.jay_screencast.con.remove_obj(s.jay_screencast.deref());
                 s.node.con.destroy_obj(s.node.deref());
                 s.dpy.screencasts.remove(self.session_obj.path());
+                for buffer in s.pending_buffers.borrow_mut().drain(..) {
+                    s.dpy.con.remove_obj(&*buffer);
+                }
             }
         }
     }
@@ -375,32 +536,31 @@ impl ScreencastSession {
 }
 
 impl UsrJayScreencastOwner for StartedScreencast {
-    fn buffers(&self, buffers: PlaneVec<DmaBuf>) {
+    fn buffers(&self, buffers: Vec<DmaBuf>) {
         if buffers.len() == 0 {
             return;
         }
         let buffer = &buffers[0];
-        *self.port.supported_formats.borrow_mut() = Some(PwClientNodePortSupportedFormats {
+        *self.port.supported_formats.borrow_mut() = PwClientNodePortSupportedFormats {
             media_type: Some(SPA_MEDIA_TYPE_video),
             media_sub_type: Some(SPA_MEDIA_SUBTYPE_raw),
             video_size: Some(PwPodRectangle {
                 width: buffer.width as _,
                 height: buffer.height as _,
             }),
-            formats: vec![buffer.format],
-            modifiers: vec![buffer.modifier],
-        });
-        let bc = PwClientNodeBufferConfig {
-            num_buffers: buffers.len(),
-            planes: buffer.planes.len(),
-            _stride: Some(buffer.planes[0].stride),
-            _size: Some(buffer.planes[0].stride * buffer.height as u32),
-            _align: 16,
+            formats: vec![PwClientNodePortSupportedFormat {
+                format: buffer.format,
+                modifiers: vec![buffer.modifier],
+            }],
+        };
+        *self.port.buffer_config.borrow_mut() = PwClientNodeBufferConfig {
+            num_buffers: Some(buffers.len()),
+            planes: Some(buffer.planes.len()),
             data_type: SPA_DATA_DmaBuf,
         };
-        self.port.buffer_config.set(Some(bc));
         self.node.send_port_update(&self.port, true);
         self.node.send_active(true);
+        self.fixated.set(true);
         *self.buffers.borrow_mut() = buffers;
         self.buffers_valid.set(false);
     }
@@ -414,7 +574,6 @@ impl UsrJayScreencastOwner for StartedScreencast {
             self.jay_screencast.release_buffer(idx);
         };
         if !self.buffers_valid.get() {
-            discard_buffer();
             return;
         }
         let Some(io) = self.port.io_buffers.get() else {
@@ -447,17 +606,45 @@ impl UsrJayScreencastOwner for StartedScreencast {
             };
         }
         let buffer_id = io.buffer_id.load(Relaxed) as usize;
-        if buffer_id != idx {
-            if buffer_id < buffers.len() {
-                self.jay_screencast.release_buffer(buffer_id);
+        if self.port_buffer_valid.get() {
+            if buffer_id != idx {
+                if buffer_id < buffers.len() {
+                    self.jay_screencast.release_buffer(buffer_id);
+                }
             }
         }
         io.buffer_id.store(ev.idx, Relaxed);
         io.status.store(SPA_STATUS_HAVE_DATA.0, Release);
+        self.port_buffer_valid.set(true);
         self.port.node.drive();
     }
 
     fn destroyed(&self) {
+        self.session.kill();
+    }
+
+    fn config(&self, config: UsrJayScreencastServerConfig) {
+        self.width.set(config.width.max(1));
+        self.height.set(config.height.max(1));
+        self.port.supported_formats.borrow_mut().video_size = Some(PwPodRectangle {
+            width: self.width.get() as _,
+            height: self.height.get() as _,
+        });
+        self.node.send_port_update(&self.port, self.fixated.get());
+        self.node.send_active(true);
+    }
+}
+
+impl UsrLinuxBufferParamsOwner for StartedScreencast {
+    fn created(&self, buffer: Rc<UsrWlBuffer>) {
+        self.buffers_valid.set(true);
+        self.jay_screencast.add_buffer(&buffer);
+        self.jay_screencast.configure();
+        self.dpy.con.remove_obj(&*buffer);
+    }
+
+    fn failed(&self) {
+        log::error!("Buffer import failed");
         self.session.kill();
     }
 }

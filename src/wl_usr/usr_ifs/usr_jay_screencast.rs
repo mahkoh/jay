@@ -8,7 +8,7 @@ use {
         wl_usr::{
             usr_ifs::{
                 usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel,
-                usr_jay_workspace::UsrJayWorkspace,
+                usr_jay_workspace::UsrJayWorkspace, usr_wl_buffer::UsrWlBuffer,
             },
             usr_object::UsrObject,
             UsrCon,
@@ -24,7 +24,7 @@ pub struct UsrJayScreencast {
     pub owner: CloneCell<Option<Rc<dyn UsrJayScreencastOwner>>>,
     pub version: Version,
 
-    pub pending_buffers: RefCell<PlaneVec<DmaBuf>>,
+    pub pending_buffers: RefCell<Vec<DmaBuf>>,
     pub pending_planes: RefCell<PlaneVec<DmaBufPlane>>,
 
     pub pending_config: RefCell<UsrJayScreencastServerConfig>,
@@ -37,10 +37,12 @@ pub struct UsrJayScreencastServerConfig {
     pub running: bool,
     pub use_linear_buffers: bool,
     pub allowed_workspaces: Vec<u32>,
+    pub width: i32,
+    pub height: i32,
 }
 
 pub trait UsrJayScreencastOwner {
-    fn buffers(&self, buffers: PlaneVec<DmaBuf>) {
+    fn buffers(&self, buffers: Vec<DmaBuf>) {
         let _ = buffers;
     }
 
@@ -114,6 +116,17 @@ impl UsrJayScreencast {
         self.con.request(ReleaseBuffer {
             self_id: self.id,
             idx: idx as _,
+        });
+    }
+
+    pub fn clear_buffers(&self) {
+        self.con.request(ClearBuffers { self_id: self.id });
+    }
+
+    pub fn add_buffer(&self, buffer: &UsrWlBuffer) {
+        self.con.request(AddBuffer {
+            self_id: self.id,
+            buffer: buffer.id,
         });
     }
 }
@@ -226,6 +239,12 @@ impl JayScreencastEventHandler for UsrJayScreencast {
             self_id: self.id,
             serial: ev.serial,
         });
+        Ok(())
+    }
+
+    fn config_size(&self, ev: ConfigSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.pending_config.borrow_mut().width = ev.width;
+        self.pending_config.borrow_mut().height = ev.height;
         Ok(())
     }
 }

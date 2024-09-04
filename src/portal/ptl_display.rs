@@ -1,11 +1,15 @@
 use {
     crate::{
+        gfx_api::{cross_intersect_formats, GfxFormat},
         gfx_apis::create_gfx_context,
         ifs::wl_seat::POINTER,
         object::Version,
         portal::{
-            ptl_remote_desktop::RemoteDesktopSession, ptl_render_ctx::PortalRenderCtx,
-            ptl_screencast::ScreencastSession, ptr_gui::WindowData, PortalState,
+            ptl_remote_desktop::RemoteDesktopSession,
+            ptl_render_ctx::{PortalRenderCtx, PortalServerRenderCtx},
+            ptl_screencast::ScreencastSession,
+            ptr_gui::WindowData,
+            PortalState,
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -67,7 +71,7 @@ pub struct PortalDisplay {
     pub comp: Rc<UsrWlCompositor>,
     pub fsm: Rc<UsrWpFractionalScaleManager>,
     pub vp: Rc<UsrWpViewporter>,
-    pub render_ctx: CloneCell<Option<Rc<PortalRenderCtx>>>,
+    pub render_ctx: CloneCell<Option<Rc<PortalServerRenderCtx>>>,
 
     pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
     pub seats: CopyHashMap<u32, Rc<PortalSeat>>,
@@ -156,7 +160,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         self.render_ctx.take();
     }
 
-    fn device(&self, fd: Rc<OwnedFd>) {
+    fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<AHashMap<u32, GfxFormat>>) {
         self.render_ctx.take();
         let dev_id = match uapi::fstat(fd.raw()) {
             Ok(s) => s.st_rdev,
@@ -165,12 +169,13 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                 return;
             }
         };
+        let mut render_ctx = None;
         if let Some(ctx) = self.state.render_ctxs.get(&dev_id) {
             if let Some(ctx) = ctx.upgrade() {
-                self.render_ctx.set(Some(ctx));
+                render_ctx = Some(ctx);
             }
         }
-        if self.render_ctx.is_none() {
+        if render_ctx.is_none() {
             let drm = Drm::open_existing(fd);
             let ctx =
                 match create_gfx_context(&self.state.eng, &self.state.ring, &drm, GfxApi::OpenGl) {
@@ -187,8 +192,22 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                 _dev_id: dev_id,
                 ctx,
             });
-            self.render_ctx.set(Some(ctx.clone()));
             self.state.render_ctxs.set(dev_id, Rc::downgrade(&ctx));
+            render_ctx = Some(ctx);
+        }
+        if let Some(ctx) = render_ctx {
+            let client_formats = ctx.ctx.formats();
+            let usable_formats = match &server_formats {
+                None => client_formats,
+                Some(server_formats) => {
+                    Rc::new(cross_intersect_formats(&client_formats, server_formats))
+                }
+            };
+            self.render_ctx.set(Some(Rc::new(PortalServerRenderCtx {
+                ctx,
+                usable_formats,
+                server_formats,
+            })));
         }
     }
 }
@@ -304,7 +323,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     con: dpy.con.clone(),
                     owner: Default::default(),
                     caps: Default::default(),
-                    version: Version(version.min(5)),
+                    version: Version(version.min(7)),
                 });
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, jc.version.0, jc.deref());

@@ -11,16 +11,41 @@ use {
     thiserror::Error,
 };
 
+pub const FORMATS_SINCE: Version = Version(7);
+
 pub struct JayRenderCtx {
     pub id: JayRenderCtxId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl JayRenderCtx {
     pub fn send_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
         let mut fd = None;
         if let Some(ctx) = ctx {
+            if self.version >= FORMATS_SINCE {
+                for format in ctx.formats().values() {
+                    self.client.event(Format {
+                        self_id: self.id,
+                        format: format.format.drm,
+                    });
+                    for modifier in &format.write_modifiers {
+                        self.client.event(WriteModifier {
+                            self_id: self.id,
+                            format: format.format.drm,
+                            modifier: *modifier,
+                        });
+                    }
+                    for modifier in &format.read_modifiers {
+                        self.client.event(ReadModifier {
+                            self_id: self.id,
+                            format: format.format.drm,
+                            modifier: *modifier,
+                        });
+                    }
+                }
+            }
             let allocator = ctx.allocator();
             match allocator.drm() {
                 Some(drm) => match drm.dup_render() {
@@ -33,8 +58,6 @@ impl JayRenderCtx {
                     log::error!("Allocator does not have a DRM device");
                 }
             }
-        } else {
-            self.client.event(NoDevice { self_id: self.id });
         }
         match fd {
             Some(fd) => self.client.event(Device {
