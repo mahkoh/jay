@@ -599,7 +599,8 @@ impl WindowData {
             Some(c) => c,
             _ => return,
         };
-        let (mut width, mut height) = content.layout(&ctx.ctx, scale, f32::INFINITY, f32::INFINITY);
+        let (mut width, mut height) =
+            content.layout(&ctx.ctx.ctx, scale, f32::INFINITY, f32::INFINITY);
         content.data().width.set(width);
         content.data().height.set(height);
         width = width.max(1.0);
@@ -710,7 +711,7 @@ impl WindowData {
         self.frame_missed.set(true);
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
-        let formats = ctx.ctx.formats();
+        let formats = &ctx.usable_formats;
         let format = match formats.get(&ARGB8888.drm) {
             None => {
                 log::error!("Render context does not support ARGB8888 format");
@@ -724,7 +725,7 @@ impl WindowData {
         }
         let modifiers: Vec<_> = format.write_modifiers.iter().copied().collect();
         for _ in 0..NUM_BUFFERS {
-            let bo = match ctx.ctx.allocator().create_bo(
+            let bo = match ctx.ctx.ctx.allocator().create_bo(
                 &self.dpy.state.dma_buf_ids,
                 width,
                 height,
@@ -738,7 +739,7 @@ impl WindowData {
                     return;
                 }
             };
-            let img = match ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
+            let img = match ctx.ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!("Could not import dmabuf into EGL: {}", ErrorFmt(e));

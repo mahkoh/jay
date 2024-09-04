@@ -52,6 +52,7 @@ impl UsrJayCompositor {
             con: self.con.clone(),
             owner: Default::default(),
             version: self.version,
+            formats: Default::default(),
         });
         self.con.request(GetRenderCtx {
             self_id: self.id,

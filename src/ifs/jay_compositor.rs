@@ -70,7 +70,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        6
+        7
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -309,6 +309,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             id: req.id,
             client: self.client.clone(),
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, ctx);
         self.client.add_client_obj(&ctx)?;
@@ -340,7 +341,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn create_screencast(&self, req: CreateScreencast, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let sc = Rc::new_cyclic(|slf| JayScreencast::new(req.id, &self.client, slf));
+        let sc = Rc::new_cyclic(|slf| JayScreencast::new(req.id, &self.client, slf, self.version));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())

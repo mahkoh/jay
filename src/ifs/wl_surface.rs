@@ -141,7 +141,7 @@ pub struct SurfaceSendPreferredScaleVisitor;
 impl SurfaceSendPreferredScaleVisitor {
     fn schedule_realloc(&self, tl: &impl ToplevelNode) {
         for sc in tl.tl_data().jay_screencasts.lock().values() {
-            sc.schedule_realloc();
+            sc.schedule_realloc_or_reconfigure();
         }
     }
 }

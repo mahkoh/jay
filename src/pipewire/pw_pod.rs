@@ -7,7 +7,7 @@ use {
     bstr::BStr,
     std::{
         fmt::{Debug, Formatter},
-        sync::atomic::AtomicU32,
+        sync::atomic::{AtomicI32, AtomicU32},
     },
     uapi::{c, Pod},
 };
@@ -1344,8 +1344,8 @@ pub struct spa_io_position {
 #[derive(Debug)]
 pub struct pw_node_activation_state {
     pub status: c::c_int,
-    pub required: i32,
-    pub pending: i32,
+    pub required: AtomicI32,
+    pub pending: AtomicI32,
 }
 
 ty! {
@@ -1368,7 +1368,7 @@ ty! {
 #[repr(C)]
 #[derive(Debug)]
 pub struct pw_node_activation {
-    pub status: PW_NODE_ACTIVATION,
+    pub status: AtomicU32,
 
     pub flags: c::c_uint,
 

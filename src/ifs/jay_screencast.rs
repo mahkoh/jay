@@ -4,7 +4,7 @@ use {
         client::{Client, ClientError},
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel},
+        ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel, wl_buffer::WlBufferStorage},
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
@@ -39,8 +39,11 @@ pub async fn perform_toplevel_screencasts(state: Rc<State>) {
 
 pub async fn perform_screencast_realloc(state: Rc<State>) {
     loop {
-        let screencast = state.pending_toplevel_screencast_reallocs.pop().await;
-        screencast.realloc_scheduled.set(false);
+        let screencast = state
+            .pending_screencast_reallocs_or_reconfigures
+            .pop()
+            .await;
+        screencast.realloc_or_reconfigure_scheduled.set(false);
         match state.render_ctx.get() {
             None => screencast.do_destroy(),
             Some(ctx) => {
@@ -52,8 +55,11 @@ pub async fn perform_screencast_realloc(state: Rc<State>) {
     }
 }
 
+pub const CLIENT_BUFFERS_SINCE: Version = Version(7);
+
 pub struct JayScreencast {
     pub id: JayScreencastId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     config_serial: NumCell<u32>,
@@ -69,8 +75,8 @@ pub struct JayScreencast {
     show_workspaces: RefCell<AHashSet<WorkspaceNodeId>>,
     linear: Cell<bool>,
     pending: Pending,
-    need_realloc: Cell<bool>,
-    realloc_scheduled: Cell<bool>,
+    need_realloc_or_reconfigure: Cell<bool>,
+    realloc_or_reconfigure_scheduled: Cell<bool>,
     latch_listener: EventListener<dyn LatchListener>,
 }
 
@@ -100,11 +106,13 @@ struct Pending {
     target: Cell<Option<Option<PendingTarget>>>,
     show_all: Cell<Option<bool>>,
     show_workspaces: RefCell<Option<AHashSet<WorkspaceNodeId>>>,
+    clear_buffers: Cell<bool>,
+    buffers: RefCell<Vec<Rc<dyn GfxFramebuffer>>>,
 }
 
 struct ScreencastBuffer {
-    _bo: Rc<dyn BufferObject>,
-    dmabuf: DmaBuf,
+    _bo: Option<Rc<dyn BufferObject>>,
+    dmabuf: Option<DmaBuf>,
     fb: Rc<dyn GfxFramebuffer>,
     free: bool,
 }
@@ -122,9 +130,15 @@ impl JayScreencast {
         false
     }
 
-    pub fn new(id: JayScreencastId, client: &Rc<Client>, slf: &Weak<Self>) -> Self {
+    pub fn new(
+        id: JayScreencastId,
+        client: &Rc<Client>,
+        slf: &Weak<Self>,
+        version: Version,
+    ) -> Self {
         Self {
             id,
+            version,
             client: client.clone(),
             tracker: Default::default(),
             config_serial: Default::default(),
@@ -140,8 +154,8 @@ impl JayScreencast {
             show_workspaces: Default::default(),
             linear: Cell::new(false),
             pending: Default::default(),
-            need_realloc: Cell::new(false),
-            realloc_scheduled: Cell::new(false),
+            need_realloc_or_reconfigure: Cell::new(false),
+            realloc_or_reconfigure_scheduled: Cell::new(false),
             latch_listener: EventListener::new(slf.clone()),
         }
     }
@@ -210,7 +224,12 @@ impl JayScreencast {
         let serial = self.buffers_serial.fetch_add(1) + 1;
         let buffers = self.buffers.borrow_mut();
         for buffer in buffers.iter() {
-            for plane in &buffer.dmabuf.planes {
+            let Some(dmabuf) = &buffer.dmabuf else {
+                log::error!("Trying to send buffers but buffers are client allocated");
+                self.do_destroy();
+                return;
+            };
+            for plane in &dmabuf.planes {
                 self.client.event(Plane {
                     self_id: self.id,
                     fd: plane.fd.clone(),
@@ -220,10 +239,10 @@ impl JayScreencast {
             }
             self.client.event(Buffer {
                 self_id: self.id,
-                format: buffer.dmabuf.format.drm,
-                modifier: buffer.dmabuf.modifier,
-                width: buffer.dmabuf.width,
-                height: buffer.dmabuf.height,
+                format: dmabuf.format.drm,
+                modifier: dmabuf.modifier,
+                width: dmabuf.width,
+                height: dmabuf.height,
             });
         }
         self.client.event(BuffersDone {
@@ -232,11 +251,19 @@ impl JayScreencast {
         });
     }
 
-    #[allow(dead_code)]
     fn send_config(&self) {
+        self.need_realloc_or_reconfigure.set(false);
         self.config_acked.set(false);
         let serial = self.config_serial.fetch_add(1) + 1;
         if let Some(target) = self.target.get() {
+            let (width, height) = target_size(Some(&target));
+            if self.version >= CLIENT_BUFFERS_SINCE {
+                self.client.event(ConfigSize {
+                    self_id: self.id,
+                    width,
+                    height,
+                });
+            }
             if let Target::Output(output) = target {
                 self.client.event(ConfigOutput {
                     self_id: self.id,
@@ -339,30 +366,39 @@ impl JayScreencast {
 
     pub fn do_destroy(&self) {
         self.detach();
+        self.buffers.borrow_mut().clear();
         self.destroyed.set(true);
         self.client.event(Destroyed { self_id: self.id });
     }
 
-    pub fn schedule_realloc(self: &Rc<Self>) {
-        self.need_realloc.set(true);
-        if !self.realloc_scheduled.replace(true) {
+    pub fn schedule_realloc_or_reconfigure(self: &Rc<Self>) {
+        self.need_realloc_or_reconfigure.set(true);
+        if !self.realloc_or_reconfigure_scheduled.replace(true) {
             self.client
                 .state
-                .pending_toplevel_screencast_reallocs
+                .pending_screencast_reallocs_or_reconfigures
                 .push(self.clone());
         }
     }
 
     fn realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
-        if !self.destroyed.get() && self.buffers_acked.get() {
-            self.do_realloc(ctx)
-        } else {
-            Ok(())
+        if self.destroyed.get() {
+            return Ok(());
         }
+        if self.version < CLIENT_BUFFERS_SINCE {
+            if self.buffers_acked.get() {
+                return self.do_realloc(ctx);
+            }
+        } else {
+            if self.config_acked.get() {
+                self.send_config();
+            }
+        }
+        Ok(())
     }
 
     fn do_realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
-        self.need_realloc.set(false);
+        self.need_realloc_or_reconfigure.set(false);
         let mut buffers = vec![];
         let formats = ctx.formats();
         let format = match formats.get(&XRGB8888.drm) {
@@ -395,14 +431,14 @@ impl JayScreencast {
                     &self.client.state.dma_buf_ids,
                     width,
                     height,
-                    XRGB8888,
+                    format.format,
                     &modifiers,
                     usage,
                 )?;
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
-                    dmabuf: buffer.dmabuf().clone(),
-                    _bo: buffer,
+                    dmabuf: Some(buffer.dmabuf().clone()),
+                    _bo: Some(buffer),
                     fb,
                     free: true,
                 });
@@ -457,7 +493,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         } else {
             None
         };
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending.target.set(Some(output));
@@ -469,7 +505,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         req: SetAllowAllWorkspaces,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending.show_all.set(Some(req.allow_all != 0));
@@ -478,7 +514,7 @@ impl JayScreencastRequestHandler for JayScreencast {
 
     fn allow_workspace(&self, req: AllowWorkspace, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ws = self.client.lookup(req.workspace)?;
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         let mut sw = self.pending.show_workspaces.borrow_mut();
@@ -494,7 +530,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         _req: TouchAllowedWorkspaces,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending
@@ -509,7 +545,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         req: SetUseLinearBuffers,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending.linear.set(Some(req.use_linear != 0));
@@ -517,7 +553,7 @@ impl JayScreencastRequestHandler for JayScreencast {
     }
 
     fn set_running(&self, req: SetRunning, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending.running.set(Some(req.running != 0));
@@ -525,11 +561,11 @@ impl JayScreencastRequestHandler for JayScreencast {
     }
 
     fn configure(&self, _req: Configure, slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
 
-        let mut need_realloc = false;
+        let mut need_realloc_or_reconfigure = false;
 
         if let Some(target) = self.pending.target.take() {
             self.detach();
@@ -561,14 +597,25 @@ impl JayScreencastRequestHandler for JayScreencast {
                 }
             }
             if target_size(new_target.as_ref()) != target_size(self.target.get().as_ref()) {
-                need_realloc = true;
+                need_realloc_or_reconfigure = true;
             }
             self.target.set(new_target);
         }
         if let Some(linear) = self.pending.linear.take() {
             if self.linear.replace(linear) != linear {
-                need_realloc = true;
+                need_realloc_or_reconfigure = true;
             }
+        }
+        if self.pending.clear_buffers.take() {
+            self.buffers.borrow_mut().clear();
+        }
+        for buffer in self.pending.buffers.borrow_mut().drain(..) {
+            self.buffers.borrow_mut().push(ScreencastBuffer {
+                _bo: None,
+                dmabuf: None,
+                fb: buffer,
+                free: true,
+            });
         }
         let mut capture_rules_changed = false;
         if let Some(show_all) = self.pending.show_all.take() {
@@ -583,8 +630,8 @@ impl JayScreencastRequestHandler for JayScreencast {
             self.running.set(running);
         }
 
-        if need_realloc {
-            slf.schedule_realloc();
+        if need_realloc_or_reconfigure {
+            slf.schedule_realloc_or_reconfigure();
         }
 
         if capture_rules_changed {
@@ -606,19 +653,22 @@ impl JayScreencastRequestHandler for JayScreencast {
         }
         if req.serial == self.buffers_serial.get() {
             self.buffers_acked.set(true);
-            if self.need_realloc.get() {
-                slf.schedule_realloc();
+            if self.need_realloc_or_reconfigure.get() {
+                slf.schedule_realloc_or_reconfigure();
             }
         }
         Ok(())
     }
 
-    fn ack_config(&self, req: AckConfig, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn ack_config(&self, req: AckConfig, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() {
             return Ok(());
         }
         if req.serial == self.config_serial.get() {
             self.config_acked.set(true);
+            if self.need_realloc_or_reconfigure.get() {
+                slf.schedule_realloc_or_reconfigure();
+            }
         }
         Ok(())
     }
@@ -628,7 +678,7 @@ impl JayScreencastRequestHandler for JayScreencast {
             return Ok(());
         }
         let idx = req.idx as usize;
-        if idx > self.buffers.borrow_mut().len() {
+        if idx >= self.buffers.borrow_mut().len() {
             return Err(JayScreencastError::OutOfBounds(req.idx));
         }
         self.buffers.borrow_mut()[idx].free = true;
@@ -644,17 +694,46 @@ impl JayScreencastRequestHandler for JayScreencast {
         } else {
             None
         };
-        if self.destroyed.get() || !self.config_acked.get() {
+        if self.destroyed.get() {
             return Ok(());
         }
         self.pending.target.set(Some(toplevel));
         Ok(())
     }
+
+    fn clear_buffers(&self, _req: ClearBuffers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self.destroyed.get() {
+            return Ok(());
+        }
+        self.pending.clear_buffers.set(true);
+        Ok(())
+    }
+
+    fn add_buffer(&self, req: AddBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self.destroyed.get() {
+            return Ok(());
+        }
+        let buffer = self.client.lookup(req.buffer)?;
+        if let Some(WlBufferStorage::Dmabuf { img, .. }) = &*buffer.storage.borrow() {
+            match img.clone().to_framebuffer() {
+                Ok(fb) => self.pending.buffers.borrow_mut().push(fb),
+                Err(e) => {
+                    log::warn!(
+                        "Could not turn GfxImage into GfxFramebuffer: {}",
+                        ErrorFmt(e)
+                    );
+                    self.do_destroy();
+                }
+            }
+            return Ok(());
+        }
+        Err(JayScreencastError::NotDmabuf)
+    }
 }
 
 object_base! {
     self = JayScreencast;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for JayScreencast {
@@ -681,6 +760,8 @@ pub enum JayScreencastError {
     XRGB8888Writing,
     #[error("Render context supports neither linear or invalid modifier")]
     Modifier,
+    #[error("Buffer is not a dmabuf")]
+    NotDmabuf,
 }
 efrom!(JayScreencastError, ClientError);
 

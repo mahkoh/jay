@@ -134,7 +134,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let prev = data.desired_extents.replace(*rect);
         if prev.size() != rect.size() {
             for sc in data.jay_screencasts.lock().values() {
-                sc.schedule_realloc();
+                sc.schedule_realloc_or_reconfigure();
             }
         }
         if data.is_floating.get() {

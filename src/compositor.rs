@@ -180,7 +180,7 @@ fn start_compositor2(
         pending_float_titles: Default::default(),
         pending_input_popup_positioning: Default::default(),
         pending_toplevel_screencasts: Default::default(),
-        pending_toplevel_screencast_reallocs: Default::default(),
+        pending_screencast_reallocs_or_reconfigures: Default::default(),
         dbus: Dbus::new(&engine, &ring, &run_toplevel),
         fdcloser: FdCloser::new(),
         logger: logger.clone(),

@@ -13,3 +13,17 @@ event no_device {
 event device {
     fd: fd,
 }
+
+event read_modifier (since = 7) {
+    format: u32,
+    modifier: pod(u64),
+}
+
+event write_modifier (since = 7) {
+    format: u32,
+    modifier: pod(u64),
+}
+
+event format (since = 7) {
+    format: u32,
+}

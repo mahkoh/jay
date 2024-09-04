@@ -153,7 +153,7 @@ pub struct State {
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
     pub pending_toplevel_screencasts: AsyncQueue<Rc<JayScreencast>>,
-    pub pending_toplevel_screencast_reallocs: AsyncQueue<Rc<JayScreencast>>,
+    pub pending_screencast_reallocs_or_reconfigures: AsyncQueue<Rc<JayScreencast>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
     pub logger: Option<Arc<Logger>>,
@@ -814,7 +814,7 @@ impl State {
         self.pending_float_titles.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
-        self.pending_toplevel_screencast_reallocs.clear();
+        self.pending_screencast_reallocs_or_reconfigures.clear();
         self.render_ctx_watchers.clear();
         self.workspace_watchers.clear();
         self.toplevel_lists.clear();

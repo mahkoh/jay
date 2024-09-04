@@ -591,7 +591,7 @@ impl OutputNode {
 
         if (old_width, old_height) != (new_width, new_height) {
             for sc in self.screencasts.lock().values() {
-                sc.schedule_realloc();
+                sc.schedule_realloc_or_reconfigure();
             }
         }
 

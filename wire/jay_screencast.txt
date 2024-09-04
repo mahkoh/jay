@@ -47,6 +47,13 @@ request set_toplevel {
     id: id(jay_toplevel),
 }
 
+request clear_buffers (since = 7) {
+}
+
+request add_buffer (since = 7) {
+    buffer: id(wl_buffer),
+}
+
 # events
 
 event plane {
@@ -100,4 +107,9 @@ event config_running {
 
 event config_done {
     serial: u32,
+}
+
+event config_size (since = 7) {
+    width: i32,
+    height: i32,
 }

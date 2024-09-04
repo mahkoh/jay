@@ -12,9 +12,9 @@ use {
             pw_pod::{
                 pw_node_activation, spa_chunk, spa_io_buffers, spa_meta_bitmap, spa_meta_busy,
                 spa_meta_cursor, spa_meta_header, spa_meta_region, PW_CHOICE_Enum, PW_CHOICE_Flags,
-                PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamMeta, PwIoType,
-                PwPodFraction, PwPodObject, PwPodRectangle, PwPropFlag, SPA_DATA_DmaBuf,
-                SPA_DATA_MemFd, SPA_DATA_MemPtr, SPA_FORMAT_VIDEO_format,
+                PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamMeta, PW_TYPE_Long,
+                PwIoType, PwPod, PwPodFraction, PwPodObject, PwPodRectangle, PwPropFlag,
+                SPA_DATA_DmaBuf, SPA_DATA_MemFd, SPA_DATA_MemPtr, SPA_FORMAT_VIDEO_format,
                 SPA_FORMAT_VIDEO_framerate, SPA_FORMAT_VIDEO_modifier, SPA_FORMAT_VIDEO_size,
                 SPA_FORMAT_mediaSubtype, SPA_FORMAT_mediaType, SPA_IO_Buffers, SPA_META_Bitmap,
                 SPA_META_Busy, SPA_META_Control, SPA_META_Cursor, SPA_META_Header,
@@ -24,7 +24,9 @@ use {
                 SPA_PARAM_EnumFormat, SPA_PARAM_Format, SPA_PARAM_META_size, SPA_PARAM_META_type,
                 SPA_PARAM_Meta, SpaDataFlags, SpaDataType, SpaDirection, SpaIoType,
                 SpaMediaSubtype, SpaMediaType, SpaMetaType, SpaNodeBuffersFlags, SpaNodeCommand,
-                SpaParamType, SpaVideoFormat, SPA_DATA_FLAG_READABLE, SPA_DIRECTION_INPUT,
+                SpaParamType, SpaVideoFormat, PW_NODE_ACTIVATION_FINISHED,
+                PW_NODE_ACTIVATION_NOT_TRIGGERED, PW_NODE_ACTIVATION_TRIGGERED,
+                PW_PROP_DONT_FIXATE, SPA_DATA_FLAG_READABLE, SPA_DIRECTION_INPUT,
                 SPA_DIRECTION_OUTPUT, SPA_NODE_BUFFERS_FLAG_ALLOC, SPA_PARAM_INFO,
                 SPA_PARAM_INFO_READ, SPA_PARAM_INFO_SERIAL, SPA_PORT_FLAG,
                 SPA_PORT_FLAG_CAN_ALLOC_BUFFERS,
@@ -32,15 +34,15 @@ use {
         },
         utils::{
             bitfield::Bitfield, buf::TypedBuf, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
+            errorfmt::ErrorFmt, option_ext::OptionExt,
         },
-        video::dmabuf::DmaBuf,
+        video::{dmabuf::DmaBuf, Modifier},
     },
     std::{
         cell::{Cell, RefCell},
         mem,
-        ops::Deref,
         rc::Rc,
+        sync::atomic::Ordering::{Relaxed, Release},
     },
     thiserror::Error,
     uapi::OwnedFd,
@@ -78,7 +80,7 @@ pub trait PwClientNodeOwner {
     fn port_format_changed(&self, port: &Rc<PwClientNodePort>) {
         let _ = port;
     }
-    fn use_buffers(&self, port: &Rc<PwClientNodePort>) {
+    fn use_buffers(self: Rc<Self>, port: &Rc<PwClientNodePort>) {
         let _ = port;
     }
     fn start(self: Rc<Self>) {}
@@ -111,14 +113,14 @@ pub struct PwClientNodePort {
 
     pub _destroyed: Cell<bool>,
 
-    pub effective_format: Cell<PwClientNodePortFormat>,
-    pub supported_formats: RefCell<Option<PwClientNodePortSupportedFormats>>,
+    pub negotiated_format: RefCell<PwClientNodePortFormat>,
+    pub supported_formats: RefCell<PwClientNodePortSupportedFormats>,
     pub supported_metas: Cell<PwClientNodePortSupportedMetas>,
     pub can_alloc_buffers: Cell<bool>,
 
     pub buffers: RefCell<Vec<Rc<PwClientNodeBuffer>>>,
 
-    pub buffer_config: Cell<Option<PwClientNodeBufferConfig>>,
+    pub buffer_config: RefCell<PwClientNodeBufferConfig>,
 
     pub io_buffers: CloneCell<Option<Rc<PwMemTyped<spa_io_buffers>>>>,
 
@@ -127,11 +129,8 @@ pub struct PwClientNodePort {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct PwClientNodeBufferConfig {
-    pub num_buffers: usize,
-    pub planes: usize,
-    pub _size: Option<u32>,
-    pub _stride: Option<u32>,
-    pub _align: usize,
+    pub num_buffers: Option<usize>,
+    pub planes: Option<usize>,
     pub data_type: SpaDataType,
 }
 
@@ -143,21 +142,27 @@ pub struct PwClientNodeBuffer {
     pub _slices: Vec<Rc<PwMemSlice>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct PwClientNodePortSupportedFormat {
+    pub format: &'static Format,
+    pub modifiers: Vec<u64>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct PwClientNodePortSupportedFormats {
     pub media_type: Option<SpaMediaType>,
     pub media_sub_type: Option<SpaMediaSubtype>,
     pub video_size: Option<PwPodRectangle>,
-    pub formats: Vec<&'static Format>,
-    pub modifiers: Vec<u64>,
+    pub formats: Vec<PwClientNodePortSupportedFormat>,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PwClientNodePortFormat {
     pub media_type: Option<SpaMediaType>,
     pub media_sub_type: Option<SpaMediaSubtype>,
     pub video_size: Option<PwPodRectangle>,
     pub format: Option<&'static Format>,
+    pub modifiers: Option<Vec<Modifier>>,
     pub framerate: Option<PwPodFraction>,
 }
 
@@ -181,8 +186,8 @@ pub struct PwClientNode {
 }
 
 pub struct PwNodeActivation {
-    pub _activation: Rc<PwMemTyped<pw_node_activation>>,
-    pub _fd: Rc<OwnedFd>,
+    pub activation: Rc<PwMemTyped<pw_node_activation>>,
+    pub fd: Rc<OwnedFd>,
 }
 
 // pub struct PwNodeBuffer {
@@ -241,7 +246,12 @@ impl PwClientNode {
         });
     }
 
-    pub fn create_port(self: &Rc<Self>, output: bool) -> Rc<PwClientNodePort> {
+    pub fn create_port(
+        self: &Rc<Self>,
+        output: bool,
+        supported_formats: PwClientNodePortSupportedFormats,
+        num_buffers: Option<usize>,
+    ) -> Rc<PwClientNodePort> {
         let (ids, direction) = match output {
             true => (&self.port_out_free, SPA_DIRECTION_OUTPUT),
             false => (&self.port_in_free, SPA_DIRECTION_INPUT),
@@ -251,12 +261,16 @@ impl PwClientNode {
             direction,
             id: ids.borrow_mut().acquire(),
             _destroyed: Cell::new(false),
-            effective_format: Cell::new(Default::default()),
-            supported_formats: RefCell::new(None),
+            negotiated_format: Default::default(),
+            supported_formats: RefCell::new(supported_formats),
             supported_metas: Cell::new(PwClientNodePortSupportedMetas::none()),
             can_alloc_buffers: Cell::new(false),
             buffers: RefCell::new(vec![]),
-            buffer_config: Cell::new(None),
+            buffer_config: RefCell::new(PwClientNodeBufferConfig {
+                num_buffers,
+                planes: None,
+                data_type: SPA_DATA_DmaBuf,
+            }),
             io_buffers: Default::default(),
             serial: Cell::new(false),
         });
@@ -295,10 +309,8 @@ impl PwClientNode {
         });
     }
 
-    pub fn send_port_update(&self, port: &PwClientNodePort, re_init: bool) {
-        if re_init {
-            port.serial.set(!port.serial.get());
-        }
+    pub fn send_port_update(&self, port: &PwClientNodePort, fixate: bool) {
+        port.serial.set(!port.serial.get());
         let serial = match port.serial.get() {
             true => SPA_PARAM_INFO_SERIAL,
             false => SPA_PARAM_INFO::none(),
@@ -322,18 +334,14 @@ impl PwClientNode {
                 if sm.contains(SUPPORTED_META_VIDEO_CROP) {
                     metas.push((SPA_META_VideoCrop, mem::size_of::<spa_meta_region>()));
                 }
-                let sf = port.supported_formats.borrow_mut();
-                let bc = port.buffer_config.get();
-                let mut num_params = metas.len() as u32;
-                if sf.is_some() {
-                    num_params += 1;
-                }
-                if bc.is_some() {
-                    num_params += 1;
-                }
+                let sf = &*port.supported_formats.borrow();
+                let num_formats = sf.formats.len() as u32;
+                let bc = &*port.buffer_config.borrow();
+                let num_params = metas.len() as u32 + num_formats + 1;
+
                 // num params
                 f.write_uint(num_params);
-                if let Some(sf) = sf.deref() {
+                for format in &sf.formats {
                     f.write_object(PW_OBJECT_Format, SPA_PARAM_EnumFormat.0, |f| {
                         if let Some(mt) = sf.media_type {
                             f.write_property(SPA_FORMAT_mediaType.0, PwPropFlag::none(), |f| {
@@ -345,30 +353,28 @@ impl PwClientNode {
                                 f.write_id(mst.0);
                             });
                         }
-                        if sf.formats.len() > 0 {
-                            f.write_property(SPA_FORMAT_VIDEO_format.0, PwPropFlag::none(), |f| {
+                        f.write_property(SPA_FORMAT_VIDEO_format.0, PwPropFlag::none(), |f| {
+                            f.write_choice(PW_CHOICE_Enum, 0, |f| {
+                                f.write_id(format.format.pipewire.0);
+                                f.write_id(format.format.pipewire.0);
+                            });
+                        });
+                        f.write_property(
+                            SPA_FORMAT_VIDEO_modifier.0,
+                            if fixate {
+                                PwPropFlag::none()
+                            } else {
+                                PW_PROP_DONT_FIXATE
+                            },
+                            |f| {
                                 f.write_choice(PW_CHOICE_Enum, 0, |f| {
-                                    f.write_id(sf.formats[0].pipewire.0);
-                                    for format in &sf.formats {
-                                        f.write_id(format.pipewire.0);
+                                    f.write_ulong(format.modifiers[0]);
+                                    for modifier in &format.modifiers {
+                                        f.write_ulong(*modifier);
                                     }
                                 });
-                            });
-                        }
-                        if sf.modifiers.len() > 0 {
-                            f.write_property(
-                                SPA_FORMAT_VIDEO_modifier.0,
-                                PwPropFlag::none(),
-                                |f| {
-                                    f.write_choice(PW_CHOICE_Enum, 0, |f| {
-                                        f.write_ulong(sf.modifiers[0]);
-                                        for modifier in &sf.modifiers {
-                                            f.write_ulong(*modifier);
-                                        }
-                                    });
-                                },
-                            );
-                        }
+                            },
+                        );
                         if let Some(vs) = sf.video_size {
                             f.write_property(SPA_FORMAT_VIDEO_size.0, PwPropFlag::none(), |f| {
                                 f.write_choice(PW_CHOICE_Enum, 0, |f| {
@@ -379,34 +385,23 @@ impl PwClientNode {
                         }
                     });
                 }
-                if let Some(bc) = &bc {
-                    f.write_object(PW_OBJECT_ParamBuffers, SPA_PARAM_Buffers.0, |f| {
+                f.write_object(PW_OBJECT_ParamBuffers, SPA_PARAM_Buffers.0, |f| {
+                    if let Some(num_buffers) = bc.num_buffers {
                         f.write_property(SPA_PARAM_BUFFERS_buffers.0, PwPropFlag::none(), |f| {
-                            f.write_uint(bc.num_buffers as _);
+                            f.write_uint(num_buffers as _);
                         });
+                    }
+                    if let Some(planes) = bc.planes {
                         f.write_property(SPA_PARAM_BUFFERS_blocks.0, PwPropFlag::none(), |f| {
-                            f.write_uint(bc.planes as _);
+                            f.write_uint(planes as _);
                         });
-                        // if let Some(size) = bc.size {
-                        //     f.write_property(SPA_PARAM_BUFFERS_size.0, PwPropFlag::none(), |f| {
-                        //         f.write_uint(size as _);
-                        //     });
-                        // }
-                        // if let Some(stride) = bc.stride {
-                        //     f.write_property(SPA_PARAM_BUFFERS_stride.0, PwPropFlag::none(), |f| {
-                        //         f.write_uint(stride as _);
-                        //     });
-                        // }
-                        // f.write_property(SPA_PARAM_BUFFERS_align.0, PwPropFlag::none(), |f| {
-                        //     f.write_uint(bc.align as _);
-                        // });
-                        f.write_property(SPA_PARAM_BUFFERS_dataType.0, PwPropFlag::none(), |f| {
-                            f.write_choice(PW_CHOICE_Flags, 0, |f| {
-                                f.write_uint(1 << bc.data_type.0);
-                            });
+                    }
+                    f.write_property(SPA_PARAM_BUFFERS_dataType.0, PwPropFlag::none(), |f| {
+                        f.write_choice(PW_CHOICE_Flags, 0, |f| {
+                            f.write_uint(1 << bc.data_type.0);
                         });
                     });
-                }
+                });
                 for (key, size) in metas {
                     f.write_object(PW_OBJECT_ParamMeta, SPA_PARAM_Meta.0, |f| {
                         f.write_property(SPA_PARAM_META_type.0, PwPropFlag::none(), |f| {
@@ -437,23 +432,13 @@ impl PwClientNode {
                     f.write_int(1);
                     // num props
                     f.write_int(0);
-                    let mut num_params = 1;
-                    if sf.is_some() {
-                        num_params += 1;
-                    }
-                    if bc.is_some() {
-                        num_params += 1;
-                    }
+                    let num_params = 3;
                     // num params
                     f.write_uint(num_params);
-                    if sf.is_some() {
-                        f.write_id(SPA_PARAM_EnumFormat.0);
-                        f.write_uint((SPA_PARAM_INFO_READ | serial).0);
-                    }
-                    if bc.is_some() {
-                        f.write_id(SPA_PARAM_Buffers.0);
-                        f.write_uint((SPA_PARAM_INFO_READ | serial).0);
-                    }
+                    f.write_id(SPA_PARAM_EnumFormat.0);
+                    f.write_uint((SPA_PARAM_INFO_READ | serial).0);
+                    f.write_id(SPA_PARAM_Buffers.0);
+                    f.write_uint((SPA_PARAM_INFO_READ | serial).0);
                     f.write_id(SPA_PARAM_Meta.0);
                     f.write_uint(SPA_PARAM_INFO_READ.0);
                 });
@@ -535,7 +520,7 @@ impl PwClientNode {
         let mut obj = match obj {
             Some(obj) => obj,
             _ => {
-                port.effective_format.take();
+                port.negotiated_format.take();
                 return Ok(());
             }
         };
@@ -554,10 +539,25 @@ impl PwClientNode {
                 format.format = Some(*fmt);
             }
         }
+        if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_modifier.0)? {
+            if let PwPod::Choice(mods) = mt.pod {
+                let mut p1 = mods.elements.elements;
+                p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
+                while p1.len() > 0 {
+                    let modifier = p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
+                    if let PwPod::Long(modifier) = modifier {
+                        format
+                            .modifiers
+                            .get_or_insert_default_ext()
+                            .push(modifier as u64);
+                    }
+                }
+            }
+        }
         if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_framerate.0)? {
             format.framerate = Some(mt.pod.get_fraction()?);
         }
-        port.effective_format.set(format);
+        *port.negotiated_format.borrow_mut() = format;
         Ok(())
     }
 
@@ -663,6 +663,7 @@ impl PwClientNode {
                 let maxsize = p1.read_uint()?;
 
                 chunks.push(mem.typed_at(offset));
+                offset += size_of::<spa_chunk>();
 
                 if !buffer_flags.contains(SPA_NODE_BUFFERS_FLAG_ALLOC) {
                     if ty == SPA_DATA_MemPtr {
@@ -709,8 +710,16 @@ impl PwClientNode {
                 if mem_id == !0 {
                     port.io_buffers.take();
                 } else {
-                    port.io_buffers
-                        .set(Some(self.con.mem.map(mem_id, offset, size)?.typed()));
+                    let io_buffers = self
+                        .con
+                        .mem
+                        .map(mem_id, offset, size)?
+                        .typed::<spa_io_buffers>();
+                    unsafe {
+                        io_buffers.read().buffer_id.store(!0, Relaxed);
+                        io_buffers.read().status.store(0, Relaxed);
+                    }
+                    port.io_buffers.set(Some(io_buffers));
                 }
             }
             _ => {}
@@ -765,8 +774,8 @@ impl PwClientNode {
             self.activations.set(
                 node,
                 Rc::new(PwNodeActivation {
-                    _activation: typed,
-                    _fd: signalfd,
+                    activation: typed,
+                    fd: signalfd,
                 }),
             );
         } else {
@@ -811,27 +820,29 @@ impl PwClientNode {
     ) {
         let mut buf = TypedBuf::<u64>::new();
         loop {
-            // unsafe {
-            //     log::info!("transport = {:#?}", activation.read());
-            // }
-            // log::info!("transport in");
-            // for port in self.ports.lock().values() {
-            //     for io in port.io_buffers.lock().values() {
-            //         unsafe {
-            //             log::info!("status = {:?}", io.read().status);
-            //         }
-            //     }
-            // }
-            // unsafe {
-            //     log::info!("state = {:#?}", activation.read().state[0]);
-            // }
             if let Err(e) = self.con.ring.read(&fd, buf.buf()).await {
                 log::error!("Could not read from eventfd: {}", ErrorFmt(e));
                 return;
             }
-            let n = buf.t();
-            if n > 1 {
-                log::warn!("Missed {} transport changes", n - 1);
+            if let Some(activation) = self.activation.get() {
+                let activation = unsafe { activation.read() };
+                activation
+                    .status
+                    .store(PW_NODE_ACTIVATION_FINISHED.0, Relaxed);
+            }
+        }
+    }
+
+    pub fn drive(&self) {
+        for activation in self.activations.lock().values() {
+            let a = unsafe { activation.activation.read() };
+            let required = a.state[0].required.load(Relaxed);
+            a.state[0].pending.store(required - 1, Relaxed);
+            if required == 1 {
+                a.status.store(PW_NODE_ACTIVATION_TRIGGERED.0, Release);
+                let _ = uapi::eventfd_write(activation.fd.raw(), 1);
+            } else {
+                a.status.store(PW_NODE_ACTIVATION_NOT_TRIGGERED.0, Release);
             }
         }
     }

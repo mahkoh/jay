@@ -586,3 +586,39 @@ impl Debug for GfxError {
         Debug::fmt(&self.0, f)
     }
 }
+
+impl GfxFormat {
+    pub fn cross_intersect(&self, other: &GfxFormat) -> GfxFormat {
+        assert_eq!(self.format, other.format);
+        GfxFormat {
+            format: self.format,
+            read_modifiers: self
+                .read_modifiers
+                .intersection(&other.write_modifiers)
+                .copied()
+                .collect(),
+            write_modifiers: self
+                .write_modifiers
+                .intersection(&other.read_modifiers)
+                .copied()
+                .collect(),
+        }
+    }
+}
+
+pub fn cross_intersect_formats(
+    local: &AHashMap<u32, GfxFormat>,
+    remote: &AHashMap<u32, GfxFormat>,
+) -> AHashMap<u32, GfxFormat> {
+    let mut res = AHashMap::new();
+    for lf in local.values() {
+        if let Some(rf) = remote.get(&lf.format.drm) {
+            let f = lf.cross_intersect(rf);
+            if f.read_modifiers.is_empty() && f.write_modifiers.is_empty() {
+                continue;
+            }
+            res.insert(f.format.drm, f);
+        }
+    }
+    res
+}
