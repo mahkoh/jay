@@ -973,7 +973,7 @@ impl ConfigProxyHandler {
     fn handle_connector_model(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorModel {
-            model: connector.monitor_info.product.clone(),
+            model: connector.monitor_info.output_id.model.clone(),
         });
         Ok(())
     }
@@ -981,7 +981,7 @@ impl ConfigProxyHandler {
     fn handle_connector_manufacturer(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorManufacturer {
-            manufacturer: connector.monitor_info.manufacturer.clone(),
+            manufacturer: connector.monitor_info.output_id.manufacturer.clone(),
         });
         Ok(())
     }
@@ -989,7 +989,7 @@ impl ConfigProxyHandler {
     fn handle_connector_serial_number(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorSerialNumber {
-            serial_number: connector.monitor_info.serial_number.clone(),
+            serial_number: connector.monitor_info.output_id.serial_number.clone(),
         });
         Ok(())
     }

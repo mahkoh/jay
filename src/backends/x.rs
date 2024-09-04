@@ -11,6 +11,7 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
+        ifs::wl_output::OutputId,
         renderer::RenderResult,
         state::State,
         utils::{
@@ -565,9 +566,12 @@ impl XBackend {
             .push(BackendEvent::NewConnector(output.clone()));
         output.events.push(ConnectorEvent::Connected(MonitorInfo {
             modes: vec![],
-            manufacturer: "X.Org Foundation".to_string(),
-            product: format!("X-Window-{}", output.window),
-            serial_number: output.window.to_string(),
+            output_id: Rc::new(OutputId::new(
+                String::new(),
+                "X.Org Foundation".to_string(),
+                format!("X-Window-{}", output.window),
+                output.window.to_string(),
+            )),
             initial_mode: Mode {
                 width: output.width.get(),
                 height: output.height.get(),

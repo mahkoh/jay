@@ -13,6 +13,7 @@ use {
         fixed::Fixed,
         gfx_api::GfxError,
         gfx_apis::create_vulkan_allocator,
+        ifs::wl_output::OutputId,
         it::{
             test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
         },
@@ -115,9 +116,12 @@ impl TestBackend {
         };
         let default_monitor_info = MonitorInfo {
             modes: vec![mode],
-            manufacturer: "jay".to_string(),
-            product: "TestConnector".to_string(),
-            serial_number: default_connector.id.to_string(),
+            output_id: Rc::new(OutputId {
+                connector: None,
+                manufacturer: "jay".to_string(),
+                model: "TestConnector".to_string(),
+                serial_number: default_connector.id.to_string(),
+            }),
             initial_mode: mode,
             width_mm: 80,
             height_mm: 60,

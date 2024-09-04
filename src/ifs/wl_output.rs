@@ -96,12 +96,28 @@ pub struct PersistentOutputState {
     pub tearing_mode: Cell<&'static TearingMode>,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub struct OutputId {
-    pub connector: String,
+    pub connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
+}
+
+impl OutputId {
+    pub fn new(
+        connector: String,
+        manufacturer: String,
+        model: String,
+        serial_number: String,
+    ) -> Self {
+        Self {
+            connector: serial_number.is_empty().then_some(connector),
+            manufacturer,
+            model,
+            serial_number,
+        }
+    }
 }
 
 impl WlOutputGlobal {

@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{BackendEvent, ConnectorEvent, ConnectorKernelId, Mode, MonitorInfo},
+        ifs::wl_output::OutputId,
         it::{test_backend::TestConnector, test_error::TestResult, testrun::TestRun},
         video::drm::ConnectorType,
     },
@@ -32,9 +33,12 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     });
     let new_monitor_info = MonitorInfo {
         modes: vec![],
-        manufacturer: "jay".to_string(),
-        product: "jay second connector".to_string(),
-        serial_number: "".to_string(),
+        output_id: Rc::new(OutputId {
+            connector: None,
+            manufacturer: "jay".to_string(),
+            model: "jay second connector".to_string(),
+            serial_number: "".to_string(),
+        }),
         initial_mode: Mode {
             width: 400,
             height: 400,

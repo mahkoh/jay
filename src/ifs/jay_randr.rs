@@ -80,9 +80,9 @@ impl JayRandr {
             None => {
                 self.client.event(NonDesktopOutput {
                     self_id: self.id,
-                    manufacturer: &output.monitor_info.manufacturer,
-                    product: &output.monitor_info.product,
-                    serial_number: &output.monitor_info.serial_number,
+                    manufacturer: &output.monitor_info.output_id.manufacturer,
+                    product: &output.monitor_info.output_id.model,
+                    serial_number: &output.monitor_info.output_id.serial_number,
                     width_mm: output.monitor_info.width_mm,
                     height_mm: output.monitor_info.height_mm,
                 });
@@ -99,9 +99,9 @@ impl JayRandr {
             x: pos.x1(),
             y: pos.y1(),
             transform: global.persistent.transform.get().to_wl(),
-            manufacturer: &output.monitor_info.manufacturer,
-            product: &output.monitor_info.product,
-            serial_number: &output.monitor_info.serial_number,
+            manufacturer: &output.monitor_info.output_id.manufacturer,
+            product: &output.monitor_info.output_id.model,
+            serial_number: &output.monitor_info.output_id.serial_number,
             width_mm: global.width_mm,
             height_mm: global.height_mm,
         });
