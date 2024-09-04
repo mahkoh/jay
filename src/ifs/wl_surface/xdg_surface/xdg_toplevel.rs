@@ -105,6 +105,7 @@ pub struct XdgToplevel {
     pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
     is_mapped: Cell<bool>,
     dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
+    extents_set: Cell<bool>,
 }
 
 impl Debug for XdgToplevel {
@@ -144,6 +145,7 @@ impl XdgToplevel {
             drag: Default::default(),
             is_mapped: Cell::new(false),
             dialog: Default::default(),
+            extents_set: Cell::new(false),
         }
     }
 
@@ -160,27 +162,30 @@ impl XdgToplevel {
     }
 
     fn send_configure_checked(&self, mut width: i32, mut height: i32) {
-        width = width.max(1);
-        height = height.max(1);
+        if self.extents_set.get() {
+            width = width.max(1);
+            height = height.max(1);
+        }
         let bugs = self.bugs.get();
-        if let Some((mw, mh)) = bugs.min_size {
-            width = width.max(mw);
-            height = height.max(mh);
+        macro_rules! apply {
+            ($field:expr, $min:ident, $max:ident) => {
+                if $field != 0 {
+                    if let Some(min) = bugs.$min {
+                        $field = $field.max(min);
+                    }
+                    if bugs.respect_min_max_size {
+                        if let Some(min) = self.$min.get() {
+                            $field = $field.max(min);
+                        }
+                        if let Some(max) = self.$max.get() {
+                            $field = $field.min(max);
+                        }
+                    }
+                }
+            };
         }
-        if bugs.respect_min_max_size {
-            if let Some(min) = self.min_width.get() {
-                width = width.max(min);
-            }
-            if let Some(min) = self.min_height.get() {
-                height = height.max(min);
-            }
-            if let Some(max) = self.max_width.get() {
-                width = width.min(max);
-            }
-            if let Some(max) = self.max_height.get() {
-                height = height.min(max);
-            }
-        }
+        apply!(width, min_width, max_width);
+        apply!(height, min_height, max_height);
         self.send_configure(width, height)
     }
 
@@ -582,6 +587,7 @@ impl ToplevelNodeBase for XdgToplevel {
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
+        self.extents_set.set(true);
         let nw = rect.width();
         let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.get();
