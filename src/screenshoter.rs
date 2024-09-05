@@ -1,12 +1,13 @@
 use {
     crate::{
-        allocator::{AllocatorError, BufferObject, BO_USE_RENDERING},
+        allocator::{AllocatorError, BufferObject, BufferUsage, BO_USE_RENDERING},
         format::XRGB8888,
-        gfx_api::GfxError,
+        gfx_api::{needs_render_usage, GfxError},
         scale::Scale,
         state::State,
         video::drm::DrmError,
     },
+    indexmap::IndexMap,
     jay_config::video::Transform,
     std::{ops::Deref, rc::Rc},
     thiserror::Error,
@@ -49,17 +50,22 @@ pub fn take_screenshot(
         return Err(ScreenshooterError::EmptyDisplay);
     }
     let formats = ctx.formats();
-    let modifiers: Vec<_> = match formats.get(&XRGB8888.drm) {
+    let modifiers: IndexMap<_, _> = match formats.get(&XRGB8888.drm) {
         None => return Err(ScreenshooterError::XRGB8888),
         Some(f) => f
             .write_modifiers
-            .intersection(&f.read_modifiers)
-            .copied()
+            .iter()
+            .filter(|(m, _)| f.read_modifiers.contains(*m))
             .collect(),
     };
     if modifiers.is_empty() {
         return Err(ScreenshooterError::Modifiers);
     }
+    let mut usage = BO_USE_RENDERING;
+    if !needs_render_usage(modifiers.values().copied()) {
+        usage = BufferUsage::none();
+    }
+    let modifiers: Vec<_> = modifiers.keys().copied().copied().collect();
     let allocator = ctx.allocator();
     let bo = allocator.create_bo(
         &state.dma_buf_ids,
@@ -67,7 +73,7 @@ pub fn take_screenshot(
         extents.height(),
         XRGB8888,
         &modifiers,
-        BO_USE_RENDERING,
+        usage,
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
     fb.render_node(

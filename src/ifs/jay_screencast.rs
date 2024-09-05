@@ -414,10 +414,10 @@ impl JayScreencast {
                 }
                 let mut usage = BO_USE_RENDERING;
                 let modifiers = match self.linear.get() {
-                    true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
+                    true if format.write_modifiers.contains_key(&LINEAR_MODIFIER) => {
                         vec![LINEAR_MODIFIER]
                     }
-                    true if format.write_modifiers.contains(&INVALID_MODIFIER) => {
+                    true if format.write_modifiers.contains_key(&INVALID_MODIFIER) => {
                         usage |= BO_USE_LINEAR;
                         vec![INVALID_MODIFIER]
                     }
@@ -425,7 +425,7 @@ impl JayScreencast {
                     false if format.write_modifiers.is_empty() => {
                         return Err(JayScreencastError::XRGB8888Writing)
                     }
-                    false => format.write_modifiers.iter().copied().collect(),
+                    false => format.write_modifiers.keys().copied().collect(),
                 };
                 let buffer = ctx.allocator().create_bo(
                     &self.client.state.dma_buf_ids,

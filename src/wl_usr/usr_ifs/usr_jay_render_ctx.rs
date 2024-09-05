@@ -1,10 +1,11 @@
 use {
     crate::{
         format::formats,
-        gfx_api::GfxFormat,
+        gfx_api::{GfxFormat, GfxWriteModifier},
         ifs::jay_render_ctx::FORMATS_SINCE,
         object::Version,
         utils::clonecell::CloneCell,
+        video::Modifier,
         wire::{jay_render_ctx::*, JayRenderCtxId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
@@ -26,6 +27,16 @@ pub trait UsrJayRenderCtxOwner {
     fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<AHashMap<u32, GfxFormat>>) {
         let _ = fd;
         let _ = server_formats;
+    }
+}
+
+impl UsrJayRenderCtx {
+    fn add_write_modifier(&self, format: u32, modifier: Modifier, needs_render_usage: bool) {
+        if let Some(format) = self.formats.borrow_mut().get_mut(&format) {
+            format
+                .write_modifiers
+                .insert(modifier, GfxWriteModifier { needs_render_usage });
+        }
     }
 }
 
@@ -57,9 +68,7 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
     }
 
     fn write_modifier(&self, ev: WriteModifier, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if let Some(format) = self.formats.borrow_mut().get_mut(&ev.format) {
-            format.write_modifiers.insert(ev.modifier);
-        }
+        self.add_write_modifier(ev.format, ev.modifier, true);
         Ok(())
     }
 
@@ -74,6 +83,11 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
                 },
             );
         }
+        Ok(())
+    }
+
+    fn write_modifier2(&self, ev: WriteModifier2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.add_write_modifier(ev.format, ev.modifier, ev.needs_render_usage != 0);
         Ok(())
     }
 }

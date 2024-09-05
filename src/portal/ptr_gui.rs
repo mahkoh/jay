@@ -1,11 +1,11 @@
 use {
     crate::{
-        allocator::{BufferObject, BO_USE_RENDERING},
+        allocator::{BufferObject, BufferUsage, BO_USE_RENDERING},
         async_engine::{Phase, SpawnedFuture},
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{AcquireSync, GfxContext, GfxFramebuffer, ReleaseSync},
+        gfx_api::{needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, ReleaseSync},
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         renderer::renderer_base::RendererBase,
@@ -723,7 +723,11 @@ impl WindowData {
             log::error!("Render context cannot render to ARGB8888 format");
             return;
         }
-        let modifiers: Vec<_> = format.write_modifiers.iter().copied().collect();
+        let modifiers: Vec<_> = format.write_modifiers.keys().copied().collect();
+        let mut usage = BO_USE_RENDERING;
+        if !needs_render_usage(format.write_modifiers.values()) {
+            usage = BufferUsage::none();
+        }
         for _ in 0..NUM_BUFFERS {
             let bo = match ctx.ctx.ctx.allocator().create_bo(
                 &self.dpy.state.dma_buf_ids,
@@ -731,7 +735,7 @@ impl WindowData {
                 height,
                 ARGB8888,
                 &modifiers,
-                BO_USE_RENDERING,
+                usage,
             ) {
                 Ok(b) => b,
                 Err(e) => {

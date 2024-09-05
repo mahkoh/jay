@@ -12,6 +12,7 @@ use {
 };
 
 pub const FORMATS_SINCE: Version = Version(7);
+pub const WRITE_MODIFIER_2_SINCE: Version = Version(9);
 
 pub struct JayRenderCtx {
     pub id: JayRenderCtxId,
@@ -30,12 +31,21 @@ impl JayRenderCtx {
                         self_id: self.id,
                         format: format.format.drm,
                     });
-                    for modifier in &format.write_modifiers {
-                        self.client.event(WriteModifier {
-                            self_id: self.id,
-                            format: format.format.drm,
-                            modifier: *modifier,
-                        });
+                    for (modifier, gwm) in &format.write_modifiers {
+                        if self.version >= WRITE_MODIFIER_2_SINCE {
+                            self.client.event(WriteModifier2 {
+                                self_id: self.id,
+                                format: format.format.drm,
+                                modifier: *modifier,
+                                needs_render_usage: gwm.needs_render_usage as _,
+                            });
+                        } else {
+                            self.client.event(WriteModifier {
+                                self_id: self.id,
+                                format: format.format.drm,
+                                modifier: *modifier,
+                            });
+                        }
                     }
                     for modifier in &format.read_modifiers {
                         self.client.event(ReadModifier {

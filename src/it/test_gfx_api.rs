@@ -4,7 +4,7 @@ use {
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
             CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxTexture, ResetStatus, SyncFile,
+            GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier, ResetStatus, SyncFile,
         },
         rect::Rect,
         theme::Color,
@@ -55,7 +55,18 @@ impl TestGfxCtx {
                 GfxFormat {
                     format: f,
                     read_modifiers: modifiers.clone(),
-                    write_modifiers: modifiers.clone(),
+                    write_modifiers: modifiers
+                        .iter()
+                        .copied()
+                        .map(|m| {
+                            (
+                                m,
+                                GfxWriteModifier {
+                                    needs_render_usage: false,
+                                },
+                            )
+                        })
+                        .collect(),
                 },
             );
         }

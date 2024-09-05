@@ -2,7 +2,7 @@ mod screencast_gui;
 
 use {
     crate::{
-        allocator::{AllocatorError, BufferObject, BO_USE_RENDERING},
+        allocator::{AllocatorError, BufferObject, BufferUsage, BO_USE_RENDERING},
         dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply},
         format::{Format, XRGB8888},
         ifs::jay_screencast::CLIENT_BUFFERS_SINCE,
@@ -204,7 +204,7 @@ impl PwClientNodeOwner for StartingScreencast {
                     }
                     let ptl_format = PwClientNodePortSupportedFormat {
                         format: format.format,
-                        modifiers: format.write_modifiers.iter().copied().collect(),
+                        modifiers: format.write_modifiers.keys().copied().collect(),
                     };
                     supported_formats.formats.push(ptl_format);
                 }
@@ -380,13 +380,28 @@ impl StartedScreencast {
         let Some(ctx) = self.dpy.render_ctx.get() else {
             return Err(BufferAllocationError::NoRenderContext);
         };
+        let mut usage = BO_USE_RENDERING;
+        if let Some(sf) = &ctx.server_formats {
+            if let Some(format) = sf.get(&format.drm) {
+                let no_render_usage = modifiers.iter().all(|m| {
+                    format
+                        .write_modifiers
+                        .get(m)
+                        .map(|w| !w.needs_render_usage)
+                        .unwrap_or(false)
+                });
+                if no_render_usage {
+                    usage = BufferUsage::none();
+                }
+            }
+        }
         let buffer = ctx.ctx.ctx.allocator().create_bo(
             &self.dpy.state.dma_buf_ids,
             width,
             height,
             format,
             modifiers,
-            BO_USE_RENDERING,
+            usage,
         )?;
         Ok(buffer)
     }

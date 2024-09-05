@@ -15,7 +15,7 @@ use {
         video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, Modifier},
     },
     ahash::AHashMap,
-    indexmap::IndexSet,
+    indexmap::{IndexMap, IndexSet},
     jay_config::video::{GfxApi, Transform},
     std::{
         any::Any,
@@ -570,11 +570,20 @@ pub trait GfxContext: Debug {
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>>;
 }
 
+#[derive(Clone, Debug)]
+pub struct GfxWriteModifier {
+    pub needs_render_usage: bool,
+}
+
+pub fn needs_render_usage<'a>(mut modifiers: impl Iterator<Item = &'a GfxWriteModifier>) -> bool {
+    modifiers.any(|m| m.needs_render_usage)
+}
+
 #[derive(Debug)]
 pub struct GfxFormat {
     pub format: &'static Format,
     pub read_modifiers: IndexSet<Modifier>,
-    pub write_modifiers: IndexSet<Modifier>,
+    pub write_modifiers: IndexMap<Modifier, GfxWriteModifier>,
 }
 
 #[derive(Error)]
@@ -594,13 +603,15 @@ impl GfxFormat {
             format: self.format,
             read_modifiers: self
                 .read_modifiers
-                .intersection(&other.write_modifiers)
+                .iter()
                 .copied()
+                .filter(|m| other.write_modifiers.contains_key(m))
                 .collect(),
             write_modifiers: self
                 .write_modifiers
-                .intersection(&other.read_modifiers)
-                .copied()
+                .iter()
+                .map(|(m, v)| (*m, v.clone()))
+                .filter(|(m, _)| other.read_modifiers.contains(m))
                 .collect(),
         }
     }

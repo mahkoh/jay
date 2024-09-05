@@ -389,7 +389,7 @@ impl XBackend {
                 width,
                 height,
                 XRGB8888,
-                &format.write_modifiers,
+                format.write_modifiers.keys(),
                 GBM_BO_USE_RENDERING,
             )?;
             let dma = bo.dmabuf();

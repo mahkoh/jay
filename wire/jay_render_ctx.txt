@@ -27,3 +27,9 @@ event write_modifier (since = 7) {
 event format (since = 7) {
     format: u32,
 }
+
+event write_modifier2 (since = 9) {
+    format: u32,
+    modifier: pod(u64),
+    needs_render_usage: u32,
+}
