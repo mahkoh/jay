@@ -280,7 +280,7 @@ impl VulkanRenderer {
             .get(&format.drm)
             .ok_or(VulkanError::FormatNotSupported)?;
         let shm = vk_format.shm.as_ref().ok_or(VulkanError::ShmNotSupported)?;
-        if width > shm.max_extents.width || height > shm.max_extents.height {
+        if width > shm.limits.max_width || height > shm.limits.max_height {
             return Err(VulkanError::ImageTooLarge);
         }
         let size = stride.checked_mul(height).ok_or(VulkanError::ShmOverflow)?;

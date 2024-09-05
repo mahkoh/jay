@@ -262,8 +262,8 @@ impl VulkanInstance {
                 let mut supports_rendering = false;
                 let mut supports_texturing = false;
                 f.modifiers.values().for_each(|v| {
-                    supports_rendering |= v.render_max_extents.is_some();
-                    supports_texturing |= v.texture_max_extents.is_some();
+                    supports_rendering |= v.render_limits.is_some();
+                    supports_texturing |= v.texture_limits.is_some();
                 });
                 supports_rendering && supports_texturing
             })

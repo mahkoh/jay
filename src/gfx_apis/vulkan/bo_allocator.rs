@@ -718,19 +718,21 @@ fn validate_modifier(
             return false;
         }
     }
-    let Some(max_extents) = modifier.transfer_max_extents else {
+    let Some(limits) = modifier.transfer_limits else {
         return false;
     };
-    let mut max_width = max_extents.width;
-    let mut max_height = max_extents.height;
+    let mut max_width = limits.max_width;
+    let mut max_height = limits.max_height;
+    let mut exportable = limits.exportable;
     if usage.contains(BO_USE_RENDERING) {
-        let Some(max_extents) = modifier.render_max_extents else {
+        let Some(limits) = modifier.render_limits else {
             return false;
         };
-        max_width = max_width.min(max_extents.width);
-        max_height = max_height.min(max_extents.height);
+        max_width = max_width.min(limits.max_width);
+        max_height = max_height.min(limits.max_height);
+        exportable &= limits.exportable;
     }
-    if width > max_width || height > max_height {
+    if !exportable || width > max_width || height > max_height {
         return false;
     }
     true

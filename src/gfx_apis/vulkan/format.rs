@@ -32,21 +32,22 @@ pub struct VulkanModifier {
     pub modifier: Modifier,
     pub planes: usize,
     pub features: FormatFeatureFlags,
-    pub render_max_extents: Option<VulkanMaxExtents>,
-    pub texture_max_extents: Option<VulkanMaxExtents>,
-    pub transfer_max_extents: Option<VulkanMaxExtents>,
+    pub render_limits: Option<VulkanModifierLimits>,
+    pub texture_limits: Option<VulkanModifierLimits>,
+    pub transfer_limits: Option<VulkanModifierLimits>,
     pub render_needs_bridge: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct VulkanMaxExtents {
-    pub width: u32,
-    pub height: u32,
+pub struct VulkanModifierLimits {
+    pub max_width: u32,
+    pub max_height: u32,
+    pub exportable: bool,
 }
 
 #[derive(Debug)]
 pub struct VulkanInternalFormat {
-    pub max_extents: VulkanMaxExtents,
+    pub limits: VulkanModifierLimits,
 }
 
 const FRAMEBUFFER_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
@@ -168,9 +169,10 @@ impl VulkanInstance {
             };
         }
         Ok(Some(VulkanInternalFormat {
-            max_extents: VulkanMaxExtents {
-                width: format_properties.image_format_properties.max_extent.width,
-                height: format_properties.image_format_properties.max_extent.height,
+            limits: VulkanModifierLimits {
+                max_width: format_properties.image_format_properties.max_extent.width,
+                max_height: format_properties.image_format_properties.max_extent.height,
+                exportable: false,
             },
         }))
     }
@@ -201,16 +203,16 @@ impl VulkanInstance {
         };
         let mut mods = AHashMap::new();
         for modifier in drm_mods {
-            let mut render_max_extents = self.get_max_extents(
+            let mut render_limits = self.get_max_extents(
                 phy_dev,
                 format,
                 FRAMEBUFFER_FEATURES,
                 FRAMEBUFFER_USAGE,
                 &modifier,
             )?;
-            let texture_max_extents =
+            let texture_limits =
                 self.get_max_extents(phy_dev, format, TEX_FEATURES, TEX_USAGE, &modifier)?;
-            let transfer_max_extents = self.get_max_extents(
+            let transfer_limits = self.get_max_extents(
                 phy_dev,
                 format,
                 TRANSFER_FEATURES,
@@ -218,14 +220,14 @@ impl VulkanInstance {
                 &modifier,
             )?;
             let mut render_needs_bridge = false;
-            if render_max_extents.is_none() && modifier.drm_format_modifier == LINEAR_MODIFIER {
-                render_max_extents = self.get_fb_bridged_max_extents(
+            if render_limits.is_none() && modifier.drm_format_modifier == LINEAR_MODIFIER {
+                render_limits = self.get_fb_bridged_max_extents(
                     phy_dev,
                     format,
                     internal_format_properties,
                     &modifier,
                 )?;
-                if render_max_extents.is_some() {
+                if render_limits.is_some() {
                     render_needs_bridge = true;
                 }
             }
@@ -235,9 +237,9 @@ impl VulkanInstance {
                     modifier: modifier.drm_format_modifier,
                     planes: modifier.drm_format_modifier_plane_count as _,
                     features: modifier.drm_format_modifier_tiling_features,
-                    render_max_extents,
-                    texture_max_extents,
-                    transfer_max_extents,
+                    render_limits,
+                    texture_limits,
+                    transfer_limits,
                     render_needs_bridge,
                 },
             );
@@ -251,7 +253,7 @@ impl VulkanInstance {
         format: &Format,
         internal_format_properties: &FormatProperties,
         modifier: &DrmFormatModifierPropertiesEXT,
-    ) -> Result<Option<VulkanMaxExtents>, VulkanError> {
+    ) -> Result<Option<VulkanModifierLimits>, VulkanError> {
         let transfer_dst_max_extents = self.get_max_extents(
             phy_dev,
             format,
@@ -272,15 +274,16 @@ impl VulkanInstance {
         let Some(bridge_format) = bridge_format else {
             return Ok(None);
         };
-        Ok(Some(VulkanMaxExtents {
-            width: min(
-                transfer_dst_max_extents.width,
-                bridge_format.max_extents.width,
+        Ok(Some(VulkanModifierLimits {
+            max_width: min(
+                transfer_dst_max_extents.max_width,
+                bridge_format.limits.max_width,
             ),
-            height: min(
-                transfer_dst_max_extents.height,
-                bridge_format.max_extents.height,
+            max_height: min(
+                transfer_dst_max_extents.max_height,
+                bridge_format.limits.max_height,
             ),
+            exportable: transfer_dst_max_extents.exportable,
         }))
     }
 
@@ -291,7 +294,7 @@ impl VulkanInstance {
         features: FormatFeatureFlags,
         usage: ImageUsageFlags,
         props: &DrmFormatModifierPropertiesEXT,
-    ) -> Result<Option<VulkanMaxExtents>, VulkanError> {
+    ) -> Result<Option<VulkanModifierLimits>, VulkanError> {
         if !props.drm_format_modifier_tiling_features.contains(features) {
             return Ok(None);
         }
@@ -327,17 +330,19 @@ impl VulkanInstance {
             };
         }
         let image_format_props = &image_format_props.image_format_properties;
-        let importable = external_image_format_props
+        let external_memory_features = &external_image_format_props
             .external_memory_properties
-            .external_memory_features
-            .contains(ExternalMemoryFeatureFlags::IMPORTABLE);
+            .external_memory_features;
+        let importable = external_memory_features.contains(ExternalMemoryFeatureFlags::IMPORTABLE);
         if !importable {
             return Ok(None);
         }
+        let exportable = external_memory_features.contains(ExternalMemoryFeatureFlags::EXPORTABLE);
 
-        Ok(Some(VulkanMaxExtents {
-            width: image_format_props.max_extent.width,
-            height: image_format_props.max_extent.height,
+        Ok(Some(VulkanModifierLimits {
+            max_width: image_format_props.max_extent.width,
+            max_height: image_format_props.max_extent.height,
+            exportable,
         }))
     }
 }
