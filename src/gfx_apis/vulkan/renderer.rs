@@ -151,13 +151,13 @@ impl VulkanDevice {
                         read_modifiers: vk
                             .modifiers
                             .values()
-                            .filter(|m| m.texture_max_extents.is_some())
+                            .filter(|m| m.texture_limits.is_some())
                             .map(|m| m.modifier)
                             .collect(),
                         write_modifiers: vk
                             .modifiers
                             .values()
-                            .filter(|m| m.render_max_extents.is_some())
+                            .filter(|m| m.render_limits.is_some())
                             .map(|m| m.modifier)
                             .collect(),
                     },

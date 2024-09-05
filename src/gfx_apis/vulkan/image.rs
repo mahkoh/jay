@@ -3,7 +3,7 @@ use {
         format::Format,
         gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
         gfx_apis::vulkan::{
-            allocator::VulkanAllocation, device::VulkanDevice, format::VulkanMaxExtents,
+            allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
             renderer::VulkanRenderer, shm_image::VulkanShmImage, util::OnDrop, VulkanError,
         },
         theme::Color,
@@ -36,8 +36,8 @@ pub struct VulkanDmaBufImageTemplate {
     pub(super) height: u32,
     pub(super) disjoint: bool,
     pub(super) dmabuf: DmaBuf,
-    pub(super) render_max_extents: Option<VulkanMaxExtents>,
-    pub(super) texture_max_extents: Option<VulkanMaxExtents>,
+    pub(super) render_limits: Option<VulkanModifierLimits>,
+    pub(super) texture_limits: Option<VulkanModifierLimits>,
     pub(super) render_needs_bridge: bool,
 }
 
@@ -124,16 +124,16 @@ impl VulkanRenderer {
         }
         let width = dmabuf.width as u32;
         let height = dmabuf.height as u32;
-        let can_render = match &modifier.render_max_extents {
+        let can_render = match &modifier.render_limits {
             None => false,
-            Some(t) => width <= t.width && height <= t.height,
+            Some(t) => width <= t.max_width && height <= t.max_height,
         };
-        let can_texture = match &modifier.texture_max_extents {
+        let can_texture = match &modifier.texture_limits {
             None => false,
-            Some(t) => width <= t.width && height <= t.height,
+            Some(t) => width <= t.max_width && height <= t.max_height,
         };
         if !can_render && !can_texture {
-            if modifier.render_max_extents.is_none() && modifier.texture_max_extents.is_none() {
+            if modifier.render_limits.is_none() && modifier.texture_limits.is_none() {
                 return Err(VulkanError::ModifierUseNotSupported);
             }
             return Err(VulkanError::ImageTooLarge);
@@ -151,8 +151,8 @@ impl VulkanRenderer {
             height,
             disjoint,
             dmabuf: dmabuf.clone(),
-            render_max_extents: modifier.render_max_extents,
-            texture_max_extents: modifier.texture_max_extents,
+            render_limits: modifier.render_limits,
+            texture_limits: modifier.texture_limits,
             render_needs_bridge: modifier.render_needs_bridge,
         }))
     }
@@ -201,12 +201,12 @@ impl VulkanDmaBufImageTemplate {
 
     fn create_image(self: &Rc<Self>, for_rendering: bool) -> Result<Rc<VulkanImage>, VulkanError> {
         let device = &self.renderer.device;
-        let max_extents = match for_rendering {
-            true => self.render_max_extents,
-            false => self.texture_max_extents,
+        let limits = match for_rendering {
+            true => self.render_limits,
+            false => self.texture_limits,
         };
-        let max_extents = max_extents.ok_or(VulkanError::ModifierUseNotSupported)?;
-        if self.width > max_extents.width || self.height > max_extents.height {
+        let limits = limits.ok_or(VulkanError::ModifierUseNotSupported)?;
+        if self.width > limits.max_width || self.height > limits.max_height {
             return Err(VulkanError::ImageTooLarge);
         }
         let image = {
