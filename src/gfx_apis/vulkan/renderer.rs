@@ -4,7 +4,7 @@ use {
         format::{Format, XRGB8888},
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
-            GfxTexture, ReleaseSync, SyncFile,
+            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocator,
@@ -158,7 +158,14 @@ impl VulkanDevice {
                             .modifiers
                             .values()
                             .filter(|m| m.render_limits.is_some())
-                            .map(|m| m.modifier)
+                            .map(|m| {
+                                (
+                                    m.modifier,
+                                    GfxWriteModifier {
+                                        needs_render_usage: !m.render_needs_bridge,
+                                    },
+                                )
+                            })
                             .collect(),
                     },
                 )

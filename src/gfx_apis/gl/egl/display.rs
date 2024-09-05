@@ -1,7 +1,7 @@
 use {
     crate::{
         format::{formats, Format},
-        gfx_api::GfxFormat,
+        gfx_api::{GfxFormat, GfxWriteModifier},
         gfx_apis::gl::{
             egl::{
                 context::EglContext,
@@ -173,13 +173,18 @@ impl EglDisplay {
                     continue;
                 }
                 let mut read_modifiers = IndexSet::new();
-                let mut write_modifiers = IndexSet::new();
+                let mut write_modifiers = IndexMap::new();
                 for modifier in format.modifiers.values() {
                     if modifier.external_only && !supports_external_only {
                         continue;
                     }
                     if !modifier.external_only {
-                        write_modifiers.insert(modifier.modifier);
+                        write_modifiers.insert(
+                            modifier.modifier,
+                            GfxWriteModifier {
+                                needs_render_usage: true,
+                            },
+                        );
                     }
                     read_modifiers.insert(modifier.modifier);
                 }

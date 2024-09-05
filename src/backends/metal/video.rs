@@ -12,8 +12,8 @@ use {
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
-            AcquireSync, BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass,
-            GfxTexture, ReleaseSync, SyncFile,
+            needs_render_usage, AcquireSync, BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer,
+            GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
         },
         ifs::{
             wl_output::OutputId,
@@ -46,7 +46,7 @@ use {
     ahash::{AHashMap, AHashSet},
     arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
-    indexmap::{indexset, IndexSet},
+    indexmap::{indexset, IndexMap, IndexSet},
     isnt::std_1::collections::IsntHashMap2Ext,
     jay_config::video::GfxApi,
     once_cell::sync::Lazy,
@@ -2853,18 +2853,24 @@ impl MetalBackend {
             None => return Err(MetalError::MissingDevFormat(format.name)),
             Some(f) => f,
         };
-        let possible_modifiers: Vec<_> = dev_gfx_format
+        let possible_modifiers: IndexMap<_, _> = dev_gfx_format
             .write_modifiers
             .iter()
-            .filter(|m| plane_modifiers.contains(*m))
-            .copied()
+            .filter(|(m, _)| plane_modifiers.contains(*m))
+            .map(|(m, v)| (*m, v))
             .collect();
         if possible_modifiers.is_empty() {
             log::warn!("Scanout modifiers: {:?}", plane_modifiers);
-            log::warn!("DEV GFX modifiers: {:?}", dev_gfx_format.write_modifiers);
+            log::warn!(
+                "DEV GFX modifiers: {:?}",
+                dev_gfx_format.write_modifiers.keys()
+            );
             return Err(MetalError::MissingDevModifier(format.name));
         }
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
+        if !needs_render_usage(possible_modifiers.values().copied()) {
+            usage &= !GBM_BO_USE_RENDERING;
+        }
         if cursor {
             usage |= GBM_BO_USE_LINEAR;
         };
@@ -2873,7 +2879,7 @@ impl MetalBackend {
             width,
             height,
             format,
-            &possible_modifiers,
+            possible_modifiers.keys(),
             usage,
         );
         let dev_bo = match dev_bo {
@@ -2906,27 +2912,30 @@ impl MetalBackend {
                 None => return Err(MetalError::MissingRenderFormat(format.name)),
                 Some(f) => f,
             };
-            let possible_modifiers: Vec<_> = render_gfx_format
+            let possible_modifiers: IndexMap<_, _> = render_gfx_format
                 .write_modifiers
                 .iter()
-                .filter(|m| dev_gfx_format.read_modifiers.contains(*m))
-                .copied()
+                .filter(|(m, _)| dev_gfx_format.read_modifiers.contains(*m))
+                .map(|(m, v)| (*m, v))
                 .collect();
             if possible_modifiers.is_empty() {
                 log::warn!(
                     "Render GFX modifiers: {:?}",
-                    render_gfx_format.write_modifiers
+                    render_gfx_format.write_modifiers.keys()
                 );
                 log::warn!("DEV GFX modifiers: {:?}", dev_gfx_format.read_modifiers);
                 return Err(MetalError::MissingRenderModifier(format.name));
             }
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
+            if !needs_render_usage(possible_modifiers.values().copied()) {
+                usage &= !GBM_BO_USE_RENDERING;
+            }
             let render_bo = render_ctx.gbm.create_bo(
                 &self.state.dma_buf_ids,
                 width,
                 height,
                 format,
-                &possible_modifiers,
+                possible_modifiers.keys(),
                 usage,
             );
             let render_bo = match render_bo {
