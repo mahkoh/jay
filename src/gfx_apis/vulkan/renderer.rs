@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        format::Format,
+        format::{Format, XRGB8888},
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
             GfxTexture, ReleaseSync, SyncFile,
@@ -9,6 +9,7 @@ use {
         gfx_apis::vulkan::{
             allocator::VulkanAllocator,
             command::{VulkanCommandBuffer, VulkanCommandPool},
+            descriptor::VulkanDescriptorSetLayout,
             device::VulkanDevice,
             fence::VulkanFence,
             image::{VulkanImage, VulkanImageMemory},
@@ -28,6 +29,7 @@ use {
     },
     ahash::AHashMap,
     ash::{
+        vk,
         vk::{
             AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferImageCopy,
             BufferMemoryBarrier2, ClearColorValue, ClearValue, CommandBuffer,
@@ -56,8 +58,7 @@ use {
 pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
-    pub(super) fill_pipeline: Rc<VulkanPipeline>,
-    pub(super) tex_pipelines: EnumMap<TexCopyType, EnumMap<TexSourceType, Rc<VulkanPipeline>>>,
+    pub(super) pipelines: CopyHashMap<vk::Format, Rc<VulkanFormatPipelines>>,
     pub(super) command_pool: Rc<VulkanCommandPool>,
     pub(super) command_buffers: Stack<Rc<VulkanCommandBuffer>>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -70,6 +71,13 @@ pub struct VulkanRenderer {
     pub(super) buffer_resv_user: BufferResvUser,
     pub(super) eng: Rc<AsyncEngine>,
     pub(super) ring: Rc<IoUring>,
+    pub(super) fill_vert_shader: Rc<VulkanShader>,
+    pub(super) fill_frag_shader: Rc<VulkanShader>,
+    pub(super) tex_vert_shader: Rc<VulkanShader>,
+    pub(super) tex_frag_shader: Rc<VulkanShader>,
+    pub(super) tex_frag_mult_opaque_shader: Rc<VulkanShader>,
+    pub(super) tex_frag_mult_alpha_shader: Rc<VulkanShader>,
+    pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
 }
 
 pub(super) struct UsedTexture {
@@ -112,46 +120,25 @@ pub(super) struct PendingFrame {
     _release_fence: Option<Rc<VulkanFence>>,
 }
 
+pub(super) struct VulkanFormatPipelines {
+    pub(super) fill: Rc<VulkanPipeline>,
+    pub(super) tex: EnumMap<TexCopyType, EnumMap<TexSourceType, Rc<VulkanPipeline>>>,
+}
+
 impl VulkanDevice {
     pub fn create_renderer(
         self: &Rc<Self>,
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
     ) -> Result<Rc<VulkanRenderer>, VulkanError> {
-        let fill_pipeline = self.create_pipeline::<FillVertPushConstants, FillFragPushConstants>(
-            PipelineCreateInfo {
-                vert: self.create_shader(FILL_VERT)?,
-                frag: self.create_shader(FILL_FRAG)?,
-                alpha: true,
-                frag_descriptor_set_layout: None,
-            },
-        )?;
+        let fill_vert_shader = self.create_shader(FILL_VERT)?;
+        let fill_frag_shader = self.create_shader(FILL_FRAG)?;
         let sampler = self.create_sampler()?;
         let tex_descriptor_set_layout = self.create_descriptor_set_layout(&sampler)?;
         let tex_vert_shader = self.create_shader(TEX_VERT)?;
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
         let tex_frag_mult_opaque_shader = self.create_shader(TEX_FRAG_MULT_OPAQUE)?;
         let tex_frag_mult_alpha_shader = self.create_shader(TEX_FRAG_MULT_ALPHA)?;
-        let create_tex_pipeline = |alpha| {
-            self.create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
-                vert: tex_vert_shader.clone(),
-                frag: tex_frag_shader.clone(),
-                alpha,
-                frag_descriptor_set_layout: Some(tex_descriptor_set_layout.clone()),
-            })
-        };
-        let create_tex_mult_pipeline = |frag: &Rc<VulkanShader>| {
-            self.create_pipeline::<TexVertPushConstants, TexFragPushConstants>(PipelineCreateInfo {
-                vert: tex_vert_shader.clone(),
-                frag: frag.clone(),
-                alpha: true,
-                frag_descriptor_set_layout: Some(tex_descriptor_set_layout.clone()),
-            })
-        };
-        let tex_opaque_pipeline = create_tex_pipeline(false)?;
-        let tex_alpha_pipeline = create_tex_pipeline(true)?;
-        let tex_mult_opaque_pipeline = create_tex_mult_pipeline(&tex_frag_mult_opaque_shader)?;
-        let tex_mult_alpha_pipeline = create_tex_mult_pipeline(&tex_frag_mult_alpha_shader)?;
         let command_pool = self.create_command_pool()?;
         let formats: AHashMap<u32, _> = self
             .formats
@@ -178,20 +165,10 @@ impl VulkanDevice {
             })
             .collect();
         let allocator = self.create_allocator()?;
-        Ok(Rc::new(VulkanRenderer {
+        let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
-            fill_pipeline,
-            tex_pipelines: enum_map! {
-                TexCopyType::Identity => enum_map! {
-                    TexSourceType::HasAlpha => tex_alpha_pipeline.clone(),
-                    TexSourceType::Opaque => tex_opaque_pipeline.clone(),
-                },
-                TexCopyType::Multiply => enum_map! {
-                    TexSourceType::HasAlpha => tex_mult_alpha_pipeline.clone(),
-                    TexSourceType::Opaque => tex_mult_opaque_pipeline.clone(),
-                },
-            },
+            pipelines: Default::default(),
             command_pool,
             command_buffers: Default::default(),
             wait_semaphores: Default::default(),
@@ -204,11 +181,79 @@ impl VulkanDevice {
             buffer_resv_user: Default::default(),
             eng: eng.clone(),
             ring: ring.clone(),
-        }))
+            fill_vert_shader,
+            fill_frag_shader,
+            tex_vert_shader,
+            tex_frag_shader,
+            tex_frag_mult_opaque_shader,
+            tex_frag_mult_alpha_shader,
+            tex_descriptor_set_layout,
+        });
+        render.get_or_create_pipelines(XRGB8888.vk_format)?;
+        Ok(render)
     }
 }
 
 impl VulkanRenderer {
+    fn get_or_create_pipelines(
+        &self,
+        format: vk::Format,
+    ) -> Result<Rc<VulkanFormatPipelines>, VulkanError> {
+        if let Some(pl) = self.pipelines.get(&format) {
+            return Ok(pl);
+        }
+        let fill = self
+            .device
+            .create_pipeline::<FillVertPushConstants, FillFragPushConstants>(
+                PipelineCreateInfo {
+                    format,
+                    vert: self.fill_vert_shader.clone(),
+                    frag: self.fill_frag_shader.clone(),
+                    alpha: true,
+                    frag_descriptor_set_layout: None,
+                },
+            )?;
+        let create_tex_pipeline = |alpha| {
+            self.device
+                .create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
+                    format,
+                    vert: self.tex_vert_shader.clone(),
+                    frag: self.tex_frag_shader.clone(),
+                    alpha,
+                    frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
+                })
+        };
+        let create_tex_mult_pipeline = |frag: &Rc<VulkanShader>| {
+            self.device
+                .create_pipeline::<TexVertPushConstants, TexFragPushConstants>(PipelineCreateInfo {
+                    format,
+                    vert: self.tex_vert_shader.clone(),
+                    frag: frag.clone(),
+                    alpha: true,
+                    frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
+                })
+        };
+        let tex_opaque = create_tex_pipeline(false)?;
+        let tex_alpha = create_tex_pipeline(true)?;
+        let tex_mult_opaque = create_tex_mult_pipeline(&self.tex_frag_mult_opaque_shader)?;
+        let tex_mult_alpha = create_tex_mult_pipeline(&self.tex_frag_mult_alpha_shader)?;
+        let pipelines = Rc::new(VulkanFormatPipelines {
+            fill,
+            tex: enum_map! {
+                TexCopyType::Identity => enum_map! {
+                    TexSourceType::HasAlpha => tex_alpha.clone(),
+                    TexSourceType::Opaque => tex_opaque.clone(),
+                },
+                TexCopyType::Multiply => enum_map! {
+                    TexSourceType::HasAlpha => tex_mult_alpha.clone(),
+                    TexSourceType::Opaque => tex_mult_opaque.clone(),
+                },
+            },
+        });
+        self.pipelines.set(format, pipelines.clone());
+        Ok(pipelines)
+    }
+
     pub(super) fn allocate_point(&self) -> u64 {
         self.last_point.fetch_add(1) + 1
     }
@@ -350,7 +395,13 @@ impl VulkanRenderer {
         }
     }
 
-    fn record_draws(&self, buf: CommandBuffer, opts: &[GfxApiOpt]) -> Result<(), VulkanError> {
+    fn record_draws(
+        &self,
+        buf: CommandBuffer,
+        fb: &VulkanImage,
+        opts: &[GfxApiOpt],
+    ) -> Result<(), VulkanError> {
+        let pipelines = self.get_or_create_pipelines(fb.format.vk_format)?;
         let dev = &self.device.device;
         let mut current_pipeline = None;
         let mut bind = |pipeline: &VulkanPipeline| {
@@ -365,7 +416,7 @@ impl VulkanRenderer {
             match opt {
                 GfxApiOpt::Sync => {}
                 GfxApiOpt::FillRect(r) => {
-                    bind(&self.fill_pipeline);
+                    bind(&pipelines.fill);
                     let vert = FillVertPushConstants {
                         pos: r.rect.to_points(),
                     };
@@ -375,16 +426,16 @@ impl VulkanRenderer {
                     unsafe {
                         dev.cmd_push_constants(
                             buf,
-                            self.fill_pipeline.pipeline_layout,
+                            pipelines.fill.pipeline_layout,
                             ShaderStageFlags::VERTEX,
                             0,
                             uapi::as_bytes(&vert),
                         );
                         dev.cmd_push_constants(
                             buf,
-                            self.fill_pipeline.pipeline_layout,
+                            pipelines.fill.pipeline_layout,
                             ShaderStageFlags::FRAGMENT,
-                            self.fill_pipeline.frag_push_offset,
+                            pipelines.fill.frag_push_offset,
                             uapi::as_bytes(&frag),
                         );
                         dev.cmd_draw(buf, 4, 1, 0, 0);
@@ -400,7 +451,7 @@ impl VulkanRenderer {
                         true => TexSourceType::HasAlpha,
                         false => TexSourceType::Opaque,
                     };
-                    let pipeline = &self.tex_pipelines[copy_type][source_type];
+                    let pipeline = &pipelines.tex[copy_type][source_type];
                     bind(pipeline);
                     let vert = TexVertPushConstants {
                         pos: c.target.to_points(),
@@ -944,7 +995,7 @@ impl VulkanRenderer {
         self.initial_barriers(buf.buffer, fb);
         self.begin_rendering(buf.buffer, fb, clear);
         self.set_viewport(buf.buffer, fb);
-        self.record_draws(buf.buffer, opts)?;
+        self.record_draws(buf.buffer, fb, opts)?;
         self.end_rendering(buf.buffer);
         self.copy_bridge_to_dmabuf(buf.buffer, fb);
         self.final_barriers(buf.buffer, fb);

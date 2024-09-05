@@ -9,8 +9,8 @@ use {
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
         video::{
-            connector_type::ConnectorType, Connector, DrmDevice, GfxApi, TearingMode, Transform,
-            VrrMode,
+            connector_type::ConnectorType, Connector, DrmDevice, Format, GfxApi, TearingMode,
+            Transform, VrrMode,
         },
         Axis, Direction, PciId, Workspace,
         _private::{PollableId, WireMode},
@@ -508,6 +508,10 @@ pub enum ClientMessage<'a> {
     },
     SetEiSocketEnabled {
         enabled: bool,
+    },
+    ConnectorSetFormat {
+        connector: Connector,
+        format: Format,
     },
 }
 

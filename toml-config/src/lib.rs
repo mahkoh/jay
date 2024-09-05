@@ -573,6 +573,9 @@ impl Output {
                 c.set_tearing_mode(mode);
             }
         }
+        if let Some(format) = self.format {
+            c.set_format(format);
+        }
     }
 }
 

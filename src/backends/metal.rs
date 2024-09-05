@@ -11,12 +11,16 @@ use {
         },
         backends::metal::video::{
             MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
+            PersistentDisplayData,
         },
         dbus::{DbusError, SignalHandler},
         drm_feedback::DrmFeedback,
         gfx_api::GfxError,
-        ifs::wl_seat::tablet::{
-            TabletId, TabletInit, TabletPadGroupInit, TabletPadId, TabletPadInit,
+        ifs::{
+            wl_output::OutputId,
+            wl_seat::tablet::{
+                TabletId, TabletInit, TabletPadGroupInit, TabletPadId, TabletPadInit,
+            },
         },
         libinput::{
             consts::{
@@ -144,6 +148,7 @@ pub struct MetalBackend {
     resume_handler: Cell<Option<SignalHandler>>,
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
     default_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
+    persistent_display_data: CopyHashMap<Rc<OutputId>, Rc<PersistentDisplayData>>,
 }
 
 impl Debug for MetalBackend {
@@ -317,6 +322,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         resume_handler: Default::default(),
         ctx: Default::default(),
         default_feedback: Default::default(),
+        persistent_display_data: Default::default(),
     });
     metal.pause_handler.set(Some({
         let mtl = metal.clone();

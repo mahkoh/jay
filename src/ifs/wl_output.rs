@@ -4,6 +4,7 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
+        format::{Format, XRGB8888},
         globals::{Global, GlobalName},
         ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
         leaks::Tracker,
@@ -57,6 +58,8 @@ pub struct WlOutputGlobal {
     pub output_id: Rc<OutputId>,
     pub mode: Cell<backend::Mode>,
     pub modes: Vec<backend::Mode>,
+    pub formats: CloneCell<Rc<Vec<&'static Format>>>,
+    pub format: Cell<&'static Format>,
     pub width_mm: i32,
     pub height_mm: i32,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
@@ -96,12 +99,28 @@ pub struct PersistentOutputState {
     pub tearing_mode: Cell<&'static TearingMode>,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Debug)]
 pub struct OutputId {
-    pub connector: String,
+    pub connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
+}
+
+impl OutputId {
+    pub fn new(
+        connector: String,
+        manufacturer: String,
+        model: String,
+        serial_number: String,
+    ) -> Self {
+        Self {
+            connector: serial_number.is_empty().then_some(connector),
+            manufacturer,
+            model,
+            serial_number,
+        }
+    }
 }
 
 impl WlOutputGlobal {
@@ -136,6 +155,8 @@ impl WlOutputGlobal {
             output_id: output_id.clone(),
             mode: Cell::new(*mode),
             modes,
+            formats: CloneCell::new(Rc::new(vec![])),
+            format: Cell::new(XRGB8888),
             width_mm,
             height_mm,
             bindings: Default::default(),

@@ -757,6 +757,40 @@
         }
       ]
     },
+    "Format": {
+      "type": "string",
+      "description": "A graphics format.\n\nThese formats are documented in https://github.com/torvalds/linux/blob/master/include/uapi/drm/drm_fourcc.h\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  format = \"rgb565\"\n  ```\n",
+      "enum": [
+        "argb8888",
+        "xrgb8888",
+        "abgr8888",
+        "xbgr8888",
+        "r8",
+        "gr88",
+        "rgb888",
+        "bgr888",
+        "rgba4444",
+        "rgbx4444",
+        "bgra4444",
+        "bgrx4444",
+        "rgb565",
+        "bgr565",
+        "rgba5551",
+        "rgbx5551",
+        "bgra5551",
+        "bgrx5551",
+        "argb1555",
+        "xrgb1555",
+        "argb2101010",
+        "xrgb2101010",
+        "abgr2101010",
+        "xbgr2101010",
+        "abgr16161616",
+        "xbgr16161616",
+        "abgr16161616f",
+        "xbgr16161616f"
+      ]
+    },
     "GfxApi": {
       "type": "string",
       "description": "A graphics API used for rendering.",
@@ -1066,6 +1100,10 @@
         "tearing": {
           "description": "Configures the tearing settings of this output.\n\nBy default, the tearing mode is `variant3`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  tearing.mode = \"never\"\n  ```\n",
           "$ref": "#/$defs/Tearing"
+        },
+        "format": {
+          "description": "Configures the framebuffer format of this output.\n\nBy default, the format is `xrgb8888`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  format = \"rgb565\"\n  ```\n",
+          "$ref": "#/$defs/Format"
         }
       },
       "required": [

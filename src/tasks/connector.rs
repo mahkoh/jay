@@ -2,7 +2,7 @@ use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         globals::GlobalName,
-        ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+        ifs::wl_output::{PersistentOutputState, WlOutputGlobal},
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
@@ -86,27 +86,17 @@ impl ConnectorHandler {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
         let name = self.state.globals.name();
-        let output_id = Rc::new(OutputId {
-            connector: self.data.name.clone(),
-            manufacturer: info.manufacturer.clone(),
-            model: info.product.clone(),
-            serial_number: info.serial_number.clone(),
-        });
         if info.non_desktop {
             self.handle_non_desktop_connected(info).await;
         } else {
-            self.handle_desktop_connected(info, name, output_id).await;
+            self.handle_desktop_connected(info, name).await;
         }
         self.data.connected.set(false);
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
     }
 
-    async fn handle_desktop_connected(
-        &self,
-        info: MonitorInfo,
-        name: GlobalName,
-        output_id: Rc<OutputId>,
-    ) {
+    async fn handle_desktop_connected(&self, info: MonitorInfo, name: GlobalName) {
+        let output_id = info.output_id.clone();
         let desired_state = match self.state.persistent_output_states.get(&output_id) {
             Some(ds) => ds,
             _ => {
@@ -259,6 +249,10 @@ impl ConnectorHandler {
                     }
                     ConnectorEvent::VrrChanged(enabled) => {
                         on.schedule.set_vrr_enabled(enabled);
+                    }
+                    ConnectorEvent::FormatsChanged(formats, format) => {
+                        on.global.formats.set(formats);
+                        on.global.format.set(format);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }

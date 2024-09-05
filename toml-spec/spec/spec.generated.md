@@ -1507,6 +1507,111 @@ The table has the following fields:
   The value of this field should be a boolean.
 
 
+<a name="types-Format"></a>
+### `Format`
+
+A graphics format.
+
+These formats are documented in https://github.com/torvalds/linux/blob/master/include/uapi/drm/drm_fourcc.h
+
+- Example:
+
+  ```toml
+  [[outputs]]
+  match.serial-number = "33K03894SL0"
+  format = "rgb565"
+  ```
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `argb8888`:
+
+
+- `xrgb8888`:
+
+
+- `abgr8888`:
+
+
+- `xbgr8888`:
+
+
+- `r8`:
+
+
+- `gr88`:
+
+
+- `rgb888`:
+
+
+- `bgr888`:
+
+
+- `rgba4444`:
+
+
+- `rgbx4444`:
+
+
+- `bgra4444`:
+
+
+- `bgrx4444`:
+
+
+- `rgb565`:
+
+
+- `bgr565`:
+
+
+- `rgba5551`:
+
+
+- `rgbx5551`:
+
+
+- `bgra5551`:
+
+
+- `bgrx5551`:
+
+
+- `argb1555`:
+
+
+- `xrgb1555`:
+
+
+- `argb2101010`:
+
+
+- `xrgb2101010`:
+
+
+- `abgr2101010`:
+
+
+- `xbgr2101010`:
+
+
+- `abgr16161616`:
+
+
+- `xbgr16161616`:
+
+
+- `abgr16161616f`:
+
+
+- `xbgr16161616f`:
+
+
+
+
 <a name="types-GfxApi"></a>
 ### `GfxApi`
 
@@ -2282,6 +2387,22 @@ The table has the following fields:
     ```
 
   The value of this field should be a [Tearing](#types-Tearing).
+
+- `format` (optional):
+
+  Configures the framebuffer format of this output.
+  
+  By default, the format is `xrgb8888`.
+  
+  - Example:
+  
+    ```toml
+    [[outputs]]
+    match.serial-number = "33K03894SL0"
+    format = "rgb565"
+    ```
+
+  The value of this field should be a [Format](#types-Format).
 
 
 <a name="types-OutputMatch"></a>

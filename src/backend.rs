@@ -3,14 +3,18 @@ use {
         async_engine::SpawnedFuture,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
+        format::Format,
         gfx_api::{GfxFramebuffer, SyncFile},
-        ifs::wl_seat::{
-            tablet::{
-                PadButtonState, TabletInit, TabletPadId, TabletPadInit, TabletRingEventSource,
-                TabletStripEventSource, TabletToolChanges, TabletToolId, TabletToolInit,
-                ToolButtonState,
+        ifs::{
+            wl_output::OutputId,
+            wl_seat::{
+                tablet::{
+                    PadButtonState, TabletInit, TabletPadId, TabletPadInit, TabletRingEventSource,
+                    TabletStripEventSource, TabletToolChanges, TabletToolId, TabletToolInit,
+                    ToolButtonState,
+                },
+                wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
             },
-            wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         },
         libinput::consts::DeviceCapability,
         video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
@@ -64,9 +68,7 @@ pub struct Mode {
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
     pub modes: Vec<Mode>,
-    pub manufacturer: String,
-    pub product: String,
-    pub serial_number: String,
+    pub output_id: Rc<OutputId>,
     pub initial_mode: Mode,
     pub width_mm: i32,
     pub height_mm: i32,
@@ -115,6 +117,9 @@ pub trait Connector {
     fn set_tearing_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+    fn set_fb_format(&self, format: &'static Format) {
+        let _ = format;
+    }
 }
 
 #[derive(Debug)]
@@ -127,6 +132,7 @@ pub enum ConnectorEvent {
     Unavailable,
     Available,
     VrrChanged(bool),
+    FormatsChanged(Rc<Vec<&'static Format>>, &'static Format),
 }
 
 pub trait HardwareCursor: Debug {

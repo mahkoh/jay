@@ -7,6 +7,7 @@ use {
         },
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
+        format::config_formats,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         io_uring::TaskResultExt,
         output_schedule::map_cursor_hz,
@@ -49,8 +50,8 @@ use {
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
-            Connector, DrmDevice, GfxApi, TearingMode as ConfigTearingMode, Transform,
-            VrrMode as ConfigVrrMode,
+            Connector, DrmDevice, Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode,
+            Transform, VrrMode as ConfigVrrMode,
         },
         Axis, Direction, Workspace,
     },
@@ -973,7 +974,7 @@ impl ConfigProxyHandler {
     fn handle_connector_model(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorModel {
-            model: connector.monitor_info.product.clone(),
+            model: connector.monitor_info.output_id.model.clone(),
         });
         Ok(())
     }
@@ -981,7 +982,7 @@ impl ConfigProxyHandler {
     fn handle_connector_manufacturer(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorManufacturer {
-            manufacturer: connector.monitor_info.manufacturer.clone(),
+            manufacturer: connector.monitor_info.output_id.manufacturer.clone(),
         });
         Ok(())
     }
@@ -989,7 +990,7 @@ impl ConfigProxyHandler {
     fn handle_connector_serial_number(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::GetConnectorSerialNumber {
-            serial_number: connector.monitor_info.serial_number.clone(),
+            serial_number: connector.monitor_info.output_id.serial_number.clone(),
         });
         Ok(())
     }
@@ -1048,6 +1049,19 @@ impl ConfigProxyHandler {
         let scale = Scale::from_f64(scale);
         let connector = self.get_output_node(connector)?;
         connector.set_preferred_scale(scale);
+        Ok(())
+    }
+
+    fn handle_connector_set_format(
+        &self,
+        connector: Connector,
+        format: ConfigFormat,
+    ) -> Result<(), CphError> {
+        let Some(&format) = config_formats().get(&format) else {
+            return Err(CphError::UnknownFormat(format));
+        };
+        let connector = self.get_connector(connector)?;
+        connector.connector.set_fb_format(format);
         Ok(())
     }
 
@@ -1919,6 +1933,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetEiSocketEnabled { enabled } => {
                 self.handle_set_ei_socket_enabled(enabled)
             }
+            ClientMessage::ConnectorSetFormat { connector, format } => self
+                .handle_connector_set_format(connector, format)
+                .wrn("connector_set_format")?,
         }
         Ok(())
     }
@@ -1986,6 +2003,8 @@ enum CphError {
     InvalidCursorHz(f64),
     #[error("Unknown tearing mode {0:?}")]
     UnknownTearingMode(ConfigTearingMode),
+    #[error("The format {0:?} is unknown")]
+    UnknownFormat(ConfigFormat),
 }
 
 trait WithRequestName {

@@ -15,7 +15,10 @@ use {
             AcquireSync, BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass,
             GfxTexture, ReleaseSync, SyncFile,
         },
-        ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
+        ifs::{
+            wl_output::OutputId,
+            wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
+        },
         renderer::RenderResult,
         state::State,
         theme::Color,
@@ -23,9 +26,8 @@ use {
         udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
-            on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
-            transform_ext::TransformExt,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, on_change::OnChange,
+            opaque_cell::OpaqueCell, oserror::OsError, transform_ext::TransformExt,
         },
         video::{
             dmabuf::DmaBufId,
@@ -296,39 +298,36 @@ pub struct MetalDrmDeviceData {
 }
 
 #[derive(Debug)]
+pub struct PersistentDisplayData {
+    pub mode: RefCell<Option<DrmModeInfo>>,
+    pub vrr_requested: Cell<bool>,
+    pub format: Cell<&'static Format>,
+}
+
+#[derive(Debug)]
 pub struct ConnectorDisplayData {
     pub crtc_id: MutableProperty<DrmCrtc>,
     pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
     pub modes: Vec<DrmModeInfo>,
     pub mode: Option<DrmModeInfo>,
+    pub persistent: Rc<PersistentDisplayData>,
     pub refresh: u32,
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
-    pub vrr_requested: bool,
 
-    pub monitor_manufacturer: String,
-    pub monitor_name: String,
-    pub monitor_serial_number: String,
+    pub connector_id: ConnectorKernelId,
+    pub output_id: Rc<OutputId>,
 
     pub connection: ConnectorStatus,
     pub mm_width: u32,
     pub mm_height: u32,
     pub _subpixel: u32,
-
-    pub connector_type: ConnectorType,
-    pub connector_type_id: u32,
 }
 
 impl ConnectorDisplayData {
-    fn is_same_monitor(&self, other: &Self) -> bool {
-        self.monitor_manufacturer == other.monitor_manufacturer
-            && self.monitor_name == other.monitor_name
-            && self.monitor_serial_number == other.monitor_serial_number
-    }
-
     fn should_enable_vrr(&self) -> bool {
-        self.vrr_requested && self.vrr_capable
+        self.persistent.vrr_requested.get() && self.vrr_capable
     }
 }
 
@@ -417,6 +416,7 @@ pub struct MetalConnector {
 
     pub connector_id: ConnectorId,
 
+    pub buffer_format: Cell<&'static Format>,
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub next_buffer: NumCell<usize>,
 
@@ -462,6 +462,7 @@ pub struct MetalConnector {
     pub direct_scanout_active: Cell<bool>,
 
     pub tearing_requested: Cell<bool>,
+    pub try_switch_format: Cell<bool>,
 }
 
 impl Debug for MetalConnector {
@@ -641,6 +642,25 @@ impl MetalConnector {
         if let Some(crtc) = self.crtc.get() {
             self.send_event(ConnectorEvent::VrrChanged(crtc.vrr_enabled.value.get()));
         }
+    }
+
+    fn send_formats(&self) {
+        match self.frontend_state.get() {
+            FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable
+            | FrontState::Connected { non_desktop: true } => return,
+            FrontState::Connected { non_desktop: false } => {}
+        }
+        let mut formats = vec![];
+        if let Some(plane) = self.primary_plane.get() {
+            formats = plane.formats.values().map(|f| f.format).collect();
+        }
+        let formats = Rc::new(formats);
+        self.send_event(ConnectorEvent::FormatsChanged(
+            formats,
+            self.buffer_format.get(),
+        ));
     }
 
     fn send_hardware_cursor(self: &Rc<Self>) {
@@ -1266,6 +1286,17 @@ impl MetalConnector {
                     log::error!("Tried to send vrr-changed event in invalid state: {state:?}");
                 }
             },
+            ConnectorEvent::FormatsChanged(_, _) => match state {
+                FrontState::Connected { non_desktop: false } => {
+                    self.on_change.send_event(event);
+                }
+                FrontState::Connected { non_desktop: true }
+                | FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable => {
+                    log::error!("Tried to send format-changed event in invalid state: {state:?}");
+                }
+            },
         }
     }
 }
@@ -1276,11 +1307,7 @@ impl Connector for MetalConnector {
     }
 
     fn kernel_id(&self) -> ConnectorKernelId {
-        let dd = self.display.borrow_mut();
-        ConnectorKernelId {
-            ty: dd.connector_type,
-            idx: dd.connector_type_id,
-        }
+        self.display.borrow().connector_id
     }
 
     fn event(&self) -> Option<ConnectorEvent> {
@@ -1349,6 +1376,8 @@ impl Connector for MetalConnector {
             return;
         };
         log::info!("Trying to change mode from {:?} to {:?}", prev, mode);
+        let persistent = dd.persistent.clone();
+        *persistent.mode.borrow_mut() = Some(mode.clone());
         dd.mode = Some(mode.clone());
         drop(dd);
         let Err(e) = self.backend.handle_drm_change_(&dev, true) else {
@@ -1356,6 +1385,7 @@ impl Connector for MetalConnector {
             return;
         };
         log::warn!("Could not change mode: {}", ErrorFmt(&e));
+        *persistent.mode.borrow_mut() = prev.clone();
         self.display.borrow_mut().mode = prev;
         if let MetalError::Modeset(DrmError::Atomic(OsError(c::EACCES))) = e {
             log::warn!("Failed due to access denied. Resetting in memory only.");
@@ -1396,7 +1426,7 @@ impl Connector for MetalConnector {
         }
         let dd = &mut *self.display.borrow_mut();
         let old_enabled = dd.should_enable_vrr();
-        dd.vrr_requested = enabled;
+        dd.persistent.vrr_requested.set(enabled);
         let new_enabled = dd.should_enable_vrr();
         if old_enabled == new_enabled {
             return;
@@ -1426,6 +1456,24 @@ impl Connector for MetalConnector {
                 false => "Disabling",
             };
             log::debug!("{msg} tearing on output {}", self.kernel_id());
+        }
+    }
+
+    fn set_fb_format(&self, format: &'static Format) {
+        {
+            let dd = self.display.borrow().persistent.clone();
+            dd.format.set(format);
+            if format == self.buffer_format.get() {
+                self.try_switch_format.set(false);
+                return;
+            }
+            self.try_switch_format.set(true);
+        }
+        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
+            if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
+                dev.unprocessed_change.set(true);
+                log::error!("Could not change format: {}", ErrorFmt(e));
+            }
         }
     }
 }
@@ -1547,6 +1595,7 @@ fn create_connector(
         dev: dev.clone(),
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
+        buffer_format: Cell::new(XRGB8888),
         buffers: Default::default(),
         next_buffer: Default::default(),
         enabled: Cell::new(true),
@@ -1579,6 +1628,7 @@ fn create_connector(
         direct_scanout_active: Cell::new(false),
         next_flip_nsec: Cell::new(0),
         tearing_requested: Cell::new(false),
+        try_switch_format: Cell::new(false),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1608,13 +1658,10 @@ fn create_connector_display_data(
     let mut name = String::new();
     let mut manufacturer = String::new();
     let mut serial_number = String::new();
-    let mode = info.modes.first().cloned();
-    let refresh = mode
-        .as_ref()
-        .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
-        .unwrap_or(0) as u32;
-    let connector_type = ConnectorType::from_drm(info.connector_type);
-    let connector_name = debug_fn(|f| write!(f, "{}-{}", connector_type, info.connector_type_id));
+    let connector_id = ConnectorKernelId {
+        ty: ConnectorType::from_drm(info.connector_type),
+        idx: info.connector_type_id,
+    };
     'fetch_edid: {
         if connection != ConnectorStatus::Connected {
             break 'fetch_edid;
@@ -1624,7 +1671,7 @@ fn create_connector_display_data(
             _ => {
                 log::warn!(
                     "Connector {} is connected but has no EDID blob",
-                    connector_name,
+                    connector_id,
                 );
                 break 'fetch_edid;
             }
@@ -1634,7 +1681,7 @@ fn create_connector_display_data(
             Err(e) => {
                 log::error!(
                     "Could not fetch edid property of connector {}: {}",
-                    connector_name,
+                    connector_id,
                     ErrorFmt(e)
                 );
                 break 'fetch_edid;
@@ -1645,7 +1692,7 @@ fn create_connector_display_data(
             Err(e) => {
                 log::error!(
                     "Could not parse edid property of connector {}: {}",
-                    connector_name,
+                    connector_id,
                     ErrorFmt(e)
                 );
                 break 'fetch_edid;
@@ -1666,43 +1713,77 @@ fn create_connector_display_data(
         if name.is_empty() {
             log::warn!(
                 "The display attached to connector {} does not have a product name descriptor",
-                connector_name,
+                connector_id,
             );
         }
         if serial_number.is_empty() {
             log::warn!(
                 "The display attached to connector {} does not have a serial number descriptor",
-                connector_name,
+                connector_id,
             );
             serial_number = edid.base_block.id_serial_number.to_string();
         }
     }
-    let props = collect_properties(&dev.master, connector)?;
-    let connector_type = ConnectorType::from_drm(info.connector_type);
+    let output_id = Rc::new(OutputId::new(
+        connector_id.to_string(),
+        manufacturer,
+        name,
+        serial_number,
+    ));
+    let desired_state = match dev.backend.persistent_display_data.get(&output_id) {
+        Some(ds) => {
+            log::info!("Reusing desired state for {:?}", output_id);
+            ds
+        }
+        None => {
+            let ds = Rc::new(PersistentDisplayData {
+                mode: RefCell::new(info.modes.first().cloned()),
+                vrr_requested: Default::default(),
+                format: Cell::new(XRGB8888),
+            });
+            dev.backend
+                .persistent_display_data
+                .set(output_id.clone(), ds.clone());
+            ds
+        }
+    };
+    let mut mode_opt = desired_state.mode.borrow_mut();
+    if let Some(mode) = &*mode_opt {
+        if !info.modes.contains(mode) {
+            log::warn!("Discarding previously desired mode");
+            *mode_opt = None;
+        }
+    }
+    if mode_opt.is_none() {
+        *mode_opt = info.modes.first().cloned();
+    }
+    let refresh = mode_opt
+        .as_ref()
+        .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
+        .unwrap_or(0) as u32;
     let non_desktop = props.get("non-desktop")?.value.get() != 0;
     let vrr_capable = match props.get("vrr_capable") {
         Ok(c) => c.value.get() == 1,
         Err(_) => false,
     };
+    let mode = mode_opt.clone();
+    drop(mode_opt);
     Ok(ConnectorDisplayData {
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtcs,
         modes: info.modes,
         mode,
+        persistent: desired_state,
         refresh,
         non_desktop,
         non_desktop_effective: non_desktop_override.unwrap_or(non_desktop),
         vrr_capable,
-        vrr_requested: false,
-        monitor_manufacturer: manufacturer,
-        monitor_name: name,
-        monitor_serial_number: serial_number,
         connection,
         mm_width: info.mm_width,
         mm_height: info.mm_height,
         _subpixel: info.subpixel,
-        connector_type,
-        connector_type_id: info.connector_type_id,
+        connector_id,
+        output_id,
     })
 }
 
@@ -2015,15 +2096,8 @@ impl MetalBackend {
                 }
             };
             let mut old = c.display.borrow_mut();
-            if old.is_same_monitor(&dd) {
-                if let Some(mode) = &old.mode {
-                    if dd.modes.contains(mode) {
-                        dd.mode = Some(mode.clone());
-                    }
-                }
-                dd.vrr_requested = old.vrr_requested;
-            }
             mem::swap(old.deref_mut(), &mut dd);
+            let mut preserve_connector = false;
             match c.frontend_state.get() {
                 FrontState::Removed | FrontState::Disconnected => {}
                 FrontState::Connected { .. } | FrontState::Unavailable => {
@@ -2042,7 +2116,7 @@ impl MetalBackend {
                         // Disconnect if the connector is no longer connected.
                         disconnect |= old.connection != ConnectorStatus::Connected;
                         // Disconnect if the connected monitor changed.
-                        disconnect |= !old.is_same_monitor(&dd);
+                        disconnect |= old.output_id != dd.output_id;
                     }
                     if disconnect {
                         c.tearing_requested.set(false);
@@ -2055,9 +2129,15 @@ impl MetalBackend {
                         }
                         c.send_event(ConnectorEvent::Disconnected);
                     } else if preserve_any {
-                        preserve.connectors.insert(c.id);
+                        preserve_connector = true;
                     }
                 }
+            }
+            if c.try_switch_format.get() && old.persistent.format.get() != c.buffer_format.get() {
+                preserve_connector = false;
+            }
+            if preserve_connector {
+                preserve.connectors.insert(c.id);
             }
         }
         for c in new_connectors {
@@ -2103,9 +2183,7 @@ impl MetalBackend {
         }
         connector.send_event(ConnectorEvent::Connected(MonitorInfo {
             modes,
-            manufacturer: dd.monitor_manufacturer.clone(),
-            product: dd.monitor_name.clone(),
-            serial_number: dd.monitor_serial_number.clone(),
+            output_id: dd.output_id.clone(),
             initial_mode: dd.mode.clone().unwrap().to_backend(),
             width_mm: dd.mm_width as _,
             height_mm: dd.mm_height as _,
@@ -2114,6 +2192,7 @@ impl MetalBackend {
         }));
         connector.send_hardware_cursor();
         connector.send_vrr_enabled();
+        connector.send_formats();
     }
 
     pub fn create_drm_device(
@@ -2645,6 +2724,7 @@ impl MetalBackend {
             connector.send_hardware_cursor();
             connector.send_vrr_enabled();
             connector.update_drm_feedback();
+            connector.send_formats();
         }
         Ok(())
     }
@@ -2937,7 +3017,7 @@ impl MetalBackend {
         ctx: &MetalRenderContext,
         old_buffers: &mut Vec<Rc<dyn Any>>,
     ) -> Result<(), MetalError> {
-        let dd = connector.display.borrow_mut();
+        let dd = &mut *connector.display.borrow_mut();
         let crtc = match connector.crtc.get() {
             Some(c) => c,
             _ => return Ok(()),
@@ -2949,26 +3029,55 @@ impl MetalBackend {
                 return Ok(());
             }
         };
-        let (primary_plane, primary_modifiers) = 'primary_plane: {
-            for plane in crtc.possible_planes.values() {
-                if plane.ty == PlaneType::Primary && !plane.assigned.get() && plane.lease.is_none()
-                {
-                    if let Some(format) = plane.formats.get(&XRGB8888.drm) {
-                        break 'primary_plane (plane.clone(), &format.modifiers);
+        let allocate_primary_plane = |format: &'static Format| {
+            let (primary_plane, primary_modifiers) = 'primary_plane: {
+                for plane in crtc.possible_planes.values() {
+                    if plane.ty == PlaneType::Primary
+                        && !plane.assigned.get()
+                        && plane.lease.is_none()
+                    {
+                        if let Some(format) = plane.formats.get(&format.drm) {
+                            break 'primary_plane (plane.clone(), &format.modifiers);
+                        }
+                    }
+                }
+                return Err(MetalError::NoPrimaryPlaneForConnector);
+            };
+            let buffers = Rc::new(self.create_scanout_buffers(
+                &connector.dev,
+                format,
+                primary_modifiers,
+                mode.hdisplay as _,
+                mode.vdisplay as _,
+                ctx,
+                false,
+            )?);
+            Ok((primary_plane, buffers))
+        };
+        let primary_plane;
+        let buffers;
+        let buffer_format;
+        'primary_plane: {
+            let format = dd.persistent.format.get();
+            if format != XRGB8888 {
+                match allocate_primary_plane(format) {
+                    Ok(v) => {
+                        (primary_plane, buffers) = v;
+                        buffer_format = format;
+                        break 'primary_plane;
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "Could not allocate framebuffer with requested format {}: {}",
+                            format.name,
+                            ErrorFmt(e)
+                        );
                     }
                 }
             }
-            return Err(MetalError::NoPrimaryPlaneForConnector);
-        };
-        let buffers = Rc::new(self.create_scanout_buffers(
-            &connector.dev,
-            XRGB8888,
-            primary_modifiers,
-            mode.hdisplay as _,
-            mode.vdisplay as _,
-            ctx,
-            false,
-        )?);
+            (primary_plane, buffers) = allocate_primary_plane(XRGB8888)?;
+            buffer_format = XRGB8888;
+        }
         let mut cursor_plane = None;
         let mut cursor_modifiers = &IndexSet::new();
         for plane in crtc.possible_planes.values() {
@@ -3043,12 +3152,14 @@ impl MetalBackend {
         }
         connector.cursor_plane.set(cursor_plane);
         connector.cursor_enabled.set(false);
+        connector.buffer_format.set(buffer_format);
+        connector.try_switch_format.set(false);
         Ok(())
     }
 
     fn start_connector(&self, connector: &Rc<MetalConnector>, log_mode: bool) {
-        let dd = connector.display.borrow_mut();
-        self.send_connected(connector, &dd);
+        let dd = &*connector.display.borrow();
+        self.send_connected(connector, dd);
         match connector.frontend_state.get() {
             FrontState::Connected { non_desktop: false } => {}
             FrontState::Connected { non_desktop: true }
@@ -3058,9 +3169,8 @@ impl MetalBackend {
         }
         if log_mode {
             log::info!(
-                "Initialized connector {}-{} with mode {:?}",
-                dd.connector_type,
-                dd.connector_type_id,
+                "Initialized connector {} with mode {:?}",
+                dd.connector_id,
                 dd.mode.as_ref().unwrap(),
             );
         }

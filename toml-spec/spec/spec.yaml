@@ -1606,6 +1606,21 @@ Output:
           match.serial-number = "33K03894SL0"
           tearing.mode = "never"
           ```
+    format:
+      ref: Format
+      required: false
+      description: |
+        Configures the framebuffer format of this output.
+        
+        By default, the format is `xrgb8888`.
+
+        - Example:
+        
+          ```toml
+          [[outputs]]
+          match.serial-number = "33K03894SL0"
+          format = "rgb565"
+          ```
 
 
 Transform:
@@ -2490,3 +2505,76 @@ Libei:
         Even if the socket is disabled, application can still request access via the portal.
 
         The default is `false`.
+
+
+Format:
+  description: |
+    A graphics format.
+    
+    These formats are documented in https://github.com/torvalds/linux/blob/master/include/uapi/drm/drm_fourcc.h
+
+    - Example:
+    
+      ```toml
+      [[outputs]]
+      match.serial-number = "33K03894SL0"
+      format = "rgb565"
+      ```
+  kind: string
+  values:
+    - value: argb8888
+      description: ""
+    - value: xrgb8888
+      description: ""
+    - value: abgr8888
+      description: ""
+    - value: xbgr8888
+      description: ""
+    - value: r8
+      description: ""
+    - value: gr88
+      description: ""
+    - value: rgb888
+      description: ""
+    - value: bgr888
+      description: ""
+    - value: rgba4444
+      description: ""
+    - value: rgbx4444
+      description: ""
+    - value: bgra4444
+      description: ""
+    - value: bgrx4444
+      description: ""
+    - value: rgb565
+      description: ""
+    - value: bgr565
+      description: ""
+    - value: rgba5551
+      description: ""
+    - value: rgbx5551
+      description: ""
+    - value: bgra5551
+      description: ""
+    - value: bgrx5551
+      description: ""
+    - value: argb1555
+      description: ""
+    - value: xrgb1555
+      description: ""
+    - value: argb2101010
+      description: ""
+    - value: xrgb2101010
+      description: ""
+    - value: abgr2101010
+      description: ""
+    - value: xbgr2101010
+      description: ""
+    - value: abgr16161616
+      description: ""
+    - value: xbgr16161616
+      description: ""
+    - value: abgr16161616f
+      description: ""
+    - value: xbgr16161616f
+      description: ""

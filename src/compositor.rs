@@ -425,7 +425,7 @@ fn init_fd_limit() {
 
 fn create_dummy_output(state: &Rc<State>) {
     let output_id = Rc::new(OutputId {
-        connector: "jay-dummy-connector".to_string(),
+        connector: Some("jay-dummy-connector".to_string()),
         manufacturer: "jay".to_string(),
         model: "jay-dummy-output".to_string(),
         serial_number: "".to_string(),

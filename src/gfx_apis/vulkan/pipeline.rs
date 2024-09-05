@@ -1,21 +1,21 @@
 use {
-    crate::{
-        format::ARGB8888,
-        gfx_apis::vulkan::{
-            descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shaders::VulkanShader,
-            util::OnDrop, VulkanError,
-        },
+    crate::gfx_apis::vulkan::{
+        descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shaders::VulkanShader,
+        util::OnDrop, VulkanError,
     },
     arrayvec::ArrayVec,
-    ash::vk::{
-        BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, DynamicState, FrontFace,
-        GraphicsPipelineCreateInfo, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
-        PipelineColorBlendStateCreateInfo, PipelineDynamicStateCreateInfo,
-        PipelineInputAssemblyStateCreateInfo, PipelineLayout, PipelineLayoutCreateInfo,
-        PipelineMultisampleStateCreateInfo, PipelineRasterizationStateCreateInfo,
-        PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
-        PipelineVertexInputStateCreateInfo, PipelineViewportStateCreateInfo, PolygonMode,
-        PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
+    ash::{
+        vk,
+        vk::{
+            BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, DynamicState, FrontFace,
+            GraphicsPipelineCreateInfo, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
+            PipelineColorBlendStateCreateInfo, PipelineDynamicStateCreateInfo,
+            PipelineInputAssemblyStateCreateInfo, PipelineLayout, PipelineLayoutCreateInfo,
+            PipelineMultisampleStateCreateInfo, PipelineRasterizationStateCreateInfo,
+            PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
+            PipelineVertexInputStateCreateInfo, PipelineViewportStateCreateInfo, PolygonMode,
+            PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
+        },
     },
     std::{mem, rc::Rc, slice},
 };
@@ -30,6 +30,7 @@ pub(super) struct VulkanPipeline {
 }
 
 pub(super) struct PipelineCreateInfo {
+    pub(super) format: vk::Format,
     pub(super) vert: Rc<VulkanShader>,
     pub(super) frag: Rc<VulkanShader>,
     pub(super) alpha: bool,
@@ -128,7 +129,7 @@ impl VulkanDevice {
                 .viewport_count(1)
                 .scissor_count(1);
             let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::default()
-                .color_attachment_formats(slice::from_ref(&ARGB8888.vk_format));
+                .color_attachment_formats(slice::from_ref(&info.format));
             let create_info = GraphicsPipelineCreateInfo::default()
                 .push_next(&mut pipeline_rendering_create_info)
                 .stages(&stages)
