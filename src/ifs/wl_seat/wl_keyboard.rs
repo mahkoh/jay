@@ -14,7 +14,7 @@ use {
 
 pub const REPEAT_INFO_SINCE: Version = Version(4);
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const NO_KEYMAP: u32 = 0;
 pub const XKB_V1: u32 = 1;
 

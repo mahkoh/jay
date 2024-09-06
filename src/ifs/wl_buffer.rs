@@ -52,7 +52,6 @@ impl WlBuffer {
         self.destroyed.get()
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn new_dmabuf(
         id: WlBufferId,
         client: &Rc<Client>,
@@ -82,7 +81,7 @@ impl WlBuffer {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn new_shm(
         id: WlBufferId,
         client: &Rc<Client>,

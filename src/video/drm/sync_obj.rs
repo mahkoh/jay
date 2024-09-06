@@ -54,7 +54,7 @@ impl SyncObj {
         }
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn fd(&self) -> &Rc<OwnedFd> {
         &self.fd
     }

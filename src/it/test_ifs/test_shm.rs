@@ -39,7 +39,6 @@ impl TestShm {
         &self.formats
     }
 
-    #[allow(dead_code)]
     pub fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
         let mem = TestMem::new(size)?;
         let pool = Rc::new(TestShmPool {
@@ -58,7 +57,6 @@ impl TestShm {
         Ok(pool)
     }
 
-    #[allow(dead_code)]
     pub fn create_buffer(&self, width: i32, height: i32) -> TestResult<Rc<TestShmBuffer>> {
         let pool = self.create_pool((width * height * 4) as _)?;
         pool.create_buffer(0, width, height, width * 4, ARGB8888)

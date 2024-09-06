@@ -70,7 +70,7 @@ impl VulkanDevice {
                         .offset(push_constant_offset)
                         .size(frag_push_size),
                 );
-                #[allow(unused_assignments)]
+                #[expect(unused_assignments)]
                 {
                     push_constant_offset += frag_push_size;
                 }

@@ -7,7 +7,6 @@ use {
     uapi::c,
 };
 
-#[allow(non_camel_case_types)]
 #[repr(C)]
 #[derive(Default)]
 pub(super) struct timespec64 {

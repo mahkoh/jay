@@ -5,12 +5,12 @@ macro_rules! egl_transparent {
         pub struct $name(pub *mut u8);
 
         impl $name {
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub const fn none() -> Self {
                 Self(std::ptr::null_mut())
             }
 
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn is_none(self) -> bool {
                 self.0.is_null()
             }
@@ -26,7 +26,7 @@ macro_rules! dynload {
             )*
         }
     ) => {
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         #[derive(Debug)]
         pub struct $container {
             _lib: libloading::Library,
@@ -45,7 +45,7 @@ macro_rules! dynload {
                 }
             };
             $(
-                #[allow(non_snake_case)]
+                #[expect(non_snake_case)]
                 let $fun: $ty =
                     match lib.get(stringify!($fun).as_bytes()) {
                         Ok(s) => *s,

@@ -202,12 +202,12 @@ pub const PW_CLIENT_NODE_FACTORY: &str = "client-node";
 pub const PW_CLIENT_NODE_INTERFACE: &str = "PipeWire:Interface:ClientNode";
 pub const PW_CLIENT_NODE_VERSION: i32 = 4;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const PW_CLIENT_NODE_UPDATE_PARAMS: u32 = 1 << 0;
 const PW_CLIENT_NODE_UPDATE_INFO: u32 = 1 << 1;
 
 const SPA_NODE_CHANGE_MASK_FLAGS: u64 = 1 << 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const SPA_NODE_CHANGE_MASK_PROPS: u64 = 1 << 1;
 const SPA_NODE_CHANGE_MASK_PARAMS: u64 = 1 << 2;
 
@@ -216,7 +216,7 @@ const PW_CLIENT_NODE_PORT_UPDATE_INFO: u32 = 1 << 1;
 
 const SPA_PORT_CHANGE_MASK_FLAGS: u64 = 1 << 0;
 const SPA_PORT_CHANGE_MASK_RATE: u64 = 1 << 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const SPA_PORT_CHANGE_MASK_PROPS: u64 = 1 << 2;
 const SPA_PORT_CHANGE_MASK_PARAMS: u64 = 1 << 3;
 

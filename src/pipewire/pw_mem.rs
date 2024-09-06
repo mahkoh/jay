@@ -41,7 +41,7 @@ pub struct PwMemTyped<T> {
     _phantom: PhantomData<T>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct PwMemSlice {
     mem: Rc<PwMemMap>,
     range: Range<usize>,
@@ -85,19 +85,19 @@ impl PwMem {
 }
 
 impl PwMemMap {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub unsafe fn read<T: Pod>(&self) -> &T {
         self.check::<T>(0);
         (self.map.ptr.cast::<u8>().add(self.range.start) as *const T).deref()
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub unsafe fn write<T: Pod>(&self) -> &mut T {
         self.check::<T>(0);
         (self.map.ptr.cast::<u8>().add(self.range.start) as *mut T).deref_mut()
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub unsafe fn bytes_mut(&self) -> &mut [u8] {
         std::slice::from_raw_parts_mut(
             self.map.ptr.cast::<u8>().add(self.range.start) as _,
@@ -135,7 +135,6 @@ impl PwMemMap {
 }
 
 impl<T: Pod> PwMemTyped<T> {
-    #[allow(dead_code)]
     pub unsafe fn read(&self) -> &T {
         (self.mem.map.ptr.cast::<u8>().add(self.offset) as *const T).deref()
     }

@@ -13,7 +13,7 @@ pub struct TestCursorShapeDevice {
 }
 
 impl TestCursorShapeDevice {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;

@@ -11,9 +11,9 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const SHAPE_SINCE_VERSION: Version = Version(6);
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const ORIENTATION_DIRECTION_SINCE_VERSION: Version = Version(6);
 
 pub struct WlTouch {
@@ -78,7 +78,7 @@ impl WlTouch {
         self.seat.client.event(Cancel { self_id: self.id })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn send_shape(&self, id: i32, major: Fixed, minor: Fixed) {
         self.seat.client.event(Shape {
             self_id: self.id,
@@ -88,7 +88,7 @@ impl WlTouch {
         })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn send_orientation(&self, id: i32, orientation: Fixed) {
         self.seat.client.event(Orientation {
             self_id: self.id,

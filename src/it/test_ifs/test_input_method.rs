@@ -41,7 +41,7 @@ impl TestInputMethod {
         })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn grab(&self) -> TestResult<Rc<TestInputMethodKeyboardGrab>> {
         let obj = Rc::new(TestInputMethodKeyboardGrab {
             id: self.tran.id(),

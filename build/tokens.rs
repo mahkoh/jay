@@ -241,7 +241,7 @@ impl<'a> Tokenizer<'a> {
 
 #[derive(Debug)]
 pub struct Lined<T> {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub line: u32,
     pub val: T,
 }

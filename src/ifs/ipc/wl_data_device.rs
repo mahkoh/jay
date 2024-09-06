@@ -19,7 +19,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const ROLE: u32 = 0;
 
 pub struct WlDataDevice {

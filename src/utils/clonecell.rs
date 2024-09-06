@@ -66,7 +66,6 @@ impl<T> CloneCell<Option<T>> {
     }
 
     #[inline(always)]
-    #[allow(dead_code)]
     pub fn is_none(&self) -> bool {
         unsafe { self.data.get().deref().is_none() }
     }

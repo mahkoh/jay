@@ -714,7 +714,7 @@ trait NodeSelectorUsecase: Sized + 'static {
     fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>);
 }
 
-impl<U: NodeSelectorUsecase + ?Sized> SimplePointerOwnerUsecase for Rc<U> {
+impl<U: NodeSelectorUsecase> SimplePointerOwnerUsecase for Rc<U> {
     const FIND_TREE_USECASE: FindTreeUsecase = <U as NodeSelectorUsecase>::FIND_TREE_USECASE;
     const IS_DEFAULT: bool = false;
 

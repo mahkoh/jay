@@ -33,7 +33,7 @@ impl TestExtForeignToplevelList {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn stop(&self) -> TestResult {
         self.tran.send(Stop { self_id: self.id })?;
         Ok(())

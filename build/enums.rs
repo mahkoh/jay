@@ -4,7 +4,7 @@ use {
     std::{env, io::Write},
 };
 
-#[allow(unused_macros)]
+#[expect(unused_macros)]
 #[macro_use]
 #[path = "../src/macros.rs"]
 mod macros;
@@ -43,7 +43,7 @@ fn get_enum_ty(variants: Vec<i128>) -> anyhow::Result<u64> {
 fn write_ty<W: Write>(f: &mut W, vals: &[i32], ty: &str) -> anyhow::Result<()> {
     let variants: Vec<_> = vals.iter().cloned().map(|v| v as i128).collect();
     let size = get_enum_ty(variants)?;
-    writeln!(f, "#[allow(dead_code)]")?;
+    writeln!(f, "#[allow(clippy::allow_attributes, dead_code)]")?;
     writeln!(f, "pub type {} = i{};", ty, size)?;
     Ok(())
 }

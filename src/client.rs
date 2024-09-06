@@ -69,7 +69,6 @@ impl ClientId {
         self.0
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn from_raw(val: u64) -> Self {
         Self(val)
     }
@@ -105,7 +104,7 @@ impl Clients {
         ClientId(self.next_client_id.fetch_add(1))
     }
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn get(&self, id: ClientId) -> Result<Rc<Client>, ClientError> {
         let clients = self.clients.borrow();
         match clients.get(&id) {
@@ -443,7 +442,6 @@ impl Client {
         self.add_obj(obj, true)
     }
 
-    #[allow(dead_code)]
     pub fn add_server_obj<T: WaylandObject>(&self, obj: &Rc<T>) {
         self.add_obj(obj, false).expect("add_server_obj failed")
     }

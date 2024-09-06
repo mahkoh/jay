@@ -11,7 +11,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const BAD_SURFACE: u32 = 0;
 
 pub struct WlSubcompositorGlobal {

@@ -32,7 +32,7 @@ impl IoUring {
         self.poll(fd, c::POLLIN).await.merge()
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub async fn writable(&self, fd: &Rc<OwnedFd>) -> Result<c::c_short, IoUringError> {
         self.poll(fd, c::POLLOUT).await.merge()
     }

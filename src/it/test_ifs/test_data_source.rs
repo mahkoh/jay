@@ -26,7 +26,6 @@ impl TestDataSource {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn offer(&self, mime_type: &str) -> TestResult {
         self.tran.send(Offer {
             self_id: self.id,
@@ -35,7 +34,6 @@ impl TestDataSource {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn set_actions(&self, actions: u32) -> TestResult {
         self.tran.send(SetActions {
             self_id: self.id,

@@ -47,7 +47,6 @@ impl TestDataDevice {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn set_selection(&self, source: &TestDataSource, serial: u32) -> TestResult {
         self.tran.send(SetSelection {
             self_id: self.id,

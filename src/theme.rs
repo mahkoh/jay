@@ -47,7 +47,6 @@ fn to_f32(c: u8) -> f32 {
     c as f32 / 255f32
 }
 
-#[allow(dead_code)]
 fn to_u8(c: f32) -> u8 {
     (c * 255f32).round() as u8
 }
@@ -80,7 +79,7 @@ impl Color {
         }
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn from_rgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self {
             r: to_f32(r),
@@ -112,7 +111,7 @@ impl Color {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn to_rgba_premultiplied(self) -> [u8; 4] {
         [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }
@@ -121,7 +120,7 @@ impl Color {
         [self.r, self.g, self.b, self.a]
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn to_array_linear(self) -> [f32; 4] {
         fn to_linear(srgb: f32) -> f32 {
             if srgb <= 0.04045 {
@@ -138,7 +137,7 @@ impl Color {
         ]
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn and_then(self, other: &Color) -> Color {
         Color {
             r: self.r * (1.0 - other.a) + other.r,
@@ -218,7 +217,7 @@ macro_rules! sizes {
         }
 
         #[derive(Copy, Clone, Debug)]
-        #[allow(non_camel_case_types)]
+        #[expect(non_camel_case_types)]
         pub enum ThemeSized {
             $(
                 $name,

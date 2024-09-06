@@ -18,7 +18,6 @@ macro_rules! config {
 
 macro_rules! try_get {
     () => {{
-        #[allow(unused_unsafe)]
         unsafe {
             let client = crate::_private::client::CLIENT.with(|client| client.get());
             if client.is_null() {
@@ -35,7 +34,6 @@ macro_rules! get {
         get!(Default::default())
     }};
     ($def:expr) => {{
-        #[allow(unused_unsafe)]
         let client = unsafe {
             let client = crate::_private::client::CLIENT.with(|client| client.get());
             if client.is_null() {

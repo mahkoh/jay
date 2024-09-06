@@ -201,7 +201,7 @@ impl<'a> Tokenizer<'a> {
 
 #[derive(Debug)]
 struct Lined<T> {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     line: u32,
     val: T,
 }
@@ -755,7 +755,7 @@ fn write_request_handler<W: Write>(
             parser = "crate::wl_usr::UsrCon";
             error = "crate::wl_usr::UsrConError";
             param = "ev";
-            writeln!(f, "    #[allow(dead_code)]")?;
+            writeln!(f, "    #[allow(clippy::allow_attributes, dead_code)]")?;
         }
     }
     writeln!(

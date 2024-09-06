@@ -321,7 +321,7 @@ impl Globals {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn get_output(&self, output: GlobalName) -> Result<Rc<WlOutputGlobal>, GlobalsError> {
         match self.outputs.get(&output) {
             Some(o) => Ok(o),

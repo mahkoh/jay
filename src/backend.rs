@@ -38,7 +38,7 @@ pub trait Backend {
     fn clear(&self) {
         // nothing
     }
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 
     fn switch_to(&self, vtnr: u32) {
@@ -430,7 +430,7 @@ pub enum InputEvent {
 }
 
 pub enum DrmEvent {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Removed,
     GfxApiChanged,
 }

@@ -5,7 +5,7 @@ use {
 };
 
 #[derive(Default, Copy, Clone)]
-#[allow(non_camel_case_types, dead_code)]
+#[expect(non_camel_case_types, dead_code)]
 struct clone_args {
     flags: u64,
     pidfd: u64,

@@ -44,12 +44,11 @@ impl TestSubsurface {
         })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn set_sync(&self) -> Result<(), TestError> {
         self.tran.send(SetSync { self_id: self.id })
     }
 
-    #[allow(dead_code)]
     pub fn set_desync(&self) -> Result<(), TestError> {
         self.tran.send(SetDesync { self_id: self.id })
     }

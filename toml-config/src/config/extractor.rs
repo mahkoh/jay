@@ -139,7 +139,6 @@ pub fn val(
 
 macro_rules! ty {
     ($f:ident, $lt:lifetime, $ty:ident, $ret:ty, $v:ident, $map:expr, $name:expr) => {
-        #[allow(dead_code)]
         pub fn $f(
             name: &'static str,
         ) -> impl for<$lt> FnOnce(&mut Extractor<$lt>) -> Result<Spanned<$ret>, Spanned<ExtractorError>> {
@@ -158,7 +157,7 @@ ty!(int, 'a, Integer, i64, v, *v, "an integer");
 ty!(flt, 'a, Float, f64, v, *v, "a float");
 ty!(bol, 'a, Boolean, bool, v, *v, "a boolean");
 ty!(arr, 'a, Array, &'a [Spanned<Value>], v, &**v, "an array");
-ty!(tbl, 'a, Table, &'a IndexMap<Spanned<String>, Spanned<Value>>, v, v, "a table");
+// ty!(tbl, 'a, Table, &'a IndexMap<Spanned<String>, Spanned<Value>>, v, v, "a table");
 
 pub fn fltorint(
     name: &'static str,
@@ -176,7 +175,6 @@ pub fn fltorint(
 
 macro_rules! int {
     ($f:ident, $ty:ident, $err:ident) => {
-        #[allow(dead_code)]
         pub fn $f(
             name: &'static str,
         ) -> impl for<'v> FnOnce(&mut Extractor<'v>) -> Result<Spanned<$ty>, Spanned<ExtractorError>> {
@@ -254,7 +252,7 @@ macro_rules! tuples {
         {
             type Output = ($($name::Output,)*);
 
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             fn extract(self, extractor: &mut Extractor<'v>) -> Result<Self::Output, Spanned<ExtractorError>> {
                 $(
                     let $name = self.$idx.extract(extractor);

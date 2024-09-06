@@ -26,7 +26,7 @@ use {
 };
 
 pub const EI_DEVICE_TYPE_VIRTUAL: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const EI_DEVICE_TYPE_PHYSICAL: u32 = 2;
 
 pub struct EiDevice {
@@ -100,7 +100,7 @@ impl EiDevice {
         });
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn send_paused(&self, serial: u32) {
         self.client.event(Paused {
             self_id: self.id,

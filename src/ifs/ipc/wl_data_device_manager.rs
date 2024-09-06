@@ -12,11 +12,11 @@ use {
 };
 
 pub(super) const DND_NONE: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(super) const DND_COPY: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(super) const DND_MOVE: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub(super) const DND_ASK: u32 = 4;
 pub(super) const DND_ALL: u32 = 7;
 

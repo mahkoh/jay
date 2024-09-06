@@ -13,7 +13,6 @@ pub struct TestMem {
 }
 
 impl TestMem {
-    #[allow(dead_code)]
     pub fn new(size: usize) -> Result<Rc<Self>, TestError> {
         let fd = uapi::memfd_create("test_pool", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING)?;
         uapi::fcntl_add_seals(fd.raw(), c::F_SEAL_SHRINK)?;
@@ -25,7 +24,6 @@ impl TestMem {
         }))
     }
 
-    #[allow(dead_code)]
     pub fn grow(&self, size: usize) -> Result<Rc<Self>, TestError> {
         let cur_len = uapi::fstat(self.fd.raw())?;
         if size > cur_len.st_size as _ {
@@ -47,7 +45,6 @@ impl Deref for TestMem {
     }
 }
 
-#[allow(dead_code)]
 fn map(fd: c::c_int, size: usize) -> Result<*const [Cell<u8>], TestError> {
     if size == 0 {
         return Ok(&[]);

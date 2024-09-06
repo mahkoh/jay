@@ -354,7 +354,7 @@ unsafe impl<'a, K: DbusType<'a>, V: DbusType<'a>> DbusType<'a> for DictEntry<K, 
 
 macro_rules! tuple {
     ($($p:ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         unsafe impl<'a, $($p: DbusType<'a>),*> DbusType<'a> for ($($p,)*) {
             const ALIGNMENT: usize = 8;
             const IS_POD: bool = false;

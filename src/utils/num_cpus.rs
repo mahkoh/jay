@@ -4,7 +4,7 @@ use {
     uapi::{c, Errno},
 };
 
-#[allow(dead_code)]
+#[cfg_attr(not(feature = "it"), expect(dead_code))]
 pub fn num_cpus() -> Result<u32, OsError> {
     let mut buf: SmallVec<[usize; 32]> = smallvec_inline![0; 32];
     loop {

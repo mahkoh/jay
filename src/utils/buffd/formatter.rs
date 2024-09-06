@@ -79,7 +79,7 @@ impl<'a> MsgFormatter<'a> {
         self.object(obj).uint(event)
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn array<F: FnOnce(&mut MsgFormatter<'_>)>(&mut self, f: F) -> &mut Self {
         let pos = self.meta.write_pos;
         self.uint(0);

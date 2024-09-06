@@ -442,7 +442,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
     }
 
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn parse_key_value(
         &mut self,
     ) -> Result<(Key, Spanned<Value>), (Spanned<ParserError>, Option<Key>)> {

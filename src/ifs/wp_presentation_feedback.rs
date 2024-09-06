@@ -19,10 +19,10 @@ pub struct WpPresentationFeedback {
 }
 
 pub const KIND_VSYNC: u32 = 0x1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const KIND_HW_CLOCK: u32 = 0x2;
 pub const KIND_HW_COMPLETION: u32 = 0x4;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const KIND_ZERO_COPY: u32 = 0x8;
 
 impl WpPresentationFeedback {

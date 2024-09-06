@@ -939,14 +939,14 @@ impl Wm {
         self.set_net_wm_state(data).await;
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     async fn set_maximized(&self, data: &Rc<XwindowData>, maximized: bool) {
         data.info.maximized_vert.set(maximized);
         data.info.maximized_horz.set(maximized);
         self.set_net_wm_state(data).await;
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     async fn set_fullscreen(&self, data: &Rc<XwindowData>, fullscreen: bool) {
         if false {
             // NOTE: We do not want to inform the program if the user changes the fullscreen

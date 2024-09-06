@@ -216,7 +216,7 @@ struct drm_mode_get_property {
 
 const DRM_IOCTL_MODE_GETPROPERTY: u64 = drm_iowr::<drm_mode_get_property>(0xaa);
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const DRM_MODE_PROP_PENDING: u32 = 1 << 0;
 const DRM_MODE_PROP_RANGE: u32 = 1 << 1;
 const DRM_MODE_PROP_IMMUTABLE: u32 = 1 << 2;
@@ -406,10 +406,9 @@ pub const DRM_MODE_OBJECT_PROPERTY: u32 = 0xb0b0b0b0;
 pub const DRM_MODE_OBJECT_FB: u32 = 0xfbfbfbfb;
 pub const DRM_MODE_OBJECT_BLOB: u32 = 0xbbbbbbbb;
 pub const DRM_MODE_OBJECT_PLANE: u32 = 0xeeeeeeee;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DRM_MODE_OBJECT_ANY: u32 = 0;
 
-#[allow(dead_code)]
 pub const DRM_MODE_CONNECTOR_Unknown: u32 = 0;
 pub const DRM_MODE_CONNECTOR_VGA: u32 = 1;
 pub const DRM_MODE_CONNECTOR_DVII: u32 = 2;
@@ -962,7 +961,7 @@ struct drm_mode_fb_cmd2 {
     modifiers: [u64; 4],
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DRM_MODE_FB_INTERLACED: u32 = 1 << 0;
 pub const DRM_MODE_FB_MODIFIERS: u32 = 1 << 1;
 
@@ -1046,10 +1045,10 @@ pub fn gem_close(fd: c::c_int, handle: u32) -> Result<(), OsError> {
     Ok(())
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DRM_EVENT_VBLANK: u32 = 0x01;
 pub const DRM_EVENT_FLIP_COMPLETE: u32 = 0x02;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DRM_EVENT_CRTC_SEQUENCE: u32 = 0x03;
 
 #[repr(C)]

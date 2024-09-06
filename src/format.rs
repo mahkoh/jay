@@ -131,7 +131,7 @@ const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
     (a as u32) | ((b as u32) << 8) | ((c as u32) << 16) | ((d as u32) << 24)
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub fn debug(fourcc: u32) -> impl Debug {
     debug_fn(move |fmt| {
         fmt.write_char(fourcc as u8 as char)?;

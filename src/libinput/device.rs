@@ -169,7 +169,6 @@ impl<'a> LibInputDevice<'a> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn drag_enabled(&self) -> bool {
         let enabled =
             unsafe { ConfigDragState(libinput_device_config_tap_get_drag_enabled(self.dev)) };
@@ -189,7 +188,6 @@ impl<'a> LibInputDevice<'a> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn drag_lock_enabled(&self) -> bool {
         let enabled = unsafe {
             ConfigDragLockState(libinput_device_config_tap_get_drag_lock_enabled(self.dev))

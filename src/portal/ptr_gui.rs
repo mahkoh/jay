@@ -342,11 +342,11 @@ impl GuiElement for Label {
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub enum Align {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Left,
     #[default]
     Center,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Right,
 }
 
@@ -354,7 +354,6 @@ pub enum Align {
 pub enum Orientation {
     #[default]
     Horizontal,
-    #[allow(dead_code)]
     Vertical,
 }
 

@@ -18,7 +18,7 @@ pub struct UsrWlShm {
 }
 
 impl UsrWlShm {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn create_pool(&self, fd: &Rc<OwnedFd>, size: i32) -> Rc<UsrWlShmPool> {
         let pool = Rc::new(UsrWlShmPool {
             id: self.con.id(),

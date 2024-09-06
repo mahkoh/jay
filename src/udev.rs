@@ -45,7 +45,7 @@ extern "C" {
 
     fn udev_list_entry_get_next(list_entry: *mut udev_list_entry) -> *mut udev_list_entry;
     fn udev_list_entry_get_name(list_entry: *mut udev_list_entry) -> *const c::c_char;
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn udev_list_entry_get_value(list_entry: *mut udev_list_entry) -> *const c::c_char;
 
     fn udev_device_new_from_syspath(udev: *mut udev, syspath: *const c::c_char)
@@ -56,7 +56,7 @@ extern "C" {
     fn udev_device_get_is_initialized(udev_device: *mut udev_device) -> c::c_int;
     fn udev_device_get_devnode(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_syspath(udev_device: *mut udev_device) -> *const c::c_char;
-    fn udev_device_get_devtype(udev_device: *mut udev_device) -> *const c::c_char;
+    // fn udev_device_get_devtype(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_devnum(udev_device: *mut udev_device) -> c::dev_t;
     fn udev_device_get_action(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_subsystem(udev_device: *mut udev_device) -> *const c::c_char;
@@ -124,7 +124,7 @@ pub struct UdevDevice {
 
 pub enum UdevDeviceType {
     Character,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Block,
 }
 
@@ -332,7 +332,6 @@ impl<'a> UdevListEntry<'a> {
 
 macro_rules! strfn {
     ($f:ident, $raw:ident) => {
-        #[allow(dead_code)]
         pub fn $f(&self) -> Option<&CStr> {
             let res = unsafe { $raw(self.device) };
             if res.is_null() {
@@ -348,7 +347,7 @@ impl UdevDevice {
     strfn!(sysname, udev_device_get_sysname);
     strfn!(syspath, udev_device_get_syspath);
     strfn!(devnode, udev_device_get_devnode);
-    strfn!(devtype, udev_device_get_devtype);
+    // strfn!(devtype, udev_device_get_devtype);
     strfn!(action, udev_device_get_action);
     strfn!(subsystem, udev_device_get_subsystem);
 
@@ -370,7 +369,6 @@ impl UdevDevice {
         })
     }
 
-    #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {
         unsafe { udev_device_get_is_initialized(self.device) != 0 }
     }

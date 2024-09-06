@@ -14,7 +14,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct EiPingpong {
     pub id: EiPingpongId,
     pub client: Rc<EiClient>,

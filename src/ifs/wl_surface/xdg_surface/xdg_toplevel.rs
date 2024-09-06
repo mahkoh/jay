@@ -56,10 +56,10 @@ pub enum ResizeEdge {
     BottomRight = 10,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const STATE_MAXIMIZED: u32 = 1;
 const STATE_FULLSCREEN: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const STATE_RESIZING: u32 = 3;
 const STATE_ACTIVATED: u32 = 4;
 const STATE_TILED_LEFT: u32 = 5;
@@ -68,12 +68,12 @@ const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
 pub const STATE_SUSPENDED: u32 = 9;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const CAP_WINDOW_MENU: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const CAP_MAXIMIZE: u32 = 2;
 const CAP_FULLSCREEN: u32 = 3;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const CAP_MINIMIZE: u32 = 4;
 
 pub const WM_CAPABILITIES_SINCE: Version = Version(5);
@@ -81,7 +81,7 @@ pub const SUSPENDED_SINCE: Version = Version(6);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Client,
     Server,
 }
