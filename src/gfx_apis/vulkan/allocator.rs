@@ -4,7 +4,7 @@ use {
         utils::{numcell::NumCell, ptr_ext::MutPtrExt},
     },
     ash::vk::{DeviceMemory, DeviceSize, MemoryRequirements},
-    gpu_alloc::{Config, GpuAllocator, MemoryBlock, Request, UsageFlags},
+    gpu_alloc::{Config, GpuAllocator, MemoryBlock, MemoryPropertyFlags, Request, UsageFlags},
     gpu_alloc_ash::AshMemoryDevice,
     std::{
         cell::{Cell, UnsafeCell},
@@ -25,6 +25,7 @@ pub struct VulkanAllocation {
     pub(super) offset: DeviceSize,
     pub(super) mem: Option<*mut u8>,
     pub(super) size: DeviceSize,
+    pub(super) coherency_mask: Option<u64>,
     block: Cell<Option<MemoryBlock<DeviceMemory>>>,
 }
 
@@ -111,6 +112,10 @@ impl VulkanAllocator {
             offset: block.offset(),
             mem: ptr,
             size: block.size(),
+            coherency_mask: match block.props().contains(MemoryPropertyFlags::HOST_COHERENT) {
+                true => None,
+                false => Some(self.non_coherent_atom_mask),
+            },
             block: Cell::new(Some(block)),
         })
     }

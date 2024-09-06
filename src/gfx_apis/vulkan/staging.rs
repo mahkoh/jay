@@ -72,27 +72,31 @@ impl VulkanStagingBuffer {
         F: FnOnce(*mut u8, usize) -> T,
     {
         let t = f(self.allocation.mem.unwrap(), self.size as usize);
-        let range = self.range();
-        let res = unsafe { self.device.device.flush_mapped_memory_ranges(&[range]) };
-        res.map_err(VulkanError::FlushMemory).map(|_| t)
+        if let Some(mask) = self.allocation.coherency_mask {
+            let range = self.incoherent_range(mask);
+            let res = unsafe { self.device.device.flush_mapped_memory_ranges(&[range]) };
+            res.map_err(VulkanError::FlushMemory)?;
+        }
+        Ok(t)
     }
 
     pub fn download<T, F>(&self, f: F) -> Result<T, VulkanError>
     where
         F: FnOnce(*const u8, usize) -> T,
     {
-        let range = self.range();
-        let res = unsafe { self.device.device.invalidate_mapped_memory_ranges(&[range]) };
-        res.map_err(VulkanError::FlushMemory)?;
+        if let Some(mask) = self.allocation.coherency_mask {
+            let range = self.incoherent_range(mask);
+            let res = unsafe { self.device.device.invalidate_mapped_memory_ranges(&[range]) };
+            res.map_err(VulkanError::FlushMemory)?;
+        }
         Ok(f(self.allocation.mem.unwrap(), self.size as usize))
     }
 
-    fn range(&self) -> MappedMemoryRange {
-        let atom_mask = self.allocation.allocator.non_coherent_atom_mask;
+    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange {
         MappedMemoryRange::default()
             .memory(self.allocation.memory)
-            .offset(self.allocation.offset & !atom_mask)
-            .size((self.allocation.size + atom_mask) & !atom_mask)
+            .offset(self.allocation.offset & !mask)
+            .size((self.allocation.size + mask) & !mask)
     }
 }
 
