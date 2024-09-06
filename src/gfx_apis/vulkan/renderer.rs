@@ -78,6 +78,7 @@ pub struct VulkanRenderer {
     pub(super) tex_frag_mult_opaque_shader: Rc<VulkanShader>,
     pub(super) tex_frag_mult_alpha_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
+    pub(super) defunct: Cell<bool>,
 }
 
 pub(super) struct UsedTexture {
@@ -195,6 +196,7 @@ impl VulkanDevice {
             tex_frag_mult_opaque_shader,
             tex_frag_mult_alpha_shader,
             tex_descriptor_set_layout,
+            defunct: Cell::new(false),
         });
         render.get_or_create_pipelines(XRGB8888.vk_format)?;
         Ok(render)
@@ -996,6 +998,7 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<(), VulkanError> {
+        self.check_defunct()?;
         let buf = self.allocate_command_buffer()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
@@ -1025,6 +1028,7 @@ impl VulkanRenderer {
     }
 
     pub fn on_drop(&self) {
+        self.defunct.set(true);
         let mut pending_frames = self.pending_frames.lock();
         let mut pending_uploads = self.pending_uploads.lock();
         if pending_frames.is_not_empty() || pending_uploads.is_not_empty() {
@@ -1036,6 +1040,13 @@ impl VulkanRenderer {
         });
         pending_frames.clear();
         pending_uploads.clear();
+    }
+
+    pub(super) fn check_defunct(&self) -> Result<(), VulkanError> {
+        match self.defunct.get() {
+            true => Err(VulkanError::Defunct),
+            false => Ok(()),
+        }
     }
 }
 

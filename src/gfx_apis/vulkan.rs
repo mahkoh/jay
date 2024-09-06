@@ -197,6 +197,8 @@ pub enum VulkanError {
     WaitIdle(#[source] vk::Result),
     #[error("Could not dup a DRM device")]
     DupDrm(#[source] DrmError),
+    #[error("Graphics context has already been dropped")]
+    Defunct,
 }
 
 impl From<VulkanError> for GfxError {

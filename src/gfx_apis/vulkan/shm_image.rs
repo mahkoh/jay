@@ -41,6 +41,7 @@ impl VulkanShmImage {
         buffer: &[Cell<u8>],
         damage: Option<&[Rect]>,
     ) -> Result<(), VulkanError> {
+        img.renderer.check_defunct()?;
         if let Some(damage) = damage {
             if damage.is_empty() {
                 return Ok(());
