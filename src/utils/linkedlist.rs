@@ -74,7 +74,6 @@ impl<T> LinkedList<T> {
         unsafe { self.endpoint(self.root.data.as_ref().prev.get()) }
     }
 
-    #[allow(dead_code)]
     pub fn first(&self) -> Option<NodeRef<T>> {
         unsafe { self.endpoint(self.root.data.as_ref().next.get()) }
     }
@@ -91,7 +90,7 @@ impl<T> LinkedList<T> {
         self.root.prepend_existing(t)
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn add_first_existing(&self, t: &NodeRef<T>) {
         self.root.append_existing(t)
     }

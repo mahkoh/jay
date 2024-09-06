@@ -77,7 +77,7 @@ impl Incoming {
         self.incoming
             .fill_msg_buf(remaining as usize, msg_buf)
             .await?;
-        #[allow(dropping_references)]
+        #[expect(dropping_references)]
         drop(msg_buf);
         let msg_buf = unsafe { msg_buf_data.get().deref().deref() };
         let headers = &msg_buf[FIXED_HEADER_SIZE..FIXED_HEADER_SIZE + headers_len as usize];

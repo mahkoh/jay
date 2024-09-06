@@ -33,7 +33,7 @@ impl TestDmabuf {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn get_default_feedback(&self) -> TestResult<Rc<TestDmabufFeedback>> {
         let obj = Rc::new(TestDmabufFeedback::new(&self.tran));
         self.tran.add_obj(obj.clone())?;

@@ -15,7 +15,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const FLAGS_Y_INVERT: u32 = 1;
 
 pub struct ZwlrScreencopyFrameV1 {
@@ -81,7 +81,7 @@ impl ZwlrScreencopyFrameV1 {
         self.client.event(BufferDone { self_id: self.id })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn send_flags(&self, flags: u32) {
         self.client.event(Flags {
             self_id: self.id,

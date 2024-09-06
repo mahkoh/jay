@@ -96,11 +96,11 @@ use {
     zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_SCALE: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_TRANSFORM: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_SIZE: u32 = 2;
 
 const OFFSET_SINCE: Version = Version(5);
@@ -634,7 +634,7 @@ impl WlSurface {
         Ok(ext.into_xsurface().unwrap())
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn get_output(&self) -> Rc<OutputNode> {
         self.output.get()
     }

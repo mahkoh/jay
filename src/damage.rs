@@ -89,7 +89,6 @@ impl DamageVisualizer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn add(&self, rect: Rect) {
         if !self.enabled.get() {
             return;

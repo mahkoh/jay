@@ -109,7 +109,7 @@ macro_rules! id {
         #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         pub struct $name(u32);
 
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         impl $name {
             pub const NONE: Self = $name(0);
 
@@ -159,12 +159,12 @@ macro_rules! shared_ids {
         pub struct $id($ty);
 
         impl $id {
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             pub fn raw(&self) -> $ty {
                 self.0
             }
 
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             pub fn from_raw(id: $ty) -> Self {
                 Self(id)
             }
@@ -211,12 +211,12 @@ macro_rules! linear_ids {
         pub struct $id($ty);
 
         impl $id {
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn raw(&self) -> $ty {
                 self.0
             }
 
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn from_raw(id: $ty) -> Self {
                 Self(id)
             }
@@ -277,12 +277,12 @@ macro_rules! tree_id {
         pub struct $id(u32);
 
         impl $id {
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn raw(&self) -> u32 {
                 self.0
             }
 
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn none() -> Self {
                 Self(0)
             }
@@ -382,7 +382,7 @@ macro_rules! assert_size_eq {
     }};
 }
 
-#[allow(unused_macros)]
+#[expect(unused_macros)]
 macro_rules! assert_size_le {
     ($t:ty, $u:ty) => {{
         struct AssertLeSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
@@ -418,7 +418,7 @@ macro_rules! atoms {
         $name:ident;
         $($field_name:ident,)*
     } => {
-        #[allow(non_snake_case, dead_code)]
+        #[expect(non_snake_case, dead_code)]
         #[derive(Debug, Clone, Copy)]
         struct $name {
             $(
@@ -471,11 +471,11 @@ macro_rules! bitflags {
         pub struct $name(pub $rep);
 
         $(
-            #[allow(dead_code)]
+            #[allow(clippy::allow_attributes, dead_code)]
             pub const $var: $name = $name($val);
         )*
 
-        #[allow(dead_code)]
+        #[allow(clippy::allow_attributes, dead_code)]
         impl $name {
             pub fn none() -> Self {
                 Self(0)
@@ -549,7 +549,7 @@ macro_rules! bitflags {
         }
 
         impl std::fmt::Debug for $name {
-            #[allow(clippy::bad_bit_mask)]
+            #[allow(clippy::allow_attributes, clippy::bad_bit_mask)]
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut any = false;
                 let mut v = self.0;
@@ -578,14 +578,13 @@ macro_rules! bitflags {
 macro_rules! pw_opcodes {
     ($name:ident; $($var:ident = $val:expr,)*) => {
         #[derive(Copy, Clone, Debug)]
-        #[allow(dead_code)]
         pub enum $name {
             $(
                 $var,
             )*
         }
 
-        #[allow(dead_code)]
+        #[allow(clippy::allow_attributes, dead_code)]
         impl $name {
             pub fn from_id(id: u8) -> Option<Self> {
                 let v = match id {
@@ -661,7 +660,7 @@ macro_rules! ei_id {
         #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
         pub struct $name(u64);
 
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         impl $name {
             pub const NONE: Self = $name(0);
 

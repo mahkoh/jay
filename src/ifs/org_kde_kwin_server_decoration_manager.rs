@@ -13,9 +13,9 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const NONE: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
 

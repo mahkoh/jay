@@ -11,7 +11,7 @@ use {
 };
 
 pub const NAME_SINCE: Version = Version(2);
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DESCRIPTION_SINCE: Version = Version(2);
 pub const NO_DONE_SINCE: Version = Version(3);
 
@@ -51,7 +51,7 @@ impl ZxdgOutputV1 {
         });
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn send_description(&self, description: &str) {
         self.client.event(Description {
             self_id: self.id,

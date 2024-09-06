@@ -259,7 +259,6 @@ impl From<UdmabufError> for AllocatorError {
     }
 }
 
-#[allow(non_camel_case_types)]
 #[repr(C)]
 struct udmabuf_create {
     memfd: u32,

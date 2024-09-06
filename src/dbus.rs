@@ -274,23 +274,23 @@ const MSG_ERROR: u8 = 3;
 const MSG_SIGNAL: u8 = 4;
 
 const NO_REPLY_EXPECTED: u8 = 0x1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const NO_AUTO_START: u8 = 0x2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DBUS_NAME_FLAG_ALLOW_REPLACEMENT: u32 = 0x1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DBUS_NAME_FLAG_REPLACE_EXISTING: u32 = 0x2;
 pub const DBUS_NAME_FLAG_DO_NOT_QUEUE: u32 = 0x4;
 
 pub const DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DBUS_REQUEST_NAME_REPLY_IN_QUEUE: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DBUS_REQUEST_NAME_REPLY_EXISTS: u32 = 3;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER: u32 = 4;
 
 pub const BUS_DEST: &str = "org.freedesktop.DBus";
@@ -698,7 +698,7 @@ pub struct PendingReply<T> {
 }
 
 impl<T> PendingReply<T> {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn reply_expected(&self) -> bool {
         self.reply_expected
     }
@@ -720,7 +720,7 @@ where
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
         match res {
             Ok(m) => self.ok(m),

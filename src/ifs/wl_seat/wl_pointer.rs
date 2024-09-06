@@ -12,7 +12,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const ROLE: u32 = 0;
 
 pub(super) const RELEASED: u32 = 0;
@@ -24,7 +24,6 @@ pub const HORIZONTAL_SCROLL: u32 = 1;
 pub const WHEEL: u32 = 0;
 pub const FINGER: u32 = 1;
 pub const CONTINUOUS: u32 = 2;
-#[allow(dead_code)]
 pub const WHEEL_TILT: u32 = 3;
 
 pub const IDENTICAL: u32 = 0;

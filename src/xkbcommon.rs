@@ -98,15 +98,12 @@ extern "C" {
     ) -> c::c_int;
     fn xkb_state_unref(state: *mut xkb_state);
     fn xkb_state_new(keymap: *mut xkb_keymap) -> *mut xkb_state;
-    #[allow(dead_code)]
     fn xkb_state_update_key(
         state: *mut xkb_state,
         key: u32,
         direction: xkb_key_direction,
     ) -> xkb_state_component;
-    #[allow(dead_code)]
     fn xkb_state_serialize_mods(state: *mut xkb_state, components: xkb_state_component) -> u32;
-    #[allow(dead_code)]
     fn xkb_state_serialize_layout(state: *mut xkb_state, components: xkb_state_component) -> u32;
     fn xkb_state_update_mask(
         state: *mut xkb_state,
@@ -362,7 +359,7 @@ impl XkbState {
         *self = new_state;
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn set(
         &mut self,
         mods_depressed: u32,

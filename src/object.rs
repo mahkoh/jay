@@ -18,7 +18,7 @@ pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 pub struct ObjectId(u32);
 
 impl ObjectId {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub const NONE: Self = ObjectId(0);
 
     pub fn from_raw(raw: u32) -> Self {
@@ -39,7 +39,7 @@ impl Display for ObjectId {
 pub trait ObjectBase {
     fn id(&self) -> ObjectId;
     fn version(&self) -> Version;
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     fn handle_request(
         self: Rc<Self>,

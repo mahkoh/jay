@@ -59,14 +59,12 @@ impl DmaBuf {
 
 const DMA_BUF_BASE: u64 = b'b' as _;
 
-#[allow(non_camel_case_types)]
 #[repr(C)]
 struct dma_buf_export_sync_file {
     flags: u32,
     fd: i32,
 }
 
-#[allow(non_camel_case_types)]
 #[repr(C)]
 struct dma_buf_import_sync_file {
     flags: u32,

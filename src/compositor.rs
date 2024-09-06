@@ -324,7 +324,10 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     state.ring.stop();
 }
 
-fn load_config(state: &Rc<State>, #[allow(unused_variables)] for_test: bool) -> ConfigProxy {
+fn load_config(
+    state: &Rc<State>,
+    #[allow(clippy::allow_attributes, unused_variables)] for_test: bool,
+) -> ConfigProxy {
     #[cfg(feature = "it")]
     if for_test {
         return ConfigProxy::for_test(state);
@@ -365,7 +368,7 @@ fn start_global_event_handlers(
 
 async fn create_backend(
     state: &Rc<State>,
-    #[allow(unused_variables)] test_future: Option<TestFuture>,
+    #[allow(clippy::allow_attributes, unused_variables)] test_future: Option<TestFuture>,
 ) -> Option<Rc<dyn Backend>> {
     #[cfg(feature = "it")]
     if let Some(tf) = test_future {

@@ -201,7 +201,7 @@ impl PwCon {
         });
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn sync<P: PwObject>(&self, p: &P) {
         let seq = p.data().sync_id.fetch_add(1) + 1;
         self.send2(0, "core", PwCoreMethods::Sync, |f| {
@@ -218,7 +218,7 @@ impl PwCon {
         });
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn get_registry(self: &Rc<Self>) -> Rc<PwRegistry> {
         let registry = Rc::new(PwRegistry {
             data: self.proxy_data(),

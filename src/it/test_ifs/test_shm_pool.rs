@@ -22,7 +22,6 @@ pub struct TestShmPool {
 }
 
 impl TestShmPool {
-    #[allow(dead_code)]
     pub fn create_buffer(
         &self,
         offset: i32,
@@ -61,7 +60,7 @@ impl TestShmPool {
         Ok(buffer)
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn resize(&self, size: usize) -> Result<(), TestError> {
         let mem = self.mem.get().grow(size)?;
         self.mem.set(mem);

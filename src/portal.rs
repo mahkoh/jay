@@ -50,9 +50,9 @@ use {
 };
 
 const PORTAL_SUCCESS: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const PORTAL_CANCELLED: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const PORTAL_ENDED: u32 = 2;
 
 pub fn run_freestanding(global: GlobalArgs) {

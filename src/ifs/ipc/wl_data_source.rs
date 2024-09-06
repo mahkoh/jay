@@ -27,9 +27,9 @@ use {
     uapi::OwnedFd,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {

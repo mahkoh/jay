@@ -7,7 +7,7 @@ pub type GLenum = c::c_uint;
 pub type GLfloat = f32;
 pub type GLint = c::c_int;
 pub type GLsizei = c::c_int;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub type GLubyte = u8;
 pub type GLuint = c::c_uint;
 
@@ -32,7 +32,7 @@ pub const GL_RENDERBUFFER: GLenum = 0x8D41;
 pub const GL_TEXTURE0: GLenum = 0x84C0;
 pub const GL_TEXTURE_2D: GLenum = 0x0DE1;
 pub const GL_TEXTURE_EXTERNAL_OES: GLenum = 0x8D65;
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
 pub const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;
 pub const GL_TEXTURE_WRAP_S: GLenum = 0x2802;

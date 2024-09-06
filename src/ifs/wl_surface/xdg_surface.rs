@@ -37,10 +37,10 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
 const ALREADY_CONSTRUCTED: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const UNCONFIGURED_BUFFER: u32 = 3;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

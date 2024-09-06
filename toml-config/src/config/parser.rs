@@ -45,7 +45,7 @@ impl Display for DataTypes {
             2 => write!(f, "{} or {}", d[0], d[1]),
             _ => {
                 let mut first = true;
-                #[allow(clippy::needless_range_loop)]
+                #[expect(clippy::needless_range_loop)]
                 for i in 0..d.len() - 1 {
                     if !first {
                         f.write_str(", ")?;

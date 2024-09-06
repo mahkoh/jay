@@ -12,7 +12,6 @@ use {
     uapi::{c, OwnedFd},
 };
 
-#[allow(dead_code)]
 pub const SCANOUT: u32 = 1;
 
 pub struct ZwpLinuxDmabufFeedbackV1 {

@@ -38,7 +38,6 @@ impl TestSurfaceExt {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn set_color(&self, r: u8, g: u8, b: u8, a: u8) {
         self.color.set(Color::from_rgba_straight(r, g, b, a));
     }

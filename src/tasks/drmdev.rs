@@ -59,7 +59,6 @@ impl DrvDevHandler {
         }
         self.log_gfx_api();
         'outer: loop {
-            #[allow(clippy::never_loop)]
             while let Some(event) = self.data.dev.event() {
                 match event {
                     DrmEvent::Removed => break 'outer,

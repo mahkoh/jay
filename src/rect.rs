@@ -51,7 +51,6 @@ impl RectOverflow {
 }
 
 impl Rect {
-    #[allow(dead_code)]
     pub fn new_empty(x: i32, y: i32) -> Self {
         Self {
             raw: RectRaw {
@@ -72,7 +71,7 @@ impl Rect {
         })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self {
             raw: RectRaw { x1, y1, x2, y2 },
@@ -139,7 +138,7 @@ impl Rect {
         dx * dx + dy * dy
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn contains_rect(&self, rect: &Self) -> bool {
         self.raw.x1 <= rect.raw.x1
             && self.raw.y1 <= rect.raw.x1
@@ -160,7 +159,7 @@ impl Rect {
         self.raw.x1 == self.raw.x2 || self.raw.y1 == self.raw.y2
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn to_origin(&self) -> Self {
         Self {
             raw: RectRaw {

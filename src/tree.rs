@@ -84,7 +84,7 @@ impl NodeIds {
 pub struct NodeId(pub u32);
 
 impl NodeId {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn raw(&self) -> u32 {
         self.0
     }
@@ -508,7 +508,7 @@ pub trait Node: 'static {
 
     // TYPE CONVERTERS
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         None
     }

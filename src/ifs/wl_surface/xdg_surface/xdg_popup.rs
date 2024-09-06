@@ -30,7 +30,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_GRAB: u32 = 1;
 
 tree_id!(PopupId);

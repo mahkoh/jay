@@ -17,11 +17,11 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const Y_INVERT: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INTERLACED: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const BOTTOM_FIRST: u32 = 4;
 
 const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;

@@ -18,7 +18,6 @@ pub struct TestShmBuffer {
 }
 
 impl TestShmBuffer {
-    #[allow(dead_code)]
     pub fn fill(&self, color: Color) {
         let [cr, cg, cb, ca] = color.to_rgba_premultiplied();
         for [b, g, r, a] in self.deref().array_chunks_ext::<4>() {

@@ -178,7 +178,6 @@ impl<'a> LibInputEventKeyboard<'a> {
         unsafe { KeyState(libinput_event_keyboard_get_key_state(self.event)) }
     }
 
-    #[allow(dead_code)]
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_keyboard_get_time_usec(self.event) }
     }

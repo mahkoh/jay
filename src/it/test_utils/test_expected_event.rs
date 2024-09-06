@@ -17,7 +17,6 @@ impl<T> TestExpectedEvent<T> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn last(&self) -> TestResult<T> {
         match self.data.events.borrow_mut().pop_back() {
             Some(t) => Ok(t),

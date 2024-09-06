@@ -21,13 +21,13 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_FINISH: u32 = 0;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_ACTION_MASK: u32 = 1;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_ACTION: u32 = 2;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const INVALID_OFFER: u32 = 3;
 
 pub struct WlDataOffer {

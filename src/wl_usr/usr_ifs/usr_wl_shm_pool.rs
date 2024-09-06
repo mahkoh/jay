@@ -14,7 +14,7 @@ pub struct UsrWlShmPool {
 }
 
 impl UsrWlShmPool {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn resize(&self, size: i32) {
         self.con.request(Resize {
             self_id: self.id,

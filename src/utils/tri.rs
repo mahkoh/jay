@@ -10,7 +10,7 @@ pub trait Try: Sized {
     where
         F: FnOnce() -> Result<(), Self>;
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn tria<F>(f: F) -> Tria<Self, F>
     where
         F: Future<Output = Result<(), Self>>;

@@ -127,7 +127,7 @@ pub enum TabletToolType {
     Brush,
     Pencil,
     Airbrush,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Finger,
     Mouse,
     Lens,

@@ -15,7 +15,7 @@ pub struct UsrWpViewport {
 }
 
 impl UsrWpViewport {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn set_source(&self, x: Fixed, y: Fixed, width: Fixed, height: Fixed) {
         self.con.request(SetSource {
             self_id: self.id,

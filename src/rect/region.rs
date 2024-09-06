@@ -73,7 +73,7 @@ impl Region {
         })
     }
 
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn extents(&self) -> Rect {
         self.extents
     }
@@ -148,7 +148,7 @@ impl RegionBuilder {
         self.base.clone()
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn clear(&mut self) {
         self.pending.clear();
         self.base = Region::empty();

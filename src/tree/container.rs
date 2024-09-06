@@ -44,7 +44,6 @@ use {
     },
 };
 
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerSplit {
     Horizontal,
@@ -69,7 +68,7 @@ impl Into<Axis> for ContainerSplit {
     }
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerFocus {
     None,

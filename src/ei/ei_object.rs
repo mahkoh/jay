@@ -20,7 +20,7 @@ pub const EI_HANDSHAKE_ID: EiHandshakeId = EiHandshakeId::from_raw(0);
 pub struct EiObjectId(u64);
 
 impl EiObjectId {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub const NONE: Self = EiObjectId(0);
 
     pub fn from_raw(raw: u64) -> Self {

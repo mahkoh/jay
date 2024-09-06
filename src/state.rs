@@ -1112,7 +1112,6 @@ impl State {
         self.eng.now().usec()
     }
 
-    #[allow(dead_code)]
     pub fn now_msec(&self) -> u64 {
         self.eng.now().msec()
     }

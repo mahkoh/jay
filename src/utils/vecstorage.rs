@@ -19,7 +19,6 @@ impl<T> Default for VecStorage<T> {
 }
 
 impl<T> VecStorage<T> {
-    #[allow(dead_code)]
     pub fn take<'a>(&'a mut self) -> RealizedVec<'a, T, T> {
         self.take_as()
     }

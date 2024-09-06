@@ -3,7 +3,6 @@ use {crate::gfx_apis::gl::sys::GLenum, uapi::c};
 pub type EGLint = i32;
 pub type EGLenum = c::c_uint;
 pub type EGLBoolean = c::c_uint;
-#[allow(dead_code)]
 pub type EGLuint64KHR = u64;
 pub type EGLAttrib = isize;
 pub type EGLSyncKHR = *mut u8;

@@ -313,7 +313,6 @@ impl DrmMaster {
         mode_get_resources(self.raw())
     }
 
-    #[allow(dead_code)]
     pub fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
         get_cap(self.raw(), cap)
     }
@@ -525,7 +524,7 @@ impl DrmMaster {
         Ok(formats)
     }
 
-    #[allow(clippy::await_holding_refcell_ref)]
+    #[expect(clippy::await_holding_refcell_ref)]
     pub async fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
         if self.events.is_empty() {
             let mut buf = self.buf.borrow_mut();
@@ -851,7 +850,7 @@ pub struct ObjectChange<'a> {
 }
 
 impl Change {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn test(&self, flags: u32) -> Result<(), DrmError> {
         mode_atomic(
             self.master.raw(),
@@ -914,7 +913,7 @@ impl Drop for Change {
     }
 }
 
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
 pub enum ConnectorType {
     Unknown(u32),
@@ -968,7 +967,7 @@ impl ConnectorType {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn to_drm(self) -> u32 {
         match self {
             Self::Unknown(n) => n,

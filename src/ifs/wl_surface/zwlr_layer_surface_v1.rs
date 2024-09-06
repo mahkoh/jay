@@ -37,7 +37,6 @@ use {
 };
 
 const KI_NONE: u32 = 0;
-#[allow(dead_code)]
 const KI_EXCLUSIVE: u32 = 1;
 const KI_ON_DEMAND: u32 = 2;
 
