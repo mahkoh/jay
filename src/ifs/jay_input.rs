@@ -165,11 +165,11 @@ impl JayInput {
         }
     }
 
-    fn set_keymap_impl<F>(&self, keymap: &OwnedFd, len: u32, f: F) -> Result<(), JayInputError>
+    fn set_keymap_impl<F>(&self, keymap: &Rc<OwnedFd>, len: u32, f: F) -> Result<(), JayInputError>
     where
         F: FnOnce(&Rc<XkbKeymap>) -> Result<(), JayInputError>,
     {
-        let cm = Rc::new(ClientMem::new(keymap.raw(), len as _, true)?).offset(0);
+        let cm = Rc::new(ClientMem::new(keymap, len as _, true, Some(&self.client))?).offset(0);
         let mut map = vec![];
         cm.read(&mut map)?;
         self.or_error(|| {

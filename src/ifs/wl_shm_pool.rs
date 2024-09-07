@@ -34,7 +34,7 @@ impl WlShmPool {
         Ok(Self {
             id,
             client: client.clone(),
-            mem: CloneCell::new(Rc::new(ClientMem::new(fd.raw(), len, false)?)),
+            mem: CloneCell::new(Rc::new(ClientMem::new(&fd, len, false, Some(client))?)),
             fd,
             tracker: Default::default(),
             version,
@@ -82,9 +82,10 @@ impl WlShmPoolRequestHandler for WlShmPool {
             return Err(WlShmPoolError::CannotShrink);
         }
         self.mem.set(Rc::new(ClientMem::new(
-            self.fd.raw(),
+            &self.fd,
             req.size as usize,
             false,
+            Some(&self.client),
         )?));
         Ok(())
     }
