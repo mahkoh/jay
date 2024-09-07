@@ -1,12 +1,21 @@
 use {
     crate::{
+        clientmem::ClientMemOffset,
         format::Format,
-        gfx_api::{GfxError, GfxTexture, ShmGfxTexture},
+        gfx_api::{
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxTexture, PendingShmUpload,
+            ShmGfxTexture,
+        },
         gfx_apis::gl::{
             gl::texture::GlTexture,
             renderer::{context::GlRenderContext, framebuffer::Framebuffer},
+            sys::{
+                GLint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+                GL_UNPACK_ROW_LENGTH_EXT,
+            },
             RenderError,
         },
+        rect::Region,
         video::dmabuf::DmaBuf,
     },
     std::{
@@ -84,6 +93,69 @@ impl GfxTexture for Texture {
 }
 
 impl ShmGfxTexture for Texture {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
+    }
+}
+
+impl AsyncShmGfxTexture for Texture {
+    fn async_upload(
+        self: Rc<Self>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: &Rc<ClientMemOffset>,
+        damage: Region,
+    ) -> Result<Option<PendingShmUpload>, GfxError> {
+        mem.access(|data| self.clone().sync_upload(data, damage))
+            .map_err(RenderError::AccessFailed)??;
+        Ok(None)
+    }
+
+    fn sync_upload(self: Rc<Self>, data: &[Cell<u8>], _damage: Region) -> Result<(), GfxError> {
+        let shm_info = self.format.shm_info.as_ref().unwrap();
+        if (self.gl.stride * self.gl.height) as usize > data.len() {
+            return Err(RenderError::SmallImageBuffer.into());
+        }
+        let gles = self.ctx.ctx.dpy.gles;
+        self.ctx.ctx.with_current(|| unsafe {
+            (gles.glBindTexture)(GL_TEXTURE_2D, self.gl.tex);
+            (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            (gles.glPixelStorei)(
+                GL_UNPACK_ROW_LENGTH_EXT,
+                self.gl.stride / shm_info.bpp as GLint,
+            );
+            (gles.glTexImage2D)(
+                GL_TEXTURE_2D,
+                0,
+                shm_info.gl_format,
+                self.gl.width,
+                self.gl.height,
+                0,
+                shm_info.gl_format as _,
+                shm_info.gl_type as _,
+                data.as_ptr() as _,
+            );
+            (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, 0);
+            (gles.glBindTexture)(GL_TEXTURE_2D, 0);
+            Ok(())
+        })?;
+        self.gl.contents_valid.set(true);
+        Ok(())
+    }
+
+    fn compatible_with(
+        &self,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> bool {
+        format == self.gl.format
+            && width == self.gl.width
+            && height == self.gl.height
+            && stride == self.gl.stride
+    }
+
     fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
         self
     }

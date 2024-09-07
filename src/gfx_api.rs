@@ -537,8 +537,8 @@ pub trait ShmGfxTexture: GfxTexture {
     fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
 }
 
-#[expect(dead_code)]
 pub trait AsyncShmGfxTextureCallback {
+    #[expect(dead_code)]
     fn completed(self: Rc<Self>, res: Result<(), GfxError>);
 }
 
@@ -560,7 +560,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
         damage: Region,
     ) -> Result<Option<PendingShmUpload>, GfxError>;
 
-    #[expect(dead_code)]
     fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
 
     #[expect(dead_code)]

@@ -282,13 +282,32 @@ impl GfxContext for GlRenderContext {
 
     fn async_shmem_texture(
         self: Rc<Self>,
-        _format: &'static Format,
-        _width: i32,
-        _height: i32,
-        _stride: i32,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
         _cpu_worker: &Rc<CpuWorker>,
     ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
-        todo!()
+        let tex = self.ctx.with_current(|| unsafe {
+            let mut tex = 0;
+            (self.ctx.dpy.gles.glGenTextures)(1, &mut tex);
+            Ok(tex)
+        })?;
+        Ok(Rc::new(Texture {
+            gl: GlTexture {
+                ctx: self.ctx.clone(),
+                img: None,
+                tex,
+                width,
+                height,
+                stride,
+                external_only: false,
+                format,
+                contents_valid: Cell::new(false),
+            },
+            ctx: self,
+            format,
+        }))
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

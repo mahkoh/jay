@@ -67,6 +67,7 @@ macro_rules! dynload {
 
 use {
     crate::{
+        clientmem::ClientMemError,
         gfx_api::{
             AcquireSync, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
             ReleaseSync, SyncFile,
@@ -196,6 +197,8 @@ enum RenderError {
     WaitSync,
     #[error("Buffer format {0} is not supported for shm buffers in OpenGL context")]
     UnsupportedShmFormat(&'static str),
+    #[error("Could not access the client memory")]
+    AccessFailed(#[source] ClientMemError),
 }
 
 #[derive(Default)]
@@ -318,6 +321,10 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
 
 fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
     let texture = tex.tex.as_gl();
+    if !texture.gl.contents_valid.get() {
+        log::error!("Ignoring texture with invalid contents");
+        return;
+    }
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     let gles = ctx.ctx.dpy.gles;
     unsafe {
