@@ -3,6 +3,8 @@ mod region;
 #[cfg(test)]
 mod tests;
 
+#[expect(unused_imports)]
+pub use region::DamageQueue;
 pub use region::RegionBuilder;
 use {
     jay_algorithms::rect::RectRaw,
@@ -16,7 +18,7 @@ pub struct Rect {
     raw: RectRaw,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct Region {
     rects: SmallVec<[RectRaw; 1]>,
     extents: Rect,
