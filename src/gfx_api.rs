@@ -642,7 +642,7 @@ pub struct GfxFormat {
 
 #[derive(Error)]
 #[error(transparent)]
-pub struct GfxError(pub Box<dyn Error>);
+pub struct GfxError(pub Box<dyn Error + Send>);
 
 impl Debug for GfxError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

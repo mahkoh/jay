@@ -290,7 +290,6 @@ impl CpuWorker {
         })
     }
 
-    #[expect(dead_code)]
     pub fn submit(&self, job: Box<dyn CpuJob>) -> PendingJob {
         let mut job = NonNull::from(Box::leak(job));
         let id = self.data.next.next();

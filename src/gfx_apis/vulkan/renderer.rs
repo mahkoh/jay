@@ -1,13 +1,14 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        cpu_worker::PendingJob,
         format::{Format, XRGB8888},
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
             GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
-            allocator::VulkanAllocator,
+            allocator::{VulkanAllocator, VulkanThreadedAllocator},
             command::{VulkanCommandBuffer, VulkanCommandPool},
             descriptor::VulkanDescriptorSetLayout,
             device::VulkanDevice,
@@ -79,6 +80,9 @@ pub struct VulkanRenderer {
     pub(super) tex_frag_mult_alpha_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
     pub(super) defunct: Cell<bool>,
+    pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
+    #[expect(dead_code)]
+    pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
 }
 
 pub(super) struct UsedTexture {
@@ -173,6 +177,7 @@ impl VulkanDevice {
             })
             .collect();
         let allocator = self.create_allocator()?;
+        let shm_allocator = self.create_threaded_allocator()?;
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
@@ -197,6 +202,8 @@ impl VulkanDevice {
             tex_frag_mult_alpha_shader,
             tex_descriptor_set_layout,
             defunct: Cell::new(false),
+            pending_cpu_jobs: Default::default(),
+            shm_allocator,
         });
         render.get_or_create_pipelines(XRGB8888.vk_format)?;
         Ok(render)
