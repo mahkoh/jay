@@ -22,7 +22,6 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             mmap::{mmap, Mmapped},
-            numcell::NumCell,
             oserror::OsError,
             ptr_ext::{MutPtrExt, PtrExt},
             stack::Stack,
@@ -254,10 +253,10 @@ struct IoUringData {
 
     cqes_consumed: AsyncEvent,
 
-    next: NumCell<u64>,
-    to_encode: SyncQueue<u64>,
-    pending_in_kernel: CopyHashMap<u64, ()>,
-    tasks: CopyHashMap<u64, Box<dyn Task>>,
+    next: IoUringTaskIds,
+    to_encode: SyncQueue<IoUringTaskId>,
+    pending_in_kernel: CopyHashMap<IoUringTaskId, ()>,
+    tasks: CopyHashMap<IoUringTaskId, Box<dyn Task>>,
 
     pending_results: PendingResults,
 
@@ -276,7 +275,7 @@ struct IoUringData {
 }
 
 unsafe trait Task {
-    fn id(&self) -> u64;
+    fn id(&self) -> IoUringTaskId;
     fn complete(self: Box<Self>, ring: &IoUringData, res: i32);
     fn encode(&self, sqe: &mut io_uring_sqe);
 
@@ -347,8 +346,9 @@ impl IoUringData {
                 let entry = self.cqmap.deref()[idx].get();
                 head = head.wrapping_add(1);
                 self.cqhead.deref().store(head, Release);
-                if let Some(pending) = self.tasks.remove(&entry.user_data) {
-                    self.pending_in_kernel.remove(&entry.user_data);
+                let id = IoUringTaskId(entry.user_data);
+                if let Some(pending) = self.tasks.remove(&id) {
+                    self.pending_in_kernel.remove(&id);
                     pending.complete(self, entry.res);
                 }
             }
@@ -384,7 +384,7 @@ impl IoUringData {
                 let sqe = self.sqesmap.deref()[idx].get().deref_mut();
                 self.sqmap.deref()[idx].set(idx as _);
                 *sqe = Default::default();
-                sqe.user_data = id;
+                sqe.user_data = id.raw();
                 task.encode(sqe);
                 if has_timeout {
                     sqe.flags |= IOSQE_IO_LINK;
@@ -404,11 +404,11 @@ impl IoUringData {
         }
     }
 
-    fn id_raw(&self) -> u64 {
-        self.next.fetch_add(1)
+    fn id_raw(&self) -> IoUringTaskId {
+        self.next.next()
     }
 
-    fn cancel_task(&self, id: u64) {
+    fn cancel_task(&self, id: IoUringTaskId) {
         if !self.tasks.contains(&id) {
             return;
         }
@@ -466,8 +466,17 @@ impl IoUringData {
     }
 }
 
+linear_ids!(IoUringTaskIds, IoUringTaskId, u64);
+
+#[expect(clippy::derivable_impls)]
+impl Default for IoUringTaskId {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 struct Cancellable<'a> {
-    id: u64,
+    id: IoUringTaskId,
     data: &'a IoUringData,
 }
 

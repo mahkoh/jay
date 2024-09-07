@@ -2,7 +2,7 @@ use {
     crate::{
         io_uring::{
             sys::{io_uring_sqe, IORING_OP_ASYNC_CANCEL},
-            IoUringData, Task,
+            IoUringData, IoUringTaskId, Task,
         },
         utils::errorfmt::ErrorFmt,
     },
@@ -11,12 +11,12 @@ use {
 
 #[derive(Default)]
 pub struct AsyncCancelTask {
-    id: u64,
-    target: u64,
+    id: IoUringTaskId,
+    target: IoUringTaskId,
 }
 
 impl IoUringData {
-    pub fn cancel_task_in_kernel(&self, target: u64) {
+    pub fn cancel_task_in_kernel(&self, target: IoUringTaskId) {
         let id = self.id_raw();
         let mut task = self.cached_cancels.pop().unwrap_or_default();
         task.id = id;
@@ -26,7 +26,7 @@ impl IoUringData {
 }
 
 unsafe impl Task for AsyncCancelTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 
@@ -41,7 +41,7 @@ unsafe impl Task for AsyncCancelTask {
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
         sqe.opcode = IORING_OP_ASYNC_CANCEL;
-        sqe.u2.addr = self.target;
+        sqe.u2.addr = self.target.raw();
     }
 
     fn is_cancel(&self) -> bool {

@@ -2,7 +2,7 @@ use {
     crate::io_uring::{
         pending_result::PendingResult,
         sys::{io_uring_sqe, IORING_OP_TIMEOUT, IORING_TIMEOUT_ABS},
-        IoUring, IoUringData, IoUringError, Task,
+        IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
     },
     uapi::c,
 };
@@ -16,7 +16,7 @@ pub(super) struct timespec64 {
 
 #[derive(Default)]
 pub struct TimeoutTask {
-    id: u64,
+    id: IoUringTaskId,
     timespec: timespec64,
     pr: Option<PendingResult>,
 }
@@ -42,7 +42,7 @@ impl IoUring {
 }
 
 unsafe impl Task for TimeoutTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 
