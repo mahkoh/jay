@@ -215,7 +215,6 @@ pub struct State {
     pub enable_ei_acceptor: Cell<bool>,
     pub ei_clients: EiClients,
     pub slow_ei_clients: AsyncQueue<Rc<EiClient>>,
-    #[expect(dead_code)]
     pub cpu_worker: Rc<CpuWorker>,
 }
 
@@ -485,7 +484,7 @@ impl State {
                         updated_buffers.insert(buffer.buffer.id);
                         buffer.buffer.handle_gfx_context_change(Some(surface));
                     } else {
-                        surface.shm_texture.take();
+                        surface.reset_shm_textures();
                     }
                 }
                 for buffer in client.data.objects.buffers.lock().values() {

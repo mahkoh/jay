@@ -551,7 +551,6 @@ pub struct PendingShmUpload {
 }
 
 pub trait AsyncShmGfxTexture: GfxTexture {
-    #[expect(dead_code)]
     fn async_upload(
         self: Rc<Self>,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
@@ -561,7 +560,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
 
     fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
 
-    #[expect(dead_code)]
     fn compatible_with(
         &self,
         format: &'static Format,
@@ -570,7 +568,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
         stride: i32,
     ) -> bool;
 
-    #[expect(dead_code)]
     fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
 }
 
@@ -598,7 +595,6 @@ pub trait GfxContext: Debug {
         damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn ShmGfxTexture>, GfxError>;
 
-    #[expect(dead_code)]
     fn async_shmem_texture(
         self: Rc<Self>,
         format: &'static Format,

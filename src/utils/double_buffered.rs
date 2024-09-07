@@ -7,7 +7,6 @@ pub struct DoubleBuffered<T> {
 }
 
 impl<T> DoubleBuffered<T> {
-    #[expect(dead_code)]
     pub fn new(bufs: [T; 2]) -> Self {
         Self {
             bufs,
@@ -15,17 +14,14 @@ impl<T> DoubleBuffered<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn front(&self) -> &T {
         unsafe { self.bufs.get_unchecked(self.front.get()) }
     }
 
-    #[expect(dead_code)]
     pub fn back(&self) -> &T {
         unsafe { self.bufs.get_unchecked(1 - self.front.get()) }
     }
 
-    #[expect(dead_code)]
     pub fn flip(&self) {
         self.front.set(1 - self.front.get());
     }

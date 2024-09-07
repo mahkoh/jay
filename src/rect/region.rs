@@ -197,7 +197,6 @@ pub struct DamageQueue {
 }
 
 impl DamageQueue {
-    #[expect(dead_code)]
     pub fn new<const N: usize>() -> [DamageQueue; N] {
         let datas = Rc::new(UnsafeCell::new(vec![vec!(); N]));
         array::from_fn(|this| DamageQueue {
@@ -206,7 +205,6 @@ impl DamageQueue {
         })
     }
 
-    #[expect(dead_code)]
     pub fn damage(&self, rects: &[Rect]) {
         let datas = unsafe { self.datas.get().deref_mut() };
         for data in datas {
@@ -214,13 +212,11 @@ impl DamageQueue {
         }
     }
 
-    #[expect(dead_code)]
     pub fn clear(&self) {
         let data = unsafe { &mut self.datas.get().deref_mut()[self.this] };
         data.clear();
     }
 
-    #[expect(dead_code)]
     pub fn get(&self) -> Region {
         let data = unsafe { &self.datas.get().deref()[self.this] };
         Region::from_rects2(data)

@@ -3,9 +3,7 @@ mod region;
 #[cfg(test)]
 mod tests;
 
-#[expect(unused_imports)]
-pub use region::DamageQueue;
-pub use region::RegionBuilder;
+pub use region::{DamageQueue, RegionBuilder};
 use {
     jay_algorithms::rect::RectRaw,
     smallvec::SmallVec,
