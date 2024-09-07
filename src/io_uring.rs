@@ -228,6 +228,11 @@ impl IoUring {
         self.ring.kill();
         res
     }
+
+    #[expect(dead_code)]
+    pub fn cancel(&self, id: IoUringTaskId) {
+        self.ring.cancel_task(id);
+    }
 }
 
 struct IoUringData {
