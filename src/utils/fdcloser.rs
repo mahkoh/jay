@@ -16,20 +16,23 @@ impl FdCloser {
             cv: Condvar::new(),
         });
         let slf2 = slf.clone();
-        std::thread::spawn(move || {
-            let mut fds = vec![];
-            let mut lock = slf2.fds.lock();
-            loop {
-                mem::swap(&mut *lock, &mut fds);
-                if fds.len() > 0 {
-                    drop(lock);
-                    fds.clear();
-                    lock = slf2.fds.lock();
-                } else {
-                    slf2.cv.wait(&mut lock);
+        std::thread::Builder::new()
+            .name("fd closer".to_string())
+            .spawn(move || {
+                let mut fds = vec![];
+                let mut lock = slf2.fds.lock();
+                loop {
+                    mem::swap(&mut *lock, &mut fds);
+                    if fds.len() > 0 {
+                        drop(lock);
+                        fds.clear();
+                        lock = slf2.fds.lock();
+                    } else {
+                        slf2.cv.wait(&mut lock);
+                    }
                 }
-            }
-        });
+            })
+            .unwrap();
         slf
     }
 
