@@ -9,11 +9,10 @@ use {
             image::{VulkanImage, VulkanImageMemory},
             renderer::{image_barrier, VulkanRenderer},
             staging::VulkanStagingBuffer,
-            util::OnDrop,
             VulkanError,
         },
         rect::Rect,
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
     },
     ash::vk::{
         AccessFlags2, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,

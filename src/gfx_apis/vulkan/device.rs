@@ -7,9 +7,9 @@ use {
                 map_extension_properties, ApiVersionDisplay, Extensions, VulkanInstance,
                 API_VERSION,
             },
-            util::OnDrop,
             VulkanError,
         },
+        utils::on_drop::OnDrop,
         video::{
             drm::{sync_obj::SyncObjCtx, Drm},
             gbm::GbmDevice,

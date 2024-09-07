@@ -4,10 +4,10 @@ use {
         gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
-            renderer::VulkanRenderer, shm_image::VulkanShmImage, util::OnDrop, VulkanError,
+            renderer::VulkanRenderer, shm_image::VulkanShmImage, VulkanError,
         },
         theme::Color,
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, on_drop::OnDrop},
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{

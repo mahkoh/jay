@@ -27,6 +27,7 @@ pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;
 pub mod on_change;
+pub mod on_drop;
 pub mod once;
 pub mod opaque;
 pub mod opaque_cell;

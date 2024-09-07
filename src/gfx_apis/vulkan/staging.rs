@@ -1,9 +1,11 @@
 use {
-    crate::gfx_apis::vulkan::{
-        allocator::{VulkanAllocation, VulkanAllocator},
-        device::VulkanDevice,
-        util::OnDrop,
-        VulkanError,
+    crate::{
+        gfx_apis::vulkan::{
+            allocator::{VulkanAllocation, VulkanAllocator},
+            device::VulkanDevice,
+            VulkanError,
+        },
+        utils::on_drop::OnDrop,
     },
     ash::vk::{Buffer, BufferCreateInfo, BufferUsageFlags, MappedMemoryRange},
     gpu_alloc::UsageFlags,

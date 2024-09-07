@@ -1,7 +1,10 @@
 use {
-    crate::gfx_apis::vulkan::{
-        descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shaders::VulkanShader,
-        util::OnDrop, VulkanError,
+    crate::{
+        gfx_apis::vulkan::{
+            descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shaders::VulkanShader,
+            VulkanError,
+        },
+        utils::on_drop::OnDrop,
     },
     arrayvec::ArrayVec,
     ash::{
