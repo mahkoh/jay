@@ -5,7 +5,8 @@ use {
         io_uring::{
             ops::{
                 accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
-                poll::PollTask, read_write::ReadWriteTask, recvmsg::RecvmsgTask,
+                poll::PollTask, read_write::ReadWriteTask,
+                read_write_no_cancel::ReadWriteNoCancelTask, recvmsg::RecvmsgTask,
                 sendmsg::SendmsgTask, timeout::TimeoutTask, timeout_link::TimeoutLinkTask,
             },
             pending_result::PendingResults,
@@ -205,6 +206,7 @@ impl IoUring {
             tasks: Default::default(),
             pending_results: Default::default(),
             cached_read_writes: Default::default(),
+            cached_read_writes_no_cancel: Default::default(),
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
             cached_sendmsg: Default::default(),
@@ -266,6 +268,7 @@ struct IoUringData {
     pending_results: PendingResults,
 
     cached_read_writes: Stack<Box<ReadWriteTask>>,
+    cached_read_writes_no_cancel: Stack<Box<ReadWriteNoCancelTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
     cached_sendmsg: Stack<Box<SendmsgTask>>,
