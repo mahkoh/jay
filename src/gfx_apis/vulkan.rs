@@ -19,9 +19,11 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
+        cpu_worker::CpuWorker,
         format::Format,
         gfx_api::{
-            GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
+            ResetStatus, ShmGfxTexture,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -276,6 +278,17 @@ impl GfxContext for Context {
             .0
             .create_shm_texture(format, width, height, stride, data, false)?;
         Ok(tex as _)
+    }
+
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        _format: &'static Format,
+        _width: i32,
+        _height: i32,
+        _stride: i32,
+        _cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
+        todo!()
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

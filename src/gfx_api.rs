@@ -1,11 +1,13 @@
 use {
     crate::{
         allocator::Allocator,
+        clientmem::ClientMemOffset,
+        cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
         fixed::Fixed,
         format::Format,
-        rect::Rect,
+        rect::{Rect, Region},
         renderer::{renderer_base::RendererBase, RenderResult, Renderer},
         scale::Scale,
         state::State,
@@ -535,6 +537,45 @@ pub trait ShmGfxTexture: GfxTexture {
     fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
 }
 
+#[expect(dead_code)]
+pub trait AsyncShmGfxTextureCallback {
+    fn completed(self: Rc<Self>, res: Result<(), GfxError>);
+}
+
+pub trait AsyncShmGfxTextureUploadCancellable {
+    fn cancel(&self, id: u64);
+}
+
+pub struct PendingShmUpload {
+    cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>,
+    id: u64,
+}
+
+pub trait AsyncShmGfxTexture: GfxTexture {
+    #[expect(dead_code)]
+    fn async_upload(
+        self: Rc<Self>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: &Rc<ClientMemOffset>,
+        damage: Region,
+    ) -> Result<Option<PendingShmUpload>, GfxError>;
+
+    #[expect(dead_code)]
+    fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
+
+    #[expect(dead_code)]
+    fn compatible_with(
+        &self,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> bool;
+
+    #[expect(dead_code)]
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
+}
+
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
 
@@ -558,6 +599,16 @@ pub trait GfxContext: Debug {
         stride: i32,
         damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn ShmGfxTexture>, GfxError>;
+
+    #[expect(dead_code)]
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+        cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError>;
 
     fn allocator(&self) -> Rc<dyn Allocator>;
 
@@ -636,4 +687,17 @@ pub fn cross_intersect_formats(
         }
     }
     res
+}
+
+impl PendingShmUpload {
+    #[expect(dead_code)]
+    pub fn new(cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>, id: u64) -> Self {
+        Self { cancel, id }
+    }
+}
+
+impl Drop for PendingShmUpload {
+    fn drop(&mut self) {
+        self.cancel.cancel(self.id);
+    }
 }

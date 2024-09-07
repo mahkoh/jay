@@ -1,10 +1,11 @@
 use {
     crate::{
         allocator::Allocator,
+        cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
-            BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat,
+            GfxFramebuffer, GfxImage, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -277,6 +278,17 @@ impl GfxContext for GlRenderContext {
             .shmem_texture(data, format, width, height, stride)
             .map(|w| w as Rc<dyn ShmGfxTexture>)
             .map_err(|e| e.into())
+    }
+
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        _format: &'static Format,
+        _width: i32,
+        _height: i32,
+        _stride: i32,
+        _cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
+        todo!()
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

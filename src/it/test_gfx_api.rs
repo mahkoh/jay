@@ -1,11 +1,12 @@
 use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
+        cpu_worker::CpuWorker,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
-            CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier, ResetStatus, ShmGfxTexture,
-            SyncFile,
+            AsyncShmGfxTexture, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext,
+            GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier,
+            ResetStatus, ShmGfxTexture, SyncFile,
         },
         rect::Rect,
         theme::Color,
@@ -131,6 +132,17 @@ impl GfxContext for TestGfxCtx {
             stride,
             format,
         })))
+    }
+
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        _format: &'static Format,
+        _width: i32,
+        _height: i32,
+        _stride: i32,
+        _cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
+        todo!()
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {
