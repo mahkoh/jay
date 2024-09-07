@@ -1,7 +1,9 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
+        gfx_api::{
+            GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, ShmGfxTexture, SyncFile,
+        },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
             renderer::VulkanRenderer, shm_image::VulkanShmImage, VulkanError,
@@ -528,5 +530,11 @@ impl GfxTexture for VulkanImage {
 
     fn format(&self) -> &'static Format {
         self.format
+    }
+}
+
+impl ShmGfxTexture for VulkanImage {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
     }
 }

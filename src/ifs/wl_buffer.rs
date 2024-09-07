@@ -201,7 +201,7 @@ impl WlBuffer {
         match &*self.storage.borrow() {
             None => None,
             Some(s) => match s {
-                WlBufferStorage::Shm { .. } => surface.shm_texture.get(),
+                WlBufferStorage::Shm { .. } => surface.shm_texture.get().map(|t| t.into_texture()),
                 WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
             },
         }

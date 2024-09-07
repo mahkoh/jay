@@ -21,7 +21,7 @@ use {
         async_engine::AsyncEngine,
         format::Format,
         gfx_api::{
-            GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture, ResetStatus,
+            GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -249,16 +249,16 @@ impl GfxContext for Context {
 
     fn shmem_texture(
         self: Rc<Self>,
-        old: Option<Rc<dyn GfxTexture>>,
+        old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         if let Some(old) = old {
-            let old = old.into_vk(&self.0.device.device);
+            let old = old.into_texture().into_vk(&self.0.device.device);
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
                 VulkanImageMemory::Internal(shm) => shm,

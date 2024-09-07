@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxError, GfxTexture},
+        gfx_api::{GfxError, GfxTexture, ShmGfxTexture},
         gfx_apis::gl::{
             gl::texture::GlTexture,
             renderer::{context::GlRenderContext, framebuffer::Framebuffer},
@@ -80,5 +80,11 @@ impl GfxTexture for Texture {
 
     fn format(&self) -> &'static Format {
         self.format
+    }
+}
+
+impl ShmGfxTexture for Texture {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
     }
 }

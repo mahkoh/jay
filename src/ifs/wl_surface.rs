@@ -23,7 +23,8 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxTexture, ReleaseSync, SampleRect, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, ShmGfxTexture,
+            SyncFile,
         },
         ifs::{
             wl_buffer::WlBuffer,
@@ -271,7 +272,7 @@ pub struct WlSurface {
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     buffer_presented: Cell<bool>,
     buffer_had_frame_request: Cell<bool>,
-    pub shm_texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    pub shm_texture: CloneCell<Option<Rc<dyn ShmGfxTexture>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,

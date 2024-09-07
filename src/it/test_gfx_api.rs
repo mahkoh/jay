@@ -4,7 +4,8 @@ use {
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
             CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier, ResetStatus, SyncFile,
+            GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier, ResetStatus, ShmGfxTexture,
+            SyncFile,
         },
         rect::Rect,
         theme::Color,
@@ -108,14 +109,14 @@ impl GfxContext for TestGfxCtx {
 
     fn shmem_texture(
         self: Rc<Self>,
-        _old: Option<Rc<dyn GfxTexture>>,
+        _old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         _damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         assert!(stride >= width * 4);
         let size = (stride * height) as usize;
         assert!(data.len() >= size);
@@ -298,6 +299,12 @@ impl GfxTexture for TestGfxImage {
 
     fn format(&self) -> &'static Format {
         &ARGB8888
+    }
+}
+
+impl ShmGfxTexture for TestGfxImage {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
     }
 }
 

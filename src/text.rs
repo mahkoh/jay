@@ -1,7 +1,7 @@
 use {
     crate::{
         format::ARGB8888,
-        gfx_api::{GfxContext, GfxError, GfxTexture},
+        gfx_api::{GfxContext, GfxError, GfxTexture, ShmGfxTexture},
         pango::{
             consts::{
                 CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
@@ -73,6 +73,7 @@ impl<'a> Config<'a> {
 #[derive(Clone)]
 pub struct TextTexture {
     config: Rc<Config<'static>>,
+    shm_texture: Rc<dyn ShmGfxTexture>,
     pub texture: Rc<dyn GfxTexture>,
 }
 
@@ -210,7 +211,7 @@ fn render2(
         Ok(d) => d,
         Err(e) => return Err(TextError::ImageData(e)),
     };
-    let old = old.map(|o| o.texture);
+    let old = old.map(|o| o.shm_texture);
     match ctx.clone().shmem_texture(
         old,
         bytes,
@@ -222,7 +223,8 @@ fn render2(
     ) {
         Ok(t) => Ok(TextTexture {
             config: Rc::new(config.to_static()),
-            texture: t,
+            texture: t.clone().into_texture(),
+            shm_texture: t,
         }),
         Err(e) => Err(TextError::RenderError(e)),
     }

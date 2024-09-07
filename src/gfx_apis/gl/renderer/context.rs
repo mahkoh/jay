@@ -4,7 +4,7 @@ use {
         format::{Format, XRGB8888},
         gfx_api::{
             BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxTexture, ResetStatus,
+            ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -265,17 +265,17 @@ impl GfxContext for GlRenderContext {
 
     fn shmem_texture(
         self: Rc<Self>,
-        _old: Option<Rc<dyn GfxTexture>>,
+        _old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         _damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         (&self)
             .shmem_texture(data, format, width, height, stride)
-            .map(|w| w as Rc<dyn GfxTexture>)
+            .map(|w| w as Rc<dyn ShmGfxTexture>)
             .map_err(|e| e.into())
     }
 

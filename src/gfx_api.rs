@@ -531,6 +531,10 @@ pub trait GfxTexture: Debug {
     fn format(&self) -> &'static Format;
 }
 
+pub trait ShmGfxTexture: GfxTexture {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
+}
+
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
 
@@ -546,14 +550,14 @@ pub trait GfxContext: Debug {
 
     fn shmem_texture(
         self: Rc<Self>,
-        old: Option<Rc<dyn GfxTexture>>,
+        old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError>;
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError>;
 
     fn allocator(&self) -> Rc<dyn Allocator>;
 
