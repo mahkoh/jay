@@ -64,6 +64,12 @@ impl<T> AsyncQueue<T> {
         }
         self.waiter.take();
     }
+
+    pub fn move_to(&self, other: &mut VecDeque<T>) {
+        unsafe {
+            other.append(self.data.get().deref_mut());
+        }
+    }
 }
 
 pub struct AsyncQueuePop<'a, T> {

@@ -15,7 +15,6 @@ use {
 };
 
 impl IoUring {
-    #[expect(dead_code)]
     pub async fn read_no_cancel(
         &self,
         fd: Fd,
@@ -35,7 +34,6 @@ impl IoUring {
         .await
     }
 
-    #[expect(dead_code)]
     pub async fn write_no_cancel(
         &self,
         fd: Fd,

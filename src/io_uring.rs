@@ -231,7 +231,6 @@ impl IoUring {
         res
     }
 
-    #[expect(dead_code)]
     pub fn cancel(&self, id: IoUringTaskId) {
         self.ring.cancel_task(id);
     }

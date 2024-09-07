@@ -54,6 +54,7 @@ mod client;
 mod clientmem;
 mod compositor;
 mod config;
+mod cpu_worker;
 mod cursor;
 mod cursor_user;
 mod damage;
