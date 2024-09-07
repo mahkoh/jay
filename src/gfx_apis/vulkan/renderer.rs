@@ -81,7 +81,6 @@ pub struct VulkanRenderer {
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
-    #[expect(dead_code)]
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
 }
 

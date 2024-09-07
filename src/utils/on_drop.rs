@@ -24,14 +24,12 @@ where
 }
 
 impl<F: FnOnce()> OnDrop2<F> {
-    #[expect(dead_code)]
     pub fn new(f: F) -> Self {
         Self {
             f: ManuallyDrop::new(f),
         }
     }
 
-    #[expect(dead_code)]
     pub fn forget(mut self) {
         unsafe {
             ManuallyDrop::drop(&mut self.f);

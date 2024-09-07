@@ -199,7 +199,6 @@ impl VulkanAllocator {
 }
 
 impl VulkanThreadedAllocator {
-    #[expect(dead_code)]
     pub fn async_alloc(
         self: &Rc<Self>,
         renderer: &Rc<VulkanRenderer>,
