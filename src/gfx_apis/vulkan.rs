@@ -19,7 +19,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
-        cpu_worker::CpuWorker,
+        cpu_worker::{jobs::read_write::ReadWriteJobError, CpuWorker},
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
@@ -199,6 +199,10 @@ pub enum VulkanError {
     DupDrm(#[source] DrmError),
     #[error("Graphics context has already been dropped")]
     Defunct,
+    #[error("Could not perform an async copy to the staging buffer")]
+    AsyncCopyToStaging(#[source] ReadWriteJobError),
+    #[error("The async shm texture is busy")]
+    AsyncCopyBusy,
 }
 
 impl From<VulkanError> for GfxError {
@@ -278,19 +282,28 @@ impl GfxContext for Context {
         }
         let tex = self
             .0
-            .create_shm_texture(format, width, height, stride, data, false)?;
+            .create_shm_texture(format, width, height, stride, data, false, None)?;
         Ok(tex as _)
     }
 
     fn async_shmem_texture(
         self: Rc<Self>,
-        _format: &'static Format,
-        _width: i32,
-        _height: i32,
-        _stride: i32,
-        _cpu_worker: &Rc<CpuWorker>,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+        cpu_worker: &Rc<CpuWorker>,
     ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
-        todo!()
+        let tex = self.0.create_shm_texture(
+            format,
+            width,
+            height,
+            stride,
+            &[],
+            false,
+            Some(cpu_worker),
+        )?;
+        Ok(tex)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {
@@ -310,7 +323,7 @@ impl GfxContext for Context {
     ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         let fb = self
             .0
-            .create_shm_texture(format, width, height, stride, &[], true)?;
+            .create_shm_texture(format, width, height, stride, &[], true, None)?;
         Ok(fb)
     }
 

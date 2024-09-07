@@ -51,7 +51,6 @@ impl VulkanDevice {
         })
     }
 
-    #[expect(dead_code)]
     pub(super) fn create_shm_staging(
         self: &Rc<Self>,
         renderer: &Rc<VulkanRenderer>,

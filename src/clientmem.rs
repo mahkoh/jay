@@ -98,29 +98,24 @@ impl ClientMem {
         }
     }
 
-    #[expect(dead_code)]
     pub fn fd(&self) -> &Rc<OwnedFd> {
         &self.fd
     }
 
-    #[expect(dead_code)]
     pub fn sigbus_impossible(&self) -> bool {
         self.sigbus_impossible
     }
 }
 
 impl ClientMemOffset {
-    #[expect(dead_code)]
     pub fn pool(&self) -> &ClientMem {
         &self.mem
     }
 
-    #[expect(dead_code)]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
-    #[expect(dead_code)]
     pub fn ptr(&self) -> *const [Cell<u8>] {
         self.data
     }

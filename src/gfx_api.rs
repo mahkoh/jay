@@ -538,7 +538,6 @@ pub trait ShmGfxTexture: GfxTexture {
 }
 
 pub trait AsyncShmGfxTextureCallback {
-    #[expect(dead_code)]
     fn completed(self: Rc<Self>, res: Result<(), GfxError>);
 }
 
@@ -689,7 +688,6 @@ pub fn cross_intersect_formats(
 }
 
 impl PendingShmUpload {
-    #[expect(dead_code)]
     pub fn new(cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>, id: u64) -> Self {
         Self { cancel, id }
     }

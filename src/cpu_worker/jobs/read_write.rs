@@ -36,7 +36,6 @@ pub struct ReadWriteWork {
 unsafe impl Send for ReadWriteWork {}
 
 impl ReadWriteWork {
-    #[expect(dead_code)]
     pub unsafe fn new() -> Self {
         let cancel = Arc::new(CancelState::default());
         ReadWriteWork {
@@ -53,7 +52,6 @@ impl ReadWriteWork {
         }
     }
 
-    #[expect(dead_code)]
     pub fn config(&mut self) -> &mut ReadWriteWorkConfig {
         self.config.as_mut().unwrap()
     }

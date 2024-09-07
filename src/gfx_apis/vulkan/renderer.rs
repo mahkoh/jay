@@ -279,6 +279,9 @@ impl VulkanRenderer {
         for cmd in opts {
             if let GfxApiOpt::CopyTexture(c) = cmd {
                 let tex = c.tex.clone().into_vk(&self.device.device);
+                if tex.contents_are_undefined.get() {
+                    continue;
+                }
                 if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
                     memory.sample.push(tex.clone())
                 }
@@ -458,6 +461,10 @@ impl VulkanRenderer {
                 }
                 GfxApiOpt::CopyTexture(c) => {
                     let tex = c.tex.as_vk(&self.device.device);
+                    if tex.contents_are_undefined.get() {
+                        log::warn!("Ignoring undefined texture");
+                        continue;
+                    }
                     let copy_type = match c.alpha.is_some() {
                         true => TexCopyType::Multiply,
                         false => TexCopyType::Identity,
@@ -807,6 +814,7 @@ impl VulkanRenderer {
             stride as i32,
             &[],
             true,
+            None,
         )?;
         (&*tmp_tex as &dyn GfxFramebuffer)
             .copy_texture(
