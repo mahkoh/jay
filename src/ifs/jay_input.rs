@@ -169,7 +169,14 @@ impl JayInput {
     where
         F: FnOnce(&Rc<XkbKeymap>) -> Result<(), JayInputError>,
     {
-        let cm = Rc::new(ClientMem::new(keymap, len as _, true, Some(&self.client))?).offset(0);
+        let cm = Rc::new(ClientMem::new(
+            keymap,
+            len as _,
+            true,
+            Some(&self.client),
+            None,
+        )?)
+        .offset(0);
         let mut map = vec![];
         cm.read(&mut map)?;
         self.or_error(|| {

@@ -140,7 +140,6 @@ pub enum CpuWorkerError {
 }
 
 impl PendingJob {
-    #[expect(dead_code)]
     pub fn detach(self) {
         match self.job_data.state.get() {
             PendingJobState::Waiting => {

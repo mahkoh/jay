@@ -1,8 +1,12 @@
 use {
-    crate::{client::Client, utils::vec_ext::VecExt},
+    crate::{
+        client::Client,
+        cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
+        utils::vec_ext::VecExt,
+    },
     std::{
         cell::Cell,
-        mem::MaybeUninit,
+        mem::{ManuallyDrop, MaybeUninit},
         ptr,
         rc::Rc,
         sync::atomic::{compiler_fence, Ordering},
@@ -25,10 +29,11 @@ pub enum ClientMemError {
 }
 
 pub struct ClientMem {
-    fd: Rc<OwnedFd>,
+    fd: ManuallyDrop<Rc<OwnedFd>>,
     failed: Cell<bool>,
     sigbus_impossible: bool,
     data: *const [Cell<u8>],
+    cpu: Option<Rc<CpuWorker>>,
 }
 
 #[derive(Clone)]
@@ -44,6 +49,7 @@ impl ClientMem {
         len: usize,
         read_only: bool,
         client: Option<&Client>,
+        cpu: Option<&Rc<CpuWorker>>,
     ) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
         if let Ok(seals) = uapi::fcntl_get_seals(fd.raw()) {
@@ -78,10 +84,11 @@ impl ClientMem {
             }
         };
         Ok(Self {
-            fd: fd.clone(),
+            fd: ManuallyDrop::new(fd.clone()),
             failed: Cell::new(false),
             sigbus_impossible,
             data,
+            cpu: cpu.cloned(),
         })
     }
 
@@ -155,8 +162,17 @@ impl ClientMemOffset {
 
 impl Drop for ClientMem {
     fn drop(&mut self) {
-        unsafe {
-            c::munmap(self.data as _, self.len());
+        let fd = unsafe { ManuallyDrop::take(&mut self.fd) };
+        if let Some(cpu) = &self.cpu {
+            let pending = cpu.submit(Box::new(CloseMemWork {
+                fd: Rc::try_unwrap(fd).ok(),
+                data: self.data,
+            }));
+            pending.detach();
+        } else {
+            unsafe {
+                c::munmap(self.data as _, self.len());
+            }
         }
     }
 }
@@ -217,5 +233,32 @@ pub fn init() -> Result<(), ClientMemError> {
             Ok(_) => Ok(()),
             Err(e) => Err(ClientMemError::SigactionFailed(e.into())),
         }
+    }
+}
+
+struct CloseMemWork {
+    fd: Option<OwnedFd>,
+    data: *const [Cell<u8>],
+}
+
+unsafe impl Send for CloseMemWork {}
+
+impl CpuJob for CloseMemWork {
+    fn work(&mut self) -> &mut dyn CpuWork {
+        self
+    }
+
+    fn completed(self: Box<Self>) {
+        // nothing
+    }
+}
+
+impl CpuWork for CloseMemWork {
+    fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        self.fd.take();
+        unsafe {
+            c::munmap(self.data as _, self.data.len());
+        }
+        None
     }
 }

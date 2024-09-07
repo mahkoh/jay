@@ -34,7 +34,13 @@ impl WlShmPool {
         Ok(Self {
             id,
             client: client.clone(),
-            mem: CloneCell::new(Rc::new(ClientMem::new(&fd, len, false, Some(client))?)),
+            mem: CloneCell::new(Rc::new(ClientMem::new(
+                &fd,
+                len,
+                false,
+                Some(client),
+                Some(&client.state.cpu_worker),
+            )?)),
             fd,
             tracker: Default::default(),
             version,
@@ -86,6 +92,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             req.size as usize,
             false,
             Some(&self.client),
+            Some(&self.client.state.cpu_worker),
         )?));
         Ok(())
     }
