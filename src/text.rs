@@ -170,6 +170,7 @@ fn render2(
     markup: bool,
     scale: Option<f64>,
 ) -> Result<TextTexture, TextError> {
+    let width = width.min(3840);
     let config = Config {
         x,
         y,
