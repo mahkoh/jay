@@ -4,8 +4,8 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
             Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorId, ConnectorIds,
-            DrmDeviceId, DrmDeviceIds, InputDevice, InputDeviceGroupIds, InputDeviceId,
-            InputDeviceIds, MonitorInfo,
+            DrmDeviceId, DrmDeviceIds, HardwareCursorUpdate, InputDevice, InputDeviceGroupIds,
+            InputDeviceId, InputDeviceIds, MonitorInfo,
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
@@ -847,11 +847,13 @@ impl State {
         self.slow_ei_clients.clear();
     }
 
-    pub fn disable_hardware_cursors(&self) {
+    pub fn damage_hardware_cursors(&self, render: bool) {
         for output in self.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
-                hc.set_enabled(false);
-                hc.commit(true);
+                if render {
+                    output.hardware_cursor_needs_render.set(true);
+                }
+                hc.damage();
             }
         }
     }
@@ -863,7 +865,19 @@ impl State {
                 return;
             }
         }
-        self.disable_hardware_cursors()
+        self.damage_hardware_cursors(false)
+    }
+
+    pub fn present_hardware_cursor(
+        &self,
+        output: &Rc<OutputNode>,
+        hc: &mut dyn HardwareCursorUpdate,
+    ) {
+        let Some(g) = self.cursor_user_group_hardware_cursor.get() else {
+            hc.set_enabled(false);
+            return;
+        };
+        g.present_hardware_cursor(output, hc);
     }
 
     pub fn for_each_seat_tester<F: Fn(&JaySeatEvents)>(&self, f: F) {

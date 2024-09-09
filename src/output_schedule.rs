@@ -87,7 +87,7 @@ impl OutputSchedule {
         }
     }
 
-    pub fn presented(&self) {
+    pub fn latched(&self) {
         self.last_present_nsec.set(self.eng.now().nsec());
         self.present_scheduled.set(false);
         self.iteration.fetch_add(1);
@@ -166,9 +166,8 @@ impl OutputSchedule {
         }
         if self.needs_hardware_cursor_commit.take() {
             if let Some(hc) = self.hardware_cursor.get() {
-                if hc.schedule_present() {
-                    self.present_scheduled.set(true);
-                }
+                hc.damage();
+                self.present_scheduled.set(true);
             }
         }
         if self.needs_software_cursor_damage.take() {

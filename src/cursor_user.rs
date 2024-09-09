@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::HardwareCursorUpdate,
         cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
         fixed::Fixed,
         rect::Rect,
@@ -103,7 +104,7 @@ impl CursorUserGroup {
 
     fn remove_hardware_cursor(&self) {
         self.state.hardware_tick_cursor.push(None);
-        self.state.disable_hardware_cursors();
+        self.state.damage_hardware_cursors(false);
         self.state.cursor_user_group_hardware_cursor.take();
     }
 
@@ -233,6 +234,18 @@ impl CursorUserGroup {
                 user.set_position(x, y);
             }
         }
+    }
+
+    pub fn present_hardware_cursor(
+        &self,
+        output: &Rc<OutputNode>,
+        hc: &mut dyn HardwareCursorUpdate,
+    ) {
+        let Some(active) = self.active.get() else {
+            hc.set_enabled(false);
+            return;
+        };
+        active.present_hardware_cursor(output, hc);
     }
 }
 
@@ -427,86 +440,81 @@ impl CursorUser {
             return;
         }
         let cursor = self.cursor.get();
-        self.group.state.hardware_tick_cursor.push(cursor.clone());
-        let cursor = match cursor {
-            Some(c) => c,
-            _ => {
-                self.group.state.disable_hardware_cursors();
-                return;
+        self.group.state.hardware_tick_cursor.push(cursor);
+        for output in self.group.state.root.outputs.lock().values() {
+            if let Some(hc) = output.hardware_cursor.get() {
+                if render {
+                    output.hardware_cursor_needs_render.set(true);
+                }
+                let defer = output.schedule.defer_cursor_updates();
+                if defer {
+                    output.schedule.hardware_cursor_changed();
+                } else {
+                    hc.damage();
+                }
             }
+        }
+    }
+
+    fn present_hardware_cursor(&self, output: &Rc<OutputNode>, hc: &mut dyn HardwareCursorUpdate) {
+        let Some(cursor) = self.cursor.get() else {
+            hc.set_enabled(false);
+            return;
         };
+        let (x, y) = self.pos.get();
+        let transform = output.global.persistent.transform.get();
+        let render = output.hardware_cursor_needs_render.take();
+        let scale = output.global.persistent.scale.get();
         if render {
             cursor.tick();
         }
-        let (x, y) = self.pos.get();
-        for output in self.group.state.root.outputs.lock().values() {
-            if let Some(hc) = output.hardware_cursor.get() {
-                let commit = || {
-                    let defer = output.schedule.defer_cursor_updates();
-                    hc.commit(!defer);
-                    if defer {
-                        output.schedule.hardware_cursor_changed();
-                    }
-                };
-                let transform = output.global.persistent.transform.get();
-                let render = render | output.hardware_cursor_needs_render.take();
-                let scale = output.global.persistent.scale.get();
-                let extents = cursor.extents_at_scale(scale);
-                let (hc_width, hc_height) = hc.size();
-                if render {
-                    let (max_width, max_height) = transform.maybe_swap((hc_width, hc_height));
-                    if extents.width() > max_width || extents.height() > max_height {
-                        hc.set_enabled(false);
-                        commit();
-                        continue;
-                    }
-                }
-                let opos = output.global.pos.get();
-                let (x_rel, y_rel);
-                if scale == 1 {
-                    x_rel = x.round_down() - opos.x1();
-                    y_rel = y.round_down() - opos.y1();
-                } else {
-                    let scalef = scale.to_f64();
-                    x_rel = ((x - Fixed::from_int(opos.x1())).to_f64() * scalef).round() as i32;
-                    y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
-                }
-                let (width, height) = output.global.pixel_size();
-                if extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
-                    if render {
-                        let buffer = hc.get_buffer();
-                        let res = buffer.render_hardware_cursor(
-                            cursor.deref(),
-                            &self.group.state,
-                            scale,
-                            transform,
-                        );
-                        match res {
-                            Ok(sync_file) => {
-                                hc.set_sync_file(sync_file);
-                                hc.swap_buffer();
-                            }
-                            Err(e) => {
-                                log::error!("Could not render hardware cursor: {}", ErrorFmt(e));
-                            }
-                        }
-                    }
-                    hc.set_enabled(true);
-                    let mode = output.global.mode.get();
-                    let (x_rel, y_rel) =
-                        transform.apply_point(mode.width, mode.height, (x_rel, y_rel));
-                    let (hot_x, hot_y) =
-                        transform.apply_point(hc_width, hc_height, (-extents.x1(), -extents.y1()));
-                    hc.set_position(x_rel - hot_x, y_rel - hot_y);
-                } else {
-                    if render {
-                        output.hardware_cursor_needs_render.set(true);
-                    }
-                    hc.set_enabled(false);
-                }
-                commit();
+        let extents = cursor.extents_at_scale(scale);
+        let (hc_width, hc_height) = hc.size();
+        if render {
+            let (max_width, max_height) = transform.maybe_swap((hc_width, hc_height));
+            if extents.width() > max_width || extents.height() > max_height {
+                hc.set_enabled(false);
+                return;
             }
         }
+        let opos = output.global.pos.get();
+        let (x_rel, y_rel);
+        if scale == 1 {
+            x_rel = x.round_down() - opos.x1();
+            y_rel = y.round_down() - opos.y1();
+        } else {
+            let scalef = scale.to_f64();
+            x_rel = ((x - Fixed::from_int(opos.x1())).to_f64() * scalef).round() as i32;
+            y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
+        }
+        let (width, height) = output.global.pixel_size();
+        if !extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
+            if render {
+                output.hardware_cursor_needs_render.set(true);
+            }
+            hc.set_enabled(false);
+            return;
+        }
+        if render {
+            let buffer = hc.get_buffer();
+            let res =
+                buffer.render_hardware_cursor(cursor.deref(), &self.group.state, scale, transform);
+            match res {
+                Ok(sync_file) => {
+                    hc.set_sync_file(sync_file);
+                    hc.swap_buffer();
+                }
+                Err(e) => {
+                    log::error!("Could not render hardware cursor: {}", ErrorFmt(e));
+                }
+            }
+        }
+        hc.set_enabled(true);
+        let mode = output.global.mode.get();
+        let (x_rel, y_rel) = transform.apply_point(mode.width, mode.height, (x_rel, y_rel));
+        let (hot_x, hot_y) =
+            transform.apply_point(hc_width, hc_height, (-extents.x1(), -extents.y1()));
+        hc.set_position(x_rel - hot_x, y_rel - hot_y);
     }
 
     fn reload_known_cursor(&self) {

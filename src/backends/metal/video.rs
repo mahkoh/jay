@@ -4,8 +4,8 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor, Mode,
-            MonitorInfo,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor,
+            HardwareCursorUpdate, Mode, MonitorInfo,
         },
         backends::metal::{MetalBackend, MetalError},
         drm_feedback::DrmFeedback,
@@ -428,7 +428,7 @@ pub struct MetalConnector {
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
     pub cursor_changed: Cell<bool>,
-    pub cursor_scheduled: Cell<bool>,
+    pub cursor_damage: Cell<bool>,
     pub next_flip_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
@@ -446,11 +446,10 @@ pub struct MetalConnector {
 
     pub render_result: RefCell<RenderResult>,
 
-    pub cursor_generation: NumCell<u64>,
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
     pub cursor_enabled: Cell<bool>,
-    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 3]>>>,
+    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub cursor_front_buffer: NumCell<usize>,
     pub cursor_swap_buffer: Cell<bool>,
     pub cursor_sync_file: CloneCell<Option<SyncFile>>,
@@ -472,15 +471,17 @@ impl Debug for MetalConnector {
 }
 
 pub struct MetalHardwareCursor {
-    pub generation: u64,
     pub connector: Rc<MetalConnector>,
-    pub cursor_swap_buffer: Cell<bool>,
-    pub cursor_enabled_pending: Cell<bool>,
-    pub cursor_x_pending: Cell<i32>,
-    pub cursor_y_pending: Cell<i32>,
-    pub cursor_buffers: Rc<[RenderBuffer; 3]>,
-    pub sync_file: CloneCell<Option<SyncFile>>,
-    pub have_changes: Cell<bool>,
+}
+
+pub struct MetalHardwareCursorChange<'a> {
+    pub cursor_swap_buffer: bool,
+    pub cursor_enabled: bool,
+    pub cursor_x: i32,
+    pub cursor_y: i32,
+    pub cursor_buffer: &'a RenderBuffer,
+    pub sync_file: Option<SyncFile>,
+    pub cursor_size: (i32, i32),
 }
 
 impl Debug for MetalHardwareCursor {
@@ -491,72 +492,38 @@ impl Debug for MetalHardwareCursor {
 }
 
 impl HardwareCursor for MetalHardwareCursor {
-    fn set_enabled(&self, enabled: bool) {
-        if self.cursor_enabled_pending.replace(enabled) != enabled {
-            self.have_changes.set(true);
+    fn damage(&self) {
+        self.connector.cursor_damage.set(true);
+        if self.connector.can_present.get() {
+            self.connector.schedule_present();
         }
+    }
+}
+
+impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
+    fn set_enabled(&mut self, enabled: bool) {
+        self.cursor_enabled = enabled;
     }
 
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer> {
-        let buffer = (self.connector.cursor_front_buffer.get() + 1) % self.cursor_buffers.len();
-        self.cursor_buffers[buffer].render_fb()
+        self.cursor_buffer.render_fb()
     }
 
-    fn set_position(&self, x: i32, y: i32) {
-        self.cursor_x_pending.set(x);
-        self.cursor_y_pending.set(y);
-        self.have_changes.set(true);
+    fn set_position(&mut self, x: i32, y: i32) {
+        self.cursor_x = x;
+        self.cursor_y = y;
     }
 
-    fn swap_buffer(&self) {
-        self.cursor_swap_buffer.set(true);
-        self.have_changes.set(true);
+    fn swap_buffer(&mut self) {
+        self.cursor_swap_buffer = true;
     }
 
-    fn set_sync_file(&self, sync_file: Option<SyncFile>) {
-        self.sync_file.set(sync_file);
-        self.have_changes.set(true);
-    }
-
-    fn commit(&self, schedule_present: bool) {
-        if self.generation != self.connector.cursor_generation.get() {
-            return;
-        }
-        if !self.have_changes.take() {
-            return;
-        }
-        self.connector
-            .cursor_enabled
-            .set(self.cursor_enabled_pending.get());
-        self.connector.cursor_x.set(self.cursor_x_pending.get());
-        self.connector.cursor_y.set(self.cursor_y_pending.get());
-        if self.cursor_swap_buffer.take() {
-            self.connector.cursor_swap_buffer.set(true);
-        }
-        self.connector.cursor_sync_file.set(self.sync_file.take());
-        self.connector.cursor_changed.set(true);
-        if schedule_present {
-            self.schedule_present();
-        }
-    }
-
-    fn schedule_present(&self) -> bool {
-        if self.connector.cursor_changed.get() {
-            self.connector.cursor_scheduled.set(true);
-            if self.connector.can_present.get() {
-                self.connector.schedule_present();
-            }
-            true
-        } else {
-            false
-        }
+    fn set_sync_file(&mut self, sync_file: Option<SyncFile>) {
+        self.sync_file = sync_file;
     }
 
     fn size(&self) -> (i32, i32) {
-        (
-            self.connector.dev.cursor_width as _,
-            self.connector.dev.cursor_height as _,
-        )
+        self.cursor_size
     }
 }
 
@@ -622,7 +589,12 @@ impl MetalConnector {
                     self.state.ring.timeout(next_present).await.unwrap();
                 }
             }
-            match self.present(true) {
+            let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
+                return;
+            };
+            self.latch_cursor(&node);
+            node.schedule.latched();
+            match self.present(&node, true) {
                 Ok(_) => self.state.set_backend_idle(false),
                 Err(e) => {
                     log::error!("Could not present: {}", ErrorFmt(e));
@@ -671,21 +643,11 @@ impl MetalConnector {
             | FrontState::Connected { non_desktop: true } => return,
             FrontState::Connected { non_desktop: false } => {}
         }
-        let generation = self.cursor_generation.fetch_add(1) + 1;
-        let hc = match self.cursor_buffers.get() {
-            Some(cp) => Some(Rc::new(MetalHardwareCursor {
-                generation,
+        let hc = self.cursor_buffers.is_some().then(|| {
+            Rc::new(MetalHardwareCursor {
                 connector: self.clone(),
-                cursor_swap_buffer: Cell::new(false),
-                cursor_enabled_pending: Cell::new(self.cursor_enabled.get()),
-                cursor_x_pending: Cell::new(self.cursor_x.get()),
-                cursor_y_pending: Cell::new(self.cursor_y.get()),
-                cursor_buffers: cp.clone(),
-                sync_file: Default::default(),
-                have_changes: Cell::new(false),
-            }) as _),
-            _ => None,
-        };
+            }) as _
+        });
         self.on_change
             .send_event(ConnectorEvent::HardwareCursor(hc));
     }
@@ -948,12 +910,48 @@ impl MetalConnector {
         })
     }
 
-    pub fn present(&self, try_direct_scanout: bool) -> Result<(), MetalError> {
+    fn latch_cursor(&self, node: &Rc<OutputNode>) {
+        if !self.cursor_damage.take() {
+            return;
+        }
+        if self.cursor_plane.is_none() {
+            return;
+        }
+        let buffers = self.cursor_buffers.get().unwrap();
+        let mut c = MetalHardwareCursorChange {
+            cursor_enabled: self.cursor_enabled.get(),
+            cursor_swap_buffer: false,
+            cursor_x: self.cursor_x.get(),
+            cursor_y: self.cursor_y.get(),
+            cursor_buffer: &buffers[(self.cursor_front_buffer.get() + 1) % buffers.len()],
+            sync_file: None,
+            cursor_size: (self.dev.cursor_width as _, self.dev.cursor_height as _),
+        };
+        self.state.present_hardware_cursor(node, &mut c);
+        self.cursor_swap_buffer.set(c.cursor_swap_buffer);
+        if c.sync_file.is_some() {
+            self.cursor_sync_file.set(c.sync_file);
+        }
+        let mut cursor_changed = false;
+        cursor_changed |= self.cursor_enabled.replace(c.cursor_enabled) != c.cursor_enabled;
+        cursor_changed |= c.cursor_swap_buffer;
+        cursor_changed |= self.cursor_x.replace(c.cursor_x) != c.cursor_x;
+        cursor_changed |= self.cursor_y.replace(c.cursor_y) != c.cursor_y;
+        if cursor_changed {
+            self.cursor_changed.set(true);
+        }
+    }
+
+    pub fn present(
+        &self,
+        node: &Rc<OutputNode>,
+        try_direct_scanout: bool,
+    ) -> Result<(), MetalError> {
         let crtc = match self.crtc.get() {
             Some(crtc) => crtc,
             _ => return Ok(()),
         };
-        if (!self.has_damage.get() && !self.cursor_scheduled.get()) || !self.can_present.get() {
+        if (!self.has_damage.get() && !self.cursor_changed.get()) || !self.can_present.get() {
             return Ok(());
         }
         if !crtc.active.value.get() {
@@ -966,9 +964,6 @@ impl MetalConnector {
         let buffers = match self.buffers.get() {
             Some(b) => b,
             _ => return Ok(()),
-        };
-        let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
-            return Ok(());
         };
         let cursor = self.cursor_plane.get();
         let mut new_fb = None;
@@ -1097,7 +1092,7 @@ impl MetalConnector {
             }
             if let Some(fb) = &new_fb {
                 if let Some(dsd) = &fb.direct_scanout_data {
-                    if self.present(false).is_ok() {
+                    if self.present(node, false).is_ok() {
                         let mut cache = self.scanout_buffers.borrow_mut();
                         if let Some(buffer) = cache.remove(&dsd.dma_buf_id) {
                             cache.insert(
@@ -1130,7 +1125,6 @@ impl MetalConnector {
             apply_change!(plane.crtc_y);
             apply_change!(plane.crtc_w);
             apply_change!(plane.crtc_h);
-            node.schedule.presented();
             self.perform_screencopies(&new_fb, &node);
             if let Some(fb) = new_fb {
                 if fb.direct_scanout_data.is_none() {
@@ -1146,7 +1140,6 @@ impl MetalConnector {
             self.can_present.set(false);
             self.has_damage.set(false);
             self.cursor_changed.set(false);
-            self.cursor_scheduled.set(false);
             Ok(())
         }
     }
@@ -1609,7 +1602,6 @@ fn create_connector(
         on_change: Default::default(),
         present_trigger: Default::default(),
         render_result: RefCell::new(Default::default()),
-        cursor_generation: Default::default(),
         cursor_x: Cell::new(0),
         cursor_y: Cell::new(0),
         cursor_enabled: Cell::new(false),
@@ -1617,7 +1609,7 @@ fn create_connector(
         display: RefCell::new(display),
         frontend_state: Cell::new(FrontState::Disconnected),
         cursor_changed: Cell::new(false),
-        cursor_scheduled: Cell::new(false),
+        cursor_damage: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
         cursor_sync_file: Default::default(),
@@ -2378,7 +2370,6 @@ impl MetalBackend {
             connector.can_present.set(true);
             connector.has_damage.set(true);
             connector.cursor_changed.set(true);
-            connector.cursor_scheduled.set(true);
         }
         if dev.unprocessed_change.get() {
             return self.handle_drm_change_(dev, false);
@@ -2439,7 +2430,10 @@ impl MetalBackend {
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
         }
-        if connector.has_damage.get() || connector.cursor_scheduled.get() {
+        if connector.has_damage.get()
+            || connector.cursor_damage.get()
+            || connector.cursor_changed.get()
+        {
             connector.schedule_present();
         }
         let dd = connector.display.borrow_mut();
@@ -3185,7 +3179,6 @@ impl MetalBackend {
         }
         connector.has_damage.set(true);
         connector.cursor_changed.set(true);
-        connector.cursor_scheduled.set(true);
         connector.schedule_present();
     }
 }
