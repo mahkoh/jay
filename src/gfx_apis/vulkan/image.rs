@@ -13,7 +13,7 @@ use {
         },
         rect::Region,
         theme::Color,
-        utils::{clonecell::CloneCell, on_drop::OnDrop},
+        utils::on_drop::OnDrop,
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
@@ -59,7 +59,6 @@ pub struct VulkanImage {
     pub(super) is_undefined: Cell<bool>,
     pub(super) contents_are_undefined: Cell<bool>,
     pub(super) ty: VulkanImageMemory,
-    pub(super) render_ops: CloneCell<Vec<GfxApiOpt>>,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
 }
 
@@ -378,7 +377,6 @@ impl VulkanDmaBufImageTemplate {
             width: self.width,
             height: self.height,
             stride: 0,
-            render_ops: Default::default(),
             ty: VulkanImageMemory::DmaBuf(VulkanDmaBufImage {
                 template: self.clone(),
                 mems: device_memories,
@@ -461,21 +459,17 @@ impl Debug for VulkanImage {
 }
 
 impl GfxFramebuffer for VulkanImage {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        self.render_ops.take()
-    }
-
     fn physical_size(&self) -> (i32, i32) {
         (self.width as _, self.height as _)
     }
 
     fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
-            .execute(self, &ops, clear)
+            .execute(self, ops, clear)
             .map_err(|e| e.into())
     }
 

@@ -256,13 +256,11 @@ pub enum ResetStatus {
 }
 
 pub trait GfxFramebuffer: Debug {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt>;
-
     fn physical_size(&self) -> (i32, i32);
 
     fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
@@ -286,8 +284,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<Option<SyncFile>, GfxError> {
-        let ops = self.take_render_ops();
-        self.render(ops, Some(&Color { r, g, b, a }))
+        self.render(&[], Some(&Color { r, g, b, a }))
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -320,7 +317,7 @@ impl dyn GfxFramebuffer {
         x: i32,
         y: i32,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         renderer.render_texture(
@@ -337,7 +334,7 @@ impl dyn GfxFramebuffer {
             release_sync,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(ops, clear)
+        self.render(&ops, clear)
     }
 
     pub fn render_custom(
@@ -346,10 +343,10 @@ impl dyn GfxFramebuffer {
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(ops, clear)
+        self.render(&ops, clear)
     }
 
     pub fn create_render_pass(
@@ -365,7 +362,7 @@ impl dyn GfxFramebuffer {
         transform: Transform,
         visualizer: Option<&DamageVisualizer>,
     ) -> GfxRenderPass {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
             state,
@@ -430,8 +427,8 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
-        self.render(pass.ops, pass.clear.as_ref())
+    pub fn perform_render_pass(&self, pass: &GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
+        self.render(&pass.ops, pass.clear.as_ref())
     }
 
     pub fn render_output(
@@ -480,7 +477,7 @@ impl dyn GfxFramebuffer {
             transform,
             None,
         );
-        self.perform_render_pass(pass)
+        self.perform_render_pass(&pass)
     }
 
     pub fn render_hardware_cursor(
@@ -490,7 +487,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         transform: Transform,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
             state,
@@ -502,7 +499,7 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(ops, Some(&Color::TRANSPARENT))
+        self.render(&ops, Some(&Color::TRANSPARENT))
     }
 }
 

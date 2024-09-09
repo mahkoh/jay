@@ -730,7 +730,6 @@ impl VulkanRenderer {
             is_undefined: Cell::new(true),
             contents_are_undefined: Cell::new(true),
             ty: VulkanImageMemory::Internal(shm),
-            render_ops: Default::default(),
             bridge: None,
         });
         let shm = match &img.ty {

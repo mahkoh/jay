@@ -905,7 +905,7 @@ impl State {
         size: Option<(i32, i32)>,
         transform: Transform,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = target.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
             state: self,
@@ -943,7 +943,7 @@ impl State {
                 }
             }
         }
-        target.render(ops, Some(&Color::SOLID_BLACK))
+        target.render(&ops, Some(&Color::SOLID_BLACK))
     }
 
     fn have_hardware_cursor(&self) -> bool {

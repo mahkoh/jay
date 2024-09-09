@@ -923,7 +923,7 @@ impl MetalConnector {
         match &direct_scanout_data {
             None => {
                 let sf = buffer_fb
-                    .perform_render_pass(pass)
+                    .perform_render_pass(&pass)
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
                 fb = buffer.drm.clone();
