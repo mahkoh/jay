@@ -17,6 +17,7 @@ pub mod double_click_state;
 pub mod errorfmt;
 pub mod event_listener;
 pub mod fdcloser;
+pub mod geometric_decay;
 pub mod gfx_api_ext;
 pub mod hash_map_ext;
 pub mod hex;
