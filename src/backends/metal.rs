@@ -1,5 +1,6 @@
 mod input;
 mod monitor;
+mod present;
 mod video;
 
 use {
@@ -133,6 +134,8 @@ pub enum MetalError {
     Commit(#[source] DrmError),
     #[error("Could not clear framebuffer")]
     Clear(#[source] GfxError),
+    #[error("The present configuration is out of date")]
+    OutOfDate,
 }
 
 pub struct MetalBackend {

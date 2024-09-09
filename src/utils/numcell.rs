@@ -74,6 +74,22 @@ impl<T> NumCell<T> {
     {
         self.t.set(self.t.get() & n);
     }
+
+    #[inline(always)]
+    pub fn is_zero(&self) -> bool
+    where
+        T: Eq + Copy + Default,
+    {
+        self.t.get() == T::default()
+    }
+
+    #[inline(always)]
+    pub fn is_not_zero(&self) -> bool
+    where
+        T: Eq + Copy + Default,
+    {
+        !self.is_zero()
+    }
 }
 
 impl<T: BitOr<Output = T> + Copy> BitOr<T> for &'_ NumCell<T> {
