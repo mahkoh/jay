@@ -7,6 +7,7 @@ use {
     },
     bstr::ByteSlice,
     std::rc::Rc,
+    uapi::OwnedFd,
 };
 
 testcase!();
@@ -15,7 +16,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let virtual_keymap_str = {
         let xkb = XkbContext::new()?;
         let map = xkb.keymap_from_str(VIRTUAL_KEYMAP).unwrap();
-        read_keymap(map.map.raw(), map.map_len)
+        read_keymap(&map.map, map.map_len)
     };
 
     let ds = run.create_default_setup().await?;
@@ -51,7 +52,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     s_client.sync().await;
     let (start, keymap) = s_keymap.next().expect("virtual keymap");
     tassert_eq!(
-        &read_keymap(keymap.fd.raw(), keymap.size as _),
+        &read_keymap(&keymap.fd, keymap.size as _),
         &virtual_keymap_str
     );
     {
@@ -119,7 +120,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     s_client.sync().await;
     let (pos, keymap) = s_keymap.next().expect("seat keymap");
     tassert_eq!(pos, start + 8);
-    tassert!(read_keymap(keymap.fd.raw(), keymap.size as _) != virtual_keymap_str);
+    tassert!(read_keymap(&keymap.fd, keymap.size as _) != virtual_keymap_str);
     {
         let (pos, mods) = s_modifiers.next().expect("mods 0");
         tassert_eq!(pos, start + 9);
@@ -147,8 +148,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     Ok(())
 }
 
-fn read_keymap(fd: i32, size: usize) -> String {
-    let client_mem = ClientMem::new(fd, size - 1, true).unwrap();
+fn read_keymap(fd: &Rc<OwnedFd>, size: usize) -> String {
+    let client_mem = ClientMem::new(fd, size - 1, true, None, None).unwrap();
     let client_mem = Rc::new(client_mem).offset(0);
     let mut v = vec![];
     client_mem.read(&mut v).unwrap();

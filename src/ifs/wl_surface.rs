@@ -23,7 +23,8 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxTexture, ReleaseSync, SampleRect, SyncFile,
+            AcquireSync, AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, ReleaseSync,
+            SampleRect, SyncFile,
         },
         ifs::{
             wl_buffer::WlBuffer,
@@ -59,16 +60,16 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        rect::{Rect, Region},
+        rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         tree::{
             ContainerNode, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase,
             OutputNode, OutputNodeId, PlaceholderNode, ToplevelNode,
         },
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
-            transform_ext::TransformExt,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            double_buffered::DoubleBuffered, errorfmt::ErrorFmt, linkedlist::LinkedList,
+            numcell::NumCell, smallmap::SmallMap, transform_ext::TransformExt,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -249,6 +250,11 @@ impl BufferResv for SurfaceBuffer {
     }
 }
 
+pub struct SurfaceShmTexture {
+    pub tex: CloneCell<Option<Rc<dyn AsyncShmGfxTexture>>>,
+    pub damage: DamageQueue,
+}
+
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
@@ -271,7 +277,7 @@ pub struct WlSurface {
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     buffer_presented: Cell<bool>,
     buffer_had_frame_request: Cell<bool>,
-    pub shm_texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
@@ -584,7 +590,10 @@ impl WlSurface {
             buffer: Default::default(),
             buffer_presented: Default::default(),
             buffer_had_frame_request: Default::default(),
-            shm_texture: Default::default(),
+            shm_textures: DoubleBuffered::new(DamageQueue::new().map(|damage| SurfaceShmTexture {
+                tex: Default::default(),
+                damage,
+            })),
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),
@@ -909,7 +918,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             *children = None;
         }
         self.buffer.set(None);
-        self.shm_texture.take();
+        self.reset_shm_textures();
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -1077,11 +1086,13 @@ impl WlSurface {
                 old_raw_size = Some(buffer.buffer.rect);
             }
             if let Some(buffer) = buffer_change {
-                let damage = match pending.damage_full || pending.surface_damage.is_not_empty() {
-                    true => None,
-                    false => Some(&pending.buffer_damage[..]),
-                };
-                buffer.update_texture_or_log(self, damage);
+                if buffer.is_shm() {
+                    self.shm_textures.flip();
+                    self.shm_textures.front().damage.clear();
+                } else {
+                    self.reset_shm_textures();
+                }
+                buffer.update_texture_or_log(self, false);
                 let (sync, release_sync) = match pending.explicit_sync {
                     false => (AcquireSync::Implicit, ReleaseSync::Implicit),
                     true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
@@ -1103,7 +1114,7 @@ impl WlSurface {
                     self.buffer_had_frame_request.set(false);
                 }
             } else {
-                self.shm_texture.take();
+                self.reset_shm_textures();
                 self.buf_x.set(0);
                 self.buf_y.set(0);
                 for (_, cursor) in &self.cursors {
@@ -1319,6 +1330,13 @@ impl WlSurface {
             }
         }
         Ok(())
+    }
+
+    pub fn reset_shm_textures(&self) {
+        for tex in &*self.shm_textures {
+            tex.tex.take();
+            tex.damage.clear();
+        }
     }
 
     fn apply_damage(&self, pending: &PendingState) {
@@ -1915,6 +1933,12 @@ pub enum WlSurfaceError {
     UnexpectedSyncPoints,
     #[error("The supplied region is invalid")]
     InvalidRect,
+    #[error("There is no render context")]
+    NoRenderContext,
+    #[error("Could not create a shm texture")]
+    CreateAsyncShmTexture(#[source] GfxError),
+    #[error("Could not prepare upload to a shm texture")]
+    PrepareAsyncUpload(#[source] GfxError),
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

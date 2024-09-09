@@ -7,9 +7,9 @@ use {
                 map_extension_properties, ApiVersionDisplay, Extensions, VulkanInstance,
                 API_VERSION,
             },
-            util::OnDrop,
             VulkanError,
         },
+        utils::on_drop::OnDrop,
         video::{
             drm::{sync_obj::SyncObjCtx, Drm},
             gbm::GbmDevice,
@@ -42,6 +42,7 @@ use {
     std::{
         ffi::{CStr, CString},
         rc::Rc,
+        sync::Arc,
     },
     uapi::Ustr,
 };
@@ -52,7 +53,7 @@ pub struct VulkanDevice {
     pub(super) gbm: Rc<GbmDevice>,
     pub(super) sync_ctx: Rc<SyncObjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
-    pub(super) device: Device,
+    pub(super) device: Arc<Device>,
     pub(super) external_memory_fd: external_memory_fd::Device,
     pub(super) external_semaphore_fd: external_semaphore_fd::Device,
     pub(super) external_fence_fd: external_fence_fd::Device,
@@ -292,7 +293,7 @@ impl VulkanInstance {
             sync_ctx: Rc::new(SyncObjCtx::new(gbm.drm.fd())),
             gbm: Rc::new(gbm),
             instance: self.clone(),
-            device,
+            device: Arc::new(device),
             external_memory_fd,
             external_semaphore_fd,
             external_fence_fd,

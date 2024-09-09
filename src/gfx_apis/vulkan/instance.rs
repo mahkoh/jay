@@ -1,5 +1,8 @@
 use {
-    crate::gfx_apis::vulkan::{util::OnDrop, VulkanError, VULKAN_VALIDATION},
+    crate::{
+        gfx_apis::vulkan::{VulkanError, VULKAN_VALIDATION},
+        utils::on_drop::OnDrop,
+    },
     ahash::{AHashMap, AHashSet},
     ash::{
         ext::{debug_utils, validation_features},

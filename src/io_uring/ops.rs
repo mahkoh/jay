@@ -5,6 +5,7 @@ pub mod async_cancel;
 pub mod connect;
 pub mod poll;
 pub mod read_write;
+pub mod read_write_no_cancel;
 pub mod recvmsg;
 pub mod sendmsg;
 pub mod timeout;

@@ -3,7 +3,7 @@ use {
         io_uring::{
             pending_result::PendingResult,
             sys::{io_uring_sqe, IORING_OP_RECVMSG},
-            IoUring, IoUringData, IoUringError, Task,
+            IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
         },
         utils::buf::Buf,
     },
@@ -85,7 +85,7 @@ struct Data {
 }
 
 pub struct RecvmsgTask {
-    id: u64,
+    id: IoUringTaskId,
     fd: c::c_int,
     bufs: Vec<Buf>,
     iovecs: Vec<c::iovec>,
@@ -97,7 +97,7 @@ pub struct RecvmsgTask {
 impl Default for RecvmsgTask {
     fn default() -> Self {
         RecvmsgTask {
-            id: 0,
+            id: Default::default(),
             fd: 0,
             bufs: vec![],
             iovecs: vec![],
@@ -109,7 +109,7 @@ impl Default for RecvmsgTask {
 }
 
 unsafe impl Task for RecvmsgTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

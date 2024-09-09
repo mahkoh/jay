@@ -1,14 +1,21 @@
 use {
-    crate::utils::vec_ext::VecExt,
+    crate::{
+        client::Client,
+        cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
+        utils::vec_ext::VecExt,
+    },
     std::{
         cell::Cell,
-        mem::MaybeUninit,
+        mem::{ManuallyDrop, MaybeUninit},
         ptr,
         rc::Rc,
         sync::atomic::{compiler_fence, Ordering},
     },
     thiserror::Error,
-    uapi::{c, c::raise},
+    uapi::{
+        c::{self, raise},
+        OwnedFd,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -22,25 +29,43 @@ pub enum ClientMemError {
 }
 
 pub struct ClientMem {
+    fd: ManuallyDrop<Rc<OwnedFd>>,
     failed: Cell<bool>,
     sigbus_impossible: bool,
     data: *const [Cell<u8>],
+    cpu: Option<Rc<CpuWorker>>,
 }
 
 #[derive(Clone)]
 pub struct ClientMemOffset {
     mem: Rc<ClientMem>,
+    offset: usize,
     data: *const [Cell<u8>],
 }
 
 impl ClientMem {
-    pub fn new(fd: i32, len: usize, read_only: bool) -> Result<Self, ClientMemError> {
+    pub fn new(
+        fd: &Rc<OwnedFd>,
+        len: usize,
+        read_only: bool,
+        client: Option<&Client>,
+        cpu: Option<&Rc<CpuWorker>>,
+    ) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
-        if let Ok(seals) = uapi::fcntl_get_seals(fd) {
+        if let Ok(seals) = uapi::fcntl_get_seals(fd.raw()) {
             if seals & c::F_SEAL_SHRINK != 0 {
-                if let Ok(stat) = uapi::fstat(fd) {
+                if let Ok(stat) = uapi::fstat(fd.raw()) {
                     sigbus_impossible = stat.st_size as u64 >= len as u64;
                 }
+            }
+        }
+        if !sigbus_impossible {
+            if let Some(client) = client {
+                log::debug!(
+                    "Client {} ({}) has created a shm buffer that might cause SIGBUS",
+                    client.pid_info.comm,
+                    client.id,
+                );
             }
         }
         let data = if len == 0 {
@@ -51,7 +76,7 @@ impl ClientMem {
                 false => c::PROT_READ | c::PROT_WRITE,
             };
             unsafe {
-                let data = c::mmap64(ptr::null_mut(), len, prot, c::MAP_SHARED, fd, 0);
+                let data = c::mmap64(ptr::null_mut(), len, prot, c::MAP_SHARED, fd.raw(), 0);
                 if data == c::MAP_FAILED {
                     return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
                 }
@@ -59,9 +84,11 @@ impl ClientMem {
             }
         };
         Ok(Self {
+            fd: ManuallyDrop::new(fd.clone()),
             failed: Cell::new(false),
             sigbus_impossible,
             data,
+            cpu: cpu.cloned(),
         })
     }
 
@@ -73,12 +100,33 @@ impl ClientMem {
         let mem = unsafe { &*self.data };
         ClientMemOffset {
             mem: self.clone(),
+            offset,
             data: &mem[offset..],
         }
+    }
+
+    pub fn fd(&self) -> &Rc<OwnedFd> {
+        &self.fd
+    }
+
+    pub fn sigbus_impossible(&self) -> bool {
+        self.sigbus_impossible
     }
 }
 
 impl ClientMemOffset {
+    pub fn pool(&self) -> &ClientMem {
+        &self.mem
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    pub fn ptr(&self) -> *const [Cell<u8>] {
+        self.data
+    }
+
     pub fn access<T, F: FnOnce(&[Cell<u8>]) -> T>(&self, f: F) -> Result<T, ClientMemError> {
         unsafe {
             if self.mem.sigbus_impossible {
@@ -114,8 +162,17 @@ impl ClientMemOffset {
 
 impl Drop for ClientMem {
     fn drop(&mut self) {
-        unsafe {
-            c::munmap(self.data as _, self.len());
+        let fd = unsafe { ManuallyDrop::take(&mut self.fd) };
+        if let Some(cpu) = &self.cpu {
+            let pending = cpu.submit(Box::new(CloseMemWork {
+                fd: Rc::try_unwrap(fd).ok(),
+                data: self.data,
+            }));
+            pending.detach();
+        } else {
+            unsafe {
+                c::munmap(self.data as _, self.len());
+            }
         }
     }
 }
@@ -176,5 +233,32 @@ pub fn init() -> Result<(), ClientMemError> {
             Ok(_) => Ok(()),
             Err(e) => Err(ClientMemError::SigactionFailed(e.into())),
         }
+    }
+}
+
+struct CloseMemWork {
+    fd: Option<OwnedFd>,
+    data: *const [Cell<u8>],
+}
+
+unsafe impl Send for CloseMemWork {}
+
+impl CpuJob for CloseMemWork {
+    fn work(&mut self) -> &mut dyn CpuWork {
+        self
+    }
+
+    fn completed(self: Box<Self>) {
+        // nothing
+    }
+}
+
+impl CpuWork for CloseMemWork {
+    fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        self.fd.take();
+        unsafe {
+            c::munmap(self.data as _, self.data.len());
+        }
+        None
     }
 }

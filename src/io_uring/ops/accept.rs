@@ -2,7 +2,7 @@ use {
     crate::io_uring::{
         pending_result::PendingResult,
         sys::{io_uring_sqe, IORING_OP_ACCEPT},
-        IoUring, IoUringData, IoUringError, Task, TaskResultExt,
+        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
     },
     std::rc::Rc,
     uapi::{c, OwnedFd},
@@ -39,14 +39,14 @@ struct Data {
 
 #[derive(Default)]
 pub struct AcceptTask {
-    id: u64,
+    id: IoUringTaskId,
     fd: i32,
     flags: u32,
     data: Option<Data>,
 }
 
 unsafe impl Task for AcceptTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

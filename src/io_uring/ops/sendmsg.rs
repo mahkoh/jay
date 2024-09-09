@@ -3,7 +3,7 @@ use {
         io_uring::{
             pending_result::PendingResult,
             sys::{io_uring_sqe, IORING_OP_SENDMSG},
-            IoUring, IoUringData, IoUringError, Task,
+            IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
         },
         time::Time,
         utils::{buf::Buf, vec_ext::UninitVecExt},
@@ -91,7 +91,7 @@ struct SendmsgTaskData {
 }
 
 pub struct SendmsgTask {
-    id: u64,
+    id: IoUringTaskId,
     iovecs: Vec<c::iovec>,
     msghdr: c::msghdr,
     bufs: Vec<Buf>,
@@ -106,7 +106,7 @@ impl Default for SendmsgTask {
     fn default() -> Self {
         unsafe {
             SendmsgTask {
-                id: 0,
+                id: Default::default(),
                 iovecs: vec![],
                 msghdr: MaybeUninit::zeroed().assume_init(),
                 bufs: vec![],
@@ -121,7 +121,7 @@ impl Default for SendmsgTask {
 }
 
 unsafe impl Task for SendmsgTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

@@ -13,6 +13,7 @@ use {
         client::{ClientId, Clients},
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
+        cpu_worker::{CpuWorker, CpuWorkerError},
         damage::{visualize_damage, DamageVisualizer},
         dbus::Dbus,
         ei::ei_client::EiClients,
@@ -107,6 +108,8 @@ pub enum CompositorError {
     WheelError(#[from] WheelError),
     #[error("Could not create an io-uring")]
     IoUringError(#[from] IoUringError),
+    #[error("Could not create cpu worker")]
+    CpuWorkerError(#[from] CpuWorkerError),
 }
 
 pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
@@ -143,6 +146,7 @@ fn start_compositor2(
     let node_ids = NodeIds::default();
     let scales = RefCounted::default();
     scales.add(Scale::from_int(1));
+    let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let state = Rc::new(State {
         xkb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -258,6 +262,7 @@ fn start_compositor2(
         enable_ei_acceptor: Default::default(),
         ei_clients: EiClients::new(),
         slow_ei_clients: Default::default(),
+        cpu_worker,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

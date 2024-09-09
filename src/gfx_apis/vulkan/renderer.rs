@@ -1,13 +1,14 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        cpu_worker::PendingJob,
         format::{Format, XRGB8888},
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
             GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
-            allocator::VulkanAllocator,
+            allocator::{VulkanAllocator, VulkanThreadedAllocator},
             command::{VulkanCommandBuffer, VulkanCommandPool},
             descriptor::VulkanDescriptorSetLayout,
             device::VulkanDevice,
@@ -78,6 +79,9 @@ pub struct VulkanRenderer {
     pub(super) tex_frag_mult_opaque_shader: Rc<VulkanShader>,
     pub(super) tex_frag_mult_alpha_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
+    pub(super) defunct: Cell<bool>,
+    pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
+    pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
 }
 
 pub(super) struct UsedTexture {
@@ -172,6 +176,7 @@ impl VulkanDevice {
             })
             .collect();
         let allocator = self.create_allocator()?;
+        let shm_allocator = self.create_threaded_allocator()?;
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
@@ -195,6 +200,9 @@ impl VulkanDevice {
             tex_frag_mult_opaque_shader,
             tex_frag_mult_alpha_shader,
             tex_descriptor_set_layout,
+            defunct: Cell::new(false),
+            pending_cpu_jobs: Default::default(),
+            shm_allocator,
         });
         render.get_or_create_pipelines(XRGB8888.vk_format)?;
         Ok(render)
@@ -271,6 +279,9 @@ impl VulkanRenderer {
         for cmd in opts {
             if let GfxApiOpt::CopyTexture(c) = cmd {
                 let tex = c.tex.clone().into_vk(&self.device.device);
+                if tex.contents_are_undefined.get() {
+                    continue;
+                }
                 if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
                     memory.sample.push(tex.clone())
                 }
@@ -450,6 +461,10 @@ impl VulkanRenderer {
                 }
                 GfxApiOpt::CopyTexture(c) => {
                     let tex = c.tex.as_vk(&self.device.device);
+                    if tex.contents_are_undefined.get() {
+                        log::warn!("Ignoring undefined texture");
+                        continue;
+                    }
                     let copy_type = match c.alpha.is_some() {
                         true => TexCopyType::Multiply,
                         false => TexCopyType::Identity,
@@ -799,6 +814,7 @@ impl VulkanRenderer {
             stride as i32,
             &[],
             true,
+            None,
         )?;
         (&*tmp_tex as &dyn GfxFramebuffer)
             .copy_texture(
@@ -996,6 +1012,7 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<(), VulkanError> {
+        self.check_defunct()?;
         let buf = self.allocate_command_buffer()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
@@ -1025,6 +1042,7 @@ impl VulkanRenderer {
     }
 
     pub fn on_drop(&self) {
+        self.defunct.set(true);
         let mut pending_frames = self.pending_frames.lock();
         let mut pending_uploads = self.pending_uploads.lock();
         if pending_frames.is_not_empty() || pending_uploads.is_not_empty() {
@@ -1036,6 +1054,13 @@ impl VulkanRenderer {
         });
         pending_frames.clear();
         pending_uploads.clear();
+    }
+
+    pub(super) fn check_defunct(&self) -> Result<(), VulkanError> {
+        match self.defunct.get() {
+            true => Err(VulkanError::Defunct),
+            false => Ok(()),
+        }
     }
 }
 

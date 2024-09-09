@@ -1,12 +1,15 @@
 use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
+        clientmem::{ClientMemError, ClientMemOffset},
+        cpu_worker::CpuWorker,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
-            CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxTexture, GfxWriteModifier, ResetStatus, SyncFile,
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect, FramebufferRect,
+            GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture,
+            GfxWriteModifier, PendingShmUpload, ResetStatus, ShmGfxTexture, SyncFile,
         },
-        rect::Rect,
+        rect::{Rect, Region},
         theme::Color,
         video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, LINEAR_MODIFIER},
     },
@@ -31,6 +34,8 @@ enum TestGfxError {
     MapDmaBuf(#[source] AllocatorError),
     #[error("Could not import dmabuf")]
     ImportDmaBuf(#[source] AllocatorError),
+    #[error("Could not access the client memory")]
+    AccessFailed(#[source] ClientMemError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -108,14 +113,14 @@ impl GfxContext for TestGfxCtx {
 
     fn shmem_texture(
         self: Rc<Self>,
-        _old: Option<Rc<dyn GfxTexture>>,
+        _old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         _damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         assert!(stride >= width * 4);
         let size = (stride * height) as usize;
         assert!(data.len() >= size);
@@ -125,6 +130,25 @@ impl GfxContext for TestGfxCtx {
         }
         Ok(Rc::new(TestGfxImage::Shm(TestShmGfxImage {
             data: RefCell::new(buf),
+            width,
+            height,
+            stride,
+            format,
+        })))
+    }
+
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+        _cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
+        assert!(stride >= width * 4);
+        let size = (stride * height) as usize;
+        Ok(Rc::new(TestGfxImage::Shm(TestShmGfxImage {
+            data: RefCell::new(vec![0; size]),
             width,
             height,
             stride,
@@ -298,6 +322,54 @@ impl GfxTexture for TestGfxImage {
 
     fn format(&self) -> &'static Format {
         &ARGB8888
+    }
+}
+
+impl ShmGfxTexture for TestGfxImage {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
+    }
+}
+
+impl AsyncShmGfxTexture for TestGfxImage {
+    fn async_upload(
+        self: Rc<Self>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: &Rc<ClientMemOffset>,
+        damage: Region,
+    ) -> Result<Option<PendingShmUpload>, GfxError> {
+        mem.access(|d| self.clone().sync_upload(d, damage))
+            .map_err(TestGfxError::AccessFailed)??;
+        Ok(None)
+    }
+
+    fn sync_upload(self: Rc<Self>, mem: &[Cell<u8>], _damage: Region) -> Result<(), GfxError> {
+        let TestGfxImage::Shm(shm) = &*self else {
+            unreachable!();
+        };
+        let data = &mut *shm.data.borrow_mut();
+        assert!(mem.len() >= data.len());
+        unsafe {
+            ptr::copy_nonoverlapping(mem.as_ptr() as _, data.as_mut_ptr(), data.len());
+        }
+        Ok(())
+    }
+
+    fn compatible_with(
+        &self,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> bool {
+        let TestGfxImage::Shm(shm) = &self else {
+            unreachable!();
+        };
+        shm.format == format && shm.width == width && shm.height == height && shm.stride == stride
+    }
+
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
     }
 }
 

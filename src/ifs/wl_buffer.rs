@@ -7,7 +7,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
-        rect::Rect,
+        rect::{Rect, Region},
         theme::Color,
         utils::errorfmt::ErrorFmt,
         video::dmabuf::DmaBuf,
@@ -22,7 +22,7 @@ use {
 
 pub enum WlBufferStorage {
     Shm {
-        mem: ClientMemOffset,
+        mem: Rc<ClientMemOffset>,
         stride: i32,
     },
     Dmabuf {
@@ -41,6 +41,7 @@ pub struct WlBuffer {
     pub dmabuf: Option<DmaBuf>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
+    shm: bool,
     pub color: Option<Color>,
     width: i32,
     height: i32,
@@ -50,6 +51,10 @@ pub struct WlBuffer {
 impl WlBuffer {
     pub fn destroyed(&self) -> bool {
         self.destroyed.get()
+    }
+
+    pub fn is_shm(&self) -> bool {
+        self.shm
     }
 
     pub fn new_dmabuf(
@@ -76,6 +81,7 @@ impl WlBuffer {
                 tex: None,
                 fb: None,
             })),
+            shm: false,
             tracker: Default::default(),
             color: None,
         }
@@ -100,7 +106,7 @@ impl WlBuffer {
         if required > mem.len() as u64 {
             return Err(WlBufferError::OutOfBounds);
         }
-        let mem = mem.offset(offset);
+        let mem = Rc::new(mem.offset(offset));
         let min_row_size = width as u64 * shm_info.bpp as u64;
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
@@ -114,6 +120,7 @@ impl WlBuffer {
             dmabuf: None,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(Some(WlBufferStorage::Shm { mem, stride })),
+            shm: true,
             width,
             height,
             tracker: Default::default(),
@@ -138,6 +145,7 @@ impl WlBuffer {
             dmabuf: None,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(None),
+            shm: false,
             width: 1,
             height: 1,
             tracker: Default::default(),
@@ -153,7 +161,7 @@ impl WlBuffer {
         let had_texture = self.reset_gfx_objects(surface);
         if had_texture {
             if let Some(surface) = surface {
-                self.update_texture_or_log(surface, None);
+                self.update_texture_or_log(surface, true);
             }
         }
     }
@@ -166,7 +174,10 @@ impl WlBuffer {
         let had_texture = match s {
             WlBufferStorage::Shm { .. } => {
                 return match surface {
-                    Some(s) => s.shm_texture.take().is_some(),
+                    Some(s) => {
+                        s.shm_textures.back().tex.take();
+                        s.shm_textures.front().tex.take().is_some()
+                    }
                     None => false,
                 };
             }
@@ -201,24 +212,24 @@ impl WlBuffer {
         match &*self.storage.borrow() {
             None => None,
             Some(s) => match s {
-                WlBufferStorage::Shm { .. } => surface.shm_texture.get(),
+                WlBufferStorage::Shm { .. } => surface
+                    .shm_textures
+                    .front()
+                    .tex
+                    .get()
+                    .map(|t| t.into_texture()),
                 WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
             },
         }
     }
 
-    pub fn update_texture_or_log(&self, surface: &WlSurface, damage: Option<&[Rect]>) {
-        if let Err(e) = self.update_texture(surface, damage) {
+    pub fn update_texture_or_log(&self, surface: &WlSurface, sync_shm: bool) {
+        if let Err(e) = self.update_texture(surface, sync_shm) {
             log::warn!("Could not update texture: {}", ErrorFmt(e));
         }
     }
 
-    fn update_texture(
-        &self,
-        surface: &WlSurface,
-        damage: Option<&[Rect]>,
-    ) -> Result<(), WlBufferError> {
-        let old_shm_texture = surface.shm_texture.take();
+    fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {
         let storage = &mut *self.storage.borrow_mut();
         let storage = match storage {
             Some(s) => s,
@@ -226,19 +237,19 @@ impl WlBuffer {
         };
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                if let Some(ctx) = self.client.state.render_ctx.get() {
-                    let tex = mem.access(|mem| {
-                        ctx.shmem_texture(
-                            old_shm_texture,
-                            mem,
+                if sync_shm {
+                    if let Some(ctx) = self.client.state.render_ctx.get() {
+                        let tex = ctx.async_shmem_texture(
                             self.format,
                             self.width,
                             self.height,
                             *stride,
-                            damage,
-                        )
-                    })??;
-                    surface.shm_texture.set(Some(tex));
+                            &self.client.state.cpu_worker,
+                        )?;
+                        mem.access(|mem| tex.clone().sync_upload(mem, Region::new2(self.rect)))??;
+                        surface.shm_textures.front().tex.set(Some(tex));
+                        surface.shm_textures.front().damage.clear();
+                    }
                 }
             }
             WlBufferStorage::Dmabuf { img, tex, .. } => {

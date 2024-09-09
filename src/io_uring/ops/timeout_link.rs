@@ -2,14 +2,14 @@ use crate::{
     io_uring::{
         ops::timeout::timespec64,
         sys::{io_uring_sqe, IORING_OP_LINK_TIMEOUT, IORING_TIMEOUT_ABS},
-        IoUring, IoUringData, Task,
+        IoUring, IoUringData, IoUringTaskId, Task,
     },
     time::Time,
 };
 
 #[derive(Default)]
 pub struct TimeoutLinkTask {
-    id: u64,
+    id: IoUringTaskId,
     timespec: timespec64,
 }
 
@@ -27,7 +27,7 @@ impl IoUring {
 }
 
 unsafe impl Task for TimeoutLinkTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

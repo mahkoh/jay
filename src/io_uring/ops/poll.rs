@@ -3,7 +3,7 @@ use {
         ops::TaskResult,
         pending_result::PendingResult,
         sys::{io_uring_sqe, IORING_OP_POLL_ADD},
-        IoUring, IoUringData, IoUringError, Task, TaskResultExt,
+        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
     },
     std::rc::Rc,
     uapi::{c, OwnedFd},
@@ -45,14 +45,14 @@ struct Data {
 
 #[derive(Default)]
 pub struct PollTask {
-    id: u64,
+    id: IoUringTaskId,
     events: u16,
     fd: i32,
     data: Option<Data>,
 }
 
 unsafe impl Task for PollTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

@@ -1,10 +1,11 @@
 use {
     crate::{
         allocator::Allocator,
+        cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
-            BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxTexture, ResetStatus,
+            AsyncShmGfxTexture, BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat,
+            GfxFramebuffer, GfxImage, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -265,18 +266,48 @@ impl GfxContext for GlRenderContext {
 
     fn shmem_texture(
         self: Rc<Self>,
-        _old: Option<Rc<dyn GfxTexture>>,
+        _old: Option<Rc<dyn ShmGfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
         height: i32,
         stride: i32,
         _damage: Option<&[Rect]>,
-    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         (&self)
             .shmem_texture(data, format, width, height, stride)
-            .map(|w| w as Rc<dyn GfxTexture>)
+            .map(|w| w as Rc<dyn ShmGfxTexture>)
             .map_err(|e| e.into())
+    }
+
+    fn async_shmem_texture(
+        self: Rc<Self>,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+        _cpu_worker: &Rc<CpuWorker>,
+    ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError> {
+        let tex = self.ctx.with_current(|| unsafe {
+            let mut tex = 0;
+            (self.ctx.dpy.gles.glGenTextures)(1, &mut tex);
+            Ok(tex)
+        })?;
+        Ok(Rc::new(Texture {
+            gl: GlTexture {
+                ctx: self.ctx.clone(),
+                img: None,
+                tex,
+                width,
+                height,
+                stride,
+                external_only: false,
+                format,
+                contents_valid: Cell::new(false),
+            },
+            ctx: self,
+            format,
+        }))
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

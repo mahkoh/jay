@@ -1,6 +1,10 @@
 use {
     crate::{
-        ifs::wl_surface::{PendingState, WlSurface, WlSurfaceError},
+        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmUpload},
+        ifs::{
+            wl_buffer::WlBufferStorage,
+            wl_surface::{PendingState, WlSurface, WlSurfaceError},
+        },
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -14,13 +18,14 @@ use {
             DrmError,
         },
     },
-    isnt::std_1::primitive::IsntSliceExt,
+    isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         mem,
-        ops::{Deref, DerefMut},
+        ops::DerefMut,
         rc::Rc,
+        slice,
     },
     thiserror::Error,
 };
@@ -76,6 +81,8 @@ pub enum CommitTimelineError {
     Wait(#[source] DrmError),
     #[error("The client has too many pending commits")]
     Depth,
+    #[error("Could not upload a shm texture")]
+    ShmUpload(#[source] GfxError),
 }
 
 impl CommitTimelines {
@@ -119,6 +126,7 @@ fn break_loops(list: &LinkedList<Entry>) {
         entry.link.take();
         if let EntryKind::Commit(c) = &entry.kind {
             c.wait_handles.take();
+            *c.shm_upload.borrow_mut() = ShmUploadState::None;
         }
     }
 }
@@ -145,7 +153,9 @@ impl CommitTimeline {
     ) -> Result<(), CommitTimelineError> {
         let mut points = SmallVec::new();
         consume_acquire_points(pending, &mut points);
-        if points.is_empty() && self.own_timeline.entries.is_empty() {
+        let mut pending_uploads = 0;
+        count_shm_uploads(pending, &mut pending_uploads);
+        if points.is_empty() && pending_uploads == 0 && self.own_timeline.entries.is_empty() {
             return surface
                 .apply_state(pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
@@ -162,23 +172,35 @@ impl CommitTimeline {
                 pending: RefCell::new(mem::take(pending)),
                 sync_obj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
+                pending_uploads: NumCell::new(pending_uploads),
+                shm_upload: RefCell::new(ShmUploadState::None),
             }),
         );
-        if points.is_not_empty() {
-            let mut wait_handles = SmallVec::new();
-            let noderef = Rc::new(noderef);
-            for (sync_obj, point) in points {
-                let handle = self
-                    .shared
-                    .wfs
-                    .wait(&sync_obj, point, true, noderef.clone())
-                    .map_err(CommitTimelineError::RegisterWait)?;
-                wait_handles.push(handle);
-            }
+        let mut needs_flush = false;
+        if points.is_not_empty() || pending_uploads > 0 {
+            let noderef = Rc::new(noderef.clone());
             let EntryKind::Commit(commit) = &noderef.kind else {
                 unreachable!();
             };
-            commit.wait_handles.set(wait_handles);
+            if points.is_not_empty() {
+                let mut wait_handles = SmallVec::new();
+                for (sync_obj, point) in points {
+                    let handle = self
+                        .shared
+                        .wfs
+                        .wait(&sync_obj, point, true, noderef.clone())
+                        .map_err(CommitTimelineError::RegisterWait)?;
+                    wait_handles.push(handle);
+                }
+                commit.wait_handles.set(wait_handles);
+            }
+            if pending_uploads > 0 {
+                *commit.shm_upload.borrow_mut() = ShmUploadState::Todo(noderef.clone());
+                needs_flush = true;
+            }
+        }
+        if needs_flush && noderef.prev().is_none() {
+            flush_from(noderef.clone()).map_err(CommitTimelineError::DelayedCommit)?;
         }
         Ok(())
     }
@@ -194,12 +216,33 @@ impl SyncObjWaiter for NodeRef<Entry> {
             return;
         }
         commit.sync_obj.fetch_sub(1);
-        if let Err(e) = flush_from(self.deref().clone()) {
+        flush_commit(&self, commit);
+    }
+}
+
+fn flush_commit(node_ref: &NodeRef<Entry>, commit: &Commit) {
+    if let Err(e) = flush_from(node_ref.clone()) {
+        commit
+            .surface
+            .client
+            .error(CommitTimelineError::DelayedCommit(e));
+    }
+}
+
+impl AsyncShmGfxTextureCallback for NodeRef<Entry> {
+    fn completed(self: Rc<Self>, res: Result<(), GfxError>) {
+        let EntryKind::Commit(commit) = &self.kind else {
+            unreachable!();
+        };
+        if let Err(e) = res {
             commit
                 .surface
                 .client
-                .error(CommitTimelineError::DelayedCommit(e));
+                .error(CommitTimelineError::ShmUpload(e));
+            return;
         }
+        commit.pending_uploads.fetch_sub(1);
+        flush_commit(&self, commit);
     }
 }
 
@@ -216,11 +259,19 @@ enum EntryKind {
     Gc(CommitTimelineId),
 }
 
+enum ShmUploadState {
+    None,
+    Todo(Rc<NodeRef<Entry>>),
+    Scheduled(#[expect(dead_code)] SmallVec<[PendingShmUpload; 1]>),
+}
+
 struct Commit {
     surface: Rc<WlSurface>,
     pending: RefCell<Box<PendingState>>,
     sync_obj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncObjHandle; 1]>>,
+    pending_uploads: NumCell<usize>,
+    shm_upload: RefCell<ShmUploadState>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -243,7 +294,17 @@ impl NodeRef<Entry> {
         }
         match &self.kind {
             EntryKind::Commit(c) => {
+                let mut has_unmet_dependencies = false;
                 if c.sync_obj.get() > 0 {
+                    has_unmet_dependencies = true;
+                }
+                if c.pending_uploads.get() > 0 {
+                    check_shm_uploads(c)?;
+                    if c.pending_uploads.get() > 0 {
+                        has_unmet_dependencies = true;
+                    }
+                }
+                if has_unmet_dependencies {
                     return Ok(false);
                 }
                 c.surface.apply_state(c.pending.borrow_mut().deref_mut())?;
@@ -264,6 +325,90 @@ impl NodeRef<Entry> {
             }
         }
     }
+}
+
+fn check_shm_uploads(c: &Commit) -> Result<(), WlSurfaceError> {
+    let state = &mut *c.shm_upload.borrow_mut();
+    if let ShmUploadState::Todo(node_ref) = state {
+        let mut pending = SmallVec::new();
+        schedule_async_uploads(node_ref, &c.surface, &c.pending.borrow(), &mut pending)?;
+        c.pending_uploads.set(pending.len());
+        *state = ShmUploadState::Scheduled(pending);
+    }
+    Ok(())
+}
+
+fn schedule_async_uploads(
+    node_ref: &Rc<NodeRef<Entry>>,
+    surface: &WlSurface,
+    pending: &PendingState,
+    uploads: &mut SmallVec<[PendingShmUpload; 1]>,
+) -> Result<(), WlSurfaceError> {
+    if let Some(pending) = schedule_async_upload(node_ref, surface, pending)? {
+        uploads.push(pending);
+    }
+    for ss in pending.subsurfaces.values() {
+        if let Some(state) = &ss.pending.state {
+            schedule_async_uploads(node_ref, &ss.subsurface.surface, state, uploads)?;
+        }
+    }
+    Ok(())
+}
+
+fn schedule_async_upload(
+    node_ref: &Rc<NodeRef<Entry>>,
+    surface: &WlSurface,
+    pending: &PendingState,
+) -> Result<Option<PendingShmUpload>, WlSurfaceError> {
+    let Some(Some(buf)) = &pending.buffer else {
+        return Ok(None);
+    };
+    let Some(WlBufferStorage::Shm { mem, stride, .. }) = &*buf.storage.borrow() else {
+        return Ok(None);
+    };
+    let back = surface.shm_textures.back();
+    let mut back_tex_opt = back.tex.get();
+    if let Some(back_tex) = &back_tex_opt {
+        if !back_tex.compatible_with(buf.format, buf.rect.width(), buf.rect.height(), *stride) {
+            back_tex_opt = None;
+        }
+    }
+    let damage_full = || {
+        back.damage.clear();
+        back.damage.damage(slice::from_ref(&buf.rect));
+    };
+    let back_tex = match back_tex_opt {
+        Some(b) => {
+            if pending.damage_full || pending.surface_damage.is_not_empty() {
+                damage_full();
+            } else {
+                back.damage.damage(&pending.buffer_damage);
+            }
+            b
+        }
+        None => {
+            damage_full();
+            let state = &surface.client.state;
+            let ctx = state
+                .render_ctx
+                .get()
+                .ok_or(WlSurfaceError::NoRenderContext)?;
+            let back_tex = ctx
+                .async_shmem_texture(
+                    buf.format,
+                    buf.rect.width(),
+                    buf.rect.height(),
+                    *stride,
+                    &state.cpu_worker,
+                )
+                .map_err(WlSurfaceError::CreateAsyncShmTexture)?;
+            back.tex.set(Some(back_tex.clone()));
+            back_tex
+        }
+    };
+    back_tex
+        .async_upload(node_ref.clone(), mem, back.damage.get())
+        .map_err(WlSurfaceError::PrepareAsyncUpload)
 }
 
 type Point = (Rc<SyncObj>, SyncObjPoint);
@@ -298,6 +443,19 @@ fn set_effective_timeline(
     for ss in pending.subsurfaces.values() {
         if let Some(state) = &ss.pending.state {
             set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
+        }
+    }
+}
+
+fn count_shm_uploads(pending: &PendingState, count: &mut usize) {
+    if let Some(Some(buffer)) = &pending.buffer {
+        if buffer.is_shm() {
+            *count += 1;
+        }
+    }
+    for ss in pending.subsurfaces.values() {
+        if let Some(state) = &ss.pending.state {
+            count_shm_uploads(state, count);
         }
     }
 }

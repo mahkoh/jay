@@ -13,6 +13,7 @@ use {
         clientmem::ClientMemOffset,
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        cpu_worker::CpuWorker,
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         damage::DamageVisualizer,
@@ -214,6 +215,7 @@ pub struct State {
     pub enable_ei_acceptor: Cell<bool>,
     pub ei_clients: EiClients,
     pub slow_ei_clients: AsyncQueue<Rc<EiClient>>,
+    pub cpu_worker: Rc<CpuWorker>,
 }
 
 // impl Drop for State {
@@ -482,7 +484,7 @@ impl State {
                         updated_buffers.insert(buffer.buffer.id);
                         buffer.buffer.handle_gfx_context_change(Some(surface));
                     } else {
-                        surface.shm_texture.take();
+                        surface.reset_shm_textures();
                     }
                 }
                 for buffer in client.data.objects.buffers.lock().values() {

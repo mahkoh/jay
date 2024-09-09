@@ -8,9 +8,9 @@ use {
         gfx_apis::vulkan::{
             allocator::VulkanAllocator, command::VulkanCommandBuffer, device::VulkanDevice,
             format::VulkanFormat, renderer::image_barrier, staging::VulkanStagingBuffer,
-            util::OnDrop, VulkanError,
+            VulkanError,
         },
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
         video::{
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,

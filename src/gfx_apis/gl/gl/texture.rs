@@ -21,8 +21,10 @@ pub struct GlTexture {
     pub tex: GLuint,
     pub width: i32,
     pub height: i32,
+    pub stride: i32,
     pub external_only: bool,
     pub format: &'static Format,
+    pub contents_valid: Cell<bool>,
 }
 
 pub fn image_target(external_only: bool) -> GLenum {
@@ -60,8 +62,10 @@ impl GlTexture {
             tex,
             width: img.dmabuf.width,
             height: img.dmabuf.height,
+            stride: 0,
             external_only: img.external_only,
             format: img.dmabuf.format,
+            contents_valid: Cell::new(true),
         })
     }
 
@@ -108,8 +112,10 @@ impl GlTexture {
             tex,
             width,
             height,
+            stride,
             external_only: false,
             format,
+            contents_valid: Cell::new(true),
         })
     }
 }

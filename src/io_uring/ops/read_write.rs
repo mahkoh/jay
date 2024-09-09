@@ -3,7 +3,7 @@ use {
         io_uring::{
             pending_result::PendingResult,
             sys::{io_uring_sqe, IORING_OP_READ, IORING_OP_WRITE},
-            IoUring, IoUringData, IoUringError, Task, TaskResultExt,
+            IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
         },
         time::Time,
         utils::buf::Buf,
@@ -66,7 +66,7 @@ struct ReadWriteTaskData {
 
 #[derive(Default)]
 pub struct ReadWriteTask {
-    id: u64,
+    id: IoUringTaskId,
     has_timeout: bool,
     fd: c::c_int,
     buf: usize,
@@ -76,7 +76,7 @@ pub struct ReadWriteTask {
 }
 
 unsafe impl Task for ReadWriteTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

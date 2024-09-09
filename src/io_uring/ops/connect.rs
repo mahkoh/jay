@@ -2,7 +2,7 @@ use {
     crate::io_uring::{
         pending_result::PendingResult,
         sys::{io_uring_sqe, IORING_OP_CONNECT},
-        IoUring, IoUringData, IoUringError, Task, TaskResultExt,
+        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
     },
     std::{mem, ptr, rc::Rc},
     uapi::{c, OwnedFd, SockAddr},
@@ -37,7 +37,7 @@ struct Data {
 }
 
 pub struct ConnectTask {
-    id: u64,
+    id: IoUringTaskId,
     fd: i32,
     sockaddr: c::sockaddr_storage,
     addrlen: u64,
@@ -47,7 +47,7 @@ pub struct ConnectTask {
 impl Default for ConnectTask {
     fn default() -> Self {
         Self {
-            id: 0,
+            id: Default::default(),
             fd: 0,
             sockaddr: uapi::pod_zeroed(),
             addrlen: 0,
@@ -57,7 +57,7 @@ impl Default for ConnectTask {
 }
 
 unsafe impl Task for ConnectTask {
-    fn id(&self) -> u64 {
+    fn id(&self) -> IoUringTaskId {
         self.id
     }
 

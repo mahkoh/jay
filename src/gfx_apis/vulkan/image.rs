@@ -1,13 +1,19 @@
 use {
     crate::{
+        clientmem::ClientMemOffset,
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
+        gfx_api::{
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, AsyncShmGfxTextureUploadCancellable,
+            GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, PendingShmUpload,
+            ShmGfxTexture, SyncFile,
+        },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
-            renderer::VulkanRenderer, shm_image::VulkanShmImage, util::OnDrop, VulkanError,
+            renderer::VulkanRenderer, shm_image::VulkanShmImage, VulkanError,
         },
+        rect::Region,
         theme::Color,
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, on_drop::OnDrop},
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
@@ -51,6 +57,7 @@ pub struct VulkanImage {
     pub(super) render_view: Option<ImageView>,
     pub(super) image: Image,
     pub(super) is_undefined: Cell<bool>,
+    pub(super) contents_are_undefined: Cell<bool>,
     pub(super) ty: VulkanImageMemory,
     pub(super) render_ops: CloneCell<Vec<GfxApiOpt>>,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
@@ -378,6 +385,7 @@ impl VulkanDmaBufImageTemplate {
             }),
             format: self.dmabuf.format,
             is_undefined: Cell::new(true),
+            contents_are_undefined: Cell::new(false),
             bridge,
         }))
     }
@@ -528,5 +536,66 @@ impl GfxTexture for VulkanImage {
 
     fn format(&self) -> &'static Format {
         self.format
+    }
+}
+
+impl ShmGfxTexture for VulkanImage {
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
+    }
+}
+
+impl AsyncShmGfxTexture for VulkanImage {
+    fn async_upload(
+        self: Rc<Self>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: &Rc<ClientMemOffset>,
+        damage: Region,
+    ) -> Result<Option<PendingShmUpload>, GfxError> {
+        let VulkanImageMemory::Internal(shm) = &self.ty else {
+            unreachable!();
+        };
+        let pending = shm.async_upload(&self, mem, damage, callback)?;
+        Ok(pending)
+    }
+
+    fn sync_upload(self: Rc<Self>, mem: &[Cell<u8>], damage: Region) -> Result<(), GfxError> {
+        let VulkanImageMemory::Internal(shm) = &self.ty else {
+            unreachable!();
+        };
+        if shm.async_data.as_ref().unwrap().busy.get() {
+            return Err(VulkanError::AsyncCopyBusy.into());
+        }
+        shm.upload(&self, mem, Some(damage.rects()))?;
+        Ok(())
+    }
+
+    fn compatible_with(
+        &self,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> bool {
+        self.format == format
+            && self.width == width as u32
+            && self.height == height as u32
+            && self.stride == stride as u32
+    }
+
+    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
+        self
+    }
+}
+
+impl AsyncShmGfxTextureUploadCancellable for VulkanImage {
+    fn cancel(&self, id: u64) {
+        let VulkanImageMemory::Internal(shm) = &self.ty else {
+            unreachable!();
+        };
+        let data = shm.async_data.as_ref().unwrap();
+        if data.callback_id.get() == id {
+            data.callback.take();
+        }
     }
 }

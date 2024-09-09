@@ -1,11 +1,17 @@
 use {
-    crate::rect::{Rect, Region},
+    crate::{
+        rect::{Rect, Region},
+        utils::{
+            array,
+            ptr_ext::{MutPtrExt, PtrExt},
+        },
+    },
     jay_algorithms::rect::{
         region::{extents, rects_to_bands, subtract, union},
         RectRaw,
     },
     smallvec::SmallVec,
-    std::{mem, ops::Deref, rc::Rc},
+    std::{cell::UnsafeCell, mem, ops::Deref, rc::Rc},
 };
 
 thread_local! {
@@ -18,12 +24,16 @@ thread_local! {
 
 impl Region {
     pub fn new(rect: Rect) -> Rc<Self> {
+        Rc::new(Self::new2(rect))
+    }
+
+    pub fn new2(rect: Rect) -> Self {
         let mut rects = SmallVec::new();
         rects.push(rect.raw);
-        Rc::new(Self {
+        Self {
             rects,
             extents: rect,
-        })
+        }
     }
 
     pub fn empty() -> Rc<Self> {
@@ -34,16 +44,23 @@ impl Region {
         if rects.is_empty() {
             return Self::empty();
         }
+        Rc::new(Self::from_rects2(rects))
+    }
+
+    pub fn from_rects2(rects: &[Rect]) -> Self {
+        if rects.is_empty() {
+            return Self::default();
+        }
         if rects.len() == 1 {
-            return Self::new(rects[0]);
+            return Self::new2(rects[0]);
         }
         let rects = rects_to_bands(unsafe { mem::transmute::<&[Rect], &[RectRaw]>(rects) });
-        Rc::new(Self {
+        Self {
             extents: Rect {
                 raw: extents(&rects),
             },
             rects,
-        })
+        }
     }
 
     pub fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
@@ -171,5 +188,37 @@ impl RegionBuilder {
             BuilderOp::Sub => self.base.subtract(&region),
         };
         self.pending.clear();
+    }
+}
+
+pub struct DamageQueue {
+    this: usize,
+    datas: Rc<UnsafeCell<Vec<Vec<Rect>>>>,
+}
+
+impl DamageQueue {
+    pub fn new<const N: usize>() -> [DamageQueue; N] {
+        let datas = Rc::new(UnsafeCell::new(vec![vec!(); N]));
+        array::from_fn(|this| DamageQueue {
+            this,
+            datas: datas.clone(),
+        })
+    }
+
+    pub fn damage(&self, rects: &[Rect]) {
+        let datas = unsafe { self.datas.get().deref_mut() };
+        for data in datas {
+            data.extend(rects);
+        }
+    }
+
+    pub fn clear(&self) {
+        let data = unsafe { &mut self.datas.get().deref_mut()[self.this] };
+        data.clear();
+    }
+
+    pub fn get(&self) -> Region {
+        let data = unsafe { &self.datas.get().deref()[self.this] };
+        Region::from_rects2(data)
     }
 }
