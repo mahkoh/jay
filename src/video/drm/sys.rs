@@ -1048,7 +1048,6 @@ pub fn gem_close(fd: c::c_int, handle: u32) -> Result<(), OsError> {
 #[expect(dead_code)]
 pub const DRM_EVENT_VBLANK: u32 = 0x01;
 pub const DRM_EVENT_FLIP_COMPLETE: u32 = 0x02;
-#[expect(dead_code)]
 pub const DRM_EVENT_CRTC_SEQUENCE: u32 = 0x03;
 
 #[repr(C)]
@@ -1070,6 +1069,16 @@ pub struct drm_event_vblank {
 }
 
 unsafe impl Pod for drm_event_vblank {}
+
+#[repr(C)]
+pub struct drm_event_crtc_sequence {
+    pub base: drm_event,
+    pub user_data: u64,
+    pub time_ns: i64,
+    pub sequence: u64,
+}
+
+unsafe impl Pod for drm_event_crtc_sequence {}
 
 #[repr(C)]
 struct drm_mode_get_blob {
@@ -1396,6 +1405,32 @@ pub fn auth_magic(fd: c::c_int, magic: c::c_uint) -> Result<(), OsError> {
     let mut res = drm_auth { magic };
     unsafe {
         ioctl(fd, DRM_IOCTL_AUTH_MAGIC, &mut res)?;
+    }
+    Ok(())
+}
+
+const DRM_CRTC_SEQUENCE_RELATIVE: u32 = 0x00000001;
+// const DRM_CRTC_SEQUENCE_NEXT_ON_MISS: u32 =		0x00000002;
+
+#[repr(C)]
+struct drm_crtc_queue_sequence {
+    crtc_id: u32,
+    flags: u32,
+    sequence: u64,
+    user_data: u64,
+}
+
+const DRM_IOCTL_CRTC_QUEUE_SEQUENCE: u64 = drm_iowr::<drm_crtc_queue_sequence>(0x3c);
+
+pub fn queue_sequence(fd: c::c_int, crtc: DrmCrtc) -> Result<(), OsError> {
+    let mut res = drm_crtc_queue_sequence {
+        crtc_id: crtc.0,
+        flags: DRM_CRTC_SEQUENCE_RELATIVE,
+        sequence: 1,
+        user_data: crtc.0 as _,
+    };
+    unsafe {
+        ioctl(fd, DRM_IOCTL_CRTC_QUEUE_SEQUENCE, &mut res)?;
     }
     Ok(())
 }

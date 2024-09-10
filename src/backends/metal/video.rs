@@ -463,6 +463,7 @@ pub struct MetalConnector {
     pub try_switch_format: Cell<bool>,
 
     pub version: NumCell<u64>,
+    pub sequence: Cell<u64>,
 }
 
 impl Debug for MetalConnector {
@@ -712,6 +713,16 @@ impl MetalConnector {
             },
         }
     }
+
+    fn queue_sequence(&self) {
+        if let Some(crtc) = self.crtc.get() {
+            if let Err(e) = self.master.queue_sequence(crtc.id) {
+                log::error!("Could not queue a CRTC sequence: {}", ErrorFmt(e));
+            } else {
+                crtc.have_queued_sequence.set(true);
+            }
+        }
+    }
 }
 
 impl Connector for MetalConnector {
@@ -908,6 +919,7 @@ pub struct MetalCrtc {
     pub vrr_enabled: MutableProperty<bool>,
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
+    pub have_queued_sequence: Cell<bool>,
 }
 
 impl Debug for MetalCrtc {
@@ -1042,6 +1054,7 @@ fn create_connector(
         tearing_requested: Cell::new(false),
         try_switch_format: Cell::new(false),
         version: Default::default(),
+        sequence: Default::default(),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1244,6 +1257,7 @@ fn create_crtc(
         out_fence_ptr: props.get("OUT_FENCE_PTR")?.id,
         vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
         mode_blob: Default::default(),
+        have_queued_sequence: Cell::new(false),
     })
 }
 
@@ -1828,7 +1842,62 @@ impl MetalBackend {
                 sequence,
                 crtc_id,
             } => self.handle_drm_flip_event(dev, crtc_id, tv_sec, tv_usec, sequence),
+            DrmEvent::Sequence {
+                time_ns,
+                sequence,
+                crtc_id,
+            } => self.handle_drm_sequence_event(dev, crtc_id, time_ns, sequence),
         }
+    }
+
+    fn update_sequence(&self, connector: &Rc<MetalConnector>, new: u64) {
+        if connector.sequence.replace(new) == new {
+            return;
+        }
+        // nothing
+    }
+
+    fn update_u32_sequence(&self, connector: &Rc<MetalConnector>, sequence: u32) {
+        let old = connector.sequence.get();
+        let mut new = (old & !(u32::MAX as u64)) | (sequence as u64);
+        if new < old {
+            new += 1 << u32::BITS;
+            if new < old {
+                log::warn!("Ignoring nonsensical sequence {sequence} (old = {old})");
+                return;
+            }
+        }
+        if new > old + (1 << (u32::BITS - 1)) {
+            new = new.saturating_sub(1 << u32::BITS);
+            if new < old {
+                return;
+            }
+        }
+        self.update_sequence(connector, new);
+    }
+
+    fn handle_drm_sequence_event(
+        self: &Rc<Self>,
+        dev: &Rc<MetalDrmDeviceData>,
+        crtc_id: DrmCrtc,
+        time_ns: i64,
+        sequence: u64,
+    ) {
+        let crtc = match dev.dev.crtcs.get(&crtc_id) {
+            Some(c) => c,
+            _ => return,
+        };
+        crtc.have_queued_sequence.set(false);
+        let connector = match crtc.connector.get() {
+            Some(c) => c,
+            _ => return,
+        };
+        self.update_sequence(&connector, sequence);
+        connector.queue_sequence();
+        let dd = connector.display.borrow();
+        connector
+            .next_flip_nsec
+            .set(time_ns as u64 + dd.refresh as u64);
     }
 
     fn handle_drm_flip_event(
@@ -1847,6 +1916,10 @@ impl MetalBackend {
             Some(c) => c,
             _ => return,
         };
+        if !crtc.have_queued_sequence.get() {
+            connector.queue_sequence();
+        }
+        self.update_u32_sequence(&connector, sequence);
         connector.can_present.set(true);
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
@@ -1877,7 +1950,7 @@ impl MetalBackend {
                         tv_sec as _,
                         tv_usec * 1000,
                         refresh,
-                        sequence as _,
+                        connector.sequence.get(),
                         KIND_VSYNC | KIND_HW_COMPLETION,
                     );
                     let _ = fb.client.remove_obj(&*fb);
