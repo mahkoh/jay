@@ -747,6 +747,7 @@ impl VulkanRenderer {
             Ok(s) => Some(s),
             Err(e) => {
                 log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
+                self.block();
                 None
             }
         };

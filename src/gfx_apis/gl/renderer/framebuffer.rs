@@ -86,7 +86,7 @@ impl Framebuffer {
             let fd = run_ops(self, ops);
             if fd.is_none() {
                 unsafe {
-                    (gles.glFlush)();
+                    (gles.glFinish)();
                 }
             }
             Ok(fd)

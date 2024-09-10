@@ -129,6 +129,10 @@ impl EglDisplay {
                 .exts
                 .contains(KHR_FENCE_SYNC | KHR_WAIT_SYNC | ANDROID_NATIVE_FENCE_SYNC);
 
+            if !dpy.explicit_sync {
+                log::error!("Driver does not support explicit sync. Rendering will block.")
+            }
+
             Ok(Rc::new(dpy))
         }
     }
