@@ -12,6 +12,7 @@ use {
             SyncFile,
         },
         theme::Color,
+        time::Time,
         tree::OutputNode,
         utils::{errorfmt::ErrorFmt, oserror::OsError, transform_ext::TransformExt},
         video::{
@@ -22,7 +23,11 @@ use {
             },
         },
     },
-    std::rc::{Rc, Weak},
+    std::{
+        env,
+        rc::{Rc, Weak},
+        sync::LazyLock,
+    },
     uapi::c,
 };
 
@@ -79,19 +84,63 @@ enum CursorProgramming {
     },
 }
 
+pub const DEFAULT_PRE_COMMIT_MARGIN: u64 = 16_000_000; // 16ms
+pub const MIN_POST_COMMIT_MARGIN: u64 = 1_500_000; // 1.5ms
+pub const MAX_POST_COMMIT_MARGIN: u64 = 16_000_000; // 16ms
+pub const DEFAULT_POST_COMMIT_MARGIN: u64 = MIN_POST_COMMIT_MARGIN;
+pub const POST_COMMIT_MARGIN_DELTA: u64 = 500_000; // 500us
+
+static NO_FRAME_SCHEDULING: LazyLock<bool> = LazyLock::new(|| {
+    let res = env::var("JAY_NO_FRAME_SCHEDULING").ok().as_deref() == Some("1");
+    if res {
+        log::warn!("Frame scheduling is disabled.");
+    }
+    res
+});
+
 impl MetalConnector {
     pub fn schedule_present(&self) {
         self.present_trigger.trigger();
     }
 
     pub async fn present_loop(self: Rc<Self>) {
+        let mut cur_sec = 0;
+        let mut max = 0;
         loop {
             self.present_trigger.triggered().await;
+            if !self.can_present.get() {
+                continue;
+            }
+            let mut expected_sequence = self.sequence.get() + 1;
+            let mut start = Time::now_unchecked();
+            let use_frame_scheduling = !self.try_async_flip() && !*NO_FRAME_SCHEDULING;
+            if use_frame_scheduling {
+                let margin = self.pre_commit_margin.get() + self.post_commit_margin.get();
+                let next_present = self.next_flip_nsec.get().saturating_sub(margin);
+                if start.nsec() < next_present {
+                    self.state.ring.timeout(next_present).await.unwrap();
+                    start = Time::now_unchecked();
+                } else {
+                    expected_sequence += 1;
+                }
+            }
             if let Err(e) = self.present_once().await {
                 log::error!("Could not present: {}", ErrorFmt(e));
                 continue;
             }
+            if use_frame_scheduling {
+                self.expected_sequence.set(Some(expected_sequence));
+            }
             self.state.set_backend_idle(false);
+            let duration = start.elapsed();
+            max = max.max(duration.as_nanos() as _);
+            if start.0.tv_sec != cur_sec {
+                cur_sec = start.0.tv_sec;
+                self.pre_commit_margin_decay.add(max);
+                self.pre_commit_margin
+                    .set(self.pre_commit_margin_decay.get());
+                max = 0;
+            }
         }
     }
 
@@ -244,6 +293,10 @@ impl MetalConnector {
         }
     }
 
+    fn try_async_flip(&self) -> bool {
+        self.tearing_requested.get() && self.dev.supports_async_commit
+    }
+
     fn program_connector(
         &self,
         version: u64,
@@ -253,7 +306,7 @@ impl MetalConnector {
         new_fb: Option<&PresentFb>,
     ) -> Result<(), MetalError> {
         let mut changes = self.master.change();
-        let mut try_async_flip = self.tearing_requested.get() && self.dev.supports_async_commit;
+        let mut try_async_flip = self.try_async_flip();
         macro_rules! change {
             ($c:expr, $prop:expr, $new:expr) => {{
                 if $prop.value.get() != $new {

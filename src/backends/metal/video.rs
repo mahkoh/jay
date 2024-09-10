@@ -8,7 +8,11 @@ use {
             HardwareCursorUpdate, Mode, MonitorInfo,
         },
         backends::metal::{
-            present::{DirectScanoutCache, PresentFb},
+            present::{
+                DirectScanoutCache, PresentFb, DEFAULT_POST_COMMIT_MARGIN,
+                DEFAULT_PRE_COMMIT_MARGIN, MAX_POST_COMMIT_MARGIN, MIN_POST_COMMIT_MARGIN,
+                POST_COMMIT_MARGIN_DELTA,
+            },
             MetalBackend, MetalError,
         },
         drm_feedback::DrmFeedback,
@@ -27,8 +31,8 @@ use {
         udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, oserror::OsError,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
+            numcell::NumCell, on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
         },
         video::{
             dmabuf::DmaBufId,
@@ -464,6 +468,13 @@ pub struct MetalConnector {
 
     pub version: NumCell<u64>,
     pub sequence: Cell<u64>,
+    pub expected_sequence: Cell<Option<u64>>,
+    pub pre_commit_margin: Cell<u64>,
+    pub pre_commit_margin_decay: GeometricDecay,
+    pub post_commit_margin: Cell<u64>,
+    pub post_commit_margin_decay: GeometricDecay,
+    pub vblank_miss_sec: Cell<u32>,
+    pub vblank_miss_this_sec: NumCell<u32>,
 }
 
 impl Debug for MetalConnector {
@@ -1055,6 +1066,13 @@ fn create_connector(
         try_switch_format: Cell::new(false),
         version: Default::default(),
         sequence: Default::default(),
+        expected_sequence: Default::default(),
+        pre_commit_margin_decay: GeometricDecay::new(0.5, DEFAULT_PRE_COMMIT_MARGIN),
+        pre_commit_margin: Cell::new(DEFAULT_PRE_COMMIT_MARGIN),
+        post_commit_margin_decay: GeometricDecay::new(0.1, DEFAULT_POST_COMMIT_MARGIN),
+        post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
+        vblank_miss_sec: Cell::new(0),
+        vblank_miss_this_sec: Default::default(),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1923,6 +1941,30 @@ impl MetalBackend {
         connector.can_present.set(true);
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
+        }
+        if let Some(expected) = connector.expected_sequence.take() {
+            if connector.vblank_miss_sec.replace(tv_sec) != tv_sec {
+                let n_missed = connector.vblank_miss_this_sec.replace(0);
+                if n_missed > 0 {
+                    log::debug!("{}: Missed {n_missed} page flips", connector.kernel_id());
+                    let new_margin = (connector.post_commit_margin.get()
+                        + POST_COMMIT_MARGIN_DELTA)
+                        .min(MAX_POST_COMMIT_MARGIN);
+                    connector.post_commit_margin_decay.reset(new_margin);
+                    connector.post_commit_margin.set(new_margin);
+                } else {
+                    connector
+                        .post_commit_margin_decay
+                        .add(MIN_POST_COMMIT_MARGIN);
+                    connector
+                        .post_commit_margin
+                        .set(connector.post_commit_margin_decay.get());
+                }
+            }
+            let actual = connector.sequence.get();
+            if expected < actual {
+                connector.vblank_miss_this_sec.fetch_add(1);
+            }
         }
         if connector.has_damage.is_not_zero()
             || connector.cursor_damage.get()
