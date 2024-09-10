@@ -1177,7 +1177,7 @@ pub struct drm_format_modifier {
 
 unsafe impl Pod for drm_format_modifier {}
 
-// pub const DRM_SYNCOBJ_CREATE_SIGNALED: u32 = 1 << 0;
+pub const DRM_SYNCOBJ_CREATE_SIGNALED: u32 = 1 << 0;
 
 #[repr(C)]
 struct drm_syncobj_create {
@@ -1212,7 +1212,7 @@ pub fn sync_obj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
 }
 
 pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE: u32 = 1 << 0;
-// pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
+pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
 
 #[repr(C)]
 struct drm_syncobj_handle {

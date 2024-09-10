@@ -292,7 +292,9 @@ impl MetalConnector {
                 change!(c, plane.crtc_w, crtc_w);
                 change!(c, plane.crtc_h, crtc_h);
                 if !try_async_flip && !self.dev.is_nvidia {
-                    c.change(plane.in_fence_fd, -1i32 as u64);
+                    if let Some(sf) = self.backend.signaled_sync_file.get() {
+                        c.change(plane.in_fence_fd, sf.0.raw() as u64);
+                    }
                 }
             });
         } else {
@@ -329,7 +331,9 @@ impl MetalConnector {
                         c.change(plane.src_w.id, (*width as u64) << 16);
                         c.change(plane.src_h.id, (*height as u64) << 16);
                         if !self.dev.is_nvidia {
-                            c.change(plane.in_fence_fd, -1i32 as u64);
+                            if let Some(sf) = self.backend.signaled_sync_file.get() {
+                                c.change(plane.in_fence_fd, sf.0.raw() as u64);
+                            }
                         }
                     });
                 }
@@ -512,8 +516,8 @@ impl MetalConnector {
             }
             ct
         };
-        if let AcquireSync::None = ct.acquire_sync {
-            // Cannot perform scanout without sync.
+        if let AcquireSync::None | AcquireSync::Implicit = ct.acquire_sync {
+            // Cannot perform scanout without explicit sync.
             return None;
         }
         if ct.source.buffer_transform != ct.target.output_transform {

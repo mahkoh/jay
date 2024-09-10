@@ -2029,6 +2029,18 @@ impl MetalBackend {
             }
         }
         let ctx = dev.ctx.get();
+        if self.signaled_sync_file.is_none() {
+            if let Some(sync) = ctx.gfx.sync_obj_ctx() {
+                match sync.create_signaled_sync_file() {
+                    Ok(sf) => {
+                        self.signaled_sync_file.set(Some(sf));
+                    }
+                    Err(e) => {
+                        log::warn!("Could not create signaled sync file: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
         self.state.set_render_ctx(Some(ctx.gfx.clone()));
         let fb = match DrmFeedback::new(&self.state.drm_feedback_ids, &*ctx.gfx) {
             Ok(fb) => Some(Rc::new(fb)),
