@@ -152,10 +152,10 @@ impl CommitTimeline {
         pending: &mut Box<PendingState>,
     ) -> Result<(), CommitTimelineError> {
         let mut points = SmallVec::new();
-        consume_acquire_points(pending, &mut points);
         let mut pending_uploads = 0;
-        count_shm_uploads(pending, &mut pending_uploads);
-        if points.is_empty() && pending_uploads == 0 && self.own_timeline.entries.is_empty() {
+        collect_commit_data(pending, &mut points, &mut pending_uploads);
+        let has_dependencies = points.is_not_empty() || pending_uploads > 0;
+        if !has_dependencies && self.own_timeline.entries.is_empty() {
             return surface
                 .apply_state(pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
@@ -177,7 +177,7 @@ impl CommitTimeline {
             }),
         );
         let mut needs_flush = false;
-        if points.is_not_empty() || pending_uploads > 0 {
+        if has_dependencies {
             let noderef = Rc::new(noderef.clone());
             let EntryKind::Commit(commit) = &noderef.kind else {
                 unreachable!();
@@ -413,13 +413,22 @@ fn schedule_async_upload(
 
 type Point = (Rc<SyncObj>, SyncObjPoint);
 
-fn consume_acquire_points(pending: &mut PendingState, points: &mut SmallVec<[Point; 1]>) {
+fn collect_commit_data(
+    pending: &mut PendingState,
+    acquire_points: &mut SmallVec<[Point; 1]>,
+    shm_uploads: &mut usize,
+) {
+    if let Some(Some(buffer)) = &pending.buffer {
+        if buffer.is_shm() {
+            *shm_uploads += 1;
+        }
+    }
     if let Some(point) = pending.acquire_point.take() {
-        points.push(point);
+        acquire_points.push(point);
     }
     for ss in pending.subsurfaces.values_mut() {
         if let Some(state) = &mut ss.pending.state {
-            consume_acquire_points(state, points);
+            collect_commit_data(state, acquire_points, shm_uploads);
         }
     }
 }
@@ -443,19 +452,6 @@ fn set_effective_timeline(
     for ss in pending.subsurfaces.values() {
         if let Some(state) = &ss.pending.state {
             set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
-        }
-    }
-}
-
-fn count_shm_uploads(pending: &PendingState, count: &mut usize) {
-    if let Some(Some(buffer)) = &pending.buffer {
-        if buffer.is_shm() {
-            *count += 1;
-        }
-    }
-    for ss in pending.subsurfaces.values() {
-        if let Some(state) = &ss.pending.state {
-            count_shm_uploads(state, count);
         }
     }
 }
