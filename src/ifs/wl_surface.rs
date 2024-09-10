@@ -23,8 +23,8 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AcquireSync, AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, ReleaseSync,
-            SampleRect, SyncFile,
+            AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, ReleaseSync, SampleRect,
+            SyncFile,
         },
         ifs::{
             wl_buffer::WlBuffer,
@@ -190,7 +190,6 @@ struct SurfaceBufferExplicitRelease {
 pub struct SurfaceBuffer {
     pub buffer: Rc<WlBuffer>,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
-    pub sync: AcquireSync,
     pub release_sync: ReleaseSync,
     release: Option<SurfaceBufferExplicitRelease>,
 }
@@ -1093,9 +1092,9 @@ impl WlSurface {
                     self.reset_shm_textures();
                 }
                 buffer.update_texture_or_log(self, false);
-                let (sync, release_sync) = match pending.explicit_sync {
-                    false => (AcquireSync::Implicit, ReleaseSync::Implicit),
-                    true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
+                let release_sync = match pending.explicit_sync {
+                    false => ReleaseSync::Implicit,
+                    true => ReleaseSync::Explicit,
                 };
                 let release = pending
                     .release_point
@@ -1104,7 +1103,6 @@ impl WlSurface {
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     sync_files: Default::default(),
-                    sync,
                     release_sync,
                     release,
                 };
