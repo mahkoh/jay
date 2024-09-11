@@ -1,5 +1,6 @@
 mod input;
 mod monitor;
+mod present;
 mod video;
 
 use {
@@ -15,7 +16,7 @@ use {
         },
         dbus::{DbusError, SignalHandler},
         drm_feedback::DrmFeedback,
-        gfx_api::GfxError,
+        gfx_api::{GfxError, SyncFile},
         ifs::{
             wl_output::OutputId,
             wl_seat::tablet::{
@@ -133,6 +134,8 @@ pub enum MetalError {
     Commit(#[source] DrmError),
     #[error("Could not clear framebuffer")]
     Clear(#[source] GfxError),
+    #[error("The present configuration is out of date")]
+    OutOfDate,
 }
 
 pub struct MetalBackend {
@@ -147,6 +150,7 @@ pub struct MetalBackend {
     pause_handler: Cell<Option<SignalHandler>>,
     resume_handler: Cell<Option<SignalHandler>>,
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
+    signaled_sync_file: CloneCell<Option<SyncFile>>,
     default_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     persistent_display_data: CopyHashMap<Rc<OutputId>, Rc<PersistentDisplayData>>,
 }
@@ -321,6 +325,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         pause_handler: Default::default(),
         resume_handler: Default::default(),
         ctx: Default::default(),
+        signaled_sync_file: Default::default(),
         default_feedback: Default::default(),
         persistent_display_data: Default::default(),
     });

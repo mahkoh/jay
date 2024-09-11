@@ -135,15 +135,17 @@ pub enum ConnectorEvent {
     FormatsChanged(Rc<Vec<&'static Format>>, &'static Format),
 }
 
-pub trait HardwareCursor: Debug {
-    fn set_enabled(&self, enabled: bool);
+pub trait HardwareCursorUpdate {
+    fn set_enabled(&mut self, enabled: bool);
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer>;
-    fn set_position(&self, x: i32, y: i32);
-    fn swap_buffer(&self);
-    fn set_sync_file(&self, sync_file: Option<SyncFile>);
-    fn commit(&self, schedule_present: bool);
-    fn schedule_present(&self) -> bool;
+    fn set_position(&mut self, x: i32, y: i32);
+    fn swap_buffer(&mut self);
+    fn set_sync_file(&mut self, sync_file: Option<SyncFile>);
     fn size(&self) -> (i32, i32);
+}
+
+pub trait HardwareCursor: Debug {
+    fn damage(&self);
 }
 
 pub type TransformMatrix = [[f64; 2]; 2];

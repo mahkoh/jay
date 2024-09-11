@@ -166,6 +166,7 @@ impl ServerCursors {
         let load =
             |names: &[&str]| ServerCursorTemplate::load(names, theme, &scales, &sizes, &paths, ctx);
         Ok(Some(Self {
+            // default: load(&["wait", "watch"])?,
             default: load(&["default", "left_ptr"])?,
             context_menu: load(&["context-menu"])?,
             help: load(&["help"])?,

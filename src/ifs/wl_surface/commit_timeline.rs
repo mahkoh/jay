@@ -5,12 +5,14 @@ use {
             wl_buffer::WlBufferStorage,
             wl_surface::{PendingState, WlSurface, WlSurfaceError},
         },
+        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            oserror::OsError,
         },
         video::drm::{
             sync_obj::{SyncObj, SyncObjPoint},
@@ -28,6 +30,7 @@ use {
         slice,
     },
     thiserror::Error,
+    uapi::{c::c_short, OwnedFd},
 };
 
 const MAX_TIMELINE_DEPTH: usize = 256;
@@ -37,6 +40,7 @@ linear_ids!(CommitTimelineIds, CommitTimelineId, u64);
 pub struct CommitTimelines {
     next_id: CommitTimelineIds,
     wfs: Rc<WaitForSyncObj>,
+    ring: Rc<IoUring>,
     depth: NumCell<usize>,
     gc: CopyHashMap<CommitTimelineId, LinkedList<Entry>>,
 }
@@ -83,15 +87,20 @@ pub enum CommitTimelineError {
     Depth,
     #[error("Could not upload a shm texture")]
     ShmUpload(#[source] GfxError),
+    #[error("Could not register an implicit-sync wait")]
+    RegisterImplicitPoll(#[source] IoUringError),
+    #[error("Could not wait for a dmabuf to become idle")]
+    PollDmabuf(#[source] OsError),
 }
 
 impl CommitTimelines {
-    pub fn new(wfs: &Rc<WaitForSyncObj>) -> Self {
+    pub fn new(wfs: &Rc<WaitForSyncObj>, ring: &Rc<IoUring>) -> Self {
         Self {
             next_id: Default::default(),
             depth: NumCell::new(0),
             wfs: wfs.clone(),
             gc: Default::default(),
+            ring: ring.clone(),
         }
     }
 
@@ -127,6 +136,7 @@ fn break_loops(list: &LinkedList<Entry>) {
         if let EntryKind::Commit(c) = &entry.kind {
             c.wait_handles.take();
             *c.shm_upload.borrow_mut() = ShmUploadState::None;
+            c.pending_polls.take();
         }
     }
 }
@@ -152,10 +162,17 @@ impl CommitTimeline {
         pending: &mut Box<PendingState>,
     ) -> Result<(), CommitTimelineError> {
         let mut points = SmallVec::new();
-        consume_acquire_points(pending, &mut points);
         let mut pending_uploads = 0;
-        count_shm_uploads(pending, &mut pending_uploads);
-        if points.is_empty() && pending_uploads == 0 && self.own_timeline.entries.is_empty() {
+        let mut implicit_dmabufs = SmallVec::new();
+        collect_commit_data(
+            pending,
+            &mut points,
+            &mut pending_uploads,
+            &mut implicit_dmabufs,
+        );
+        let has_dependencies =
+            points.is_not_empty() || pending_uploads > 0 || implicit_dmabufs.is_not_empty();
+        if !has_dependencies && self.own_timeline.entries.is_empty() {
             return surface
                 .apply_state(pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
@@ -174,10 +191,12 @@ impl CommitTimeline {
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
                 shm_upload: RefCell::new(ShmUploadState::None),
+                num_pending_polls: NumCell::new(implicit_dmabufs.len()),
+                pending_polls: Cell::new(Default::default()),
             }),
         );
         let mut needs_flush = false;
-        if points.is_not_empty() || pending_uploads > 0 {
+        if has_dependencies {
             let noderef = Rc::new(noderef.clone());
             let EntryKind::Commit(commit) = &noderef.kind else {
                 unreachable!();
@@ -197,6 +216,18 @@ impl CommitTimeline {
             if pending_uploads > 0 {
                 *commit.shm_upload.borrow_mut() = ShmUploadState::Todo(noderef.clone());
                 needs_flush = true;
+            }
+            if implicit_dmabufs.is_not_empty() {
+                let mut pending_polls = SmallVec::new();
+                for fd in implicit_dmabufs {
+                    let handle = self
+                        .shared
+                        .ring
+                        .readable_external(&fd, noderef.clone())
+                        .map_err(CommitTimelineError::RegisterImplicitPoll)?;
+                    pending_polls.push(handle);
+                }
+                commit.pending_polls.set(pending_polls);
             }
         }
         if needs_flush && noderef.prev().is_none() {
@@ -246,6 +277,23 @@ impl AsyncShmGfxTextureCallback for NodeRef<Entry> {
     }
 }
 
+impl PollCallback for NodeRef<Entry> {
+    fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
+        let EntryKind::Commit(commit) = &self.kind else {
+            unreachable!();
+        };
+        if let Err(e) = res {
+            commit
+                .surface
+                .client
+                .error(CommitTimelineError::PollDmabuf(e));
+            return;
+        }
+        commit.num_pending_polls.fetch_sub(1);
+        flush_commit(&self, commit);
+    }
+}
+
 struct Entry {
     link: Cell<Option<LinkedNode<Entry>>>,
     shared: Rc<CommitTimelines>,
@@ -272,6 +320,8 @@ struct Commit {
     wait_handles: Cell<SmallVec<[WaitForSyncObjHandle; 1]>>,
     pending_uploads: NumCell<usize>,
     shm_upload: RefCell<ShmUploadState>,
+    num_pending_polls: NumCell<usize>,
+    pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -303,6 +353,9 @@ impl NodeRef<Entry> {
                     if c.pending_uploads.get() > 0 {
                         has_unmet_dependencies = true;
                     }
+                }
+                if c.num_pending_polls.get() > 0 {
+                    has_unmet_dependencies = true;
                 }
                 if has_unmet_dependencies {
                     return Ok(false);
@@ -413,13 +466,30 @@ fn schedule_async_upload(
 
 type Point = (Rc<SyncObj>, SyncObjPoint);
 
-fn consume_acquire_points(pending: &mut PendingState, points: &mut SmallVec<[Point; 1]>) {
+fn collect_commit_data(
+    pending: &mut PendingState,
+    acquire_points: &mut SmallVec<[Point; 1]>,
+    shm_uploads: &mut usize,
+    implicit_dmabufs: &mut SmallVec<[Rc<OwnedFd>; 1]>,
+) {
+    if let Some(Some(buffer)) = &pending.buffer {
+        if buffer.is_shm() {
+            *shm_uploads += 1;
+        }
+        if !pending.explicit_sync {
+            if let Some(dmabuf) = &buffer.dmabuf {
+                for plane in &dmabuf.planes {
+                    implicit_dmabufs.push(plane.fd.clone());
+                }
+            }
+        }
+    }
     if let Some(point) = pending.acquire_point.take() {
-        points.push(point);
+        acquire_points.push(point);
     }
     for ss in pending.subsurfaces.values_mut() {
         if let Some(state) = &mut ss.pending.state {
-            consume_acquire_points(state, points);
+            collect_commit_data(state, acquire_points, shm_uploads, implicit_dmabufs);
         }
     }
 }
@@ -443,19 +513,6 @@ fn set_effective_timeline(
     for ss in pending.subsurfaces.values() {
         if let Some(state) = &ss.pending.state {
             set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
-        }
-    }
-}
-
-fn count_shm_uploads(pending: &PendingState, count: &mut usize) {
-    if let Some(Some(buffer)) = &pending.buffer {
-        if buffer.is_shm() {
-            *count += 1;
-        }
-    }
-    for ss in pending.subsurfaces.values() {
-        if let Some(state) = &ss.pending.state {
-            count_shm_uploads(state, count);
         }
     }
 }

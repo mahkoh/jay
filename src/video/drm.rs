@@ -40,9 +40,9 @@ use crate::{
     video::{
         dmabuf::DmaBuf,
         drm::sys::{
-            auth_magic, drm_format_modifier, drm_format_modifier_blob, drop_master, get_version,
-            revoke_lease, DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, DRM_CAP_CURSOR_HEIGHT,
-            DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+            auth_magic, drm_event_crtc_sequence, drm_format_modifier, drm_format_modifier_blob,
+            drop_master, get_version, queue_sequence, revoke_lease, DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP,
+            DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
         },
         Modifier, INVALID_MODIFIER,
     },
@@ -142,6 +142,8 @@ pub enum DrmError {
     CreateLease(#[source] OsError),
     #[error("Could not drop DRM master")]
     DropMaster(#[source] OsError),
+    #[error("Could not queue a CRTC sequence")]
+    QueueSequence(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -222,6 +224,10 @@ impl Drm {
 
     pub fn is_master(&self) -> bool {
         auth_magic(self.fd.raw(), 0) != Err(OsError(c::EACCES))
+    }
+
+    pub fn queue_sequence(&self, crtc: DrmCrtc) -> Result<(), DrmError> {
+        queue_sequence(self.fd.raw(), crtc).map_err(DrmError::QueueSequence)
     }
 }
 
@@ -554,6 +560,17 @@ impl DrmMaster {
                             crtc_id: DrmCrtc(event.crtc_id),
                         });
                     }
+                    sys::DRM_EVENT_CRTC_SEQUENCE => {
+                        let event: drm_event_crtc_sequence = match uapi::pod_read_init(buf) {
+                            Ok(e) => e,
+                            _ => return Err(DrmError::InvalidRead),
+                        };
+                        self.events.push(DrmEvent::Sequence {
+                            time_ns: event.time_ns,
+                            sequence: event.sequence,
+                            crtc_id: DrmCrtc(event.user_data as _),
+                        });
+                    }
                     _ => {}
                 }
                 buf = &buf[len..];
@@ -580,6 +597,11 @@ pub enum DrmEvent {
         tv_sec: u32,
         tv_usec: u32,
         sequence: u32,
+        crtc_id: DrmCrtc,
+    },
+    Sequence {
+        time_ns: i64,
+        sequence: u64,
         crtc_id: DrmCrtc,
     },
 }

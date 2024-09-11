@@ -13,7 +13,8 @@ use {
             sys::{
                 sync_ioc_merge, sync_obj_create, sync_obj_destroy, sync_obj_eventfd,
                 sync_obj_fd_to_handle, sync_obj_handle_to_fd, sync_obj_signal, sync_obj_transfer,
-                DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
+                DRM_SYNCOBJ_CREATE_SIGNALED, DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
+                DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE,
                 DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE,
             },
             DrmError,
@@ -123,6 +124,21 @@ impl SyncObjCtx {
         self.inner.handles.set(sync_obj.id, handle);
         self.inner.links.set(sync_obj.id, link);
         Ok(sync_obj)
+    }
+
+    pub fn create_signaled_sync_file(&self) -> Result<SyncFile, DrmError> {
+        let handle = sync_obj_create(self.inner.drm.raw(), DRM_SYNCOBJ_CREATE_SIGNALED)
+            .map_err(DrmError::CreateSyncObj)?;
+        let handle = SyncObjHandle(handle);
+        let fd = sync_obj_handle_to_fd(
+            self.inner.drm.raw(),
+            handle.0,
+            DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE,
+        );
+        destroy(&self.inner.drm, handle);
+        fd.map_err(DrmError::ExportSyncObj)
+            .map(Rc::new)
+            .map(SyncFile)
     }
 
     pub fn wait_for_point(

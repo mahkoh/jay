@@ -472,7 +472,7 @@ impl Renderer<'_> {
                 self.base.scale,
                 bounds,
                 Some(buffer.clone()),
-                buffer.sync.clone(),
+                AcquireSync::Unnecessary,
                 buffer.release_sync,
             );
         } else if let Some(color) = &buffer.buffer.color {

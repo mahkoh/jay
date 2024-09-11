@@ -66,7 +66,7 @@ dynload! {
         glClear: unsafe fn(mask: GLbitfield),
         glBlendFunc: unsafe fn(sfactor: GLenum, dfactor: GLenum),
         glClearColor: unsafe fn(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat),
-        glFlush: unsafe fn(),
+        glFinish: unsafe fn(),
 
         glReadnPixels: unsafe fn(
             x: GLint,

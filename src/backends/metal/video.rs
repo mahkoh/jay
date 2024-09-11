@@ -4,16 +4,23 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor, Mode,
-            MonitorInfo,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor,
+            HardwareCursorUpdate, Mode, MonitorInfo,
         },
-        backends::metal::{MetalBackend, MetalError},
+        backends::metal::{
+            present::{
+                DirectScanoutCache, PresentFb, DEFAULT_POST_COMMIT_MARGIN,
+                DEFAULT_PRE_COMMIT_MARGIN, MAX_POST_COMMIT_MARGIN, MIN_POST_COMMIT_MARGIN,
+                POST_COMMIT_MARGIN_DELTA,
+            },
+            MetalBackend, MetalError,
+        },
         drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
-            needs_render_usage, AcquireSync, BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer,
-            GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
+            needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
+            SyncFile,
         },
         ifs::{
             wl_output::OutputId,
@@ -21,13 +28,11 @@ use {
         },
         renderer::RenderResult,
         state::State,
-        theme::Color,
-        tree::OutputNode,
         udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, oserror::OsError, transform_ext::TransformExt,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
+            numcell::NumCell, on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
         },
         video::{
             dmabuf::DmaBufId,
@@ -36,8 +41,7 @@ use {
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster,
                 DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
                 DrmPropertyType, DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-                DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC,
-                DRM_MODE_PAGE_FLIP_EVENT,
+                DRM_MODE_ATOMIC_ALLOW_MODESET,
             },
             gbm::{GbmBo, GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             Modifier, INVALID_MODIFIER,
@@ -49,7 +53,6 @@ use {
     indexmap::{indexset, IndexMap, IndexSet},
     isnt::std_1::collections::IsntHashMap2Ext,
     jay_config::video::GfxApi,
-    once_cell::sync::Lazy,
     std::{
         any::Any,
         cell::{Cell, RefCell},
@@ -58,7 +61,7 @@ use {
         fmt::{Debug, Formatter},
         mem,
         ops::DerefMut,
-        rc::{Rc, Weak},
+        rc::Rc,
     },
     uapi::{
         c::{self, dev_t},
@@ -426,9 +429,9 @@ pub struct MetalConnector {
     pub lease: Cell<Option<MetalLeaseId>>,
 
     pub can_present: Cell<bool>,
-    pub has_damage: Cell<bool>,
+    pub has_damage: NumCell<u64>,
     pub cursor_changed: Cell<bool>,
-    pub cursor_scheduled: Cell<bool>,
+    pub cursor_damage: Cell<bool>,
     pub next_flip_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
@@ -446,11 +449,10 @@ pub struct MetalConnector {
 
     pub render_result: RefCell<RenderResult>,
 
-    pub cursor_generation: NumCell<u64>,
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
     pub cursor_enabled: Cell<bool>,
-    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 3]>>>,
+    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub cursor_front_buffer: NumCell<usize>,
     pub cursor_swap_buffer: Cell<bool>,
     pub cursor_sync_file: CloneCell<Option<SyncFile>>,
@@ -463,6 +465,16 @@ pub struct MetalConnector {
 
     pub tearing_requested: Cell<bool>,
     pub try_switch_format: Cell<bool>,
+
+    pub version: NumCell<u64>,
+    pub sequence: Cell<u64>,
+    pub expected_sequence: Cell<Option<u64>>,
+    pub pre_commit_margin: Cell<u64>,
+    pub pre_commit_margin_decay: GeometricDecay,
+    pub post_commit_margin: Cell<u64>,
+    pub post_commit_margin_decay: GeometricDecay,
+    pub vblank_miss_sec: Cell<u32>,
+    pub vblank_miss_this_sec: NumCell<u32>,
 }
 
 impl Debug for MetalConnector {
@@ -472,15 +484,17 @@ impl Debug for MetalConnector {
 }
 
 pub struct MetalHardwareCursor {
-    pub generation: u64,
     pub connector: Rc<MetalConnector>,
-    pub cursor_swap_buffer: Cell<bool>,
-    pub cursor_enabled_pending: Cell<bool>,
-    pub cursor_x_pending: Cell<i32>,
-    pub cursor_y_pending: Cell<i32>,
-    pub cursor_buffers: Rc<[RenderBuffer; 3]>,
-    pub sync_file: CloneCell<Option<SyncFile>>,
-    pub have_changes: Cell<bool>,
+}
+
+pub struct MetalHardwareCursorChange<'a> {
+    pub cursor_swap_buffer: bool,
+    pub cursor_enabled: bool,
+    pub cursor_x: i32,
+    pub cursor_y: i32,
+    pub cursor_buffer: &'a RenderBuffer,
+    pub sync_file: Option<SyncFile>,
+    pub cursor_size: (i32, i32),
 }
 
 impl Debug for MetalHardwareCursor {
@@ -491,72 +505,38 @@ impl Debug for MetalHardwareCursor {
 }
 
 impl HardwareCursor for MetalHardwareCursor {
-    fn set_enabled(&self, enabled: bool) {
-        if self.cursor_enabled_pending.replace(enabled) != enabled {
-            self.have_changes.set(true);
+    fn damage(&self) {
+        self.connector.cursor_damage.set(true);
+        if self.connector.can_present.get() {
+            self.connector.schedule_present();
         }
+    }
+}
+
+impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
+    fn set_enabled(&mut self, enabled: bool) {
+        self.cursor_enabled = enabled;
     }
 
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer> {
-        let buffer = (self.connector.cursor_front_buffer.get() + 1) % self.cursor_buffers.len();
-        self.cursor_buffers[buffer].render_fb()
+        self.cursor_buffer.render_fb()
     }
 
-    fn set_position(&self, x: i32, y: i32) {
-        self.cursor_x_pending.set(x);
-        self.cursor_y_pending.set(y);
-        self.have_changes.set(true);
+    fn set_position(&mut self, x: i32, y: i32) {
+        self.cursor_x = x;
+        self.cursor_y = y;
     }
 
-    fn swap_buffer(&self) {
-        self.cursor_swap_buffer.set(true);
-        self.have_changes.set(true);
+    fn swap_buffer(&mut self) {
+        self.cursor_swap_buffer = true;
     }
 
-    fn set_sync_file(&self, sync_file: Option<SyncFile>) {
-        self.sync_file.set(sync_file);
-        self.have_changes.set(true);
-    }
-
-    fn commit(&self, schedule_present: bool) {
-        if self.generation != self.connector.cursor_generation.get() {
-            return;
-        }
-        if !self.have_changes.take() {
-            return;
-        }
-        self.connector
-            .cursor_enabled
-            .set(self.cursor_enabled_pending.get());
-        self.connector.cursor_x.set(self.cursor_x_pending.get());
-        self.connector.cursor_y.set(self.cursor_y_pending.get());
-        if self.cursor_swap_buffer.take() {
-            self.connector.cursor_swap_buffer.set(true);
-        }
-        self.connector.cursor_sync_file.set(self.sync_file.take());
-        self.connector.cursor_changed.set(true);
-        if schedule_present {
-            self.schedule_present();
-        }
-    }
-
-    fn schedule_present(&self) -> bool {
-        if self.connector.cursor_changed.get() {
-            self.connector.cursor_scheduled.set(true);
-            if self.connector.can_present.get() {
-                self.connector.schedule_present();
-            }
-            true
-        } else {
-            false
-        }
+    fn set_sync_file(&mut self, sync_file: Option<SyncFile>) {
+        self.sync_file = sync_file;
     }
 
     fn size(&self) -> (i32, i32) {
-        (
-            self.connector.dev.cursor_width as _,
-            self.connector.dev.cursor_height as _,
-        )
+        self.cursor_size
     }
 }
 
@@ -570,67 +550,7 @@ impl Debug for ConnectorFutures {
     }
 }
 
-#[derive(Debug)]
-pub struct DirectScanoutCache {
-    tex: Weak<dyn GfxTexture>,
-    fb: Option<Rc<DrmFramebuffer>>,
-}
-
-#[derive(Debug)]
-pub struct DirectScanoutData {
-    tex: Rc<dyn GfxTexture>,
-    acquire_sync: AcquireSync,
-    _resv: Option<Rc<dyn BufferResv>>,
-    fb: Rc<DrmFramebuffer>,
-    dma_buf_id: DmaBufId,
-    position: DirectScanoutPosition,
-}
-
-#[derive(Debug)]
-pub struct DirectScanoutPosition {
-    pub src_width: i32,
-    pub src_height: i32,
-    pub crtc_x: i32,
-    pub crtc_y: i32,
-    pub crtc_width: i32,
-    pub crtc_height: i32,
-}
-
-#[derive(Debug)]
-pub struct PresentFb {
-    fb: Rc<DrmFramebuffer>,
-    tex: Rc<dyn GfxTexture>,
-    direct_scanout_data: Option<DirectScanoutData>,
-    sync_file: Option<SyncFile>,
-}
-
 impl MetalConnector {
-    async fn present_loop(self: Rc<Self>) {
-        loop {
-            self.present_trigger.triggered().await;
-            static DELTA: Lazy<Option<u64>> = Lazy::new(|| {
-                if let Ok(max_render_time) = std::env::var("JAY_MAX_RENDER_TIME_NSEC") {
-                    if let Ok(max_render_time) = max_render_time.parse() {
-                        return Some(max_render_time);
-                    }
-                }
-                None
-            });
-            if let Some(delta) = *DELTA {
-                let next_present = self.next_flip_nsec.get().saturating_sub(delta);
-                if self.state.now_nsec() < next_present {
-                    self.state.ring.timeout(next_present).await.unwrap();
-                }
-            }
-            match self.present(true) {
-                Ok(_) => self.state.set_backend_idle(false),
-                Err(e) => {
-                    log::error!("Could not present: {}", ErrorFmt(e));
-                }
-            }
-        }
-    }
-
     fn send_vrr_enabled(&self) {
         match self.frontend_state.get() {
             FrontState::Removed
@@ -671,21 +591,11 @@ impl MetalConnector {
             | FrontState::Connected { non_desktop: true } => return,
             FrontState::Connected { non_desktop: false } => {}
         }
-        let generation = self.cursor_generation.fetch_add(1) + 1;
-        let hc = match self.cursor_buffers.get() {
-            Some(cp) => Some(Rc::new(MetalHardwareCursor {
-                generation,
+        let hc = self.cursor_buffers.is_some().then(|| {
+            Rc::new(MetalHardwareCursor {
                 connector: self.clone(),
-                cursor_swap_buffer: Cell::new(false),
-                cursor_enabled_pending: Cell::new(self.cursor_enabled.get()),
-                cursor_x_pending: Cell::new(self.cursor_x.get()),
-                cursor_y_pending: Cell::new(self.cursor_y.get()),
-                cursor_buffers: cp.clone(),
-                sync_file: Default::default(),
-                have_changes: Cell::new(false),
-            }) as _),
-            _ => None,
-        };
+            }) as _
+        });
         self.on_change
             .send_event(ConnectorEvent::HardwareCursor(hc));
     }
@@ -693,491 +603,6 @@ impl MetalConnector {
     fn connected(&self) -> bool {
         let dd = self.display.borrow_mut();
         self.enabled.get() && dd.connection == ConnectorStatus::Connected
-    }
-
-    pub fn schedule_present(&self) {
-        self.present_trigger.trigger();
-    }
-
-    fn trim_scanout_cache(&self) {
-        self.scanout_buffers
-            .borrow_mut()
-            .retain(|_, buffer| buffer.tex.strong_count() > 0);
-    }
-
-    fn prepare_direct_scanout(
-        &self,
-        pass: &GfxRenderPass,
-        plane: &Rc<MetalPlane>,
-    ) -> Option<DirectScanoutData> {
-        let ct = 'ct: {
-            let mut ops = pass.ops.iter().rev();
-            let ct = 'ct2: {
-                for opt in &mut ops {
-                    match opt {
-                        GfxApiOpt::Sync => {}
-                        GfxApiOpt::FillRect(_) => {
-                            // Top-most layer must be a texture.
-                            return None;
-                        }
-                        GfxApiOpt::CopyTexture(ct) => break 'ct2 ct,
-                    }
-                }
-                return None;
-            };
-            if ct.alpha.is_some() {
-                // Direct scanout with alpha factor is not supported.
-                return None;
-            }
-            if !ct.tex.format().has_alpha && ct.target.is_covering() {
-                // Texture covers the entire screen and is opaque.
-                break 'ct ct;
-            }
-            for opt in ops {
-                match opt {
-                    GfxApiOpt::Sync => {}
-                    GfxApiOpt::FillRect(fr) => {
-                        if fr.color == Color::SOLID_BLACK {
-                            // Black fills can be ignored because this is the CRTC background color.
-                            if fr.rect.is_covering() {
-                                // If fill covers the entire screen, we don't have to look further.
-                                break 'ct ct;
-                            }
-                        } else {
-                            // Fill could be visible.
-                            return None;
-                        }
-                    }
-                    GfxApiOpt::CopyTexture(_) => {
-                        // Texture could be visible.
-                        return None;
-                    }
-                }
-            }
-            if let Some(clear) = pass.clear {
-                if clear != Color::SOLID_BLACK {
-                    // Background could be visible.
-                    return None;
-                }
-            }
-            ct
-        };
-        if let AcquireSync::None = ct.acquire_sync {
-            // Cannot perform scanout without sync.
-            return None;
-        }
-        if ct.source.buffer_transform != ct.target.output_transform {
-            // Rotations and mirroring are not supported.
-            return None;
-        }
-        if !ct.source.is_covering() {
-            // Viewports are not supported.
-            return None;
-        }
-        if ct.target.x1 < -1.0 || ct.target.y1 < -1.0 || ct.target.x2 > 1.0 || ct.target.y2 > 1.0 {
-            // Rendering outside the screen is not supported.
-            return None;
-        }
-        let (tex_w, tex_h) = ct.tex.size();
-        let (x1, x2, y1, y2) = {
-            let plane_w = plane.mode_w.get() as f32;
-            let plane_h = plane.mode_h.get() as f32;
-            let ((x1, x2), (y1, y2)) = ct
-                .target
-                .output_transform
-                .maybe_swap(((ct.target.x1, ct.target.x2), (ct.target.y1, ct.target.y2)));
-            (
-                (x1 + 1.0) * plane_w / 2.0,
-                (x2 + 1.0) * plane_w / 2.0,
-                (y1 + 1.0) * plane_h / 2.0,
-                (y2 + 1.0) * plane_h / 2.0,
-            )
-        };
-        let (crtc_w, crtc_h) = (x2 - x1, y2 - y1);
-        if crtc_w < 0.0 || crtc_h < 0.0 {
-            // Flipping x or y axis is not supported.
-            return None;
-        }
-        if self.cursor_enabled.get() && (tex_w as f32, tex_h as f32) != (crtc_w, crtc_h) {
-            // If hardware cursors are used, we cannot scale the texture.
-            return None;
-        }
-        let Some(dmabuf) = ct.tex.dmabuf() else {
-            // Shm buffers cannot be scanned out.
-            return None;
-        };
-        let position = DirectScanoutPosition {
-            src_width: tex_w,
-            src_height: tex_h,
-            crtc_x: x1 as _,
-            crtc_y: y1 as _,
-            crtc_width: crtc_w as _,
-            crtc_height: crtc_h as _,
-        };
-        let mut cache = self.scanout_buffers.borrow_mut();
-        if let Some(buffer) = cache.get(&dmabuf.id) {
-            return buffer.fb.as_ref().map(|fb| DirectScanoutData {
-                tex: buffer.tex.upgrade().unwrap(),
-                acquire_sync: ct.acquire_sync.clone(),
-                _resv: ct.buffer_resv.clone(),
-                fb: fb.clone(),
-                dma_buf_id: dmabuf.id,
-                position,
-            });
-        }
-        let format = 'format: {
-            if let Some(f) = plane.formats.get(&dmabuf.format.drm) {
-                break 'format f;
-            }
-            // Try opaque format if possible.
-            if let Some(opaque) = dmabuf.format.opaque {
-                if let Some(f) = plane.formats.get(&opaque.drm) {
-                    break 'format f;
-                }
-            }
-            return None;
-        };
-        if !format.modifiers.contains(&dmabuf.modifier) {
-            return None;
-        }
-        let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
-            Ok(fb) => Some(DirectScanoutData {
-                tex: ct.tex.clone(),
-                acquire_sync: ct.acquire_sync.clone(),
-                _resv: ct.buffer_resv.clone(),
-                fb: Rc::new(fb),
-                dma_buf_id: dmabuf.id,
-                position,
-            }),
-            Err(e) => {
-                log::debug!(
-                    "Could not import dmabuf for direct scanout: {}",
-                    ErrorFmt(e)
-                );
-                None
-            }
-        };
-        cache.insert(
-            dmabuf.id,
-            DirectScanoutCache {
-                tex: Rc::downgrade(&ct.tex),
-                fb: data.as_ref().map(|dsd| dsd.fb.clone()),
-            },
-        );
-        data
-    }
-
-    fn direct_scanout_enabled(&self) -> bool {
-        self.dev
-            .direct_scanout_enabled
-            .get()
-            .unwrap_or(self.state.direct_scanout_enabled.get())
-    }
-
-    fn prepare_present_fb(
-        &self,
-        rr: &mut RenderResult,
-        buffer: &RenderBuffer,
-        plane: &Rc<MetalPlane>,
-        output: &OutputNode,
-        try_direct_scanout: bool,
-    ) -> Result<PresentFb, MetalError> {
-        self.trim_scanout_cache();
-        let buffer_fb = buffer.render_fb();
-        let render_hw_cursor = !self.cursor_enabled.get();
-        let pass = buffer_fb.create_render_pass(
-            output,
-            &self.state,
-            Some(output.global.pos.get()),
-            Some(rr),
-            output.global.persistent.scale.get(),
-            true,
-            render_hw_cursor,
-            output.has_fullscreen(),
-            output.global.persistent.transform.get(),
-            Some(&self.state.damage_visualizer),
-        );
-        let try_direct_scanout = try_direct_scanout
-            && self.direct_scanout_enabled()
-            // at least on AMD, using a FB on a different device for rendering will fail
-            // and destroy the render context. it's possible to work around this by waiting
-            // until the FB is no longer being scanned out, but if a notification pops up
-            // then we must be able to disable direct scanout immediately.
-            // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
-            && self.dev.is_render_device();
-        let mut direct_scanout_data = None;
-        if try_direct_scanout {
-            direct_scanout_data = self.prepare_direct_scanout(&pass, plane);
-        }
-        let direct_scanout_active = direct_scanout_data.is_some();
-        if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
-            let change = match direct_scanout_active {
-                true => "Enabling",
-                false => "Disabling",
-            };
-            log::debug!("{} direct scanout on {}", change, self.kernel_id());
-        }
-        let sync_file;
-        let fb;
-        let tex;
-        match &direct_scanout_data {
-            None => {
-                let sf = buffer_fb
-                    .perform_render_pass(pass)
-                    .map_err(MetalError::RenderFrame)?;
-                sync_file = buffer.copy_to_dev(sf)?;
-                fb = buffer.drm.clone();
-                tex = buffer.render_tex.clone();
-            }
-            Some(dsd) => {
-                sync_file = match &dsd.acquire_sync {
-                    AcquireSync::None => None,
-                    AcquireSync::Implicit => None,
-                    AcquireSync::SyncFile { sync_file } => Some(sync_file.clone()),
-                    AcquireSync::Unnecessary => None,
-                };
-                fb = dsd.fb.clone();
-                tex = dsd.tex.clone();
-            }
-        };
-        Ok(PresentFb {
-            fb,
-            tex,
-            direct_scanout_data,
-            sync_file,
-        })
-    }
-
-    pub fn present(&self, try_direct_scanout: bool) -> Result<(), MetalError> {
-        let crtc = match self.crtc.get() {
-            Some(crtc) => crtc,
-            _ => return Ok(()),
-        };
-        if (!self.has_damage.get() && !self.cursor_scheduled.get()) || !self.can_present.get() {
-            return Ok(());
-        }
-        if !crtc.active.value.get() {
-            return Ok(());
-        }
-        let plane = match self.primary_plane.get() {
-            Some(p) => p,
-            _ => return Ok(()),
-        };
-        let buffers = match self.buffers.get() {
-            Some(b) => b,
-            _ => return Ok(()),
-        };
-        let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
-            return Ok(());
-        };
-        let cursor = self.cursor_plane.get();
-        let mut new_fb = None;
-        let mut changes = self.master.change();
-        let mut try_async_flip = self.tearing_requested.get() && self.dev.supports_async_commit;
-        macro_rules! change {
-            ($c:expr, $prop:expr, $new:expr) => {{
-                if $prop.value.get() != $new {
-                    $c.change($prop.id, $new as u64);
-                    try_async_flip = false;
-                    $prop.pending_value.set(Some($new));
-                }
-            }};
-        }
-        if self.has_damage.get() {
-            if !self.backend.check_render_context(&self.dev) {
-                return Ok(());
-            }
-            let buffer = &buffers[self.next_buffer.get() % buffers.len()];
-            let mut rr = self.render_result.borrow_mut();
-            rr.output_id = node.id;
-            let fb = self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
-            rr.dispatch_frame_requests(self.state.now_msec());
-            let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
-                match &fb.direct_scanout_data {
-                    None => {
-                        let plane_w = plane.mode_w.get();
-                        let plane_h = plane.mode_h.get();
-                        (0, 0, plane_w, plane_h, plane_w, plane_h)
-                    }
-                    Some(dsd) => {
-                        let p = &dsd.position;
-                        (
-                            p.crtc_x,
-                            p.crtc_y,
-                            p.crtc_width,
-                            p.crtc_height,
-                            p.src_width,
-                            p.src_height,
-                        )
-                    }
-                };
-            let in_fence = fb.sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
-            changes.change_object(plane.id, |c| {
-                c.change(plane.fb_id, fb.fb.id().0 as _);
-                change!(c, plane.src_w, (src_width as u32) << 16);
-                change!(c, plane.src_h, (src_height as u32) << 16);
-                change!(c, plane.crtc_x, crtc_x);
-                change!(c, plane.crtc_y, crtc_y);
-                change!(c, plane.crtc_w, crtc_w);
-                change!(c, plane.crtc_h, crtc_h);
-                if !try_async_flip && !self.dev.is_nvidia {
-                    c.change(plane.in_fence_fd, in_fence as u64);
-                }
-            });
-            new_fb = Some(fb);
-        } else {
-            if self.dev.is_amd && crtc.vrr_enabled.value.get() {
-                // Work around https://gitlab.freedesktop.org/drm/amd/-/issues/2186
-                if let Some(fb) = &*self.active_framebuffer.borrow() {
-                    changes.change_object(plane.id, |c| {
-                        c.change(plane.fb_id, fb.fb.id().0 as _);
-                    });
-                }
-            }
-        }
-        let mut cursor_swap_buffer = false;
-        let mut cursor_sync_file = None;
-        if self.cursor_changed.get() && cursor.is_some() {
-            try_async_flip = false;
-            let plane = cursor.unwrap();
-            if self.cursor_enabled.get() {
-                cursor_swap_buffer = self.cursor_swap_buffer.get();
-                let mut front_buffer = self.cursor_front_buffer.get();
-                if cursor_swap_buffer {
-                    front_buffer = front_buffer.wrapping_add(1);
-                    cursor_sync_file = self.cursor_sync_file.get();
-                }
-                let buffers = self.cursor_buffers.get().unwrap();
-                let buffer = &buffers[front_buffer % buffers.len()];
-                if cursor_swap_buffer {
-                    cursor_sync_file = buffer.copy_to_dev(cursor_sync_file)?;
-                }
-                let in_fence = cursor_sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
-                let (width, height) = buffer.dev_fb.physical_size();
-                changes.change_object(plane.id, |c| {
-                    c.change(plane.fb_id, buffer.drm.id().0 as _);
-                    c.change(plane.crtc_id.id, crtc.id.0 as _);
-                    c.change(plane.crtc_x.id, self.cursor_x.get() as _);
-                    c.change(plane.crtc_y.id, self.cursor_y.get() as _);
-                    c.change(plane.crtc_w.id, width as _);
-                    c.change(plane.crtc_h.id, height as _);
-                    c.change(plane.src_x.id, 0);
-                    c.change(plane.src_y.id, 0);
-                    c.change(plane.src_w.id, (width as u64) << 16);
-                    c.change(plane.src_h.id, (height as u64) << 16);
-                    if !self.dev.is_nvidia {
-                        c.change(plane.in_fence_fd, in_fence as u64);
-                    }
-                });
-            } else {
-                changes.change_object(plane.id, |c| {
-                    c.change(plane.fb_id, 0);
-                    c.change(plane.crtc_id.id, 0);
-                });
-            }
-        }
-        let mut res;
-        'commit: {
-            const FLAGS: u32 = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
-            if try_async_flip {
-                res = changes.commit(FLAGS | DRM_MODE_PAGE_FLIP_ASYNC, 0);
-                if res.is_ok() {
-                    break 'commit;
-                }
-            }
-            res = changes.commit(FLAGS, 0);
-        }
-        if let Err(e) = res {
-            if let DrmError::Atomic(OsError(c::EACCES)) = e {
-                log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
-                self.render_result
-                    .borrow_mut()
-                    .discard_presentation_feedback();
-                return Ok(());
-            }
-            if let Some(fb) = &new_fb {
-                if let Some(dsd) = &fb.direct_scanout_data {
-                    if self.present(false).is_ok() {
-                        let mut cache = self.scanout_buffers.borrow_mut();
-                        if let Some(buffer) = cache.remove(&dsd.dma_buf_id) {
-                            cache.insert(
-                                dsd.dma_buf_id,
-                                DirectScanoutCache {
-                                    tex: buffer.tex,
-                                    fb: None,
-                                },
-                            );
-                        }
-                        return Ok(());
-                    }
-                }
-            }
-            self.render_result
-                .borrow_mut()
-                .discard_presentation_feedback();
-            Err(MetalError::Commit(e))
-        } else {
-            macro_rules! apply_change {
-                ($prop:expr) => {
-                    if let Some(v) = $prop.pending_value.take() {
-                        $prop.value.set(v);
-                    }
-                };
-            }
-            apply_change!(plane.src_w);
-            apply_change!(plane.src_h);
-            apply_change!(plane.crtc_x);
-            apply_change!(plane.crtc_y);
-            apply_change!(plane.crtc_w);
-            apply_change!(plane.crtc_h);
-            node.schedule.presented();
-            self.perform_screencopies(&new_fb, &node);
-            if let Some(fb) = new_fb {
-                if fb.direct_scanout_data.is_none() {
-                    self.next_buffer.fetch_add(1);
-                }
-                self.next_framebuffer.set(Some(fb));
-            }
-            if cursor_swap_buffer {
-                self.cursor_swap_buffer.set(false);
-                self.cursor_front_buffer.fetch_add(1);
-                self.cursor_sync_file.take();
-            }
-            self.can_present.set(false);
-            self.has_damage.set(false);
-            self.cursor_changed.set(false);
-            self.cursor_scheduled.set(false);
-            Ok(())
-        }
-    }
-
-    fn perform_screencopies(&self, new_fb: &Option<PresentFb>, output: &OutputNode) {
-        let active_fb;
-        let fb = match &new_fb {
-            Some(f) => f,
-            None => {
-                active_fb = self.active_framebuffer.borrow();
-                match &*active_fb {
-                    None => return,
-                    Some(f) => f,
-                }
-            }
-        };
-        let render_hardware_cursor = self.cursor_enabled.get();
-        match &fb.direct_scanout_data {
-            None => {
-                output.perform_screencopies(&fb.tex, render_hardware_cursor, 0, 0, None);
-            }
-            Some(dsd) => {
-                output.perform_screencopies(
-                    &dsd.tex,
-                    render_hardware_cursor,
-                    dsd.position.crtc_x,
-                    dsd.position.crtc_y,
-                    Some((dsd.position.crtc_width, dsd.position.crtc_height)),
-                );
-            }
-        }
     }
 
     pub fn update_drm_feedback(&self) {
@@ -1299,6 +724,16 @@ impl MetalConnector {
             },
         }
     }
+
+    fn queue_sequence(&self) {
+        if let Some(crtc) = self.crtc.get() {
+            if let Err(e) = self.master.queue_sequence(crtc.id) {
+                log::error!("Could not queue a CRTC sequence: {}", ErrorFmt(e));
+            } else {
+                crtc.have_queued_sequence.set(true);
+            }
+        }
+    }
 }
 
 impl Connector for MetalConnector {
@@ -1319,7 +754,7 @@ impl Connector for MetalConnector {
     }
 
     fn damage(&self) {
-        self.has_damage.set(true);
+        self.has_damage.fetch_add(1);
         if self.can_present.get() {
             self.schedule_present();
         }
@@ -1495,6 +930,7 @@ pub struct MetalCrtc {
     pub vrr_enabled: MutableProperty<bool>,
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
+    pub have_queued_sequence: Cell<bool>,
 }
 
 impl Debug for MetalCrtc {
@@ -1518,8 +954,8 @@ pub enum PlaneType {
 
 #[derive(Debug)]
 pub struct PlaneFormat {
-    format: &'static Format,
-    modifiers: IndexSet<Modifier>,
+    pub format: &'static Format,
+    pub modifiers: IndexSet<Modifier>,
 }
 
 pub struct MetalPlane {
@@ -1602,14 +1038,13 @@ fn create_connector(
         non_desktop_override: Default::default(),
         lease: Cell::new(None),
         can_present: Cell::new(true),
-        has_damage: Cell::new(true),
+        has_damage: NumCell::new(1),
         primary_plane: Default::default(),
         cursor_plane: Default::default(),
         crtc: Default::default(),
         on_change: Default::default(),
         present_trigger: Default::default(),
         render_result: RefCell::new(Default::default()),
-        cursor_generation: Default::default(),
         cursor_x: Cell::new(0),
         cursor_y: Cell::new(0),
         cursor_enabled: Cell::new(false),
@@ -1617,7 +1052,7 @@ fn create_connector(
         display: RefCell::new(display),
         frontend_state: Cell::new(FrontState::Disconnected),
         cursor_changed: Cell::new(false),
-        cursor_scheduled: Cell::new(false),
+        cursor_damage: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
         cursor_sync_file: Default::default(),
@@ -1629,6 +1064,15 @@ fn create_connector(
         next_flip_nsec: Cell::new(0),
         tearing_requested: Cell::new(false),
         try_switch_format: Cell::new(false),
+        version: Default::default(),
+        sequence: Default::default(),
+        expected_sequence: Default::default(),
+        pre_commit_margin_decay: GeometricDecay::new(0.5, DEFAULT_PRE_COMMIT_MARGIN),
+        pre_commit_margin: Cell::new(DEFAULT_PRE_COMMIT_MARGIN),
+        post_commit_margin_decay: GeometricDecay::new(0.1, DEFAULT_POST_COMMIT_MARGIN),
+        post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
+        vblank_miss_sec: Cell::new(0),
+        vblank_miss_this_sec: Default::default(),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1831,6 +1275,7 @@ fn create_crtc(
         out_fence_ptr: props.get("OUT_FENCE_PTR")?.id,
         vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
         mode_blob: Default::default(),
+        have_queued_sequence: Cell::new(false),
     })
 }
 
@@ -1981,7 +1426,7 @@ struct Preserve {
 }
 
 impl MetalBackend {
-    fn check_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
+    pub fn check_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
         let ctx = match self.ctx.get() {
             Some(ctx) => ctx,
             None => return false,
@@ -2376,9 +1821,8 @@ impl MetalBackend {
     ) -> Result<(), MetalError> {
         for connector in dev.connectors.lock().values() {
             connector.can_present.set(true);
-            connector.has_damage.set(true);
+            connector.has_damage.fetch_add(1);
             connector.cursor_changed.set(true);
-            connector.cursor_scheduled.set(true);
         }
         if dev.unprocessed_change.get() {
             return self.handle_drm_change_(dev, false);
@@ -2416,7 +1860,62 @@ impl MetalBackend {
                 sequence,
                 crtc_id,
             } => self.handle_drm_flip_event(dev, crtc_id, tv_sec, tv_usec, sequence),
+            DrmEvent::Sequence {
+                time_ns,
+                sequence,
+                crtc_id,
+            } => self.handle_drm_sequence_event(dev, crtc_id, time_ns, sequence),
         }
+    }
+
+    fn update_sequence(&self, connector: &Rc<MetalConnector>, new: u64) {
+        if connector.sequence.replace(new) == new {
+            return;
+        }
+        // nothing
+    }
+
+    fn update_u32_sequence(&self, connector: &Rc<MetalConnector>, sequence: u32) {
+        let old = connector.sequence.get();
+        let mut new = (old & !(u32::MAX as u64)) | (sequence as u64);
+        if new < old {
+            new += 1 << u32::BITS;
+            if new < old {
+                log::warn!("Ignoring nonsensical sequence {sequence} (old = {old})");
+                return;
+            }
+        }
+        if new > old + (1 << (u32::BITS - 1)) {
+            new = new.saturating_sub(1 << u32::BITS);
+            if new < old {
+                return;
+            }
+        }
+        self.update_sequence(connector, new);
+    }
+
+    fn handle_drm_sequence_event(
+        self: &Rc<Self>,
+        dev: &Rc<MetalDrmDeviceData>,
+        crtc_id: DrmCrtc,
+        time_ns: i64,
+        sequence: u64,
+    ) {
+        let crtc = match dev.dev.crtcs.get(&crtc_id) {
+            Some(c) => c,
+            _ => return,
+        };
+        crtc.have_queued_sequence.set(false);
+        let connector = match crtc.connector.get() {
+            Some(c) => c,
+            _ => return,
+        };
+        self.update_sequence(&connector, sequence);
+        connector.queue_sequence();
+        let dd = connector.display.borrow();
+        connector
+            .next_flip_nsec
+            .set(time_ns as u64 + dd.refresh as u64);
     }
 
     fn handle_drm_flip_event(
@@ -2435,11 +1934,42 @@ impl MetalBackend {
             Some(c) => c,
             _ => return,
         };
+        if !crtc.have_queued_sequence.get() {
+            connector.queue_sequence();
+        }
+        self.update_u32_sequence(&connector, sequence);
         connector.can_present.set(true);
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
         }
-        if connector.has_damage.get() || connector.cursor_scheduled.get() {
+        if let Some(expected) = connector.expected_sequence.take() {
+            if connector.vblank_miss_sec.replace(tv_sec) != tv_sec {
+                let n_missed = connector.vblank_miss_this_sec.replace(0);
+                if n_missed > 0 {
+                    log::debug!("{}: Missed {n_missed} page flips", connector.kernel_id());
+                    let new_margin = (connector.post_commit_margin.get()
+                        + POST_COMMIT_MARGIN_DELTA)
+                        .min(MAX_POST_COMMIT_MARGIN);
+                    connector.post_commit_margin_decay.reset(new_margin);
+                    connector.post_commit_margin.set(new_margin);
+                } else {
+                    connector
+                        .post_commit_margin_decay
+                        .add(MIN_POST_COMMIT_MARGIN);
+                    connector
+                        .post_commit_margin
+                        .set(connector.post_commit_margin_decay.get());
+                }
+            }
+            let actual = connector.sequence.get();
+            if expected < actual {
+                connector.vblank_miss_this_sec.fetch_add(1);
+            }
+        }
+        if connector.has_damage.is_not_zero()
+            || connector.cursor_damage.get()
+            || connector.cursor_changed.get()
+        {
             connector.schedule_present();
         }
         let dd = connector.display.borrow_mut();
@@ -2462,7 +1992,7 @@ impl MetalBackend {
                         tv_sec as _,
                         tv_usec * 1000,
                         refresh,
-                        sequence as _,
+                        connector.sequence.get(),
                         KIND_VSYNC | KIND_HW_COMPLETION,
                     );
                     let _ = fb.client.remove_obj(&*fb);
@@ -2504,6 +2034,7 @@ impl MetalBackend {
             connector.cursor_plane.set(None);
             connector.cursor_enabled.set(false);
             connector.crtc.set(None);
+            connector.version.fetch_add(1);
             let dd = connector.display.borrow_mut();
             dd.crtc_id.value.set(DrmCrtc::NONE);
             changes.change_object(connector.id, |c| {
@@ -2613,6 +2144,18 @@ impl MetalBackend {
             }
         }
         let ctx = dev.ctx.get();
+        if self.signaled_sync_file.is_none() {
+            if let Some(sync) = ctx.gfx.sync_obj_ctx() {
+                match sync.create_signaled_sync_file() {
+                    Ok(sf) => {
+                        self.signaled_sync_file.set(Some(sf));
+                    }
+                    Err(e) => {
+                        log::warn!("Could not create signaled sync file: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
         self.state.set_render_ctx(Some(ctx.gfx.clone()));
         let fb = match DrmFeedback::new(&self.state.drm_feedback_ids, &*ctx.gfx) {
             Ok(fb) => Some(Rc::new(fb)),
@@ -2754,6 +2297,7 @@ impl MetalBackend {
             }
             let crtc = dev.dev.crtcs.get(&crtc_id).unwrap();
             connector.crtc.set(Some(crtc.clone()));
+            connector.version.fetch_add(1);
             crtc.connector.set(Some(connector.clone()));
             if !crtc.active.value.get() {
                 log::debug!("Crtc is not active");
@@ -3010,6 +2554,7 @@ impl MetalBackend {
             c.change(crtc.vrr_enabled.id, dd.should_enable_vrr() as _);
         });
         connector.crtc.set(Some(crtc.clone()));
+        connector.version.fetch_add(1);
         dd.crtc_id.value.set(crtc.id);
         crtc.connector.set(Some(connector.clone()));
         crtc.active.value.set(true);
@@ -3163,6 +2708,7 @@ impl MetalBackend {
         connector.cursor_enabled.set(false);
         connector.buffer_format.set(buffer_format);
         connector.try_switch_format.set(false);
+        connector.version.fetch_add(1);
         Ok(())
     }
 
@@ -3183,40 +2729,39 @@ impl MetalBackend {
                 dd.mode.as_ref().unwrap(),
             );
         }
-        connector.has_damage.set(true);
+        connector.has_damage.fetch_add(1);
         connector.cursor_changed.set(true);
-        connector.cursor_scheduled.set(true);
         connector.schedule_present();
     }
 }
 
 #[derive(Debug)]
 pub struct RenderBuffer {
-    drm: Rc<DrmFramebuffer>,
-    _dev_bo: GbmBo,
-    _render_bo: Option<GbmBo>,
+    pub drm: Rc<DrmFramebuffer>,
+    pub _dev_bo: GbmBo,
+    pub _render_bo: Option<GbmBo>,
     // ctx = dev
     // buffer location = dev
-    dev_fb: Rc<dyn GfxFramebuffer>,
+    pub dev_fb: Rc<dyn GfxFramebuffer>,
     // ctx = dev
     // buffer location = render
-    dev_tex: Option<Rc<dyn GfxTexture>>,
+    pub dev_tex: Option<Rc<dyn GfxTexture>>,
     // ctx = render
     // buffer location = render
-    render_tex: Rc<dyn GfxTexture>,
+    pub render_tex: Rc<dyn GfxTexture>,
     // ctx = render
     // buffer location = render
-    render_fb: Option<Rc<dyn GfxFramebuffer>>,
+    pub render_fb: Option<Rc<dyn GfxFramebuffer>>,
 }
 
 impl RenderBuffer {
-    fn render_fb(&self) -> Rc<dyn GfxFramebuffer> {
+    pub fn render_fb(&self) -> Rc<dyn GfxFramebuffer> {
         self.render_fb
             .clone()
             .unwrap_or_else(|| self.dev_fb.clone())
     }
 
-    fn copy_to_dev(&self, sync_file: Option<SyncFile>) -> Result<Option<SyncFile>, MetalError> {
+    pub fn copy_to_dev(&self, sync_file: Option<SyncFile>) -> Result<Option<SyncFile>, MetalError> {
         let Some(tex) = &self.dev_tex else {
             return Ok(sync_file);
         };

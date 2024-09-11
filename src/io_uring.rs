@@ -1,11 +1,14 @@
-pub use ops::TaskResultExt;
+pub use ops::{
+    poll_external::{PendingPoll, PollCallback},
+    TaskResultExt,
+};
 use {
     crate::{
         async_engine::AsyncEngine,
         io_uring::{
             ops::{
                 accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
-                poll::PollTask, read_write::ReadWriteTask,
+                poll::PollTask, poll_external::PollExternalTask, read_write::ReadWriteTask,
                 read_write_no_cancel::ReadWriteNoCancelTask, recvmsg::RecvmsgTask,
                 sendmsg::SendmsgTask, timeout::TimeoutTask, timeout_link::TimeoutLinkTask,
             },
@@ -209,6 +212,7 @@ impl IoUring {
             cached_read_writes_no_cancel: Default::default(),
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
+            cached_polls_external: Default::default(),
             cached_sendmsg: Default::default(),
             cached_recvmsg: Default::default(),
             cached_timeouts: Default::default(),
@@ -270,6 +274,7 @@ struct IoUringData {
     cached_read_writes_no_cancel: Stack<Box<ReadWriteNoCancelTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
+    cached_polls_external: Stack<Box<PollExternalTask>>,
     cached_sendmsg: Stack<Box<SendmsgTask>>,
     cached_recvmsg: Stack<Box<RecvmsgTask>>,
     cached_timeouts: Stack<Box<TimeoutTask>>,

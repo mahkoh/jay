@@ -4,8 +4,8 @@ use {
         cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
-            AsyncShmGfxTexture, BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, BufferResvUser, GfxContext, GfxError, GfxFormat, GfxFramebuffer,
+            GfxImage, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -84,7 +84,6 @@ pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) fill_prog_pos: GLint,
     pub(crate) fill_prog_color: GLint,
 
-    pub(crate) gfx_ops: RefCell<Vec<GfxApiOpt>>,
     pub(in crate::gfx_apis::gl) gl_state: RefCell<GfxGlState>,
 
     pub(in crate::gfx_apis::gl) buffer_resv_user: BufferResvUser,
@@ -169,7 +168,6 @@ impl GlRenderContext {
             fill_prog_color: fill_prog.get_uniform_location(c"color"),
             fill_prog,
 
-            gfx_ops: Default::default(),
             gl_state: Default::default(),
 
             buffer_resv_user: Default::default(),

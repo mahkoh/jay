@@ -58,6 +58,11 @@ impl Time {
         let nsec = self.0.tv_nsec as u64 / 1_000_000;
         sec + nsec
     }
+
+    pub fn elapsed(self) -> Duration {
+        let now = Self::now_unchecked();
+        now - self
+    }
 }
 
 impl Eq for Time {}

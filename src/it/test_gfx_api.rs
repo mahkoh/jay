@@ -404,10 +404,6 @@ impl GfxImage for TestGfxImage {
 }
 
 impl GfxFramebuffer for TestGfxFb {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        vec![]
-    }
-
     fn physical_size(&self) -> (i32, i32) {
         match &*self.img {
             TestGfxImage::Shm(v) => (v.width, v.height),
@@ -417,7 +413,7 @@ impl GfxFramebuffer for TestGfxFb {
 
     fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {

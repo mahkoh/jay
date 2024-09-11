@@ -256,13 +256,11 @@ pub enum ResetStatus {
 }
 
 pub trait GfxFramebuffer: Debug {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt>;
-
     fn physical_size(&self) -> (i32, i32);
 
     fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
@@ -286,12 +284,11 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<Option<SyncFile>, GfxError> {
-        let ops = self.take_render_ops();
-        self.render(ops, Some(&Color { r, g, b, a }))
+        self.render(&[], Some(&Color { r, g, b, a }))
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
-        transform.maybe_swap(self.physical_size())
+        logical_size(self.physical_size(), transform)
     }
 
     pub fn renderer_base<'a>(
@@ -300,16 +297,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         transform: Transform,
     ) -> RendererBase<'a> {
-        let (width, height) = self.logical_size(transform);
-        RendererBase {
-            ops,
-            scaled: scale != 1,
-            scale,
-            scalef: scale.to_f64(),
-            transform,
-            fb_width: width as _,
-            fb_height: height as _,
-        }
+        renderer_base(self.physical_size(), ops, scale, transform)
     }
 
     pub fn copy_texture(
@@ -320,7 +308,7 @@ impl dyn GfxFramebuffer {
         x: i32,
         y: i32,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         renderer.render_texture(
@@ -337,7 +325,7 @@ impl dyn GfxFramebuffer {
             release_sync,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(ops, clear)
+        self.render(&ops, clear)
     }
 
     pub fn render_custom(
@@ -346,10 +334,10 @@ impl dyn GfxFramebuffer {
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(ops, clear)
+        self.render(&ops, clear)
     }
 
     pub fn create_render_pass(
@@ -365,73 +353,23 @@ impl dyn GfxFramebuffer {
         transform: Transform,
         visualizer: Option<&DamageVisualizer>,
     ) -> GfxRenderPass {
-        let mut ops = self.take_render_ops();
-        let mut renderer = Renderer {
-            base: self.renderer_base(&mut ops, scale, transform),
+        create_render_pass(
+            self.physical_size(),
+            node,
             state,
+            cursor_rect,
             result,
-            logical_extents: node.node_absolute_position().at_point(0, 0),
-            pixel_extents: {
-                let (width, height) = self.logical_size(transform);
-                Rect::new(0, 0, width, height).unwrap()
-            },
-        };
-        node.node_render(&mut renderer, 0, 0, None);
-        if let Some(rect) = cursor_rect {
-            let seats = state.globals.lock_seats();
-            for seat in seats.values() {
-                let (x, y) = seat.pointer_cursor().position_int();
-                if let Some(im) = seat.input_method() {
-                    for (_, popup) in &im.popups {
-                        if popup.surface.node_visible() {
-                            let pos = popup.surface.buffer_abs_pos.get();
-                            let extents = popup.surface.extents.get().move_(pos.x1(), pos.y1());
-                            if extents.intersects(&rect) {
-                                let (x, y) = rect.translate(pos.x1(), pos.y1());
-                                renderer.render_surface(&popup.surface, x, y, None);
-                            }
-                        }
-                    }
-                }
-                if let Some(drag) = seat.toplevel_drag() {
-                    drag.render(&mut renderer, &rect, x, y);
-                }
-                if let Some(dnd_icon) = seat.dnd_icon() {
-                    dnd_icon.render(&mut renderer, &rect, x, y);
-                }
-                if render_cursor {
-                    let cursor_user_group = seat.cursor_group();
-                    if render_hardware_cursor || !cursor_user_group.hardware_cursor() {
-                        if let Some(cursor_user) = cursor_user_group.active() {
-                            if let Some(cursor) = cursor_user.get() {
-                                cursor.tick();
-                                let (mut x, mut y) = cursor_user.position();
-                                x -= Fixed::from_int(rect.x1());
-                                y -= Fixed::from_int(rect.y1());
-                                cursor.render(&mut renderer, x, y);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if let Some(visualizer) = visualizer {
-            if let Some(cursor_rect) = cursor_rect {
-                visualizer.render(&cursor_rect, &mut renderer.base);
-            }
-        }
-        let c = match black_background {
-            true => Color::SOLID_BLACK,
-            false => state.theme.colors.background.get(),
-        };
-        GfxRenderPass {
-            ops,
-            clear: Some(c),
-        }
+            scale,
+            render_cursor,
+            render_hardware_cursor,
+            black_background,
+            transform,
+            visualizer,
+        )
     }
 
-    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
-        self.render(pass.ops, pass.clear.as_ref())
+    pub fn perform_render_pass(&self, pass: &GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
+        self.render(&pass.ops, pass.clear.as_ref())
     }
 
     pub fn render_output(
@@ -480,7 +418,7 @@ impl dyn GfxFramebuffer {
             transform,
             None,
         );
-        self.perform_render_pass(pass)
+        self.perform_render_pass(&pass)
     }
 
     pub fn render_hardware_cursor(
@@ -490,7 +428,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         transform: Transform,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut ops = self.take_render_ops();
+        let mut ops = vec![];
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
             state,
@@ -502,7 +440,7 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(ops, Some(&Color::TRANSPARENT))
+        self.render(&ops, Some(&Color::TRANSPARENT))
     }
 }
 
@@ -693,4 +631,104 @@ impl Drop for PendingShmUpload {
     fn drop(&mut self) {
         self.cancel.cancel(self.id);
     }
+}
+
+pub fn create_render_pass(
+    physical_size: (i32, i32),
+    node: &dyn Node,
+    state: &State,
+    cursor_rect: Option<Rect>,
+    result: Option<&mut RenderResult>,
+    scale: Scale,
+    render_cursor: bool,
+    render_hardware_cursor: bool,
+    black_background: bool,
+    transform: Transform,
+    visualizer: Option<&DamageVisualizer>,
+) -> GfxRenderPass {
+    let mut ops = vec![];
+    let mut renderer = Renderer {
+        base: renderer_base(physical_size, &mut ops, scale, transform),
+        state,
+        result,
+        logical_extents: node.node_absolute_position().at_point(0, 0),
+        pixel_extents: {
+            let (width, height) = logical_size(physical_size, transform);
+            Rect::new(0, 0, width, height).unwrap()
+        },
+    };
+    node.node_render(&mut renderer, 0, 0, None);
+    if let Some(rect) = cursor_rect {
+        let seats = state.globals.lock_seats();
+        for seat in seats.values() {
+            let (x, y) = seat.pointer_cursor().position_int();
+            if let Some(im) = seat.input_method() {
+                for (_, popup) in &im.popups {
+                    if popup.surface.node_visible() {
+                        let pos = popup.surface.buffer_abs_pos.get();
+                        let extents = popup.surface.extents.get().move_(pos.x1(), pos.y1());
+                        if extents.intersects(&rect) {
+                            let (x, y) = rect.translate(pos.x1(), pos.y1());
+                            renderer.render_surface(&popup.surface, x, y, None);
+                        }
+                    }
+                }
+            }
+            if let Some(drag) = seat.toplevel_drag() {
+                drag.render(&mut renderer, &rect, x, y);
+            }
+            if let Some(dnd_icon) = seat.dnd_icon() {
+                dnd_icon.render(&mut renderer, &rect, x, y);
+            }
+            if render_cursor {
+                let cursor_user_group = seat.cursor_group();
+                if render_hardware_cursor || !cursor_user_group.hardware_cursor() {
+                    if let Some(cursor_user) = cursor_user_group.active() {
+                        if let Some(cursor) = cursor_user.get() {
+                            cursor.tick();
+                            let (mut x, mut y) = cursor_user.position();
+                            x -= Fixed::from_int(rect.x1());
+                            y -= Fixed::from_int(rect.y1());
+                            cursor.render(&mut renderer, x, y);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let Some(visualizer) = visualizer {
+        if let Some(cursor_rect) = cursor_rect {
+            visualizer.render(&cursor_rect, &mut renderer.base);
+        }
+    }
+    let c = match black_background {
+        true => Color::SOLID_BLACK,
+        false => state.theme.colors.background.get(),
+    };
+    GfxRenderPass {
+        ops,
+        clear: Some(c),
+    }
+}
+
+pub fn renderer_base<'a>(
+    physical_size: (i32, i32),
+    ops: &'a mut Vec<GfxApiOpt>,
+    scale: Scale,
+    transform: Transform,
+) -> RendererBase<'a> {
+    let (width, height) = logical_size(physical_size, transform);
+    RendererBase {
+        ops,
+        scaled: scale != 1,
+        scale,
+        scalef: scale.to_f64(),
+        transform,
+        fb_width: width as _,
+        fb_height: height as _,
+    }
+}
+
+pub fn logical_size(physical_size: (i32, i32), transform: Transform) -> (i32, i32) {
+    transform.maybe_swap(physical_size)
 }

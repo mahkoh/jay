@@ -17,7 +17,6 @@ use {
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
-        mem,
         rc::Rc,
     },
 };
@@ -70,11 +69,11 @@ impl Framebuffer {
 
     pub fn render(
         &self,
-        mut ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
-        let res = self.ctx.ctx.with_current(|| {
+        self.ctx.ctx.with_current(|| {
             unsafe {
                 (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
                 (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
@@ -84,32 +83,25 @@ impl Framebuffer {
                 }
                 (gles.glBlendFunc)(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
-            let fd = run_ops(self, &ops);
+            let fd = run_ops(self, ops);
             if fd.is_none() {
                 unsafe {
-                    (gles.glFlush)();
+                    (gles.glFinish)();
                 }
             }
             Ok(fd)
-        });
-        ops.clear();
-        *self.ctx.gfx_ops.borrow_mut() = ops;
-        res
+        })
     }
 }
 
 impl GfxFramebuffer for Framebuffer {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        mem::take(&mut *self.ctx.gfx_ops.borrow_mut())
-    }
-
     fn physical_size(&self) -> (i32, i32) {
         (self.gl.width, self.gl.height)
     }
 
     fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render(ops, clear).map_err(|e| e.into())

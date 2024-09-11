@@ -29,7 +29,8 @@ pub async fn handle_hardware_cursor_tick(state: Rc<State>) {
                     break;
                 }
             }
-            state.refresh_hardware_cursors();
+            cursor.tick();
+            state.damage_hardware_cursors(true);
         }
     }
 }
