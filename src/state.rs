@@ -63,7 +63,7 @@ use {
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
-        renderer::{RenderResult, Renderer},
+        renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         theme::{Color, Theme},
@@ -901,20 +901,17 @@ impl State {
         output: &OutputNode,
         fb: &Rc<dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
-        rr: &mut RenderResult,
         render_hw_cursor: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
         let sync_file = fb.render_output(
             output,
             self,
             Some(output.global.pos.get()),
-            Some(rr),
             output.global.persistent.scale.get(),
             render_hw_cursor,
         )?;
         output.latched();
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
-        rr.dispatch_frame_requests(self.now_msec());
         Ok(sync_file)
     }
 
@@ -933,7 +930,6 @@ impl State {
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
             state: self,
-            result: None,
             logical_extents: position.at_point(0, 0),
             pixel_extents: {
                 let (width, height) = target.logical_size(Transform::None);
@@ -1181,6 +1177,12 @@ impl State {
             log::info!("Disabling libei socket");
             self.ei_acceptor.take();
             self.ei_acceptor_future.take();
+        }
+    }
+
+    pub fn vblank(&self, connector: ConnectorId) {
+        if let Some(output) = self.root.outputs.get(&connector) {
+            output.vblank();
         }
     }
 }

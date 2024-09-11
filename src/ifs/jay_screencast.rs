@@ -192,7 +192,6 @@ impl JayScreencast {
                     tl.tl_as_node(),
                     &self.client.state,
                     Some(tl.node_absolute_position()),
-                    None,
                     scale,
                     true,
                     true,

@@ -486,8 +486,6 @@ impl MetalConnector {
         if damage == 0 {
             return None;
         }
-        let mut rr = self.render_result.borrow_mut();
-        rr.output_id = node.id;
         let render_hw_cursor = !self.cursor_enabled.get();
         let mode = node.global.mode.get();
         let pass = create_render_pass(
@@ -495,7 +493,6 @@ impl MetalConnector {
             &**node,
             &self.state,
             Some(node.global.pos.get()),
-            Some(&mut rr),
             node.global.persistent.scale.get(),
             true,
             render_hw_cursor,
@@ -503,7 +500,6 @@ impl MetalConnector {
             node.global.persistent.transform.get(),
             Some(&self.state.damage_visualizer),
         );
-        rr.dispatch_frame_requests(self.state.now_msec());
         Some(Latched { pass, damage })
     }
 

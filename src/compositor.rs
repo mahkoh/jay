@@ -504,6 +504,7 @@ fn create_dummy_output(state: &Rc<State>) {
         screencopies: Default::default(),
         title_visible: Cell::new(false),
         schedule,
+        vblank_event: Default::default(),
         latch_event: Default::default(),
         presentation_event: Default::default(),
     });

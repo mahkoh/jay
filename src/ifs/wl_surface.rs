@@ -64,8 +64,8 @@ use {
         renderer::Renderer,
         tree::{
             ContainerNode, FindTreeResult, FoundNode, LatchListener, Node, NodeId, NodeVisitor,
-            NodeVisitorBase, OutputNode, OutputNodeId, PlaceholderNode, PresentationListener,
-            ToplevelNode,
+            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
+            VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -276,14 +276,12 @@ pub struct WlSurface {
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
-    buffer_presented: Cell<bool>,
-    buffer_had_frame_request: Cell<bool>,
     pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
-    pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
+    frame_requests: RefCell<Vec<Rc<WlCallback>>>,
     presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     latched_presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     seat_state: NodeSeatState,
@@ -309,6 +307,7 @@ pub struct WlSurface {
     alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
     alpha: Cell<Option<f32>>,
     pub text_input_connections: SmallMap<SeatId, Rc<TextInputConnection>, 1>,
+    vblank_listener: EventListener<dyn VblankListener>,
     latch_listener: EventListener<dyn LatchListener>,
     presentation_listener: EventListener<dyn PresentationListener>,
     commit_version: NumCell<u64>,
@@ -594,8 +593,6 @@ impl WlSurface {
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
             buffer: Default::default(),
-            buffer_presented: Default::default(),
-            buffer_had_frame_request: Default::default(),
             shm_textures: DoubleBuffered::new(DamageQueue::new().map(|damage| SurfaceShmTexture {
                 tex: Default::default(),
                 damage,
@@ -630,6 +627,7 @@ impl WlSurface {
             alpha_modifier: Default::default(),
             alpha: Default::default(),
             text_input_connections: Default::default(),
+            vblank_listener: EventListener::new(slf.clone()),
             latch_listener: EventListener::new(slf.clone()),
             presentation_listener: EventListener::new(slf.clone()),
             commit_version: Default::default(),
@@ -1122,10 +1120,6 @@ impl WlSurface {
                     release,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
-                if pending.has_damage() {
-                    self.buffer_presented.set(false);
-                    self.buffer_had_frame_request.set(false);
-                }
             } else {
                 self.reset_shm_textures();
                 self.buf_x.set(0);
@@ -1237,14 +1231,11 @@ impl WlSurface {
                 damage_full = true;
             }
         }
-        let had_frame_requests = self.buffer_had_frame_request.get();
         let has_frame_requests = {
             let frs = &mut *self.frame_requests.borrow_mut();
             frs.append(&mut pending.frame_request);
             frs.is_not_empty()
         };
-        self.buffer_had_frame_request
-            .set(had_frame_requests || has_frame_requests);
         let has_presentation_feedback = {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
@@ -1295,6 +1286,9 @@ impl WlSurface {
         self.ext.get().after_apply_commit();
         if self.visible.get() {
             let output = self.output.get();
+            if has_frame_requests {
+                self.vblank_listener.attach(&output.vblank_event);
+            }
             if has_presentation_feedback {
                 self.latch_listener.attach(&output.latch_event);
             }
@@ -1306,35 +1300,16 @@ impl WlSurface {
                     damage = damage.intersect(tl.node_absolute_position());
                 }
                 self.client.state.damage(damage);
-            } else if self.buffer_presented.get() {
-                // If the currently attached buffer has already been fully presented ...
-                if has_frame_requests {
-                    // ... and there are new frame requests ...
-                    if had_frame_requests {
-                        // ... and we've already dispatched frame requests for that buffer,
-                        //     then schedule new presentation of the primary output and
-                        //     unset the buffer_presented flag. This is for clients that
-                        //     send frame requests at an uncapped rate and expect the
-                        //     compositor to dispatch frame requests at the monitor
-                        //     refresh rate (e.g. firefox). This is very inefficient and
-                        //     disables VRR from working correctly. But since only firefox
-                        //     is affected, I'm ok with this.
-                        let rect = self.output.get().global.pos.get();
-                        self.client.state.damage(rect);
-                        self.buffer_presented.set(false);
-                    } else {
-                        // ... and this is the first commit that attaches a frame request
-                        //     for that buffer, then dispatch the frame requests
-                        //     immediately.
-                        let now = self.client.state.now_msec() as _;
-                        for fr in self.frame_requests.borrow_mut().drain(..) {
-                            fr.send_done(now);
-                            let _ = fr.client.remove_obj(&*fr);
-                        }
-                    }
-                }
-            } else {
+            } else if pending.has_damage() {
                 self.apply_damage(pending);
+                if has_frame_requests {
+                    output.global.connector.damage();
+                }
+            } else if has_frame_requests && output.schedule.vrr_enabled() {
+                // Frame requests must be dispatched at the highest possible frame rate.
+                // Therefore we must trigger a vsync of the output as soon as possible.
+                let rect = output.global.pos.get();
+                self.client.state.damage(rect);
             }
         }
         pending.buffer_damage.clear();
@@ -1491,6 +1466,7 @@ impl WlSurface {
     }
 
     fn attach_events_to_output(&self, output: &OutputNode) {
+        self.vblank_listener.attach(&output.vblank_event);
         self.latch_listener.attach(&output.latch_event);
     }
 
@@ -1517,12 +1493,6 @@ impl WlSurface {
             }
         }
         self.seat_state.set_visible(self, visible);
-    }
-
-    pub fn presented(&self, on: OutputNodeId) {
-        if on == self.output.get().id {
-            self.buffer_presented.set(true);
-        }
     }
 
     pub fn detach_node(&self, set_invisible: bool) {
@@ -2080,6 +2050,19 @@ impl DamageMatrix {
             dy,
             smear: smear as _,
         }
+    }
+}
+
+impl VblankListener for WlSurface {
+    fn after_vblank(self: Rc<Self>) {
+        if self.visible.get() {
+            let now = self.client.state.now_usec();
+            for fr in self.frame_requests.borrow_mut().drain(..) {
+                fr.send_done(now as _);
+                let _ = fr.client.remove_obj(&*fr);
+            }
+        }
+        self.vblank_listener.detach();
     }
 }
 

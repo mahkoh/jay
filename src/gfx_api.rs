@@ -8,7 +8,7 @@ use {
         fixed::Fixed,
         format::Format,
         rect::{Rect, Region},
-        renderer::{renderer_base::RendererBase, RenderResult, Renderer},
+        renderer::{renderer_base::RendererBase, Renderer},
         scale::Scale,
         state::State,
         theme::Color,
@@ -345,7 +345,6 @@ impl dyn GfxFramebuffer {
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
-        result: Option<&mut RenderResult>,
         scale: Scale,
         render_cursor: bool,
         render_hardware_cursor: bool,
@@ -358,7 +357,6 @@ impl dyn GfxFramebuffer {
             node,
             state,
             cursor_rect,
-            result,
             scale,
             render_cursor,
             render_hardware_cursor,
@@ -377,7 +375,6 @@ impl dyn GfxFramebuffer {
         node: &OutputNode,
         state: &State,
         cursor_rect: Option<Rect>,
-        result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
@@ -385,7 +382,6 @@ impl dyn GfxFramebuffer {
             node,
             state,
             cursor_rect,
-            result,
             scale,
             true,
             render_hardware_cursor,
@@ -399,7 +395,6 @@ impl dyn GfxFramebuffer {
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
-        result: Option<&mut RenderResult>,
         scale: Scale,
         render_cursor: bool,
         render_hardware_cursor: bool,
@@ -410,7 +405,6 @@ impl dyn GfxFramebuffer {
             node,
             state,
             cursor_rect,
-            result,
             scale,
             render_cursor,
             render_hardware_cursor,
@@ -432,7 +426,6 @@ impl dyn GfxFramebuffer {
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
             state,
-            result: None,
             logical_extents: Rect::new_empty(0, 0),
             pixel_extents: {
                 let (width, height) = self.logical_size(transform);
@@ -638,7 +631,6 @@ pub fn create_render_pass(
     node: &dyn Node,
     state: &State,
     cursor_rect: Option<Rect>,
-    result: Option<&mut RenderResult>,
     scale: Scale,
     render_cursor: bool,
     render_hardware_cursor: bool,
@@ -650,7 +642,6 @@ pub fn create_render_pass(
     let mut renderer = Renderer {
         base: renderer_base(physical_size, &mut ops, scale, transform),
         state,
-        result,
         logical_extents: node.node_absolute_position().at_point(0, 0),
         pixel_extents: {
             let (width, height) = logical_size(physical_size, transform);

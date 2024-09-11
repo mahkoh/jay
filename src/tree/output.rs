@@ -81,11 +81,16 @@ pub struct OutputNode {
     pub title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
+    pub vblank_event: EventSource<dyn VblankListener>,
     pub presentation_event: EventSource<dyn PresentationListener>,
 }
 
 pub trait LatchListener {
     fn after_latch(self: Rc<Self>);
+}
+
+pub trait VblankListener {
+    fn after_vblank(self: Rc<Self>);
 }
 
 pub trait PresentationListener {
@@ -123,6 +128,12 @@ impl OutputNode {
         self.schedule.latched();
         for listener in self.latch_event.iter() {
             listener.after_latch();
+        }
+    }
+
+    pub fn vblank(&self) {
+        for listener in self.vblank_event.iter() {
+            listener.after_vblank();
         }
     }
 

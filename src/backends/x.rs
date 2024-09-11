@@ -12,7 +12,6 @@ use {
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         ifs::wl_output::OutputId,
-        renderer::RenderResult,
         state::State,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
@@ -239,7 +238,6 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         root,
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
-        render_result: Default::default(),
         drm_device_id: state.drm_dev_ids.next(),
         drm_dev,
     });
@@ -274,7 +272,6 @@ pub struct XBackend {
     root: u32,
     scheduled_present: AsyncQueue<Rc<XOutput>>,
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
-    render_result: RefCell<RenderResult>,
     drm_device_id: DrmDeviceId,
     drm_dev: dev_t,
 }
@@ -702,6 +699,7 @@ impl XBackend {
         } else {
             image.render_on_idle.set(true);
         }
+        self.state.vblank(output.id);
         Ok(())
     }
 
@@ -745,13 +743,9 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
-            let res = self.state.present_output(
-                &node,
-                &image.fb.get(),
-                &image.tex.get(),
-                &mut self.render_result.borrow_mut(),
-                true,
-            );
+            let res = self
+                .state
+                .present_output(&node, &image.fb.get(), &image.tex.get(), true);
             if let Err(e) = res {
                 log::error!("Could not render screen: {}", ErrorFmt(e));
                 return;

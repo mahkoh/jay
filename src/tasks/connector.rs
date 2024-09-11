@@ -177,6 +177,7 @@ impl ConnectorHandler {
             title_visible: Default::default(),
             schedule,
             latch_event: Default::default(),
+            vblank_event: Default::default(),
             presentation_event: Default::default(),
         });
         on.update_visible();
