@@ -912,6 +912,7 @@ impl State {
             output.global.persistent.scale.get(),
             render_hw_cursor,
         )?;
+        output.latched();
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests(self.now_msec());
         Ok(sync_file)

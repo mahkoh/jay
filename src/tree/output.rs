@@ -106,6 +106,13 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn latched(&self) {
+        self.schedule.latched();
+        for listener in self.latch_event.iter() {
+            listener.after_latch();
+        }
+    }
+
     pub fn update_exclusive_zones(self: &Rc<Self>) {
         let mut exclusive = ExclusiveSize::default();
         for layer in &self.layers {
@@ -153,9 +160,6 @@ impl OutputNode {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        for listener in self.latch_event.iter() {
-            listener.after_latch();
-        }
         if let Some(workspace) = self.workspace.get() {
             if !workspace.may_capture.get() {
                 return;

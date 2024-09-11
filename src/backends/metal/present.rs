@@ -174,7 +174,7 @@ impl MetalConnector {
         self.latch_cursor(&node)?;
         let cursor_programming = self.compute_cursor_programming();
         let latched = self.latch(&node);
-        node.schedule.latched();
+        node.latched();
 
         if cursor_programming.is_none() && latched.is_none() {
             return Ok(());
