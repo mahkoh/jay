@@ -63,13 +63,15 @@ use {
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         tree::{
-            ContainerNode, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase,
-            OutputNode, OutputNodeId, PlaceholderNode, ToplevelNode,
+            ContainerNode, FindTreeResult, FoundNode, LatchListener, Node, NodeId, NodeVisitor,
+            NodeVisitorBase, OutputNode, OutputNodeId, PlaceholderNode, PresentationListener,
+            ToplevelNode,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            double_buffered::DoubleBuffered, errorfmt::ErrorFmt, linkedlist::LinkedList,
-            numcell::NumCell, smallmap::SmallMap, transform_ext::TransformExt,
+            double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
+            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
+            transform_ext::TransformExt,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -91,7 +93,7 @@ use {
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut},
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     thiserror::Error,
     zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
@@ -282,7 +284,8 @@ pub struct WlSurface {
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
-    pub presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
+    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
+    latched_presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<CursorUserId, Rc<CursorSurface>, 1>,
@@ -306,6 +309,10 @@ pub struct WlSurface {
     alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
     alpha: Cell<Option<f32>>,
     pub text_input_connections: SmallMap<SeatId, Rc<TextInputConnection>, 1>,
+    latch_listener: EventListener<dyn LatchListener>,
+    presentation_listener: EventListener<dyn PresentationListener>,
+    commit_version: NumCell<u64>,
+    latched_commit_version: Cell<u64>,
 }
 
 impl Debug for WlSurface {
@@ -566,7 +573,7 @@ pub struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version) -> Self {
+    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version, slf: &Weak<Self>) -> Self {
         Self {
             id,
             node_id: client.state.node_ids.next(),
@@ -599,6 +606,7 @@ impl WlSurface {
             ext: CloneCell::new(client.state.none_surface_ext.clone()),
             frame_requests: Default::default(),
             presentation_feedback: Default::default(),
+            latched_presentation_feedback: Default::default(),
             seat_state: Default::default(),
             toplevel: Default::default(),
             cursors: Default::default(),
@@ -622,6 +630,10 @@ impl WlSurface {
             alpha_modifier: Default::default(),
             alpha: Default::default(),
             text_input_connections: Default::default(),
+            latch_listener: EventListener::new(slf.clone()),
+            presentation_listener: EventListener::new(slf.clone()),
+            commit_version: Default::default(),
+            latched_commit_version: Default::default(),
         }
     }
 
@@ -651,6 +663,9 @@ impl WlSurface {
         let old = self.output.set(output.clone());
         if old.id == output.id {
             return;
+        }
+        if self.visible.get() {
+            self.attach_events_to_output(output);
         }
         output.global.send_enter(self);
         old.global.send_leave(self);
@@ -1230,14 +1245,15 @@ impl WlSurface {
         };
         self.buffer_had_frame_request
             .set(had_frame_requests || has_frame_requests);
-        {
+        let has_presentation_feedback = {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
                 fb.send_discarded();
                 let _ = self.client.remove_obj(&*fb);
             }
             mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
-        }
+            fbs.is_not_empty()
+        };
         {
             if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
@@ -1278,6 +1294,10 @@ impl WlSurface {
         }
         self.ext.get().after_apply_commit();
         if self.visible.get() {
+            let output = self.output.get();
+            if has_presentation_feedback {
+                self.latch_listener.attach(&output.latch_event);
+            }
             if damage_full {
                 let mut damage = buffer_abs_pos
                     .with_size(max_surface_size.0, max_surface_size.1)
@@ -1327,6 +1347,7 @@ impl WlSurface {
                 }
             }
         }
+        self.commit_version.fetch_add(1);
         Ok(())
     }
 
@@ -1469,9 +1490,16 @@ impl WlSurface {
         }
     }
 
+    fn attach_events_to_output(&self, output: &OutputNode) {
+        self.latch_listener.attach(&output.latch_event);
+    }
+
     pub fn set_visible(&self, visible: bool) {
         if self.visible.replace(visible) == visible {
             return;
+        }
+        if visible {
+            self.attach_events_to_output(&self.output.get());
         }
         for (_, inhibitor) in &self.idle_inhibitors {
             if visible {
@@ -1586,6 +1614,7 @@ impl Object for WlSurface {
         self.idle_inhibitors.clear();
         mem::take(self.pending.borrow_mut().deref_mut());
         self.presentation_feedback.borrow_mut().clear();
+        self.latched_presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
         self.fractional_scale.take();
         self.tearing_control.take();
@@ -2051,5 +2080,51 @@ impl DamageMatrix {
             dy,
             smear: smear as _,
         }
+    }
+}
+
+impl LatchListener for WlSurface {
+    fn after_latch(self: Rc<Self>) {
+        if self.visible.get() {
+            if self.latched_commit_version.get() < self.commit_version.get() {
+                let latched = &mut *self.latched_presentation_feedback.borrow_mut();
+                for pf in latched.drain(..) {
+                    pf.send_discarded();
+                    let _ = pf.client.remove_obj(&*pf);
+                }
+                latched.append(&mut self.presentation_feedback.borrow_mut());
+                if latched.is_not_empty() {
+                    self.presentation_listener
+                        .attach(&self.output.get().presentation_event);
+                }
+                self.latched_commit_version.set(self.commit_version.get());
+            }
+        }
+        self.latch_listener.detach();
+    }
+}
+
+impl PresentationListener for WlSurface {
+    fn presented(
+        self: Rc<Self>,
+        output: &OutputNode,
+        tv_sec: u64,
+        tv_nsec: u32,
+        refresh: u32,
+        seq: u64,
+        flags: u32,
+    ) {
+        let bindings = output.global.bindings.borrow();
+        let bindings = bindings.get(&self.client.id);
+        for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
+            if let Some(bindings) = bindings {
+                for binding in bindings.values() {
+                    pf.send_sync_output(binding);
+                }
+            }
+            pf.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
+            let _ = pf.client.remove_obj(&*pf);
+        }
+        self.presentation_listener.detach();
     }
 }

@@ -81,10 +81,23 @@ pub struct OutputNode {
     pub title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
+    pub presentation_event: EventSource<dyn PresentationListener>,
 }
 
 pub trait LatchListener {
     fn after_latch(self: Rc<Self>);
+}
+
+pub trait PresentationListener {
+    fn presented(
+        self: Rc<Self>,
+        output: &OutputNode,
+        tv_sec: u64,
+        tv_nsec: u32,
+        refresh: u32,
+        seq: u64,
+        flags: u32,
+    );
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -110,6 +123,12 @@ impl OutputNode {
         self.schedule.latched();
         for listener in self.latch_event.iter() {
             listener.after_latch();
+        }
+    }
+
+    pub fn presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
+        for listener in self.presentation_event.iter() {
+            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags);
         }
     }
 

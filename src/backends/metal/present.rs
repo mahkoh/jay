@@ -237,9 +237,6 @@ impl MetalConnector {
             }
         }
         if let Err(e) = res {
-            self.render_result
-                .borrow_mut()
-                .discard_presentation_feedback();
             if let MetalError::Commit(DrmError::Atomic(OsError(c::EACCES))) = e {
                 log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
                 return Ok(());

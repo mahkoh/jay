@@ -1978,27 +1978,14 @@ impl MetalBackend {
             .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
         {
             let global = self.state.root.outputs.get(&connector.connector_id);
-            let mut rr = connector.render_result.borrow_mut();
             if let Some(g) = &global {
-                let refresh = dd.refresh;
-                let bindings = g.global.bindings.borrow_mut();
-                for fb in rr.presentation_feedbacks.drain(..) {
-                    if let Some(bindings) = bindings.get(&fb.client.id) {
-                        for binding in bindings.values() {
-                            fb.send_sync_output(binding);
-                        }
-                    }
-                    fb.send_presented(
-                        tv_sec as _,
-                        tv_usec * 1000,
-                        refresh,
-                        connector.sequence.get(),
-                        KIND_VSYNC | KIND_HW_COMPLETION,
-                    );
-                    let _ = fb.client.remove_obj(&*fb);
-                }
-            } else {
-                rr.discard_presentation_feedback();
+                g.presented(
+                    tv_sec as _,
+                    tv_usec * 1000,
+                    dd.refresh,
+                    connector.sequence.get(),
+                    KIND_VSYNC | KIND_HW_COMPLETION,
+                );
             }
         }
     }

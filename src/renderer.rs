@@ -9,7 +9,6 @@ use {
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
                 SurfaceBuffer, WlSurface,
             },
-            wp_presentation_feedback::WpPresentationFeedback,
         },
         rect::Rect,
         renderer::renderer_base::RendererBase,
@@ -33,7 +32,6 @@ pub mod renderer_base;
 
 pub struct RenderResult {
     pub frame_requests: Vec<Rc<WlCallback>>,
-    pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
     pub output_id: OutputNodeId,
 }
 
@@ -41,7 +39,6 @@ impl Default for RenderResult {
     fn default() -> Self {
         Self {
             frame_requests: Default::default(),
-            presentation_feedbacks: Default::default(),
             output_id: OutputNodeId::none(),
         }
     }
@@ -52,13 +49,6 @@ impl RenderResult {
         for fr in self.frame_requests.drain(..) {
             fr.send_done(now as _);
             let _ = fr.client.remove_obj(&*fr);
-        }
-    }
-
-    pub fn discard_presentation_feedback(&mut self) {
-        for fb in self.presentation_feedbacks.drain(..) {
-            fb.send_discarded();
-            let _ = fb.client.remove_obj(&*fb);
         }
     }
 }
@@ -441,10 +431,6 @@ impl Renderer<'_> {
             {
                 let mut fr = surface.frame_requests.borrow_mut();
                 result.frame_requests.extend(fr.drain(..));
-            }
-            {
-                let mut fbs = surface.presentation_feedback.borrow_mut();
-                result.presentation_feedbacks.extend(fbs.drain(..));
             }
             surface.presented(result.output_id);
         }
