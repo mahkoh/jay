@@ -1,9 +1,10 @@
 use {
     crate::{
         async_engine::AsyncEngine,
-        backend::{Connector, HardwareCursor},
+        backend::HardwareCursor,
         ifs::wl_output::PersistentOutputState,
         io_uring::{IoUring, IoUringError},
+        state::ConnectorData,
         utils::{
             asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell, errorfmt::ErrorFmt,
             numcell::NumCell,
@@ -18,7 +19,7 @@ pub struct OutputSchedule {
     changed: AsyncEvent,
     run: Cell<bool>,
 
-    connector: Rc<dyn Connector>,
+    connector: Rc<ConnectorData>,
     hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
 
     persistent: Rc<PersistentOutputState>,
@@ -42,7 +43,7 @@ impl OutputSchedule {
     pub fn new(
         ring: &Rc<IoUring>,
         eng: &Rc<AsyncEngine>,
-        connector: &Rc<dyn Connector>,
+        connector: &Rc<ConnectorData>,
         persistent: &Rc<PersistentOutputState>,
     ) -> Self {
         let slf = Self {

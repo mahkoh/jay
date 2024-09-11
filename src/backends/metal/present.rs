@@ -272,6 +272,10 @@ impl MetalConnector {
             self.can_present.set(false);
             if let Some(latched) = latched {
                 self.has_damage.fetch_sub(latched.damage);
+                node.global
+                    .connector
+                    .damaged
+                    .set(self.has_damage.is_not_zero());
             }
             self.cursor_changed.set(false);
             Ok(())

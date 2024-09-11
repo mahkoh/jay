@@ -117,7 +117,7 @@ impl ZwlrScreencopyFrameV1 {
         self.buffer.set(Some(buffer));
         if !with_damage {
             if let Some(global) = self.output.get() {
-                global.connector.connector.damage();
+                global.connector.damage();
             }
         }
         self.with_damage.set(with_damage);

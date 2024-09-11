@@ -300,6 +300,7 @@ pub struct ConnectorData {
     pub name: String,
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
+    pub damaged: Cell<bool>,
 }
 
 pub struct OutputData {
@@ -319,6 +320,14 @@ pub struct DrmDevData {
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
     pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
+}
+
+impl ConnectorData {
+    pub fn damage(&self) {
+        if !self.damaged.replace(true) {
+            self.connector.damage();
+        }
+    }
 }
 
 impl DrmDevData {
@@ -761,7 +770,7 @@ impl State {
                 if cursor && output.schedule.defer_cursor_updates() {
                     output.schedule.software_cursor_changed();
                 } else {
-                    output.global.connector.connector.damage();
+                    output.global.connector.damage();
                 }
             }
         }

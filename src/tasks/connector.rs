@@ -31,6 +31,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         name: connector.kernel_id().to_string(),
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
+        damaged: Cell::new(false),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -137,7 +138,7 @@ impl ConnectorHandler {
         let schedule = Rc::new(OutputSchedule::new(
             &self.state.ring,
             &self.state.eng,
-            &self.data.connector,
+            &self.data,
             &desired_state,
         ));
         let _schedule = self.state.eng.spawn(schedule.clone().drive());
