@@ -129,7 +129,7 @@ impl IoUring {
         };
         let cqmap_map = mmap(
             params.cq_off.cqes as usize
-                + params.sq_entries as usize * mem::size_of::<io_uring_cqe>(),
+                + params.cq_entries as usize * mem::size_of::<io_uring_cqe>(),
             c::PROT_READ | c::PROT_WRITE,
             c::MAP_SHARED | c::MAP_POPULATE,
             fd.raw(),
