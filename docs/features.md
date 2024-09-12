@@ -130,6 +130,10 @@ Jay supports adaptive sync with configurable cursor refresh rates.
 
 Jay supports tearing presentation for games.
 
+## Low Input Latency
+
+Jay uses frame scheduling to achieve input latency as low as 1.5 ms.
+
 ## Protocol Support
 
 Jay supports the following wayland protocols:

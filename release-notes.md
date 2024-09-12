@@ -1,5 +1,13 @@
 # Unreleased
 
+- Various bugfixes.
+- Improve compatibility Nvidia hardware.
+- Implement format negotiation for screencasts.
+- Allow configuring 6, 8, or 10 bit framebuffer formats.
+- Upload shm textures on a separate thread in the Vulkan renderer.
+- Disable implicit sync in KMS.
+- Implement frame scheduling for KMS.
+
 # 1.5.0 (2024-09-02)
 
 - Add fine-grained damage tracking.
