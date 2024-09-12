@@ -174,7 +174,7 @@ impl MetalConnector {
         self.latch_cursor(&node)?;
         let cursor_programming = self.compute_cursor_programming();
         let latched = self.latch(&node);
-        node.schedule.latched();
+        node.latched();
 
         if cursor_programming.is_none() && latched.is_none() {
             return Ok(());
@@ -237,9 +237,6 @@ impl MetalConnector {
             }
         }
         if let Err(e) = res {
-            self.render_result
-                .borrow_mut()
-                .discard_presentation_feedback();
             if let MetalError::Commit(DrmError::Atomic(OsError(c::EACCES))) = e {
                 log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
                 return Ok(());
@@ -272,6 +269,10 @@ impl MetalConnector {
             self.can_present.set(false);
             if let Some(latched) = latched {
                 self.has_damage.fetch_sub(latched.damage);
+                node.global
+                    .connector
+                    .damaged
+                    .set(self.has_damage.is_not_zero());
             }
             self.cursor_changed.set(false);
             Ok(())
@@ -485,8 +486,6 @@ impl MetalConnector {
         if damage == 0 {
             return None;
         }
-        let mut rr = self.render_result.borrow_mut();
-        rr.output_id = node.id;
         let render_hw_cursor = !self.cursor_enabled.get();
         let mode = node.global.mode.get();
         let pass = create_render_pass(
@@ -494,7 +493,6 @@ impl MetalConnector {
             &**node,
             &self.state,
             Some(node.global.pos.get()),
-            Some(&mut rr),
             node.global.persistent.scale.get(),
             true,
             render_hw_cursor,
@@ -502,7 +500,6 @@ impl MetalConnector {
             node.global.persistent.transform.get(),
             Some(&self.state.damage_visualizer),
         );
-        rr.dispatch_frame_requests(self.state.now_msec());
         Some(Latched { pass, damage })
     }
 

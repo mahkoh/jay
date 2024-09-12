@@ -1,6 +1,6 @@
 use {
     crate::{
-        it::{test_error::TestResult, test_utils::test_rect_ext::TestRectExt, testrun::TestRun},
+        it::{test_error::TestResult, testrun::TestRun},
         tree::Node,
     },
     std::rc::Rc,

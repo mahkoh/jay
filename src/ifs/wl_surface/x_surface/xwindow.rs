@@ -423,6 +423,9 @@ impl ToplevelNodeBase for Xwindow {
             if self.data.info.override_redirect.get() {
                 self.data.state.damage(old);
                 self.data.state.damage(*rect);
+                let (x, y) = rect.center();
+                let output = self.data.state.find_closest_output(x, y).0;
+                self.x.surface.set_output(&output);
             } else {
                 self.data
                     .state

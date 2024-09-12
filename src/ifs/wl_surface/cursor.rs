@@ -107,6 +107,10 @@ impl Cursor for CursorSurface {
                     fr.send_discarded();
                     let _ = fr.client.remove_obj(fr.deref());
                 }
+                for fr in node.latched_presentation_feedback.borrow_mut().drain(..) {
+                    fr.send_discarded();
+                    let _ = fr.client.remove_obj(fr.deref());
+                }
                 node.node_visit_children(self);
             }
         }

@@ -56,7 +56,7 @@ pub async fn visualize_damage(state: Rc<State>) {
 fn damage_all(state: &State) {
     for connector in state.connectors.lock().values() {
         if connector.connected.get() {
-            connector.connector.damage();
+            connector.damage();
         }
     }
 }

@@ -26,7 +26,6 @@ use {
             wl_output::OutputId,
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         },
-        renderer::RenderResult,
         state::State,
         udev::UdevDevice,
         utils::{
@@ -446,8 +445,6 @@ pub struct MetalConnector {
     pub on_change: OnChange<ConnectorEvent>,
 
     pub present_trigger: AsyncEvent,
-
-    pub render_result: RefCell<RenderResult>,
 
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
@@ -1044,7 +1041,6 @@ fn create_connector(
         crtc: Default::default(),
         on_change: Default::default(),
         present_trigger: Default::default(),
-        render_result: RefCell::new(Default::default()),
         cursor_x: Cell::new(0),
         cursor_y: Cell::new(0),
         cursor_enabled: Cell::new(false),
@@ -1912,6 +1908,7 @@ impl MetalBackend {
         };
         self.update_sequence(&connector, sequence);
         connector.queue_sequence();
+        self.state.vblank(connector.connector_id);
         let dd = connector.display.borrow();
         connector
             .next_flip_nsec
@@ -1978,27 +1975,14 @@ impl MetalBackend {
             .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
         {
             let global = self.state.root.outputs.get(&connector.connector_id);
-            let mut rr = connector.render_result.borrow_mut();
             if let Some(g) = &global {
-                let refresh = dd.refresh;
-                let bindings = g.global.bindings.borrow_mut();
-                for fb in rr.presentation_feedbacks.drain(..) {
-                    if let Some(bindings) = bindings.get(&fb.client.id) {
-                        for binding in bindings.values() {
-                            fb.send_sync_output(binding);
-                        }
-                    }
-                    fb.send_presented(
-                        tv_sec as _,
-                        tv_usec * 1000,
-                        refresh,
-                        connector.sequence.get(),
-                        KIND_VSYNC | KIND_HW_COMPLETION,
-                    );
-                    let _ = fb.client.remove_obj(&*fb);
-                }
-            } else {
-                rr.discard_presentation_feedback();
+                g.presented(
+                    tv_sec as _,
+                    tv_usec * 1000,
+                    dd.refresh,
+                    connector.sequence.get(),
+                    KIND_VSYNC | KIND_HW_COMPLETION,
+                );
             }
         }
     }

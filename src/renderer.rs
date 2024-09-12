@@ -1,15 +1,11 @@
 use {
     crate::{
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
-        ifs::{
-            wl_callback::WlCallback,
-            wl_surface::{
-                x_surface::xwindow::Xwindow,
-                xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-                SurfaceBuffer, WlSurface,
-            },
-            wp_presentation_feedback::WpPresentationFeedback,
+        ifs::wl_surface::{
+            x_surface::xwindow::Xwindow,
+            xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
+            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            SurfaceBuffer, WlSurface,
         },
         rect::Rect,
         renderer::renderer_base::RendererBase,
@@ -17,62 +13,18 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, OutputNodeId, PlaceholderNode,
-            ToplevelData, ToplevelNodeBase, WorkspaceNode,
+            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
+            ToplevelNodeBase, WorkspaceNode,
         },
     },
-    std::{
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        rc::Rc,
-        slice,
-    },
+    std::{ops::Deref, rc::Rc, slice},
 };
 
 pub mod renderer_base;
 
-pub struct RenderResult {
-    pub frame_requests: Vec<Rc<WlCallback>>,
-    pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
-    pub output_id: OutputNodeId,
-}
-
-impl Default for RenderResult {
-    fn default() -> Self {
-        Self {
-            frame_requests: Default::default(),
-            presentation_feedbacks: Default::default(),
-            output_id: OutputNodeId::none(),
-        }
-    }
-}
-
-impl RenderResult {
-    pub fn dispatch_frame_requests(&mut self, now: u64) {
-        for fr in self.frame_requests.drain(..) {
-            fr.send_done(now as _);
-            let _ = fr.client.remove_obj(&*fr);
-        }
-    }
-
-    pub fn discard_presentation_feedback(&mut self) {
-        for fb in self.presentation_feedbacks.drain(..) {
-            fb.send_discarded();
-            let _ = fb.client.remove_obj(&*fb);
-        }
-    }
-}
-
-impl Debug for RenderResult {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RenderResult").finish_non_exhaustive()
-    }
-}
-
 pub struct Renderer<'a> {
     pub base: RendererBase<'a>,
     pub state: &'a State,
-    pub result: Option<&'a mut RenderResult>,
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
 }
@@ -436,17 +388,6 @@ impl Renderer<'_> {
             render!(&children.above);
         } else {
             self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
-        }
-        if let Some(result) = self.result.as_deref_mut() {
-            {
-                let mut fr = surface.frame_requests.borrow_mut();
-                result.frame_requests.extend(fr.drain(..));
-            }
-            {
-                let mut fbs = surface.presentation_feedback.borrow_mut();
-                result.presentation_feedbacks.extend(fbs.drain(..));
-            }
-            surface.presented(result.output_id);
         }
     }
 

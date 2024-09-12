@@ -81,10 +81,28 @@ pub struct OutputNode {
     pub title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
+    pub vblank_event: EventSource<dyn VblankListener>,
+    pub presentation_event: EventSource<dyn PresentationListener>,
 }
 
 pub trait LatchListener {
     fn after_latch(self: Rc<Self>);
+}
+
+pub trait VblankListener {
+    fn after_vblank(self: Rc<Self>);
+}
+
+pub trait PresentationListener {
+    fn presented(
+        self: Rc<Self>,
+        output: &OutputNode,
+        tv_sec: u64,
+        tv_nsec: u32,
+        refresh: u32,
+        seq: u64,
+        flags: u32,
+    );
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -106,6 +124,25 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn latched(&self) {
+        self.schedule.latched();
+        for listener in self.latch_event.iter() {
+            listener.after_latch();
+        }
+    }
+
+    pub fn vblank(&self) {
+        for listener in self.vblank_event.iter() {
+            listener.after_vblank();
+        }
+    }
+
+    pub fn presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
+        for listener in self.presentation_event.iter() {
+            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags);
+        }
+    }
+
     pub fn update_exclusive_zones(self: &Rc<Self>) {
         let mut exclusive = ExclusiveSize::default();
         for layer in &self.layers {
@@ -153,9 +190,6 @@ impl OutputNode {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        for listener in self.latch_event.iter() {
-            listener.after_latch();
-        }
         if let Some(workspace) = self.workspace.get() {
             if !workspace.may_capture.get() {
                 return;

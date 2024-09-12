@@ -50,7 +50,7 @@ impl WlCompositorRequestHandler for WlCompositor {
     type Error = WlCompositorError;
 
     fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let surface = Rc::new(WlSurface::new(req.id, &self.client, self.version));
+        let surface = Rc::new_cyclic(|slf| WlSurface::new(req.id, &self.client, self.version, slf));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {

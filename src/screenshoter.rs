@@ -80,7 +80,6 @@ pub fn take_screenshot(
         state.root.deref(),
         state,
         Some(state.root.extents.get()),
-        None,
         Scale::from_int(1),
         include_cursor,
         true,

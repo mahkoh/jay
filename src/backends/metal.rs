@@ -221,7 +221,6 @@ impl Backend for MetalBackend {
                 connector.crtc.take();
                 connector.on_change.clear();
                 connector.present_trigger.clear();
-                connector.render_result.take();
                 connector.active_framebuffer.take();
                 connector.next_framebuffer.take();
             }

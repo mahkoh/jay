@@ -449,10 +449,19 @@ fn create_dummy_output(state: &Rc<State>) {
     let connector = Rc::new(DummyOutput {
         id: state.connector_ids.next(),
     }) as Rc<dyn Connector>;
+    let connector_data = Rc::new(ConnectorData {
+        connector,
+        handler: Cell::new(None),
+        connected: Cell::new(true),
+        name: "Dummy".to_string(),
+        drm_dev: None,
+        async_event: Default::default(),
+        damaged: Cell::new(false),
+    });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,
         &state.eng,
-        &connector,
+        &connector_data,
         &persistent_state,
     ));
     let dummy_output = Rc::new(OutputNode {
@@ -460,14 +469,7 @@ fn create_dummy_output(state: &Rc<State>) {
         global: Rc::new(WlOutputGlobal::new(
             state.globals.name(),
             state,
-            &Rc::new(ConnectorData {
-                connector,
-                handler: Cell::new(None),
-                connected: Cell::new(true),
-                name: "Dummy".to_string(),
-                drm_dev: None,
-                async_event: Default::default(),
-            }),
+            &connector_data,
             Vec::new(),
             &backend::Mode {
                 width: 0,
@@ -502,7 +504,9 @@ fn create_dummy_output(state: &Rc<State>) {
         screencopies: Default::default(),
         title_visible: Cell::new(false),
         schedule,
+        vblank_event: Default::default(),
         latch_event: Default::default(),
+        presentation_event: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
