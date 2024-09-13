@@ -269,10 +269,6 @@ impl MetalConnector {
             self.can_present.set(false);
             if let Some(latched) = latched {
                 self.has_damage.fetch_sub(latched.damage);
-                node.global
-                    .connector
-                    .damaged
-                    .set(self.has_damage.is_not_zero());
             }
             self.cursor_changed.set(false);
             Ok(())
@@ -486,6 +482,7 @@ impl MetalConnector {
         if damage == 0 {
             return None;
         }
+        node.global.connector.damaged.set(false);
         let render_hw_cursor = !self.cursor_enabled.get();
         let mode = node.global.mode.get();
         let pass = create_render_pass(
