@@ -97,7 +97,7 @@ impl AsyncEngine {
                     continue;
                 }
                 self.num_queued.fetch_sub(stash.len());
-                for runnable in stash.drain(..) {
+                while let Some(runnable) = stash.pop_front() {
                     runnable.run();
                     if self.stopped.get() {
                         return;
@@ -105,7 +105,7 @@ impl AsyncEngine {
                 }
             }
             self.yields.swap(&mut *yield_stash);
-            for waker in yield_stash.drain(..) {
+            while let Some(waker) = yield_stash.pop_front() {
                 waker.wake();
             }
         }
