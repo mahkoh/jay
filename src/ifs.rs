@@ -53,6 +53,7 @@ pub mod wp_drm_lease_connector_v1;
 pub mod wp_drm_lease_device_v1;
 pub mod wp_drm_lease_request_v1;
 pub mod wp_drm_lease_v1;
+pub mod wp_fifo_manager_v1;
 pub mod wp_fractional_scale_manager_v1;
 pub mod wp_linux_drm_syncobj_manager_v1;
 pub mod wp_linux_drm_syncobj_timeline_v1;

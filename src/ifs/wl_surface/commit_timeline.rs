@@ -1,5 +1,7 @@
 use {
     crate::{
+        async_engine::{AsyncEngine, SpawnedFuture},
+        client::Client,
         gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer, STAGING_UPLOAD},
         ifs::{
             wl_buffer::WlBufferStorage,
@@ -13,6 +15,7 @@ use {
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             oserror::OsError,
+            queue::AsyncQueue,
         },
         video::drm::{
             sync_obj::{SyncObj, SyncObjPoint},
@@ -26,7 +29,7 @@ use {
         cell::{Cell, RefCell},
         mem,
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
         slice,
     },
     thiserror::Error,
@@ -43,6 +46,8 @@ pub struct CommitTimelines {
     ring: Rc<IoUring>,
     depth: NumCell<usize>,
     gc: CopyHashMap<CommitTimelineId, LinkedList<Entry>>,
+    flush_requests: Rc<FlushRequests>,
+    _flush_requests_future: SpawnedFuture<()>,
 }
 
 pub struct CommitTimeline {
@@ -50,6 +55,8 @@ pub struct CommitTimeline {
     own_timeline: Rc<Inner>,
     effective_timeline: CloneCell<Rc<Inner>>,
     effective_timeline_id: Cell<CommitTimelineId>,
+    fifo_barrier_set: Cell<bool>,
+    fifo_waiter: Cell<Option<NodeRef<Entry>>>,
 }
 
 struct Inner {
@@ -94,8 +101,20 @@ pub enum CommitTimelineError {
 }
 
 impl CommitTimelines {
-    pub fn new(wfs: &Rc<WaitForSyncObj>, ring: &Rc<IoUring>) -> Self {
+    pub fn new(
+        wfs: &Rc<WaitForSyncObj>,
+        ring: &Rc<IoUring>,
+        eng: &Rc<AsyncEngine>,
+        client: &Weak<Client>,
+    ) -> Self {
+        let flush_requests = Rc::new(FlushRequests::default());
+        let flush_request_future = eng.spawn(
+            "wl_surface flush requests",
+            process_flush_requests(client.clone(), flush_requests.clone()),
+        );
         Self {
+            flush_requests,
+            _flush_requests_future: flush_request_future,
             next_id: Default::default(),
             depth: NumCell::new(0),
             wfs: wfs.clone(),
@@ -115,10 +134,13 @@ impl CommitTimelines {
             own_timeline: timeline.clone(),
             effective_timeline: CloneCell::new(timeline),
             effective_timeline_id: Cell::new(id),
+            fifo_barrier_set: Cell::new(false),
+            fifo_waiter: Default::default(),
         }
     }
 
     pub fn clear(&self) {
+        self.flush_requests.flush_waiters.clear();
         for list in self.gc.lock().drain_values() {
             break_loops(&list);
         }
@@ -144,8 +166,12 @@ fn break_loops(list: &LinkedList<Entry>) {
 impl CommitTimeline {
     pub fn clear(&self, reason: ClearReason) {
         match reason {
-            ClearReason::BreakLoops => break_loops(&self.own_timeline.entries),
+            ClearReason::BreakLoops => {
+                self.fifo_waiter.take();
+                break_loops(&self.own_timeline.entries)
+            }
             ClearReason::Destroy => {
+                self.clear_fifo_barrier();
                 if self.own_timeline.entries.is_not_empty() {
                     let list = LinkedList::new();
                     list.append_all(&self.own_timeline.entries);
@@ -172,7 +198,10 @@ impl CommitTimeline {
         );
         let has_dependencies =
             points.is_not_empty() || pending_uploads > 0 || implicit_dmabufs.is_not_empty();
-        if !has_dependencies && self.own_timeline.entries.is_empty() {
+        let must_be_queued = has_dependencies
+            || self.own_timeline.entries.is_not_empty()
+            || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
+        if !must_be_queued {
             return surface
                 .apply_state(pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
@@ -181,6 +210,10 @@ impl CommitTimeline {
             return Err(CommitTimelineError::Depth);
         }
         set_effective_timeline(self, pending, &self.own_timeline);
+        let commit_fifo_state = match pending.fifo_barrier_wait {
+            true => CommitFifoState::Queued,
+            false => CommitFifoState::Mailbox,
+        };
         let noderef = add_entry(
             &self.own_timeline.entries,
             &self.shared,
@@ -193,9 +226,10 @@ impl CommitTimeline {
                 shm_upload: RefCell::new(ShmUploadState::None),
                 num_pending_polls: NumCell::new(implicit_dmabufs.len()),
                 pending_polls: Cell::new(Default::default()),
+                fifo_state: Cell::new(commit_fifo_state),
             }),
         );
-        let mut needs_flush = false;
+        let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
         if has_dependencies {
             let noderef = Rc::new(noderef.clone());
             let EntryKind::Commit(commit) = &noderef.kind else {
@@ -234,6 +268,21 @@ impl CommitTimeline {
             flush_from(noderef.clone()).map_err(CommitTimelineError::DelayedCommit)?;
         }
         Ok(())
+    }
+
+    pub fn set_fifo_barrier(&self) {
+        self.fifo_barrier_set.set(true);
+    }
+
+    pub fn clear_fifo_barrier(&self) {
+        self.fifo_barrier_set.set(false);
+        if let Some(waiter) = self.fifo_waiter.take() {
+            self.shared.flush_requests.flush_waiters.push(waiter);
+        }
+    }
+
+    pub fn has_fifo_barrier(&self) -> bool {
+        self.fifo_barrier_set.get()
     }
 }
 
@@ -322,6 +371,7 @@ struct Commit {
     shm_upload: RefCell<ShmUploadState>,
     num_pending_polls: NumCell<usize>,
     pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
+    fifo_state: Cell<CommitFifoState>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -356,6 +406,20 @@ impl NodeRef<Entry> {
                 }
                 if c.num_pending_polls.get() > 0 {
                     has_unmet_dependencies = true;
+                }
+                let tl = &c.surface.commit_timeline;
+                if tl.fifo_barrier_set.get() {
+                    match c.fifo_state.get() {
+                        CommitFifoState::Queued => {
+                            tl.fifo_waiter.set(Some(self.clone()));
+                            c.fifo_state.set(CommitFifoState::Registered);
+                            has_unmet_dependencies = true;
+                        }
+                        CommitFifoState::Registered => {
+                            has_unmet_dependencies = true;
+                        }
+                        CommitFifoState::Mailbox => {}
+                    }
                 }
                 if has_unmet_dependencies {
                     return Ok(false);
@@ -535,4 +599,30 @@ fn set_effective_timeline(
             set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
         }
     }
+}
+
+#[derive(Default)]
+struct FlushRequests {
+    flush_waiters: AsyncQueue<NodeRef<Entry>>,
+}
+
+async fn process_flush_requests(client: Weak<Client>, requests: Rc<FlushRequests>) {
+    loop {
+        requests.flush_waiters.non_empty().await;
+        while let Some(entry) = requests.flush_waiters.try_pop() {
+            if let Err(e) = flush_from(entry) {
+                if let Some(client) = client.upgrade() {
+                    client.error(e);
+                }
+                return;
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum CommitFifoState {
+    Queued,
+    Registered,
+    Mailbox,
 }

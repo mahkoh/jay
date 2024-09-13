@@ -69,16 +69,16 @@ use {
         theme::{Color, Theme},
         time::Time,
         tree::{
-            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
+            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
+            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
             ToplevelNodeBase, VrrMode, WorkspaceNode,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            hash_map_ext::HashMapExt, linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue,
-            refcounted::RefCounted, run_toplevel::RunToplevel,
-            toplevel_identifier::ToplevelIdentifier,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            event_listener::EventSource, fdcloser::FdCloser, hash_map_ext::HashMapExt,
+            linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
+            run_toplevel::RunToplevel, toplevel_identifier::ToplevelIdentifier,
         },
         video::{
             dmabuf::DmaBufIds,
@@ -222,6 +222,7 @@ pub struct State {
     pub ui_drag_enabled: Cell<bool>,
     pub ui_drag_threshold_squared: Cell<i32>,
     pub toplevels: CopyHashMap<ToplevelIdentifier, Weak<dyn ToplevelNode>>,
+    pub const_40hz_latch: EventSource<dyn LatchListener>,
 }
 
 // impl Drop for State {
@@ -938,7 +939,7 @@ impl State {
             output.global.persistent.scale.get(),
             render_hw_cursor,
         )?;
-        output.latched();
+        output.latched(false);
         output.perform_screencopies(
             tex,
             None,

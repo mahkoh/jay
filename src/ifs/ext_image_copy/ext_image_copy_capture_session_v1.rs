@@ -269,7 +269,7 @@ impl ExtImageCopyCaptureSessionV1RequestHandler for ExtImageCopyCaptureSessionV1
 }
 
 impl LatchListener for ExtImageCopyCaptureSessionV1 {
-    fn after_latch(self: Rc<Self>, on: &OutputNode) {
+    fn after_latch(self: Rc<Self>, on: &OutputNode, _tearing: bool) {
         let ImageCaptureSource::Toplevel(tl) = &self.source else {
             return;
         };

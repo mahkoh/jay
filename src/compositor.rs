@@ -32,7 +32,7 @@ use {
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
-        tasks::{self, idle},
+        tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
             container_layout, container_render_positions, container_render_titles, float_layout,
@@ -272,6 +272,7 @@ fn start_compositor2(
         ui_drag_enabled: Cell::new(true),
         ui_drag_threshold_squared: Cell::new(10),
         toplevels: Default::default(),
+        const_40hz_latch: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -434,6 +435,11 @@ fn start_global_event_handlers(
         eng.spawn(
             "slow ei clients",
             tasks::handle_slow_ei_clients(state.clone()),
+        ),
+        eng.spawn2(
+            "const 40hz latch",
+            Phase::Present,
+            handle_const_40hz_latch(state.clone()),
         ),
     ]
 }
