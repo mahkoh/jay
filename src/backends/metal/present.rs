@@ -257,6 +257,8 @@ impl MetalConnector {
             apply_change!(plane.crtc_w);
             apply_change!(plane.crtc_h);
             if let Some(fb) = present_fb {
+                self.presentation_is_zero_copy
+                    .set(fb.direct_scanout_data.is_some());
                 if fb.direct_scanout_data.is_none() {
                     self.next_buffer.fetch_add(1);
                 }
@@ -404,9 +406,11 @@ impl MetalConnector {
             if try_async_flip {
                 res = changes.commit(FLAGS | DRM_MODE_PAGE_FLIP_ASYNC, 0);
                 if res.is_ok() {
+                    self.presentation_is_sync.set(false);
                     break 'commit;
                 }
             }
+            self.presentation_is_sync.set(true);
             res = changes.commit(FLAGS, 0);
         }
         res.map_err(MetalError::Commit)
