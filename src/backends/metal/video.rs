@@ -24,7 +24,7 @@ use {
         },
         ifs::{
             wl_output::OutputId,
-            wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
+            wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
         },
         state::State,
         udev::UdevDevice,
@@ -472,6 +472,8 @@ pub struct MetalConnector {
     pub post_commit_margin_decay: GeometricDecay,
     pub vblank_miss_sec: Cell<u32>,
     pub vblank_miss_this_sec: NumCell<u32>,
+    pub presentation_is_sync: Cell<bool>,
+    pub presentation_is_zero_copy: Cell<bool>,
 }
 
 impl Debug for MetalConnector {
@@ -1069,6 +1071,8 @@ fn create_connector(
         post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
         vblank_miss_sec: Cell::new(0),
         vblank_miss_this_sec: Default::default(),
+        presentation_is_sync: Cell::new(false),
+        presentation_is_zero_copy: Cell::new(false),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1975,13 +1979,24 @@ impl MetalBackend {
             .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
         {
             let global = self.state.root.outputs.get(&connector.connector_id);
+            let mut flags = KIND_HW_COMPLETION;
+            if connector.presentation_is_sync.get() {
+                flags |= KIND_VSYNC;
+            }
+            if connector.presentation_is_zero_copy.get() {
+                flags |= KIND_ZERO_COPY;
+            }
+            let refresh = match crtc.vrr_enabled.value.get() {
+                true => 0,
+                false => dd.refresh,
+            };
             if let Some(g) = &global {
                 g.presented(
                     tv_sec as _,
                     tv_usec * 1000,
-                    dd.refresh,
+                    refresh,
                     connector.sequence.get(),
-                    KIND_VSYNC | KIND_HW_COMPLETION,
+                    flags,
                 );
             }
         }
