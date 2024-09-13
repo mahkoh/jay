@@ -30,6 +30,10 @@ impl<T: ?Sized> EventSource<T> {
             iter: self.listeners.iter(),
         }
     }
+
+    pub fn on_attach(&self, ev: Box<dyn FnOnce()>) {
+        self.on_attach.set(Some(ev));
+    }
 }
 
 pub struct EventSourceIter<T: ?Sized> {
