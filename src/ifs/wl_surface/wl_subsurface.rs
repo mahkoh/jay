@@ -177,6 +177,7 @@ impl WlSubsurface {
         update_children_attach(self)?;
         let (x, y) = self.parent.buffer_abs_pos.get().position();
         self.surface.set_absolute_position(x, y);
+        self.surface.set_output(&self.parent.output.get());
         Ok(())
     }
 
