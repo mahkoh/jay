@@ -83,6 +83,7 @@ pub struct OutputNode {
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,
     pub presentation_event: EventSource<dyn PresentationListener>,
+    pub flip_margin_ns: Cell<Option<u64>>,
 }
 
 pub trait LatchListener {

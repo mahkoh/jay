@@ -752,6 +752,13 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_flip_margin(&self, device: DrmDevice, margin: Duration) -> Result<(), CphError> {
+        self.get_drm_device(device)?
+            .dev
+            .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
+        Ok(())
+    }
+
     fn handle_set_direct_scanout_enabled(
         &self,
         device: Option<DrmDevice>,
@@ -1936,6 +1943,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetFormat { connector, format } => self
                 .handle_connector_set_format(connector, format)
                 .wrn("connector_set_format")?,
+            ClientMessage::SetFlipMargin { device, margin } => self
+                .handle_set_flip_margin(device, margin)
+                .wrn("set_flip_margin")?,
         }
         Ok(())
     }

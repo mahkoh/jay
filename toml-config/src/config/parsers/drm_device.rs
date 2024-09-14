@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{bol, opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{bol, fltorint, opt, recover, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
@@ -45,12 +45,14 @@ impl<'a> Parser for DrmDeviceParser<'a> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, direct_scanout_enabled, gfx_api_val) = ext.extract((
-            opt(str("name")),
-            val("match"),
-            recover(opt(bol("direct-scanout"))),
-            opt(val("gfx-api")),
-        ))?;
+        let (name, match_val, direct_scanout_enabled, gfx_api_val, flip_margin_ms) =
+            ext.extract((
+                opt(str("name")),
+                val("match"),
+                recover(opt(bol("direct-scanout"))),
+                opt(val("gfx-api")),
+                recover(opt(fltorint("flip-margin-ms"))),
+            ))?;
         let gfx_api = match gfx_api_val {
             Some(api) => match api.parse(&mut GfxApiParser) {
                 Ok(m) => Some(m),
@@ -80,6 +82,7 @@ impl<'a> Parser for DrmDeviceParser<'a> {
             match_: match_val.parse_map(&mut DrmDeviceMatchParser(self.cx))?,
             direct_scanout_enabled: direct_scanout_enabled.despan(),
             gfx_api,
+            flip_margin_ms: flip_margin_ms.despan(),
         })
     }
 }

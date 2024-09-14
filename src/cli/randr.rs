@@ -15,6 +15,7 @@ use {
         fmt::{Display, Formatter},
         rc::Rc,
         str::FromStr,
+        time::Duration,
     },
 };
 
@@ -66,6 +67,31 @@ pub enum CardCommand {
     Api(ApiArgs),
     /// Modify the direct scanout setting of the card.
     DirectScanout(DirectScanoutArgs),
+    /// Modify timing settings of the card.
+    Timing(TimingArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct TimingArgs {
+    #[clap(subcommand)]
+    pub cmd: TimingCmd,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum TimingCmd {
+    /// Sets the margin to use for page flips.
+    ///
+    /// This is duration between the compositor initiating a page flip and the output's
+    /// vblank event. This determines the minimum input latency. The default is 1.5 ms.
+    ///
+    /// Note that if the margin is too small, the compositor will dynamically increase it.
+    SetFlipMargin(SetFlipMarginArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetFlipMarginArgs {
+    /// The margin in milliseconds.
+    pub margin_ms: f64,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -341,6 +367,7 @@ struct Output {
     pub tearing_mode: TearingMode,
     pub formats: Vec<String>,
     pub format: Option<String>,
+    pub flip_margin_ns: Option<u64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -626,6 +653,18 @@ impl Randr {
                     },
                 });
             }
+            CardCommand::Timing(ts) => match ts.cmd {
+                TimingCmd::SetFlipMargin(sfm) => {
+                    self.handle_error(randr, |msg| {
+                        eprintln!("Could not modify the flip margin: {}", msg);
+                    });
+                    tc.send(jay_randr::SetFlipMargin {
+                        self_id: randr,
+                        dev: &args.card,
+                        margin_ns: (sfm.margin_ms * 1_000_000.0) as u64,
+                    });
+                }
+            },
         }
         tc.round_trip().await;
     }
@@ -759,6 +798,14 @@ impl Randr {
             };
             println!("        transform: {}", name);
         }
+        if let Some(flip_margin_ns) = o.flip_margin_ns {
+            if flip_margin_ns != 1_500_000 {
+                println!(
+                    "        flip margin: {:?}",
+                    Duration::from_nanos(flip_margin_ns)
+                );
+            }
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -838,6 +885,7 @@ impl Randr {
                 tearing_mode: TearingMode::NEVER,
                 formats: vec![],
                 format: None,
+                flip_margin_ns: None,
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -865,6 +913,7 @@ impl Randr {
                 tearing_mode: TearingMode::NEVER,
                 formats: vec![],
                 format: None,
+                flip_margin_ns: None,
             });
         });
         jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
@@ -895,6 +944,12 @@ impl Randr {
             if msg.current != 0 {
                 output.format = Some(msg.name.to_string());
             }
+        });
+        jay_randr::FlipMargin::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.flip_margin_ns = Some(msg.margin_ns);
         });
         jay_randr::Mode::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

@@ -23,11 +23,7 @@ use {
             },
         },
     },
-    std::{
-        env,
-        rc::{Rc, Weak},
-        sync::LazyLock,
-    },
+    std::rc::{Rc, Weak},
     uapi::c,
 };
 
@@ -85,18 +81,8 @@ enum CursorProgramming {
 }
 
 pub const DEFAULT_PRE_COMMIT_MARGIN: u64 = 16_000_000; // 16ms
-pub const MIN_POST_COMMIT_MARGIN: u64 = 1_500_000; // 1.5ms
-pub const MAX_POST_COMMIT_MARGIN: u64 = 16_000_000; // 16ms
-pub const DEFAULT_POST_COMMIT_MARGIN: u64 = MIN_POST_COMMIT_MARGIN;
+pub const DEFAULT_POST_COMMIT_MARGIN: u64 = 1_500_000; // 1.5ms;
 pub const POST_COMMIT_MARGIN_DELTA: u64 = 500_000; // 500us
-
-static NO_FRAME_SCHEDULING: LazyLock<bool> = LazyLock::new(|| {
-    let res = env::var("JAY_NO_FRAME_SCHEDULING").ok().as_deref() == Some("1");
-    if res {
-        log::warn!("Frame scheduling is disabled.");
-    }
-    res
-});
 
 impl MetalConnector {
     pub fn schedule_present(&self) {
@@ -113,10 +99,13 @@ impl MetalConnector {
             }
             let mut expected_sequence = self.sequence.get() + 1;
             let mut start = Time::now_unchecked();
-            let use_frame_scheduling = !self.try_async_flip() && !*NO_FRAME_SCHEDULING;
+            let use_frame_scheduling = !self.try_async_flip();
             if use_frame_scheduling {
-                let margin = self.pre_commit_margin.get() + self.post_commit_margin.get();
-                let next_present = self.next_flip_nsec.get().saturating_sub(margin);
+                let next_present = self
+                    .next_flip_nsec
+                    .get()
+                    .saturating_sub(self.pre_commit_margin.get())
+                    .saturating_sub(self.post_commit_margin.get());
                 if start.nsec() < next_present {
                     self.state.ring.timeout(next_present).await.unwrap();
                     start = Time::now_unchecked();

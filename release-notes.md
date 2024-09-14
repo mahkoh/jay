@@ -7,6 +7,7 @@
 - Upload shm textures on a separate thread in the Vulkan renderer.
 - Disable implicit sync in KMS.
 - Implement frame scheduling for KMS.
+- The JAY_MAX_RENDER_TIME_NSEC environment variable has been removed.
 
 # 1.5.0 (2024-09-02)
 

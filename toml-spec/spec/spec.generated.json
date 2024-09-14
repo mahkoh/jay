@@ -653,6 +653,10 @@
         "gfx-api": {
           "description": "If specified, sets the graphics API to use for this device.\n",
           "$ref": "#/$defs/GfxApi"
+        },
+        "flip-margin-ms": {
+          "type": "number",
+          "description": "If specified, sets the flip margin of this device.\n\nThis is duration between the compositor initiating a page flip and the output's\nvblank event. This determines the minimum input latency. The default is 1.5 ms.\n\nNote that if the margin is too small, the compositor will dynamically increase it.\n"
         }
       },
       "required": [

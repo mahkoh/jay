@@ -12,7 +12,7 @@ use {
         _private::WireMode,
     },
     serde::{Deserialize, Serialize},
-    std::str::FromStr,
+    std::{str::FromStr, time::Duration},
 };
 
 /// The mode of a connector.
@@ -503,6 +503,16 @@ impl DrmDevice {
     /// Enables or disables direct scanout of client surfaces for this device.
     pub fn set_direct_scanout_enabled(self, enabled: bool) {
         get!().set_direct_scanout_enabled(Some(self), enabled);
+    }
+
+    /// Sets the flip margin of this device.
+    ///
+    /// This is duration between the compositor initiating a page flip and the output's
+    /// vblank event. This determines the minimum input latency. The default is 1.5 ms.
+    ///
+    /// Note that if the margin is too small, the compositor will dynamically increase it.
+    pub fn set_flip_margin(self, margin: Duration) {
+        get!().set_flip_margin(self, margin);
     }
 }
 

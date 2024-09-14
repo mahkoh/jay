@@ -944,6 +944,16 @@ DrmDevice:
       required: false
       description: |
         If specified, sets the graphics API to use for this device.
+    flip-margin-ms:
+      kind: number
+      required: false
+      description: |
+        If specified, sets the flip margin of this device.
+        
+        This is duration between the compositor initiating a page flip and the output's
+        vblank event. This determines the minimum input latency. The default is 1.5 ms.
+        
+        Note that if the margin is too small, the compositor will dynamically increase it.
 
 
 GfxApi:

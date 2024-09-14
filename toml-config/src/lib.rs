@@ -35,7 +35,7 @@ use {
             set_vrr_mode, Connector, DrmDevice,
         },
     },
-    std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc},
+    std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc, time::Duration},
 };
 
 fn default_seat() -> Seat {
@@ -244,6 +244,9 @@ impl ConfigDrmDevice {
         }
         if let Some(dse) = self.direct_scanout_enabled {
             d.set_direct_scanout_enabled(dse);
+        }
+        if let Some(fm) = self.flip_margin_ms {
+            d.set_flip_margin(Duration::from_nanos((fm * 1_000_000.0) as _));
         }
     }
 }

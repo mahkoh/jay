@@ -10,8 +10,7 @@ use {
         backends::metal::{
             present::{
                 DirectScanoutCache, PresentFb, DEFAULT_POST_COMMIT_MARGIN,
-                DEFAULT_PRE_COMMIT_MARGIN, MAX_POST_COMMIT_MARGIN, MIN_POST_COMMIT_MARGIN,
-                POST_COMMIT_MARGIN_DELTA,
+                DEFAULT_PRE_COMMIT_MARGIN, POST_COMMIT_MARGIN_DELTA,
             },
             MetalBackend, MetalError,
         },
@@ -27,6 +26,7 @@ use {
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
         },
         state::State,
+        tree::OutputNode,
         udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
@@ -108,6 +108,7 @@ pub struct MetalDrmDevice {
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub paused: Cell<bool>,
+    pub min_post_commit_margin: Cell<u64>,
 }
 
 impl Debug for MetalDrmDevice {
@@ -278,6 +279,19 @@ impl BackendDrmDevice for MetalDrmDevice {
             fd,
         });
         lessee.created(lease);
+    }
+
+    fn set_flip_margin(&self, margin: u64) {
+        self.min_post_commit_margin.set(margin);
+        if let Some(dd) = self.backend.device_holder.drm_devices.get(&self.devnum) {
+            for c in dd.connectors.lock().values() {
+                c.post_commit_margin.set(margin);
+                c.post_commit_margin_decay.reset(margin);
+                if let Some(output) = self.backend.state.root.outputs.get(&c.connector_id) {
+                    output.flip_margin_ns.set(Some(margin));
+                }
+            }
+        }
     }
 }
 
@@ -1067,8 +1081,8 @@ fn create_connector(
         expected_sequence: Default::default(),
         pre_commit_margin_decay: GeometricDecay::new(0.5, DEFAULT_PRE_COMMIT_MARGIN),
         pre_commit_margin: Cell::new(DEFAULT_PRE_COMMIT_MARGIN),
-        post_commit_margin_decay: GeometricDecay::new(0.1, DEFAULT_POST_COMMIT_MARGIN),
-        post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
+        post_commit_margin_decay: GeometricDecay::new(0.1, dev.min_post_commit_margin.get()),
+        post_commit_margin: Cell::new(dev.min_post_commit_margin.get()),
         vblank_miss_sec: Cell::new(0),
         vblank_miss_this_sec: Default::default(),
         presentation_is_sync: Cell::new(false),
@@ -1750,6 +1764,7 @@ impl MetalBackend {
             leases: Default::default(),
             leases_to_break: Default::default(),
             paused: Cell::new(false),
+            min_post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
@@ -1943,24 +1958,11 @@ impl MetalBackend {
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
         }
+        let dd = connector.display.borrow();
+        let global = self.state.root.outputs.get(&connector.connector_id);
         if let Some(expected) = connector.expected_sequence.take() {
             if connector.vblank_miss_sec.replace(tv_sec) != tv_sec {
-                let n_missed = connector.vblank_miss_this_sec.replace(0);
-                if n_missed > 0 {
-                    log::debug!("{}: Missed {n_missed} page flips", connector.kernel_id());
-                    let new_margin = (connector.post_commit_margin.get()
-                        + POST_COMMIT_MARGIN_DELTA)
-                        .min(MAX_POST_COMMIT_MARGIN);
-                    connector.post_commit_margin_decay.reset(new_margin);
-                    connector.post_commit_margin.set(new_margin);
-                } else {
-                    connector
-                        .post_commit_margin_decay
-                        .add(MIN_POST_COMMIT_MARGIN);
-                    connector
-                        .post_commit_margin
-                        .set(connector.post_commit_margin_decay.get());
-                }
+                self.update_post_commit_margin(dev, &connector, &dd, global.as_deref());
             }
             let actual = connector.sequence.get();
             if expected < actual {
@@ -1973,12 +1975,10 @@ impl MetalBackend {
         {
             connector.schedule_present();
         }
-        let dd = connector.display.borrow_mut();
         connector
             .next_flip_nsec
             .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
         {
-            let global = self.state.root.outputs.get(&connector.connector_id);
             let mut flags = KIND_HW_COMPLETION;
             if connector.presentation_is_sync.get() {
                 flags |= KIND_VSYNC;
@@ -1999,6 +1999,38 @@ impl MetalBackend {
                     flags,
                 );
             }
+        }
+    }
+
+    fn update_post_commit_margin(
+        &self,
+        dev: &MetalDrmDeviceData,
+        connector: &MetalConnector,
+        dd: &ConnectorDisplayData,
+        global: Option<&OutputNode>,
+    ) {
+        let n_missed = connector.vblank_miss_this_sec.replace(0);
+        let old_margin = connector.post_commit_margin.get();
+        let new_margin = if n_missed > 0 {
+            log::debug!("{}: Missed {n_missed} page flips", connector.kernel_id());
+            let refresh = dd.refresh as u64;
+            if old_margin >= refresh {
+                return;
+            }
+            let new_margin = (old_margin + POST_COMMIT_MARGIN_DELTA).min(refresh);
+            connector.post_commit_margin_decay.reset(new_margin);
+            new_margin
+        } else {
+            let min_margin = dev.dev.min_post_commit_margin.get();
+            if min_margin >= connector.post_commit_margin.get() {
+                return;
+            }
+            connector.post_commit_margin_decay.add(min_margin);
+            connector.post_commit_margin_decay.get()
+        };
+        connector.post_commit_margin.set(new_margin);
+        if let Some(global) = &global {
+            global.flip_margin_ns.set(Some(new_margin));
         }
     }
 

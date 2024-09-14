@@ -75,6 +75,11 @@ request set_fb_format (since = 8) {
     format: str,
 }
 
+request set_flip_margin (since = 10) {
+    dev: str,
+    margin_ns: pod(u64),
+}
+
 # events
 
 event global {
@@ -150,4 +155,8 @@ event tearing_state (since = 3) {
 event fb_format (since = 8) {
     name: str,
     current: u32,
+}
+
+event flip_margin (since = 10) {
+    margin_ns: pod(u64),
 }
