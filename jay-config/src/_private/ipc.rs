@@ -513,6 +513,10 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         format: Format,
     },
+    SetFlipMargin {
+        device: DrmDevice,
+        margin: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

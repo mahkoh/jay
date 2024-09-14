@@ -744,6 +744,10 @@ impl Client {
         self.send(&ClientMessage::SetDirectScanoutEnabled { device, enabled });
     }
 
+    pub fn set_flip_margin(&self, device: DrmDevice, margin: Duration) {
+        self.send(&ClientMessage::SetFlipMargin { device, margin });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

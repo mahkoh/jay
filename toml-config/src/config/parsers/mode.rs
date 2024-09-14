@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{flt, opt, s32, Extractor, ExtractorError},
+            extractor::{fltorint, opt, s32, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             Mode,
         },
@@ -37,7 +37,7 @@ impl<'a> Parser for ModeParser<'a> {
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
         let (width, height, refresh_rate) =
-            ext.extract((s32("width"), s32("height"), opt(flt("refresh-rate"))))?;
+            ext.extract((s32("width"), s32("height"), opt(fltorint("refresh-rate"))))?;
         Ok(Mode {
             width: width.value,
             height: height.value,

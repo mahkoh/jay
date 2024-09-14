@@ -274,6 +274,7 @@ pub struct ConfigDrmDevice {
     pub match_: DrmDeviceMatch,
     pub gfx_api: Option<GfxApi>,
     pub direct_scanout_enabled: Option<bool>,
+    pub flip_margin_ms: Option<f64>,
 }
 
 #[derive(Debug, Clone)]

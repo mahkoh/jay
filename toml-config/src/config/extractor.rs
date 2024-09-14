@@ -154,7 +154,7 @@ macro_rules! ty {
 
 ty!(str, 'a, String, &'a str, v, v.as_str(), "a string");
 ty!(int, 'a, Integer, i64, v, *v, "an integer");
-ty!(flt, 'a, Float, f64, v, *v, "a float");
+// ty!(flt, 'a, Float, f64, v, *v, "a float");
 ty!(bol, 'a, Boolean, bool, v, *v, "a boolean");
 ty!(arr, 'a, Array, &'a [Spanned<Value>], v, &**v, "an array");
 // ty!(tbl, 'a, Table, &'a IndexMap<Spanned<String>, Spanned<Value>>, v, v, "a table");

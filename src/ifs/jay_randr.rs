@@ -29,6 +29,7 @@ pub struct JayRandr {
 const VRR_CAPABLE_SINCE: Version = Version(2);
 const TEARING_SINCE: Version = Version(3);
 const FORMAT_SINCE: Version = Version(8);
+const FLIP_MARGIN_SINCE: Version = Version(10);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -142,6 +143,14 @@ impl JayRandr {
                         current: 0,
                     });
                 }
+            }
+        }
+        if self.version >= FLIP_MARGIN_SINCE {
+            if let Some(margin_ns) = node.flip_margin_ns.get() {
+                self.client.event(FlipMargin {
+                    self_id: self.id,
+                    margin_ns,
+                });
             }
         }
         let current_mode = global.mode.get();
@@ -393,6 +402,14 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.global.connector.connector.set_fb_format(format);
+        Ok(())
+    }
+
+    fn set_flip_margin(&self, req: SetFlipMargin<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(dev) = self.get_device(req.dev) else {
+            return Ok(());
+        };
+        dev.dev.set_flip_margin(req.margin_ns);
         Ok(())
     }
 }

@@ -456,6 +456,9 @@ pub trait BackendDrmDevice {
         let _ = lessee;
         let _ = connector_ids;
     }
+    fn set_flip_margin(&self, margin: u64) {
+        let _ = margin;
+    }
 }
 
 pub trait BackendDrmLease {

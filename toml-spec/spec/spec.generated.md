@@ -1266,6 +1266,17 @@ The table has the following fields:
 
   The value of this field should be a [GfxApi](#types-GfxApi).
 
+- `flip-margin-ms` (optional):
+
+  If specified, sets the flip margin of this device.
+  
+  This is duration between the compositor initiating a page flip and the output's
+  vblank event. This determines the minimum input latency. The default is 1.5 ms.
+  
+  Note that if the margin is too small, the compositor will dynamically increase it.
+
+  The value of this field should be a number.
+
 
 <a name="types-DrmDeviceMatch"></a>
 ### `DrmDeviceMatch`
