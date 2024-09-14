@@ -75,6 +75,7 @@ pub struct XdgSurface {
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
+    have_initial_commit: Cell<bool>,
 }
 
 struct Popup {
@@ -190,6 +191,7 @@ impl XdgSurface {
             popups: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
+            have_initial_commit: Default::default(),
         }
     }
 
@@ -489,16 +491,11 @@ impl SurfaceExt for XdgSurface {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        {
-            let ase = self.acked_serial.get();
-            let rse = self.requested_serial.get();
-            if ase != Some(rse) {
-                if ase.is_none() {
-                    if let Some(ext) = self.ext.get() {
-                        ext.initial_configure()?;
-                    }
-                    self.send_configure(rse);
-                }
+        if !self.have_initial_commit.get() {
+            if let Some(ext) = self.ext.get() {
+                ext.initial_configure()?;
+                self.do_send_configure();
+                self.have_initial_commit.set(true);
             }
         }
         if let Some(pending) = &mut pending.xdg_surface {
