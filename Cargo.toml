@@ -17,6 +17,7 @@ members = ["jay-config", "toml-config", "algorithms", "toml-spec"]
 
 [profile.release]
 panic = "abort"
+debug = "full"
 
 [profile.dev]
 panic = "abort"
