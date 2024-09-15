@@ -163,8 +163,14 @@ impl Debug for MetalBackend {
 
 impl MetalBackend {
     async fn run(self: Rc<Self>) -> Result<(), MetalError> {
-        let _monitor = self.state.eng.spawn(self.clone().monitor_devices());
-        let _events = self.state.eng.spawn(self.clone().handle_libinput_events());
+        let _monitor = self
+            .state
+            .eng
+            .spawn("monitor devices", self.clone().monitor_devices());
+        let _events = self.state.eng.spawn(
+            "handle libinput events",
+            self.clone().handle_libinput_events(),
+        );
         if let Err(e) = self.enumerate_devices() {
             return Err(MetalError::Enumerate(Box::new(e)));
         }
@@ -175,7 +181,7 @@ impl MetalBackend {
 impl Backend for MetalBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
         let slf = self.clone();
-        self.state.eng.spawn(async move {
+        self.state.eng.spawn("metal backend", async move {
             slf.run().await?;
             Ok(())
         })

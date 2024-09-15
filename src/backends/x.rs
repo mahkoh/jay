@@ -249,7 +249,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
 impl Backend for XBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
         let slf = self.clone();
-        self.state.eng.spawn(async move {
+        self.state.eng.spawn("x backend", async move {
             slf.run().await?;
             Ok(())
         })
@@ -280,12 +280,19 @@ impl XBackend {
     async fn run(self: Rc<Self>) -> Result<(), XBackendError> {
         self.query_devices(INPUT_DEVICE_ALL_MASTER).await?;
 
-        let _events = self.state.eng.spawn(self.clone().event_handler());
-        let _grab = self.state.eng.spawn(self.clone().grab_handler());
-        let _present = self
+        let _events = self
             .state
             .eng
-            .spawn2(Phase::Present, self.clone().present_handler());
+            .spawn("x event handler", self.clone().event_handler());
+        let _grab = self
+            .state
+            .eng
+            .spawn("grab handler", self.clone().grab_handler());
+        let _present = self.state.eng.spawn2(
+            "present handler",
+            Phase::Present,
+            self.clone().present_handler(),
+        );
 
         self.state.set_render_ctx(Some(self.ctx.clone()));
         self.state

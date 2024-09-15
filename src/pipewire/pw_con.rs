@@ -347,8 +347,12 @@ impl PwConHolder {
         data.send_hello();
         data.send_properties();
         let con = Rc::new(PwConHolder {
-            outgoing: Cell::new(Some(eng.spawn(data.clone().handle_outgoing()))),
-            incoming: Cell::new(Some(eng.spawn(data.clone().handle_incoming()))),
+            outgoing: Cell::new(Some(
+                eng.spawn("pw outgoing", data.clone().handle_outgoing()),
+            )),
+            incoming: Cell::new(Some(
+                eng.spawn("pw incoming", data.clone().handle_incoming()),
+            )),
             con: data,
         });
         con.con.holder.set(Rc::downgrade(&con));

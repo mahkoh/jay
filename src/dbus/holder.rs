@@ -84,7 +84,7 @@ async fn connect(
             }
         },
     );
-    let future = eng.spawn(handle_auth(socket.clone()));
+    let future = eng.spawn("dbus auth", handle_auth(socket.clone()));
     socket.auth.set(Some(future));
     Ok(socket)
 }

@@ -14,9 +14,16 @@ use {
 };
 
 pub async fn client(data: Rc<Client>) {
-    let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
+    let mut recv = data
+        .state
+        .eng
+        .spawn("client receive", receive(data.clone()))
+        .fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
-    let _send = data.state.eng.spawn2(Phase::PostLayout, send(data.clone()));
+    let _send = data
+        .state
+        .eng
+        .spawn2("client send", Phase::PostLayout, send(data.clone()));
     select! {
         _ = recv => { },
         _ = shutdown => { },

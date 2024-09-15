@@ -19,7 +19,7 @@ impl RunToplevel {
         let slf = Rc::new(RunToplevel {
             queue: Default::default(),
         });
-        let future = eng.spawn({
+        let future = eng.spawn("run toplevel", {
             let slf = slf.clone();
             async move {
                 loop {

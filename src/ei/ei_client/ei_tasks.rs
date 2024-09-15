@@ -16,9 +16,16 @@ use {
 };
 
 pub async fn ei_client(data: Rc<EiClient>) {
-    let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
+    let mut recv = data
+        .state
+        .eng
+        .spawn("ei receive", receive(data.clone()))
+        .fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
-    let _send = data.state.eng.spawn2(Phase::PostLayout, send(data.clone()));
+    let _send = data
+        .state
+        .eng
+        .spawn2("ei send", Phase::PostLayout, send(data.clone()));
     select! {
         _ = recv => { },
         _ = shutdown => { },

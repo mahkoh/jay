@@ -251,6 +251,7 @@ struct AllocWork {
 
 impl CpuWork for AllocWork {
     fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        zone!("AllocWork");
         let r = do_alloc(
             &mut self.allocator.lock(),
             &self.device,
@@ -303,6 +304,7 @@ struct FreeWork {
 
 impl CpuWork for FreeWork {
     fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        zone!("FreeWork");
         let ua = self.allocation.take().unwrap();
         unsafe {
             do_free(&mut self.allocator.lock(), &self.device, ua.block, ua.ptr);

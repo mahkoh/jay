@@ -32,7 +32,7 @@ pub fn install(
         Ok(fd) => Rc::new(fd),
         Err(e) => return Err(SighandError::CreateFailed(e.into())),
     };
-    Ok(eng.spawn(handle_signals(fd, ring.clone())))
+    Ok(eng.spawn("signal handler", handle_signals(fd, ring.clone())))
 }
 
 async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>) {

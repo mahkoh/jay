@@ -453,9 +453,11 @@ impl Xcon {
             xorg: CloneCell::new(Weak::new()),
             events: Default::default(),
         });
-        let outgoing = state
-            .eng
-            .spawn2(Phase::PostLayout, handle_outgoing(data.clone()));
+        let outgoing = state.eng.spawn2(
+            "xcon send",
+            Phase::PostLayout,
+            handle_outgoing(data.clone()),
+        );
         let mut buf = data.bufio.buf();
         let mut fds = vec![];
         {
@@ -502,7 +504,9 @@ impl Xcon {
             return Err(XconError::Authenticate(reason.to_owned()));
         }
         let setup = Setup::deserialize(&mut parser)?;
-        let incoming = state.eng.spawn(handle_incoming(data.clone(), incoming));
+        let incoming = state
+            .eng
+            .spawn("X incoming", handle_incoming(data.clone(), incoming));
         let slf = Rc::new(Self {
             extensions: data.fetch_extension_data().await?,
             outgoing: Cell::new(Some(outgoing)),

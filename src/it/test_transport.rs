@@ -147,6 +147,7 @@ impl TestTransport {
     pub fn init(self: &Rc<Self>) {
         self.incoming.set(Some(
             self.run.state.eng.spawn(
+                "",
                 Incoming {
                     tc: self.clone(),
                     buf: BufFdIn::new(&self.socket, &self.run.state.ring),
@@ -156,6 +157,7 @@ impl TestTransport {
         ));
         self.outgoing.set(Some(
             self.run.state.eng.spawn(
+                "",
                 Outgoing {
                     tc: self.clone(),
                     buf: BufFdOut::new(&self.socket, &self.run.state.ring),

@@ -146,16 +146,14 @@ impl Acceptor {
         }
         let acc = Rc::new(Acceptor { socket });
         let futures = vec![
-            state.eng.spawn(accept(
-                acc.socket.secure.clone(),
-                state.clone(),
-                ClientCaps::all(),
-            )),
-            state.eng.spawn(accept(
-                acc.socket.insecure.clone(),
-                state.clone(),
-                CAPS_DEFAULT,
-            )),
+            state.eng.spawn(
+                "secure acceptor",
+                accept(acc.socket.secure.clone(), state.clone(), ClientCaps::all()),
+            ),
+            state.eng.spawn(
+                "insecure acceptor",
+                accept(acc.socket.insecure.clone(), state.clone(), CAPS_DEFAULT),
+            ),
         ];
         state.acceptor.set(Some(acc.clone()));
         Ok((acc, futures))

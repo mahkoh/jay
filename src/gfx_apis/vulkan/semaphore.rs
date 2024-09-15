@@ -37,6 +37,7 @@ impl VulkanDevice {
 
 impl VulkanSemaphore {
     pub fn import_sync_file(&self, sync_file: OwnedFd) -> Result<(), VulkanError> {
+        zone!("import_sync_file");
         let fd_info = ImportSemaphoreFdInfoKHR::default()
             .fd(sync_file.raw())
             .flags(SemaphoreImportFlags::TEMPORARY)

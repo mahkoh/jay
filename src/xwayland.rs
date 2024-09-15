@@ -150,7 +150,9 @@ async fn run(
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
     };
-    let stderr_read = state.eng.spawn(log_xwayland(state.clone(), stderr_read));
+    let stderr_read = state
+        .eng
+        .spawn("log Xwayland", log_xwayland(state.clone(), stderr_read));
     let pidfd = forker
         .xwayland(
             &state,
@@ -188,7 +190,7 @@ async fn run(
             Ok(w) => w,
             Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
         };
-        let _wm = state.eng.spawn(wm.run());
+        let _wm = state.eng.spawn("XWM", wm.run());
         state.ring.readable(&pidfd).await?;
     }
     state.xwayland.queue.clear();

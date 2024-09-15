@@ -64,12 +64,16 @@ impl SecurityContextAcceptors {
             close_future: Cell::new(None),
         });
         log::info!("Creating security acceptor {acceptor}");
-        acceptor
-            .listen_future
-            .set(Some(state.eng.spawn(acceptor.clone().accept())));
-        acceptor
-            .close_future
-            .set(Some(state.eng.spawn(acceptor.clone().close())));
+        acceptor.listen_future.set(Some(
+            state
+                .eng
+                .spawn("security accept", acceptor.clone().accept()),
+        ));
+        acceptor.close_future.set(Some(
+            state
+                .eng
+                .spawn("security await close", acceptor.clone().close()),
+        ));
         self.acceptors.set(acceptor.id, acceptor);
     }
 }

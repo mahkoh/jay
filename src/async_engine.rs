@@ -64,16 +64,21 @@ impl AsyncEngine {
         }
     }
 
-    pub fn spawn<T, F: Future<Output = T> + 'static>(self: &Rc<Self>, f: F) -> SpawnedFuture<T> {
-        self.spawn_(Phase::EventHandling, f)
+    pub fn spawn<T, F: Future<Output = T> + 'static>(
+        self: &Rc<Self>,
+        name: &str,
+        f: F,
+    ) -> SpawnedFuture<T> {
+        self.spawn_(name, Phase::EventHandling, f)
     }
 
     pub fn spawn2<T, F: Future<Output = T> + 'static>(
         self: &Rc<Self>,
+        name: &str,
         phase: Phase,
         f: F,
     ) -> SpawnedFuture<T> {
-        self.spawn_(phase, f)
+        self.spawn_(name, phase, f)
     }
 
     pub fn yield_now(self: &Rc<Self>) -> Yield {

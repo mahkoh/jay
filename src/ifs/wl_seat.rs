@@ -270,7 +270,7 @@ impl WlSeatGlobal {
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
-        let future = state.eng.spawn(async move {
+        let future = state.eng.spawn("seat handler", async move {
             loop {
                 seat.tree_changed.triggered().await;
                 seat.state.tree_changed_sent.set(false);

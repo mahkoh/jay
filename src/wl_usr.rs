@@ -146,6 +146,7 @@ impl UsrCon {
         );
         slf.incoming.set(Some(
             slf.eng.spawn(
+                "wl_usr incoming",
                 Incoming {
                     con: slf.clone(),
                     buf: BufFdIn::new(&socket, &slf.ring),
@@ -156,6 +157,7 @@ impl UsrCon {
         ));
         slf.outgoing.set(Some(
             slf.eng.spawn(
+                "wl_usr outgoing",
                 Outgoing {
                     con: slf.clone(),
                     buf: BufFdOut::new(&socket, &slf.ring),

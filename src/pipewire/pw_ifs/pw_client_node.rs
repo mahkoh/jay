@@ -745,7 +745,9 @@ impl PwClientNode {
         let typed = map.typed::<pw_node_activation>();
         self.activation.set(Some(typed.clone()));
         self.transport_in.set(Some(
-            self.con.eng.spawn(self.clone().transport_in(typed, readfd)),
+            self.con
+                .eng
+                .spawn("pw transport in", self.clone().transport_in(typed, readfd)),
         ));
         self.transport_out.set(Some(writefd));
         Ok(())

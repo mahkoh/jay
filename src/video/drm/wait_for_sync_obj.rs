@@ -140,7 +140,7 @@ impl WaitForSyncObj {
                     trigger: Default::default(),
                 });
                 Waiter {
-                    _task: self.eng.spawn(waiter.clone().run()),
+                    _task: self.eng.spawn("wait for sync obj", waiter.clone().run()),
                     inner: waiter,
                 }
             }

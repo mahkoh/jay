@@ -120,7 +120,9 @@ impl EiClients {
         handshake.send_handshake_version();
         data.objects.add_handshake(&handshake);
         let client = EiClientHolder {
-            _handler: global.eng.spawn(ei_tasks::ei_client(data.clone())),
+            _handler: global
+                .eng
+                .spawn("ei client", ei_tasks::ei_client(data.clone())),
             data: data.clone(),
         };
         log::info!(

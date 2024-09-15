@@ -109,13 +109,20 @@ impl ForkerProxy {
 
     pub fn install(self: &Rc<Self>, state: &Rc<State>) {
         state.forker.set(Some(self.clone()));
-        self.task_proc.set(Some(
-            state.eng.spawn(self.clone().check_process(state.clone())),
+        self.task_proc.set(Some(state.eng.spawn(
+            "forker check process",
+            self.clone().check_process(state.clone()),
+        )));
+        self.task_in.set(Some(
+            state
+                .eng
+                .spawn("forker incoming", self.clone().incoming(state.clone())),
         ));
-        self.task_in
-            .set(Some(state.eng.spawn(self.clone().incoming(state.clone()))));
-        self.task_out
-            .set(Some(state.eng.spawn(self.clone().outgoing(state.clone()))));
+        self.task_out.set(Some(
+            state
+                .eng
+                .spawn("forker outgoing", self.clone().outgoing(state.clone())),
+        ));
     }
 
     pub fn setenv(&self, key: &[u8], val: &[u8]) {
@@ -353,8 +360,8 @@ impl Forker {
             outgoing: Default::default(),
             pending_spawns: Default::default(),
         });
-        let _f1 = ae.spawn(forker.clone().incoming());
-        let _f2 = ae.spawn(forker.clone().outgoing());
+        let _f1 = ae.spawn("forker incoming", forker.clone().incoming());
+        let _f2 = ae.spawn("forker outgoing", forker.clone().outgoing());
         let _ = ring.run();
         std::process::exit(1);
     }
@@ -462,7 +469,7 @@ impl Forker {
                 }
                 drop(write);
                 let slf = self.clone();
-                let spawn = self.ae.spawn(async move {
+                let spawn = self.ae.spawn("await spawn", async move {
                     let read = Rc::new(read);
                     if let Err(e) = slf.ring.readable(&read).await {
                         log::error!(

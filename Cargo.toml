@@ -17,6 +17,7 @@ members = ["jay-config", "toml-config", "algorithms", "toml-spec"]
 
 [profile.release]
 panic = "abort"
+debug = "full"
 
 [profile.dev]
 panic = "abort"
@@ -57,6 +58,14 @@ gpu-alloc-ash = "0.7.0"
 serde = { version = "1.0.196", features = ["derive"] }
 enum-map = "2.7.3"
 png = "0.17.13"
+rustc-demangle = { version = "0.1.24", optional = true }
+
+[dependencies.tracy-client-sys]
+version = "0.24.0"
+git = "https://github.com/mahkoh/rust_tracy_client.git"
+branch = "jorth/debuginfod"
+features = ["ondemand", "manual-lifetime"]
+optional = true
 
 [build-dependencies]
 repc = "0.1.1"
@@ -77,3 +86,4 @@ opt-level = 3
 [features]
 rc_tracking = []
 it = []
+tracy = ["dep:tracy-client-sys", "dep:rustc-demangle"]

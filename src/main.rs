@@ -43,6 +43,8 @@
 mod macros;
 #[macro_use]
 mod leaks;
+#[macro_use]
+mod tracy;
 mod acceptor;
 mod allocator;
 mod async_engine;

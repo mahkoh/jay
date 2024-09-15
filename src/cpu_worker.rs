@@ -283,8 +283,11 @@ impl CpuWorker {
             pending_job_data_cache: Default::default(),
         });
         Ok(Self {
-            _completions_listener: eng.spawn(data.clone().wait_for_completions()),
-            _job_enqueuer: eng.spawn(data.clone().equeue_jobs()),
+            _completions_listener: eng.spawn(
+                "cpu worker completions",
+                data.clone().wait_for_completions(),
+            ),
+            _job_enqueuer: eng.spawn("cpu worker enqueue", data.clone().equeue_jobs()),
             data,
         })
     }
@@ -325,10 +328,13 @@ fn work(
         async_jobs: Default::default(),
         stopped: Cell::new(false),
     });
-    let _stop_listener = worker.eng.spawn(worker.clone().handle_stop(stop));
-    let _new_job_listener = worker
+    let _stop_listener = worker
         .eng
-        .spawn(worker.clone().handle_new_jobs(new_jobs, have_new_jobs));
+        .spawn("stop listener", worker.clone().handle_stop(stop));
+    let _new_job_listener = worker.eng.spawn(
+        "new job listener",
+        worker.clone().handle_new_jobs(new_jobs, have_new_jobs),
+    );
     if let Err(e) = worker.ring.run() {
         panic!("io_uring failed: {}", ErrorFmt(e));
     }

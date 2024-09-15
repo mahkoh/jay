@@ -72,7 +72,11 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
         });
         track!(self.client, notification);
         self.client.add_client_obj(&notification)?;
-        let future = self.client.state.eng.spawn(run(notification.clone()));
+        let future = self
+            .client
+            .state
+            .eng
+            .spawn("idle notifier", run(notification.clone()));
         notification.task.set(Some(future));
         Ok(())
     }
