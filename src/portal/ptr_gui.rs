@@ -579,11 +579,11 @@ impl WindowData {
             fractional_scale,
             seats: Default::default(),
         });
-        data.render_task.set(Some(
-            dpy.state
-                .eng
-                .spawn2(Phase::Present, data.clone().render_task()),
-        ));
+        data.render_task.set(Some(dpy.state.eng.spawn2(
+            "render",
+            Phase::Present,
+            data.clone().render_task(),
+        )));
         data.fractional_scale.owner.set(Some(data.clone()));
         data
     }

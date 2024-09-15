@@ -1089,10 +1089,11 @@ fn create_connector(
         presentation_is_zero_copy: Cell::new(false),
     });
     let futures = ConnectorFutures {
-        _present: backend
-            .state
-            .eng
-            .spawn2(Phase::Present, slf.clone().present_loop()),
+        _present: backend.state.eng.spawn2(
+            "present loop",
+            Phase::Present,
+            slf.clone().present_loop(),
+        ),
     };
     Ok((slf, futures))
 }
@@ -1791,10 +1792,10 @@ impl MetalBackend {
             }
         }
 
-        let drm_handler = self
-            .state
-            .eng
-            .spawn(self.clone().handle_drm_events(slf.clone()));
+        let drm_handler = self.state.eng.spawn(
+            "handle drm events",
+            self.clone().handle_drm_events(slf.clone()),
+        );
         slf.dev.handle_events.handle_events.set(Some(drm_handler));
 
         Ok(slf)

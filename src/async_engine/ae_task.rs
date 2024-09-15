@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, Phase},
+        tracy::ZoneName,
         utils::{
             numcell::NumCell,
             ptr_ext::{MutPtrExt, PtrExt},
@@ -95,6 +96,8 @@ struct Task<T, F: Future<Output = T>> {
     data: UnsafeCell<TaskData<T, F>>,
     waker: Cell<Option<Waker>>,
     queue: Rc<AsyncEngine>,
+    #[cfg_attr(not(feature = "tracy"), expect(dead_code))]
+    zone: ZoneName,
 }
 
 pub(super) struct Runnable {
@@ -122,6 +125,7 @@ impl Drop for Runnable {
 impl AsyncEngine {
     pub(super) fn spawn_<T, F: Future<Output = T>>(
         self: &Rc<Self>,
+        #[cfg_attr(not(feature = "tracy"), expect(unused_variables))] name: &str,
         phase: Phase,
         f: F,
     ) -> SpawnedFuture<T> {
@@ -134,6 +138,7 @@ impl AsyncEngine {
             }),
             waker: Cell::new(None),
             queue: self.clone(),
+            zone: create_zone_name!("task:{}", name),
         });
         unsafe {
             f.schedule_run();
@@ -229,7 +234,11 @@ impl<T, F: Future<Output = T>> Task<T, F> {
             let waker = Waker::from_raw(raw_waker);
 
             let mut ctx = Context::from_waker(&waker);
-            if let Poll::Ready(d) = Pin::new_unchecked(&mut *data.future).poll(&mut ctx) {
+            let poll = {
+                dynamic_zone!(self.zone);
+                Pin::new_unchecked(&mut *data.future).poll(&mut ctx)
+            };
+            if let Poll::Ready(d) = poll {
                 ManuallyDrop::drop(&mut data.future);
                 ptr::write(&mut data.result, ManuallyDrop::new(d));
                 self.state.or_assign(COMPLETED);

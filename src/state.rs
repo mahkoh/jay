@@ -729,7 +729,7 @@ impl State {
         }
         let mut handler = self.xwayland.handler.borrow_mut();
         if handler.is_none() {
-            *handler = Some(self.eng.spawn(xwayland::manage(self.clone())));
+            *handler = Some(self.eng.spawn("xwayland", xwayland::manage(self.clone())));
         }
     }
 

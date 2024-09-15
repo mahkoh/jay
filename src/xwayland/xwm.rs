@@ -1678,7 +1678,7 @@ impl Wm {
                     };
                     self.shared
                         .transfers
-                        .set(id, self.state.eng.spawn(wtx.run()));
+                        .set(id, self.state.eng.spawn("wayland to X transfer", wtx.run()));
                 }
             }
         }
@@ -1781,9 +1781,12 @@ impl Wm {
                     state: self.state.clone(),
                     shared: self.shared.clone(),
                 };
-                self.shared
-                    .transfers
-                    .set(id, self.state.eng.spawn(transfer.run()));
+                self.shared.transfers.set(
+                    id,
+                    self.state
+                        .eng
+                        .spawn("X to wayland transfer", transfer.run()),
+                );
             }
         }
 

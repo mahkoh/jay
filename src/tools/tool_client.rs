@@ -122,7 +122,7 @@ where
     };
     let eng2 = eng.clone();
     let ring2 = ring.clone();
-    let _f = eng.spawn(async move {
+    let _f = eng.spawn("tool client", async move {
         let tc = match ToolClient::try_new(logger, eng2, ring2).await {
             Ok(tc) => tc,
             Err(e) => handle_error(e),
@@ -199,6 +199,7 @@ impl ToolClient {
         });
         slf.incoming.set(Some(
             slf.eng.spawn(
+                "tool client incoming",
                 Incoming {
                     tc: slf.clone(),
                     buf: BufFdIn::new(&socket, &slf.ring),
@@ -208,6 +209,7 @@ impl ToolClient {
         ));
         slf.outgoing.set(Some(
             slf.eng.spawn(
+                "tool client outgoing",
                 Outgoing {
                     tc: slf.clone(),
                     buf: BufFdOut::new(&socket, &slf.ring),
@@ -239,7 +241,7 @@ impl ToolClient {
                 if let Some(res) = res {
                     let id = slf.next_id.fetch_add(1);
                     let slf2 = slf.clone();
-                    let future = slf.eng.spawn(async move {
+                    let future = slf.eng.spawn("tool client handler", async move {
                         res.await;
                         slf2.pending_futures.borrow_mut().remove(&id);
                     });

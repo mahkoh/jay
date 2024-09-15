@@ -447,7 +447,7 @@ impl ConfigProxyHandler {
         let handler = {
             let timer = timer.clone();
             let slf = self.clone();
-            self.state.eng.spawn(async move {
+            self.state.eng.spawn("config timer", async move {
                 loop {
                     match timer.expired(&slf.state.ring).await {
                         Ok(_) => slf.send(&ServerMessage::TimerExpired {
@@ -1400,7 +1400,7 @@ impl ConfigProxyHandler {
             let slf = self.clone();
             let trigger = event.clone();
             let fd = fd.clone();
-            let future = self.state.eng.spawn(async move {
+            let future = self.state.eng.spawn("config fd poller", async move {
                 loop {
                     trigger.triggered().await;
                     let res = slf.state.ring.poll(&fd, events).await.merge();

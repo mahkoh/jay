@@ -13,6 +13,7 @@ use {
         },
         theme::Color,
         time::Time,
+        tracy::FrameName,
         tree::OutputNode,
         utils::{errorfmt::ErrorFmt, oserror::OsError, transform_ext::TransformExt},
         video::{
@@ -90,6 +91,8 @@ impl MetalConnector {
     }
 
     pub async fn present_loop(self: Rc<Self>) {
+        #[cfg_attr(not(feature = "tracy"), expect(unused_variables))]
+        let frame_name = FrameName::get(&self.kernel_id().to_string());
         let mut cur_sec = 0;
         let mut max = 0;
         loop {
@@ -113,6 +116,7 @@ impl MetalConnector {
                     expected_sequence += 1;
                 }
             }
+            frame!(frame_name);
             if let Err(e) = self.present_once().await {
                 log::error!("Could not present: {}", ErrorFmt(e));
                 continue;
@@ -293,6 +297,7 @@ impl MetalConnector {
         cursor: Option<&CursorProgramming>,
         new_fb: Option<&PresentFb>,
     ) -> Result<(), MetalError> {
+        zone!("program_connector");
         let mut changes = self.master.change();
         let mut try_async_flip = self.try_async_flip();
         macro_rules! change {

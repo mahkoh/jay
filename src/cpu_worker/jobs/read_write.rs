@@ -102,7 +102,7 @@ impl AsyncCpuWork for ReadWriteWorkConfig {
         completion: WorkCompletion,
     ) -> SpawnedFuture<CompletedWork> {
         let ring = ring.clone();
-        eng.spawn(async move {
+        eng.spawn("shm read/write", async move {
             let res = loop {
                 if self.cancel.cancelled.load(Relaxed) {
                     break Err(ReadWriteJobError::Cancelled);

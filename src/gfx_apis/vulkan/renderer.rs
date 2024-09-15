@@ -274,6 +274,7 @@ impl VulkanRenderer {
     }
 
     fn collect_memory(&self, opts: &[GfxApiOpt]) {
+        zone!("collect_memory");
         let mut memory = self.memory.borrow_mut();
         memory.sample.clear();
         for cmd in opts {
@@ -296,6 +297,7 @@ impl VulkanRenderer {
     }
 
     fn begin_command_buffer(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
+        zone!("begin_command_buffer");
         let begin_info =
             CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         unsafe {
@@ -307,6 +309,7 @@ impl VulkanRenderer {
     }
 
     fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) {
+        zone!("initial_barriers");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
@@ -355,6 +358,7 @@ impl VulkanRenderer {
     }
 
     fn begin_rendering(&self, buf: CommandBuffer, fb: &VulkanImage, clear: Option<&Color>) {
+        zone!("begin_rendering");
         let rendering_attachment_info = {
             let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
@@ -388,6 +392,7 @@ impl VulkanRenderer {
     }
 
     fn set_viewport(&self, buf: CommandBuffer, fb: &VulkanImage) {
+        zone!("set_viewport");
         let viewport = Viewport {
             x: 0.0,
             y: 0.0,
@@ -419,6 +424,7 @@ impl VulkanRenderer {
         fb: &VulkanImage,
         opts: &[GfxApiOpt],
     ) -> Result<(), VulkanError> {
+        zone!("record_draws");
         let pipelines = self.get_or_create_pipelines(fb.format.vk_format)?;
         let dev = &self.device.device;
         let mut current_pipeline = None;
@@ -519,12 +525,14 @@ impl VulkanRenderer {
     }
 
     fn end_rendering(&self, buf: CommandBuffer) {
+        zone!("end_rendering");
         unsafe {
             self.device.device.cmd_end_rendering(buf);
         }
     }
 
     fn copy_bridge_to_dmabuf(&self, buf: CommandBuffer, fb: &VulkanImage) {
+        zone!("copy_bridge_to_dmabuf");
         let Some(bridge) = &fb.bridge else {
             return;
         };
@@ -584,6 +592,7 @@ impl VulkanRenderer {
     }
 
     fn final_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) {
+        zone!("final_barriers");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
@@ -625,6 +634,7 @@ impl VulkanRenderer {
     }
 
     fn end_command_buffer(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
+        zone!("end_command_buffer");
         unsafe {
             self.device
                 .device
@@ -634,6 +644,7 @@ impl VulkanRenderer {
     }
 
     fn create_wait_semaphores(&self, fb: &VulkanImage) -> Result<(), VulkanError> {
+        zone!("create_wait_semaphores");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.wait_semaphore_infos.clear();
@@ -658,6 +669,7 @@ impl VulkanRenderer {
                 match sync {
                     AcquireSync::None => {}
                     AcquireSync::Implicit { .. } => {
+                        zone!("import implicit");
                         for plane in &buf.template.dmabuf.planes {
                             let fd = dma_buf_export_sync_file(&plane.fd, flag)
                                 .map_err(VulkanError::IoctlExportSyncFile)?;
@@ -694,6 +706,7 @@ impl VulkanRenderer {
     }
 
     fn import_release_semaphore(&self, fb: &VulkanImage) {
+        zone!("import_release_semaphore");
         let memory = &mut *self.memory.borrow_mut();
         let sync_file = match memory.release_sync_file.as_ref() {
             Some(sync_file) => sync_file,
@@ -727,6 +740,7 @@ impl VulkanRenderer {
     }
 
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
+        zone!("submit");
         let mut memory = self.memory.borrow_mut();
         let release_fence = self.device.create_fence()?;
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf);
@@ -743,6 +757,7 @@ impl VulkanRenderer {
                 )
                 .map_err(VulkanError::Submit)?;
         }
+        zone!("export_sync_file");
         let release_sync_file = match release_fence.export_sync_file() {
             Ok(s) => Some(s),
             Err(e) => {
@@ -761,6 +776,7 @@ impl VulkanRenderer {
     }
 
     fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>) {
+        zone!("create_pending_frame");
         let point = self.allocate_point();
         let mut memory = self.memory.borrow_mut();
         let frame = Rc::new(PendingFrame {
@@ -773,12 +789,15 @@ impl VulkanRenderer {
             _release_fence: memory.release_fence.take(),
         });
         self.pending_frames.set(frame.point, frame.clone());
-        let future = self.eng.spawn(await_release(
-            memory.release_sync_file.clone(),
-            self.ring.clone(),
-            frame.clone(),
-            self.clone(),
-        ));
+        let future = self.eng.spawn(
+            "await release",
+            await_release(
+                memory.release_sync_file.clone(),
+                self.ring.clone(),
+                frame.clone(),
+                self.clone(),
+            ),
+        );
         frame.waiter.set(Some(future));
     }
 
@@ -976,6 +995,7 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, VulkanError> {
+        zone!("execute");
         let res = self.try_execute(fb, opts, clear);
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
@@ -989,6 +1009,7 @@ impl VulkanRenderer {
     }
 
     pub(super) fn allocate_command_buffer(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
+        zone!("allocate_command_buffer");
         let buf = match self.command_buffers.pop() {
             Some(b) => b,
             _ => {
@@ -1000,6 +1021,7 @@ impl VulkanRenderer {
     }
 
     fn allocate_semaphore(&self) -> Result<Rc<VulkanSemaphore>, VulkanError> {
+        zone!("allocate_semaphore");
         let semaphore = match self.wait_semaphores.pop() {
             Some(s) => s,
             _ => self.device.create_semaphore()?,

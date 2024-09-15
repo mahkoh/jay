@@ -62,7 +62,7 @@ impl AsyncCpuWork for AsyncWork {
         completion: WorkCompletion,
     ) -> SpawnedFuture<CompletedWork> {
         let ring = ring.clone();
-        eng.spawn(async move {
+        eng.spawn("", async move {
             let mut buf = [0; 8];
             let res = ring
                 .read_no_cancel(self.0.borrow(), 0, &mut buf, |_| ())
@@ -90,7 +90,7 @@ fn run(cancel: bool) {
         work: Work(eventfd.clone()),
         cancel,
     }));
-    let _fut1 = eng.spawn(async move {
+    let _fut1 = eng.spawn("", async move {
         wheel.timeout(1).await.unwrap();
         if cancel {
             drop(pending_job);
@@ -99,7 +99,7 @@ fn run(cancel: bool) {
             pending::<()>().await;
         }
     });
-    let _fut2 = eng.spawn(async move {
+    let _fut2 = eng.spawn("", async move {
         ae.triggered().await;
         ring2.stop();
     });

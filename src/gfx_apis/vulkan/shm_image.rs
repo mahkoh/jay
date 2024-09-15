@@ -164,14 +164,10 @@ impl VulkanShmImage {
         else {
             return Ok(());
         };
-        let future = img.renderer.eng.spawn(await_upload(
-            point,
-            img.clone(),
-            cmd,
-            sync_file,
-            fence,
-            staging,
-        ));
+        let future = img.renderer.eng.spawn(
+            "await upload",
+            await_upload(point, img.clone(), cmd, sync_file, fence, staging),
+        );
         img.renderer.pending_uploads.set(point, future);
         Ok(())
     }
@@ -519,13 +515,10 @@ impl VulkanShmImage {
         else {
             return Ok(());
         };
-        let future = img.renderer.eng.spawn(await_async_upload(
-            point,
-            img.clone(),
-            cmd,
-            fence,
-            sync_file,
-        ));
+        let future = img.renderer.eng.spawn(
+            "await async upload",
+            await_async_upload(point, img.clone(), cmd, fence, sync_file),
+        );
         img.renderer.pending_uploads.set(point, future);
         Ok(())
     }

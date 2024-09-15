@@ -179,7 +179,7 @@ impl Clients {
         data.objects.display.set(Some(display.clone()));
         data.objects.add_client_object(display).expect("");
         let client = ClientHolder {
-            _handler: global.eng.spawn(tasks::client(data.clone())),
+            _handler: global.eng.spawn("client", tasks::client(data.clone())),
             data: data.clone(),
         };
         log::info!(

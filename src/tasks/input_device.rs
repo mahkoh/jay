@@ -35,7 +35,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         data: data.clone(),
         ae: ae.clone(),
     };
-    let handler = state.eng.spawn(oh.handle());
+    let handler = state.eng.spawn("input dev handler", oh.handle());
     state.input_device_handlers.borrow_mut().insert(
         dev.id(),
         InputDeviceData {

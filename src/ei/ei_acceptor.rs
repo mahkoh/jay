@@ -126,9 +126,10 @@ impl EiAcceptor {
             return Err(EiAcceptorError::ListenFailed(e.into()));
         }
         let acc = Rc::new(EiAcceptor { socket });
-        let future = state
-            .eng
-            .spawn(accept(acc.socket.insecure.clone(), state.clone()));
+        let future = state.eng.spawn(
+            "ei accept",
+            accept(acc.socket.insecure.clone(), state.clone()),
+        );
         Ok((acc, future))
     }
 

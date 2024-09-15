@@ -128,7 +128,7 @@ impl Wheel {
             cached_futures: Default::default(),
         });
         data.dispatcher
-            .set(Some(eng.spawn(data.clone().dispatch())));
+            .set(Some(eng.spawn("wheel", data.clone().dispatch())));
         Ok(Rc::new(Wheel { data }))
     }
 

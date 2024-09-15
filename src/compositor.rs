@@ -33,6 +33,7 @@ use {
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, idle},
+        tracy::enable_profiler,
         tree::{
             container_layout, container_render_data, float_layout, float_titles,
             output_render_data, DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode,
@@ -62,6 +63,7 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let forker = create_forker();
     let portal = portal::run_from_compositor(global.log_level.into());
+    enable_profiler();
     let logger = Logger::install_compositor(global.log_level.into());
     let portal = match portal {
         Ok(p) => Some(p),
@@ -279,9 +281,12 @@ fn start_compositor2(
     }
     let mut _portal = None;
     if let (Some(portal), Some(logger)) = (portal, &logger) {
-        _portal = Some(engine.spawn(portal.spawn(engine.clone(), ring.clone(), logger.clone())));
+        _portal = Some(engine.spawn(
+            "portal",
+            portal.spawn(engine.clone(), ring.clone(), logger.clone()),
+        ));
     }
-    let _compositor = engine.spawn(start_compositor3(state.clone(), test_future));
+    let _compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
     ring.run()?;
     state.clear();
     Ok(())
@@ -354,20 +359,65 @@ fn start_global_event_handlers(
     let eng = &state.eng;
 
     vec![
-        eng.spawn(tasks::handle_backend_events(state.clone())),
-        eng.spawn(tasks::handle_slow_clients(state.clone())),
-        eng.spawn(tasks::handle_hardware_cursor_tick(state.clone())),
-        eng.spawn2(Phase::Layout, container_layout(state.clone())),
-        eng.spawn2(Phase::PostLayout, container_render_data(state.clone())),
-        eng.spawn2(Phase::PostLayout, output_render_data(state.clone())),
-        eng.spawn2(Phase::Layout, float_layout(state.clone())),
-        eng.spawn2(Phase::PostLayout, float_titles(state.clone())),
-        eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())),
-        eng.spawn2(Phase::PostLayout, input_popup_positioning(state.clone())),
-        eng.spawn2(Phase::Present, perform_toplevel_screencasts(state.clone())),
-        eng.spawn2(Phase::PostLayout, perform_screencast_realloc(state.clone())),
-        eng.spawn2(Phase::PostLayout, visualize_damage(state.clone())),
-        eng.spawn(tasks::handle_slow_ei_clients(state.clone())),
+        eng.spawn(
+            "backend events",
+            tasks::handle_backend_events(state.clone()),
+        ),
+        eng.spawn("slow client", tasks::handle_slow_clients(state.clone())),
+        eng.spawn(
+            "handware cursor tick",
+            tasks::handle_hardware_cursor_tick(state.clone()),
+        ),
+        eng.spawn2(
+            "container layout",
+            Phase::Layout,
+            container_layout(state.clone()),
+        ),
+        eng.spawn2(
+            "container render",
+            Phase::PostLayout,
+            container_render_data(state.clone()),
+        ),
+        eng.spawn2(
+            "output render",
+            Phase::PostLayout,
+            output_render_data(state.clone()),
+        ),
+        eng.spawn2("float layout", Phase::Layout, float_layout(state.clone())),
+        eng.spawn2(
+            "float titles",
+            Phase::PostLayout,
+            float_titles(state.clone()),
+        ),
+        eng.spawn2(
+            "idle",
+            Phase::PostLayout,
+            idle(state.clone(), backend.clone()),
+        ),
+        eng.spawn2(
+            "input, popup positioning",
+            Phase::PostLayout,
+            input_popup_positioning(state.clone()),
+        ),
+        eng.spawn2(
+            "toplevel screencast present",
+            Phase::Present,
+            perform_toplevel_screencasts(state.clone()),
+        ),
+        eng.spawn2(
+            "screencast realloc",
+            Phase::PostLayout,
+            perform_screencast_realloc(state.clone()),
+        ),
+        eng.spawn2(
+            "visualize damage",
+            Phase::PostLayout,
+            visualize_damage(state.clone()),
+        ),
+        eng.spawn(
+            "slow ei clients",
+            tasks::handle_slow_ei_clients(state.clone()),
+        ),
     ]
 }
 

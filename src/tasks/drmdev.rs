@@ -34,7 +34,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         state: state.clone(),
         data: data.clone(),
     };
-    let future = state.eng.spawn(oh.handle());
+    let future = state.eng.spawn("drmdev handler", oh.handle());
     data.handler.set(Some(future));
     if state.drm_devs.set(id, data).is_some() {
         panic!("Drm device id has been reused");

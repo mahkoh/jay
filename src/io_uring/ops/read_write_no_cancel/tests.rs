@@ -17,7 +17,7 @@ fn cancel(timeout: bool) {
     let wheel = Wheel::new(&eng, &ring).unwrap();
     let queue = Rc::new(AsyncQueue::new());
     let queue2 = queue.clone();
-    let _fut1 = eng.spawn(async move {
+    let _fut1 = eng.spawn("", async move {
         let (read, _write) = uapi::pipe().unwrap();
         let mut buf = [10];
         let res = ring
@@ -29,7 +29,7 @@ fn cancel(timeout: bool) {
         ));
         ring.stop();
     });
-    let _fut2 = eng.spawn(async move {
+    let _fut2 = eng.spawn("", async move {
         let id = queue2.pop().await;
         if timeout {
             wheel.timeout(1).await.unwrap();

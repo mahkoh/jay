@@ -76,7 +76,7 @@ pub struct PortalStartup {
 
 impl PortalStartup {
     pub async fn spawn(self, eng: Rc<AsyncEngine>, ring: Rc<IoUring>, logger: Arc<Logger>) {
-        let f1 = eng.spawn({
+        let f1 = eng.spawn("check portal exit code", {
             let ring = ring.clone();
             async move {
                 if let Err(e) = ring.readable(&self.pidfd).await {
@@ -103,7 +103,7 @@ impl PortalStartup {
                 }
             }
         });
-        let f2 = eng.spawn({
+        let f2 = eng.spawn("portal logger", {
             let ring = ring.clone();
             let logger = logger.clone();
             async move {
@@ -155,7 +155,10 @@ fn run(logger: Arc<Logger>, freestanding: bool) {
             fatal!("Could not create an IO-uring: {}", ErrorFmt(e));
         }
     };
-    let _f = eng.spawn(run_async(eng.clone(), ring.clone(), logger, freestanding));
+    let _f = eng.spawn(
+        "portal",
+        run_async(eng.clone(), ring.clone(), logger, freestanding),
+    );
     if let Err(e) = ring.run() {
         fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
     }

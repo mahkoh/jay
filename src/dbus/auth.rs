@@ -39,10 +39,14 @@ impl Auth {
         }
         log::info!("{}: Authenticated", self.socket.bus_name);
         self.socket.incoming.set(Some(
-            self.socket.eng.spawn(handle_incoming(self.socket.clone())),
+            self.socket
+                .eng
+                .spawn("dbus incoming", handle_incoming(self.socket.clone())),
         ));
         self.socket.outgoing_.set(Some(
-            self.socket.eng.spawn(handle_outgoing(self.socket.clone())),
+            self.socket
+                .eng
+                .spawn("dbus outgoing", handle_outgoing(self.socket.clone())),
         ));
         self.socket.auth.take();
     }

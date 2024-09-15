@@ -143,7 +143,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
         let errors = errors2.clone();
         Box::new(async move {
             let future: Pin<_> = test.run(testrun.clone()).into();
-            let future = state.eng.spawn2(Phase::Present, future);
+            let future = state.eng.spawn2("testrun", Phase::Present, future);
             let timeout = state.wheel.timeout(500000);
             match future::select(future, timeout).await {
                 Either::Left((Ok(..), _)) => {}

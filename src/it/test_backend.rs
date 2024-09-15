@@ -271,7 +271,7 @@ where
 impl Backend for TestBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn std::error::Error>>> {
         let future = (self.test_future)(&self.state);
-        self.state.eng.spawn(async move {
+        self.state.eng.spawn("", async move {
             let future: Pin<_> = future.into();
             future.await;
             Ok(())

@@ -35,6 +35,7 @@ impl ImgCopyWork {
 
 impl CpuWork for ImgCopyWork {
     fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        zone!("ImgCopyWork");
         for rect in &self.rects {
             let mut offset = rect.y1() * self.stride + rect.x1() * self.bpp;
             if rect.width() == self.width {

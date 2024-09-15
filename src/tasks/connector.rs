@@ -41,7 +41,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         state: state.clone(),
         data: data.clone(),
     };
-    let future = state.eng.spawn(oh.handle());
+    let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
@@ -141,7 +141,10 @@ impl ConnectorHandler {
             &self.data,
             &desired_state,
         ));
-        let _schedule = self.state.eng.spawn(schedule.clone().drive());
+        let _schedule = self
+            .state
+            .eng
+            .spawn("output schedule", schedule.clone().drive());
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),

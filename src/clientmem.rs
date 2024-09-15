@@ -255,6 +255,7 @@ impl CpuJob for CloseMemWork {
 
 impl CpuWork for CloseMemWork {
     fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        zone!("CloseMemWork");
         self.fd.take();
         unsafe {
             c::munmap(self.data as _, self.data.len());
