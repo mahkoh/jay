@@ -2474,7 +2474,9 @@ impl MetalBackend {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
-        dev_fb.clear().map_err(MetalError::Clear)?;
+        dev_fb
+            .clear(AcquireSync::Unnecessary, ReleaseSync::None)
+            .map_err(MetalError::Clear)?;
         let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
             let render_tex = match dev_img.to_texture() {
                 Ok(fb) => fb,
@@ -2526,7 +2528,9 @@ impl MetalBackend {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportFb(e)),
             };
-            render_fb.clear().map_err(MetalError::Clear)?;
+            render_fb
+                .clear(AcquireSync::Unnecessary, ReleaseSync::None)
+                .map_err(MetalError::Clear)?;
             let render_tex = match render_img.to_texture() {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportTexture(e)),
@@ -2797,9 +2801,17 @@ impl RenderBuffer {
         let Some(tex) = &self.dev_tex else {
             return Ok(sync_file);
         };
-        let acquire_point = AcquireSync::from_sync_file(sync_file);
         self.dev_fb
-            .copy_texture(tex, acquire_point, ReleaseSync::Implicit, 0, 0)
+            .copy_texture(
+                AcquireSync::Unnecessary,
+                ReleaseSync::Explicit,
+                tex,
+                None,
+                AcquireSync::from_sync_file(sync_file),
+                ReleaseSync::None,
+                0,
+                0,
+            )
             .map_err(MetalError::CopyToOutput)
     }
 }

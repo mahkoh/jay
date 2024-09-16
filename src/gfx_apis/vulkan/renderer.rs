@@ -643,7 +643,11 @@ impl VulkanRenderer {
         }
     }
 
-    fn create_wait_semaphores(&self, fb: &VulkanImage) -> Result<(), VulkanError> {
+    fn create_wait_semaphores(
+        &self,
+        fb: &VulkanImage,
+        fb_acquire_sync: &AcquireSync,
+    ) -> Result<(), VulkanError> {
         zone!("create_wait_semaphores");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
@@ -699,13 +703,13 @@ impl VulkanRenderer {
             &mut memory.wait_semaphore_infos,
             &mut memory.wait_semaphores,
             fb,
-            &AcquireSync::Implicit,
+            fb_acquire_sync,
             DMA_BUF_SYNC_WRITE,
         )?;
         Ok(())
     }
 
-    fn import_release_semaphore(&self, fb: &VulkanImage) {
+    fn import_release_semaphore(&self, fb: &VulkanImage, fb_release_sync: ReleaseSync) {
         zone!("import_release_semaphore");
         let memory = &mut *self.memory.borrow_mut();
         let sync_file = match memory.release_sync_file.as_ref() {
@@ -736,7 +740,7 @@ impl VulkanRenderer {
                 DMA_BUF_SYNC_READ,
             );
         }
-        import(fb, ReleaseSync::Implicit, None, DMA_BUF_SYNC_WRITE);
+        import(fb, fb_release_sync, None, DMA_BUF_SYNC_WRITE);
     }
 
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
@@ -838,7 +842,10 @@ impl VulkanRenderer {
         )?;
         (&*tmp_tex as &dyn GfxFramebuffer)
             .copy_texture(
+                AcquireSync::None,
+                ReleaseSync::None,
                 &(tex.clone() as _),
+                None,
                 AcquireSync::None,
                 ReleaseSync::None,
                 x,
@@ -992,11 +999,13 @@ impl VulkanRenderer {
     pub fn execute(
         self: &Rc<Self>,
         fb: &VulkanImage,
+        fb_acquire_sync: AcquireSync,
+        fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, VulkanError> {
         zone!("execute");
-        let res = self.try_execute(fb, opts, clear);
+        let res = self.try_execute(fb, fb_acquire_sync, fb_release_sync, opts, clear);
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
             memory.textures.clear();
@@ -1032,6 +1041,8 @@ impl VulkanRenderer {
     fn try_execute(
         self: &Rc<Self>,
         fb: &VulkanImage,
+        fb_acquire_sync: AcquireSync,
+        fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<(), VulkanError> {
@@ -1047,9 +1058,9 @@ impl VulkanRenderer {
         self.copy_bridge_to_dmabuf(buf.buffer, fb);
         self.final_barriers(buf.buffer, fb);
         self.end_command_buffer(buf.buffer)?;
-        self.create_wait_semaphores(fb)?;
+        self.create_wait_semaphores(fb, &fb_acquire_sync)?;
         self.submit(buf.buffer)?;
-        self.import_release_semaphore(fb);
+        self.import_release_semaphore(fb, fb_release_sync);
         self.store_layouts(fb);
         self.create_pending_frame(buf);
         Ok(())

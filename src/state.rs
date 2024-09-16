@@ -27,8 +27,8 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync, SampleRect,
-            SyncFile,
+            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
+            SampleRect, SyncFile,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -900,10 +900,14 @@ impl State {
         &self,
         output: &OutputNode,
         fb: &Rc<dyn GfxFramebuffer>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         tex: &Rc<dyn GfxTexture>,
         render_hw_cursor: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
         let sync_file = fb.render_output(
+            acquire_sync,
+            release_sync,
             output,
             self,
             Some(output.global.pos.get()),
@@ -911,14 +915,28 @@ impl State {
             render_hw_cursor,
         )?;
         output.latched();
-        output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
+        output.perform_screencopies(
+            tex,
+            None,
+            &AcquireSync::Unnecessary,
+            ReleaseSync::None,
+            !render_hw_cursor,
+            0,
+            0,
+            None,
+        );
         Ok(sync_file)
     }
 
     pub fn perform_screencopy(
         &self,
         src: &Rc<dyn GfxTexture>,
+        resv: Option<&Rc<dyn BufferResv>>,
+        acquire_sync: &AcquireSync,
+        release_sync: ReleaseSync,
         target: &Rc<dyn GfxFramebuffer>,
+        target_acquire_sync: AcquireSync,
+        target_release_sync: ReleaseSync,
         position: Rect,
         render_hardware_cursors: bool,
         x_off: i32,
@@ -947,9 +965,9 @@ impl State {
             size,
             Scale::from_int(1),
             None,
-            None,
-            AcquireSync::None,
-            ReleaseSync::Implicit,
+            resv.cloned(),
+            acquire_sync.clone(),
+            release_sync,
         );
         if render_hardware_cursors {
             if let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get() {
@@ -963,7 +981,12 @@ impl State {
                 }
             }
         }
-        target.render(&ops, Some(&Color::SOLID_BLACK))
+        target.render(
+            target_acquire_sync,
+            target_release_sync,
+            &ops,
+            Some(&Color::SOLID_BLACK),
+        )
     }
 
     fn have_hardware_cursor(&self) -> bool {
@@ -980,6 +1003,7 @@ impl State {
     pub fn perform_shm_screencopy(
         &self,
         src: &Rc<dyn GfxTexture>,
+        acquire_sync: &AcquireSync,
         position: Rect,
         x_off: i32,
         y_off: i32,
@@ -1011,7 +1035,12 @@ impl State {
                 .map_err(ShmScreencopyError::CreateTemporaryFb)?;
             self.perform_screencopy(
                 src,
+                None,
+                acquire_sync,
+                ReleaseSync::None,
                 &fb,
+                AcquireSync::Unnecessary,
+                ReleaseSync::None,
                 position,
                 true,
                 x_off - capture.rect.x1(),

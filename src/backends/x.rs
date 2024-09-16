@@ -10,7 +10,7 @@ use {
         },
         fixed::Fixed,
         format::XRGB8888,
-        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
+        gfx_api::{AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync},
         ifs::wl_output::OutputId,
         state::State,
         utils::{
@@ -750,9 +750,14 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
-            let res = self
-                .state
-                .present_output(&node, &image.fb.get(), &image.tex.get(), true);
+            let res = self.state.present_output(
+                &node,
+                &image.fb.get(),
+                AcquireSync::Implicit,
+                ReleaseSync::Implicit,
+                &image.tex.get(),
+                true,
+            );
             if let Err(e) = res {
                 log::error!("Could not render screen: {}", ErrorFmt(e));
                 return;

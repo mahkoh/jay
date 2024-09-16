@@ -3,9 +3,9 @@ use {
         clientmem::ClientMemOffset,
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, AsyncShmGfxTextureUploadCancellable,
-            GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, PendingShmUpload,
-            ShmGfxTexture, SyncFile,
+            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
+            AsyncShmGfxTextureUploadCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
+            GfxTexture, PendingShmUpload, ReleaseSync, ShmGfxTexture, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
@@ -465,11 +465,13 @@ impl GfxFramebuffer for VulkanImage {
 
     fn render(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
-            .execute(self, ops, clear)
+            .execute(self, acquire_sync, release_sync, ops, clear)
             .map_err(|e| e.into())
     }
 

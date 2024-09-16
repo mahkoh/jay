@@ -208,13 +208,13 @@ pub enum AcquireSync {
 impl AcquireSync {
     pub fn from_sync_file(sync_file: Option<SyncFile>) -> Self {
         match sync_file {
-            None => Self::Implicit,
+            None => Self::Unnecessary,
             Some(sync_file) => Self::SyncFile { sync_file },
         }
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ReleaseSync {
     None,
     Implicit,
@@ -260,6 +260,8 @@ pub trait GfxFramebuffer: Debug {
 
     fn render(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError>;
@@ -279,12 +281,24 @@ pub trait GfxFramebuffer: Debug {
 }
 
 impl dyn GfxFramebuffer {
-    pub fn clear(&self) -> Result<Option<SyncFile>, GfxError> {
-        self.clear_with(0.0, 0.0, 0.0, 0.0)
+    pub fn clear(
+        &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+    ) -> Result<Option<SyncFile>, GfxError> {
+        self.clear_with(acquire_sync, release_sync, 0.0, 0.0, 0.0, 0.0)
     }
 
-    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<Option<SyncFile>, GfxError> {
-        self.render(&[], Some(&Color { r, g, b, a }))
+    pub fn clear_with(
+        &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) -> Result<Option<SyncFile>, GfxError> {
+        self.render(acquire_sync, release_sync, &[], Some(&Color { r, g, b, a }))
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -302,7 +316,10 @@ impl dyn GfxFramebuffer {
 
     pub fn copy_texture(
         &self,
+        fb_acquire_sync: AcquireSync,
+        fb_release_sync: ReleaseSync,
         texture: &Rc<dyn GfxTexture>,
+        resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         x: i32,
@@ -320,16 +337,18 @@ impl dyn GfxFramebuffer {
             None,
             scale,
             None,
-            None,
+            resv.cloned(),
             acquire_sync,
             release_sync,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(&ops, clear)
+        self.render(fb_acquire_sync, fb_release_sync, &ops, clear)
     }
 
     pub fn render_custom(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         scale: Scale,
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
@@ -337,7 +356,7 @@ impl dyn GfxFramebuffer {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(&ops, clear)
+        self.render(acquire_sync, release_sync, &ops, clear)
     }
 
     pub fn create_render_pass(
@@ -366,12 +385,19 @@ impl dyn GfxFramebuffer {
         )
     }
 
-    pub fn perform_render_pass(&self, pass: &GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
-        self.render(&pass.ops, pass.clear.as_ref())
+    pub fn perform_render_pass(
+        &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        pass: &GfxRenderPass,
+    ) -> Result<Option<SyncFile>, GfxError> {
+        self.render(acquire_sync, release_sync, &pass.ops, pass.clear.as_ref())
     }
 
     pub fn render_output(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         node: &OutputNode,
         state: &State,
         cursor_rect: Option<Rect>,
@@ -379,6 +405,8 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
+            acquire_sync,
+            release_sync,
             node,
             state,
             cursor_rect,
@@ -392,6 +420,8 @@ impl dyn GfxFramebuffer {
 
     pub fn render_node(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
@@ -412,11 +442,13 @@ impl dyn GfxFramebuffer {
             transform,
             None,
         );
-        self.perform_render_pass(&pass)
+        self.perform_render_pass(acquire_sync, release_sync, &pass)
     }
 
     pub fn render_hardware_cursor(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         cursor: &dyn Cursor,
         state: &State,
         scale: Scale,
@@ -433,7 +465,7 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(&ops, Some(&Color::TRANSPARENT))
+        self.render(acquire_sync, release_sync, &ops, Some(&Color::TRANSPARENT))
     }
 }
 

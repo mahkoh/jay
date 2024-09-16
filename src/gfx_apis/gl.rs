@@ -73,6 +73,7 @@ use {
             ReleaseSync, SyncFile,
         },
         gfx_apis::gl::{
+            egl::image::EglImage,
             gl::texture::image_target,
             renderer::{
                 context::{GlRenderContext, TexCopyType, TexSourceType},
@@ -328,7 +329,7 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     let gles = ctx.ctx.dpy.gles;
     unsafe {
-        handle_explicit_sync(ctx, texture, &tex.acquire_sync);
+        handle_explicit_sync(ctx, texture.gl.img.as_ref(), &tex.acquire_sync);
 
         (gles.glActiveTexture)(GL_TEXTURE0);
 
@@ -395,7 +396,7 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
     }
 }
 
-fn handle_explicit_sync(ctx: &GlRenderContext, texture: &Texture, sync: &AcquireSync) {
+fn handle_explicit_sync(ctx: &GlRenderContext, img: Option<&Rc<EglImage>>, sync: &AcquireSync) {
     let sync_file = match sync {
         AcquireSync::None | AcquireSync::Implicit | AcquireSync::Unnecessary => return,
         AcquireSync::SyncFile { sync_file } => sync_file,
@@ -417,7 +418,7 @@ fn handle_explicit_sync(ctx: &GlRenderContext, texture: &Texture, sync: &Acquire
         };
         sync.wait();
     } else {
-        if let Some(img) = &texture.gl.img {
+        if let Some(img) = img {
             if let Err(e) = img.dmabuf.import_sync_file(DMA_BUF_SYNC_READ, &sync_file) {
                 log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
             }

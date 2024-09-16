@@ -4,7 +4,7 @@ use {
         client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_api::GfxTexture,
+        gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
         ifs::{
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
@@ -186,6 +186,9 @@ impl OutputNode {
     pub fn perform_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
+        resv: Option<&Rc<dyn BufferResv>>,
+        acquire_sync: &AcquireSync,
+        release_sync: ReleaseSync,
         render_hardware_cursor: bool,
         x_off: i32,
         y_off: i32,
@@ -196,15 +199,37 @@ impl OutputNode {
                 return;
             }
         }
-        self.perform_wlr_screencopies(tex, render_hardware_cursor, x_off, y_off, size);
+        self.perform_wlr_screencopies(
+            tex,
+            resv,
+            acquire_sync,
+            release_sync,
+            render_hardware_cursor,
+            x_off,
+            y_off,
+            size,
+        );
         for sc in self.screencasts.lock().values() {
-            sc.copy_texture(self, tex, render_hardware_cursor, x_off, y_off, size);
+            sc.copy_texture(
+                self,
+                tex,
+                resv,
+                acquire_sync,
+                release_sync,
+                render_hardware_cursor,
+                x_off,
+                y_off,
+                size,
+            );
         }
     }
 
     pub fn perform_wlr_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
+        resv: Option<&Rc<dyn BufferResv>>,
+        acquire_sync: &AcquireSync,
+        release_sync: ReleaseSync,
         render_hardware_cursors: bool,
         x_off: i32,
         y_off: i32,
@@ -232,6 +257,7 @@ impl OutputNode {
                     WlBufferStorage::Shm { mem, stride } => {
                         let res = self.state.perform_shm_screencopy(
                             tex,
+                            acquire_sync,
                             self.global.pos.get(),
                             x_off,
                             y_off,
@@ -259,7 +285,12 @@ impl OutputNode {
                         };
                         let res = self.state.perform_screencopy(
                             tex,
+                            resv,
+                            acquire_sync,
+                            release_sync,
                             &fb,
+                            AcquireSync::Implicit,
+                            ReleaseSync::Implicit,
                             self.global.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
