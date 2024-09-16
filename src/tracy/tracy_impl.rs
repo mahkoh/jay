@@ -28,7 +28,7 @@ struct ZoneNameData {
 unsafe impl Sync for ZoneNameData {}
 unsafe impl Send for ZoneNameData {}
 
-static CACHE: LazyLock<Mutex<AHashMap<String, ZoneName>>> = LazyLock::new(|| Default::default());
+static CACHE: LazyLock<Mutex<AHashMap<String, ZoneName>>> = LazyLock::new(Default::default);
 
 impl ZoneName {
     pub fn __get(name: &str) -> Self {
@@ -120,8 +120,7 @@ pub struct FrameName {
     name: &'static CString,
 }
 
-static FRAME_CACHE: LazyLock<Mutex<AHashMap<String, FrameName>>> =
-    LazyLock::new(|| Default::default());
+static FRAME_CACHE: LazyLock<Mutex<AHashMap<String, FrameName>>> = LazyLock::new(Default::default);
 
 impl FrameName {
     pub fn get(name: &str) -> Self {
@@ -177,7 +176,6 @@ impl Drop for RenderingFrame {
 }
 
 #[no_mangle]
-#[allow(static_mut_refs)]
 unsafe extern "C" fn ___tracy_demangle(
     mangled: *const std::ffi::c_char,
 ) -> *const std::ffi::c_char {
@@ -191,7 +189,7 @@ unsafe extern "C" fn ___tracy_demangle(
     let demangled = rustc_demangle::demangle(mangled);
     static mut BUF: Vec<u8> = Vec::new();
     BUF.clear();
-    if let Err(_) = write!(BUF, "{demangled:#}\0") {
+    if write!(BUF, "{demangled:#}\0").is_err() {
         return ptr::null();
     }
     BUF.as_ptr().cast()
