@@ -14,7 +14,7 @@ use {
             allocator::VulkanAllocation,
             command::VulkanCommandBuffer,
             fence::VulkanFence,
-            image::{VulkanImage, VulkanImageMemory},
+            image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::{image_barrier, VulkanRenderer},
             staging::VulkanStagingBuffer,
             VulkanError,
@@ -22,9 +22,10 @@ use {
         rect::{Rect, Region},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, on_drop::OnDrop},
     },
+    arrayvec::ArrayVec,
     ash::vk::{
         AccessFlags2, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,
-        CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyBufferToImageInfo2,
+        CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyBufferToImageInfo2, DependencyInfo,
         DependencyInfoKHR, DeviceSize, Extent3D, ImageAspectFlags, ImageCreateInfo, ImageLayout,
         ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags,
         ImageViewCreateInfo, ImageViewType, Offset3D, PipelineStageFlags2, SampleCountFlags,
@@ -58,6 +59,8 @@ pub struct VulkanShmImageAsyncData {
     pub(super) callback_id: Cell<u64>,
     pub(super) regions: RefCell<Vec<BufferImageCopy2<'static>>>,
     pub(super) cpu: Rc<CpuWorker>,
+    pub(super) last_sample: Cell<Option<SyncFile>>,
+    pub(super) data_copied: Cell<bool>,
 }
 
 impl VulkanShmImage {
@@ -160,7 +163,7 @@ impl VulkanShmImage {
             }
         })?;
         let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_to_image_copy(img, &staging, cpy)?
+            self.submit_buffer_to_image_copy(img, &staging, cpy, false)?
         else {
             return Ok(());
         };
@@ -168,7 +171,7 @@ impl VulkanShmImage {
             "await upload",
             await_upload(point, img.clone(), cmd, sync_file, fence, staging),
         );
-        img.renderer.pending_uploads.set(point, future);
+        img.renderer.pending_submits.set(point, future);
         Ok(())
     }
 
@@ -177,6 +180,7 @@ impl VulkanShmImage {
         img: &Rc<VulkanImage>,
         staging: &VulkanStagingBuffer,
         regions: &[BufferImageCopy2],
+        use_transfer_queue: bool,
     ) -> Result<Option<(Rc<VulkanCommandBuffer>, Rc<VulkanFence>, SyncFile, u64)>, VulkanError>
     {
         let memory_barrier = |sam, ssm, dam, dsm| {
@@ -189,18 +193,29 @@ impl VulkanShmImage {
                 .dst_access_mask(dam)
                 .dst_stage_mask(dsm)
         };
-        let initial_image_barrier = image_barrier()
+        let mut transfer_queue_family_idx = img.renderer.device.graphics_queue_idx;
+        if use_transfer_queue {
+            if let Some(idx) = img.renderer.device.distinct_transfer_queue_family_idx {
+                transfer_queue_family_idx = idx;
+            }
+        }
+        let mut initial_image_barrier = image_barrier()
             .image(img.image)
-            .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-            .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+            .src_queue_family_index(img.renderer.device.graphics_queue_idx)
+            .dst_queue_family_index(transfer_queue_family_idx)
+            .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
             .old_layout(if img.is_undefined.get() {
                 ImageLayout::UNDEFINED
             } else {
                 ImageLayout::SHADER_READ_ONLY_OPTIMAL
             })
-            .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-            .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
+            .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL);
+        if transfer_queue_family_idx == img.renderer.device.graphics_queue_idx {
+            initial_image_barrier = initial_image_barrier
+                .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
+                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+        }
         let initial_buffer_barrier = memory_barrier(
             AccessFlags2::HOST_WRITE,
             PipelineStageFlags2::HOST,
@@ -210,14 +225,19 @@ impl VulkanShmImage {
         let initial_dep_info = DependencyInfoKHR::default()
             .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier))
             .image_memory_barriers(slice::from_ref(&initial_image_barrier));
-        let final_image_barrier = image_barrier()
+        let mut final_image_barrier = image_barrier()
             .image(img.image)
+            .src_queue_family_index(transfer_queue_family_idx)
+            .dst_queue_family_index(img.renderer.device.graphics_queue_idx)
             .src_access_mask(AccessFlags2::TRANSFER_WRITE)
             .src_stage_mask(PipelineStageFlags2::TRANSFER)
             .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-            .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-            .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-            .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
+            .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        if transfer_queue_family_idx == img.renderer.device.graphics_queue_idx {
+            final_image_barrier = final_image_barrier
+                .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
+                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
+        }
         let final_buffer_barrier = memory_barrier(
             AccessFlags2::TRANSFER_READ,
             PipelineStageFlags2::TRANSFER,
@@ -232,7 +252,10 @@ impl VulkanShmImage {
             .dst_image(img.image)
             .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
             .regions(regions);
-        let cmd = img.renderer.allocate_command_buffer()?;
+        let cmd = match &img.renderer.transfer_command_buffers {
+            Some(b) if use_transfer_queue => b.allocate()?,
+            _ => img.renderer.gfx_command_buffers.allocate()?,
+        };
         let dev = &img.renderer.device.device;
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
         let submit_info =
@@ -249,7 +272,10 @@ impl VulkanShmImage {
             dev.end_command_buffer(cmd.buffer)
                 .map_err(VulkanError::EndCommandBuffer)?;
             dev.queue_submit2(
-                img.renderer.device.graphics_queue,
+                match img.renderer.device.transfer_queue {
+                    Some(q) if use_transfer_queue => q,
+                    _ => img.renderer.device.graphics_queue,
+                },
                 slice::from_ref(&submit_info),
                 release_fence.fence,
             )
@@ -286,8 +312,8 @@ async fn await_upload(
         );
         img.renderer.block();
     }
-    img.renderer.command_buffers.push(buf);
-    img.renderer.pending_uploads.remove(&id);
+    img.renderer.gfx_command_buffers.buffers.push(buf);
+    img.renderer.pending_submits.remove(&id);
 }
 
 impl VulkanShmImageAsyncData {
@@ -334,8 +360,9 @@ impl VulkanShmImage {
             return Err(VulkanError::InvalidBufferSize);
         }
         data.busy.set(true);
+        data.data_copied.set(false);
         if img.contents_are_undefined.get() {
-            damage = Region::new2(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap())
+            damage = Region::new2(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
         }
 
         let copies = &mut *data.regions.borrow_mut();
@@ -361,13 +388,18 @@ impl VulkanShmImage {
                 .buffer_row_length(img.stride / self.shm_info.bpp);
             copies.push(copy);
         };
+        let (width_mask, height_mask) = img.renderer.device.transfer_granularity_mask;
+        let width_mask = width_mask as i32;
+        let height_mask = height_mask as i32;
         for damage in damage.rects() {
-            let Some(damage) = Rect::new(
-                damage.x1().max(0),
-                damage.y1().max(0),
-                damage.x2().min(img.width as i32),
-                damage.y2().min(img.height as i32),
-            ) else {
+            if damage.x2() < 0 || damage.y2() < 0 {
+                continue;
+            }
+            let x1 = damage.x1().max(0) & !width_mask;
+            let y1 = damage.y1().max(0) & !height_mask;
+            let x2 = ((damage.x2() + width_mask) & !width_mask).min(img.width as i32);
+            let y2 = ((damage.y2() + height_mask) & !height_mask).min(img.height as i32);
+            let Some(damage) = Rect::new(x1, y1, x2, y2) else {
                 continue;
             };
             if damage.is_empty() {
@@ -380,6 +412,8 @@ impl VulkanShmImage {
                 damage.height() as u32,
             );
         }
+
+        self.async_release_from_gfx_queue(img, data)?;
 
         if let Some(staging) = data.staging.get() {
             return self.async_upload_initiate_copy(img, data, &staging, copies, client_mem);
@@ -402,6 +436,95 @@ impl VulkanShmImage {
                 }
             },
         )
+    }
+
+    fn async_release_from_gfx_queue(
+        &self,
+        img: &Rc<VulkanImage>,
+        data: &VulkanShmImageAsyncData,
+    ) -> Result<(), VulkanError> {
+        img.renderer.check_defunct()?;
+        let Some(transfer_queue_idx) = img.renderer.device.distinct_transfer_queue_family_idx
+        else {
+            let Some(sync_file) = data.last_sample.take() else {
+                img.queue_state.set(QueueState::Released {
+                    to: QueueFamily::Transfer,
+                });
+                return Ok(());
+            };
+            let id = img.renderer.allocate_point();
+            let pending = img.renderer.eng.spawn(
+                "await_transfer_to_transfer",
+                await_gfx_queue_release(id, img.clone(), None, None, sync_file),
+            );
+            img.renderer.pending_submits.set(id, pending);
+            img.queue_state.set(QueueState::Releasing);
+            return Ok(());
+        };
+        let mut barriers = ArrayVec::<_, 2>::new();
+        match img.queue_state.get() {
+            QueueState::Acquired { family } => {
+                assert_eq!(family, QueueFamily::Gfx);
+            }
+            QueueState::Releasing => {
+                unreachable!();
+            }
+            QueueState::Released { to } => {
+                assert_eq!(to, QueueFamily::Gfx);
+                let barrier = image_barrier()
+                    .image(img.image)
+                    .src_queue_family_index(transfer_queue_idx)
+                    .dst_queue_family_index(img.renderer.device.graphics_queue_idx)
+                    .dst_stage_mask(PipelineStageFlags2::ALL_COMMANDS)
+                    .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                barriers.push(barrier);
+            }
+        }
+        let barrier = image_barrier()
+            .image(img.image)
+            .src_queue_family_index(img.renderer.device.graphics_queue_idx)
+            .dst_queue_family_index(transfer_queue_idx)
+            .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
+            .src_stage_mask(PipelineStageFlags2::ALL_COMMANDS)
+            .old_layout(if img.is_undefined.get() {
+                ImageLayout::UNDEFINED
+            } else {
+                ImageLayout::SHADER_READ_ONLY_OPTIMAL
+            })
+            .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL);
+        barriers.push(barrier);
+        let dep_info = DependencyInfo::default().image_memory_barriers(&barriers);
+        let release_fence = img.renderer.device.create_fence()?;
+        let dev = &img.renderer.device.device;
+        let begin_info =
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        let cmd = img.renderer.gfx_command_buffers.allocate()?;
+        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
+        let submit_info =
+            SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
+        unsafe {
+            dev.begin_command_buffer(cmd.buffer, &begin_info)
+                .map_err(VulkanError::BeginCommandBuffer)?;
+            dev.cmd_pipeline_barrier2(cmd.buffer, &dep_info);
+            dev.end_command_buffer(cmd.buffer)
+                .map_err(VulkanError::EndCommandBuffer)?;
+            dev.queue_submit2(
+                img.renderer.device.graphics_queue,
+                slice::from_ref(&submit_info),
+                release_fence.fence,
+            )
+            .map_err(VulkanError::Submit)?;
+        }
+        let sync_file = release_fence.export_sync_file()?;
+        let id = img.renderer.allocate_point();
+        let pending = img.renderer.eng.spawn(
+            "await_transfer_to_transfer",
+            await_gfx_queue_release(id, img.clone(), Some(cmd), Some(release_fence), sync_file),
+        );
+        img.renderer.pending_submits.set(id, pending);
+        img.queue_state.set(QueueState::Releasing);
+        Ok(())
     }
 
     fn async_upload_after_allocation(
@@ -501,25 +624,28 @@ impl VulkanShmImage {
         &self,
         img: &Rc<VulkanImage>,
         data: &VulkanShmImageAsyncData,
-        res: Result<(), ReadWriteJobError>,
     ) -> Result<(), VulkanError> {
-        if let Err(e) = res {
-            return Err(VulkanError::AsyncCopyToStaging(e));
+        if !data.data_copied.get() {
+            return Ok(());
+        }
+        if img.queue_state.get().acquire(QueueFamily::Transfer) == QueueTransfer::Impossible {
+            return Ok(());
         }
         img.renderer.check_defunct()?;
         let regions = &*data.regions.borrow();
         let staging = data.staging.get().unwrap();
         staging.upload(|_, _| ())?;
         let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_to_image_copy(img, &staging, regions)?
+            self.submit_buffer_to_image_copy(img, &staging, regions, true)?
         else {
             return Ok(());
         };
+        img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async upload",
             await_async_upload(point, img.clone(), cmd, fence, sync_file),
         );
-        img.renderer.pending_uploads.set(point, future);
+        img.renderer.pending_submits.set(point, future);
         Ok(())
     }
 }
@@ -577,7 +703,42 @@ fn complete_async_upload(
     };
     let data = shm.async_data.as_ref().unwrap();
     store(data);
-    if let Err(e) = shm.async_upload_copy_buffer_to_image(img, data, res) {
+    if let Err(e) = res {
+        data.complete(Err(VulkanError::AsyncCopyToStaging(e)));
+    }
+    data.data_copied.set(true);
+    if let Err(e) = shm.async_upload_copy_buffer_to_image(img, data) {
+        data.complete(Err(e));
+    }
+}
+
+async fn await_gfx_queue_release(
+    id: u64,
+    img: Rc<VulkanImage>,
+    buf: Option<Rc<VulkanCommandBuffer>>,
+    _fence: Option<Rc<VulkanFence>>,
+    sync_file: SyncFile,
+) {
+    let res = img.renderer.ring.readable(&sync_file.0).await;
+    if let Err(e) = res {
+        log::error!(
+            "Could not wait for sync file to become readable: {}",
+            ErrorFmt(e)
+        );
+        img.renderer.block();
+    }
+    if let Some(buf) = buf {
+        img.renderer.gfx_command_buffers.buffers.push(buf);
+    }
+    img.renderer.pending_submits.remove(&id);
+    img.queue_state.set(QueueState::Released {
+        to: QueueFamily::Transfer,
+    });
+    let VulkanImageMemory::Internal(shm) = &img.ty else {
+        unreachable!();
+    };
+    let data = shm.async_data.as_ref().unwrap();
+    if let Err(e) = shm.async_upload_copy_buffer_to_image(&img, data) {
         data.complete(Err(e));
     }
 }
@@ -597,8 +758,14 @@ async fn await_async_upload(
         );
         img.renderer.block();
     }
-    img.renderer.command_buffers.push(buf);
-    img.renderer.pending_uploads.remove(&id);
+    match &img.renderer.transfer_command_buffers {
+        Some(b) => b.buffers.push(buf),
+        None => img.renderer.gfx_command_buffers.buffers.push(buf),
+    }
+    img.queue_state.set(QueueState::Released {
+        to: QueueFamily::Gfx,
+    });
+    img.renderer.pending_submits.remove(&id);
     let VulkanImageMemory::Internal(shm) = &img.ty else {
         unreachable!();
     };
@@ -701,6 +868,8 @@ impl VulkanRenderer {
                 callback_id: Cell::new(0),
                 regions: Default::default(),
                 cpu: cpu.clone(),
+                last_sample: Default::default(),
+                data_copied: Default::default(),
             });
         }
         let shm = VulkanShmImage {
@@ -722,6 +891,9 @@ impl VulkanRenderer {
             image,
             is_undefined: Cell::new(true),
             contents_are_undefined: Cell::new(true),
+            queue_state: Cell::new(QueueState::Acquired {
+                family: QueueFamily::Gfx,
+            }),
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
         });

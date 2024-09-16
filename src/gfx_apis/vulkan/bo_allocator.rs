@@ -86,8 +86,8 @@ impl VulkanDevice {
         drm: &Drm,
     ) -> Result<VulkanBoAllocator, VulkanError> {
         let allocator = self.create_allocator()?;
-        let pool = self.create_command_pool()?;
-        let command_buffer = pool.allocate_buffer()?;
+        let pool = self.create_command_pool(self.graphics_queue_idx)?;
+        let command_buffer = pool.allocate()?;
         let drm = drm.dup_render().map_err(VulkanError::DupDrm)?;
         Ok(VulkanBoAllocator {
             data: Rc::new(VulkanBoAllocatorData {

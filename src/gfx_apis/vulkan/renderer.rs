@@ -13,7 +13,7 @@ use {
             descriptor::VulkanDescriptorSetLayout,
             device::VulkanDevice,
             fence::VulkanFence,
-            image::{VulkanImage, VulkanImageMemory},
+            image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
             semaphore::VulkanSemaphore,
             shaders::{
@@ -60,13 +60,12 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) pipelines: CopyHashMap<vk::Format, Rc<VulkanFormatPipelines>>,
-    pub(super) command_pool: Rc<VulkanCommandPool>,
-    pub(super) command_buffers: Stack<Rc<VulkanCommandBuffer>>,
+    pub(super) gfx_command_buffers: CachedCommandBuffers,
+    pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
-    pub(super) total_buffers: NumCell<usize>,
     pub(super) memory: RefCell<Memory>,
     pub(super) pending_frames: CopyHashMap<u64, Rc<PendingFrame>>,
-    pub(super) pending_uploads: CopyHashMap<u64, SpawnedFuture<()>>,
+    pub(super) pending_submits: CopyHashMap<u64, SpawnedFuture<()>>,
     pub(super) allocator: Rc<VulkanAllocator>,
     pub(super) last_point: NumCell<u64>,
     pub(super) buffer_resv_user: BufferResvUser,
@@ -82,6 +81,26 @@ pub struct VulkanRenderer {
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
+}
+
+pub(super) struct CachedCommandBuffers {
+    pub(super) pool: Rc<VulkanCommandPool>,
+    pub(super) buffers: Stack<Rc<VulkanCommandBuffer>>,
+    pub(super) total_buffers: NumCell<usize>,
+}
+
+impl CachedCommandBuffers {
+    pub(super) fn allocate(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
+        zone!("allocate_command_buffer");
+        let buf = match self.buffers.pop() {
+            Some(b) => b,
+            _ => {
+                self.total_buffers.fetch_add(1);
+                self.pool.allocate_buffer()?
+            }
+        };
+        Ok(buf)
+    }
 }
 
 pub(super) struct UsedTexture {
@@ -105,7 +124,8 @@ pub(super) enum TexSourceType {
 
 #[derive(Default)]
 pub(super) struct Memory {
-    sample: Vec<Rc<VulkanImage>>,
+    dmabuf_sample: Vec<Rc<VulkanImage>>,
+    queue_transfer: Vec<Rc<VulkanImage>>,
     textures: Vec<UsedTexture>,
     image_barriers: Vec<ImageMemoryBarrier2<'static>>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
@@ -143,7 +163,11 @@ impl VulkanDevice {
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
         let tex_frag_mult_opaque_shader = self.create_shader(TEX_FRAG_MULT_OPAQUE)?;
         let tex_frag_mult_alpha_shader = self.create_shader(TEX_FRAG_MULT_ALPHA)?;
-        let command_pool = self.create_command_pool()?;
+        let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
+        let transfer_command_buffers = self
+            .distinct_transfer_queue_family_idx
+            .map(|idx| self.create_command_pool(idx))
+            .transpose()?;
         let formats: AHashMap<u32, _> = self
             .formats
             .iter()
@@ -181,13 +205,12 @@ impl VulkanDevice {
             formats: Rc::new(formats),
             device: self.clone(),
             pipelines: Default::default(),
-            command_pool,
-            command_buffers: Default::default(),
+            gfx_command_buffers,
+            transfer_command_buffers,
             wait_semaphores: Default::default(),
-            total_buffers: Default::default(),
             memory: Default::default(),
             pending_frames: Default::default(),
-            pending_uploads: Default::default(),
+            pending_submits: Default::default(),
             allocator,
             last_point: Default::default(),
             buffer_resv_user: Default::default(),
@@ -276,15 +299,21 @@ impl VulkanRenderer {
     fn collect_memory(&self, opts: &[GfxApiOpt]) {
         zone!("collect_memory");
         let mut memory = self.memory.borrow_mut();
-        memory.sample.clear();
+        memory.dmabuf_sample.clear();
+        memory.queue_transfer.clear();
         for cmd in opts {
             if let GfxApiOpt::CopyTexture(c) = cmd {
                 let tex = c.tex.clone().into_vk(&self.device.device);
                 if tex.contents_are_undefined.get() {
                     continue;
                 }
+                match tex.queue_state.get().acquire(QueueFamily::Gfx) {
+                    QueueTransfer::Unnecessary => {}
+                    QueueTransfer::Possible => memory.queue_transfer.push(tex.clone()),
+                    QueueTransfer::Impossible => continue,
+                }
                 if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
-                    memory.sample.push(tex.clone())
+                    memory.dmabuf_sample.push(tex.clone())
                 }
                 memory.textures.push(UsedTexture {
                     tex,
@@ -340,7 +369,7 @@ impl VulkanRenderer {
                 });
         }
         memory.image_barriers.push(fb_image_memory_barrier);
-        for img in &memory.sample {
+        for img in &memory.dmabuf_sample {
             let image_memory_barrier = image_barrier()
                 .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
                 .dst_queue_family_index(self.device.graphics_queue_idx)
@@ -350,6 +379,19 @@ impl VulkanRenderer {
                 .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
                 .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
             memory.image_barriers.push(image_memory_barrier);
+        }
+        if let Some(family_idx) = self.device.distinct_transfer_queue_family_idx {
+            for img in &memory.queue_transfer {
+                let image_memory_barrier = image_barrier()
+                    .src_queue_family_index(family_idx)
+                    .dst_queue_family_index(self.device.graphics_queue_idx)
+                    .image(img.image)
+                    .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
+                    .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+                    .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                memory.image_barriers.push(image_memory_barrier);
+            }
         }
         let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
         unsafe {
@@ -469,6 +511,11 @@ impl VulkanRenderer {
                     let tex = c.tex.as_vk(&self.device.device);
                     if tex.contents_are_undefined.get() {
                         log::warn!("Ignoring undefined texture");
+                        continue;
+                    }
+                    if tex.queue_state.get().acquire(QueueFamily::Gfx) == QueueTransfer::Impossible
+                    {
+                        log::warn!("Ignoring texture owned by different queue");
                         continue;
                     }
                     let copy_type = match c.alpha.is_some() {
@@ -616,7 +663,7 @@ impl VulkanRenderer {
                 .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
         }
         memory.image_barriers.push(fb_image_memory_barrier);
-        for img in &memory.sample {
+        for img in &memory.dmabuf_sample {
             let image_memory_barrier = image_barrier()
                 .src_queue_family_index(self.device.graphics_queue_idx)
                 .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
@@ -732,6 +779,8 @@ impl VulkanRenderer {
                     }
                 }
             };
+        let attach_async_shm_sync_file = self.device.transfer_queue.is_some()
+            && self.device.distinct_transfer_queue_family_idx.is_none();
         for texture in &mut memory.textures {
             import(
                 &texture.tex,
@@ -739,6 +788,13 @@ impl VulkanRenderer {
                 texture.resv.take(),
                 DMA_BUF_SYNC_READ,
             );
+            if attach_async_shm_sync_file {
+                if let VulkanImageMemory::Internal(shm) = &texture.tex.ty {
+                    if let Some(data) = &shm.async_data {
+                        data.last_sample.set(Some(sync_file.clone()));
+                    }
+                }
+            }
         }
         import(fb, fb_release_sync, None, DMA_BUF_SYNC_WRITE);
     }
@@ -777,6 +833,12 @@ impl VulkanRenderer {
 
     fn store_layouts(&self, fb: &VulkanImage) {
         fb.is_undefined.set(false);
+        let memory = self.memory.borrow();
+        for img in &*memory.queue_transfer {
+            img.queue_state.set(QueueState::Acquired {
+                family: QueueFamily::Gfx,
+            });
+        }
     }
 
     fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>) {
@@ -932,7 +994,7 @@ impl VulkanRenderer {
             final_barriers =
                 final_barriers.image_memory_barriers(slice::from_ref(&final_tex_barrier));
         }
-        let buf = self.allocate_command_buffer()?;
+        let buf = self.gfx_command_buffers.allocate()?;
         let mut semaphores = vec![];
         let mut semaphore_infos = vec![];
         if let VulkanImageMemory::DmaBuf(buf) = &tex.ty {
@@ -986,7 +1048,7 @@ impl VulkanRenderer {
                 .map_err(VulkanError::Submit)?;
         }
         self.block();
-        self.command_buffers.push(buf);
+        self.gfx_command_buffers.buffers.push(buf);
         for semaphore in semaphores {
             self.wait_semaphores.push(semaphore);
         }
@@ -1009,24 +1071,13 @@ impl VulkanRenderer {
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
             memory.textures.clear();
-            memory.sample.clear();
+            memory.dmabuf_sample.clear();
+            memory.queue_transfer.clear();
             memory.wait_semaphores.clear();
             memory.release_fence.take();
             memory.release_sync_file.take()
         };
         res.map(|_| sync_file)
-    }
-
-    pub(super) fn allocate_command_buffer(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
-        zone!("allocate_command_buffer");
-        let buf = match self.command_buffers.pop() {
-            Some(b) => b,
-            _ => {
-                self.total_buffers.fetch_add(1);
-                self.command_pool.allocate_buffer()?
-            }
-        };
-        Ok(buf)
     }
 
     fn allocate_semaphore(&self) -> Result<Rc<VulkanSemaphore>, VulkanError> {
@@ -1047,7 +1098,7 @@ impl VulkanRenderer {
         clear: Option<&Color>,
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
-        let buf = self.allocate_command_buffer()?;
+        let buf = self.gfx_command_buffers.allocate()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
         self.initial_barriers(buf.buffer, fb);
@@ -1078,7 +1129,7 @@ impl VulkanRenderer {
     pub fn on_drop(&self) {
         self.defunct.set(true);
         let mut pending_frames = self.pending_frames.lock();
-        let mut pending_uploads = self.pending_uploads.lock();
+        let mut pending_uploads = self.pending_submits.lock();
         if pending_frames.is_not_empty() || pending_uploads.is_not_empty() {
             log::warn!("Context dropped with pending frames.");
             self.block();
@@ -1164,7 +1215,7 @@ async fn await_release(
         frame.renderer.block();
     }
     if let Some(buf) = frame.cmd.take() {
-        frame.renderer.command_buffers.push(buf);
+        frame.renderer.gfx_command_buffers.buffers.push(buf);
     }
     for wait_semaphore in frame.wait_semaphores.take() {
         frame.renderer.wait_semaphores.push(wait_semaphore);
