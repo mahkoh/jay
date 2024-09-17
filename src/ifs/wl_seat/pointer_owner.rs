@@ -468,7 +468,7 @@ impl PointerOwner for DndPointerOwner {
         let target = self.target.get();
         target.node_on_dnd_drop(&self.dnd);
         if let Some(src) = &self.dnd.src {
-            src.on_drop(seat);
+            src.on_drop();
         }
         let should_drop = match &self.dnd.src {
             None => true,
@@ -491,6 +491,9 @@ impl PointerOwner for DndPointerOwner {
         }
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
+        if let Some(src) = &self.dnd.src {
+            src.finish_toplevel_drag(seat);
+        }
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
