@@ -388,6 +388,9 @@ impl XdgToplevel {
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
         assert!(self.toplevel_data.parent.is_none());
+        if self.node_visible() {
+            self.xdg.damage();
+        }
         let extents = match self.xdg.geometry.get() {
             None => self.xdg.extents.get(),
             Some(g) => g,
