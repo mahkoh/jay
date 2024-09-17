@@ -811,9 +811,10 @@ impl WlSeatGlobal {
             }
             let scs = &*self.shortcuts.borrow();
             let keysyms = xkb_state.unmodified_keysyms(key);
+            let mut revert_pointer_to_default = false;
             for &sym in keysyms {
                 if sym == SYM_Escape.0 && mods == 0 {
-                    self.pointer_owner.revert_to_default(self);
+                    revert_pointer_to_default = true;
                 }
                 if !self.state.lock.locked.get() {
                     if let Some(key_mods) = scs.get(&sym) {
@@ -828,6 +829,11 @@ impl WlSeatGlobal {
                         }
                     }
                 }
+            }
+            if revert_pointer_to_default {
+                drop(xkb_state);
+                self.pointer_owner.revert_to_default(self);
+                xkb_state = xkb_state_rc.borrow_mut();
             }
             new_mods = xkb_state.update(key, xkb_dir);
         }

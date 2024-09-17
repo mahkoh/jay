@@ -154,14 +154,17 @@ impl WlDataSource {
         shared.selected_action.get() != 0 && shared.state.get().contains(OFFER_STATE_ACCEPTED)
     }
 
-    pub fn on_drop(&self, seat: &Rc<WlSeatGlobal>) {
+    pub fn on_drop(&self) {
         self.data.state.or_assign(SOURCE_STATE_DROPPED);
-        if let Some(drag) = self.toplevel_drag.take() {
-            drag.finish_drag(seat);
-        }
         self.send_dnd_drop_performed();
         let shared = self.data.shared.get();
         shared.state.or_assign(OFFER_STATE_DROPPED);
+    }
+
+    pub fn finish_toplevel_drag(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(drag) = self.toplevel_drag.take() {
+            drag.finish_drag(seat);
+        }
     }
 
     pub fn send_cancelled(&self, seat: &Rc<WlSeatGlobal>) {
