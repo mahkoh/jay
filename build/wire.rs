@@ -830,6 +830,7 @@ fn write_request_handler<W: Write>(
         writeln!(f, "            }};")?;
         writeln!(f, "            Err({error}::MethodError {{")?;
         writeln!(f, "                interface: {camel_obj_name},")?;
+        writeln!(f, "                id: self.id(),")?;
         writeln!(f, "                method,")?;
         writeln!(f, "                error,")?;
         writeln!(f, "            }})")?;

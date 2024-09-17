@@ -63,9 +63,10 @@ pub enum UsrConError {
     Write(#[source] BufFdError),
     #[error("Server sent an event for object {0} that does not exist")]
     MissingObject(ObjectId),
-    #[error("Could not process a `{}.{}` event", .interface.name(), .method)]
+    #[error("Could not process a `{}#{}.{}` event", .interface.name(), .id, .method)]
     MethodError {
         interface: Interface,
+        id: ObjectId,
         method: &'static str,
         #[source]
         error: Box<dyn Error + 'static>,

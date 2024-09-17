@@ -37,9 +37,10 @@ pub enum ClientError {
     ClientIdOutOfBounds,
     #[error("Object {0} is not a display")]
     NotADisplay(WlDisplayId),
-    #[error("Could not process a `{}.{}` request", .interface.name(), .method)]
+    #[error("Could not process a `{}#{}.{}` request", .interface.name(), .id, .method)]
     MethodError {
         interface: Interface,
+        id: ObjectId,
         method: &'static str,
         #[source]
         error: Box<dyn Error + 'static>,
