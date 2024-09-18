@@ -2,7 +2,7 @@ use {
     crate::{
         allocator::{AllocatorError, BufferObject, BufferUsage, BO_USE_RENDERING},
         format::XRGB8888,
-        gfx_api::{needs_render_usage, GfxError},
+        gfx_api::{needs_render_usage, AcquireSync, GfxError, ReleaseSync},
         scale::Scale,
         state::State,
         video::drm::DrmError,
@@ -77,6 +77,8 @@ pub fn take_screenshot(
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
     fb.render_node(
+        AcquireSync::Unnecessary,
+        ReleaseSync::Implicit,
         state.root.deref(),
         state,
         Some(state.root.extents.get()),

@@ -3,9 +3,9 @@ use {
         clientmem::ClientMemOffset,
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, AsyncShmGfxTextureUploadCancellable,
-            GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, PendingShmUpload,
-            ShmGfxTexture, SyncFile,
+            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
+            AsyncShmGfxTextureUploadCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
+            GfxTexture, PendingShmUpload, ReleaseSync, ShmGfxTexture, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
@@ -58,8 +58,39 @@ pub struct VulkanImage {
     pub(super) image: Image,
     pub(super) is_undefined: Cell<bool>,
     pub(super) contents_are_undefined: Cell<bool>,
+    pub(super) queue_state: Cell<QueueState>,
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum QueueState {
+    Acquired { family: QueueFamily },
+    Releasing,
+    Released { to: QueueFamily },
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum QueueFamily {
+    Gfx,
+    Transfer,
+}
+
+impl QueueState {
+    pub fn acquire(self, new: QueueFamily) -> QueueTransfer {
+        match self {
+            QueueState::Acquired { family } if family == new => QueueTransfer::Unnecessary,
+            QueueState::Released { to } if to == new => QueueTransfer::Possible,
+            _ => QueueTransfer::Impossible,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum QueueTransfer {
+    Unnecessary,
+    Possible,
+    Impossible,
 }
 
 pub enum VulkanImageMemory {
@@ -384,6 +415,9 @@ impl VulkanDmaBufImageTemplate {
             format: self.dmabuf.format,
             is_undefined: Cell::new(true),
             contents_are_undefined: Cell::new(false),
+            queue_state: Cell::new(QueueState::Acquired {
+                family: QueueFamily::Gfx,
+            }),
             bridge,
         }))
     }
@@ -465,11 +499,13 @@ impl GfxFramebuffer for VulkanImage {
 
     fn render(
         &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
-            .execute(self, ops, clear)
+            .execute(self, acquire_sync, release_sync, ops, clear)
             .map_err(|e| e.into())
     }
 

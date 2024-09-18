@@ -3,7 +3,9 @@ use {
         allocator::{AllocatorError, BufferObject, BO_USE_LINEAR, BO_USE_RENDERING},
         client::{Client, ClientError},
         format::XRGB8888,
-        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
+        gfx_api::{
+            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
+        },
         ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel, wl_buffer::WlBufferStorage},
         leaks::Tracker,
         object::{Object, Version},
@@ -189,6 +191,8 @@ impl JayScreencast {
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
                 let res = buffer.fb.render_node(
+                    AcquireSync::Implicit,
+                    ReleaseSync::Implicit,
                     tl.tl_as_node(),
                     &self.client.state,
                     Some(tl.node_absolute_position()),
@@ -298,6 +302,9 @@ impl JayScreencast {
         &self,
         on: &OutputNode,
         texture: &Rc<dyn GfxTexture>,
+        resv: Option<&Rc<dyn BufferResv>>,
+        acquire_sync: &AcquireSync,
+        release_sync: ReleaseSync,
         render_hardware_cursors: bool,
         x_off: i32,
         y_off: i32,
@@ -320,7 +327,12 @@ impl JayScreencast {
             if buffer.free {
                 let res = self.client.state.perform_screencopy(
                     texture,
+                    resv,
+                    acquire_sync,
+                    release_sync,
                     &buffer.fb,
+                    AcquireSync::Implicit,
+                    ReleaseSync::Implicit,
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,

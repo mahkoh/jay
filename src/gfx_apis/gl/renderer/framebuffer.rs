@@ -1,12 +1,13 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, SyncFile},
+        gfx_api::{AcquireSync, GfxApiOpt, GfxError, GfxFramebuffer, ReleaseSync, SyncFile},
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
                 sys::{GL_COLOR_BUFFER_BIT, GL_FRAMEBUFFER},
             },
+            handle_explicit_sync,
             renderer::context::GlRenderContext,
             run_ops,
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
@@ -69,11 +70,13 @@ impl Framebuffer {
 
     pub fn render(
         &self,
+        acquire_sync: AcquireSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
         self.ctx.ctx.with_current(|| {
+            handle_explicit_sync(&self.ctx, self.gl.rb._img.as_ref(), &acquire_sync);
             unsafe {
                 (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
                 (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
@@ -101,10 +104,12 @@ impl GfxFramebuffer for Framebuffer {
 
     fn render(
         &self,
+        acquire_sync: AcquireSync,
+        _release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(ops, clear).map_err(|e| e.into())
+        self.render(acquire_sync, ops, clear).map_err(|e| e.into())
     }
 
     fn copy_to_shm(

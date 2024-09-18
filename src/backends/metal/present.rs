@@ -9,7 +9,7 @@ use {
         },
         gfx_api::{
             create_render_pass, AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture,
-            SyncFile,
+            ReleaseSync, SyncFile,
         },
         theme::Color,
         time::Time,
@@ -43,7 +43,8 @@ pub struct DirectScanoutCache {
 pub struct DirectScanoutData {
     tex: Rc<dyn GfxTexture>,
     acquire_sync: AcquireSync,
-    _resv: Option<Rc<dyn BufferResv>>,
+    release_sync: ReleaseSync,
+    resv: Option<Rc<dyn BufferResv>>,
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
     position: DirectScanoutPosition,
@@ -618,7 +619,8 @@ impl MetalConnector {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
                 tex: buffer.tex.upgrade().unwrap(),
                 acquire_sync: ct.acquire_sync.clone(),
-                _resv: ct.buffer_resv.clone(),
+                release_sync: ct.release_sync,
+                resv: ct.buffer_resv.clone(),
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -643,7 +645,8 @@ impl MetalConnector {
             Ok(fb) => Some(DirectScanoutData {
                 tex: ct.tex.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
-                _resv: ct.buffer_resv.clone(),
+                release_sync: ct.release_sync,
+                resv: ct.buffer_resv.clone(),
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -708,7 +711,7 @@ impl MetalConnector {
             None => {
                 let sf = buffer
                     .render_fb()
-                    .perform_render_pass(pass)
+                    .perform_render_pass(AcquireSync::Unnecessary, ReleaseSync::Explicit, pass)
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
                 fb = buffer.drm.clone();
@@ -748,11 +751,23 @@ impl MetalConnector {
         let render_hardware_cursor = self.cursor_enabled.get();
         match &fb.direct_scanout_data {
             None => {
-                output.perform_screencopies(&fb.tex, render_hardware_cursor, 0, 0, None);
+                output.perform_screencopies(
+                    &fb.tex,
+                    None,
+                    &AcquireSync::Unnecessary,
+                    ReleaseSync::None,
+                    render_hardware_cursor,
+                    0,
+                    0,
+                    None,
+                );
             }
             Some(dsd) => {
                 output.perform_screencopies(
                     &dsd.tex,
+                    dsd.resv.as_ref(),
+                    &dsd.acquire_sync,
+                    dsd.release_sync,
                     render_hardware_cursor,
                     dsd.position.crtc_x,
                     dsd.position.crtc_y,

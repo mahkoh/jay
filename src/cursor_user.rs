@@ -3,6 +3,7 @@ use {
         backend::HardwareCursorUpdate,
         cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
         fixed::Fixed,
+        gfx_api::{AcquireSync, ReleaseSync},
         rect::Rect,
         scale::Scale,
         state::State,
@@ -497,8 +498,14 @@ impl CursorUser {
         }
         if render {
             let buffer = hc.get_buffer();
-            let res =
-                buffer.render_hardware_cursor(cursor.deref(), &self.group.state, scale, transform);
+            let res = buffer.render_hardware_cursor(
+                AcquireSync::Unnecessary,
+                ReleaseSync::Explicit,
+                cursor.deref(),
+                &self.group.state,
+                scale,
+                transform,
+            );
             match res {
                 Ok(sync_file) => {
                     hc.set_sync_file(sync_file);

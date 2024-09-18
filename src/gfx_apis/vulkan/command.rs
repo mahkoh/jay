@@ -1,5 +1,5 @@
 use {
-    crate::gfx_apis::vulkan::{device::VulkanDevice, VulkanError},
+    crate::gfx_apis::vulkan::{device::VulkanDevice, renderer::CachedCommandBuffers, VulkanError},
     ash::vk::{
         CommandBuffer, CommandBufferAllocateInfo, CommandBufferLevel, CommandPool,
         CommandPoolCreateFlags, CommandPoolCreateInfo,
@@ -53,17 +53,24 @@ impl VulkanCommandPool {
 }
 
 impl VulkanDevice {
-    pub fn create_command_pool(self: &Rc<Self>) -> Result<Rc<VulkanCommandPool>, VulkanError> {
+    pub fn create_command_pool(
+        self: &Rc<Self>,
+        queue: u32,
+    ) -> Result<CachedCommandBuffers, VulkanError> {
         let info = CommandPoolCreateInfo::default()
-            .queue_family_index(self.graphics_queue_idx)
+            .queue_family_index(queue)
             .flags(
                 CommandPoolCreateFlags::TRANSIENT | CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
             );
         let pool = unsafe { self.device.create_command_pool(&info, None) };
         let pool = pool.map_err(VulkanError::AllocateCommandPool)?;
-        Ok(Rc::new(VulkanCommandPool {
-            device: self.clone(),
-            pool,
-        }))
+        Ok(CachedCommandBuffers {
+            pool: Rc::new(VulkanCommandPool {
+                device: self.clone(),
+                pool,
+            }),
+            buffers: Default::default(),
+            total_buffers: Default::default(),
+        })
     }
 }

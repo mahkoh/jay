@@ -63,6 +63,9 @@ pub struct VulkanDevice {
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,
     pub(super) graphics_queue_idx: u32,
+    pub(super) transfer_queue: Option<Queue>,
+    pub(super) distinct_transfer_queue_family_idx: Option<u32>,
+    pub(super) transfer_granularity_mask: (u32, u32),
 }
 
 impl Drop for VulkanDevice {
@@ -185,16 +188,59 @@ impl VulkanInstance {
         Err(VulkanError::NoDeviceFound(dev))
     }
 
-    fn find_graphics_queue(&self, phy_dev: PhysicalDevice) -> Result<u32, VulkanError> {
+    fn find_queues(
+        &self,
+        phy_dev: PhysicalDevice,
+    ) -> Result<(u32, Option<(u32, u32, u32)>), VulkanError> {
         let props = unsafe {
             self.instance
                 .get_physical_device_queue_family_properties(phy_dev)
         };
-        props
+        let gfx_queue = props
             .iter()
             .position(|p| p.queue_flags.contains(QueueFlags::GRAPHICS))
-            .map(|v| v as _)
-            .ok_or(VulkanError::NoGraphicsQueue)
+            .ok_or(VulkanError::NoGraphicsQueue)?;
+        let transfer_queue = 'transfer: {
+            let mut transfer_only = None;
+            let mut compute_only = None;
+            let mut separate_gfx = None;
+            for (idx, props) in props.iter().enumerate() {
+                if idx == gfx_queue {
+                    continue;
+                }
+                let g = &props.min_image_transfer_granularity;
+                if g.width == 0 || g.height == 0 {
+                    continue;
+                }
+                let f = props.queue_flags;
+                use QueueFlags as F;
+                if !f.intersects(F::GRAPHICS | F::COMPUTE) && f.intersects(F::TRANSFER) {
+                    transfer_only = Some(idx);
+                } else if !f.intersects(F::GRAPHICS) && f.intersects(F::COMPUTE) {
+                    compute_only = Some(idx);
+                } else if f.intersects(F::GRAPHICS) {
+                    separate_gfx = Some(idx);
+                }
+            }
+            if let Some(idx) = transfer_only.or(compute_only).or(separate_gfx) {
+                break 'transfer Some(idx);
+            }
+            if props[gfx_queue].queue_count > 1 {
+                break 'transfer Some(gfx_queue);
+            }
+            None
+        };
+        let mut width_mask = 0;
+        let mut height_mask = 0;
+        if let Some(idx) = transfer_queue {
+            let g = &props[idx].min_image_transfer_granularity;
+            width_mask = g.width.wrapping_sub(1);
+            height_mask = g.height.wrapping_sub(1);
+        }
+        Ok((
+            gfx_queue as _,
+            transfer_queue.map(|v| (v as _, width_mask, height_mask)),
+        ))
     }
 
     fn supports_semaphore_import(&self, phy_dev: PhysicalDevice) -> bool {
@@ -224,7 +270,15 @@ impl VulkanInstance {
                 return Err(VulkanError::MissingDeviceExtension(ext));
             }
         }
-        let graphics_queue_idx = self.find_graphics_queue(phy_dev)?;
+        let (graphics_queue_family_idx, transfer_queue_family) = self.find_queues(phy_dev)?;
+        let mut distinct_transfer_queue_family_idx = None;
+        let mut transfer_granularity_mask = (0, 0);
+        if let Some((idx, width_mask, height_mask)) = transfer_queue_family {
+            if idx != graphics_queue_family_idx {
+                distinct_transfer_queue_family_idx = Some(idx);
+            }
+            transfer_granularity_mask = (width_mask, height_mask);
+        }
         if !self.supports_semaphore_import(phy_dev) {
             return Err(VulkanError::SyncobjImport);
         }
@@ -238,14 +292,24 @@ impl VulkanInstance {
             PhysicalDeviceSynchronization2Features::default().synchronization2(true);
         let mut dynamic_rendering_features =
             PhysicalDeviceDynamicRenderingFeatures::default().dynamic_rendering(true);
-        let queue_create_info = DeviceQueueCreateInfo::default()
-            .queue_family_index(graphics_queue_idx)
-            .queue_priorities(&[1.0]);
+        let mut queue_create_infos = ArrayVec::<_, 2>::new();
+        queue_create_infos.push(
+            DeviceQueueCreateInfo::default()
+                .queue_family_index(graphics_queue_family_idx)
+                .queue_priorities(&[1.0]),
+        );
+        if let Some((tq, _, _)) = transfer_queue_family {
+            queue_create_infos.push(
+                DeviceQueueCreateInfo::default()
+                    .queue_family_index(tq)
+                    .queue_priorities(&[1.0]),
+            );
+        }
         let device_create_info = DeviceCreateInfo::default()
             .push_next(&mut semaphore_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
-            .queue_create_infos(std::slice::from_ref(&queue_create_info))
+            .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&enabled_extensions);
         let device = unsafe {
             self.instance
@@ -286,7 +350,14 @@ impl VulkanInstance {
             .iter()
             .copied()
             .collect();
-        let graphics_queue = unsafe { device.get_device_queue(graphics_queue_idx, 0) };
+        let graphics_queue = unsafe { device.get_device_queue(graphics_queue_family_idx, 0) };
+        let transfer_queue = transfer_queue_family.map(|(family_idx, _, _)| {
+            let queue_idx = match family_idx == graphics_queue_family_idx {
+                true => 1,
+                false => 0,
+            };
+            unsafe { device.get_device_queue(family_idx, queue_idx) }
+        });
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
@@ -302,7 +373,10 @@ impl VulkanInstance {
             formats,
             memory_types,
             graphics_queue,
-            graphics_queue_idx,
+            graphics_queue_idx: graphics_queue_family_idx,
+            transfer_queue,
+            distinct_transfer_queue_family_idx,
+            transfer_granularity_mask,
         }))
     }
 }

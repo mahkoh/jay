@@ -635,13 +635,17 @@ impl WindowData {
             return;
         };
 
-        let res = buf
-            .fb
-            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
+        let res = buf.fb.render_custom(
+            AcquireSync::Implicit,
+            ReleaseSync::Implicit,
+            self.scale.get(),
+            Some(&Color::from_gray(0)),
+            &mut |r| {
                 if let Some(content) = self.content.get() {
                     content.render_at(r, 0.0, 0.0)
                 }
-            });
+            },
+        );
         if let Err(e) = res {
             log::error!("Could not render frame: {}", ErrorFmt(e));
             return;

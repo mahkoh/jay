@@ -5,9 +5,10 @@ use {
         cpu_worker::CpuWorker,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect, FramebufferRect,
-            GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture,
-            GfxWriteModifier, PendingShmUpload, ResetStatus, ShmGfxTexture, SyncFile,
+            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
+            FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
+            GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync, ResetStatus,
+            ShmGfxTexture, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -413,6 +414,8 @@ impl GfxFramebuffer for TestGfxFb {
 
     fn render(
         &self,
+        _acquire_sync: AcquireSync,
+        _release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError> {
