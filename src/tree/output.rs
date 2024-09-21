@@ -266,7 +266,8 @@ impl OutputNode {
                             mem,
                             *stride,
                             wl_buffer.format,
-                            Transform::None,
+                            self.global.persistent.transform.get(),
+                            self.global.persistent.scale.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
@@ -291,12 +292,14 @@ impl OutputNode {
                             &fb,
                             AcquireSync::Implicit,
                             ReleaseSync::Implicit,
+                            self.global.persistent.transform.get(),
                             self.global.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
                             y_off - capture.rect.y1(),
                             size,
-                            Transform::None,
+                            self.global.persistent.transform.get(),
+                            self.global.persistent.scale.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
