@@ -333,12 +333,14 @@ impl JayScreencast {
                     &buffer.fb,
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
+                    Transform::None,
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,
                     size,
                     on.global.persistent.transform.get(),
+                    on.global.persistent.scale.get(),
                 );
                 match res {
                     Ok(_) => {

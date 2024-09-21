@@ -937,20 +937,22 @@ impl State {
         target: &Rc<dyn GfxFramebuffer>,
         target_acquire_sync: AcquireSync,
         target_release_sync: ReleaseSync,
+        target_transform: Transform,
         position: Rect,
         render_hardware_cursors: bool,
         x_off: i32,
         y_off: i32,
         size: Option<(i32, i32)>,
         transform: Transform,
+        scale: Scale,
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
-            base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
+            base: target.renderer_base(&mut ops, scale, target_transform),
             state: self,
             logical_extents: position.at_point(0, 0),
             pixel_extents: {
-                let (width, height) = target.logical_size(Transform::None);
+                let (width, height) = target.logical_size(target_transform);
                 Rect::new_sized(0, 0, width, height).unwrap()
             },
         };
@@ -963,7 +965,7 @@ impl State {
             y_off,
             Some(sample_rect),
             size,
-            Scale::from_int(1),
+            scale,
             None,
             resv.cloned(),
             acquire_sync.clone(),
@@ -1013,14 +1015,14 @@ impl State {
         stride: i32,
         format: &'static Format,
         transform: Transform,
+        scale: Scale,
     ) -> Result<(), ShmScreencopyError> {
         let (src_width, src_height) = src.size();
         let mut needs_copy = capture.rect.x1() < x_off
             || capture.rect.x2() > x_off + src_width
             || capture.rect.y1() < y_off
             || capture.rect.y2() > y_off + src_height
-            || self.have_hardware_cursor()
-            || transform != Transform::None;
+            || self.have_hardware_cursor();
         if let Some((target_width, target_height)) = size {
             if (target_width, target_height) != (src_width, src_height) {
                 needs_copy = true;
@@ -1041,12 +1043,14 @@ impl State {
                 &fb,
                 AcquireSync::Unnecessary,
                 ReleaseSync::None,
+                transform,
                 position,
                 true,
                 x_off - capture.rect.x1(),
                 y_off - capture.rect.y1(),
                 size,
                 transform,
+                scale,
             )
             .map_err(ShmScreencopyError::CopyToTemporary)?;
             mem.access(|mem| {

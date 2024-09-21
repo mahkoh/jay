@@ -12,7 +12,10 @@ pub trait WindowsExt<T> {
 }
 
 impl<T> WindowsExt<T> for [T] {
-    type Windows<'a, const N: usize> = WindowsIter<'a, T, N> where T: 'a;
+    type Windows<'a, const N: usize>
+        = WindowsIter<'a, T, N>
+    where
+        T: 'a;
 
     fn array_windows_ext<'a, const N: usize>(&'a self) -> Self::Windows<'a, N> {
         WindowsIter { slice: self }
