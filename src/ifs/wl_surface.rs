@@ -2056,7 +2056,7 @@ impl DamageMatrix {
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
         if self.visible.get() {
-            let now = self.client.state.now_usec();
+            let now = self.client.state.now_msec();
             for fr in self.frame_requests.borrow_mut().drain(..) {
                 fr.send_done(now as _);
                 let _ = fr.client.remove_obj(&*fr);
