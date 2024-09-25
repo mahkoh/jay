@@ -431,6 +431,16 @@ impl<'a> EdidParser<'a> {
         }
     }
 
+    fn nest(&self, data: &'a [u8]) -> Self {
+        Self {
+            data,
+            pos: 0,
+            context: self.context.clone(),
+            saved_ctx: vec![],
+            errors: vec![],
+        }
+    }
+
     fn store_error(&mut self, error: EdidError) {
         self.errors.push((error, self.saved_ctx.clone()));
     }
@@ -446,6 +456,16 @@ impl<'a> EdidParser<'a> {
         }
         let v = unsafe { self.data[self.pos..].as_ptr().cast::<[u8; N]>().deref() };
         self.pos += N;
+        Ok(v)
+    }
+
+    fn read_var_n(&mut self, n: usize) -> Result<&'a [u8], EdidError> {
+        let _ctx = self.push_ctx(EdidParseContext::ReadingBytes(n));
+        if self.data.len() - self.pos < n {
+            bail!(self, EdidError::UnexpectedEof);
+        }
+        let v = &self.data[self.pos..self.pos + n];
+        self.pos += n;
         Ok(v)
     }
 
@@ -1000,10 +1020,71 @@ impl<'a> EdidParser<'a> {
         })
     }
 
+    fn parse_cta_amd_vendor_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
+        let _ = self.read_n::<2>()?;
+        Ok(CtaDataBlock::VendorAmd(CtaAmdVendorDataBlock {
+            minimum_refresh_hz: self.read_u8()?,
+            maximum_refresh_hz: self.read_u8()?,
+        }))
+    }
+
+    fn parse_cta_vendor_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
+        match self.read_n::<3>()? {
+            [0x1A, 0x00, 0x00] => self.parse_cta_amd_vendor_data_block(),
+            _ => Ok(CtaDataBlock::Unknown),
+        }
+    }
+
+    fn parse_cta_data_block(&mut self, tag: u8) -> Result<CtaDataBlock, EdidError> {
+        match tag {
+            0x3 => self.parse_cta_vendor_data_block(),
+            _ => Ok(CtaDataBlock::Unknown),
+        }
+    }
+
+    fn parse_cta_extension_v3(&mut self) -> Result<EdidExtension, EdidError> {
+        let detailed_timing_descriptors_offset = self.read_u8()? as usize;
+        let _ = self.read_u8()?;
+        let mut data_blocks = vec![];
+        while self.pos < detailed_timing_descriptors_offset {
+            let b1 = self.read_u8()?;
+            let data = self.read_var_n(b1 as usize & 0x1f)?;
+            let mut parser = self.nest(data);
+            match parser.parse_cta_data_block(b1 >> 5) {
+                Ok(d) => data_blocks.push(d),
+                Err(e) => {
+                    self.saved_ctx = parser.saved_ctx;
+                    self.store_error(e);
+                }
+            }
+        }
+        Ok(EdidExtension::CtaV3(CtaExtensionV3 { data_blocks }))
+    }
+
+    fn parse_cta_extension(&mut self) -> Result<EdidExtension, EdidError> {
+        // https://web.archive.org/web/20171201033424/https://standards.cta.tech/kwspub/published_docs/CTA-861-G_FINAL_revised_2017.pdf
+        match self.read_u8()? {
+            0x3 => self.parse_cta_extension_v3(),
+            _ => Ok(EdidExtension::Unknown),
+        }
+    }
+
+    fn parse_extension_impl(&mut self) -> Result<EdidExtension, EdidError> {
+        match self.read_u8()? {
+            0x2 => self.parse_cta_extension(),
+            _ => Ok(EdidExtension::Unknown),
+        }
+    }
+
     fn parse_extension(&mut self) -> Result<EdidExtension, EdidError> {
         let _ctx = self.push_ctx(EdidParseContext::Extension);
-        self.read_n::<128>()?;
-        Ok(EdidExtension::Unknown)
+        let data = self.read_n::<128>()?;
+        let mut parser = self.nest(data);
+        let res = parser.parse_extension_impl();
+        if res.is_err() {
+            self.saved_ctx = parser.saved_ctx;
+        }
+        res
     }
 
     fn parse(&mut self) -> Result<EdidFile, EdidError> {
@@ -1080,6 +1161,28 @@ pub struct EdidBaseBlock {
 #[derive(Debug)]
 pub enum EdidExtension {
     Unknown,
+    #[expect(dead_code)]
+    CtaV3(CtaExtensionV3),
+}
+
+#[derive(Debug)]
+pub struct CtaExtensionV3 {
+    #[expect(dead_code)]
+    pub data_blocks: Vec<CtaDataBlock>,
+}
+
+#[derive(Debug)]
+pub enum CtaDataBlock {
+    Unknown,
+    #[expect(dead_code)]
+    VendorAmd(CtaAmdVendorDataBlock),
+}
+
+#[derive(Debug)]
+#[expect(dead_code)]
+pub struct CtaAmdVendorDataBlock {
+    pub minimum_refresh_hz: u8,
+    pub maximum_refresh_hz: u8,
 }
 
 #[derive(Debug)]
