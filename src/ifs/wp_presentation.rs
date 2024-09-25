@@ -48,7 +48,7 @@ impl Global for WpPresentationGlobal {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 

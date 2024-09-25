@@ -17,3 +17,10 @@ event presented {
 event discarded {
 
 }
+
+event variable_refresh_bounds (since = 2) {
+    refresh_min_nsec_hi: u32,
+    refresh_min_nsec_lo: u32,
+    refresh_max_nsec_hi: u32,
+    refresh_max_nsec_lo: u32,
+}

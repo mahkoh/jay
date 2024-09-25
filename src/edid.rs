@@ -1161,32 +1161,28 @@ pub struct EdidBaseBlock {
 #[derive(Debug)]
 pub enum EdidExtension {
     Unknown,
-    #[expect(dead_code)]
     CtaV3(CtaExtensionV3),
 }
 
 #[derive(Debug)]
 pub struct CtaExtensionV3 {
-    #[expect(dead_code)]
     pub data_blocks: Vec<CtaDataBlock>,
 }
 
 #[derive(Debug)]
 pub enum CtaDataBlock {
     Unknown,
-    #[expect(dead_code)]
     VendorAmd(CtaAmdVendorDataBlock),
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
 pub struct CtaAmdVendorDataBlock {
     pub minimum_refresh_hz: u8,
+    #[expect(dead_code)]
     pub maximum_refresh_hz: u8,
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
 pub struct EdidFile {
     pub base_block: EdidBaseBlock,
     pub extension_blocks: Vec<EdidExtension>,

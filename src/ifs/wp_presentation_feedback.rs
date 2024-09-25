@@ -23,12 +23,25 @@ pub const KIND_VSYNC: u32 = 0x1;
 pub const KIND_HW_CLOCK: u32 = 0x2;
 pub const KIND_HW_COMPLETION: u32 = 0x4;
 pub const KIND_ZERO_COPY: u32 = 0x8;
+pub const KIND_VRR: u32 = 0x10;
+
+pub const VRR_BOUNDS_SINCE: Version = Version(2);
 
 impl WpPresentationFeedback {
     pub fn send_sync_output(&self, output: &WlOutput) {
         self.client.event(SyncOutput {
             self_id: self.id,
             output: output.id,
+        });
+    }
+
+    pub fn send_variable_refresh_bounds(&self, min_nsec: u64, max_nsec: u64) {
+        self.client.event(VariableRefreshBounds {
+            self_id: self.id,
+            refresh_min_nsec_hi: (min_nsec >> 32) as u32,
+            refresh_min_nsec_lo: min_nsec as u32,
+            refresh_max_nsec_hi: (max_nsec >> 32) as u32,
+            refresh_max_nsec_lo: max_nsec as u32,
         });
     }
 
