@@ -111,6 +111,7 @@ pub trait PresentationListener {
         refresh: u32,
         seq: u64,
         flags: u32,
+        vrr: bool,
     );
 }
 
@@ -158,9 +159,17 @@ impl OutputNode {
         }
     }
 
-    pub fn presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
+    pub fn presented(
+        &self,
+        tv_sec: u64,
+        tv_nsec: u32,
+        refresh: u32,
+        seq: u64,
+        flags: u32,
+        vrr: bool,
+    ) {
         for listener in self.presentation_event.iter() {
-            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags);
+            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags, vrr);
         }
     }
 

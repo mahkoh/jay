@@ -15,7 +15,7 @@ use {
             MetalBackend, MetalError,
         },
         drm_feedback::DrmFeedback,
-        edid::Descriptor,
+        edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
             needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
@@ -331,6 +331,7 @@ pub struct ConnectorDisplayData {
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
+    pub _vrr_refresh_max_nsec: u64,
 
     pub connector_id: ConnectorKernelId,
     pub output_id: Rc<OutputId>,
@@ -1129,6 +1130,7 @@ fn create_connector_display_data(
     let mut name = String::new();
     let mut manufacturer = String::new();
     let mut serial_number = String::new();
+    let mut vrr_refresh_max_nsec = u64::MAX;
     let connector_id = ConnectorKernelId {
         ty: ConnectorType::from_drm(info.connector_type),
         idx: info.connector_type_id,
@@ -1194,6 +1196,28 @@ fn create_connector_display_data(
             );
             serial_number = edid.base_block.id_serial_number.to_string();
         }
+        let min_vrr_hz = 'fetch_min_hz: {
+            for ext in &edid.extension_blocks {
+                if let EdidExtension::CtaV3(cta) = ext {
+                    for data_block in &cta.data_blocks {
+                        if let CtaDataBlock::VendorAmd(amd) = data_block {
+                            break 'fetch_min_hz amd.minimum_refresh_hz as u64;
+                        }
+                    }
+                }
+            }
+            for desc in &edid.base_block.descriptors {
+                if let Some(desc) = desc {
+                    if let Descriptor::DisplayRangeLimitsAndAdditionalTiming(timings) = desc {
+                        break 'fetch_min_hz timings.vertical_field_rate_min as u64;
+                    }
+                }
+            }
+            0
+        };
+        if min_vrr_hz > 0 {
+            vrr_refresh_max_nsec = 1_000_000_000 / min_vrr_hz;
+        }
     }
     let output_id = Rc::new(OutputId::new(
         connector_id.to_string(),
@@ -1249,6 +1273,7 @@ fn create_connector_display_data(
         non_desktop,
         non_desktop_effective: non_desktop_override.unwrap_or(non_desktop),
         vrr_capable,
+        _vrr_refresh_max_nsec: vrr_refresh_max_nsec,
         connection,
         mm_width: info.mm_width,
         mm_height: info.mm_height,
@@ -2002,17 +2027,14 @@ impl MetalBackend {
             if connector.presentation_is_zero_copy.get() {
                 flags |= KIND_ZERO_COPY;
             }
-            let refresh = match crtc.vrr_enabled.value.get() {
-                true => 0,
-                false => dd.refresh,
-            };
             if let Some(g) = &global {
                 g.presented(
                     tv_sec as _,
                     tv_usec * 1000,
-                    refresh,
+                    dd.refresh,
                     connector.sequence.get(),
                     flags,
+                    crtc.vrr_enabled.value.get(),
                 );
             }
         }
