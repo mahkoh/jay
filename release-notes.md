@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.6.0 (2024-09-25)
+
 - Various bugfixes.
 - Improve compatibility Nvidia hardware.
 - Implement format negotiation for screencasts.
