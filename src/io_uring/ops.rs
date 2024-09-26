@@ -10,6 +10,7 @@ pub mod read_write_no_cancel;
 pub mod recvmsg;
 pub mod sendmsg;
 pub mod timeout;
+pub mod timeout_external;
 pub mod timeout_link;
 
 pub type TaskResult<T> = Result<Result<T, OsError>, IoUringError>;
