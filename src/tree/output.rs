@@ -48,7 +48,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
-        ops::Deref,
+        ops::{BitOrAssign, Deref},
         rc::Rc,
     },
 };
@@ -83,7 +83,27 @@ pub struct OutputNode {
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,
     pub presentation_event: EventSource<dyn PresentationListener>,
+    pub render_margin_ns: Cell<u64>,
     pub flip_margin_ns: Cell<Option<u64>>,
+    pub before_latch_event: EventSource<dyn BeforeLatchListener>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BeforeLatchResult {
+    None,
+    Yield,
+}
+
+impl BitOrAssign for BeforeLatchResult {
+    fn bitor_assign(&mut self, rhs: Self) {
+        if rhs == BeforeLatchResult::Yield {
+            *self = rhs;
+        }
+    }
+}
+
+pub trait BeforeLatchListener {
+    fn before_latch(self: Rc<Self>, now: u64, present: u64) -> BeforeLatchResult;
 }
 
 pub trait LatchListener {
@@ -125,6 +145,16 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub async fn before_latch(&self, now: u64, present: u64) {
+        let mut res = BeforeLatchResult::None;
+        for listener in self.before_latch_event.iter() {
+            res |= listener.before_latch(now, present);
+        }
+        if res == BeforeLatchResult::Yield {
+            self.state.eng.yield_now().await;
+        }
+    }
+
     pub fn latched(&self, tearing: bool) {
         self.schedule.latched();
         for listener in self.latch_event.iter() {
@@ -654,6 +684,7 @@ impl OutputNode {
         }
         let (old_width, old_height) = self.global.pixel_size();
         self.global.mode.set(mode);
+        self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
         let (new_width, new_height) = self.global.pixel_size();
         self.change_extents_(&self.calculate_extents());

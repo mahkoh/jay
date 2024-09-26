@@ -45,7 +45,6 @@ pub struct TimeoutExternalTask {
 }
 
 impl IoUring {
-    #[expect(dead_code)]
     pub fn timeout_external(
         &self,
         timeout_nsec: u64,

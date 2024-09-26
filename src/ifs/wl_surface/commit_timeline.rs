@@ -5,9 +5,15 @@ use {
         gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmUpload},
         ifs::{
             wl_buffer::WlBufferStorage,
-            wl_surface::{PendingState, WlSurface, WlSurfaceError},
+            wl_surface::{
+                wp_commit_timer_v1::{CommitTimeRounding, CommitTimeStage},
+                PendingState, WlSurface, WlSurfaceError,
+            },
         },
-        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
+        io_uring::{
+            IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
+        },
+        tree::BeforeLatchResult,
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -23,12 +29,14 @@ use {
             DrmError,
         },
     },
+    enum_map::EnumMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
+        cmp::max,
         mem,
-        ops::DerefMut,
+        ops::{Deref, DerefMut},
         rc::{Rc, Weak},
         slice,
     },
@@ -50,6 +58,12 @@ pub struct CommitTimelines {
     _flips_future: SpawnedFuture<()>,
 }
 
+struct CommitTimeWaiter {
+    node: NodeRef<Entry>,
+    latch: u64,
+    present: u64,
+}
+
 pub struct CommitTimeline {
     shared: Rc<CommitTimelines>,
     own_timeline: Rc<Inner>,
@@ -57,6 +71,7 @@ pub struct CommitTimeline {
     effective_timeline_id: Cell<CommitTimelineId>,
     fifo_barrier_set: Cell<bool>,
     fifo_waiter: Cell<Option<NodeRef<Entry>>>,
+    commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
 }
 
 struct Inner {
@@ -98,6 +113,8 @@ pub enum CommitTimelineError {
     RegisterImplicitPoll(#[source] IoUringError),
     #[error("Could not wait for a dmabuf to become idle")]
     PollDmabuf(#[source] OsError),
+    #[error("Could not wait for the commit timeout")]
+    CommitTimeout(#[source] OsError),
 }
 
 impl CommitTimelines {
@@ -136,6 +153,7 @@ impl CommitTimelines {
             effective_timeline_id: Cell::new(id),
             fifo_barrier_set: Cell::new(false),
             fifo_waiter: Default::default(),
+            commit_time_waiter: Default::default(),
         }
     }
 
@@ -168,6 +186,7 @@ impl CommitTimeline {
         match reason {
             ClearReason::BreakLoops => {
                 self.fifo_waiter.take();
+                self.commit_time_waiter.take();
                 break_loops(&self.own_timeline.entries)
             }
             ClearReason::Destroy => {
@@ -191,13 +210,18 @@ impl CommitTimeline {
             acquire_points: Default::default(),
             shm_uploads: 0,
             implicit_dmabufs: Default::default(),
+            times: Default::default(),
         };
         collector.collect(pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
         let implicit_dmabufs = collector.implicit_dmabufs;
-        let has_dependencies =
-            points.is_not_empty() || pending_uploads > 0 || implicit_dmabufs.is_not_empty();
+        let commit_times = collector.times;
+        let has_commit_time = commit_times.values().any(|v| v.values().any(|v| *v > 0));
+        let has_dependencies = points.is_not_empty()
+            || pending_uploads > 0
+            || implicit_dmabufs.is_not_empty()
+            || has_commit_time;
         let must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
@@ -227,6 +251,7 @@ impl CommitTimeline {
                 num_pending_polls: NumCell::new(implicit_dmabufs.len()),
                 pending_polls: Cell::new(Default::default()),
                 fifo_state: Cell::new(commit_fifo_state),
+                commit_times: RefCell::new(CommitTimesState::Ready),
             }),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
@@ -263,6 +288,13 @@ impl CommitTimeline {
                 }
                 commit.pending_polls.set(pending_polls);
             }
+            if has_commit_time {
+                *commit.commit_times.borrow_mut() = CommitTimesState::Queued {
+                    rc: noderef.clone(),
+                    times: commit_times,
+                };
+                needs_flush = true;
+            }
         }
         if needs_flush && noderef.prev().is_none() {
             flush_from(noderef.clone()).map_err(CommitTimelineError::DelayedCommit)?;
@@ -283,6 +315,27 @@ impl CommitTimeline {
 
     pub fn has_fifo_barrier(&self) -> bool {
         self.fifo_barrier_set.get()
+    }
+
+    pub fn before_latch(&self, surface: &WlSurface, latch: u64, present: u64) -> BeforeLatchResult {
+        let waiter = &mut *self.commit_time_waiter.borrow_mut();
+        if let Some(w) = waiter {
+            if w.latch <= latch && w.present <= present {
+                let EntryKind::Commit(c) = &w.node.kind else {
+                    unreachable!();
+                };
+                *c.commit_times.borrow_mut() = CommitTimesState::Ready;
+                self.shared.flips.flip_waiters.push(w.node.clone());
+                *waiter = None;
+                surface.before_latch_listener.detach();
+                BeforeLatchResult::Yield
+            } else {
+                BeforeLatchResult::None
+            }
+        } else {
+            surface.before_latch_listener.detach();
+            BeforeLatchResult::None
+        }
     }
 }
 
@@ -343,6 +396,25 @@ impl PollCallback for NodeRef<Entry> {
     }
 }
 
+impl TimeoutCallback for NodeRef<Entry> {
+    fn completed(self: Rc<Self>, res: Result<(), OsError>, _data: u64) {
+        let EntryKind::Commit(commit) = &self.kind else {
+            unreachable!();
+        };
+        commit.surface.commit_timeline.commit_time_waiter.take();
+        commit.surface.before_latch_listener.detach();
+        if let Err(e) = res {
+            commit
+                .surface
+                .client
+                .error(CommitTimelineError::CommitTimeout(e));
+            return;
+        }
+        *commit.commit_times.borrow_mut() = CommitTimesState::Ready;
+        flush_commit(&self, commit);
+    }
+}
+
 struct Entry {
     link: Cell<Option<LinkedNode<Entry>>>,
     shared: Rc<CommitTimelines>,
@@ -362,6 +434,19 @@ enum ShmUploadState {
     Scheduled(#[expect(dead_code)] SmallVec<[PendingShmUpload; 1]>),
 }
 
+type CommitTimes = EnumMap<CommitTimeStage, EnumMap<CommitTimeRounding, u64>>;
+
+enum CommitTimesState {
+    Ready,
+    Queued {
+        rc: Rc<NodeRef<Entry>>,
+        times: CommitTimes,
+    },
+    Registered {
+        _pending: PendingTimeout,
+    },
+}
+
 struct Commit {
     surface: Rc<WlSurface>,
     pending: RefCell<Box<PendingState>>,
@@ -372,6 +457,7 @@ struct Commit {
     num_pending_polls: NumCell<usize>,
     pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
     fifo_state: Cell<CommitFifoState>,
+    commit_times: RefCell<CommitTimesState>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -421,6 +507,19 @@ impl NodeRef<Entry> {
                         CommitFifoState::Mailbox => {}
                     }
                 }
+                let commit_times = &mut *c.commit_times.borrow_mut();
+                match commit_times {
+                    CommitTimesState::Ready => {}
+                    CommitTimesState::Queued { rc, times } => {
+                        *commit_times = register_commit_time(tl, rc, c, times)?;
+                        if let CommitTimesState::Registered { .. } = commit_times {
+                            has_unmet_dependencies = true;
+                        }
+                    }
+                    CommitTimesState::Registered { .. } => {
+                        has_unmet_dependencies = true;
+                    }
+                }
                 if has_unmet_dependencies {
                     return Ok(false);
                 }
@@ -453,6 +552,55 @@ fn check_shm_uploads(c: &Commit) -> Result<(), WlSurfaceError> {
         *state = ShmUploadState::Scheduled(pending);
     }
     Ok(())
+}
+
+fn register_commit_time(
+    tl: &CommitTimeline,
+    rc: &Rc<NodeRef<Entry>>,
+    c: &Commit,
+    times: &CommitTimes,
+) -> Result<CommitTimesState, WlSurfaceError> {
+    let output = c.surface.output.get();
+    let render_margin = output.render_margin_ns.get();
+    let flip_margin = output.flip_margin_ns.get().unwrap_or_default();
+    let refresh = output.global.refresh_nsec.get();
+    let present_margin = render_margin.saturating_add(flip_margin).min(refresh);
+    let timeout = max(
+        max(
+            times[CommitTimeStage::Latch][CommitTimeRounding::Nearest],
+            times[CommitTimeStage::Latch][CommitTimeRounding::NotBefore],
+        ),
+        max(
+            times[CommitTimeStage::Present][CommitTimeRounding::Nearest],
+            times[CommitTimeStage::Present][CommitTimeRounding::NotBefore],
+        )
+        .saturating_sub(present_margin),
+    );
+    if timeout <= c.surface.client.state.now_nsec() {
+        return Ok(CommitTimesState::Ready);
+    }
+    let latch = max(
+        times[CommitTimeStage::Latch][CommitTimeRounding::Nearest].saturating_sub(refresh / 2),
+        times[CommitTimeStage::Latch][CommitTimeRounding::NotBefore],
+    );
+    let present = max(
+        times[CommitTimeStage::Present][CommitTimeRounding::Nearest].saturating_sub(refresh / 2),
+        times[CommitTimeStage::Present][CommitTimeRounding::NotBefore],
+    );
+    let pending = tl
+        .shared
+        .ring
+        .timeout_external(timeout, rc.clone(), 0)
+        .map_err(WlSurfaceError::RegisterCommitTimeout)?;
+    *tl.commit_time_waiter.borrow_mut() = Some(CommitTimeWaiter {
+        node: rc.deref().clone(),
+        latch,
+        present,
+    });
+    c.surface
+        .before_latch_listener
+        .attach(&output.before_latch_event);
+    Ok(CommitTimesState::Registered { _pending: pending })
 }
 
 fn schedule_async_uploads(
@@ -534,6 +682,7 @@ struct CommitDataCollector {
     acquire_points: SmallVec<[Point; 1]>,
     shm_uploads: usize,
     implicit_dmabufs: SmallVec<[Rc<OwnedFd>; 1]>,
+    times: CommitTimes,
 }
 
 impl CommitDataCollector {
@@ -552,6 +701,10 @@ impl CommitDataCollector {
         }
         if let Some(point) = pending.acquire_point.take() {
             self.acquire_points.push(point);
+        }
+        if let Some(commit_time) = pending.commit_time.take() {
+            let time = &mut self.times[commit_time.stage][commit_time.rounding];
+            *time = (*time).max(commit_time.nsec);
         }
         for ss in pending.subsurfaces.values_mut() {
             if let Some(state) = &mut ss.pending.state {

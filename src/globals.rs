@@ -34,6 +34,7 @@ use {
             wl_subcompositor::WlSubcompositorGlobal,
             wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
+            wp_commit_timing_manager_v1::WpCommitTimingManagerV1Global,
             wp_content_type_manager_v1::WpContentTypeManagerV1Global,
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
             wp_fifo_manager_v1::WpFifoManagerV1Global,
@@ -199,6 +200,7 @@ impl Globals {
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
         add_singleton!(WpFifoManagerV1Global);
+        add_singleton!(WpCommitTimingManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
