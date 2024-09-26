@@ -187,15 +187,15 @@ impl CommitTimeline {
         surface: &Rc<WlSurface>,
         pending: &mut Box<PendingState>,
     ) -> Result<(), CommitTimelineError> {
-        let mut points = SmallVec::new();
-        let mut pending_uploads = 0;
-        let mut implicit_dmabufs = SmallVec::new();
-        collect_commit_data(
-            pending,
-            &mut points,
-            &mut pending_uploads,
-            &mut implicit_dmabufs,
-        );
+        let mut collector = CommitDataCollector {
+            acquire_points: Default::default(),
+            shm_uploads: 0,
+            implicit_dmabufs: Default::default(),
+        };
+        collector.collect(pending);
+        let points = collector.acquire_points;
+        let pending_uploads = collector.shm_uploads;
+        let implicit_dmabufs = collector.implicit_dmabufs;
         let has_dependencies =
             points.is_not_empty() || pending_uploads > 0 || implicit_dmabufs.is_not_empty();
         let must_be_queued = has_dependencies
@@ -550,30 +550,33 @@ fn schedule_async_upload(
 
 type Point = (Rc<SyncObj>, SyncObjPoint);
 
-fn collect_commit_data(
-    pending: &mut PendingState,
-    acquire_points: &mut SmallVec<[Point; 1]>,
-    shm_uploads: &mut usize,
-    implicit_dmabufs: &mut SmallVec<[Rc<OwnedFd>; 1]>,
-) {
-    if let Some(Some(buffer)) = &pending.buffer {
-        if buffer.is_shm() {
-            *shm_uploads += 1;
-        }
-        if !pending.explicit_sync {
-            if let Some(dmabuf) = &buffer.dmabuf {
-                for plane in &dmabuf.planes {
-                    implicit_dmabufs.push(plane.fd.clone());
+struct CommitDataCollector {
+    acquire_points: SmallVec<[Point; 1]>,
+    shm_uploads: usize,
+    implicit_dmabufs: SmallVec<[Rc<OwnedFd>; 1]>,
+}
+
+impl CommitDataCollector {
+    fn collect(&mut self, pending: &mut PendingState) {
+        if let Some(Some(buffer)) = &pending.buffer {
+            if buffer.is_shm() {
+                self.shm_uploads += 1;
+            }
+            if !pending.explicit_sync {
+                if let Some(dmabuf) = &buffer.dmabuf {
+                    for plane in &dmabuf.planes {
+                        self.implicit_dmabufs.push(plane.fd.clone());
+                    }
                 }
             }
         }
-    }
-    if let Some(point) = pending.acquire_point.take() {
-        acquire_points.push(point);
-    }
-    for ss in pending.subsurfaces.values_mut() {
-        if let Some(state) = &mut ss.pending.state {
-            collect_commit_data(state, acquire_points, shm_uploads, implicit_dmabufs);
+        if let Some(point) = pending.acquire_point.take() {
+            self.acquire_points.push(point);
+        }
+        for ss in pending.subsurfaces.values_mut() {
+            if let Some(state) = &mut ss.pending.state {
+                self.collect(state);
+            }
         }
     }
 }
