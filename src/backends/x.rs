@@ -13,6 +13,7 @@ use {
         gfx_api::{AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync},
         ifs::wl_output::OutputId,
         state::State,
+        time::Time,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             queue::AsyncQueue, syncqueue::SyncQueue,
@@ -745,6 +746,8 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
+            let now = Time::now_unchecked().nsec();
+            node.before_latch(now).await;
             let res = self.state.present_output(
                 &node,
                 &image.fb.get(),

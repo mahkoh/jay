@@ -4,6 +4,7 @@ pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
+pub mod wp_commit_timer_v1;
 pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_linux_drm_syncobj_surface_v1;
@@ -47,6 +48,7 @@ use {
                 dnd_icon::DndIcon,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
+                wp_commit_timer_v1::WpCommitTimerV1,
                 wp_fifo_v1::WpFifoV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
@@ -60,14 +62,15 @@ use {
             wp_presentation_feedback::WpPresentationFeedback,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
+        io_uring::IoUringError,
         leaks::Tracker,
         object::{Object, Version},
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         tree::{
-            ContainerNode, FindTreeResult, FoundNode, LatchListener, Node, NodeId, NodeVisitor,
-            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
-            VblankListener,
+            BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
+            LatchListener, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode, PlaceholderNode,
+            PresentationListener, ToplevelNode, VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -321,6 +324,8 @@ pub struct WlSurface {
     latched_commit_version: Cell<u64>,
     fifo: CloneCell<Option<Rc<WpFifoV1>>>,
     clear_fifo_on_vblank: Cell<bool>,
+    commit_timer: CloneCell<Option<Rc<WpCommitTimerV1>>>,
+    before_latch_listener: EventListener<dyn BeforeLatchListener>,
 }
 
 impl Debug for WlSurface {
@@ -444,6 +449,7 @@ struct PendingState {
     explicit_sync: bool,
     fifo_barrier_set: bool,
     fifo_barrier_wait: bool,
+    commit_time: Option<u64>,
 }
 
 struct AttachedSubsurfaceState {
@@ -494,6 +500,7 @@ impl PendingState {
         opt!(tearing);
         opt!(content_type);
         opt!(alpha_multiplier);
+        opt!(commit_time);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -648,6 +655,8 @@ impl WlSurface {
             latched_commit_version: Default::default(),
             fifo: Default::default(),
             clear_fifo_on_vblank: Default::default(),
+            commit_timer: Default::default(),
+            before_latch_listener: EventListener::new(slf.clone()),
         }
     }
 
@@ -1657,6 +1666,7 @@ impl Object for WlSurface {
         self.alpha_modifier.take();
         self.text_input_connections.clear();
         self.fifo.take();
+        self.commit_timer.take();
     }
 }
 
@@ -2001,6 +2011,8 @@ pub enum WlSurfaceError {
     CreateAsyncShmTexture(#[source] GfxError),
     #[error("Could not prepare upload to a shm texture")]
     PrepareAsyncUpload(#[source] GfxError),
+    #[error("Could not register a commit timeout")]
+    RegisterCommitTimeout(#[source] IoUringError),
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
@@ -2131,6 +2143,12 @@ impl VblankListener for WlSurface {
             self.commit_timeline.clear_fifo_barrier();
         }
         self.vblank_listener.detach();
+    }
+}
+
+impl BeforeLatchListener for WlSurface {
+    fn before_latch(self: Rc<Self>, present: u64) -> BeforeLatchResult {
+        self.commit_timeline.before_latch(&self, present)
     }
 }
 

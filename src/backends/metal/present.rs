@@ -101,6 +101,9 @@ impl MetalConnector {
             if !self.can_present.get() {
                 continue;
             }
+            let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
+                continue;
+            };
             let mut expected_sequence = self.sequence.get() + 1;
             let mut start = Time::now_unchecked();
             let use_frame_scheduling = !self.try_async_flip();
@@ -118,7 +121,15 @@ impl MetalConnector {
                 }
             }
             frame!(frame_name);
-            if let Err(e) = self.present_once().await {
+            {
+                let now = start.nsec();
+                let flip = match self.try_async_flip() {
+                    true => now,
+                    false => self.next_vblank_nsec.get(),
+                };
+                node.before_latch(flip).await;
+            }
+            if let Err(e) = self.present_once(&node).await {
                 log::error!("Could not present: {}", ErrorFmt(e));
                 continue;
             }
@@ -138,7 +149,7 @@ impl MetalConnector {
         }
     }
 
-    async fn present_once(&self) -> Result<(), MetalError> {
+    async fn present_once(&self, node: &Rc<OutputNode>) -> Result<(), MetalError> {
         let version = self.version.get();
         if !self.can_present.get() {
             return Ok(());
@@ -146,9 +157,6 @@ impl MetalConnector {
         if !self.backend.check_render_context(&self.dev) {
             return Ok(());
         }
-        let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
-            return Ok(());
-        };
         let crtc = match self.crtc.get() {
             Some(crtc) => crtc,
             _ => return Ok(()),

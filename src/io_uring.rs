@@ -1,5 +1,6 @@
 pub use ops::{
     poll_external::{PendingPoll, PollCallback},
+    timeout_external::{PendingTimeout, TimeoutCallback},
     TaskResultExt,
 };
 use {
