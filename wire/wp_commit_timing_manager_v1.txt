@@ -1,0 +1,8 @@
+request destroy {
+
+}
+
+request get_timer {
+    id: id(wp_commit_timer_v1),
+    surface: id(wl_surface),
+}

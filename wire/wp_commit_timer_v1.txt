@@ -1,0 +1,11 @@
+request set_timestamp {
+    tv_sec_hi: u32,
+    tv_sec_lo: u32,
+    tv_nsec: u32,
+    stage: u32,
+    rounding_mode: u32,
+}
+
+request destroy {
+
+}

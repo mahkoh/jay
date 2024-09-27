@@ -1,5 +1,6 @@
 pub use ops::{
     poll_external::{PendingPoll, PollCallback},
+    timeout_external::{PendingTimeout, TimeoutCallback},
     TaskResultExt,
 };
 use {
@@ -10,7 +11,8 @@ use {
                 accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
                 poll::PollTask, poll_external::PollExternalTask, read_write::ReadWriteTask,
                 read_write_no_cancel::ReadWriteNoCancelTask, recvmsg::RecvmsgTask,
-                sendmsg::SendmsgTask, timeout::TimeoutTask, timeout_link::TimeoutLinkTask,
+                sendmsg::SendmsgTask, timeout::TimeoutTask, timeout_external::TimeoutExternalTask,
+                timeout_link::TimeoutLinkTask,
             },
             pending_result::PendingResults,
             sys::{
@@ -216,6 +218,7 @@ impl IoUring {
             cached_sendmsg: Default::default(),
             cached_recvmsg: Default::default(),
             cached_timeouts: Default::default(),
+            cached_timeouts_external: Default::default(),
             cached_timeout_links: Default::default(),
             cached_cmsg_bufs: Default::default(),
             cached_connects: Default::default(),
@@ -278,6 +281,7 @@ struct IoUringData {
     cached_sendmsg: Stack<Box<SendmsgTask>>,
     cached_recvmsg: Stack<Box<RecvmsgTask>>,
     cached_timeouts: Stack<Box<TimeoutTask>>,
+    cached_timeouts_external: Stack<Box<TimeoutExternalTask>>,
     cached_timeout_links: Stack<Box<TimeoutLinkTask>>,
     cached_cmsg_bufs: Stack<Buf>,
     cached_connects: Stack<Box<ConnectTask>>,
