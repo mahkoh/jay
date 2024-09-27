@@ -106,7 +106,7 @@ impl MetalConnector {
             let use_frame_scheduling = !self.try_async_flip();
             if use_frame_scheduling {
                 let next_present = self
-                    .next_flip_nsec
+                    .next_vblank_nsec
                     .get()
                     .saturating_sub(self.pre_commit_margin.get())
                     .saturating_sub(self.post_commit_margin.get());
