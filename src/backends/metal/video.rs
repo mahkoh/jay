@@ -445,7 +445,7 @@ pub struct MetalConnector {
     pub has_damage: NumCell<u64>,
     pub cursor_changed: Cell<bool>,
     pub cursor_damage: Cell<bool>,
-    pub next_flip_nsec: Cell<u64>,
+    pub next_vblank_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
 
@@ -1085,7 +1085,7 @@ fn create_connector(
         active_framebuffer: Default::default(),
         next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),
-        next_flip_nsec: Cell::new(0),
+        next_vblank_nsec: Cell::new(0),
         tearing_requested: Cell::new(false),
         try_switch_format: Cell::new(false),
         version: Default::default(),
@@ -1944,7 +1944,7 @@ impl MetalBackend {
         self.state.vblank(connector.connector_id);
         let dd = connector.display.borrow();
         connector
-            .next_flip_nsec
+            .next_vblank_nsec
             .set(time_ns as u64 + dd.refresh as u64);
     }
 
@@ -1993,7 +1993,9 @@ impl MetalBackend {
         {
             connector.schedule_present();
         }
-        connector.next_flip_nsec.set(time_ns + dd.refresh as u64);
+        if connector.presentation_is_sync.get() {
+            connector.next_vblank_nsec.set(time_ns + dd.refresh as u64);
+        }
         {
             let mut flags = KIND_HW_COMPLETION;
             if connector.presentation_is_sync.get() {
