@@ -30,15 +30,16 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text::{self, TextTexture},
+        text::TextTexture,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
             NodeId, StackedNode, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            event_listener::EventSource, hash_map_ext::HashMapExt, linkedlist::LinkedList,
-            scroller::Scroller, transform_ext::TransformExt,
+            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt, event_listener::EventSource, hash_map_ext::HashMapExt,
+            linkedlist::LinkedList, on_drop_event::OnDropEvent, scroller::Scroller,
+            transform_ext::TransformExt,
         },
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
@@ -114,12 +115,14 @@ pub enum PointerType {
 
 pub async fn output_render_data(state: Rc<State>) {
     loop {
-        let container = state.pending_output_render_data.pop().await;
-        if container.global.destroyed.get() {
+        let output = state.pending_output_render_data.pop().await;
+        if output.global.destroyed.get() {
             continue;
         }
-        if container.update_render_data_scheduled.get() {
-            container.update_render_data();
+        if output.update_render_data_scheduled.get() {
+            output.update_render_data_scheduled.set(false);
+            output.update_render_data_phase1().triggered().await;
+            output.update_render_data_phase2();
         }
     }
 }
@@ -367,16 +370,11 @@ impl OutputNode {
         }
     }
 
-    fn update_render_data(&self) {
-        self.update_render_data_scheduled.set(false);
-        let mut rd = self.render_data.borrow_mut();
-        rd.titles.clear();
-        rd.inactive_workspaces.clear();
-        rd.attention_requested_workspaces.clear();
-        rd.captured_inactive_workspaces.clear();
-        rd.active_workspace = None;
-        rd.status = None;
-        let mut pos = 0;
+    fn update_render_data_phase1(self: &Rc<Self>) -> Rc<AsyncEvent> {
+        let on_completed = Rc::new(OnDropEvent::default());
+        let Some(ctx) = self.state.render_ctx.get() else {
+            return on_completed.event();
+        };
         let font = self.state.theme.font.get();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
@@ -391,40 +389,72 @@ impl OutputNode {
             texture_height = (th as f64 * scale).round() as _;
         }
         let active_id = self.workspace.get().map(|w| w.id);
+        for ws in self.workspaces.iter() {
+            let tex = &mut *ws.title_texture.borrow_mut();
+            let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state.cpu_worker, &ctx));
+            let tc = match active_id == Some(ws.id) {
+                true => theme.colors.focused_title_text.get(),
+                false => theme.colors.unfocused_title_text.get(),
+            };
+            tex.schedule_render_fitting(
+                on_completed.clone(),
+                Some(texture_height),
+                &font,
+                &ws.name,
+                tc,
+                false,
+                scale,
+            );
+        }
+        let mut rd = self.render_data.borrow_mut();
+        let tex = rd.status.get_or_insert_with(|| OutputStatus {
+            tex_x: 0,
+            tex: TextTexture::new(&self.state.cpu_worker, &ctx),
+        });
+        let status = self.status.get();
+        let tc = self.state.theme.colors.bar_text.get();
+        tex.tex.schedule_render_fitting(
+            on_completed.clone(),
+            Some(texture_height),
+            &font,
+            &status,
+            tc,
+            true,
+            scale,
+        );
+        on_completed.event()
+    }
+
+    fn update_render_data_phase2(&self) {
+        let mut rd = self.render_data.borrow_mut();
+        rd.titles.clear();
+        rd.inactive_workspaces.clear();
+        rd.attention_requested_workspaces.clear();
+        rd.captured_inactive_workspaces.clear();
+        rd.active_workspace = None;
+        let mut pos = 0;
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let scale = self.global.persistent.scale.get();
+        let scale = if scale != 1 {
+            Some(scale.to_f64())
+        } else {
+            None
+        };
+        let active_id = self.workspace.get().map(|w| w.id);
         let non_exclusive_rect = self.non_exclusive_rect.get();
         let output_width = non_exclusive_rect.width();
         rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
-            let old_tex = ws.title_texture.take();
             let mut title_width = th;
-            'create_texture: {
-                if let Some(ctx) = self.state.render_ctx.get() {
-                    if th == 0 || ws.name.is_empty() {
-                        break 'create_texture;
-                    }
-                    let tc = match active_id == Some(ws.id) {
-                        true => theme.colors.focused_title_text.get(),
-                        false => theme.colors.unfocused_title_text.get(),
-                    };
-                    let title = match text::render_fitting(
-                        &ctx,
-                        old_tex,
-                        Some(texture_height),
-                        &font,
-                        &ws.name,
-                        tc,
-                        false,
-                        scale,
-                    ) {
-                        Ok(t) => t,
-                        Err(e) => {
-                            log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
-                            break 'create_texture;
-                        }
-                    };
-                    ws.title_texture.set(Some(title.clone()));
+            let title = &*ws.title_texture.borrow();
+            if let Some(title) = title {
+                if let Err(e) = title.flip() {
+                    log::error!("Could not render title: {}", ErrorFmt(e));
+                }
+                if let Some(texture) = title.texture() {
                     let mut x = pos + 1;
-                    let (mut width, _) = title.texture.size();
+                    let (mut width, _) = texture.size();
                     if let Some(scale) = scale {
                         width = (width as f64 / scale).round() as _;
                     }
@@ -438,7 +468,7 @@ impl OutputNode {
                         x2: pos + title_width,
                         tex_x: x,
                         tex_y: 0,
-                        tex: title.texture,
+                        tex: texture,
                         ws: ws.deref().clone(),
                     });
                 }
@@ -461,43 +491,18 @@ impl OutputNode {
             }
             pos += title_width;
         }
-        'set_status: {
-            let old_tex = rd.status.take().map(|s| s.tex);
-            let ctx = match self.state.render_ctx.get() {
-                Some(ctx) => ctx,
-                _ => break 'set_status,
-            };
-            let status = self.status.get();
-            if status.is_empty() {
-                break 'set_status;
+        if let Some(status) = &mut rd.status {
+            if let Err(e) = status.tex.flip() {
+                log::error!("Could not render status: {}", ErrorFmt(e));
             }
-            let tc = self.state.theme.colors.bar_text.get();
-            let title = match text::render_fitting(
-                &ctx,
-                old_tex,
-                Some(texture_height),
-                &font,
-                &status,
-                tc,
-                true,
-                scale,
-            ) {
-                Ok(t) => t,
-                Err(e) => {
-                    log::error!("Could not render status {}: {}", status, ErrorFmt(e));
-                    break 'set_status;
+            if let Some(texture) = status.tex.texture() {
+                let (mut width, _) = texture.size();
+                if let Some(scale) = scale {
+                    width = (width as f64 / scale).round() as _;
                 }
-            };
-            let (mut width, _) = title.texture.size();
-            if let Some(scale) = scale {
-                width = (width as f64 / scale).round() as _;
+                let pos = output_width - width - 1;
+                status.tex_x = pos;
             }
-            let pos = output_width - width - 1;
-            rd.status = Some(OutputStatus {
-                tex_x: pos,
-                tex_y: 0,
-                tex: title,
-            });
         }
         if self.title_visible.get() {
             let title_rect = Rect::new_sized(
@@ -945,7 +950,6 @@ pub struct OutputTitle {
 
 pub struct OutputStatus {
     pub tex_x: i32,
-    pub tex_y: i32,
     pub tex: TextTexture,
 }
 

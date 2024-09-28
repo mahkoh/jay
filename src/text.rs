@@ -1,7 +1,11 @@
 use {
     crate::{
+        cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
         format::ARGB8888,
-        gfx_api::{GfxContext, GfxError, GfxTexture, ShmGfxTexture},
+        gfx_api::{
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxContext, GfxError, GfxTexture,
+            PendingShmUpload,
+        },
         pango::{
             consts::{
                 CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
@@ -9,14 +13,19 @@ use {
             CairoContext, CairoImageSurface, PangoCairoContext, PangoError, PangoFontDescription,
             PangoLayout,
         },
-        rect::Rect,
+        rect::{Rect, Region},
         theme::Color,
-        utils::clonecell::UnsafeCellCloneSafe,
+        utils::{
+            clonecell::CloneCell, double_buffered::DoubleBuffered, on_drop_event::OnDropEvent,
+        },
     },
     std::{
         borrow::Cow,
-        ops::{Deref, Neg},
-        rc::Rc,
+        cell::{Cell, RefCell},
+        mem,
+        ops::Neg,
+        rc::{Rc, Weak},
+        sync::Arc,
     },
     thiserror::Error,
 };
@@ -31,53 +40,63 @@ pub enum TextError {
     PangoContext(#[source] PangoError),
     #[error("Could not create a pango layout")]
     CreateLayout(#[source] PangoError),
-    #[error("Could not import the rendered text")]
-    RenderError(#[source] GfxError),
     #[error("Could not access the cairo image data")]
     ImageData(#[source] PangoError),
-}
-
-#[derive(PartialEq)]
-struct Config<'a> {
-    x: i32,
-    y: Option<i32>,
-    width: i32,
-    height: i32,
-    padding: i32,
-    font: Cow<'a, str>,
-    text: Cow<'a, str>,
-    color: Color,
-    ellipsize: bool,
-    markup: bool,
-    scale: Option<f64>,
+    #[error("Texture upload failed")]
+    Upload(#[source] GfxError),
+    #[error("Could not create a texture")]
+    CreateTexture(#[source] GfxError),
+    #[error("Rendering is not scheduled or not yet completed")]
+    NotScheduled,
 }
 
 impl<'a> Config<'a> {
     fn to_static(self) -> Config<'static> {
-        Config {
-            x: self.x,
-            y: self.y,
-            width: self.width,
-            height: self.height,
-            padding: self.padding,
-            font: Cow::Owned(self.font.into_owned()),
-            text: Cow::Owned(self.text.into_owned()),
-            color: self.color,
-            ellipsize: self.ellipsize,
-            markup: self.markup,
-            scale: self.scale,
+        match self {
+            Config::None => Config::None,
+            Config::RenderFitting {
+                height,
+                font,
+                text,
+                color,
+                markup,
+                scale,
+            } => Config::RenderFitting {
+                height,
+                font,
+                text: text.into_owned().into(),
+                color,
+                markup,
+                scale,
+            },
+            Config::Render {
+                x,
+                y,
+                width,
+                height,
+                padding,
+                font,
+                text,
+                color,
+                ellipsize,
+                markup,
+                scale,
+            } => Config::Render {
+                x,
+                y,
+                width,
+                height,
+                padding,
+                font,
+                text: text.into_owned().into(),
+                color,
+                ellipsize,
+                markup,
+                scale,
+            },
         }
     }
 }
-
-#[derive(Clone)]
-pub struct TextTexture {
-    config: Rc<Config<'static>>,
-    shm_texture: Rc<dyn ShmGfxTexture>,
-    pub texture: Rc<dyn GfxTexture>,
-}
-
-unsafe impl UnsafeCellCloneSafe for TextTexture {}
 
 struct Data {
     image: Rc<CairoImageSurface>,
@@ -118,12 +137,11 @@ fn create_data(font: &str, width: i32, height: i32, scale: Option<f64>) -> Resul
     })
 }
 
-pub fn measure(
+fn measure(
     font: &str,
     text: &str,
     markup: bool,
     scale: Option<f64>,
-    full: bool,
 ) -> Result<TextMeasurement, TextError> {
     let data = create_data(font, 1, 1, scale)?;
     if markup {
@@ -133,31 +151,10 @@ pub fn measure(
     }
     let mut res = TextMeasurement::default();
     res.ink_rect = data.layout.inc_pixel_rect();
-    if full {
-        res.logical_rect = data.layout.logical_pixel_rect();
-        res.baseline = data.layout.pixel_baseline();
-    }
     Ok(res)
 }
 
-pub fn render(
-    ctx: &Rc<dyn GfxContext>,
-    old: Option<TextTexture>,
-    width: i32,
-    height: i32,
-    font: &str,
-    text: &str,
-    color: Color,
-    scale: Option<f64>,
-) -> Result<TextTexture, TextError> {
-    render2(
-        ctx, old, 1, None, width, height, 1, font, text, color, true, false, scale,
-    )
-}
-
-fn render2(
-    ctx: &Rc<dyn GfxContext>,
-    old: Option<TextTexture>,
+fn render(
     x: i32,
     y: Option<i32>,
     width: i32,
@@ -169,25 +166,14 @@ fn render2(
     ellipsize: bool,
     markup: bool,
     scale: Option<f64>,
-) -> Result<TextTexture, TextError> {
-    let width = width.min(3840);
-    let config = Config {
-        x,
-        y,
-        width,
-        height,
-        padding,
-        font: Cow::Borrowed(font),
-        text: Cow::Borrowed(text),
-        color,
-        ellipsize,
-        markup,
-        scale,
-    };
-    if let Some(old2) = &old {
-        if old2.config.deref() == &config {
-            return Ok(old.unwrap());
-        }
+) -> Result<RenderedText, TextError> {
+    if width == 0 || height == 0 {
+        return Ok(RenderedText {
+            width,
+            height,
+            stride: width * 4,
+            data: vec![],
+        });
     }
     let data = create_data(font, width, height, scale)?;
     if ellipsize {
@@ -208,79 +194,368 @@ fn render2(
     data.cctx.move_to(x as f64, y as f64);
     data.layout.show_layout();
     data.image.flush();
-    let bytes = match data.image.data() {
-        Ok(d) => d,
-        Err(e) => return Err(TextError::ImageData(e)),
-    };
-    let old = old.map(|o| o.shm_texture);
-    match ctx.clone().shmem_texture(
-        old,
-        bytes,
-        ARGB8888,
+    Ok(RenderedText {
         width,
         height,
-        data.image.stride(),
-        None,
-    ) {
-        Ok(t) => Ok(TextTexture {
-            config: Rc::new(config.to_static()),
-            texture: t.clone().into_texture(),
-            shm_texture: t,
-        }),
-        Err(e) => Err(TextError::RenderError(e)),
-    }
+        stride: data.image.stride(),
+        data: data.image.data().map_err(TextError::ImageData)?.to_vec(),
+    })
 }
 
-pub fn render_fitting(
-    ctx: &Rc<dyn GfxContext>,
-    old: Option<TextTexture>,
+fn render_fitting(
     height: Option<i32>,
     font: &str,
     text: &str,
     color: Color,
     markup: bool,
     scale: Option<f64>,
-) -> Result<TextTexture, TextError> {
-    render_fitting2(ctx, old, height, font, text, color, markup, scale, false).map(|(a, _)| a)
+) -> Result<RenderedText, TextError> {
+    let measurement = measure(font, text, markup, scale)?;
+    let x = measurement.ink_rect.x1().neg();
+    let y = match height {
+        Some(_) => None,
+        _ => Some(measurement.ink_rect.y1().neg()),
+    };
+    let width = measurement.ink_rect.width();
+    let height = height.unwrap_or(measurement.ink_rect.height());
+    render(
+        x, y, width, height, 0, font, text, color, false, markup, scale,
+    )
 }
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct TextMeasurement {
     pub ink_rect: Rect,
-    pub logical_rect: Rect,
-    pub baseline: i32,
 }
 
-pub fn render_fitting2(
-    ctx: &Rc<dyn GfxContext>,
-    old: Option<TextTexture>,
-    height: Option<i32>,
-    font: &str,
-    text: &str,
-    color: Color,
-    markup: bool,
-    scale: Option<f64>,
-    include_measurements: bool,
-) -> Result<(TextTexture, TextMeasurement), TextError> {
-    let measurement = measure(font, text, markup, scale, include_measurements)?;
-    let y = match height {
-        Some(_) => None,
-        _ => Some(measurement.ink_rect.y1().neg()),
-    };
-    let res = render2(
-        ctx,
-        old,
-        measurement.ink_rect.x1().neg(),
-        y,
-        measurement.ink_rect.width(),
-        height.unwrap_or(measurement.ink_rect.height()),
-        0,
-        font,
-        text,
-        color,
-        false,
-        markup,
-        scale,
-    );
-    res.map(|r| (r, measurement))
+struct RenderedText {
+    width: i32,
+    height: i32,
+    stride: i32,
+    data: Vec<Cell<u8>>,
+}
+
+#[derive(Default)]
+struct RenderWork {
+    config: Config<'static>,
+    result: Option<Result<RenderedText, TextError>>,
+}
+
+struct RenderJob {
+    work: RenderWork,
+    data: Weak<Shared>,
+}
+
+impl CpuWork for RenderWork {
+    fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
+        self.result = Some(self.render());
+        None
+    }
+}
+
+impl RenderWork {
+    fn render(&mut self) -> Result<RenderedText, TextError> {
+        match self.config {
+            Config::None => unreachable!(),
+            Config::RenderFitting {
+                height,
+                ref font,
+                ref text,
+                color,
+                markup,
+                scale,
+            } => render_fitting(height, font, text, color, markup, scale),
+            Config::Render {
+                x,
+                y,
+                width,
+                height,
+                padding,
+                ref font,
+                ref text,
+                color,
+                ellipsize,
+                markup,
+                scale,
+            } => render(
+                x, y, width, height, padding, font, text, color, ellipsize, markup, scale,
+            ),
+        }
+    }
+}
+
+pub struct TextTexture {
+    data: Rc<Shared>,
+}
+
+impl Drop for TextTexture {
+    fn drop(&mut self) {
+        if let Some(pending) = self.data.pending_render.take() {
+            pending.detach();
+        }
+        self.data.pending_upload.take();
+        self.data.render_job.take();
+        self.data.waiter.take();
+    }
+}
+
+struct Shared {
+    cpu_worker: Rc<CpuWorker>,
+    ctx: Rc<dyn GfxContext>,
+    textures: DoubleBuffered<TextBuffer>,
+    pending_render: Cell<Option<PendingJob>>,
+    pending_upload: Cell<Option<PendingShmUpload>>,
+    render_job: Cell<Option<Box<RenderJob>>>,
+    result: Cell<Option<Result<(), TextError>>>,
+    waiter: Cell<Option<Rc<dyn OnCompleted>>>,
+    busy: Cell<bool>,
+    flip_is_noop: Cell<bool>,
+}
+
+impl Shared {
+    fn complete(&self, res: Result<(), TextError>) {
+        if res.is_err() {
+            self.textures.back().config.take();
+        }
+        self.busy.set(false);
+        self.result.set(Some(res));
+        if let Some(waiter) = self.waiter.take() {
+            waiter.completed();
+        }
+    }
+}
+
+#[derive(PartialEq, Default)]
+enum Config<'a> {
+    #[default]
+    None,
+    RenderFitting {
+        height: Option<i32>,
+        font: Arc<String>,
+        text: Cow<'a, str>,
+        color: Color,
+        markup: bool,
+        scale: Option<f64>,
+    },
+    Render {
+        x: i32,
+        y: Option<i32>,
+        width: i32,
+        height: i32,
+        padding: i32,
+        font: Arc<String>,
+        text: Cow<'a, str>,
+        color: Color,
+        ellipsize: bool,
+        markup: bool,
+        scale: Option<f64>,
+    },
+}
+
+#[derive(Default)]
+struct TextBuffer {
+    config: RefCell<Config<'static>>,
+    tex: CloneCell<Option<Rc<dyn AsyncShmGfxTexture>>>,
+}
+
+pub trait OnCompleted {
+    fn completed(self: Rc<Self>);
+}
+
+impl TextTexture {
+    pub fn new(cpu_worker: &Rc<CpuWorker>, ctx: &Rc<dyn GfxContext>) -> Self {
+        let data = Rc::new(Shared {
+            cpu_worker: cpu_worker.clone(),
+            ctx: ctx.clone(),
+            textures: Default::default(),
+            pending_render: Default::default(),
+            pending_upload: Default::default(),
+            render_job: Default::default(),
+            result: Default::default(),
+            waiter: Default::default(),
+            busy: Default::default(),
+            flip_is_noop: Default::default(),
+        });
+        Self { data }
+    }
+
+    pub fn texture(&self) -> Option<Rc<dyn GfxTexture>> {
+        self.data
+            .textures
+            .front()
+            .tex
+            .get()
+            .map(|t| t.into_texture())
+    }
+
+    fn apply_config(&self, on_completed: Rc<dyn OnCompleted>, config: Config<'_>) {
+        if self.data.busy.replace(true) {
+            unreachable!();
+        }
+        self.data.waiter.set(Some(on_completed));
+        self.data.flip_is_noop.set(false);
+        if *self.data.textures.front().config.borrow() == config {
+            self.data.flip_is_noop.set(true);
+            self.data.complete(Ok(()));
+            return;
+        }
+        if *self.data.textures.back().config.borrow() == config {
+            self.data.complete(Ok(()));
+            return;
+        }
+        let mut job = self.data.render_job.take().unwrap_or_else(|| {
+            Box::new(RenderJob {
+                work: Default::default(),
+                data: Rc::downgrade(&self.data),
+            })
+        });
+        job.work = RenderWork {
+            config: config.to_static(),
+            result: None,
+        };
+        let pending = self.data.cpu_worker.submit(job);
+        self.data.pending_render.set(Some(pending));
+    }
+
+    pub fn schedule_render(
+        &self,
+        on_completed: Rc<dyn OnCompleted>,
+        x: i32,
+        y: Option<i32>,
+        width: i32,
+        height: i32,
+        padding: i32,
+        font: &Arc<String>,
+        text: &str,
+        color: Color,
+        ellipsize: bool,
+        markup: bool,
+        scale: Option<f64>,
+    ) {
+        let config = Config::Render {
+            x,
+            y,
+            width,
+            height,
+            padding,
+            font: font.clone(),
+            text: Cow::Borrowed(text),
+            color,
+            ellipsize,
+            markup,
+            scale,
+        };
+        self.apply_config(on_completed, config)
+    }
+
+    pub fn schedule_render_fitting(
+        &self,
+        on_completed: Rc<dyn OnCompleted>,
+        height: Option<i32>,
+        font: &Arc<String>,
+        text: &str,
+        color: Color,
+        markup: bool,
+        scale: Option<f64>,
+    ) {
+        let config = Config::RenderFitting {
+            height,
+            font: font.clone(),
+            text: text.into(),
+            color,
+            markup,
+            scale,
+        };
+        self.apply_config(on_completed, config)
+    }
+
+    pub fn flip(&self) -> Result<(), TextError> {
+        let res = self
+            .data
+            .result
+            .take()
+            .unwrap_or(Err(TextError::NotScheduled));
+        if res.is_ok() && !self.data.flip_is_noop.get() {
+            self.data.textures.flip();
+        }
+        res
+    }
+}
+
+impl CpuJob for RenderJob {
+    fn work(&mut self) -> &mut dyn CpuWork {
+        &mut self.work
+    }
+
+    fn completed(mut self: Box<Self>) {
+        let Some(data) = self.data.upgrade() else {
+            return;
+        };
+        let result = self.work.result.take().unwrap();
+        *data.textures.back().config.borrow_mut() = mem::take(&mut self.work.config);
+        data.render_job.set(Some(self));
+        let rt = match result {
+            Ok(d) => d,
+            Err(e) => {
+                data.complete(Err(e));
+                return;
+            }
+        };
+        let mut tex = data.textures.back().tex.take();
+        if rt.width == 0 || rt.height == 0 {
+            data.complete(Ok(()));
+            return;
+        }
+        if let Some(t) = &tex {
+            if !t.compatible_with(ARGB8888, rt.width, rt.height, rt.stride) {
+                tex = None;
+            }
+        }
+        let tex = match tex {
+            Some(t) => t,
+            _ => {
+                let tex = data
+                    .ctx
+                    .clone()
+                    .async_shmem_texture(ARGB8888, rt.width, rt.height, rt.stride, &data.cpu_worker)
+                    .map_err(TextError::CreateTexture);
+                match tex {
+                    Ok(t) => t,
+                    Err(e) => {
+                        data.complete(Err(e));
+                        return;
+                    }
+                }
+            }
+        };
+        let pending = tex
+            .clone()
+            .async_upload(
+                data.clone(),
+                Rc::new(rt.data),
+                Region::new2(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+            )
+            .map_err(TextError::Upload);
+        if pending.is_ok() {
+            data.textures.back().tex.set(Some(tex));
+        }
+        match pending {
+            Ok(Some(p)) => data.pending_upload.set(Some(p)),
+            Ok(None) => data.complete(Ok(())),
+            Err(e) => data.complete(Err(e)),
+        }
+    }
+}
+
+impl AsyncShmGfxTextureCallback for Shared {
+    fn completed(self: Rc<Self>, res: Result<(), GfxError>) {
+        self.pending_upload.take();
+        self.complete(res.map_err(TextError::Upload));
+    }
+}
+
+impl OnCompleted for OnDropEvent {
+    fn completed(self: Rc<Self>) {
+        // nothing
+    }
 }

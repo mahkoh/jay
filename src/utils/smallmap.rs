@@ -202,12 +202,19 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
     where
         V: Default,
     {
+        self.get_or_insert_with(k, || V::default())
+    }
+
+    pub fn get_or_insert_with<F>(&mut self, k: K, f: F) -> &mut V
+    where
+        F: FnOnce() -> V,
+    {
         for (ek, ev) in &mut self.m {
             if ek == &k {
                 return unsafe { (ev as *mut V).deref_mut() };
             }
         }
-        self.m.push((k, V::default()));
+        self.m.push((k, f()));
         &mut self.m.last_mut().unwrap().1
     }
 

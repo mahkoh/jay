@@ -148,13 +148,15 @@ pub struct State {
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
-    pub pending_container_render_data: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_render_positions: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_render_title: AsyncQueue<Rc<ContainerNode>>,
     pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
     pub pending_toplevel_screencasts: AsyncQueue<Rc<JayScreencast>>,
     pub pending_screencast_reallocs_or_reconfigures: AsyncQueue<Rc<JayScreencast>>,
+    pub pending_placeholder_render_textures: AsyncQueue<Rc<PlaceholderNode>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
     pub logger: Option<Arc<Logger>>,
@@ -343,8 +345,10 @@ impl DrmDevData {
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.children.iter().for_each(|c| c.title_tex.clear());
-        node.schedule_compute_render_data();
+        node.children
+            .iter()
+            .for_each(|c| c.title_tex.borrow_mut().clear());
+        node.schedule_render_titles();
         node.node_visit_children(self);
     }
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
@@ -352,13 +356,17 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
-        node.title_textures.clear();
+        node.title_textures.borrow_mut().clear();
         node.schedule_render_titles();
         node.node_visit_children(self);
     }
+    fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
+        node.title_texture.take();
+        node.node_visit_children(self);
+    }
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-        node.textures.clear();
-        node.update_texture();
+        node.textures.borrow_mut().clear();
+        node.schedule_update_texture();
         node.node_visit_children(self);
     }
 }
@@ -463,11 +471,13 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
-                    node.children.iter().for_each(|c| c.title_tex.clear());
+                    node.children
+                        .iter()
+                        .for_each(|c| c.title_tex.borrow_mut().clear());
                     node.node_visit_children(self);
                 }
                 fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-                    node.title_texture.set(None);
+                    node.title_texture.take();
                     node.node_visit_children(self);
                 }
                 fn visit_output(&mut self, node: &Rc<OutputNode>) {
@@ -477,11 +487,11 @@ impl State {
                     node.node_visit_children(self);
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                    node.title_textures.clear();
+                    node.title_textures.borrow_mut().clear();
                     node.node_visit_children(self);
                 }
                 fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                    node.textures.clear();
+                    node.textures.borrow_mut().clear();
                     node.node_visit_children(self);
                 }
             }
@@ -819,13 +829,15 @@ impl State {
         }
         self.dbus.clear();
         self.pending_container_layout.clear();
-        self.pending_container_render_data.clear();
+        self.pending_container_render_positions.clear();
+        self.pending_container_render_title.clear();
         self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
         self.pending_screencast_reallocs_or_reconfigures.clear();
+        self.pending_placeholder_render_textures.clear();
         self.render_ctx_watchers.clear();
         self.workspace_watchers.clear();
         self.toplevel_lists.clear();

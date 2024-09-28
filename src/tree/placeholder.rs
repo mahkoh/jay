@@ -8,14 +8,22 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text::{self, TextTexture},
+        text::TextTexture,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
             ToplevelData, ToplevelNode, ToplevelNodeBase,
         },
-        utils::{errorfmt::ErrorFmt, smallmap::SmallMap},
+        utils::{
+            asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
+            smallmap::SmallMapMut,
+        },
     },
-    std::{cell::Cell, ops::Deref, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+        sync::Arc,
+    },
 };
 
 tree_id!(PlaceholderNodeId);
@@ -24,7 +32,18 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub textures: SmallMap<Scale, TextTexture, 2>,
+    update_textures_scheduled: Cell<bool>,
+    state: Rc<State>,
+    pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+}
+
+pub async fn placeholder_render_textures(state: Rc<State>) {
+    loop {
+        let container = state.pending_placeholder_render_textures.pop().await;
+        container.update_textures_scheduled.set(false);
+        container.update_texture_phase1().triggered().await;
+        container.update_texture_phase2();
+    }
 }
 
 impl PlaceholderNode {
@@ -37,6 +56,8 @@ impl PlaceholderNode {
                 node.node_client(),
             ),
             destroyed: Default::default(),
+            update_textures_scheduled: Cell::new(false),
+            state: state.clone(),
             textures: Default::default(),
         }
     }
@@ -45,39 +66,53 @@ impl PlaceholderNode {
         self.destroyed.get()
     }
 
-    pub fn update_texture(&self) {
-        if let Some(ctx) = self.toplevel.state.render_ctx.get() {
-            let scales = self.toplevel.state.scales.lock();
-            let rect = self.toplevel.pos.get();
-            for (scale, _) in scales.iter() {
-                let old_tex = self.textures.remove(scale);
-                let mut width = rect.width();
-                let mut height = rect.height();
-                if *scale != 1 {
-                    let scale = scale.to_f64();
-                    width = (width as f64 * scale).round() as _;
-                    height = (height as f64 * scale).round() as _;
-                }
-                if width != 0 && height != 0 {
-                    let font = format!("monospace {}", width / 10);
-                    match text::render_fitting(
-                        &ctx,
-                        old_tex,
-                        Some(height),
-                        &font,
-                        "Fullscreen",
-                        self.toplevel.state.theme.colors.unfocused_title_text.get(),
-                        false,
-                        None,
-                    ) {
-                        Ok(t) => {
-                            self.textures.insert(*scale, t);
-                        }
-                        Err(e) => {
-                            log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
-                        }
-                    }
-                }
+    pub fn schedule_update_texture(self: &Rc<Self>) {
+        if !self.update_textures_scheduled.replace(true) {
+            self.state
+                .pending_placeholder_render_textures
+                .push(self.clone());
+        }
+    }
+
+    fn update_texture_phase1(&self) -> Rc<AsyncEvent> {
+        let on_completed = Rc::new(OnDropEvent::default());
+        let Some(ctx) = self.toplevel.state.render_ctx.get() else {
+            return on_completed.event();
+        };
+        let scales = self.toplevel.state.scales.lock();
+        let rect = self.toplevel.pos.get();
+        let mut textures = self.textures.borrow_mut();
+        for (scale, _) in scales.iter() {
+            let tex = textures
+                .get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
+            let mut width = rect.width();
+            let mut height = rect.height();
+            if *scale != 1 {
+                let scale = scale.to_f64();
+                width = (width as f64 * scale).round() as _;
+                height = (height as f64 * scale).round() as _;
+            }
+            if width != 0 && height != 0 {
+                let font = Arc::new(format!("monospace {}", width / 10));
+                tex.schedule_render_fitting(
+                    on_completed.clone(),
+                    Some(height),
+                    &font,
+                    "Fullscreen",
+                    self.toplevel.state.theme.colors.unfocused_title_text.get(),
+                    false,
+                    None,
+                );
+            }
+        }
+        on_completed.event()
+    }
+
+    fn update_texture_phase2(&self) {
+        let textures = &*self.textures.borrow();
+        for (_, texture) in textures {
+            if let Err(e) = texture.flip() {
+                log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
             }
         }
     }
@@ -162,7 +197,7 @@ impl ToplevelNodeBase for PlaceholderNode {
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
-        self.update_texture();
+        self.schedule_update_texture();
     }
 
     fn tl_close(self: Rc<Self>) {
