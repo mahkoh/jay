@@ -1218,6 +1218,16 @@ impl State {
             output.vblank();
         }
     }
+
+    #[cfg(feature = "it")]
+    pub async fn idle(&self) {
+        loop {
+            self.eng.idle().await;
+            if self.cpu_worker.wait_idle() {
+                break;
+            }
+        }
+    }
 }
 
 #[derive(Debug, Error)]

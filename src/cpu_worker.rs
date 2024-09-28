@@ -321,6 +321,23 @@ impl CpuWorker {
             job_data,
         }
     }
+
+    #[cfg(feature = "it")]
+    pub fn wait_idle(&self) -> bool {
+        let was_idle = self.data.pending_jobs.is_empty();
+        loop {
+            self.data.dispatch_completions();
+            if self.data.pending_jobs.is_empty() {
+                break;
+            }
+            let mut remote = self.data.completed_jobs_remote.lock();
+            while remote.queue.is_empty() {
+                remote.condvar = Some(self.data.sync_wake_condvar.clone());
+                self.data.sync_wake_condvar.wait(&mut remote);
+            }
+        }
+        was_idle
+    }
 }
 
 fn work(

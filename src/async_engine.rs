@@ -35,6 +35,8 @@ pub struct AsyncEngine {
     yield_stash: RefCell<VecDeque<Waker>>,
     stopped: Cell<bool>,
     now: Cell<Option<Time>>,
+    #[cfg(feature = "it")]
+    idle: Cell<Option<Waker>>,
 }
 
 impl AsyncEngine {
@@ -48,6 +50,8 @@ impl AsyncEngine {
             yield_stash: Default::default(),
             stopped: Cell::new(false),
             now: Default::default(),
+            #[cfg(feature = "it")]
+            idle: Default::default(),
         })
     }
 
@@ -91,7 +95,15 @@ impl AsyncEngine {
     pub fn dispatch(&self) {
         let mut stash = self.stash.borrow_mut();
         let mut yield_stash = self.yield_stash.borrow_mut();
-        while self.num_queued.get() > 0 {
+        loop {
+            if self.num_queued.get() == 0 {
+                #[cfg(feature = "it")]
+                if let Some(idle) = self.idle.take() {
+                    idle.wake();
+                    continue;
+                }
+                break;
+            }
             self.now.take();
             self.iteration.fetch_add(1);
             let mut phase = 0;
@@ -114,6 +126,22 @@ impl AsyncEngine {
                 waker.wake();
             }
         }
+    }
+
+    #[cfg(feature = "it")]
+    pub async fn idle(&self) {
+        use std::{future::poll_fn, task::Poll};
+        let mut register = true;
+        poll_fn(|ctx| {
+            if register {
+                self.idle.set(Some(ctx.waker().clone()));
+                register = false;
+                Poll::Pending
+            } else {
+                Poll::Ready(())
+            }
+        })
+        .await
     }
 
     fn push(&self, runnable: Runnable, phase: Phase) {
