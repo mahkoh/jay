@@ -1,11 +1,10 @@
 use {
     crate::{
-        clientmem::ClientMemOffset,
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
             AsyncShmGfxTextureUploadCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
-            GfxTexture, PendingShmUpload, ReleaseSync, ShmGfxTexture, SyncFile,
+            GfxTexture, PendingShmUpload, ReleaseSync, ShmGfxTexture, ShmMemory, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
@@ -579,13 +578,13 @@ impl AsyncShmGfxTexture for VulkanImage {
     fn async_upload(
         self: Rc<Self>,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
-        mem: &Rc<ClientMemOffset>,
+        mem: Rc<dyn ShmMemory>,
         damage: Region,
     ) -> Result<Option<PendingShmUpload>, GfxError> {
         let VulkanImageMemory::Internal(shm) = &self.ty else {
             unreachable!();
         };
-        let pending = shm.async_upload(&self, mem, damage, callback)?;
+        let pending = shm.async_upload(&self, &mem, damage, callback)?;
         Ok(pending)
     }
 

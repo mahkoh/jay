@@ -1,6 +1,5 @@
 use {
     crate::{
-        clientmem::ClientMemOffset,
         cpu_worker::{
             jobs::{
                 img_copy::ImgCopyWork,
@@ -9,7 +8,9 @@ use {
             CpuJob, CpuWork, CpuWorker,
         },
         format::{Format, FormatShmInfo},
-        gfx_api::{AsyncShmGfxTextureCallback, PendingShmUpload, SyncFile},
+        gfx_api::{
+            AsyncShmGfxTextureCallback, PendingShmUpload, ShmMemory, ShmMemoryBacking, SyncFile,
+        },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation,
             command::VulkanCommandBuffer,
@@ -329,7 +330,7 @@ impl VulkanShmImage {
     pub fn async_upload(
         &self,
         img: &Rc<VulkanImage>,
-        client_mem: &Rc<ClientMemOffset>,
+        client_mem: &Rc<dyn ShmMemory>,
         damage: Region,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
     ) -> Result<Option<PendingShmUpload>, VulkanError> {
@@ -350,13 +351,13 @@ impl VulkanShmImage {
         &self,
         img: &Rc<VulkanImage>,
         data: &VulkanShmImageAsyncData,
-        client_mem: &Rc<ClientMemOffset>,
+        client_mem: &Rc<dyn ShmMemory>,
         mut damage: Region,
     ) -> Result<(), VulkanError> {
         if data.busy.get() {
             return Err(VulkanError::AsyncCopyBusy);
         }
-        if self.size > client_mem.ptr().len() as u64 {
+        if self.size > client_mem.len() as u64 {
             return Err(VulkanError::InvalidBufferSize);
         }
         data.busy.set(true);
@@ -530,7 +531,7 @@ impl VulkanShmImage {
     fn async_upload_after_allocation(
         &self,
         img: &Rc<VulkanImage>,
-        client_mem: &Rc<ClientMemOffset>,
+        client_mem: &Rc<dyn ShmMemory>,
         res: Result<VulkanStagingBuffer, VulkanError>,
     ) -> Result<(), VulkanError> {
         let staging = Rc::new(res?);
@@ -546,73 +547,76 @@ impl VulkanShmImage {
         data: &VulkanShmImageAsyncData,
         staging: &VulkanStagingBuffer,
         copies: &[BufferImageCopy2],
-        client_mem: &Rc<ClientMemOffset>,
+        client_mem: &Rc<dyn ShmMemory>,
     ) -> Result<(), VulkanError> {
         img.renderer.check_defunct()?;
 
         let id = img.renderer.allocate_point();
         let pending;
-        if client_mem.pool().sigbus_impossible() {
-            let mut job = data.copy_job.take().unwrap_or_else(|| {
-                Box::new(CopyUploadJob {
-                    img: None,
-                    id,
-                    _mem: None,
-                    work: unsafe { ImgCopyWork::new() },
-                })
-            });
-            job.id = id;
-            job.img = Some(img.clone());
-            job._mem = Some(client_mem.clone());
-            job.work.src = client_mem.ptr() as _;
-            job.work.dst = staging.allocation.mem.unwrap();
-            job.work.width = img.width as _;
-            job.work.stride = img.stride as _;
-            job.work.bpp = self.shm_info.bpp as _;
-            job.work.rects.clear();
-            for copy in copies {
-                job.work.rects.push(
-                    Rect::new_sized(
-                        copy.image_offset.x as _,
-                        copy.image_offset.y as _,
-                        copy.image_extent.width as _,
-                        copy.image_extent.height as _,
-                    )
-                    .unwrap(),
-                );
+        match client_mem.safe_access() {
+            ShmMemoryBacking::Ptr(ptr) => {
+                let mut job = data.copy_job.take().unwrap_or_else(|| {
+                    Box::new(CopyUploadJob {
+                        img: None,
+                        id,
+                        _mem: None,
+                        work: unsafe { ImgCopyWork::new() },
+                    })
+                });
+                job.id = id;
+                job.img = Some(img.clone());
+                job._mem = Some(client_mem.clone());
+                job.work.src = ptr as _;
+                job.work.dst = staging.allocation.mem.unwrap();
+                job.work.width = img.width as _;
+                job.work.stride = img.stride as _;
+                job.work.bpp = self.shm_info.bpp as _;
+                job.work.rects.clear();
+                for copy in copies {
+                    job.work.rects.push(
+                        Rect::new_sized(
+                            copy.image_offset.x as _,
+                            copy.image_offset.y as _,
+                            copy.image_extent.width as _,
+                            copy.image_extent.height as _,
+                        )
+                        .unwrap(),
+                    );
+                }
+                pending = data.cpu.submit(job);
             }
-            pending = data.cpu.submit(job);
-        } else {
-            let mut min_offset = client_mem.ptr().len() as u64;
-            let mut max_offset = 0;
-            for copy in copies {
-                min_offset = min_offset.min(copy.buffer_offset);
-                let len = img.stride * (copy.image_extent.height - 1)
-                    + copy.image_extent.width * self.shm_info.bpp;
-                max_offset = max_offset.max(copy.buffer_offset + len as u64);
+            ShmMemoryBacking::Fd(fd, offset) => {
+                let mut min_offset = client_mem.len() as u64;
+                let mut max_offset = 0;
+                for copy in copies {
+                    min_offset = min_offset.min(copy.buffer_offset);
+                    let len = img.stride * (copy.image_extent.height - 1)
+                        + copy.image_extent.width * self.shm_info.bpp;
+                    max_offset = max_offset.max(copy.buffer_offset + len as u64);
+                }
+                let mut job = data.io_job.take().unwrap_or_else(|| {
+                    Box::new(IoUploadJob {
+                        img: None,
+                        id,
+                        _mem: None,
+                        work: unsafe { ReadWriteWork::new() },
+                        fd: None,
+                    })
+                });
+                job.id = id;
+                job.img = Some(img.clone());
+                job._mem = Some(client_mem.clone());
+                job.fd = Some(fd.clone());
+                unsafe {
+                    let config = job.work.config();
+                    config.fd = fd.raw();
+                    config.offset = offset + min_offset as usize;
+                    config.ptr = staging.allocation.mem.unwrap().add(min_offset as _);
+                    config.len = max_offset.saturating_sub(min_offset) as usize;
+                    config.write = false;
+                }
+                pending = data.cpu.submit(job);
             }
-            let mut job = data.io_job.take().unwrap_or_else(|| {
-                Box::new(IoUploadJob {
-                    img: None,
-                    id,
-                    _mem: None,
-                    work: unsafe { ReadWriteWork::new() },
-                    fd: None,
-                })
-            });
-            job.id = id;
-            job.img = Some(img.clone());
-            job._mem = Some(client_mem.clone());
-            job.fd = Some(client_mem.pool().fd().clone());
-            unsafe {
-                let config = job.work.config();
-                config.fd = client_mem.pool().fd().raw();
-                config.offset = client_mem.offset() + min_offset as usize;
-                config.ptr = staging.allocation.mem.unwrap().add(min_offset as _);
-                config.len = max_offset.saturating_sub(min_offset) as usize;
-                config.write = false;
-            }
-            pending = data.cpu.submit(job);
         }
 
         img.renderer.pending_cpu_jobs.set(id, pending);
@@ -653,7 +657,7 @@ impl VulkanShmImage {
 pub(super) struct IoUploadJob {
     img: Option<Rc<VulkanImage>>,
     id: u64,
-    _mem: Option<Rc<ClientMemOffset>>,
+    _mem: Option<Rc<dyn ShmMemory>>,
     fd: Option<Rc<OwnedFd>>,
     work: ReadWriteWork,
 }
@@ -661,7 +665,7 @@ pub(super) struct IoUploadJob {
 pub(super) struct CopyUploadJob {
     img: Option<Rc<VulkanImage>>,
     id: u64,
-    _mem: Option<Rc<ClientMemOffset>>,
+    _mem: Option<Rc<dyn ShmMemory>>,
     work: ImgCopyWork,
 }
 

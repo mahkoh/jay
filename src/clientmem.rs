@@ -2,11 +2,14 @@ use {
     crate::{
         client::Client,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
+        gfx_api::{ShmMemory, ShmMemoryBacking},
         utils::vec_ext::VecExt,
     },
     std::{
         cell::Cell,
+        error::Error,
         mem::{ManuallyDrop, MaybeUninit},
+        ops::Deref,
         ptr,
         rc::Rc,
         sync::atomic::{compiler_fence, Ordering},
@@ -105,6 +108,7 @@ impl ClientMem {
         }
     }
 
+    #[expect(dead_code)]
     pub fn fd(&self) -> &Rc<OwnedFd> {
         &self.fd
     }
@@ -115,14 +119,17 @@ impl ClientMem {
 }
 
 impl ClientMemOffset {
+    #[expect(dead_code)]
     pub fn pool(&self) -> &ClientMem {
         &self.mem
     }
 
+    #[expect(dead_code)]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
+    #[expect(dead_code)]
     pub fn ptr(&self) -> *const [Cell<u8>] {
         self.data
     }
@@ -261,5 +268,22 @@ impl CpuWork for CloseMemWork {
             c::munmap(self.data as _, self.data.len());
         }
         None
+    }
+}
+
+impl ShmMemory for ClientMemOffset {
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn safe_access(&self) -> ShmMemoryBacking {
+        match self.mem.sigbus_impossible() {
+            true => ShmMemoryBacking::Ptr(self.data),
+            false => ShmMemoryBacking::Fd(self.mem.fd.deref().clone(), self.offset),
+        }
+    }
+
+    fn access(&self, f: &mut dyn FnMut(&[Cell<u8>])) -> Result<(), Box<dyn Error + Sync + Send>> {
+        self.access(f).map_err(|e| e.into())
     }
 }

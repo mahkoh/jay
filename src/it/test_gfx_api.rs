@@ -1,14 +1,13 @@
 use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
-        clientmem::{ClientMemError, ClientMemOffset},
         cpu_worker::CpuWorker,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
             GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync, ResetStatus,
-            ShmGfxTexture, SyncFile,
+            ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -20,6 +19,7 @@ use {
     std::{
         any::Any,
         cell::{Cell, RefCell},
+        error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
         ops::Deref,
@@ -36,7 +36,7 @@ enum TestGfxError {
     #[error("Could not import dmabuf")]
     ImportDmaBuf(#[source] AllocatorError),
     #[error("Could not access the client memory")]
-    AccessFailed(#[source] ClientMemError),
+    AccessFailed(#[source] Box<dyn Error + Sync + Send>),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -336,12 +336,15 @@ impl AsyncShmGfxTexture for TestGfxImage {
     fn async_upload(
         self: Rc<Self>,
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
-        mem: &Rc<ClientMemOffset>,
-        damage: Region,
+        mem: Rc<dyn ShmMemory>,
+        _damage: Region,
     ) -> Result<Option<PendingShmUpload>, GfxError> {
-        mem.access(|d| self.clone().sync_upload(d, damage))
-            .map_err(TestGfxError::AccessFailed)??;
-        Ok(None)
+        let mut res = Ok(());
+        mem.access(&mut |d| {
+            res = self.clone().sync_upload(d, Region::default());
+        })
+        .map_err(TestGfxError::AccessFailed)?;
+        res.map(|_| None)
     }
 
     fn sync_upload(self: Rc<Self>, mem: &[Cell<u8>], _damage: Region) -> Result<(), GfxError> {

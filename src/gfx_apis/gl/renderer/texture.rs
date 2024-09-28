@@ -1,10 +1,9 @@
 use {
     crate::{
-        clientmem::ClientMemOffset,
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxTexture, PendingShmUpload,
-            ShmGfxTexture,
+            ShmGfxTexture, ShmMemory,
         },
         gfx_apis::gl::{
             gl::texture::GlTexture,
@@ -102,12 +101,15 @@ impl AsyncShmGfxTexture for Texture {
     fn async_upload(
         self: Rc<Self>,
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
-        mem: &Rc<ClientMemOffset>,
-        damage: Region,
+        mem: Rc<dyn ShmMemory>,
+        _damage: Region,
     ) -> Result<Option<PendingShmUpload>, GfxError> {
-        mem.access(|data| self.clone().sync_upload(data, damage))
-            .map_err(RenderError::AccessFailed)??;
-        Ok(None)
+        let mut res = Ok(());
+        mem.access(&mut |data| {
+            res = self.clone().sync_upload(data, Region::default());
+        })
+        .map_err(RenderError::AccessFailed)?;
+        res.map(|_| None)
     }
 
     fn sync_upload(self: Rc<Self>, data: &[Cell<u8>], _damage: Region) -> Result<(), GfxError> {
