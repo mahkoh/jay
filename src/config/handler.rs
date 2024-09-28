@@ -13,7 +13,7 @@ use {
         output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
-        theme::{Color, ThemeSized, DEFAULT_FONT},
+        theme::{Color, ThemeSized},
         tree::{
             move_ws_to_output, ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase,
             OutputNode, TearingMode, VrrMode, WsMoveConfig,
@@ -57,7 +57,7 @@ use {
     },
     libloading::Library,
     log::Level,
-    std::{cell::Cell, ops::Deref, rc::Rc, time::Duration},
+    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::{c, fcntl_dupfd_cloexec, OwnedFd},
 };
@@ -1525,15 +1525,18 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reset_font(&self) {
-        *self.state.theme.font.borrow_mut() = DEFAULT_FONT.to_string();
+        self.state
+            .theme
+            .font
+            .set(self.state.theme.default_font.clone());
     }
 
     fn handle_set_font(&self, font: &str) {
-        *self.state.theme.font.borrow_mut() = font.to_string();
+        self.state.theme.font.set(Arc::new(font.to_string()));
     }
 
     fn handle_get_font(&self) {
-        let font = self.state.theme.font.borrow_mut().clone();
+        let font = self.state.theme.font.get().to_string();
         self.respond(Response::GetFont { font });
     }
 

@@ -377,7 +377,7 @@ impl OutputNode {
         rd.active_workspace = None;
         rd.status = None;
         let mut pos = 0;
-        let font = self.state.theme.font.borrow_mut();
+        let font = self.state.theme.font.get();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let scale = self.global.persistent.scale.get();

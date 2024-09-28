@@ -191,7 +191,7 @@ impl FloatNode {
             false => theme.colors.unfocused_title_text.get(),
         };
         let bw = theme.sizes.border_width.get();
-        let font = theme.font.borrow_mut();
+        let font = theme.font.get();
         let title = self.title.borrow_mut();
         let pos = self.position.get();
         if pos.width() <= 2 * bw || title.is_empty() {

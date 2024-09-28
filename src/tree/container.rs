@@ -673,7 +673,7 @@ impl ContainerNode {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
-        let font = theme.font.borrow_mut();
+        let font = theme.font.get();
         let cwidth = self.width.get();
         let cheight = self.height.get();
         let ctx = self.state.render_ctx.get();
