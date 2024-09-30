@@ -9,7 +9,7 @@ use {
             collect_kb_foci, collect_kb_foci2,
             tablet::{TabletTool, TabletToolChanges, TabletToolId},
             wl_pointer::PendingScroll,
-            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
+            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, BTN_RIGHT,
         },
         rect::Rect,
         renderer::Renderer,
@@ -1143,18 +1143,44 @@ impl ContainerNode {
         }
     }
 
+    fn toggle_mono(self: &Rc<Self>) {
+        if self.mono_child.is_some() {
+            self.set_mono(None);
+        } else if let Some(last) = self.focus_history.last() {
+            self.set_mono(Some(&*last.node));
+        }
+    }
+
     fn button(
         self: Rc<Self>,
         id: CursorType,
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
         pressed: bool,
+        button: u32,
     ) {
         let mut seat_datas = self.cursors.borrow_mut();
         let seat_data = match seat_datas.get_mut(&id) {
             Some(s) => s,
             _ => return,
         };
+        if button == BTN_RIGHT && pressed {
+            if self.mono_child.is_some() || self.split.get() == ContainerSplit::Horizontal {
+                if seat_data.y < self.state.theme.sizes.title_height.get() {
+                    self.toggle_mono();
+                }
+            } else {
+                for child in self.children.iter() {
+                    if child.title_rect.get().contains(seat_data.x, seat_data.y) {
+                        self.toggle_mono();
+                    }
+                }
+            }
+            return;
+        }
+        if button != BTN_LEFT {
+            return;
+        }
         if seat_data.op.is_none() {
             if !pressed {
                 return;
@@ -1382,11 +1408,8 @@ impl Node for ContainerNode {
         state: KeyState,
         _serial: u32,
     ) {
-        if button != BTN_LEFT {
-            return;
-        }
         let id = CursorType::Seat(seat.id());
-        self.button(id, seat, time_usec, state == KeyState::Pressed);
+        self.button(id, seat, time_usec, state == KeyState::Pressed, button);
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
@@ -1495,7 +1518,7 @@ impl Node for ContainerNode {
         self.pointer_move(id, tool.cursor(), x, y, false);
         if let Some(changes) = changes {
             if let Some(pressed) = changes.down {
-                self.button(id, tool.seat(), time_usec, pressed);
+                self.button(id, tool.seat(), time_usec, pressed, BTN_LEFT);
             }
         }
     }
