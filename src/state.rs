@@ -586,7 +586,7 @@ impl State {
         }
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
-            seat.trigger_tree_changed();
+            seat.trigger_tree_changed(false);
         }
     }
 

@@ -71,8 +71,13 @@ impl Rect {
         })
     }
 
+    #[track_caller]
+    pub fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
+        Self::new(x1, y1, x2, y2).unwrap()
+    }
+
     #[expect(dead_code)]
-    fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
+    fn new_unchecked_danger(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self {
             raw: RectRaw { x1, y1, x2, y2 },
         }

@@ -33,7 +33,7 @@ use {
         text::TextTexture,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
-            NodeId, StackedNode, WorkspaceNode,
+            NodeId, StackedNode, TddType, TileDragDestination, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -522,6 +522,10 @@ impl OutputNode {
                 return ws;
             }
         }
+        self.generate_workspace()
+    }
+
+    pub fn generate_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         let name = 'name: {
             for i in 1.. {
                 let name = i.to_string();
@@ -936,6 +940,85 @@ impl OutputNode {
             }
         };
         self.global.connector.connector.set_tearing_enabled(enabled);
+    }
+
+    pub fn tile_drag_destination(
+        self: &Rc<Self>,
+        source: NodeId,
+        x_abs: i32,
+        y_abs: i32,
+    ) -> Option<TileDragDestination> {
+        if self.state.lock.locked.get() {
+            return None;
+        }
+        for stacked in self.state.root.stacked.rev_iter() {
+            let Some(float) = stacked.deref().clone().node_into_float() else {
+                continue;
+            };
+            if !float.node_visible() {
+                continue;
+            }
+            let pos = float.node_absolute_position();
+            if !pos.contains(x_abs, y_abs) {
+                continue;
+            }
+            return float.tile_drag_destination(source, x_abs, y_abs);
+        }
+        let rect = self.non_exclusive_rect.get();
+        if !rect.contains(x_abs, y_abs) {
+            return None;
+        }
+        let Some(ws) = self.workspace.get() else {
+            return Some(TileDragDestination {
+                highlight: rect,
+                ty: TddType::NewWorkspace {
+                    output: self.clone(),
+                },
+            });
+        };
+        if ws.fullscreen.is_some() {
+            return None;
+        }
+        let th = self.state.theme.sizes.title_height.get();
+        if y_abs < rect.y1() + th + 1 {
+            let rd = &*self.render_data.borrow();
+            let (x, _) = rect.translate(x_abs, y_abs);
+            let mut last_x2 = 0;
+            for t in &rd.titles {
+                if x < t.x2 {
+                    return Some(TileDragDestination {
+                        highlight: Rect::new_sized(rect.x1() + t.x1, rect.y1(), t.x2 - t.x1, th)?,
+                        ty: TddType::MoveToWorkspace {
+                            workspace: t.ws.clone(),
+                        },
+                    });
+                }
+                last_x2 = t.x2;
+            }
+            return Some(TileDragDestination {
+                highlight: Rect::new_sized(
+                    rect.x1() + last_x2,
+                    rect.y1(),
+                    rect.x2() - last_x2,
+                    th,
+                )?,
+                ty: TddType::MoveToNewWorkspace {
+                    output: self.clone(),
+                },
+            });
+        }
+        let thp1 = self.state.theme.sizes.title_height.get() + 1;
+        let rect = Rect::new(rect.x1(), rect.y1() + thp1, rect.x2(), rect.y2())?;
+        if !rect.contains(x_abs, y_abs) {
+            return None;
+        }
+        let Some(c) = ws.container.get() else {
+            return Some(TileDragDestination {
+                highlight: rect,
+                ty: TddType::NewContainer { workspace: ws },
+            });
+        };
+        c.tile_drag_destination(source, rect, x_abs, y_abs)
     }
 }
 

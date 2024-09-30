@@ -9,7 +9,7 @@ use {
         state::State,
         tree::{
             walker::NodeVisitor, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            OutputNode, StackedNode,
+            OutputNode, StackedNode, TileDragDestination,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
@@ -82,6 +82,21 @@ impl DisplayNode {
         if visible {
             state.damage(self.extents.get());
         }
+    }
+
+    pub fn tile_drag_destination(
+        &self,
+        source: NodeId,
+        x: i32,
+        y: i32,
+    ) -> Option<TileDragDestination> {
+        for output in self.outputs.lock().values() {
+            let pos = output.node_absolute_position();
+            if pos.contains(x, y) {
+                return output.tile_drag_destination(source, x, y);
+            }
+        }
+        None
     }
 }
 

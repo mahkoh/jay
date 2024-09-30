@@ -171,6 +171,7 @@ pub struct WlSeatGlobal {
     cursor_user_group: Rc<CursorUserGroup>,
     pointer_cursor: Rc<CursorUser>,
     tree_changed: Rc<AsyncEvent>,
+    tree_changed_needs_layout: Cell<bool>,
     selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     selection_serial: Cell<u32>,
     primary_selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
@@ -198,6 +199,7 @@ pub struct WlSeatGlobal {
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
     tablet: TabletSeatData,
     ei_seats: CopyHashMap<(ClientId, EiSeatId), Rc<EiSeat>>,
+    ui_drag_highlight: Cell<Option<Rect>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -239,6 +241,7 @@ impl WlSeatGlobal {
             cursor_user_group,
             pointer_cursor: cursor_user,
             tree_changed: Default::default(),
+            tree_changed_needs_layout: Default::default(),
             selection: Default::default(),
             selection_serial: Cell::new(0),
             primary_selection: Default::default(),
@@ -267,12 +270,16 @@ impl WlSeatGlobal {
             hold_bindings: Default::default(),
             tablet: Default::default(),
             ei_seats: Default::default(),
+            ui_drag_highlight: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
         let future = state.eng.spawn("seat handler", async move {
             loop {
                 seat.tree_changed.triggered().await;
+                if seat.tree_changed_needs_layout.take() {
+                    seat.state.eng.yield_now().await;
+                }
                 seat.state.tree_changed_sent.set(false);
                 seat.changes.or_assign(CHANGE_TREE);
                 // log::info!("tree_changed");
@@ -312,6 +319,10 @@ impl WlSeatGlobal {
 
     pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
         self.pointer_owner.toplevel_drag()
+    }
+
+    pub fn ui_drag_highlight(&self) -> Option<Rect> {
+        self.ui_drag_highlight.get()
     }
 
     pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
@@ -762,6 +773,10 @@ impl WlSeatGlobal {
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
+    }
+
+    pub fn start_tile_drag(self: &Rc<Self>, tl: &Rc<dyn ToplevelNode>) {
+        self.pointer_owner.start_tile_drag(self, tl);
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {

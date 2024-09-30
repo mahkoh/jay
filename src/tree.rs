@@ -508,7 +508,6 @@ pub trait Node: 'static {
 
     // TYPE CONVERTERS
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         None
     }

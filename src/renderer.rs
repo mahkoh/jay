@@ -317,11 +317,11 @@ impl Renderer<'_> {
         render_highlight: bool,
     ) {
         if render_highlight {
-            self.render_highlight(tl_data, bounds);
+            self.render_tl_highlight(tl_data, bounds);
         }
     }
 
-    fn render_highlight(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {
+    fn render_tl_highlight(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {
         if tl_data.render_highlight.get() == 0 {
             return;
         }
@@ -331,6 +331,12 @@ impl Renderer<'_> {
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
         self.base.fill_scaled_boxes(slice::from_ref(bounds), &color);
+    }
+
+    pub fn render_highlight(&mut self, rect: &Rect) {
+        let color = self.state.theme.colors.highlight.get();
+        self.base.ops.push(GfxApiOpt::Sync);
+        self.base.fill_boxes(slice::from_ref(rect), &color);
     }
 
     pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32, bounds: Option<&Rect>) {

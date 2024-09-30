@@ -25,9 +25,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
-            OutputNode, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId,
-            WorkspaceNode,
+            default_tile_drag_destination, ContainerSplit, Direction, FindTreeResult,
+            FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire::{xdg_toplevel::*, XdgToplevelId},
@@ -666,6 +666,17 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_admits_children(&self) -> bool {
         false
+    }
+
+    fn tl_tile_drag_destination(
+        self: Rc<Self>,
+        source: NodeId,
+        split: Option<ContainerSplit>,
+        abs_bounds: Rect,
+        x: i32,
+        y: i32,
+    ) -> Option<TileDragDestination> {
+        default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
 }
 

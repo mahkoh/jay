@@ -7,13 +7,17 @@ use {
             ipc,
             ipc::wl_data_source::WlDataSource,
             wl_seat::{
-                wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal, BTN_LEFT,
-                BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
+                wl_pointer::PendingScroll, Dnd, DroppedDnd, NodeSeatState, WlSeatError,
+                WlSeatGlobal, BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
             wl_surface::{dnd_icon::DndIcon, WlSurface},
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
-        tree::{ContainingNode, FindTreeUsecase, FoundNode, Node, ToplevelNode, WorkspaceNode},
+        rect::Rect,
+        tree::{
+            ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
+            PlaceholderNode, TddType, ToplevelNode, WorkspaceNode,
+        },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::{
@@ -173,7 +177,7 @@ impl PointerOwnerHolder {
             usecase.node_focus(seat, node);
         }
         self.owner.set(Rc::new(SimplePointerOwner { usecase }));
-        seat.trigger_tree_changed();
+        seat.trigger_tree_changed(false);
     }
 
     pub fn select_toplevel(&self, seat: &Rc<WlSeatGlobal>, selector: impl ToplevelSelector) {
@@ -202,11 +206,18 @@ impl PointerOwnerHolder {
             owner.disable_window_management(seat);
         }
     }
+
+    pub fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        self.owner.get().start_tile_drag(seat, tl);
+    }
 }
 
 trait PointerOwner {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState);
-    fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>>;
+    fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
+        let _ = seat;
+        None
+    }
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>);
     fn start_drag(
         &self,
@@ -248,6 +259,10 @@ trait PointerOwner {
     }
     fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
+    }
+    fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        let _ = seat;
+        let _ = tl;
     }
 }
 
@@ -386,7 +401,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         if !T::IS_DEFAULT {
             seat.pointer_owner.set_default_pointer_owner(seat);
-            seat.trigger_tree_changed();
+            seat.trigger_tree_changed(false);
         }
     }
 
@@ -458,6 +473,10 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
         self.node.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
     }
+
+    fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        self.usecase.start_tile_drag(self, seat, tl);
+    }
 }
 
 impl PointerOwner for DndPointerOwner {
@@ -494,10 +513,6 @@ impl PointerOwner for DndPointerOwner {
         if let Some(src) = &self.dnd.src {
             src.finish_toplevel_drag(seat);
         }
-    }
-
-    fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
-        None
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
@@ -620,6 +635,43 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
     fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
+
+    fn start_tile_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        tl: &Rc<dyn ToplevelNode>,
+    ) {
+        let _ = grab;
+        let _ = seat;
+        let _ = tl;
+    }
+}
+
+impl DefaultPointerUsecase {
+    fn prepare_new_usecase(&self, grab: &SimpleGrabPointerOwner<Self>, seat: &Rc<WlSeatGlobal>) {
+        {
+            let mut stack = seat.pointer_stack.borrow_mut();
+            for node in stack.drain(1..).rev() {
+                node.node_on_leave(seat);
+                node.node_seat_state().leave(seat);
+            }
+        }
+        grab.node.node_seat_state().remove_pointer_grab(seat);
+    }
+
+    fn start_ui_drag<T: UiDragUsecase>(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        usecase: T,
+    ) {
+        self.prepare_new_usecase(grab, seat);
+        usecase.node_seat_state().add_ui_drag(seat);
+        let pointer_owner = Rc::new(UiDragPointerOwner { usecase });
+        seat.pointer_owner.owner.set(pointer_owner.clone());
+        pointer_owner.apply_changes(seat);
+    }
 }
 
 impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
@@ -680,14 +732,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
             pos_x: Cell::new(Fixed::from_int(0)),
             pos_y: Cell::new(Fixed::from_int(0)),
         });
-        {
-            let mut stack = seat.pointer_stack.borrow_mut();
-            for node in stack.drain(1..).rev() {
-                node.node_on_leave(seat);
-                node.node_seat_state().leave(seat);
-            }
-        }
-        grab.node.node_seat_state().remove_pointer_grab(seat);
+        self.prepare_new_usecase(grab, seat);
         // {
         //     let old = seat.keyboard_node.set(seat.state.root.clone());
         //     old.seat_state().unfocus(seat);
@@ -700,6 +745,22 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
 
     fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
         seat.pointer_owner.set_default_pointer_owner(seat);
+    }
+
+    fn start_tile_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        tl: &Rc<dyn ToplevelNode>,
+    ) {
+        self.start_ui_drag(
+            grab,
+            seat,
+            TileDragUsecase {
+                tl: tl.clone(),
+                destination: Default::default(),
+            },
+        );
     }
 }
 
@@ -945,10 +1006,6 @@ where
         self.grab_node_removed(seat);
     }
 
-    fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
-        None
-    }
-
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let Some(parent) = self.tl.tl_data().parent.get() else {
             return;
@@ -1047,6 +1104,182 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
         }
         if x1.is_some() || x2.is_some() || y1.is_some() || y2.is_some() {
             parent.cnode_resize_child(tl.tl_as_node(), x1, y1, x2, y2);
+        }
+    }
+}
+
+trait UiDragUsecase: 'static {
+    fn node_seat_state(&self) -> &NodeSeatState;
+    fn left_button_up(&self, seat: &Rc<WlSeatGlobal>);
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rect>;
+}
+
+struct UiDragPointerOwner<T> {
+    usecase: T,
+}
+
+impl<T> UiDragPointerOwner<T>
+where
+    T: UiDragUsecase,
+{
+    fn do_revert_to_default(&self, seat: &Rc<WlSeatGlobal>, needs_layout: bool) {
+        self.usecase.node_seat_state().remove_ui_drag(seat);
+        if let Some(rect) = seat.ui_drag_highlight.take() {
+            seat.state.damage(rect);
+        }
+        seat.pointer_owner.set_default_pointer_owner(seat);
+        seat.trigger_tree_changed(needs_layout);
+    }
+}
+
+impl<T> PointerOwner for UiDragPointerOwner<T>
+where
+    T: UiDragUsecase,
+{
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
+        if button == BTN_RIGHT {
+            self.do_revert_to_default(seat, false);
+            return;
+        }
+        if button != BTN_LEFT || state != KeyState::Released {
+            return;
+        }
+        self.apply_changes(seat);
+        self.usecase.left_button_up(seat);
+        self.do_revert_to_default(seat, true);
+    }
+
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
+        let new_highlight = self.usecase.apply_changes(seat);
+        let prev_highlight = seat.ui_drag_highlight.replace(new_highlight);
+        if prev_highlight != new_highlight {
+            if let Some(rect) = prev_highlight {
+                seat.state.damage(rect);
+            }
+            if let Some(rect) = new_highlight {
+                seat.state.damage(rect);
+            }
+        }
+    }
+
+    fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        self.do_revert_to_default(seat, false);
+    }
+}
+
+struct TileDragUsecase {
+    tl: Rc<dyn ToplevelNode>,
+    destination: Cell<Option<TddType>>,
+}
+
+impl UiDragUsecase for TileDragUsecase {
+    fn node_seat_state(&self) -> &NodeSeatState {
+        self.tl.node_seat_state()
+    }
+
+    fn left_button_up(&self, seat: &Rc<WlSeatGlobal>) {
+        let Some(dest) = self.destination.take() else {
+            return;
+        };
+        let src = self.tl.clone();
+        let Some(src_parent) = src.tl_data().parent.get() else {
+            return;
+        };
+        let detach = || {
+            let placeholder = Rc::new(PlaceholderNode::new_empty(&seat.state));
+            src_parent
+                .clone()
+                .cnode_replace_child(src.tl_as_node(), placeholder.clone());
+            placeholder
+        };
+        let new_container = |workspace: &Rc<WorkspaceNode>| {
+            src_parent
+                .clone()
+                .cnode_remove_child2(src.tl_as_node(), true);
+            let cn = ContainerNode::new(
+                &seat.state,
+                &workspace,
+                src.clone(),
+                ContainerSplit::Horizontal,
+            );
+            workspace.set_container(&cn);
+        };
+        match dest {
+            TddType::Replace(dst) => {
+                let Some(dst_parent) = dst.tl_data().parent.get() else {
+                    return;
+                };
+                let placeholder = detach();
+                dst_parent.cnode_replace_child(dst.tl_as_node(), src);
+                src_parent.cnode_replace_child(placeholder.tl_as_node(), dst);
+            }
+            TddType::Split {
+                node,
+                split,
+                before,
+            } => {
+                let data = node.tl_data();
+                let Some(pn) = data.parent.get() else {
+                    return;
+                };
+                let Some(ws) = data.workspace.get() else {
+                    return;
+                };
+                let placeholder = detach();
+                let cn = ContainerNode::new(&seat.state, &ws, node.clone(), split);
+                pn.cnode_replace_child(node.tl_as_node(), cn.clone());
+                match before {
+                    true => cn.add_child_before(node.tl_as_node(), src),
+                    false => cn.add_child_after(node.tl_as_node(), src),
+                }
+                src_parent.cnode_remove_child(placeholder.tl_as_node());
+            }
+            TddType::Insert {
+                container,
+                neighbor,
+                before,
+            } => {
+                let placeholder = detach();
+                match before {
+                    true => container.add_child_before(neighbor.tl_as_node(), src),
+                    false => container.add_child_after(neighbor.tl_as_node(), src),
+                };
+                src_parent.cnode_remove_child(placeholder.tl_as_node());
+            }
+            TddType::NewWorkspace { output } => {
+                new_container(&output.ensure_workspace());
+            }
+            TddType::NewContainer { workspace } => {
+                new_container(&workspace);
+            }
+            TddType::MoveToWorkspace { workspace } => {
+                src_parent.cnode_remove_child(src.tl_as_node());
+                seat.state.map_tiled_on(src, &workspace);
+            }
+            TddType::MoveToNewWorkspace { output } => {
+                let ws = output.generate_workspace();
+                src_parent.cnode_remove_child(src.tl_as_node());
+                seat.state.map_tiled_on(src, &ws);
+            }
+        }
+    }
+
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rect> {
+        let (x, y) = seat.pointer_cursor.position();
+        let dest = seat.state.root.tile_drag_destination(
+            self.tl.node_id(),
+            x.round_down(),
+            y.round_down(),
+        );
+        match dest {
+            None => {
+                self.destination.take();
+                None
+            }
+            Some(d) => {
+                self.destination.set(Some(d.ty));
+                Some(d.highlight)
+            }
         }
     }
 }

@@ -11,8 +11,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
-            StackedNode, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
+            default_tile_drag_destination, ContainerSplit, Direction, FindTreeResult,
+            FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
+            TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -466,6 +467,17 @@ impl ToplevelNodeBase for Xwindow {
 
     fn tl_admits_children(&self) -> bool {
         false
+    }
+
+    fn tl_tile_drag_destination(
+        self: Rc<Self>,
+        source: NodeId,
+        split: Option<ContainerSplit>,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        default_tile_drag_destination(self, source, split, abs_bounds, abs_x, abs_y)
     }
 }
 

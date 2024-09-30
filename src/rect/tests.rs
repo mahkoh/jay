@@ -70,9 +70,9 @@ fn subtract1() {
 #[test]
 fn rects_to_bands() {
     let rects = [
-        Rect::new_unchecked(0, 0, 10, 10),
-        Rect::new_unchecked(5, 0, 30, 10),
-        Rect::new_unchecked(30, 5, 50, 15),
+        Rect::new_unchecked_danger(0, 0, 10, 10),
+        Rect::new_unchecked_danger(5, 0, 30, 10),
+        Rect::new_unchecked_danger(30, 5, 50, 15),
     ];
     let r = Region::from_rects(&rects[..]);
     // println!("{:#?}", r.rects);
@@ -104,8 +104,8 @@ fn rects_to_bands() {
 #[test]
 fn rects_to_bands2() {
     let rects = [
-        Rect::new_unchecked(0, 0, 10, 10),
-        Rect::new_unchecked(0, 10, 10, 20),
+        Rect::new_unchecked_danger(0, 0, 10, 10),
+        Rect::new_unchecked_danger(0, 10, 10, 20),
     ];
     let r = Region::from_rects(&rects[..]);
     // println!("{:#?}", r.rects);

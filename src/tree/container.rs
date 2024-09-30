@@ -17,8 +17,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
-            FoundNode, Node, NodeId, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
+            default_tile_drag_bounds, walker::NodeVisitor, ContainingNode, Direction,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, TddType, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -51,6 +52,15 @@ use {
 pub enum ContainerSplit {
     Horizontal,
     Vertical,
+}
+
+impl ContainerSplit {
+    pub fn other(self) -> Self {
+        match self {
+            ContainerSplit::Horizontal => ContainerSplit::Vertical,
+            ContainerSplit::Vertical => ContainerSplit::Horizontal,
+        }
+    }
 }
 
 impl From<Axis> for ContainerSplit {
@@ -547,6 +557,7 @@ impl ContainerNode {
 
     fn pointer_move(
         self: &Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
         id: CursorType,
         cursor: &CursorUser,
         x: Fixed,
@@ -574,7 +585,16 @@ impl ContainerNode {
         if let Some(op) = &seat_state.op {
             match op.kind {
                 SeatOpKind::Move => {
-                    // todo
+                    if let CursorType::Seat(_) = id {
+                        const DRAG_DIST: i32 = 10;
+                        let dx = x - op.x;
+                        let dy = y - op.y;
+                        if dx * dx + dy * dy > DRAG_DIST * DRAG_DIST {
+                            let node = op.child.node.clone();
+                            drop(seats);
+                            seat.start_tile_drag(&node);
+                        }
+                    }
                 }
                 SeatOpKind::Resize {
                     dist_left,
@@ -1233,20 +1253,220 @@ impl ContainerNode {
                 seat.set_tl_floating(child.node.clone(), true);
                 return;
             }
-            seat_data.op = Some(SeatOp { child, kind })
+            seat_data.op = Some(SeatOp {
+                child,
+                kind,
+                x: seat_data.x,
+                y: seat_data.y,
+            })
         } else if !pressed {
-            let op = seat_data.op.take().unwrap();
+            seat_data.op = None;
             drop(seat_datas);
-            if op.kind == SeatOpKind::Move {
-                // todo
+        }
+    }
+
+    fn tile_drag_destination_mono_titles(
+        self: &Rc<Self>,
+        source: NodeId,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        let mut prev_is_source = false;
+        let mut prev_center = 0;
+        for child in self.children.iter() {
+            if child.node.node_id() == source {
+                prev_is_source = true;
+                continue;
+            }
+            let rect = child.title_rect.get();
+            let center = (rect.x1() + rect.x2()) / 2;
+            if !prev_is_source {
+                let rect = Rect::new(prev_center, 0, center, rect.height())?
+                    .move_(self.abs_x1.get(), self.abs_y1.get())
+                    .intersect(abs_bounds);
+                if rect.contains(abs_x, abs_y) {
+                    return Some(TileDragDestination {
+                        highlight: rect,
+                        ty: TddType::Insert {
+                            container: self.clone(),
+                            neighbor: child.node.clone(),
+                            before: true,
+                        },
+                    });
+                }
+            }
+            prev_center = center;
+            prev_is_source = false;
+        }
+        if prev_is_source {
+            return None;
+        }
+        let last = self.children.last()?;
+        let rect = Rect::new(
+            prev_center,
+            0,
+            self.width.get(),
+            self.state.theme.sizes.title_height.get(),
+        )?
+        .move_(self.abs_x1.get(), self.abs_y1.get())
+        .intersect(abs_bounds);
+        if rect.contains(abs_x, abs_y) {
+            return Some(TileDragDestination {
+                highlight: rect,
+                ty: TddType::Insert {
+                    container: self.clone(),
+                    neighbor: last.node.clone(),
+                    before: false,
+                },
+            });
+        }
+        None
+    }
+
+    fn tile_drag_destination_mono(
+        self: &Rc<Self>,
+        mc: &ContainerChild,
+        source: NodeId,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        let th = self.state.theme.sizes.title_height.get();
+        if abs_y < self.abs_y1.get() + th {
+            return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
+        }
+        let body = self.mono_body.get();
+        let bounds = body
+            .move_(self.abs_x1.get(), self.abs_y1.get())
+            .intersect(abs_bounds);
+        return mc
+            .node
+            .clone()
+            .tl_tile_drag_destination(source, None, bounds, abs_x, abs_y);
+    }
+
+    pub fn tile_drag_destination(
+        self: &Rc<Self>,
+        source: NodeId,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        if source == self.node_id() {
+            return None;
+        }
+        if let Some(mc) = self.mono_child.get() {
+            return self.tile_drag_destination_mono(&mc, source, abs_bounds, abs_x, abs_y);
+        }
+        let mut prev_is_source = false;
+        let mut prev_border_start = 0;
+        let split = self.split.get();
+        for child in self.children.iter() {
+            if child.node.node_id() == source {
+                prev_is_source = true;
+                continue;
+            }
+            let start_drag_bounds = child.node.tl_tile_drag_bounds(split, true);
+            let end_drag_bounds = child.node.tl_tile_drag_bounds(split, false);
+            let body = child.body.get();
+            let main_body_rect = {
+                match split {
+                    ContainerSplit::Horizontal => Rect::new(
+                        body.x1() + start_drag_bounds,
+                        body.y1(),
+                        body.x2() - end_drag_bounds,
+                        body.y2(),
+                    )?,
+                    ContainerSplit::Vertical => Rect::new(
+                        body.x1(),
+                        body.y1() + start_drag_bounds,
+                        body.x2(),
+                        body.y2() - end_drag_bounds,
+                    )?,
+                }
+                .move_(self.abs_x1.get(), self.abs_y1.get())
+                .intersect(abs_bounds)
+            };
+            if main_body_rect.contains(abs_x, abs_y) {
+                return child.node.clone().tl_tile_drag_destination(
+                    source,
+                    Some(split),
+                    main_body_rect,
+                    abs_x,
+                    abs_y,
+                );
+            }
+            if !prev_is_source {
+                let left_border_rect = {
+                    match split {
+                        ContainerSplit::Horizontal => Rect::new(
+                            prev_border_start,
+                            body.y1(),
+                            body.x1() + start_drag_bounds,
+                            body.y2(),
+                        )?,
+                        ContainerSplit::Vertical => Rect::new(
+                            body.x1(),
+                            prev_border_start,
+                            body.x2(),
+                            body.y1() + start_drag_bounds,
+                        )?,
+                    }
+                    .move_(self.abs_x1.get(), self.abs_y1.get())
+                    .intersect(abs_bounds)
+                };
+                if left_border_rect.contains(abs_x, abs_y) {
+                    return Some(TileDragDestination {
+                        highlight: left_border_rect,
+                        ty: TddType::Insert {
+                            container: self.clone(),
+                            neighbor: child.node.clone(),
+                            before: true,
+                        },
+                    });
+                }
+            }
+            prev_is_source = false;
+            prev_border_start = match split {
+                ContainerSplit::Horizontal => body.x2() - end_drag_bounds,
+                ContainerSplit::Vertical => body.y2() - end_drag_bounds,
+            };
+        }
+        if prev_is_source {
+            return None;
+        }
+        let last = self.children.last()?;
+        let body = last.body.get();
+        let right_border_rect = match split {
+            ContainerSplit::Horizontal => {
+                Rect::new(prev_border_start, body.y1(), body.x2(), body.y2())?
+            }
+            ContainerSplit::Vertical => {
+                Rect::new(body.x1(), prev_border_start, body.x2(), body.y2())?
             }
         }
+        .move_(self.abs_x1.get(), self.abs_y1.get())
+        .intersect(abs_bounds);
+        if right_border_rect.contains(abs_x, abs_y) {
+            return Some(TileDragDestination {
+                highlight: right_border_rect,
+                ty: TddType::Insert {
+                    container: self.clone(),
+                    neighbor: last.node.clone(),
+                    before: false,
+                },
+            });
+        }
+        None
     }
 }
 
 struct SeatOp {
     child: NodeRef<ContainerChild>,
     kind: SeatOpKind,
+    x: i32,
+    y: i32,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -1452,12 +1672,21 @@ impl Node for ContainerNode {
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         // log::info!("node_on_pointer_enter");
         self.pointer_move(
+            seat,
             CursorType::Seat(seat.id()),
             seat.pointer_cursor(),
             x,
             y,
             false,
         );
+    }
+
+    fn node_on_leave(&self, seat: &WlSeatGlobal) {
+        let mut seats = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = seats.get_mut(&id) {
+            seat_state.op = None;
+        }
     }
 
     fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -1482,6 +1711,7 @@ impl Node for ContainerNode {
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         // log::info!("node_on_pointer_motion");
         self.pointer_move(
+            seat,
             CursorType::Seat(seat.id()),
             seat.pointer_cursor(),
             x,
@@ -1503,7 +1733,14 @@ impl Node for ContainerNode {
         y: Fixed,
     ) {
         tool.cursor().set_known(KnownCursor::Default);
-        self.pointer_move(CursorType::TabletTool(tool.id), tool.cursor(), x, y, true);
+        self.pointer_move(
+            tool.seat(),
+            CursorType::TabletTool(tool.id),
+            tool.cursor(),
+            x,
+            y,
+            true,
+        );
     }
 
     fn node_on_tablet_tool_apply_changes(
@@ -1515,7 +1752,7 @@ impl Node for ContainerNode {
         y: Fixed,
     ) {
         let id = CursorType::TabletTool(tool.id);
-        self.pointer_move(id, tool.cursor(), x, y, false);
+        self.pointer_move(tool.seat(), id, tool.cursor(), x, y, false);
         if let Some(changes) = changes {
             if let Some(pressed) = changes.down {
                 self.button(id, tool.seat(), time_usec, pressed, BTN_LEFT);
@@ -1914,6 +2151,31 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_admits_children(&self) -> bool {
         true
     }
+
+    fn tl_tile_drag_destination(
+        self: Rc<Self>,
+        source: NodeId,
+        _split: Option<ContainerSplit>,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        self.tile_drag_destination(source, abs_bounds, abs_x, abs_y)
+    }
+
+    fn tl_tile_drag_bounds(&self, split: ContainerSplit, start: bool) -> i32 {
+        if split != self.split.get() {
+            return default_tile_drag_bounds(self, split);
+        }
+        let child = match start {
+            true => self.children.first(),
+            false => self.children.last(),
+        };
+        let Some(child) = child else {
+            return 0;
+        };
+        child.node.tl_tile_drag_bounds(split, start) / 2
+    }
 }
 
 fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
@@ -1924,4 +2186,119 @@ fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
         Direction::Right => (ContainerSplit::Horizontal, false),
         Direction::Unspecified => (ContainerSplit::Horizontal, true),
     }
+}
+
+fn tile_drag_destination_in_mono(
+    tl: Rc<dyn ToplevelNode>,
+    abs_bounds: Rect,
+    abs_x: i32,
+    abs_y: i32,
+) -> TileDragDestination {
+    let mut x1 = abs_bounds.x1();
+    let mut x2 = abs_bounds.x2();
+    let mut y1 = abs_bounds.y1();
+    let mut y2 = abs_bounds.y2();
+    let dx = (x2 - x1) / 3;
+    let dy = (y2 - y1) / 3;
+    let mut split_before = true;
+    let mut split = ContainerSplit::Horizontal;
+    if abs_x < x1 + dx {
+        x2 = x1 + dx;
+    } else if abs_x > x2 - dx {
+        split_before = false;
+        x1 = x2 - dx;
+    } else {
+        split = ContainerSplit::Vertical;
+        x1 += dx;
+        x2 -= dx;
+        if abs_y < y1 + dy {
+            y2 = y1 + dy;
+        } else if abs_y > y2 - dy {
+            split_before = false;
+            y1 = y2 - dy;
+        } else {
+            let rect = Rect::new_unchecked(x1, y1 + dy, x2, y2 - dy);
+            return TileDragDestination {
+                highlight: rect,
+                ty: TddType::Replace(tl),
+            };
+        }
+    }
+    let rect = Rect::new_unchecked(x1, y1, x2, y2);
+    TileDragDestination {
+        highlight: rect,
+        ty: TddType::Split {
+            node: tl,
+            split,
+            before: split_before,
+        },
+    }
+}
+
+fn tile_drag_destination_in_split(
+    tl: Rc<dyn ToplevelNode>,
+    split: ContainerSplit,
+    abs_bounds: Rect,
+    mut abs_x: i32,
+    mut abs_y: i32,
+) -> TileDragDestination {
+    let mut x1 = abs_bounds.x1();
+    let mut x2 = abs_bounds.x2();
+    let mut y1 = abs_bounds.y1();
+    let mut y2 = abs_bounds.y2();
+    macro_rules! swap {
+        () => {
+            if split == ContainerSplit::Horizontal {
+                mem::swap(&mut x1, &mut y1);
+                mem::swap(&mut x2, &mut y2);
+                mem::swap(&mut abs_x, &mut abs_y);
+            }
+        };
+    }
+    swap!();
+    let mut split_before = false;
+    let mut split_after = false;
+    let dx = (x2 - x1) / 3;
+    if abs_x < x1 + dx {
+        split_before = true;
+        x2 = x1 + dx;
+    } else if abs_x < x2 - dx {
+        x1 += dx;
+        x2 -= dx;
+    } else {
+        split_after = true;
+        x1 = x2 - dx;
+    }
+    swap!();
+    let rect = Rect::new(x1, y1, x2, y2).unwrap();
+    let ty = if split_before || split_after {
+        TddType::Split {
+            node: tl,
+            split: split.other(),
+            before: split_before,
+        }
+    } else {
+        TddType::Replace(tl)
+    };
+    TileDragDestination {
+        highlight: rect,
+        ty,
+    }
+}
+
+pub fn default_tile_drag_destination(
+    tl: Rc<dyn ToplevelNode>,
+    source: NodeId,
+    split: Option<ContainerSplit>,
+    abs_bounds: Rect,
+    abs_x: i32,
+    abs_y: i32,
+) -> Option<TileDragDestination> {
+    if tl.node_id() == source {
+        return None;
+    }
+    Some(match split {
+        None => tile_drag_destination_in_mono(tl, abs_bounds, abs_x, abs_y),
+        Some(s) => tile_drag_destination_in_split(tl, s, abs_bounds, abs_x, abs_y),
+    })
 }

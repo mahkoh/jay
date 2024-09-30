@@ -10,7 +10,8 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
+            default_tile_drag_destination, ContainerSplit, Direction, FindTreeResult,
+            FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase,
         },
         utils::{
@@ -57,6 +58,17 @@ impl PlaceholderNode {
             ),
             destroyed: Default::default(),
             update_textures_scheduled: Cell::new(false),
+            state: state.clone(),
+            textures: Default::default(),
+        }
+    }
+
+    pub fn new_empty(state: &Rc<State>) -> Self {
+        Self {
+            id: state.node_ids.next(),
+            toplevel: ToplevelData::new(state, String::new(), None),
+            destroyed: Default::default(),
+            update_textures_scheduled: Default::default(),
             state: state.clone(),
             textures: Default::default(),
         }
@@ -221,5 +233,16 @@ impl ToplevelNodeBase for PlaceholderNode {
 
     fn tl_admits_children(&self) -> bool {
         false
+    }
+
+    fn tl_tile_drag_destination(
+        self: Rc<Self>,
+        source: NodeId,
+        split: Option<ContainerSplit>,
+        abs_bounds: Rect,
+        x: i32,
+        y: i32,
+    ) -> Option<TileDragDestination> {
+        default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
 }
