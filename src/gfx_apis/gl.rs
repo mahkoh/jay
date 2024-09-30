@@ -67,7 +67,6 @@ macro_rules! dynload {
 
 use {
     crate::{
-        clientmem::ClientMemError,
         gfx_api::{
             AcquireSync, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
             ReleaseSync, SyncFile,
@@ -95,7 +94,7 @@ use {
     },
     isnt::std_1::vec::IsntVecExt,
     once_cell::sync::Lazy,
-    std::{cell::RefCell, rc::Rc, sync::Arc},
+    std::{cell::RefCell, error::Error, rc::Rc, sync::Arc},
     thiserror::Error,
 };
 
@@ -199,7 +198,7 @@ enum RenderError {
     #[error("Buffer format {0} is not supported for shm buffers in OpenGL context")]
     UnsupportedShmFormat(&'static str),
     #[error("Could not access the client memory")]
-    AccessFailed(#[source] ClientMemError),
+    AccessFailed(#[source] Box<dyn Error + Sync + Send>),
 }
 
 #[derive(Default)]

@@ -5,12 +5,16 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, ReleaseSync},
+        gfx_api::{
+            needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
+        },
         ifs::zwlr_layer_shell_v1::OVERLAY,
-        portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
+        portal::{
+            ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
+            ptl_text::{self, TextMeasurement},
+        },
         renderer::renderer_base::RendererBase,
         scale::Scale,
-        text::{self, TextMeasurement, TextTexture},
         theme::Color,
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -31,10 +35,10 @@ use {
     },
     ahash::AHashSet,
     std::{
-        borrow::Cow,
         cell::{Cell, RefCell},
         ops::Deref,
         rc::Rc,
+        sync::Arc,
     },
 };
 
@@ -117,8 +121,8 @@ pub struct Button {
     pub bg_color: Cell<Color>,
     pub bg_hover_color: Cell<Color>,
     pub text: RefCell<String>,
-    pub font: RefCell<Cow<'static, str>>,
-    pub tex: CloneCell<Option<TextTexture>>,
+    pub font: Arc<String>,
+    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub owner: CloneCell<Option<Rc<dyn ButtonOwner>>>,
 }
 
@@ -139,7 +143,7 @@ impl Default for Button {
             bg_color: Cell::new(Color::from_gray(255)),
             bg_hover_color: Cell::new(Color::from_gray(255)),
             text: Default::default(),
-            font: RefCell::new(DEFAULT_FONT.into()),
+            font: Arc::new(DEFAULT_FONT.to_string()),
             tex: Default::default(),
             owner: Default::default(),
         }
@@ -162,21 +166,16 @@ impl GuiElement for Button {
         _max_width: f32,
         _max_height: f32,
     ) -> (f32, f32) {
-        let old_tex = self.tex.take();
-        let font = self.font.borrow_mut();
         let text = self.text.borrow_mut();
-        let tex = text::render_fitting2(
+        let tex = ptl_text::render(
             ctx,
-            old_tex,
             None,
-            &font,
+            &self.font,
             &text,
             Color::from_gray(0),
-            false,
             Some(scale as _),
             true,
-        )
-        .ok();
+        );
         let (tex, msmt) = match tex {
             Some((a, b)) => (Some(a), Some(b)),
             _ => (None, None),
@@ -215,7 +214,7 @@ impl GuiElement for Button {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
             r.render_texture(
-                &tex.texture,
+                &tex,
                 None,
                 tx.round() as _,
                 ty.round() as _,
@@ -262,16 +261,16 @@ const DEFAULT_FONT: &str = "sans-serif 16";
 
 pub struct Label {
     pub data: GuiElementData,
-    pub font: RefCell<Cow<'static, str>>,
+    pub font: Arc<String>,
     pub text: RefCell<String>,
-    pub tex: CloneCell<Option<TextTexture>>,
+    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
 }
 
 impl Default for Label {
     fn default() -> Self {
         Self {
             data: Default::default(),
-            font: RefCell::new(DEFAULT_FONT.into()),
+            font: Arc::new(DEFAULT_FONT.into()),
             text: RefCell::new("".to_string()),
             tex: Default::default(),
         }
@@ -290,24 +289,19 @@ impl GuiElement for Label {
         _max_width: f32,
         _max_height: f32,
     ) -> (f32, f32) {
-        let old_tex = self.tex.take();
         let text = self.text.borrow_mut();
-        let font = self.font.borrow_mut();
-        let tex = text::render_fitting2(
+        let tex = ptl_text::render(
             ctx,
-            old_tex,
             None,
-            &font,
+            &self.font,
             &text,
             Color::from_gray(255),
-            false,
             Some(scale as _),
             false,
-        )
-        .ok();
+        );
         let (tex, width, height) = match tex {
             Some((t, _)) => {
-                let (width, height) = t.texture.size();
+                let (width, height) = t.size();
                 (Some(t.clone()), width, height)
             }
             _ => (None, 0, 0),
@@ -320,7 +314,7 @@ impl GuiElement for Label {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
-                &tex.texture,
+                &tex,
                 None,
                 tx.round() as _,
                 ty.round() as _,

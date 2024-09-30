@@ -9,6 +9,7 @@ use {
         fmt::{Debug, Formatter},
         mem,
         rc::{Rc, Weak},
+        sync::Arc,
     },
 };
 
@@ -83,6 +84,7 @@ unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
 
 unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}
 unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Weak<T> {}
+unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Arc<T> {}
 
 unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
 

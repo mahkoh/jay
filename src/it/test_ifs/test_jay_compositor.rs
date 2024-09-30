@@ -54,6 +54,8 @@ impl TestJayCompositor {
         &self,
         include_cursor: bool,
     ) -> Result<(DmaBuf, Option<Rc<OwnedFd>>), TestError> {
+        self.tran.sync().await;
+        self.tran.run.state.idle().await;
         let js = Rc::new(TestJayScreenshot {
             id: self.tran.id(),
             state: self.tran.run.state.clone(),

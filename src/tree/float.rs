@@ -12,14 +12,15 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text::{self, TextTexture},
+        text::TextTexture,
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
             FoundNode, Node, NodeId, StackedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, double_click_state::DoubleClickState,
-            errorfmt::ErrorFmt, linkedlist::LinkedNode,
+            asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
+            errorfmt::ErrorFmt, linkedlist::LinkedNode, on_drop_event::OnDropEvent,
+            smallmap::SmallMapMut,
         },
     },
     ahash::AHashMap,
@@ -47,7 +48,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_textures: CopyHashMap<Scale, TextTexture>,
+    pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
     pub attention_requested: Cell<bool>,
 }
@@ -96,7 +97,9 @@ pub async fn float_titles(state: Rc<State>) {
     loop {
         let node = state.pending_float_titles.pop().await;
         if node.render_titles_scheduled.get() {
-            node.render_title();
+            node.render_titles_scheduled.set(false);
+            node.render_title_phase1().triggered().await;
+            node.render_title_phase2();
         }
     }
 }
@@ -182,8 +185,8 @@ impl FloatNode {
         }
     }
 
-    fn render_title(&self) {
-        self.render_titles_scheduled.set(false);
+    fn render_title_phase1(&self) -> Rc<AsyncEvent> {
+        let on_completed = Rc::new(OnDropEvent::default());
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let tc = match self.active.get() {
@@ -191,20 +194,22 @@ impl FloatNode {
             false => theme.colors.unfocused_title_text.get(),
         };
         let bw = theme.sizes.border_width.get();
-        let font = theme.font.borrow_mut();
+        let font = theme.font.get();
         let title = self.title.borrow_mut();
         let pos = self.position.get();
-        if pos.width() <= 2 * bw || title.is_empty() {
-            return;
+        if pos.width() <= 2 * bw {
+            return on_completed.event();
         }
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,
-            _ => return,
+            _ => return on_completed.event(),
         };
         let scales = self.state.scales.lock();
         let tr = Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
+        let tt = &mut *self.title_textures.borrow_mut();
         for (scale, _) in scales.iter() {
-            let old_tex = self.title_textures.remove(scale);
+            let tex =
+                tt.get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();
@@ -217,16 +222,39 @@ impl FloatNode {
             if th == 0 || width == 0 {
                 continue;
             }
-            let texture = match text::render(&ctx, old_tex, width, th, &font, &title, tc, scalef) {
-                Ok(t) => t,
-                Err(e) => {
-                    log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                    return;
-                }
-            };
-            self.title_textures.set(*scale, texture);
+            tex.schedule_render(
+                on_completed.clone(),
+                1,
+                None,
+                width,
+                th,
+                1,
+                &font,
+                &title,
+                tc,
+                true,
+                false,
+                scalef,
+            );
         }
-        if self.visible.get() {
+        on_completed.event()
+    }
+
+    fn render_title_phase2(&self) {
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let title = self.title.borrow();
+        let tt = &*self.title_textures.borrow();
+        for (_, tt) in tt {
+            if let Err(e) = tt.flip() {
+                log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+            }
+        }
+        let pos = self.position.get();
+        if self.visible.get() && pos.width() >= 2 * bw {
+            let tr =
+                Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
             self.state.damage(tr);
         }
     }

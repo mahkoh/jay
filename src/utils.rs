@@ -30,6 +30,7 @@ pub mod num_cpus;
 pub mod numcell;
 pub mod on_change;
 pub mod on_drop;
+pub mod on_drop_event;
 pub mod once;
 pub mod opaque;
 pub mod opaque_cell;

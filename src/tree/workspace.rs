@@ -57,7 +57,7 @@ pub struct WorkspaceNode {
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
     pub may_capture: Cell<bool>,
     pub has_capture: Cell<bool>,
-    pub title_texture: Cell<Option<TextTexture>>,
+    pub title_texture: RefCell<Option<TextTexture>>,
     pub attention_requests: ThresholdCounter,
     pub render_highlight: NumCell<u32>,
 }

@@ -460,7 +460,7 @@ fn schedule_async_upload(
         }
     };
     back_tex
-        .async_upload(node_ref.clone(), mem, back.damage.get())
+        .async_upload(node_ref.clone(), mem.clone(), back.damage.get())
         .map_err(WlSurfaceError::PrepareAsyncUpload)
 }
 

@@ -1,7 +1,6 @@
-use std::{
-    cell::{Cell, RefCell},
-    cmp::Ordering,
-    ops::Mul,
+use {
+    crate::utils::clonecell::CloneCell,
+    std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -290,15 +289,18 @@ pub const DEFAULT_FONT: &str = "monospace 8";
 pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
-    pub font: RefCell<String>,
+    pub font: CloneCell<Arc<String>>,
+    pub default_font: Arc<String>,
 }
 
 impl Default for Theme {
     fn default() -> Self {
+        let default_font = Arc::new(DEFAULT_FONT.to_string());
         Self {
             colors: Default::default(),
             sizes: Default::default(),
-            font: RefCell::new(DEFAULT_FONT.to_string()),
+            font: CloneCell::new(default_font.clone()),
+            default_font,
         }
     }
 }

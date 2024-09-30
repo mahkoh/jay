@@ -4,6 +4,7 @@ use {
         cursor::KnownCursor,
         cursor_user::CursorUser,
         fixed::Fixed,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{
             collect_kb_foci, collect_kb_foci2,
             tablet::{TabletTool, TabletToolChanges, TabletToolId},
@@ -14,21 +15,23 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text::{self, TextTexture},
+        text::TextTexture,
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
             FoundNode, Node, NodeId, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{
+            asyncevent::AsyncEvent,
             clonecell::CloneCell,
             double_click_state::DoubleClickState,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            on_drop_event::OnDropEvent,
             rc_eq::rc_eq,
             scroller::Scroller,
-            smallmap::{SmallMap, SmallMapMut},
+            smallmap::SmallMapMut,
             threshold_counter::ThresholdCounter,
         },
     },
@@ -81,7 +84,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub x: i32,
     pub y: i32,
-    pub tex: TextTexture,
+    pub tex: Rc<dyn GfxTexture>,
 }
 
 #[derive(Default)]
@@ -109,7 +112,8 @@ pub struct ContainerNode {
     pub content_height: Cell<i32>,
     pub sum_factors: Cell<f64>,
     layout_scheduled: Cell<bool>,
-    compute_render_data_scheduled: Cell<bool>,
+    compute_render_positions_scheduled: Cell<bool>,
+    render_titles_scheduled: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     focus_history: LinkedList<NodeRef<ContainerChild>>,
@@ -134,7 +138,7 @@ pub struct ContainerChild {
     pub active: Cell<bool>,
     pub attention_requested: Cell<bool>,
     title: RefCell<String>,
-    pub title_tex: SmallMap<Scale, TextTexture, 2>,
+    pub title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub title_rect: Cell<Rect>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
 
@@ -213,7 +217,8 @@ impl ContainerNode {
             content_height: Cell::new(0),
             sum_factors: Cell::new(1.0),
             layout_scheduled: Cell::new(false),
-            compute_render_data_scheduled: Cell::new(false),
+            compute_render_positions_scheduled: Cell::new(false),
+            render_titles_scheduled: Cell::new(false),
             num_children: NumCell::new(1),
             children,
             focus_history: Default::default(),
@@ -351,7 +356,8 @@ impl ContainerNode {
 
     pub fn on_colors_changed(self: &Rc<Self>) {
         // log::info!("on_colors_changed");
-        self.schedule_compute_render_data();
+        self.schedule_render_titles();
+        self.schedule_compute_render_positions();
     }
 
     fn damage(&self) {
@@ -387,7 +393,8 @@ impl ContainerNode {
         }
         self.state.tree_changed();
         // log::info!("perform_layout");
-        self.schedule_compute_render_data();
+        self.schedule_render_titles();
+        self.schedule_compute_render_positions();
     }
 
     fn perform_mono_layout(self: &Rc<Self>, child: &ContainerChild) {
@@ -660,23 +667,115 @@ impl ContainerNode {
         self.tl_title_changed();
     }
 
-    pub fn schedule_compute_render_data(self: &Rc<Self>) {
-        if !self.compute_render_data_scheduled.replace(true) {
-            self.state.pending_container_render_data.push(self.clone());
+    pub fn schedule_render_titles(self: &Rc<Self>) {
+        if !self.render_titles_scheduled.replace(true) {
+            self.state.pending_container_render_title.push(self.clone());
         }
     }
 
-    fn compute_render_data(&self) {
-        self.compute_render_data_scheduled.set(false);
+    fn render_titles(&self) -> Rc<AsyncEvent> {
+        let on_completed = Rc::new(OnDropEvent::default());
+        let Some(ctx) = self.state.render_ctx.get() else {
+            return on_completed.event();
+        };
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let font = theme.font.get();
+        let last_active = self.focus_history.last().map(|v| v.node.node_id());
+        let have_active = self.children.iter().any(|c| c.active.get());
+        let scales = self.state.scales.lock();
+        for child in self.children.iter() {
+            let rect = child.title_rect.get();
+            let color = if child.active.get() {
+                theme.colors.focused_title_text.get()
+            } else if child.attention_requested.get() {
+                theme.colors.unfocused_title_text.get()
+            } else if !have_active && last_active == Some(child.node.node_id()) {
+                theme.colors.focused_inactive_title_text.get()
+            } else {
+                theme.colors.unfocused_title_text.get()
+            };
+            let title = child.title.borrow_mut();
+            let tt = &mut *child.title_tex.borrow_mut();
+            for (scale, _) in scales.iter() {
+                let tex = tt
+                    .get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
+                let mut th = th;
+                let mut scalef = None;
+                let mut width = rect.width();
+                if *scale != 1 {
+                    let scale = scale.to_f64();
+                    th = (th as f64 * scale).round() as _;
+                    width = (width as f64 * scale).round() as _;
+                    scalef = Some(scale);
+                }
+                tex.schedule_render(
+                    on_completed.clone(),
+                    1,
+                    None,
+                    width,
+                    th,
+                    1,
+                    &font,
+                    title.deref(),
+                    color,
+                    true,
+                    false,
+                    scalef,
+                );
+            }
+        }
+        on_completed.event()
+    }
+
+    fn compute_title_data(&self) {
+        let rd = &mut *self.render_data.borrow_mut();
+        for (_, v) in rd.titles.iter_mut() {
+            v.clear();
+        }
+        let abs_x = self.abs_x1.get();
+        let abs_y = self.abs_y1.get();
+        for child in self.children.iter() {
+            let rect = child.title_rect.get();
+            if self.toplevel_data.visible.get() {
+                self.state.damage(rect.move_(abs_x, abs_y));
+            }
+            let title = child.title.borrow_mut();
+            let tt = &*child.title_tex.borrow();
+            for (scale, tex) in tt {
+                if let Err(e) = tex.flip() {
+                    log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                }
+                if let Some(tex) = tex.texture() {
+                    let titles = rd.titles.get_or_default_mut(*scale);
+                    titles.push(ContainerTitle {
+                        x: rect.x1(),
+                        y: rect.y1(),
+                        tex,
+                    })
+                }
+            }
+        }
+        rd.titles.remove_if(|_, v| v.is_empty());
+    }
+
+    fn schedule_compute_render_positions(self: &Rc<Self>) {
+        if !self.compute_render_positions_scheduled.replace(true) {
+            self.state
+                .pending_container_render_positions
+                .push(self.clone());
+        }
+    }
+
+    fn compute_render_positions(&self) {
+        self.compute_render_positions_scheduled.set(false);
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
-        let font = theme.font.borrow_mut();
         let cwidth = self.width.get();
         let cheight = self.height.get();
-        let ctx = self.state.render_ctx.get();
         for (_, v) in rd.titles.iter_mut() {
             v.clear();
         }
@@ -690,7 +789,6 @@ impl ContainerNode {
         let mono = self.mono_child.is_some();
         let split = self.split.get();
         let have_active = self.children.iter().any(|c| c.active.get());
-        let scales = self.state.scales.lock();
         let abs_x = self.abs_x1.get();
         let abs_y = self.abs_y1.get();
         for (i, child) in self.children.iter().enumerate() {
@@ -708,64 +806,28 @@ impl ContainerNode {
                 };
                 rd.border_rects.push(rect.unwrap());
             }
-            let color = if child.active.get() {
+            if child.active.get() {
                 rd.active_title_rects.push(rect);
-                theme.colors.focused_title_text.get()
             } else if child.attention_requested.get() {
                 rd.attention_title_rects.push(rect);
-                theme.colors.unfocused_title_text.get()
             } else if !have_active && last_active == Some(child.node.node_id()) {
                 rd.last_active_rect = Some(rect);
-                theme.colors.focused_inactive_title_text.get()
             } else {
                 rd.title_rects.push(rect);
-                theme.colors.unfocused_title_text.get()
-            };
+            }
             if !mono {
                 let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
                 rd.underline_rects.push(rect);
             }
-            let title = child.title.borrow_mut();
-            for (scale, _) in scales.iter() {
-                let old_tex = child.title_tex.remove(scale);
-                let titles = rd.titles.get_or_default_mut(*scale);
-                'render_title: {
-                    let mut th = th;
-                    let mut scalef = None;
-                    let mut width = rect.width();
-                    if *scale != 1 {
-                        let scale = scale.to_f64();
-                        th = (th as f64 * scale).round() as _;
-                        width = (width as f64 * scale).round() as _;
-                        scalef = Some(scale);
-                    }
-                    if th == 0 || width == 0 || title.is_empty() {
-                        break 'render_title;
-                    }
-                    if let Some(ctx) = &ctx {
-                        match text::render(
-                            ctx,
-                            old_tex,
-                            width,
-                            th,
-                            &font,
-                            title.deref(),
-                            color,
-                            scalef,
-                        ) {
-                            Ok(t) => {
-                                child.title_tex.insert(*scale, t.clone());
-                                titles.push(ContainerTitle {
-                                    x: rect.x1(),
-                                    y: rect.y1(),
-                                    tex: t,
-                                })
-                            }
-                            Err(e) => {
-                                log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                            }
-                        }
-                    }
+            let tt = &*child.title_tex.borrow();
+            for (scale, tex) in tt {
+                if let Some(tex) = tex.texture() {
+                    let titles = rd.titles.get_or_default_mut(*scale);
+                    titles.push(ContainerTitle {
+                        x: rect.x1(),
+                        y: rect.y1(),
+                        tex,
+                    })
                 }
             }
         }
@@ -1010,7 +1072,7 @@ impl ContainerNode {
         }
         self.update_title();
         // log::info!("node_child_title_changed");
-        self.schedule_compute_render_data();
+        self.schedule_render_titles();
     }
 
     fn update_child_active(
@@ -1027,7 +1089,8 @@ impl ContainerNode {
                 .set(Some(self.focus_history.add_last(node.clone())));
         }
         // log::info!("node_child_active_changed");
-        self.schedule_compute_render_data();
+        self.schedule_render_titles();
+        self.schedule_compute_render_positions();
         if let Some(parent) = self.toplevel_data.parent.get() {
             parent.node_child_active_changed(self.deref(), active, depth + 1);
         }
@@ -1175,11 +1238,22 @@ pub async fn container_layout(state: Rc<State>) {
     }
 }
 
-pub async fn container_render_data(state: Rc<State>) {
+pub async fn container_render_positions(state: Rc<State>) {
     loop {
-        let container = state.pending_container_render_data.pop().await;
-        if container.compute_render_data_scheduled.get() {
-            container.compute_render_data();
+        let container = state.pending_container_render_positions.pop().await;
+        if container.compute_render_positions_scheduled.get() {
+            container.compute_render_positions();
+        }
+    }
+}
+
+pub async fn container_render_titles(state: Rc<State>) {
+    loop {
+        let container = state.pending_container_render_title.pop().await;
+        if container.render_titles_scheduled.get() {
+            container.render_titles_scheduled.set(false);
+            container.render_titles().triggered().await;
+            container.compute_title_data();
         }
     }
 }
@@ -1562,7 +1636,7 @@ impl ContainingNode for ContainerNode {
             return;
         }
         self.mod_attention_requests(set);
-        self.schedule_compute_render_data();
+        self.schedule_compute_render_positions();
     }
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {

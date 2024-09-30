@@ -131,20 +131,22 @@ impl Renderer<'_> {
                     );
                 }
                 if let Some(status) = &rd.status {
-                    let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
-                    self.base.render_texture(
-                        &status.tex.texture,
-                        None,
-                        x,
-                        y,
-                        None,
-                        None,
-                        scale,
-                        None,
-                        None,
-                        AcquireSync::None,
-                        ReleaseSync::None,
-                    );
+                    if let Some(texture) = status.tex.texture() {
+                        let (x, y) = self.base.scale_point(x + status.tex_x, y);
+                        self.base.render_texture(
+                            &texture,
+                            None,
+                            x,
+                            y,
+                            None,
+                            None,
+                            scale,
+                            None,
+                            None,
+                            AcquireSync::None,
+                            ReleaseSync::None,
+                        );
+                    }
                 }
             }
             if let Some(ws) = output.workspace.get() {
@@ -196,23 +198,25 @@ impl Renderer<'_> {
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
-        if let Some(tex) = placeholder.textures.get(&self.base.scale) {
-            let (tex_width, tex_height) = tex.texture.size();
-            let x = x + (pos.width() - tex_width) / 2;
-            let y = y + (pos.height() - tex_height) / 2;
-            self.base.render_texture(
-                &tex.texture,
-                None,
-                x,
-                y,
-                None,
-                None,
-                self.base.scale,
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-            );
+        if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale) {
+            if let Some(texture) = tex.texture() {
+                let (tex_width, tex_height) = texture.size();
+                let x = x + (pos.width() - tex_width) / 2;
+                let y = y + (pos.height() - tex_height) / 2;
+                self.base.render_texture(
+                    &texture,
+                    None,
+                    x,
+                    y,
+                    None,
+                    None,
+                    self.base.scale,
+                    None,
+                    None,
+                    AcquireSync::None,
+                    ReleaseSync::None,
+                );
+            }
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
     }
@@ -243,7 +247,7 @@ impl Renderer<'_> {
                 for title in titles {
                     let (x, y) = self.base.scale_point(x + title.x, y + title.y);
                     self.base.render_texture(
-                        &title.tex.texture,
+                        &title.tex,
                         None,
                         x,
                         y,
@@ -466,21 +470,23 @@ impl Renderer<'_> {
         let title_underline =
             [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
         self.base.fill_boxes(&title_underline, &uc);
-        if let Some(title) = floating.title_textures.get(&self.base.scale) {
-            let (x, y) = self.base.scale_point(x + bw, y + bw);
-            self.base.render_texture(
-                &title.texture,
-                None,
-                x,
-                y,
-                None,
-                None,
-                self.base.scale,
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-            );
+        if let Some(title) = floating.title_textures.borrow().get(&self.base.scale) {
+            if let Some(texture) = title.texture() {
+                let (x, y) = self.base.scale_point(x + bw, y + bw);
+                self.base.render_texture(
+                    &texture,
+                    None,
+                    x,
+                    y,
+                    None,
+                    None,
+                    self.base.scale,
+                    None,
+                    None,
+                    AcquireSync::None,
+                    ReleaseSync::None,
+                );
+            }
         }
         let body = Rect::new_sized(
             x + bw,

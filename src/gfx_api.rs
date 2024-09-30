@@ -1,7 +1,6 @@
 use {
     crate::{
         allocator::Allocator,
-        clientmem::ClientMemOffset,
         cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
@@ -513,11 +512,37 @@ pub struct PendingShmUpload {
     id: u64,
 }
 
+pub trait ShmMemory {
+    fn len(&self) -> usize;
+    fn safe_access(&self) -> ShmMemoryBacking;
+    fn access(&self, f: &mut dyn FnMut(&[Cell<u8>])) -> Result<(), Box<dyn Error + Sync + Send>>;
+}
+
+pub enum ShmMemoryBacking {
+    Ptr(*const [Cell<u8>]),
+    Fd(Rc<OwnedFd>, usize),
+}
+
+impl ShmMemory for Vec<Cell<u8>> {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn safe_access(&self) -> ShmMemoryBacking {
+        ShmMemoryBacking::Ptr(&**self)
+    }
+
+    fn access(&self, f: &mut dyn FnMut(&[Cell<u8>])) -> Result<(), Box<dyn Error + Sync + Send>> {
+        f(self);
+        Ok(())
+    }
+}
+
 pub trait AsyncShmGfxTexture: GfxTexture {
     fn async_upload(
         self: Rc<Self>,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
-        mem: &Rc<ClientMemOffset>,
+        mem: Rc<dyn ShmMemory>,
         damage: Region,
     ) -> Result<Option<PendingShmUpload>, GfxError>;
 
