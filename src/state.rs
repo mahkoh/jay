@@ -69,15 +69,16 @@ use {
         theme::{Color, Theme},
         time::Time,
         tree::{
-            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
+            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
+            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
             ToplevelNodeBase, VrrMode, WorkspaceNode,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            hash_map_ext::HashMapExt, linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue,
-            refcounted::RefCounted, run_toplevel::RunToplevel,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            event_listener::EventSource, fdcloser::FdCloser, hash_map_ext::HashMapExt,
+            linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
+            run_toplevel::RunToplevel,
         },
         video::{
             dmabuf::DmaBufIds,
@@ -218,6 +219,7 @@ pub struct State {
     pub ei_clients: EiClients,
     pub slow_ei_clients: AsyncQueue<Rc<EiClient>>,
     pub cpu_worker: Rc<CpuWorker>,
+    pub const_40hz_latch: EventSource<dyn LatchListener>,
 }
 
 // impl Drop for State {
@@ -926,7 +928,7 @@ impl State {
             output.global.persistent.scale.get(),
             render_hw_cursor,
         )?;
-        output.latched();
+        output.latched(false);
         output.perform_screencopies(
             tex,
             None,
