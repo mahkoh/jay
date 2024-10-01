@@ -586,10 +586,7 @@ impl ContainerNode {
             match op.kind {
                 SeatOpKind::Move => {
                     if let CursorType::Seat(_) = id {
-                        const DRAG_DIST: i32 = 10;
-                        let dx = x - op.x;
-                        let dy = y - op.y;
-                        if dx * dx + dy * dy > DRAG_DIST * DRAG_DIST {
+                        if self.state.ui_drag_threshold_reached((x, y), (op.x, op.y)) {
                             let node = op.child.node.clone();
                             drop(seats);
                             seat.start_tile_drag(&node);

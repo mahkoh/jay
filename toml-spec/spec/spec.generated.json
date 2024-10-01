@@ -589,6 +589,10 @@
         "libei": {
           "description": "Configures the libei settings.\n\n- Example:\n\n  ```toml\n  libei.enable-socket = true\n  ```\n",
           "$ref": "#/$defs/Libei"
+        },
+        "ui-drag": {
+          "description": "Configures the ui-drag settings.\n\n- Example:\n\n  ```toml\n  ui-drag = { enabled = false, threshold = 20 }\n  ```\n",
+          "$ref": "#/$defs/UiDrag"
         }
       },
       "required": []
@@ -1341,6 +1345,21 @@
         "flip-rotate-180",
         "flip-rotate-270"
       ]
+    },
+    "UiDrag": {
+      "description": "Describes ui-drag settings.\n\n- Example:\n\n  ```toml\n  ui-drag = { enabled = false, threshold = 20 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enables or disables dragging of tiles and workspaces.\n\nThe default is `true`.\n"
+        },
+        "threshold": {
+          "type": "integer",
+          "description": "Sets the distance at which ui dragging starts.\n\nThe default is `10`.\n"
+        }
+      },
+      "required": []
     },
     "Vrr": {
       "description": "Describes VRR settings.\n\n- Example:\n\n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",

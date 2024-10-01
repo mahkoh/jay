@@ -517,6 +517,12 @@ pub enum ClientMessage<'a> {
         device: DrmDevice,
         margin: Duration,
     },
+    SetUiDragEnabled {
+        enabled: bool,
+    },
+    SetUiDragThreshold {
+        threshold: i32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -267,6 +267,8 @@ fn start_compositor2(
         ei_clients: EiClients::new(),
         slow_ei_clients: Default::default(),
         cpu_worker,
+        ui_drag_enabled: Cell::new(true),
+        ui_drag_threshold_squared: Cell::new(10),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

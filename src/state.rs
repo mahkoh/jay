@@ -218,6 +218,8 @@ pub struct State {
     pub ei_clients: EiClients,
     pub slow_ei_clients: AsyncQueue<Rc<EiClient>>,
     pub cpu_worker: Rc<CpuWorker>,
+    pub ui_drag_enabled: Cell<bool>,
+    pub ui_drag_threshold_squared: Cell<i32>,
 }
 
 // impl Drop for State {
@@ -1239,6 +1241,15 @@ impl State {
                 break;
             }
         }
+    }
+
+    pub fn ui_drag_threshold_reached(&self, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> bool {
+        if !self.ui_drag_enabled.get() {
+            return false;
+        }
+        let dx = x1 - x2;
+        let dy = y1 - y2;
+        dx * dx + dy * dy > self.ui_drag_threshold_squared.get()
     }
 }
 

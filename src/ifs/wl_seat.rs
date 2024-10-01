@@ -776,11 +776,15 @@ impl WlSeatGlobal {
     }
 
     pub fn start_tile_drag(self: &Rc<Self>, tl: &Rc<dyn ToplevelNode>) {
-        self.pointer_owner.start_tile_drag(self, tl);
+        if self.state.ui_drag_enabled.get() {
+            self.pointer_owner.start_tile_drag(self, tl);
+        }
     }
 
     pub fn start_workspace_drag(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.pointer_owner.start_workspace_drag(self, ws);
+        if self.state.ui_drag_enabled.get() {
+            self.pointer_owner.start_workspace_drag(self, ws);
+        }
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {

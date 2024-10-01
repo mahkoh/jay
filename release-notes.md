@@ -1,5 +1,8 @@
 # Unreleased
 
+- Various bugfixes.
+- Tiles and workspaces can now be dragged with the mouse.
+
 # 1.6.0 (2024-09-25)
 
 - Various bugfixes.

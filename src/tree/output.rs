@@ -1341,10 +1341,10 @@ impl Node for OutputNode {
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(PointerType::Seat(seat.id()), x, y);
         if let Some((down_x, down_y)) = self.pointer_down.get(&seat.id()) {
-            const DRAG_DIST: i32 = 10;
-            let dx = x.round_down() - down_x;
-            let dy = y.round_down() - down_y;
-            if dx * dx + dy * dy > DRAG_DIST * DRAG_DIST {
+            if self
+                .state
+                .ui_drag_threshold_reached((x.round_down(), y.round_down()), (down_x, down_y))
+            {
                 let rd = self.render_data.borrow_mut();
                 for title in &rd.titles {
                     if down_x >= title.x1 && down_x < title.x2 {
