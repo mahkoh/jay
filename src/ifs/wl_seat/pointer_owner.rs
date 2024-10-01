@@ -15,8 +15,9 @@ use {
         },
         rect::Rect,
         tree::{
-            ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            PlaceholderNode, TddType, ToplevelNode, WorkspaceNode,
+            move_ws_to_output, ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase,
+            FoundNode, Node, PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination,
+            WorkspaceNode, WsMoveConfig,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -210,6 +211,10 @@ impl PointerOwnerHolder {
     pub fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
         self.owner.get().start_tile_drag(seat, tl);
     }
+
+    pub fn start_workspace_drag(&self, seat: &Rc<WlSeatGlobal>, ws: &Rc<WorkspaceNode>) {
+        self.owner.get().start_workspace_drag(seat, ws);
+    }
 }
 
 trait PointerOwner {
@@ -263,6 +268,11 @@ trait PointerOwner {
     fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
         let _ = seat;
         let _ = tl;
+    }
+
+    fn start_workspace_drag(&self, seat: &Rc<WlSeatGlobal>, ws: &Rc<WorkspaceNode>) {
+        let _ = seat;
+        let _ = ws;
     }
 }
 
@@ -477,6 +487,10 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     fn start_tile_drag(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
         self.usecase.start_tile_drag(self, seat, tl);
     }
+
+    fn start_workspace_drag(&self, seat: &Rc<WlSeatGlobal>, ws: &Rc<WorkspaceNode>) {
+        self.usecase.start_workspace_drag(self, seat, ws);
+    }
 }
 
 impl PointerOwner for DndPointerOwner {
@@ -646,6 +660,17 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         let _ = seat;
         let _ = tl;
     }
+
+    fn start_workspace_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
+        let _ = grab;
+        let _ = seat;
+        let _ = ws;
+    }
 }
 
 impl DefaultPointerUsecase {
@@ -758,6 +783,22 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
             seat,
             TileDragUsecase {
                 tl: tl.clone(),
+                destination: Default::default(),
+            },
+        );
+    }
+
+    fn start_workspace_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
+        self.start_ui_drag(
+            grab,
+            seat,
+            WorkspaceDragUsecase {
+                ws: ws.clone(),
                 destination: Default::default(),
             },
         );
@@ -1279,6 +1320,59 @@ impl UiDragUsecase for TileDragUsecase {
             Some(d) => {
                 self.destination.set(Some(d.ty));
                 Some(d.highlight)
+            }
+        }
+    }
+}
+
+struct WorkspaceDragUsecase {
+    ws: Rc<WorkspaceNode>,
+    destination: Cell<Option<WorkspaceDragDestination>>,
+}
+
+impl UiDragUsecase for WorkspaceDragUsecase {
+    fn node_seat_state(&self) -> &NodeSeatState {
+        self.ws.node_seat_state()
+    }
+
+    fn left_button_up(&self, _seat: &Rc<WlSeatGlobal>) {
+        let Some(dest) = self.destination.take() else {
+            return;
+        };
+        let ws = self.ws.clone();
+        let output = dest.output.clone();
+        if ws.is_dummy || output.is_dummy {
+            return;
+        }
+        let link = match &*ws.output_link.borrow() {
+            None => return,
+            Some(l) => l.to_ref(),
+        };
+        let config = WsMoveConfig {
+            make_visible_always: true,
+            make_visible_if_empty: true,
+            source_is_destroyed: false,
+            before: dest.before.clone(),
+        };
+        move_ws_to_output(&link, &output, config);
+        ws.desired_output.set(output.global.output_id.clone());
+    }
+
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rect> {
+        let (x, y) = seat.pointer_cursor.position();
+        let dest =
+            seat.state
+                .root
+                .workspace_drag_destination(self.ws.id, x.round_down(), y.round_down());
+        match dest {
+            None => {
+                self.destination.take();
+                None
+            }
+            Some(d) => {
+                let hl = d.highlight;
+                self.destination.set(Some(d));
+                Some(hl)
             }
         }
     }

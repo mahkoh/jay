@@ -558,6 +558,7 @@ fn create_dummy_output(state: &Rc<State>) {
         status: Default::default(),
         scroll: Default::default(),
         pointer_positions: Default::default(),
+        pointer_down: Default::default(),
         lock_surface: Default::default(),
         hardware_cursor: Default::default(),
         update_render_data_scheduled: Cell::new(false),

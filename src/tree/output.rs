@@ -33,7 +33,8 @@ use {
         text::TextTexture,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
-            NodeId, StackedNode, TddType, TileDragDestination, WorkspaceNode,
+            NodeId, StackedNode, TddType, TileDragDestination, WorkspaceDragDestination,
+            WorkspaceNode, WorkspaceNodeId,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -73,6 +74,7 @@ pub struct OutputNode {
     pub status: CloneCell<Rc<String>>,
     pub scroll: Scroller,
     pub pointer_positions: CopyHashMap<PointerType, (i32, i32)>,
+    pub pointer_down: CopyHashMap<SeatId, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub hardware_cursor_needs_render: Cell<bool>,
@@ -858,6 +860,9 @@ impl OutputNode {
             Some(p) => p,
             _ => return,
         };
+        if let PointerType::Seat(s) = id {
+            self.pointer_down.set(s, (x, y));
+        }
         let (x, y) = self.non_exclusive_rect_rel.get().translate(x, y);
         if y >= self.state.theme.sizes.title_height.get() {
             return;
@@ -1019,6 +1024,64 @@ impl OutputNode {
             });
         };
         c.tile_drag_destination(source, rect, x_abs, y_abs)
+    }
+
+    pub fn workspace_drag_destination(
+        self: &Rc<Self>,
+        source: WorkspaceNodeId,
+        x_abs: i32,
+        y_abs: i32,
+    ) -> Option<WorkspaceDragDestination> {
+        let rect = self.non_exclusive_rect.get();
+        if !rect.contains(x_abs, y_abs) {
+            return None;
+        }
+        let th = self.state.theme.sizes.title_height.get();
+        if y_abs - rect.y1() > th + 1 {
+            return None;
+        }
+        let rd = &*self.render_data.borrow();
+        let (x, _) = rect.translate(x_abs, y_abs);
+        let mut prev_is_source = false;
+        let mut prev_center = 0;
+        for t in &rd.titles {
+            if t.ws.id == source {
+                prev_is_source = true;
+                continue;
+            }
+            let center = (t.x1 + t.x2) / 2;
+            if x < center {
+                return if prev_is_source {
+                    None
+                } else {
+                    Some(WorkspaceDragDestination {
+                        highlight: Rect::new_sized(
+                            rect.x1() + prev_center,
+                            rect.y1(),
+                            center - prev_center,
+                            th,
+                        )?,
+                        output: self.clone(),
+                        before: Some(t.ws.clone()),
+                    })
+                };
+            }
+            prev_center = center;
+            prev_is_source = false;
+        }
+        if prev_is_source {
+            return None;
+        }
+        return Some(WorkspaceDragDestination {
+            highlight: Rect::new_sized(
+                rect.x1() + prev_center,
+                rect.y1(),
+                rect.x2() - prev_center,
+                th,
+            )?,
+            output: self.clone(),
+            before: None,
+        });
     }
 }
 
@@ -1214,7 +1277,11 @@ impl Node for OutputNode {
         state: KeyState,
         _serial: u32,
     ) {
-        if state != KeyState::Pressed || button != BTN_LEFT {
+        if button != BTN_LEFT {
+            return;
+        }
+        if state != KeyState::Pressed {
+            self.pointer_down.remove(&seat.id());
             return;
         }
         self.button(PointerType::Seat(seat.id()));
@@ -1258,6 +1325,10 @@ impl Node for OutputNode {
         self.state.tree_changed();
     }
 
+    fn node_on_leave(&self, seat: &WlSeatGlobal) {
+        self.pointer_down.remove(&seat.id());
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(PointerType::Seat(seat.id()), x, y);
     }
@@ -1269,6 +1340,22 @@ impl Node for OutputNode {
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(PointerType::Seat(seat.id()), x, y);
+        if let Some((down_x, down_y)) = self.pointer_down.get(&seat.id()) {
+            const DRAG_DIST: i32 = 10;
+            let dx = x.round_down() - down_x;
+            let dy = y.round_down() - down_y;
+            if dx * dx + dy * dy > DRAG_DIST * DRAG_DIST {
+                let rd = self.render_data.borrow_mut();
+                for title in &rd.titles {
+                    if down_x >= title.x1 && down_x < title.x2 {
+                        let ws = title.ws.clone();
+                        drop(rd);
+                        seat.start_workspace_drag(&ws);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, _time_usec: u64) {

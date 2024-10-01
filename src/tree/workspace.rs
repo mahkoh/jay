@@ -379,8 +379,10 @@ impl ContainingNode for WorkspaceNode {
 }
 
 pub struct WsMoveConfig {
+    pub make_visible_always: bool,
     pub make_visible_if_empty: bool,
     pub source_is_destroyed: bool,
+    pub before: Option<Rc<WorkspaceNode>>,
 }
 
 pub fn move_ws_to_output(
@@ -390,8 +392,19 @@ pub fn move_ws_to_output(
 ) {
     let source = ws.output.get();
     ws.set_output(&target);
-    target.workspaces.add_last_existing(&ws);
-    if config.make_visible_if_empty && target.workspace.is_none() && !target.is_dummy {
+    'link: {
+        if let Some(before) = config.before {
+            if let Some(link) = &*before.output_link.borrow() {
+                link.prepend_existing(ws);
+                break 'link;
+            }
+        }
+        target.workspaces.add_last_existing(&ws);
+    }
+    let make_visible = !target.is_dummy
+        && (config.make_visible_always
+            || (config.make_visible_if_empty && target.workspace.is_none()));
+    if make_visible {
         target.show_workspace(&ws);
     } else {
         ws.set_visible(false);
@@ -422,4 +435,10 @@ pub fn move_ws_to_output(
     if target.node_visible() {
         target.state.damage(target.global.pos.get());
     }
+}
+
+pub struct WorkspaceDragDestination {
+    pub highlight: Rect,
+    pub output: Rc<OutputNode>,
+    pub before: Option<Rc<WorkspaceNode>>,
 }

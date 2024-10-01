@@ -882,8 +882,10 @@ impl ConfigProxyHandler {
             Some(l) => l.to_ref(),
         };
         let config = WsMoveConfig {
+            make_visible_always: false,
             make_visible_if_empty: true,
             source_is_destroyed: false,
+            before: None,
         };
         move_ws_to_output(&link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());

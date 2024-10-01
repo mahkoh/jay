@@ -9,7 +9,8 @@ use {
         state::State,
         tree::{
             walker::NodeVisitor, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            OutputNode, StackedNode, TileDragDestination,
+            OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
+            WorkspaceNodeId,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
@@ -94,6 +95,21 @@ impl DisplayNode {
             let pos = output.node_absolute_position();
             if pos.contains(x, y) {
                 return output.tile_drag_destination(source, x, y);
+            }
+        }
+        None
+    }
+
+    pub fn workspace_drag_destination(
+        &self,
+        source: WorkspaceNodeId,
+        x: i32,
+        y: i32,
+    ) -> Option<WorkspaceDragDestination> {
+        for output in self.outputs.lock().values() {
+            let pos = output.node_absolute_position();
+            if pos.contains(x, y) {
+                return output.workspace_drag_destination(source, x, y);
             }
         }
         None
