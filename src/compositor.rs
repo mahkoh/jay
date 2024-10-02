@@ -234,7 +234,7 @@ fn start_compositor2(
         render_ctx_watchers: Default::default(),
         workspace_watchers: Default::default(),
         default_workspace_capture: Cell::new(true),
-        default_gfx_api: Cell::new(GfxApi::OpenGl),
+        default_gfx_api: Cell::new(GfxApi::Vulkan),
         activation_tokens: Default::default(),
         toplevel_lists: Default::default(),
         dma_buf_ids: Default::default(),
