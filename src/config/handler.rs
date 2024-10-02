@@ -759,6 +759,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_ui_drag_enabled(&self, enabled: bool) {
+        self.state.ui_drag_enabled.set(enabled);
+    }
+
+    fn handle_set_ui_drag_threshold(&self, threshold: i32) {
+        let threshold = threshold.max(1);
+        let squared = threshold.saturating_mul(threshold);
+        self.state.ui_drag_threshold_squared.set(squared);
+    }
+
     fn handle_set_direct_scanout_enabled(
         &self,
         device: Option<DrmDevice>,
@@ -882,8 +892,10 @@ impl ConfigProxyHandler {
             Some(l) => l.to_ref(),
         };
         let config = WsMoveConfig {
+            make_visible_always: false,
             make_visible_if_empty: true,
             source_is_destroyed: false,
+            before: None,
         };
         move_ws_to_output(&link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
@@ -1949,6 +1961,10 @@ impl ConfigProxyHandler {
             ClientMessage::SetFlipMargin { device, margin } => self
                 .handle_set_flip_margin(device, margin)
                 .wrn("set_flip_margin")?,
+            ClientMessage::SetUiDragEnabled { enabled } => self.handle_set_ui_drag_enabled(enabled),
+            ClientMessage::SetUiDragThreshold { threshold } => {
+                self.handle_set_ui_drag_threshold(threshold)
+            }
         }
         Ok(())
     }

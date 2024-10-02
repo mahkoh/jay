@@ -15,7 +15,7 @@ use {
         text::TextTexture,
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
-            FoundNode, Node, NodeId, StackedNode, ToplevelNode, WorkspaceNode,
+            FoundNode, Node, NodeId, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -527,6 +527,26 @@ impl FloatNode {
             let ws = cursor.output().ensure_workspace();
             self.set_workspace(&ws);
         }
+    }
+
+    pub fn tile_drag_destination(
+        self: &Rc<Self>,
+        source: NodeId,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination> {
+        let child = self.child.get()?;
+        let theme = &self.state.theme.sizes;
+        let bw = theme.border_width.get();
+        let th = theme.title_height.get();
+        let pos = self.position.get();
+        let body = Rect::new(
+            pos.x1() + bw,
+            pos.y1() + bw + th + 1,
+            pos.x2() - bw,
+            pos.y2() - bw,
+        )?;
+        child.tl_tile_drag_destination(source, None, body, abs_x, abs_y)
     }
 }
 

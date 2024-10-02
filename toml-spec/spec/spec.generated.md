@@ -1154,6 +1154,18 @@ The table has the following fields:
 
   The value of this field should be a [Libei](#types-Libei).
 
+- `ui-drag` (optional):
+
+  Configures the ui-drag settings.
+  
+  - Example:
+  
+    ```toml
+    ui-drag = { enabled = false, threshold = 20 }
+    ```
+
+  The value of this field should be a [UiDrag](#types-UiDrag).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2979,6 +2991,40 @@ The string should have one of the following values:
   The content of the output is flipped around the vertical axis and then rotated
   270 degrees counter clockwise.
 
+
+
+<a name="types-UiDrag"></a>
+### `UiDrag`
+
+Describes ui-drag settings.
+
+- Example:
+
+  ```toml
+  ui-drag = { enabled = false, threshold = 20 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `enabled` (optional):
+
+  Enables or disables dragging of tiles and workspaces.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
+- `threshold` (optional):
+
+  Sets the distance at which ui dragging starts.
+  
+  The default is `10`.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
 
 
 <a name="types-Vrr"></a>

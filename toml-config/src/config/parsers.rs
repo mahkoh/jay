@@ -32,6 +32,7 @@ pub mod shortcuts;
 mod status;
 mod tearing;
 mod theme;
+mod ui_drag;
 mod vrr;
 
 #[derive(Debug, Error)]

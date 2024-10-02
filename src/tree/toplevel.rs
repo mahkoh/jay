@@ -11,7 +11,10 @@ use {
         },
         rect::Rect,
         state::State,
-        tree::{ContainingNode, Direction, Node, OutputNode, PlaceholderNode, WorkspaceNode},
+        tree::{
+            ContainerNode, ContainerSplit, ContainingNode, Direction, Node, NodeId, OutputNode,
+            PlaceholderNode, WorkspaceNode,
+        },
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -202,6 +205,20 @@ pub trait ToplevelNodeBase: Node {
     }
 
     fn tl_admits_children(&self) -> bool;
+
+    fn tl_tile_drag_destination(
+        self: Rc<Self>,
+        source: NodeId,
+        split: Option<ContainerSplit>,
+        abs_bounds: Rect,
+        abs_x: i32,
+        abs_y: i32,
+    ) -> Option<TileDragDestination>;
+
+    fn tl_tile_drag_bounds(&self, split: ContainerSplit, start: bool) -> i32 {
+        let _ = start;
+        default_tile_drag_bounds(self, split)
+    }
 }
 
 pub struct FullscreenedData {
@@ -530,5 +547,44 @@ impl ToplevelData {
             None => self.state.dummy_output.get().unwrap(),
             Some(ws) => ws.output.get(),
         }
+    }
+}
+
+pub struct TileDragDestination {
+    pub highlight: Rect,
+    pub ty: TddType,
+}
+
+pub enum TddType {
+    Replace(Rc<dyn ToplevelNode>),
+    Split {
+        node: Rc<dyn ToplevelNode>,
+        split: ContainerSplit,
+        before: bool,
+    },
+    Insert {
+        container: Rc<ContainerNode>,
+        neighbor: Rc<dyn ToplevelNode>,
+        before: bool,
+    },
+    NewWorkspace {
+        output: Rc<OutputNode>,
+    },
+    NewContainer {
+        workspace: Rc<WorkspaceNode>,
+    },
+    MoveToWorkspace {
+        workspace: Rc<WorkspaceNode>,
+    },
+    MoveToNewWorkspace {
+        output: Rc<OutputNode>,
+    },
+}
+
+pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
+    const FACTOR: i32 = 5;
+    match split {
+        ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
+        ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
     }
 }

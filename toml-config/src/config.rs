@@ -154,6 +154,12 @@ pub struct Status {
     pub separator: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct UiDrag {
+    pub enabled: Option<bool>,
+    pub threshold: Option<i32>,
+}
+
 #[derive(Debug, Clone)]
 pub enum OutputMatch {
     Any(Vec<OutputMatch>),
@@ -342,6 +348,7 @@ pub struct Config {
     pub vrr: Option<Vrr>,
     pub tearing: Option<Tearing>,
     pub libei: Libei,
+    pub ui_drag: UiDrag,
 }
 
 #[derive(Debug, Error)]

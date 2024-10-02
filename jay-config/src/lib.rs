@@ -234,3 +234,17 @@ pub fn set_idle(timeout: Option<Duration>) {
 pub fn set_explicit_sync_enabled(enabled: bool) {
     get!().set_explicit_sync_enabled(enabled);
 }
+
+/// Enables or disables dragging of tiles and workspaces.
+///
+/// The default is `true`.
+pub fn set_ui_drag_enabled(enabled: bool) {
+    get!().set_ui_drag_enabled(enabled);
+}
+
+/// Sets the distance at which ui dragging starts.
+///
+/// The default is `10`.
+pub fn set_ui_drag_threshold(threshold: i32) {
+    get!().set_ui_drag_threshold(threshold);
+}

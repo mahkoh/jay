@@ -25,10 +25,11 @@ use {
                 status::StatusParser,
                 tearing::TearingParser,
                 theme::ThemeParser,
+                ui_drag::UiDragParser,
                 vrr::VrrParser,
             },
             spanned::SpannedErrorExt,
-            Action, Config, Libei, Theme,
+            Action, Config, Libei, Theme, UiDrag,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},
@@ -112,6 +113,7 @@ impl Parser for ConfigParser<'_> {
                 vrr_val,
                 tearing_val,
                 libei_val,
+                ui_drag_val,
             ),
         ) = ext.extract((
             (
@@ -147,6 +149,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("vrr")),
                 opt(val("tearing")),
                 opt(val("libei")),
+                opt(val("ui-drag")),
             ),
         ))?;
         let mut keymap = None;
@@ -338,6 +341,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut ui_drag = UiDrag::default();
+        if let Some(value) = ui_drag_val {
+            match value.parse(&mut UiDragParser(self.0)) {
+                Ok(v) => ui_drag = v,
+                Err(e) => {
+                    log::warn!("Could not parse ui-drag setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -365,6 +377,7 @@ impl Parser for ConfigParser<'_> {
             vrr,
             tearing,
             libei,
+            ui_drag,
         })
     }
 }

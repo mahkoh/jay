@@ -170,6 +170,7 @@ impl ConnectorHandler {
             status: self.state.status.clone(),
             scroll: Default::default(),
             pointer_positions: Default::default(),
+            pointer_down: Default::default(),
             lock_surface: Default::default(),
             hardware_cursor: Default::default(),
             jay_outputs: Default::default(),
@@ -231,8 +232,10 @@ impl ConnectorHandler {
                 && ws.desired_output.get() == output_id)
                 || ws_to_move.is_empty();
             let config = WsMoveConfig {
+                make_visible_always: false,
                 make_visible_if_empty: make_visible,
                 source_is_destroyed: false,
+                before: None,
             };
             move_ws_to_output(&ws, &on, config);
         }
@@ -304,8 +307,10 @@ impl ConnectorHandler {
                 ws.visible_on_desired_output.set(ws.visible.get());
             }
             let config = WsMoveConfig {
+                make_visible_always: false,
                 make_visible_if_empty: ws.visible.get(),
                 source_is_destroyed: true,
+                before: None,
             };
             move_ws_to_output(&ws, &target, config);
         }

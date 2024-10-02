@@ -2264,6 +2264,17 @@ Config:
           ```toml
           libei.enable-socket = true
           ```
+    ui-drag:
+      ref: UiDrag
+      required: false
+      description: |
+        Configures the ui-drag settings.
+        
+        - Example:
+        
+          ```toml
+          ui-drag = { enabled = false, threshold = 20 }
+          ```
 
 
 Idle:
@@ -2588,3 +2599,31 @@ Format:
       description: ""
     - value: xbgr16161616f
       description: ""
+
+
+UiDrag:
+  kind: table
+  description: |
+    Describes ui-drag settings.
+    
+    - Example:
+    
+      ```toml
+      ui-drag = { enabled = false, threshold = 20 }
+      ```
+  fields:
+    enabled:
+      kind: boolean
+      required: false
+      description: |
+        Enables or disables dragging of tiles and workspaces.
+        
+        The default is `true`.
+    threshold:
+      kind: number
+      integer_only: true
+      required: false
+      description: |
+        Sets the distance at which ui dragging starts.
+       
+        The default is `10`.

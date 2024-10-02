@@ -748,6 +748,14 @@ impl Client {
         self.send(&ClientMessage::SetFlipMargin { device, margin });
     }
 
+    pub fn set_ui_drag_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetUiDragEnabled { enabled });
+    }
+
+    pub fn set_ui_drag_threshold(&self, threshold: i32) {
+        self.send(&ClientMessage::SetUiDragThreshold { threshold });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

@@ -64,6 +64,7 @@ pub struct NodeSeatState {
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
+    ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
 impl NodeSeatState {
@@ -99,6 +100,14 @@ impl NodeSeatState {
 
     pub(super) fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
         self.pointer_grabs.remove(&seat.id);
+    }
+
+    pub(super) fn add_ui_drag(&self, seat: &Rc<WlSeatGlobal>) {
+        self.ui_drags.insert(seat.id, seat.clone());
+    }
+
+    pub(super) fn remove_ui_drag(&self, seat: &WlSeatGlobal) {
+        self.ui_drags.remove(&seat.id);
     }
 
     pub(super) fn add_tablet_pad_focus(&self, pad: &Rc<TabletPad>) {
@@ -175,6 +184,9 @@ impl NodeSeatState {
         }
         while let Some((_, seat)) = self.pointer_grabs.pop() {
             seat.pointer_owner.grab_node_removed(&seat);
+        }
+        while let Some((_, seat)) = self.ui_drags.pop() {
+            seat.pointer_owner.revert_to_default(&seat);
         }
         let node_id = node.node_id();
         while let Some((_, seat)) = self.dnd_targets.pop() {
@@ -1100,8 +1112,11 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn trigger_tree_changed(&self) {
+    pub fn trigger_tree_changed(&self, needs_layout: bool) {
         // log::info!("trigger_tree_changed");
+        if needs_layout {
+            self.tree_changed_needs_layout.set(true);
+        }
         self.tree_changed.trigger();
     }
 
