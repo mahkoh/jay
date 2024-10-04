@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.6.1 (2024-10-04)
+
 - Emulate vblank events on the nvidia driver.
 
 # 1.6.0 (2024-09-25)
