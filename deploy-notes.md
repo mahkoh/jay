@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.6.1
+
+- Needs jay-compositor release.
+
 # 1.6.0
 
 - Needs jay-algorithms release.
