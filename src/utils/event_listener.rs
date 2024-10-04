@@ -30,6 +30,14 @@ impl<T: ?Sized> EventSource<T> {
             iter: self.listeners.iter(),
         }
     }
+
+    pub fn has_listeners(&self) -> bool {
+        self.listeners.is_not_empty()
+    }
+
+    pub fn on_attach(&self, f: Box<dyn FnOnce()>) {
+        self.on_attach.set(Some(f));
+    }
 }
 
 pub struct EventSourceIter<T: ?Sized> {

@@ -740,8 +740,19 @@ impl MetalConnector {
 
     fn queue_sequence(&self) {
         if let Some(crtc) = self.crtc.get() {
+            if crtc.needs_vblank_emulation.get() {
+                return;
+            }
             if let Err(e) = self.master.queue_sequence(crtc.id) {
-                log::error!("Could not queue a CRTC sequence: {}", ErrorFmt(e));
+                log::error!("Could not queue a CRTC sequence: {}", ErrorFmt(&e));
+                if let DrmError::QueueSequence(OsError(c::EOPNOTSUPP)) = e {
+                    if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
+                        log::warn!("{}: Switching to vblank emulation", self.kernel_id());
+                        crtc.needs_vblank_emulation.set(true);
+                        node.global.connector.needs_vblank_emulation.set(true);
+                        node.vblank();
+                    }
+                }
             } else {
                 crtc.have_queued_sequence.set(true);
             }
@@ -944,6 +955,7 @@ pub struct MetalCrtc {
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
     pub have_queued_sequence: Cell<bool>,
+    pub needs_vblank_emulation: Cell<bool>,
 }
 
 impl Debug for MetalCrtc {
@@ -1291,6 +1303,7 @@ fn create_crtc(
         vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
         mode_blob: Default::default(),
         have_queued_sequence: Cell::new(false),
+        needs_vblank_emulation: Cell::new(false),
     })
 }
 
@@ -1955,6 +1968,10 @@ impl MetalBackend {
             connector.queue_sequence();
         }
         self.update_u32_sequence(&connector, sequence);
+        let time_ns = tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000;
+        if crtc.needs_vblank_emulation.get() {
+            self.handle_drm_sequence_event(dev, crtc_id, time_ns as _, connector.sequence.get());
+        }
         connector.can_present.set(true);
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
@@ -1976,9 +1993,7 @@ impl MetalBackend {
         {
             connector.schedule_present();
         }
-        connector
-            .next_flip_nsec
-            .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
+        connector.next_flip_nsec.set(time_ns + dd.refresh as u64);
         {
             let mut flags = KIND_HW_COMPLETION;
             if connector.presentation_is_sync.get() {
