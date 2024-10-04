@@ -521,6 +521,7 @@ fn create_dummy_output(state: &Rc<State>) {
         drm_dev: None,
         async_event: Default::default(),
         damaged: Cell::new(false),
+        needs_vblank_emulation: Cell::new(false),
     });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,

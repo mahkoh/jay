@@ -141,6 +141,16 @@ impl OutputNode {
         for listener in self.vblank_event.iter() {
             listener.after_vblank();
         }
+        if self.global.connector.needs_vblank_emulation.get() {
+            if self.vblank_event.has_listeners() {
+                self.global.connector.damage();
+            } else {
+                let connector = self.global.connector.clone();
+                self.vblank_event.on_attach(Box::new(move || {
+                    connector.damage();
+                }));
+            }
+        }
     }
 
     pub fn presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {

@@ -305,6 +305,7 @@ pub struct ConnectorData {
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
     pub damaged: Cell<bool>,
+    pub needs_vblank_emulation: Cell<bool>,
 }
 
 pub struct OutputData {
