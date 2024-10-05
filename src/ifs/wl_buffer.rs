@@ -175,6 +175,7 @@ impl WlBuffer {
             WlBufferStorage::Shm { .. } => {
                 return match surface {
                     Some(s) => {
+                        s.shm_staging.take();
                         s.shm_textures.back().tex.take();
                         s.shm_textures.front().tex.take().is_some()
                     }

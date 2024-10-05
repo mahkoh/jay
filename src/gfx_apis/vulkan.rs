@@ -23,7 +23,8 @@ use {
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            ResetStatus, ShmGfxTexture,
+            GfxStagingBuffer, ResetStatus, ShmGfxTexture, StagingBufferUsecase, STAGING_DOWNLOAD,
+            STAGING_UPLOAD,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -203,6 +204,10 @@ pub enum VulkanError {
     AsyncCopyToStaging(#[source] ReadWriteJobError),
     #[error("The async shm texture is busy")]
     AsyncCopyBusy,
+    #[error("The staging buffer is busy")]
+    StagingBufferBusy,
+    #[error("The staging buffer does not support uploads")]
+    StagingBufferNoUpload,
 }
 
 impl From<VulkanError> for GfxError {
@@ -329,6 +334,18 @@ impl GfxContext for Context {
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
         Some(&self.0.device.sync_ctx)
+    }
+
+    fn create_staging_buffer(
+        &self,
+        size: usize,
+        usecase: StagingBufferUsecase,
+    ) -> Rc<dyn GfxStagingBuffer> {
+        let upload = usecase.contains(STAGING_UPLOAD);
+        let download = usecase.contains(STAGING_DOWNLOAD);
+        self.0
+            .device
+            .create_staging_shell(size as u64, upload, download)
     }
 }
 

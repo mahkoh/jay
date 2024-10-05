@@ -2,8 +2,8 @@ use {
     crate::{
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxTexture, PendingShmUpload,
-            ShmGfxTexture, ShmMemory,
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxStagingBuffer, GfxTexture,
+            PendingShmUpload, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::gl::{
             gl::texture::GlTexture,
@@ -100,6 +100,7 @@ impl ShmGfxTexture for Texture {
 impl AsyncShmGfxTexture for Texture {
     fn async_upload(
         self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         _damage: Region,

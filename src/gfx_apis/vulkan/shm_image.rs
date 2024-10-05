@@ -17,7 +17,7 @@ use {
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::{image_barrier, VulkanRenderer},
-            staging::VulkanStagingBuffer,
+            staging::{VulkanStagingBuffer, VulkanStagingShell},
             VulkanError,
         },
         rect::{Rect, Region},
@@ -55,7 +55,7 @@ pub struct VulkanShmImageAsyncData {
     pub(super) busy: Cell<bool>,
     pub(super) io_job: Cell<Option<Box<IoUploadJob>>>,
     pub(super) copy_job: Cell<Option<Box<CopyUploadJob>>>,
-    pub(super) staging: CloneCell<Option<Rc<VulkanStagingBuffer>>>,
+    pub(super) staging: CloneCell<Option<Rc<VulkanStagingShell>>>,
     pub(super) callback: Cell<Option<Rc<dyn AsyncShmGfxTextureCallback>>>,
     pub(super) callback_id: Cell<u64>,
     pub(super) regions: RefCell<Vec<BufferImageCopy2<'static>>>,
@@ -320,6 +320,7 @@ async fn await_upload(
 impl VulkanShmImageAsyncData {
     fn complete(&self, result: Result<(), VulkanError>) {
         self.busy.set(false);
+        self.staging.take().unwrap().busy.set(false);
         if let Some(cb) = self.callback.take() {
             cb.completed(result.map_err(|e| e.into()));
         }
@@ -330,12 +331,13 @@ impl VulkanShmImage {
     pub fn async_upload(
         &self,
         img: &Rc<VulkanImage>,
+        staging: Rc<VulkanStagingShell>,
         client_mem: &Rc<dyn ShmMemory>,
         damage: Region,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
     ) -> Result<Option<PendingShmUpload>, VulkanError> {
         let data = self.async_data.as_ref().unwrap();
-        let res = self.try_async_upload(img, data, client_mem, damage);
+        let res = self.try_async_upload(img, staging, data, client_mem, damage);
         match res {
             Ok(()) => {
                 let id = img.renderer.allocate_point();
@@ -350,6 +352,7 @@ impl VulkanShmImage {
     fn try_async_upload(
         &self,
         img: &Rc<VulkanImage>,
+        staging: Rc<VulkanStagingShell>,
         data: &VulkanShmImageAsyncData,
         client_mem: &Rc<dyn ShmMemory>,
         mut damage: Region,
@@ -357,11 +360,19 @@ impl VulkanShmImage {
         if data.busy.get() {
             return Err(VulkanError::AsyncCopyBusy);
         }
+        if staging.busy.get() {
+            return Err(VulkanError::StagingBufferBusy);
+        }
+        if !staging.upload {
+            return Err(VulkanError::StagingBufferNoUpload);
+        }
         if self.size > client_mem.len() as u64 {
             return Err(VulkanError::InvalidBufferSize);
         }
         data.busy.set(true);
         data.data_copied.set(false);
+        staging.busy.set(true);
+        data.staging.set(Some(staging.clone()));
         if img.contents_are_undefined.get() {
             damage = Region::new2(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
         }
@@ -416,27 +427,22 @@ impl VulkanShmImage {
 
         self.async_release_from_gfx_queue(img, data)?;
 
-        if let Some(staging) = data.staging.get() {
+        if let Some(staging) = staging.staging.get() {
             return self.async_upload_initiate_copy(img, data, &staging, copies, client_mem);
         }
 
         let img2 = img.clone();
         let client_mem = client_mem.clone();
-        img.renderer.device.create_shm_staging(
-            &img.renderer,
-            &data.cpu,
-            self.size,
-            true,
-            false,
-            move |res| {
+        img.renderer
+            .device
+            .fill_staging_shell(&img.renderer, &data.cpu, staging, move |res| {
                 let VulkanImageMemory::Internal(shm) = &img2.ty else {
                     unreachable!();
                 };
                 if let Err(e) = shm.async_upload_after_allocation(&img2, &client_mem, res) {
                     shm.async_data.as_ref().unwrap().complete(Err(e));
                 }
-            },
-        )
+            })
     }
 
     fn async_release_from_gfx_queue(
@@ -532,11 +538,10 @@ impl VulkanShmImage {
         &self,
         img: &Rc<VulkanImage>,
         client_mem: &Rc<dyn ShmMemory>,
-        res: Result<VulkanStagingBuffer, VulkanError>,
+        res: Result<Rc<VulkanStagingBuffer>, VulkanError>,
     ) -> Result<(), VulkanError> {
-        let staging = Rc::new(res?);
+        let staging = res?;
         let data = self.async_data.as_ref().unwrap();
-        data.staging.set(Some(staging.clone()));
         let copies = &*data.regions.borrow();
         self.async_upload_initiate_copy(img, data, &staging, copies, client_mem)
     }
@@ -637,7 +642,7 @@ impl VulkanShmImage {
         }
         img.renderer.check_defunct()?;
         let regions = &*data.regions.borrow();
-        let staging = data.staging.get().unwrap();
+        let staging = data.staging.get().unwrap().staging.get().unwrap();
         staging.upload(|_, _| ())?;
         let Some((cmd, fence, sync_file, point)) =
             self.submit_buffer_to_image_copy(img, &staging, regions, true)?

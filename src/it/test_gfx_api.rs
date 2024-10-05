@@ -6,8 +6,8 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync, ResetStatus,
-            ShmGfxTexture, ShmMemory, SyncFile,
+            GfxStagingBuffer, GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync,
+            ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -335,6 +335,7 @@ impl ShmGfxTexture for TestGfxImage {
 impl AsyncShmGfxTexture for TestGfxImage {
     fn async_upload(
         self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         _damage: Region,

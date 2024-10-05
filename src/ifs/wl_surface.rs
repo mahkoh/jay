@@ -23,8 +23,8 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, ReleaseSync, SampleRect,
-            SyncFile,
+            AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, GfxStagingBuffer,
+            ReleaseSync, SampleRect, SyncFile,
         },
         ifs::{
             wl_buffer::WlBuffer,
@@ -276,6 +276,7 @@ pub struct WlSurface {
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
+    pub shm_staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
@@ -593,6 +594,7 @@ impl WlSurface {
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
             buffer: Default::default(),
+            shm_staging: Default::default(),
             shm_textures: DoubleBuffered::new(DamageQueue::new().map(|damage| SurfaceShmTexture {
                 tex: Default::default(),
                 damage,
@@ -1327,6 +1329,7 @@ impl WlSurface {
     }
 
     pub fn reset_shm_textures(&self) {
+        self.shm_staging.take();
         for tex in &*self.shm_textures {
             tex.tex.take();
             tex.damage.clear();
