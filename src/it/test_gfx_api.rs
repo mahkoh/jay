@@ -214,44 +214,17 @@ struct TestDmaBufGfxImage {
 }
 
 impl TestGfxImage {
-    fn read_pixels(
-        &self,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        assert!(x >= 0);
-        assert!(y >= 0);
-        assert!(width >= 0);
-        assert!(height >= 0);
-        assert!(stride >= 0);
-        assert!(x + width <= self.width());
-        assert!(y + height <= self.height());
-        assert!(stride >= width * 4);
-        let size = (stride * height) as usize;
-        assert!(shm.len() >= size);
-        let copy = |src_stride: i32, src_format: &Format, mut src: *const u8, mut dst: *mut u8| unsafe {
-            src = src.add((y * src_stride + x * 4) as usize);
-            for _ in 0..height {
-                ptr::copy_nonoverlapping(src, dst, (width * 4) as usize);
-                if !src_format.has_alpha && format.has_alpha {
-                    for i in 0..width {
-                        *dst.add((i * 4 + 3) as usize) = 255;
-                    }
-                }
-                src = src.add(src_stride as usize);
-                dst = dst.add(stride as usize);
-            }
+    fn read_pixels(&self, shm: &[Cell<u8>]) -> Result<(), GfxError> {
+        let copy = |height: i32, stride: i32, src: *const u8, dst: *mut u8| unsafe {
+            let size = (height * stride) as usize;
+            assert!(shm.len() >= size);
+            ptr::copy_nonoverlapping(src, dst, size);
         };
         match self {
             TestGfxImage::Shm(s) => {
                 copy(
+                    s.height,
                     s.stride,
-                    s.format,
                     s.data.borrow().as_ptr(),
                     shm.as_ptr() as _,
                 );
@@ -260,8 +233,8 @@ impl TestGfxImage {
                 let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                 unsafe {
                     copy(
+                        d.buf.height,
                         map.stride(),
-                        d.buf.format,
                         map.data().as_ptr(),
                         shm.as_ptr() as _,
                     );
@@ -575,19 +548,8 @@ impl GfxFramebuffer for TestGfxFb {
         Ok(None)
     }
 
-    fn copy_to_shm(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.img
-            .deref()
-            .read_pixels(x, y, width, height, stride, format, shm)
+    fn copy_to_shm(self: Rc<Self>, shm: &[Cell<u8>]) -> Result<(), GfxError> {
+        self.img.deref().read_pixels(shm)
     }
 
     fn format(&self) -> &'static Format {

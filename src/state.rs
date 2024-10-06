@@ -1045,17 +1045,7 @@ impl State {
             scale,
         )
         .map_err(ShmScreencopyError::CopyToTemporary)?;
-        let acc = mem.access(|mem| {
-            fb.copy_to_shm(
-                0,
-                0,
-                capture.rect.width(),
-                capture.rect.height(),
-                stride,
-                format,
-                mem,
-            )
-        });
+        let acc = mem.access(|mem| fb.copy_to_shm(mem));
         match acc {
             Ok(res) => res.map_err(ShmScreencopyError::ReadPixels),
             Err(e) => {

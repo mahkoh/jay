@@ -2,10 +2,10 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         cpu_worker::PendingJob,
-        format::{Format, XRGB8888},
+        format::XRGB8888,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
-            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxTexture,
+            GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
@@ -905,74 +905,20 @@ impl VulkanRenderer {
         frame.waiter.set(Some(future));
     }
 
-    pub fn read_pixels(
-        self: &Rc<Self>,
-        tex: &Rc<VulkanImage>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        dst: &[Cell<u8>],
-    ) -> Result<(), VulkanError> {
-        if x < 0 || y < 0 || width <= 0 || height <= 0 || stride <= 0 {
-            return Err(VulkanError::InvalidShmParameters {
-                x,
-                y,
-                width,
-                height,
-                stride,
-            });
-        }
-        let width = width as u32;
-        let height = height as u32;
-        let stride = stride as u32;
-        if x == 0 && y == 0 && width == tex.width && height == tex.height && format == tex.format {
-            return self.read_all_pixels(tex, stride, dst);
-        }
-        let tmp_tex = self.create_shm_texture(
-            format,
-            width as i32,
-            height as i32,
-            stride as i32,
-            &[],
-            true,
-            None,
-        )?;
-        (&*tmp_tex as &dyn GfxFramebuffer)
-            .copy_texture(
-                AcquireSync::None,
-                ReleaseSync::None,
-                &(tex.clone() as _),
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                x,
-                y,
-            )
-            .map_err(VulkanError::GfxError)?;
-        self.read_all_pixels(&tmp_tex, stride, dst)
-    }
-
-    fn read_all_pixels(
+    pub(super) fn read_all_pixels(
         self: &Rc<Self>,
         tex: &VulkanImage,
-        stride: u32,
         dst: &[Cell<u8>],
     ) -> Result<(), VulkanError> {
         let Some(shm_info) = &tex.format.shm_info else {
             return Err(VulkanError::UnsupportedShmFormat(tex.format.name));
         };
-        if stride < tex.width * shm_info.bpp || stride % shm_info.bpp != 0 {
-            return Err(VulkanError::InvalidStride);
-        }
-        let size = stride as u64 * tex.height as u64;
+        let size = tex.stride as u64 * tex.height as u64;
         if size != dst.len() as u64 {
             return Err(VulkanError::InvalidBufferSize);
         }
         let region = BufferImageCopy::default()
-            .buffer_row_length(stride / shm_info.bpp)
+            .buffer_row_length(tex.stride / shm_info.bpp)
             .buffer_image_height(tex.height)
             .image_subresource(ImageSubresourceLayers {
                 aspect_mask: ImageAspectFlags::COLOR,

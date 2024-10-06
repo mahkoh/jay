@@ -510,18 +510,9 @@ impl GfxFramebuffer for VulkanImage {
             .map_err(|e| e.into())
     }
 
-    fn copy_to_shm(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
+    fn copy_to_shm(self: Rc<Self>, shm: &[Cell<u8>]) -> Result<(), GfxError> {
         self.renderer
-            .read_pixels(&self, x, y, width, height, stride, format, shm)
+            .read_all_pixels(&self, shm)
             .map_err(|e| e.into())
     }
 

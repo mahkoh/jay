@@ -173,16 +173,6 @@ pub enum VulkanError {
     InvalidStride,
     #[error("Shm stride and height do not match buffer size")]
     InvalidBufferSize,
-    #[error("The shm parameters are invalid x={x}, y={y}, width={width}, height={height}, stride={stride}")]
-    InvalidShmParameters {
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-    },
-    #[error(transparent)]
-    GfxError(GfxError),
     #[error("Buffer format {0} is not supported for shm buffers in Vulkan context")]
     UnsupportedShmFormat(&'static str),
     #[error("Only BO_USE_RENDERING and BO_USE_WRITE are supported")]
