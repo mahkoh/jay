@@ -6,7 +6,7 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxStagingBuffer, GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync,
+            GfxStagingBuffer, GfxTexture, GfxWriteModifier, PendingShmTransfer, ReleaseSync,
             ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
@@ -339,7 +339,7 @@ impl AsyncShmGfxTexture for TestGfxImage {
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         _damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError> {
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
         let mut res = Ok(());
         mem.access(&mut |d| {
             res = self.clone().sync_upload(d, Region::default());

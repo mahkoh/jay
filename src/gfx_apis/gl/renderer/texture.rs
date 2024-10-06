@@ -3,7 +3,7 @@ use {
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxStagingBuffer, GfxTexture,
-            PendingShmUpload, ShmGfxTexture, ShmMemory,
+            PendingShmTransfer, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::gl::{
             gl::texture::GlTexture,
@@ -104,7 +104,7 @@ impl AsyncShmGfxTexture for Texture {
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         _damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError> {
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
         let mut res = Ok(());
         mem.access(&mut |data| {
             res = self.clone().sync_upload(data, Region::default());

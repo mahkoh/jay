@@ -4,7 +4,7 @@ use {
         format::ARGB8888,
         gfx_api::{
             AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxContext, GfxError, GfxStagingBuffer,
-            GfxTexture, PendingShmUpload, STAGING_UPLOAD,
+            GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
         },
         pango::{
             consts::{
@@ -305,7 +305,7 @@ struct Shared {
     staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     textures: DoubleBuffered<TextBuffer>,
     pending_render: Cell<Option<PendingJob>>,
-    pending_upload: Cell<Option<PendingShmUpload>>,
+    pending_upload: Cell<Option<PendingShmTransfer>>,
     render_job: Cell<Option<Box<RenderJob>>>,
     result: Cell<Option<Result<(), TextError>>>,
     waiter: Cell<Option<Rc<dyn OnCompleted>>>,

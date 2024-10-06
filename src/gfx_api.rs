@@ -514,12 +514,12 @@ pub trait GfxStagingBuffer {
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 }
 
-pub trait AsyncShmGfxTextureUploadCancellable {
+pub trait AsyncShmGfxTextureTransferCancellable {
     fn cancel(&self, id: u64);
 }
 
-pub struct PendingShmUpload {
-    cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>,
+pub struct PendingShmTransfer {
+    cancel: Rc<dyn AsyncShmGfxTextureTransferCancellable>,
     id: u64,
 }
 
@@ -560,7 +560,7 @@ pub trait AsyncShmGfxTexture: GfxTexture {
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError>;
+    ) -> Result<Option<PendingShmTransfer>, GfxError>;
 
     fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
 
@@ -706,13 +706,13 @@ pub fn cross_intersect_formats(
     res
 }
 
-impl PendingShmUpload {
-    pub fn new(cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>, id: u64) -> Self {
+impl PendingShmTransfer {
+    pub fn new(cancel: Rc<dyn AsyncShmGfxTextureTransferCancellable>, id: u64) -> Self {
         Self { cancel, id }
     }
 }
 
-impl Drop for PendingShmUpload {
+impl Drop for PendingShmTransfer {
     fn drop(&mut self) {
         self.cancel.cancel(self.id);
     }

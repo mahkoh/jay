@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmUpload, STAGING_UPLOAD},
+        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer, STAGING_UPLOAD},
         ifs::{
             wl_buffer::WlBufferStorage,
             wl_surface::{PendingState, WlSurface, WlSurfaceError},
@@ -310,7 +310,7 @@ enum EntryKind {
 enum ShmUploadState {
     None,
     Todo(Rc<NodeRef<Entry>>),
-    Scheduled(#[expect(dead_code)] SmallVec<[PendingShmUpload; 1]>),
+    Scheduled(#[expect(dead_code)] SmallVec<[PendingShmTransfer; 1]>),
 }
 
 struct Commit {
@@ -395,7 +395,7 @@ fn schedule_async_uploads(
     node_ref: &Rc<NodeRef<Entry>>,
     surface: &WlSurface,
     pending: &PendingState,
-    uploads: &mut SmallVec<[PendingShmUpload; 1]>,
+    uploads: &mut SmallVec<[PendingShmTransfer; 1]>,
 ) -> Result<(), WlSurfaceError> {
     if let Some(pending) = schedule_async_upload(node_ref, surface, pending)? {
         uploads.push(pending);
@@ -412,7 +412,7 @@ fn schedule_async_upload(
     node_ref: &Rc<NodeRef<Entry>>,
     surface: &WlSurface,
     pending: &PendingState,
-) -> Result<Option<PendingShmUpload>, WlSurfaceError> {
+) -> Result<Option<PendingShmTransfer>, WlSurfaceError> {
     let Some(Some(buf)) = &pending.buffer else {
         return Ok(None);
     };

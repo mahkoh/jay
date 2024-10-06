@@ -209,6 +209,10 @@ pub enum VulkanError {
     StagingBufferBusy,
     #[error("The staging buffer does not support uploads")]
     StagingBufferNoUpload,
+    #[error("The staging buffer does not support downloads")]
+    StagingBufferNoDownload,
+    #[error("Image contents are undefined")]
+    UndefinedContents,
 }
 
 impl From<VulkanError> for GfxError {

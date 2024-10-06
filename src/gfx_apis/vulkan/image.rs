@@ -3,13 +3,14 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureUploadCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
-            GfxStagingBuffer, GfxTexture, PendingShmUpload, ReleaseSync, ShmGfxTexture, ShmMemory,
-            SyncFile,
+            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
+            GfxStagingBuffer, GfxTexture, PendingShmTransfer, ReleaseSync, ShmGfxTexture,
+            ShmMemory, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
-            renderer::VulkanRenderer, shm_image::VulkanShmImage, VulkanError,
+            renderer::VulkanRenderer, shm_image::VulkanShmImage, transfer::TransferType,
+            VulkanError,
         },
         rect::Region,
         theme::Color,
@@ -589,12 +590,13 @@ impl AsyncShmGfxTexture for VulkanImage {
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError> {
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
         let VulkanImageMemory::Internal(shm) = &self.ty else {
             unreachable!();
         };
         let staging = staging.clone().into_vk(&self.renderer.device.device);
-        let pending = shm.async_upload(&self, staging, &mem, damage, callback)?;
+        let pending =
+            shm.async_transfer(&self, staging, &mem, damage, callback, TransferType::Upload)?;
         Ok(pending)
     }
 
@@ -627,7 +629,7 @@ impl AsyncShmGfxTexture for VulkanImage {
     }
 }
 
-impl AsyncShmGfxTextureUploadCancellable for VulkanImage {
+impl AsyncShmGfxTextureTransferCancellable for VulkanImage {
     fn cancel(&self, id: u64) {
         let VulkanImageMemory::Internal(shm) = &self.ty else {
             unreachable!();
