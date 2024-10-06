@@ -14,6 +14,7 @@ mod semaphore;
 mod shaders;
 mod shm_image;
 mod staging;
+mod transfer;
 
 use {
     crate::{
