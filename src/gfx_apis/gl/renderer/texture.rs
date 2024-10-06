@@ -7,7 +7,7 @@ use {
         },
         gfx_apis::gl::{
             gl::texture::GlTexture,
-            renderer::{context::GlRenderContext, framebuffer::Framebuffer},
+            renderer::context::GlRenderContext,
             sys::{
                 GLint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
                 GL_UNPACK_ROW_LENGTH_EXT,
@@ -45,13 +45,6 @@ impl Texture {
     pub fn height(&self) -> i32 {
         self.gl.height
     }
-
-    pub fn to_framebuffer(&self) -> Result<Rc<Framebuffer>, RenderError> {
-        match &self.gl.img {
-            Some(img) => self.ctx.image_to_fb(img),
-            _ => Err(RenderError::ShmTextureToFb),
-        }
-    }
 }
 
 impl GfxTexture for Texture {
@@ -65,21 +58,6 @@ impl GfxTexture for Texture {
 
     fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
         self
-    }
-
-    fn read_pixels(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        _stride: i32,
-        format: &Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.to_framebuffer()?
-            .copy_to_shm(x, y, width, height, format, shm)
-            .map_err(|e| e.into())
     }
 
     fn dmabuf(&self) -> Option<&DmaBuf> {

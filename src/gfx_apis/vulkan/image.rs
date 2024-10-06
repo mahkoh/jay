@@ -543,21 +543,6 @@ impl GfxTexture for VulkanImage {
         self
     }
 
-    fn read_pixels(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.renderer
-            .read_pixels(&self, x, y, width, height, stride, format, shm)
-            .map_err(|e| e.into())
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         match &self.ty {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),

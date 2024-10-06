@@ -300,20 +300,6 @@ impl GfxTexture for TestGfxImage {
         self
     }
 
-    fn read_pixels(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.deref()
-            .read_pixels(x, y, width, height, stride, format, shm)
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         match self {
             TestGfxImage::Shm(_) => None,
