@@ -6,8 +6,8 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxStagingBuffer, GfxTexture, GfxWriteModifier, PendingShmTransfer, ReleaseSync,
-            ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
+            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, GfxWriteModifier,
+            PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -165,13 +165,14 @@ impl GfxContext for TestGfxCtx {
         GfxApi::OpenGl
     }
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        _cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
         assert!(stride >= width * 4);
         Ok(Rc::new(TestGfxFb {
             img: Rc::new(TestGfxImage::Shm(TestShmGfxImage {
@@ -548,12 +549,31 @@ impl GfxFramebuffer for TestGfxFb {
         Ok(None)
     }
 
-    fn copy_to_shm(self: Rc<Self>, shm: &[Cell<u8>]) -> Result<(), GfxError> {
-        self.img.deref().read_pixels(shm)
-    }
-
     fn format(&self) -> &'static Format {
         &ARGB8888
+    }
+}
+
+impl GfxInternalFramebuffer for TestGfxFb {
+    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
+        self
+    }
+
+    fn staging_size(&self) -> usize {
+        0
+    }
+
+    fn download(
+        self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: Rc<dyn ShmMemory>,
+        _damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        let mut res = Ok(());
+        mem.access(&mut |mem| res = self.img.deref().read_pixels(mem))
+            .map_err(TestGfxError::AccessFailed)?;
+        res.map(|_| None)
     }
 }
 

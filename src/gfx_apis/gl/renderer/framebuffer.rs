@@ -1,7 +1,11 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{AcquireSync, GfxApiOpt, GfxError, GfxFramebuffer, ReleaseSync, SyncFile},
+        gfx_api::{
+            AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxError, GfxFramebuffer,
+            GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer, ReleaseSync, ShmMemory,
+            SyncFile,
+        },
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
@@ -13,6 +17,7 @@ use {
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
             RenderError,
         },
+        rect::Region,
         theme::Color,
     },
     std::{
@@ -104,11 +109,31 @@ impl GfxFramebuffer for Framebuffer {
         self.render(acquire_sync, ops, clear).map_err(|e| e.into())
     }
 
-    fn copy_to_shm(self: Rc<Self>, shm: &[Cell<u8>]) -> Result<(), GfxError> {
-        (*self).copy_to_shm(shm).map_err(|e| e.into())
-    }
-
     fn format(&self) -> &'static Format {
         self.gl.rb.format
+    }
+}
+
+impl GfxInternalFramebuffer for Framebuffer {
+    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
+        self
+    }
+
+    fn staging_size(&self) -> usize {
+        0
+    }
+
+    fn download(
+        self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: Rc<dyn ShmMemory>,
+        _damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        let mut res = Ok(());
+        mem.access(&mut |mem| res = self.copy_to_shm(mem))
+            .map_err(RenderError::AccessFailed)?;
+        res?;
+        Ok(None)
     }
 }

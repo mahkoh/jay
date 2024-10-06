@@ -23,7 +23,7 @@ use {
         cpu_worker::{jobs::read_write::ReadWriteJobError, CpuWorker},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
+            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxImage, GfxInternalFramebuffer,
             GfxStagingBuffer, ResetStatus, ShmGfxTexture, StagingBufferUsecase, STAGING_DOWNLOAD,
             STAGING_UPLOAD,
         },
@@ -316,16 +316,23 @@ impl GfxContext for Context {
         GfxApi::Vulkan
     }
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        let fb = self
-            .0
-            .create_shm_texture(format, width, height, stride, &[], true, None)?;
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
+        let fb = self.0.create_shm_texture(
+            format,
+            width,
+            height,
+            stride,
+            &[],
+            true,
+            Some(cpu_worker),
+        )?;
         Ok(fb)
     }
 

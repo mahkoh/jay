@@ -27,8 +27,8 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
-            SampleRect, SyncFile,
+            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture,
+            PendingShmTransfer, ReleaseSync, SampleRect, SyncFile, STAGING_DOWNLOAD,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -62,7 +62,7 @@ use {
         io_uring::IoUring,
         leaks::Tracker,
         logger::Logger,
-        rect::Rect,
+        rect::{Rect, Region},
         renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
@@ -1014,25 +1014,32 @@ impl State {
         x_off: i32,
         y_off: i32,
         size: Option<(i32, i32)>,
-        capture: &ZwlrScreencopyFrameV1,
-        mem: &ClientMemOffset,
+        capture: &Rc<ZwlrScreencopyFrameV1>,
+        mem: &Rc<ClientMemOffset>,
         stride: i32,
         format: &'static Format,
         transform: Transform,
         scale: Scale,
-    ) -> Result<(), ShmScreencopyError> {
+    ) -> Result<Option<PendingShmTransfer>, ShmScreencopyError> {
         let Some(ctx) = self.render_ctx.get() else {
             return Err(ShmScreencopyError::NoRenderContext);
         };
         let fb = ctx
-            .create_fb(capture.rect.width(), capture.rect.height(), stride, format)
+            .clone()
+            .create_internal_fb(
+                &self.cpu_worker,
+                capture.rect.width(),
+                capture.rect.height(),
+                stride,
+                format,
+            )
             .map_err(ShmScreencopyError::CreateTemporaryFb)?;
         self.perform_screencopy(
             src,
             None,
             acquire_sync,
             ReleaseSync::None,
-            &fb,
+            &fb.clone().into_fb(),
             AcquireSync::Unnecessary,
             ReleaseSync::None,
             transform,
@@ -1045,14 +1052,16 @@ impl State {
             scale,
         )
         .map_err(ShmScreencopyError::CopyToTemporary)?;
-        let acc = mem.access(|mem| fb.copy_to_shm(mem));
-        match acc {
-            Ok(res) => res.map_err(ShmScreencopyError::ReadPixels),
-            Err(e) => {
-                capture.client.error(e);
-                Ok(())
-            }
-        }
+        let staging = ctx.create_staging_buffer(fb.staging_size(), STAGING_DOWNLOAD);
+        let pending = fb
+            .download(
+                &staging,
+                capture.clone(),
+                mem.clone(),
+                Region::new2(capture.rect.at_point(0, 0)),
+            )
+            .map_err(ShmScreencopyError::ReadPixels)?;
+        Ok(pending)
     }
 
     pub fn create_seat(self: &Rc<Self>, name: &str) -> Rc<WlSeatGlobal> {

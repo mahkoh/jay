@@ -5,7 +5,7 @@ use {
         format::{Format, XRGB8888},
         gfx_api::{
             AsyncShmGfxTexture, BufferResvUser, GfxContext, GfxError, GfxFormat, GfxFramebuffer,
-            GfxImage, ResetStatus, ShmGfxTexture,
+            GfxImage, GfxInternalFramebuffer, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -316,13 +316,14 @@ impl GfxContext for GlRenderContext {
         GfxApi::OpenGl
     }
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        _cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         _stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
         let fb = self.ctx.with_current(|| unsafe {
             GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
         })?;

@@ -265,9 +265,21 @@ pub trait GfxFramebuffer: Debug {
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
-    fn copy_to_shm(self: Rc<Self>, shm: &[Cell<u8>]) -> Result<(), GfxError>;
-
     fn format(&self) -> &'static Format;
+}
+
+pub trait GfxInternalFramebuffer: GfxFramebuffer {
+    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer>;
+
+    fn staging_size(&self) -> usize;
+
+    fn download(
+        self: Rc<Self>,
+        staging: &Rc<dyn GfxStagingBuffer>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: Rc<dyn ShmMemory>,
+        damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError>;
 }
 
 impl dyn GfxFramebuffer {
@@ -593,13 +605,14 @@ pub trait GfxContext: Debug {
 
     fn gfx_api(&self) -> GfxApi;
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>>;
 

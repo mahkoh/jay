@@ -2,6 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         format::XRGB8888,
+        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer},
         ifs::{
             wl_buffer::{WlBuffer, WlBufferError, WlBufferStorage},
             wl_output::OutputGlobalOpt,
@@ -9,6 +10,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
+        utils::errorfmt::ErrorFmt,
         wire::{zwlr_screencopy_frame_v1::*, WlBufferId, ZwlrScreencopyFrameV1Id},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -29,6 +31,7 @@ pub struct ZwlrScreencopyFrameV1 {
     pub with_damage: Cell<bool>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,
     pub version: Version,
+    pub pending: Cell<Option<PendingShmTransfer>>,
 }
 
 impl ZwlrScreencopyFrameV1 {
@@ -132,6 +135,7 @@ impl ZwlrScreencopyFrameV1 {
             node.screencopies.remove(&(self.client.id, self.id));
             node.screencast_changed();
         }
+        self.pending.take();
     }
 }
 
@@ -150,6 +154,22 @@ impl ZwlrScreencopyFrameV1RequestHandler for ZwlrScreencopyFrameV1 {
 
     fn copy_with_damage(&self, req: CopyWithDamage, slf: &Rc<Self>) -> Result<(), Self::Error> {
         slf.do_copy(req.buffer, true)
+    }
+}
+
+impl AsyncShmGfxTextureCallback for ZwlrScreencopyFrameV1 {
+    fn completed(self: Rc<Self>, res: Result<(), GfxError>) {
+        self.pending.take();
+        match res {
+            Ok(_) => {
+                let now = self.client.state.now();
+                self.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+            }
+            Err(e) => {
+                log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
+                self.send_failed();
+            }
+        }
     }
 }
 

@@ -130,6 +130,7 @@ impl ZwlrScreencopyManagerV1 {
             with_damage: Cell::new(false),
             buffer: Cell::new(None),
             version: self.version,
+            pending: Default::default(),
         });
         track!(self.client, frame);
         self.client.add_client_obj(&frame)?;
