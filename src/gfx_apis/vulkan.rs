@@ -213,6 +213,8 @@ pub enum VulkanError {
     StagingBufferNoDownload,
     #[error("Image contents are undefined")]
     UndefinedContents,
+    #[error("The framebuffer is being used by the transfer queue")]
+    BusyInTransfer,
 }
 
 impl From<VulkanError> for GfxError {

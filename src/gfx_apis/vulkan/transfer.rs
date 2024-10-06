@@ -41,6 +41,7 @@ pub struct VulkanShmImageAsyncData {
     pub(super) io_job: Cell<Option<Box<IoTransferJob>>>,
     pub(super) copy_job: Cell<Option<Box<CopyTransferJob>>>,
     pub(super) staging: CloneCell<Option<Rc<VulkanStagingShell>>>,
+    pub(super) client_mem: CloneCell<Option<Rc<dyn ShmMemory>>>,
     pub(super) callback: Cell<Option<Rc<dyn AsyncShmGfxTextureCallback>>>,
     pub(super) callback_id: Cell<u64>,
     pub(super) regions: RefCell<Vec<BufferImageCopy2<'static>>>,
@@ -53,6 +54,7 @@ impl VulkanShmImageAsyncData {
     fn complete(&self, result: Result<(), VulkanError>) {
         self.busy.set(false);
         self.staging.take().unwrap().busy.set(false);
+        self.client_mem.take();
         if let Some(cb) = self.callback.take() {
             cb.completed(result.map_err(|e| e.into()));
         }
@@ -122,6 +124,7 @@ impl VulkanShmImage {
         data.data_copied.set(false);
         staging.busy.set(true);
         data.staging.set(Some(staging.clone()));
+        data.client_mem.set(Some(client_mem.clone()));
         if img.contents_are_undefined.get() {
             if tt == TransferType::Download {
                 return Err(VulkanError::UndefinedContents);
@@ -183,7 +186,9 @@ impl VulkanShmImage {
             return match tt {
                 TransferType::Upload => self
                     .async_transfer_initiate_host_copy(img, data, &staging, copies, client_mem, tt),
-                TransferType::Download => unreachable!(),
+                TransferType::Download => {
+                    self.async_download_copy_image_to_buffer(img, &staging, copies)
+                }
             };
         }
 
@@ -324,7 +329,9 @@ impl VulkanShmImage {
             TransferType::Upload => {
                 self.async_transfer_initiate_host_copy(img, data, &staging, copies, client_mem, tt)
             }
-            TransferType::Download => unreachable!(),
+            TransferType::Download => {
+                self.async_download_copy_image_to_buffer(img, &staging, copies)
+            }
         }
     }
 
@@ -339,6 +346,9 @@ impl VulkanShmImage {
     ) -> Result<(), VulkanError> {
         img.renderer.check_defunct()?;
 
+        if tt == TransferType::Download {
+            staging.download(|_, _| ())?;
+        }
         let id = img.renderer.allocate_point();
         let pending;
         match client_mem.safe_access() {
@@ -440,14 +450,64 @@ impl VulkanShmImage {
         let staging = data.staging.get().unwrap().staging.get().unwrap();
         staging.upload(|_, _| ())?;
         let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_to_image_copy(img, &staging, regions, true)?
+            self.submit_buffer_image_copy(img, &staging, regions, true, TransferType::Upload)?
         else {
             return Ok(());
         };
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async upload",
-            await_async_transfer_release_to_gfx(point, img.clone(), cmd, fence, sync_file),
+            await_async_transfer_release_to_gfx(
+                point,
+                img.clone(),
+                cmd,
+                fence,
+                sync_file,
+                TransferType::Upload,
+            ),
+        );
+        img.renderer.pending_submits.set(point, future);
+        Ok(())
+    }
+
+    fn async_download_copy_image_to_buffer(
+        &self,
+        img: &Rc<VulkanImage>,
+        staging: &VulkanStagingBuffer,
+        copies: &[BufferImageCopy2],
+    ) -> Result<(), VulkanError> {
+        if img.queue_state.get().acquire(QueueFamily::Transfer) == QueueTransfer::Impossible {
+            return Ok(());
+        }
+        img.renderer.check_defunct()?;
+        let Some((cmd, fence, sync_file, point)) =
+            self.submit_buffer_image_copy(img, &staging, copies, true, TransferType::Download)?
+        else {
+            img.queue_state.set(QueueState::Released {
+                to: QueueFamily::Gfx,
+            });
+            let data = self.async_data.as_ref().unwrap();
+            let client_mem = data.client_mem.get().unwrap();
+            return self.async_transfer_initiate_host_copy(
+                &img,
+                data,
+                &staging,
+                copies,
+                &client_mem,
+                TransferType::Download,
+            );
+        };
+        img.queue_state.set(QueueState::Releasing);
+        let future = img.renderer.eng.spawn(
+            "await async image to buffer copy",
+            await_async_transfer_release_to_gfx(
+                point,
+                img.clone(),
+                cmd,
+                fence,
+                sync_file,
+                TransferType::Download,
+            ),
         );
         img.renderer.pending_submits.set(point, future);
         Ok(())
@@ -518,12 +578,14 @@ fn complete_async_host_copy(
         data.complete(Err(VulkanError::AsyncCopyToStaging(e)));
     }
     data.data_copied.set(true);
-    let res = match tt {
-        TransferType::Upload => shm.async_upload_copy_buffer_to_image(img, data),
-        TransferType::Download => unreachable!(),
-    };
-    if let Err(e) = res {
-        data.complete(Err(e));
+    match tt {
+        TransferType::Upload => {
+            let res = shm.async_upload_copy_buffer_to_image(img, data);
+            if let Err(e) = res {
+                data.complete(Err(e));
+            }
+        }
+        TransferType::Download => data.complete(Ok(())),
     }
 }
 
@@ -556,7 +618,13 @@ async fn await_gfx_queue_release(
     let data = shm.async_data.as_ref().unwrap();
     let res = match tt {
         TransferType::Upload => shm.async_upload_copy_buffer_to_image(&img, data),
-        TransferType::Download => unreachable!(),
+        TransferType::Download => match data.staging.get().unwrap().staging.get() {
+            Some(staging) => {
+                let copies = &*data.regions.borrow();
+                shm.async_download_copy_image_to_buffer(&img, &staging, copies)
+            }
+            None => Ok(()),
+        },
     };
     if let Err(e) = res {
         data.complete(Err(e));
@@ -569,6 +637,7 @@ pub async fn await_async_transfer_release_to_gfx(
     buf: Rc<VulkanCommandBuffer>,
     _fence: Rc<VulkanFence>,
     sync_file: SyncFile,
+    tt: TransferType,
 ) {
     let res = img.renderer.ring.readable(&sync_file.0).await;
     if let Err(e) = res {
@@ -590,5 +659,26 @@ pub async fn await_async_transfer_release_to_gfx(
         unreachable!();
     };
     let data = shm.async_data.as_ref().unwrap();
-    data.complete(Ok(()));
+    match tt {
+        TransferType::Upload => {
+            data.complete(Ok(()));
+        }
+        TransferType::Download => {
+            let data = shm.async_data.as_ref().unwrap();
+            let staging = data.staging.get().unwrap().staging.get().unwrap();
+            let client_mem = data.client_mem.get().unwrap();
+            let copies = &*data.regions.borrow();
+            let res = shm.async_transfer_initiate_host_copy(
+                &img,
+                data,
+                &staging,
+                copies,
+                &client_mem,
+                tt,
+            );
+            if let Err(e) = res {
+                data.complete(Err(e));
+            }
+        }
+    }
 }
