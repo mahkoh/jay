@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1,
+        ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_drag_v1::XdgToplevelDragV1,
         leaks::Tracker,
         object::{Object, Version},
         wire::{xdg_toplevel_drag_manager_v1::*, XdgToplevelDragManagerV1Id},
@@ -52,7 +52,7 @@ impl Global for XdgToplevelDragManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 

@@ -64,8 +64,10 @@ use {
                 zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
-            wl_surface::{dnd_icon::DndIcon, WlSurface},
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
+            wl_surface::{
+                dnd_icon::DndIcon,
+                xdg_surface::xdg_toplevel::xdg_toplevel_drag_v1::XdgToplevelDragV1, WlSurface,
+            },
         },
         leaks::Tracker,
         object::{Object, Version},
