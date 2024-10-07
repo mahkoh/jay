@@ -27,8 +27,8 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
-            SampleRect, SyncFile,
+            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture,
+            PendingShmTransfer, ReleaseSync, SampleRect, SyncFile, STAGING_DOWNLOAD,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -62,7 +62,7 @@ use {
         io_uring::IoUring,
         leaks::Tracker,
         logger::Logger,
-        rect::Rect,
+        rect::{Rect, Region},
         renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
@@ -1006,17 +1006,6 @@ impl State {
         )
     }
 
-    fn have_hardware_cursor(&self) -> bool {
-        if let Some(group) = self.cursor_user_group_hardware_cursor.get() {
-            if let Some(user) = group.active() {
-                if user.get().is_some() {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
     pub fn perform_shm_screencopy(
         &self,
         src: &Rc<dyn GfxTexture>,
@@ -1025,80 +1014,54 @@ impl State {
         x_off: i32,
         y_off: i32,
         size: Option<(i32, i32)>,
-        capture: &ZwlrScreencopyFrameV1,
-        mem: &ClientMemOffset,
+        capture: &Rc<ZwlrScreencopyFrameV1>,
+        mem: &Rc<ClientMemOffset>,
         stride: i32,
         format: &'static Format,
         transform: Transform,
         scale: Scale,
-    ) -> Result<(), ShmScreencopyError> {
-        let (src_width, src_height) = src.size();
-        let mut needs_copy = capture.rect.x1() < x_off
-            || capture.rect.x2() > x_off + src_width
-            || capture.rect.y1() < y_off
-            || capture.rect.y2() > y_off + src_height
-            || self.have_hardware_cursor();
-        if let Some((target_width, target_height)) = size {
-            if (target_width, target_height) != (src_width, src_height) {
-                needs_copy = true;
-            }
-        }
-        let acc = if needs_copy {
-            let Some(ctx) = self.render_ctx.get() else {
-                return Err(ShmScreencopyError::NoRenderContext);
-            };
-            let fb = ctx
-                .create_fb(capture.rect.width(), capture.rect.height(), stride, format)
-                .map_err(ShmScreencopyError::CreateTemporaryFb)?;
-            self.perform_screencopy(
-                src,
-                None,
-                acquire_sync,
-                ReleaseSync::None,
-                &fb,
-                AcquireSync::Unnecessary,
-                ReleaseSync::None,
-                transform,
-                position,
-                true,
-                x_off - capture.rect.x1(),
-                y_off - capture.rect.y1(),
-                size,
-                transform,
-                scale,
-            )
-            .map_err(ShmScreencopyError::CopyToTemporary)?;
-            mem.access(|mem| {
-                fb.copy_to_shm(
-                    0,
-                    0,
-                    capture.rect.width(),
-                    capture.rect.height(),
-                    stride,
-                    format,
-                    mem,
-                )
-            })
-        } else {
-            mem.access(|mem| {
-                src.clone().read_pixels(
-                    capture.rect.x1() - x_off,
-                    capture.rect.y1() - y_off,
-                    capture.rect.width(),
-                    capture.rect.height(),
-                    stride,
-                    format,
-                    mem,
-                )
-            })
+    ) -> Result<Option<PendingShmTransfer>, ShmScreencopyError> {
+        let Some(ctx) = self.render_ctx.get() else {
+            return Err(ShmScreencopyError::NoRenderContext);
         };
-        match acc {
-            Ok(res) => res.map_err(ShmScreencopyError::ReadPixels),
-            Err(e) => {
-                capture.client.error(e);
-                Ok(())
-            }
-        }
+        let fb = ctx
+            .clone()
+            .create_internal_fb(
+                &self.cpu_worker,
+                capture.rect.width(),
+                capture.rect.height(),
+                stride,
+                format,
+            )
+            .map_err(ShmScreencopyError::CreateTemporaryFb)?;
+        self.perform_screencopy(
+            src,
+            None,
+            acquire_sync,
+            ReleaseSync::None,
+            &fb.clone().into_fb(),
+            AcquireSync::Unnecessary,
+            ReleaseSync::None,
+            transform,
+            position,
+            true,
+            x_off - capture.rect.x1(),
+            y_off - capture.rect.y1(),
+            size,
+            transform,
+            scale,
+        )
+        .map_err(ShmScreencopyError::CopyToTemporary)?;
+        let staging = ctx.create_staging_buffer(fb.staging_size(), STAGING_DOWNLOAD);
+        let pending = fb
+            .download(
+                &staging,
+                capture.clone(),
+                mem.clone(),
+                Region::new2(capture.rect.at_point(0, 0)),
+            )
+            .map_err(ShmScreencopyError::ReadPixels)?;
+        Ok(pending)
     }
 
     pub fn create_seat(self: &Rc<Self>, name: &str) -> Rc<WlSeatGlobal> {

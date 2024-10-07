@@ -6,8 +6,8 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxTexture, GfxWriteModifier, PendingShmUpload, ReleaseSync, ResetStatus,
-            ShmGfxTexture, ShmMemory, SyncFile,
+            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, GfxWriteModifier,
+            PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -165,13 +165,14 @@ impl GfxContext for TestGfxCtx {
         GfxApi::OpenGl
     }
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        _cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
         assert!(stride >= width * 4);
         Ok(Rc::new(TestGfxFb {
             img: Rc::new(TestGfxImage::Shm(TestShmGfxImage {
@@ -214,44 +215,17 @@ struct TestDmaBufGfxImage {
 }
 
 impl TestGfxImage {
-    fn read_pixels(
-        &self,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        assert!(x >= 0);
-        assert!(y >= 0);
-        assert!(width >= 0);
-        assert!(height >= 0);
-        assert!(stride >= 0);
-        assert!(x + width <= self.width());
-        assert!(y + height <= self.height());
-        assert!(stride >= width * 4);
-        let size = (stride * height) as usize;
-        assert!(shm.len() >= size);
-        let copy = |src_stride: i32, src_format: &Format, mut src: *const u8, mut dst: *mut u8| unsafe {
-            src = src.add((y * src_stride + x * 4) as usize);
-            for _ in 0..height {
-                ptr::copy_nonoverlapping(src, dst, (width * 4) as usize);
-                if !src_format.has_alpha && format.has_alpha {
-                    for i in 0..width {
-                        *dst.add((i * 4 + 3) as usize) = 255;
-                    }
-                }
-                src = src.add(src_stride as usize);
-                dst = dst.add(stride as usize);
-            }
+    fn read_pixels(&self, shm: &[Cell<u8>]) -> Result<(), GfxError> {
+        let copy = |height: i32, stride: i32, src: *const u8, dst: *mut u8| unsafe {
+            let size = (height * stride) as usize;
+            assert!(shm.len() >= size);
+            ptr::copy_nonoverlapping(src, dst, size);
         };
         match self {
             TestGfxImage::Shm(s) => {
                 copy(
+                    s.height,
                     s.stride,
-                    s.format,
                     s.data.borrow().as_ptr(),
                     shm.as_ptr() as _,
                 );
@@ -260,8 +234,8 @@ impl TestGfxImage {
                 let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                 unsafe {
                     copy(
+                        d.buf.height,
                         map.stride(),
-                        d.buf.format,
                         map.data().as_ptr(),
                         shm.as_ptr() as _,
                     );
@@ -300,20 +274,6 @@ impl GfxTexture for TestGfxImage {
         self
     }
 
-    fn read_pixels(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.deref()
-            .read_pixels(x, y, width, height, stride, format, shm)
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         match self {
             TestGfxImage::Shm(_) => None,
@@ -335,10 +295,11 @@ impl ShmGfxTexture for TestGfxImage {
 impl AsyncShmGfxTexture for TestGfxImage {
     fn async_upload(
         self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
         _callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         _damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError> {
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
         let mut res = Ok(());
         mem.access(&mut |d| {
             res = self.clone().sync_upload(d, Region::default());
@@ -588,23 +549,31 @@ impl GfxFramebuffer for TestGfxFb {
         Ok(None)
     }
 
-    fn copy_to_shm(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError> {
-        self.img
-            .deref()
-            .read_pixels(x, y, width, height, stride, format, shm)
-    }
-
     fn format(&self) -> &'static Format {
         &ARGB8888
+    }
+}
+
+impl GfxInternalFramebuffer for TestGfxFb {
+    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
+        self
+    }
+
+    fn staging_size(&self) -> usize {
+        0
+    }
+
+    fn download(
+        self: Rc<Self>,
+        _staging: &Rc<dyn GfxStagingBuffer>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: Rc<dyn ShmMemory>,
+        _damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        let mut res = Ok(());
+        mem.access(&mut |mem| res = self.img.deref().read_pixels(mem))
+            .map_err(TestGfxError::AccessFailed)?;
+        res.map(|_| None)
     }
 }
 

@@ -1,17 +1,24 @@
 use {
     crate::{
         cpu_worker::CpuWorker,
+        gfx_api::GfxStagingBuffer,
         gfx_apis::vulkan::{
             allocator::{VulkanAllocation, VulkanAllocator},
             device::VulkanDevice,
             renderer::VulkanRenderer,
             VulkanError,
         },
-        utils::on_drop::{OnDrop, OnDrop2},
+        utils::{
+            clonecell::CloneCell,
+            on_drop::{OnDrop, OnDrop2},
+        },
     },
-    ash::vk::{Buffer, BufferCreateInfo, BufferUsageFlags, MappedMemoryRange},
+    ash::{
+        vk::{Buffer, BufferCreateInfo, BufferUsageFlags, MappedMemoryRange},
+        Device,
+    },
     gpu_alloc::UsageFlags,
-    std::rc::Rc,
+    std::{any::Any, cell::Cell, rc::Rc},
 };
 
 pub struct VulkanStagingBuffer {
@@ -22,6 +29,22 @@ pub struct VulkanStagingBuffer {
 }
 
 impl VulkanDevice {
+    pub(super) fn create_staging_shell(
+        self: &Rc<Self>,
+        size: u64,
+        upload: bool,
+        download: bool,
+    ) -> Rc<VulkanStagingShell> {
+        Rc::new(VulkanStagingShell {
+            device: self.clone(),
+            staging: Default::default(),
+            size,
+            download,
+            upload,
+            busy: Cell::new(false),
+        })
+    }
+
     pub(super) fn create_staging_buffer(
         self: &Rc<Self>,
         allocator: &Rc<VulkanAllocator>,
@@ -51,17 +74,15 @@ impl VulkanDevice {
         })
     }
 
-    pub(super) fn create_shm_staging(
+    pub(super) fn fill_staging_shell(
         self: &Rc<Self>,
         renderer: &Rc<VulkanRenderer>,
         cpu: &Rc<CpuWorker>,
-        size: u64,
-        upload: bool,
-        download: bool,
-        cb: impl FnOnce(Result<VulkanStagingBuffer, VulkanError>) + 'static,
+        shell: Rc<VulkanStagingShell>,
+        cb: impl FnOnce(Result<Rc<VulkanStagingBuffer>, VulkanError>) + 'static,
     ) -> Result<(), VulkanError> {
-        let (vk_usage, usage) = get_usage(upload, download, false);
-        let buffer = self.create_buffer(size, vk_usage)?;
+        let (vk_usage, usage) = get_usage(shell.upload, shell.download, false);
+        let buffer = self.create_buffer(shell.size, vk_usage)?;
         let memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
         let slf = self.clone();
         let destroy_buffer =
@@ -77,12 +98,14 @@ impl VulkanDevice {
                 res.map_err(VulkanError::BindBufferMemory)?;
             }
             destroy_buffer.forget();
-            Ok(VulkanStagingBuffer {
+            let buffer = Rc::new(VulkanStagingBuffer {
                 device: slf.clone(),
                 allocation,
                 buffer,
-                size,
-            })
+                size: shell.size,
+            });
+            shell.staging.set(Some(buffer.clone()));
+            Ok(buffer)
         };
         renderer.shm_allocator.async_alloc(
             renderer,
@@ -157,5 +180,45 @@ impl Drop for VulkanStagingBuffer {
         unsafe {
             self.device.device.destroy_buffer(self.buffer, None);
         }
+    }
+}
+
+pub(super) struct VulkanStagingShell {
+    pub(super) device: Rc<VulkanDevice>,
+    pub(super) staging: CloneCell<Option<Rc<VulkanStagingBuffer>>>,
+    pub(super) size: u64,
+    pub(super) download: bool,
+    pub(super) upload: bool,
+    pub(super) busy: Cell<bool>,
+}
+
+impl GfxStagingBuffer for VulkanStagingShell {
+    fn size(&self) -> usize {
+        self.size as _
+    }
+
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
+    }
+}
+
+impl VulkanStagingShell {
+    fn assert_device(&self, device: &Device) {
+        assert_eq!(
+            self.device.device.handle(),
+            device.handle(),
+            "Mixed vulkan device use"
+        );
+    }
+}
+
+impl dyn GfxStagingBuffer {
+    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanStagingShell> {
+        let shell: Rc<VulkanStagingShell> = self
+            .into_any()
+            .downcast()
+            .expect("Non-vulkan staging buffer passed into vulkan");
+        shell.assert_device(device);
+        shell
     }
 }

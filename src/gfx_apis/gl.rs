@@ -185,8 +185,6 @@ enum RenderError {
     ExternalUnsupported,
     #[error("OpenGL context does not support any formats")]
     NoSupportedFormats,
-    #[error("Cannot convert a shm texture into a framebuffer")]
-    ShmTextureToFb,
     #[error("Could not create EGLSyncKHR")]
     CreateEglSync,
     #[error("Could not destroy EGLSyncKHR")]

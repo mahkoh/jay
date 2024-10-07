@@ -267,6 +267,7 @@ impl OutputNode {
                 capture.send_failed();
                 continue;
             }
+            let mut ready = true;
             if let Some(storage) = wl_buffer.storage.borrow_mut().deref() {
                 match storage {
                     WlBufferStorage::Shm { mem, stride } => {
@@ -284,10 +285,16 @@ impl OutputNode {
                             self.global.persistent.transform.get(),
                             self.global.persistent.scale.get(),
                         );
-                        if let Err(e) = res {
-                            log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
-                            capture.send_failed();
-                            continue;
+                        match res {
+                            Ok(p) => {
+                                ready = p.is_none();
+                                capture.pending.set(p);
+                            }
+                            Err(e) => {
+                                log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
+                                capture.send_failed();
+                                continue;
+                            }
                         }
                     }
                     WlBufferStorage::Dmabuf { fb, .. } => {
@@ -327,7 +334,9 @@ impl OutputNode {
             if capture.with_damage.get() {
                 capture.send_damage();
             }
-            capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+            if ready {
+                capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+            }
         }
         self.screencast_changed();
     }

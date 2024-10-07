@@ -3,8 +3,8 @@ use {
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
         format::ARGB8888,
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxContext, GfxError, GfxTexture,
-            PendingShmUpload,
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxContext, GfxError, GfxStagingBuffer,
+            GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
         },
         pango::{
             consts::{
@@ -302,9 +302,10 @@ impl Drop for TextTexture {
 struct Shared {
     cpu_worker: Rc<CpuWorker>,
     ctx: Rc<dyn GfxContext>,
+    staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     textures: DoubleBuffered<TextBuffer>,
     pending_render: Cell<Option<PendingJob>>,
-    pending_upload: Cell<Option<PendingShmUpload>>,
+    pending_upload: Cell<Option<PendingShmTransfer>>,
     render_job: Cell<Option<Box<RenderJob>>>,
     result: Cell<Option<Result<(), TextError>>>,
     waiter: Cell<Option<Rc<dyn OnCompleted>>>,
@@ -367,6 +368,7 @@ impl TextTexture {
         let data = Rc::new(Shared {
             cpu_worker: cpu_worker.clone(),
             ctx: ctx.clone(),
+            staging: Default::default(),
             textures: Default::default(),
             pending_render: Default::default(),
             pending_upload: Default::default(),
@@ -528,9 +530,22 @@ impl CpuJob for RenderJob {
                 }
             }
         };
+        let mut staging_opt = data.staging.take();
+        if let Some(staging) = &staging_opt {
+            if staging.size() != tex.staging_size() {
+                staging_opt = None;
+            }
+        }
+        let staging = match staging_opt {
+            Some(s) => s,
+            None => data
+                .ctx
+                .create_staging_buffer(tex.staging_size(), STAGING_UPLOAD),
+        };
         let pending = tex
             .clone()
             .async_upload(
+                &staging,
                 data.clone(),
                 Rc::new(rt.data),
                 Region::new2(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
@@ -538,6 +553,7 @@ impl CpuJob for RenderJob {
             .map_err(TextError::Upload);
         if pending.is_ok() {
             data.textures.back().tex.set(Some(tex));
+            data.staging.set(Some(staging));
         }
         match pending {
             Ok(Some(p)) => data.pending_upload.set(Some(p)),

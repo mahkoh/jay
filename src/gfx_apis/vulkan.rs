@@ -14,6 +14,7 @@ mod semaphore;
 mod shaders;
 mod shm_image;
 mod staging;
+mod transfer;
 
 use {
     crate::{
@@ -22,8 +23,9 @@ use {
         cpu_worker::{jobs::read_write::ReadWriteJobError, CpuWorker},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxImage, GfxInternalFramebuffer,
+            GfxStagingBuffer, ResetStatus, ShmGfxTexture, StagingBufferUsecase, STAGING_DOWNLOAD,
+            STAGING_UPLOAD,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -171,16 +173,6 @@ pub enum VulkanError {
     InvalidStride,
     #[error("Shm stride and height do not match buffer size")]
     InvalidBufferSize,
-    #[error("The shm parameters are invalid x={x}, y={y}, width={width}, height={height}, stride={stride}")]
-    InvalidShmParameters {
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-    },
-    #[error(transparent)]
-    GfxError(GfxError),
     #[error("Buffer format {0} is not supported for shm buffers in Vulkan context")]
     UnsupportedShmFormat(&'static str),
     #[error("Only BO_USE_RENDERING and BO_USE_WRITE are supported")]
@@ -203,6 +195,16 @@ pub enum VulkanError {
     AsyncCopyToStaging(#[source] ReadWriteJobError),
     #[error("The async shm texture is busy")]
     AsyncCopyBusy,
+    #[error("The staging buffer is busy")]
+    StagingBufferBusy,
+    #[error("The staging buffer does not support uploads")]
+    StagingBufferNoUpload,
+    #[error("The staging buffer does not support downloads")]
+    StagingBufferNoDownload,
+    #[error("Image contents are undefined")]
+    UndefinedContents,
+    #[error("The framebuffer is being used by the transfer queue")]
+    BusyInTransfer,
 }
 
 impl From<VulkanError> for GfxError {
@@ -314,21 +316,40 @@ impl GfxContext for Context {
         GfxApi::Vulkan
     }
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        let fb = self
-            .0
-            .create_shm_texture(format, width, height, stride, &[], true, None)?;
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
+        let fb = self.0.create_shm_texture(
+            format,
+            width,
+            height,
+            stride,
+            &[],
+            true,
+            Some(cpu_worker),
+        )?;
         Ok(fb)
     }
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
         Some(&self.0.device.sync_ctx)
+    }
+
+    fn create_staging_buffer(
+        &self,
+        size: usize,
+        usecase: StagingBufferUsecase,
+    ) -> Rc<dyn GfxStagingBuffer> {
+        let upload = usecase.contains(STAGING_UPLOAD);
+        let download = usecase.contains(STAGING_DOWNLOAD);
+        self.0
+            .device
+            .create_staging_shell(size as u64, upload, download)
     }
 }
 

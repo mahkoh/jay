@@ -2,10 +2,10 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         cpu_worker::PendingJob,
-        format::{Format, XRGB8888},
+        format::XRGB8888,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
-            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxTexture,
+            GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
@@ -32,11 +32,10 @@ use {
     ash::{
         vk,
         vk::{
-            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferImageCopy,
-            BufferMemoryBarrier2, ClearColorValue, ClearValue, CommandBuffer,
-            CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
-            CopyImageInfo2, DependencyInfo, DependencyInfoKHR, DescriptorImageInfo, DescriptorType,
-            Extent2D, Extent3D, Fence, ImageAspectFlags, ImageCopy2, ImageLayout,
+            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearColorValue, ClearValue,
+            CommandBuffer, CommandBufferBeginInfo, CommandBufferSubmitInfo,
+            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR, DescriptorImageInfo,
+            DescriptorType, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout,
             ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint,
             PipelineStageFlags2, Rect2D, RenderingAttachmentInfo, RenderingInfo,
             SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
@@ -49,7 +48,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
-        mem, ptr,
+        mem,
         rc::Rc,
         slice,
     },
@@ -337,38 +336,69 @@ impl VulkanRenderer {
         }
     }
 
-    fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) {
+    fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) -> Result<(), VulkanError> {
         zone!("initial_barriers");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
-        let mut fb_image_memory_barrier = image_barrier()
-            .image(fb.image)
-            .new_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .dst_access_mask(
-                AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
-            )
-            .dst_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
-        if fb.bridge.is_some() {
-            fb_image_memory_barrier = fb_image_memory_barrier
-                .src_access_mask(AccessFlags2::TRANSFER_READ)
-                .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                .old_layout(if fb.is_undefined.get() {
-                    ImageLayout::UNDEFINED
-                } else {
-                    ImageLayout::TRANSFER_SRC_OPTIMAL
-                });
-        } else {
-            fb_image_memory_barrier = fb_image_memory_barrier
-                .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                .dst_queue_family_index(self.device.graphics_queue_idx)
-                .old_layout(if fb.is_undefined.get() {
-                    ImageLayout::UNDEFINED
-                } else {
-                    ImageLayout::GENERAL
-                });
+        let mut need_fb_barrier = true;
+        if let VulkanImageMemory::Internal(..) = &fb.ty {
+            need_fb_barrier = fb.is_undefined.get()
+                || (self.device.distinct_transfer_queue_family_idx.is_some()
+                    && fb.queue_state.get().acquire(QueueFamily::Gfx)
+                        != QueueTransfer::Unnecessary);
         }
-        memory.image_barriers.push(fb_image_memory_barrier);
+        if need_fb_barrier {
+            let mut fb_image_memory_barrier = image_barrier()
+                .image(fb.image)
+                .new_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .dst_access_mask(
+                    AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+                )
+                .dst_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
+            if fb.bridge.is_some() {
+                fb_image_memory_barrier = fb_image_memory_barrier
+                    .src_access_mask(AccessFlags2::TRANSFER_READ)
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .old_layout(if fb.is_undefined.get() {
+                        ImageLayout::UNDEFINED
+                    } else {
+                        ImageLayout::TRANSFER_SRC_OPTIMAL
+                    });
+            } else if let VulkanImageMemory::Internal(..) = &fb.ty {
+                let mut queue_transfer = QueueTransfer::Unnecessary;
+                if self.device.distinct_transfer_queue_family_idx.is_some() {
+                    queue_transfer = fb.queue_state.get().acquire(QueueFamily::Gfx);
+                }
+                match queue_transfer {
+                    QueueTransfer::Unnecessary => {
+                        fb_image_memory_barrier =
+                            fb_image_memory_barrier.old_layout(ImageLayout::UNDEFINED);
+                    }
+                    QueueTransfer::Possible => {
+                        if let Some(transfer_queue_idx) =
+                            self.device.distinct_transfer_queue_family_idx
+                        {
+                            fb_image_memory_barrier = fb_image_memory_barrier
+                                .src_queue_family_index(transfer_queue_idx)
+                                .dst_queue_family_index(self.device.graphics_queue_idx)
+                                .old_layout(ImageLayout::TRANSFER_SRC_OPTIMAL);
+                        }
+                    }
+                    QueueTransfer::Impossible => return Err(VulkanError::BusyInTransfer),
+                }
+            } else {
+                fb_image_memory_barrier = fb_image_memory_barrier
+                    .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .dst_queue_family_index(self.device.graphics_queue_idx)
+                    .old_layout(if fb.is_undefined.get() {
+                        ImageLayout::UNDEFINED
+                    } else {
+                        ImageLayout::GENERAL
+                    });
+            }
+            memory.image_barriers.push(fb_image_memory_barrier);
+        }
         for img in &memory.dmabuf_sample {
             let image_memory_barrier = image_barrier()
                 .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
@@ -397,6 +427,7 @@ impl VulkanRenderer {
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
+        Ok(())
     }
 
     fn begin_rendering(&self, buf: CommandBuffer, fb: &VulkanImage, clear: Option<&Color>) {
@@ -643,26 +674,28 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
-        let mut fb_image_memory_barrier = image_barrier()
-            .src_queue_family_index(self.device.graphics_queue_idx)
-            .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-            .new_layout(ImageLayout::GENERAL);
-        if let Some(bridge) = &fb.bridge {
-            fb_image_memory_barrier = fb_image_memory_barrier
-                .image(bridge.dmabuf_image)
-                .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                .src_access_mask(AccessFlags2::TRANSFER_WRITE)
-                .src_stage_mask(PipelineStageFlags2::TRANSFER);
-        } else {
-            fb_image_memory_barrier = fb_image_memory_barrier
-                .image(fb.image)
-                .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                .src_access_mask(
-                    AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
-                )
-                .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
+        if let VulkanImageMemory::DmaBuf(..) = fb.ty {
+            let mut fb_image_memory_barrier = image_barrier()
+                .src_queue_family_index(self.device.graphics_queue_idx)
+                .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                .new_layout(ImageLayout::GENERAL);
+            if let Some(bridge) = &fb.bridge {
+                fb_image_memory_barrier = fb_image_memory_barrier
+                    .image(bridge.dmabuf_image)
+                    .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .src_access_mask(AccessFlags2::TRANSFER_WRITE)
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER);
+            } else {
+                fb_image_memory_barrier = fb_image_memory_barrier
+                    .image(fb.image)
+                    .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                    .src_access_mask(
+                        AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+                    )
+                    .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
+            }
+            memory.image_barriers.push(fb_image_memory_barrier);
         }
-        memory.image_barriers.push(fb_image_memory_barrier);
         for img in &memory.dmabuf_sample {
             let image_memory_barrier = image_barrier()
                 .src_queue_family_index(self.device.graphics_queue_idx)
@@ -833,6 +866,10 @@ impl VulkanRenderer {
 
     fn store_layouts(&self, fb: &VulkanImage) {
         fb.is_undefined.set(false);
+        fb.contents_are_undefined.set(false);
+        fb.queue_state.set(QueueState::Acquired {
+            family: QueueFamily::Gfx,
+        });
         let memory = self.memory.borrow();
         for img in &*memory.queue_transfer {
             img.queue_state.set(QueueState::Acquired {
@@ -865,197 +902,6 @@ impl VulkanRenderer {
             ),
         );
         frame.waiter.set(Some(future));
-    }
-
-    pub fn read_pixels(
-        self: &Rc<Self>,
-        tex: &Rc<VulkanImage>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        dst: &[Cell<u8>],
-    ) -> Result<(), VulkanError> {
-        if x < 0 || y < 0 || width <= 0 || height <= 0 || stride <= 0 {
-            return Err(VulkanError::InvalidShmParameters {
-                x,
-                y,
-                width,
-                height,
-                stride,
-            });
-        }
-        let width = width as u32;
-        let height = height as u32;
-        let stride = stride as u32;
-        if x == 0 && y == 0 && width == tex.width && height == tex.height && format == tex.format {
-            return self.read_all_pixels(tex, stride, dst);
-        }
-        let tmp_tex = self.create_shm_texture(
-            format,
-            width as i32,
-            height as i32,
-            stride as i32,
-            &[],
-            true,
-            None,
-        )?;
-        (&*tmp_tex as &dyn GfxFramebuffer)
-            .copy_texture(
-                AcquireSync::None,
-                ReleaseSync::None,
-                &(tex.clone() as _),
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                x,
-                y,
-            )
-            .map_err(VulkanError::GfxError)?;
-        self.read_all_pixels(&tmp_tex, stride, dst)
-    }
-
-    fn read_all_pixels(
-        self: &Rc<Self>,
-        tex: &VulkanImage,
-        stride: u32,
-        dst: &[Cell<u8>],
-    ) -> Result<(), VulkanError> {
-        let Some(shm_info) = &tex.format.shm_info else {
-            return Err(VulkanError::UnsupportedShmFormat(tex.format.name));
-        };
-        if stride < tex.width * shm_info.bpp || stride % shm_info.bpp != 0 {
-            return Err(VulkanError::InvalidStride);
-        }
-        let size = stride as u64 * tex.height as u64;
-        if size != dst.len() as u64 {
-            return Err(VulkanError::InvalidBufferSize);
-        }
-        let region = BufferImageCopy::default()
-            .buffer_row_length(stride / shm_info.bpp)
-            .buffer_image_height(tex.height)
-            .image_subresource(ImageSubresourceLayers {
-                aspect_mask: ImageAspectFlags::COLOR,
-                mip_level: 0,
-                base_array_layer: 0,
-                layer_count: 1,
-            })
-            .image_extent(Extent3D {
-                width: tex.width,
-                height: tex.height,
-                depth: 1,
-            });
-        let staging =
-            self.device
-                .create_staging_buffer(&self.allocator, size, false, true, true)?;
-        let initial_tex_barrier;
-        let initial_buffer_barrier = BufferMemoryBarrier2::default()
-            .buffer(staging.buffer)
-            .offset(0)
-            .size(staging.size)
-            .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
-        let mut initial_barriers = DependencyInfo::default()
-            .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier));
-        if tex.bridge.is_none() {
-            initial_tex_barrier = image_barrier()
-                .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                .dst_queue_family_index(self.device.graphics_queue_idx)
-                .image(tex.image)
-                .old_layout(ImageLayout::GENERAL)
-                .new_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
-                .dst_access_mask(AccessFlags2::TRANSFER_READ)
-                .dst_stage_mask(PipelineStageFlags2::TRANSFER);
-            initial_barriers =
-                initial_barriers.image_memory_barriers(slice::from_ref(&initial_tex_barrier));
-        }
-        let final_tex_barrier;
-        let final_buffer_barrier = BufferMemoryBarrier2::default()
-            .buffer(staging.buffer)
-            .offset(0)
-            .size(staging.size)
-            .src_access_mask(AccessFlags2::TRANSFER_WRITE)
-            .src_stage_mask(PipelineStageFlags2::TRANSFER)
-            .dst_access_mask(AccessFlags2::HOST_READ)
-            .dst_stage_mask(PipelineStageFlags2::HOST);
-        let mut final_barriers = DependencyInfo::default()
-            .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier));
-        if tex.bridge.is_none() {
-            final_tex_barrier = image_barrier()
-                .src_queue_family_index(self.device.graphics_queue_idx)
-                .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                .image(tex.image)
-                .old_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
-                .new_layout(ImageLayout::GENERAL)
-                .src_access_mask(AccessFlags2::TRANSFER_READ)
-                .src_stage_mask(PipelineStageFlags2::TRANSFER);
-            final_barriers =
-                final_barriers.image_memory_barriers(slice::from_ref(&final_tex_barrier));
-        }
-        let buf = self.gfx_command_buffers.allocate()?;
-        let mut semaphores = vec![];
-        let mut semaphore_infos = vec![];
-        if let VulkanImageMemory::DmaBuf(buf) = &tex.ty {
-            for plane in &buf.template.dmabuf.planes {
-                let fd = dma_buf_export_sync_file(&plane.fd, DMA_BUF_SYNC_READ)
-                    .map_err(VulkanError::IoctlExportSyncFile)?;
-                let semaphore = self.allocate_semaphore()?;
-                semaphore.import_sync_file(fd)?;
-                let semaphore_info = SemaphoreSubmitInfo::default()
-                    .semaphore(semaphore.semaphore)
-                    .stage_mask(PipelineStageFlags2::TOP_OF_PIPE);
-                semaphores.push(semaphore);
-                semaphore_infos.push(semaphore_info);
-            }
-        }
-        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf.buffer);
-        let submit_info = SubmitInfo2::default()
-            .wait_semaphore_infos(&semaphore_infos)
-            .command_buffer_infos(slice::from_ref(&command_buffer_info));
-        let begin_info =
-            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-        unsafe {
-            self.device
-                .device
-                .begin_command_buffer(buf.buffer, &begin_info)
-                .map_err(VulkanError::BeginCommandBuffer)?;
-            self.device
-                .device
-                .cmd_pipeline_barrier2(buf.buffer, &initial_barriers);
-            self.device.device.cmd_copy_image_to_buffer(
-                buf.buffer,
-                tex.image,
-                ImageLayout::TRANSFER_SRC_OPTIMAL,
-                staging.buffer,
-                &[region],
-            );
-            self.device
-                .device
-                .cmd_pipeline_barrier2(buf.buffer, &final_barriers);
-            self.device
-                .device
-                .end_command_buffer(buf.buffer)
-                .map_err(VulkanError::EndCommandBuffer)?;
-            self.device
-                .device
-                .queue_submit2(
-                    self.device.graphics_queue,
-                    slice::from_ref(&submit_info),
-                    Fence::null(),
-                )
-                .map_err(VulkanError::Submit)?;
-        }
-        self.block();
-        self.gfx_command_buffers.buffers.push(buf);
-        for semaphore in semaphores {
-            self.wait_semaphores.push(semaphore);
-        }
-        staging.download(|mem, size| unsafe {
-            ptr::copy_nonoverlapping(mem, dst.as_ptr() as _, size);
-        })?;
-        Ok(())
     }
 
     pub fn execute(
@@ -1101,7 +947,7 @@ impl VulkanRenderer {
         let buf = self.gfx_command_buffers.allocate()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
-        self.initial_barriers(buf.buffer, fb);
+        self.initial_barriers(buf.buffer, fb)?;
         self.begin_rendering(buf.buffer, fb, clear);
         self.set_viewport(buf.buffer, fb);
         self.record_draws(buf.buffer, fb, opts)?;

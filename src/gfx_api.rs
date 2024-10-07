@@ -265,18 +265,21 @@ pub trait GfxFramebuffer: Debug {
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
-    fn copy_to_shm(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError>;
-
     fn format(&self) -> &'static Format;
+}
+
+pub trait GfxInternalFramebuffer: GfxFramebuffer {
+    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer>;
+
+    fn staging_size(&self) -> usize;
+
+    fn download(
+        self: Rc<Self>,
+        staging: &Rc<dyn GfxStagingBuffer>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        mem: Rc<dyn ShmMemory>,
+        damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError>;
 }
 
 impl dyn GfxFramebuffer {
@@ -481,16 +484,6 @@ pub trait GfxTexture: Debug {
     fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
-    fn read_pixels(
-        self: Rc<Self>,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        stride: i32,
-        format: &'static Format,
-        shm: &[Cell<u8>],
-    ) -> Result<(), GfxError>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
     fn format(&self) -> &'static Format;
 }
@@ -503,12 +496,23 @@ pub trait AsyncShmGfxTextureCallback {
     fn completed(self: Rc<Self>, res: Result<(), GfxError>);
 }
 
-pub trait AsyncShmGfxTextureUploadCancellable {
+bitflags! {
+    StagingBufferUsecase: u32;
+        STAGING_UPLOAD   = 1 << 0,
+        STAGING_DOWNLOAD = 1 << 1,
+}
+
+pub trait GfxStagingBuffer {
+    fn size(&self) -> usize;
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
+}
+
+pub trait AsyncShmGfxTextureTransferCancellable {
     fn cancel(&self, id: u64);
 }
 
-pub struct PendingShmUpload {
-    cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>,
+pub struct PendingShmTransfer {
+    cancel: Rc<dyn AsyncShmGfxTextureTransferCancellable>,
     id: u64,
 }
 
@@ -539,12 +543,17 @@ impl ShmMemory for Vec<Cell<u8>> {
 }
 
 pub trait AsyncShmGfxTexture: GfxTexture {
+    fn staging_size(&self) -> usize {
+        0
+    }
+
     fn async_upload(
         self: Rc<Self>,
+        staging: &Rc<dyn GfxStagingBuffer>,
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
         mem: Rc<dyn ShmMemory>,
         damage: Region,
-    ) -> Result<Option<PendingShmUpload>, GfxError>;
+    ) -> Result<Option<PendingShmTransfer>, GfxError>;
 
     fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
 
@@ -596,15 +605,35 @@ pub trait GfxContext: Debug {
 
     fn gfx_api(&self) -> GfxApi;
 
-    fn create_fb(
+    fn create_internal_fb(
         self: Rc<Self>,
+        cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
         stride: i32,
         format: &'static Format,
-    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+    ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>>;
+
+    fn create_staging_buffer(
+        &self,
+        size: usize,
+        usecase: StagingBufferUsecase,
+    ) -> Rc<dyn GfxStagingBuffer> {
+        let _ = usecase;
+        struct Dummy(usize);
+        impl GfxStagingBuffer for Dummy {
+            fn size(&self) -> usize {
+                self.0
+            }
+
+            fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+                self
+            }
+        }
+        Rc::new(Dummy(size))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -671,13 +700,13 @@ pub fn cross_intersect_formats(
     res
 }
 
-impl PendingShmUpload {
-    pub fn new(cancel: Rc<dyn AsyncShmGfxTextureUploadCancellable>, id: u64) -> Self {
+impl PendingShmTransfer {
+    pub fn new(cancel: Rc<dyn AsyncShmGfxTextureTransferCancellable>, id: u64) -> Self {
         Self { cancel, id }
     }
 }
 
-impl Drop for PendingShmUpload {
+impl Drop for PendingShmTransfer {
     fn drop(&mut self) {
         self.cancel.cancel(self.id);
     }
