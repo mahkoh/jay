@@ -21,6 +21,7 @@ pub struct GlRenderBuffer {
     pub ctx: Rc<EglContext>,
     pub width: i32,
     pub height: i32,
+    pub stride: i32,
     pub format: &'static Format,
     rbo: GLuint,
 }
@@ -30,6 +31,7 @@ impl GlRenderBuffer {
         ctx: &Rc<EglContext>,
         width: i32,
         height: i32,
+        stride: i32,
         format: &'static Format,
     ) -> Result<Rc<GlRenderBuffer>, RenderError> {
         let Some(shm_info) = &format.shm_info else {
@@ -46,6 +48,7 @@ impl GlRenderBuffer {
             ctx: ctx.clone(),
             width,
             height,
+            stride,
             format,
             rbo,
         }))
@@ -71,6 +74,7 @@ impl GlRenderBuffer {
             ctx: ctx.clone(),
             width: img.dmabuf.width,
             height: img.dmabuf.height,
+            stride: 0,
             format: img.dmabuf.format,
             rbo,
         }))

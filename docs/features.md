@@ -143,6 +143,7 @@ Jay supports the following wayland protocols:
 | ext_foreign_toplevel_image_capture_source_manager_v1 | 1               |               |
 | ext_foreign_toplevel_list_v1                         | 1               | Yes           |
 | ext_idle_notifier_v1                                 | 1               | Yes           |
+| ext_image_copy_capture_manager_v1                    | 1[^composited]  | Yes           |
 | ext_output_image_capture_source_manager_v1           | 1               |               |
 | ext_session_lock_manager_v1                          | 1               | Yes           |
 | ext_transient_seat_manager_v1                        | 1[^ts_rejected] | Yes           |
@@ -187,3 +188,4 @@ Jay supports the following wayland protocols:
 
 [^lsaccess]: Sandboxes can restrict access to this protocol.
 [^ts_rejected]: Seat creation is always rejected.
+[^composited]: Cursors are always composited.

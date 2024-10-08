@@ -11,7 +11,6 @@ use {
     thiserror::Error,
 };
 
-#[expect(dead_code)]
 #[derive(Clone)]
 pub enum ImageCaptureSource {
     Output(Rc<OutputGlobalOpt>),
@@ -22,7 +21,6 @@ pub struct ExtImageCaptureSourceV1 {
     pub id: ExtImageCaptureSourceV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    #[expect(dead_code)]
     pub ty: ImageCaptureSource,
 }
 

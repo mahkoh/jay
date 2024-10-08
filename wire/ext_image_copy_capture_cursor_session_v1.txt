@@ -1,0 +1,25 @@
+request destroy {
+
+}
+
+request get_capture_session {
+    session: id(ext_image_copy_capture_session_v1),
+}
+
+event enter {
+
+}
+
+event leave {
+
+}
+
+event position {
+    x: i32,
+    y: i32,
+}
+
+event hotspot {
+    x: i32,
+    y: i32,
+}

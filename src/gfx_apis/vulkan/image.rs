@@ -520,6 +520,13 @@ impl GfxInternalFramebuffer for VulkanImage {
         self
     }
 
+    fn stride(&self) -> i32 {
+        let VulkanImageMemory::Internal(shm) = &self.ty else {
+            unreachable!();
+        };
+        shm.stride as _
+    }
+
     fn staging_size(&self) -> usize {
         let VulkanImageMemory::Internal(shm) = &self.ty else {
             unreachable!();

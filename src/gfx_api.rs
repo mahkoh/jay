@@ -270,6 +270,7 @@ pub trait GfxFramebuffer: Debug {
 
 pub trait GfxInternalFramebuffer: GfxFramebuffer {
     fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer>;
+    fn stride(&self) -> i32;
 
     fn staging_size(&self) -> usize;
 

@@ -4,6 +4,7 @@ use {
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_image_capture_source_v1::ExtImageCaptureSourceV1,
+            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             ipc::{
                 wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
@@ -33,9 +34,10 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id, JayOutputId, JayScreencastId,
-            JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId,
-            WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
+            ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
+            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, JayToplevelId,
+            JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId,
+            WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
             WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId,
             XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
             ZwpTabletToolV2Id,
@@ -73,6 +75,8 @@ pub struct Objects {
     pub image_capture_sources: CopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
     pub foreign_toplevel_handles:
         CopyHashMap<ExtForeignToplevelHandleV1Id, Rc<ExtForeignToplevelHandleV1>>,
+    pub ext_copy_sessions:
+        CopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -108,6 +112,7 @@ impl Objects {
             xdg_popups: Default::default(),
             image_capture_sources: Default::default(),
             foreign_toplevel_handles: Default::default(),
+            ext_copy_sessions: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -147,6 +152,7 @@ impl Objects {
         self.xdg_popups.clear();
         self.image_capture_sources.clear();
         self.foreign_toplevel_handles.clear();
+        self.ext_copy_sessions.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

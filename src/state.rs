@@ -555,6 +555,9 @@ impl State {
             for sc in client.data.objects.screencasts.lock().values() {
                 scs.push(sc.clone());
             }
+            for sc in client.data.objects.ext_copy_sessions.lock().values() {
+                sc.stop();
+            }
         }
         for sc in scs {
             sc.do_destroy();

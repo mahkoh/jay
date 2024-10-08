@@ -4,6 +4,7 @@ use {
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
+            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
             wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
@@ -24,7 +25,10 @@ use {
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
         },
-        wire::{ExtForeignToplevelHandleV1Id, JayScreencastId, JayToplevelId},
+        wire::{
+            ExtForeignToplevelHandleV1Id, ExtImageCopyCaptureSessionV1Id, JayScreencastId,
+            JayToplevelId,
+        },
     },
     std::{
         cell::{Cell, RefCell},
@@ -130,6 +134,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         for sc in data.jay_screencasts.lock().values() {
             sc.update_latch_listener();
         }
+        for sc in data.ext_copy_sessions.lock().values() {
+            sc.update_latch_listener();
+        }
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
@@ -138,6 +145,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if prev.size() != rect.size() {
             for sc in data.jay_screencasts.lock().values() {
                 sc.schedule_realloc_or_reconfigure();
+            }
+            for sc in data.ext_copy_sessions.lock().values() {
+                sc.buffer_size_changed();
             }
         }
         if data.is_floating.get() {
@@ -270,6 +280,8 @@ pub struct ToplevelData {
     pub render_highlight: NumCell<u32>,
     pub jay_toplevels: CopyHashMap<(ClientId, JayToplevelId), Rc<JayToplevel>>,
     pub jay_screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
+    pub ext_copy_sessions:
+        CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
 }
 
 impl ToplevelData {
@@ -300,6 +312,7 @@ impl ToplevelData {
             render_highlight: Default::default(),
             jay_toplevels: Default::default(),
             jay_screencasts: Default::default(),
+            ext_copy_sessions: Default::default(),
         }
     }
 
@@ -342,6 +355,9 @@ impl ToplevelData {
         }
         for screencast in self.jay_screencasts.lock().drain_values() {
             screencast.do_destroy();
+        }
+        for screencast in self.ext_copy_sessions.lock().drain_values() {
+            screencast.stop();
         }
         self.identifier.set(toplevel_identifier());
         {
@@ -538,6 +554,9 @@ impl ToplevelData {
         for sc in self.jay_screencasts.lock().values() {
             sc.update_latch_listener();
         }
+        for sc in self.ext_copy_sessions.lock().values() {
+            sc.update_latch_listener();
+        }
         if !visible {
             return;
         }
@@ -568,6 +587,15 @@ impl ToplevelData {
             None => self.state.dummy_output.get().unwrap(),
             Some(ws) => ws.output.get(),
         }
+    }
+
+    pub fn desired_pixel_size(&self) -> (i32, i32) {
+        let (dw, dh) = self.desired_extents.get().size();
+        if let Some(ws) = self.workspace.get() {
+            let scale = ws.output.get().global.persistent.scale.get();
+            return scale.pixel_size(dw, dh);
+        };
+        (0, 0)
     }
 }
 

@@ -6,6 +6,7 @@ use {
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
         ifs::{
+            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
             wl_buffer::WlBufferStorage,
@@ -42,7 +43,9 @@ use {
             linkedlist::LinkedList, on_drop_event::OnDropEvent, scroller::Scroller,
             transform_ext::TransformExt,
         },
-        wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
+        wire::{
+            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
+        },
     },
     ahash::AHashMap,
     jay_config::video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
@@ -87,10 +90,12 @@ pub struct OutputNode {
     pub vblank_event: EventSource<dyn VblankListener>,
     pub presentation_event: EventSource<dyn PresentationListener>,
     pub flip_margin_ns: Cell<Option<u64>>,
+    pub ext_copy_sessions:
+        CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
 }
 
 pub trait LatchListener {
-    fn after_latch(self: Rc<Self>);
+    fn after_latch(self: Rc<Self>, on: &OutputNode);
 }
 
 pub trait VblankListener {
@@ -133,7 +138,7 @@ impl OutputNode {
     pub fn latched(&self) {
         self.schedule.latched();
         for listener in self.latch_event.iter() {
-            listener.after_latch();
+            listener.after_latch(self);
         }
     }
 
@@ -225,6 +230,19 @@ impl OutputNode {
             size,
         );
         for sc in self.screencasts.lock().values() {
+            sc.copy_texture(
+                self,
+                tex,
+                resv,
+                acquire_sync,
+                release_sync,
+                render_hardware_cursor,
+                x_off,
+                y_off,
+                size,
+            );
+        }
+        for sc in self.ext_copy_sessions.lock().values() {
             sc.copy_texture(
                 self,
                 tex,
@@ -353,6 +371,7 @@ impl OutputNode {
         self.jay_outputs.clear();
         self.screencasts.clear();
         self.screencopies.clear();
+        self.ext_copy_sessions.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -691,6 +710,9 @@ impl OutputNode {
         if (old_width, old_height) != (new_width, new_height) {
             for sc in self.screencasts.lock().values() {
                 sc.schedule_realloc_or_reconfigure();
+            }
+            for sc in self.ext_copy_sessions.lock().values() {
+                sc.buffer_size_changed();
             }
         }
 
