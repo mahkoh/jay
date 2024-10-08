@@ -1,0 +1,30 @@
+# requests
+
+request set_selection {
+    source: id(ext_data_control_source_v1),
+}
+
+request destroy {
+
+}
+
+request set_primary_selection {
+    source: id(ext_data_control_source_v1),
+}
+
+# events
+
+event data_offer {
+    id: id(ext_data_control_offer_v1),
+}
+
+event selection {
+    id: id(ext_data_control_offer_v1),
+}
+
+event finished {
+}
+
+event primary_selection {
+    id: id(ext_data_control_offer_v1),
+}

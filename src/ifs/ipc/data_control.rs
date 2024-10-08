@@ -3,6 +3,10 @@ use {
     std::rc::Rc,
 };
 
+pub mod ext_data_control_device_v1;
+pub mod ext_data_control_manager_v1;
+pub mod ext_data_control_offer_v1;
+pub mod ext_data_control_source_v1;
 mod private;
 pub mod zwlr_data_control_device_v1;
 pub mod zwlr_data_control_manager_v1;
