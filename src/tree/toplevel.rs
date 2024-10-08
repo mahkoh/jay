@@ -29,7 +29,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
 };
 
@@ -226,6 +226,23 @@ pub struct FullscreenedData {
     pub workspace: Rc<WorkspaceNode>,
 }
 
+#[derive(Clone)]
+pub struct ToplevelOpt {
+    toplevel: Weak<dyn ToplevelNode>,
+    identifier: ToplevelIdentifier,
+}
+
+impl ToplevelOpt {
+    pub fn get(&self) -> Option<Rc<dyn ToplevelNode>> {
+        let tl = self.toplevel.upgrade()?;
+        if tl.tl_data().identifier.get() == self.identifier {
+            Some(tl)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct ToplevelData {
     pub self_active: Cell<bool>,
     pub client: Option<Rc<Client>>,
@@ -372,7 +389,11 @@ impl ToplevelData {
         title: &str,
         app_id: &str,
     ) {
-        let handle = match list.publish_toplevel(toplevel) {
+        let opt = ToplevelOpt {
+            toplevel: Rc::downgrade(toplevel),
+            identifier: self.identifier.get(),
+        };
+        let handle = match list.publish_toplevel(opt) {
             None => return,
             Some(handle) => handle,
         };
