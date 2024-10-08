@@ -64,9 +64,7 @@ pub trait DataSource: DynDataSource {
 pub trait DynDataSource: 'static {
     fn source_data(&self) -> &SourceData;
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>);
-    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>);
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>);
-    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>);
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>);
     fn cancel_unprivileged_offers(&self);
 
@@ -315,8 +313,8 @@ pub fn detach_seat<S: DataSource>(src: &S, seat: &Rc<WlSeatGlobal>) {
     // data.client.flush();
 }
 
-fn offer_source_to_device<T: IpcVtable, S: DynDataSource>(
-    src: &Rc<S>,
+fn offer_source_to_device<T: IpcVtable>(
+    src: &Rc<dyn DynDataSource>,
     dd: &Rc<T::Device>,
     data: &SourceData,
     shared: Rc<SharedState>,
@@ -351,31 +349,29 @@ fn offer_source_to_device<T: IpcVtable, S: DynDataSource>(
     }
 }
 
-fn offer_source_to_x<T, S>(src: &Rc<S>, dd: &Rc<XIpcDevice>)
+fn offer_source_to_x<T>(src: Rc<dyn DynDataSource>, dd: &Rc<XIpcDevice>)
 where
     T: IpcVtable<Device = XIpcDevice>,
-    S: DynDataSource,
 {
     let data = src.source_data();
     src.cancel_unprivileged_offers();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
-    offer_source_to_device::<T, S>(src, dd, data, shared);
+    offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-pub fn offer_source_to_wlr_device<T, S>(src: &Rc<S>, dd: &Rc<T::Device>)
+pub fn offer_source_to_wlr_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
 where
     T: IpcVtable<Device = ZwlrDataControlDeviceV1>,
-    S: DynDataSource,
 {
     let data = src.source_data();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
-    offer_source_to_device::<T, _>(src, dd, data, shared);
+    offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
-    src: &Rc<S>,
+pub fn offer_source_to_regular_client<T: IterableIpcVtable>(
+    src: Rc<dyn DynDataSource>,
     client: &Rc<Client>,
 ) {
     let data = src.source_data();
@@ -390,7 +386,7 @@ fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     T::for_each_device(&seat, client.id, |dd| {
-        offer_source_to_device::<T, S>(src, dd, data, shared.clone());
+        offer_source_to_device::<T>(&src, dd, data, shared.clone());
     });
 }
 

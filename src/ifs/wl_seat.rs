@@ -32,7 +32,7 @@ use {
         ifs::{
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ipc::{
-                self,
+                self, offer_source_to_regular_client, offer_source_to_wlr_device,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
                 x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
@@ -739,7 +739,7 @@ impl WlSeatGlobal {
             // client.flush();
         }
         W::for_each_device(self, |device| match &src {
-            Some(src) => src.clone().offer_to_wlr_device(device),
+            Some(src) => offer_source_to_wlr_device::<W>(src.clone(), device),
             _ => W::send_selection(device, None),
         });
         Ok(())
@@ -763,7 +763,7 @@ impl WlSeatGlobal {
             });
         } else {
             match selection {
-                Some(src) => src.offer_to_regular_client(client),
+                Some(src) => offer_source_to_regular_client::<T>(src, client),
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, None);
                 }),
