@@ -3,6 +3,7 @@ use {
         backend::Backend,
         client::{Client, ClientCaps},
         ifs::{
+            ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
             ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global,
@@ -199,6 +200,7 @@ impl Globals {
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
         add_singleton!(ExtOutputImageCaptureSourceManagerV1Global);
+        add_singleton!(ExtForeignToplevelImageCaptureSourceManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

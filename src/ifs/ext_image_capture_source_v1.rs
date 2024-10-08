@@ -4,6 +4,7 @@ use {
         ifs::wl_output::OutputGlobalOpt,
         leaks::Tracker,
         object::{Object, Version},
+        tree::ToplevelOpt,
         wire::{ext_image_capture_source_v1::*, ExtImageCaptureSourceV1Id},
     },
     std::rc::Rc,
@@ -14,6 +15,7 @@ use {
 #[derive(Clone)]
 pub enum ImageCaptureSource {
     Output(Rc<OutputGlobalOpt>),
+    Toplevel(ToplevelOpt),
 }
 
 pub struct ExtImageCaptureSourceV1 {
