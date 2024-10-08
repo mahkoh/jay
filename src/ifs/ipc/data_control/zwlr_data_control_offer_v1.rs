@@ -1,16 +1,11 @@
 use {
     crate::{
-        client::{Client, ClientError, ClientId},
-        ifs::{
-            ipc::{
-                break_offer_loops, cancel_offer,
-                data_control::zwlr_data_control_device_v1::{
-                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
-                },
-                destroy_data_offer, receive_data_offer, DataOffer, DataOfferId, DynDataOffer,
-                IpcLocation, OfferData,
+        ifs::ipc::data_control::{
+            private::{
+                logic::{self, DataControlError},
+                DataControlOffer, DataControlOfferData,
             },
-            wl_seat::WlSeatGlobal,
+            zwlr_data_control_device_v1::WlrDataControlIpc,
         },
         leaks::Tracker,
         object::Object,
@@ -22,54 +17,25 @@ use {
 
 pub struct ZwlrDataControlOfferV1 {
     pub id: ZwlrDataControlOfferV1Id,
-    pub offer_id: DataOfferId,
-    pub client: Rc<Client>,
-    pub device: Rc<ZwlrDataControlDeviceV1>,
-    pub data: OfferData<ZwlrDataControlDeviceV1>,
-    pub location: IpcLocation,
+    pub data: DataControlOfferData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
 
-impl DataOffer for ZwlrDataControlOfferV1 {
-    type Device = ZwlrDataControlDeviceV1;
+impl DataControlOffer for ZwlrDataControlOfferV1 {
+    type Ipc = WlrDataControlIpc;
 
-    fn offer_data(&self) -> &OfferData<ZwlrDataControlDeviceV1> {
+    fn data(&self) -> &DataControlOfferData<Self::Ipc> {
         &self.data
-    }
-}
-
-impl DynDataOffer for ZwlrDataControlOfferV1 {
-    fn offer_id(&self) -> DataOfferId {
-        self.offer_id
-    }
-
-    fn client_id(&self) -> ClientId {
-        self.client.id
     }
 
     fn send_offer(&self, mime_type: &str) {
-        ZwlrDataControlOfferV1::send_offer(self, mime_type)
-    }
-
-    fn cancel(&self) {
-        match self.location {
-            IpcLocation::Clipboard => cancel_offer::<WlrClipboardIpc>(self),
-            IpcLocation::PrimarySelection => cancel_offer::<WlrPrimarySelectionIpc>(self),
-        }
-    }
-
-    fn get_seat(&self) -> Rc<WlSeatGlobal> {
-        self.device.seat.clone()
-    }
-
-    fn is_privileged(&self) -> bool {
-        true
+        self.send_offer(mime_type);
     }
 }
 
 impl ZwlrDataControlOfferV1 {
     pub fn send_offer(&self, mime_type: &str) {
-        self.client.event(Offer {
+        self.data.client.event(Offer {
             self_id: self.id,
             mime_type,
         })
@@ -80,38 +46,24 @@ impl ZwlrDataControlOfferV1RequestHandler for ZwlrDataControlOfferV1 {
     type Error = ZwlrDataControlOfferV1Error;
 
     fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        match self.location {
-            IpcLocation::Clipboard => {
-                receive_data_offer::<WlrClipboardIpc>(self, req.mime_type, req.fd)
-            }
-            IpcLocation::PrimarySelection => {
-                receive_data_offer::<WlrPrimarySelectionIpc>(self, req.mime_type, req.fd)
-            }
-        }
+        logic::data_offer_receive(self, req.mime_type, req.fd);
         Ok(())
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        match self.location {
-            IpcLocation::Clipboard => destroy_data_offer::<WlrClipboardIpc>(self),
-            IpcLocation::PrimarySelection => destroy_data_offer::<WlrPrimarySelectionIpc>(self),
-        }
-        self.client.remove_obj(self)?;
+        logic::data_offer_destroy(self)?;
         Ok(())
     }
 }
 
 object_base! {
     self = ZwlrDataControlOfferV1;
-    version = self.device.version;
+    version = self.data.device.data.version;
 }
 
 impl Object for ZwlrDataControlOfferV1 {
     fn break_loops(&self) {
-        match self.location {
-            IpcLocation::Clipboard => break_offer_loops::<WlrClipboardIpc>(self),
-            IpcLocation::PrimarySelection => break_offer_loops::<WlrPrimarySelectionIpc>(self),
-        }
+        logic::data_offer_break_loops(self);
     }
 }
 
@@ -120,6 +72,5 @@ simple_add_obj!(ZwlrDataControlOfferV1);
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlOfferV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    DataControlError(#[from] DataControlError),
 }
-efrom!(ZwlrDataControlOfferV1Error, ClientError);
