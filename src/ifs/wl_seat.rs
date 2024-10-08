@@ -32,18 +32,17 @@ use {
         ifs::{
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ipc::{
-                self, offer_source_to_regular_client, offer_source_to_wlr_device,
+                self,
+                data_control::{DataControlDeviceId, DynDataControlDevice},
+                offer_source_to_regular_client,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
                 x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::{
-                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
-                },
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-                DynDataSource, IpcError,
+                DynDataSource, IpcError, IpcLocation,
             },
             wl_output::WlOutputGlobal,
             wl_seat::{
@@ -88,8 +87,8 @@ use {
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, WlTouchId, XdgPopupId, ZwlrDataControlDeviceV1Id,
-            ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id, ZwpTextInputV3Id,
+            WlSeatId, WlTouchId, XdgPopupId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
+            ZwpTextInputV3Id,
         },
         wire_ei::EiSeatId,
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
@@ -167,8 +166,7 @@ pub struct WlSeatGlobal {
             AHashMap<ZwpPrimarySelectionDeviceV1Id, Rc<ZwpPrimarySelectionDeviceV1>>,
         >,
     >,
-    wlr_data_devices:
-        CopyHashMap<(ClientId, ZwlrDataControlDeviceV1Id), Rc<ZwlrDataControlDeviceV1>>,
+    data_control_devices: CopyHashMap<DataControlDeviceId, Rc<dyn DynDataControlDevice>>,
     repeat_rate: Cell<(i32, i32)>,
     seat_kb_map: CloneCell<Rc<XkbKeymap>>,
     seat_xkb_state: CloneCell<Rc<RefCell<XkbState>>>,
@@ -267,7 +265,7 @@ impl WlSeatGlobal {
             constraint: Default::default(),
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(state.now_usec()),
-            wlr_data_devices: Default::default(),
+            data_control_devices: Default::default(),
             text_inputs: Default::default(),
             text_input: Default::default(),
             input_method: Default::default(),
@@ -383,13 +381,12 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn add_wlr_device(&self, device: &Rc<ZwlrDataControlDeviceV1>) {
-        self.wlr_data_devices
-            .set((device.client.id, device.id), device.clone());
+    pub fn add_data_control_device(&self, device: Rc<dyn DynDataControlDevice>) {
+        self.data_control_devices.set(device.id(), device.clone());
     }
 
-    pub fn remove_wlr_device(&self, device: &ZwlrDataControlDeviceV1) {
-        self.wlr_data_devices.remove(&(device.client.id, device.id));
+    pub fn remove_data_control_device(&self, device: &dyn DynDataControlDevice) {
+        self.data_control_devices.remove(&device.id());
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
@@ -711,15 +708,15 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T, X, W, S>(
+    fn set_selection_<T, X, S>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
         src: Option<Rc<S>>,
+        location: IpcLocation,
     ) -> Result<(), WlSeatError>
     where
         T: ipc::IterableIpcVtable,
         X: ipc::IpcVtable<Device = XIpcDevice>,
-        W: ipc::WlrIpcVtable,
         S: DynDataSource,
     {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
@@ -738,10 +735,10 @@ impl WlSeatGlobal {
             self.offer_selection_to_client::<T, X>(src.clone().map(|v| v as Rc<_>), &client);
             // client.flush();
         }
-        W::for_each_device(self, |device| match &src {
-            Some(src) => offer_source_to_wlr_device::<W>(src.clone(), device),
-            _ => W::send_selection(device, None),
-        });
+        let dyn_source = src.map(|s| s as Rc<dyn DynDataSource>);
+        for dd in self.data_control_devices.lock().values() {
+            dd.clone().handle_new_source(location, dyn_source.clone());
+        }
         Ok(())
     }
 
@@ -825,9 +822,10 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<ClipboardIpc, XClipboardIpc, WlrClipboardIpc, _>(
+        self.set_selection_::<ClipboardIpc, XClipboardIpc, _>(
             &self.selection,
             selection,
+            IpcLocation::Clipboard,
         )
     }
 
@@ -871,9 +869,10 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, WlrPrimarySelectionIpc, _>(
+        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, _>(
             &self.primary_selection,
             selection,
+            IpcLocation::PrimarySelection,
         )
     }
 
@@ -910,7 +909,7 @@ impl WlSeatGlobal {
         self.bindings.borrow_mut().clear();
         self.data_devices.borrow_mut().clear();
         self.primary_selection_devices.borrow_mut().clear();
-        self.wlr_data_devices.clear();
+        self.data_control_devices.clear();
         self.cursor_user_group.detach();
         self.selection.set(None);
         self.primary_selection.set(None);

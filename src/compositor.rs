@@ -274,6 +274,7 @@ fn start_compositor2(
         toplevels: Default::default(),
         const_40hz_latch: Default::default(),
         tray_item_ids: Default::default(),
+        data_control_device_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

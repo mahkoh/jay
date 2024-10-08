@@ -12,7 +12,6 @@ use {
                 offer_source_to_regular_client,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 x_data_device::{XClipboardIpc, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
@@ -1033,17 +1032,6 @@ impl WlSeatGlobal {
                 if dd.version >= ver {
                     f(dd);
                 }
-            }
-        }
-    }
-
-    pub fn for_each_wlr_data_device<C>(&self, ver: Version, mut f: C)
-    where
-        C: FnMut(&Rc<ZwlrDataControlDeviceV1>),
-    {
-        for dd in self.wlr_data_devices.lock().values() {
-            if dd.version >= ver {
-                f(dd);
             }
         }
     }

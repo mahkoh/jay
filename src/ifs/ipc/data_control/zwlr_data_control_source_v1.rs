@@ -3,10 +3,12 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to_x,
+                add_data_source_mime_type, break_source_loops, cancel_offers,
+                data_control::zwlr_data_control_device_v1::{
+                    WlrClipboardIpc, WlrPrimarySelectionIpc,
+                },
+                destroy_data_source, detach_seat, offer_source_to_x,
                 x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::{WlrClipboardIpc, WlrPrimarySelectionIpc},
                 DataSource, DynDataSource, IpcLocation, SourceData,
             },
             wl_seat::WlSeatGlobal,

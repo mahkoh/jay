@@ -6,7 +6,8 @@ use {
             ext_image_capture_source_v1::ExtImageCaptureSourceV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             ipc::{
-                wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                wl_data_source::WlDataSource,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,

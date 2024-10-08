@@ -3,12 +3,11 @@ use {
         client::{Client, ClientCaps, ClientError, CAP_DATA_CONTROL_MANAGER},
         globals::{Global, GlobalName},
         ifs::ipc::{
-            offer_source_to_wlr_device,
-            zwlr_data_control_device_v1::{
-                WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
-                PRIMARY_SELECTION_SINCE,
+            data_control::{
+                zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
+                zwlr_data_control_source_v1::ZwlrDataControlSourceV1, DynDataControlDevice,
             },
-            zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+            IpcLocation,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -79,18 +78,14 @@ impl ZwlrDataControlManagerV1RequestHandler for ZwlrDataControlManagerV1 {
             &seat.global,
         ));
         track!(self.client, dev);
-        seat.global.add_wlr_device(&dev);
+        seat.global.add_data_control_device(dev.clone());
         self.client.add_client_obj(&dev)?;
-        match seat.global.get_selection() {
-            Some(s) => offer_source_to_wlr_device::<WlrClipboardIpc>(s, &dev),
-            _ => dev.send_selection(None),
-        }
-        if self.version >= PRIMARY_SELECTION_SINCE {
-            match seat.global.get_primary_selection() {
-                Some(s) => offer_source_to_wlr_device::<WlrPrimarySelectionIpc>(s, &dev),
-                _ => dev.send_primary_selection(None),
-            }
-        }
+        dev.clone()
+            .handle_new_source(IpcLocation::Clipboard, seat.global.get_selection());
+        dev.clone().handle_new_source(
+            IpcLocation::PrimarySelection,
+            seat.global.get_primary_selection(),
+        );
         Ok(())
     }
 

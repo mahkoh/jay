@@ -3,13 +3,17 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                break_device_loops, destroy_data_device,
-                zwlr_data_control_device_v1::private::{
-                    WlrClipboardIpcCore, WlrIpcImpl, WlrPrimarySelectionIpcCore,
+                break_device_loops,
+                data_control::{
+                    zwlr_data_control_device_v1::private::{
+                        WlrClipboardIpcCore, WlrIpcImpl, WlrPrimarySelectionIpcCore,
+                    },
+                    zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
+                    zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                    DataControlDeviceId, DynDataControlDevice,
                 },
-                zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
-                zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
-                DeviceData, IpcLocation, IpcVtable, OfferData, Role, WlrIpcVtable,
+                destroy_data_device, offer_source_to_data_control_device, DeviceData,
+                DynDataSource, IpcLocation, IpcVtable, OfferData, Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
@@ -28,6 +32,7 @@ pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
 pub struct ZwlrDataControlDeviceV1 {
     pub id: ZwlrDataControlDeviceV1Id,
+    pub data_control_device_id: DataControlDeviceId,
     pub client: Rc<Client>,
     pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
@@ -45,6 +50,7 @@ impl ZwlrDataControlDeviceV1 {
     ) -> Self {
         Self {
             id,
+            data_control_device_id: client.state.data_control_device_ids.next(),
             client: client.clone(),
             version,
             seat: seat.clone(),
@@ -111,7 +117,7 @@ impl ZwlrDataControlDeviceV1RequestHandler for ZwlrDataControlDeviceV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<WlrClipboardIpc>(self);
         destroy_data_device::<WlrPrimarySelectionIpc>(self);
-        self.seat.remove_wlr_device(self);
+        self.seat.remove_data_control_device(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -138,7 +144,6 @@ pub type WlrClipboardIpc = WlrIpcImpl<WlrClipboardIpcCore>;
 pub type WlrPrimarySelectionIpc = WlrIpcImpl<WlrPrimarySelectionIpcCore>;
 
 trait WlrIpc {
-    const MIN_VERSION: Version;
     const LOCATION: IpcLocation;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1>;
@@ -149,7 +154,6 @@ trait WlrIpc {
 }
 
 impl WlrIpc for WlrClipboardIpcCore {
-    const MIN_VERSION: Version = Version::ALL;
     const LOCATION: IpcLocation = IpcLocation::Clipboard;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
@@ -169,7 +173,6 @@ impl WlrIpc for WlrClipboardIpcCore {
 }
 
 impl WlrIpc for WlrPrimarySelectionIpcCore {
-    const MIN_VERSION: Version = PRIMARY_SELECTION_SINCE;
     const LOCATION: IpcLocation = IpcLocation::PrimarySelection;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
@@ -185,15 +188,6 @@ impl WlrIpc for WlrPrimarySelectionIpcCore {
 
     fn wlr_unset(seat: &Rc<WlSeatGlobal>) {
         seat.unset_primary_selection()
-    }
-}
-
-impl<T: WlrIpc> WlrIpcVtable for WlrIpcImpl<T> {
-    fn for_each_device<C>(seat: &WlSeatGlobal, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>),
-    {
-        seat.for_each_wlr_data_device(T::MIN_VERSION, f)
     }
 }
 
@@ -245,6 +239,35 @@ impl<T: WlrIpc> IpcVtable for WlrIpcImpl<T> {
     }
 }
 
+impl DynDataControlDevice for ZwlrDataControlDeviceV1 {
+    fn id(&self) -> DataControlDeviceId {
+        self.data_control_device_id
+    }
+
+    fn handle_new_source(
+        self: Rc<Self>,
+        location: IpcLocation,
+        source: Option<Rc<dyn DynDataSource>>,
+    ) {
+        match location {
+            IpcLocation::Clipboard => match source {
+                Some(src) => offer_source_to_data_control_device::<WlrClipboardIpc>(src, &self),
+                _ => self.send_selection(None),
+            },
+            IpcLocation::PrimarySelection => {
+                if self.version >= PRIMARY_SELECTION_SINCE {
+                    match source {
+                        Some(src) => offer_source_to_data_control_device::<WlrPrimarySelectionIpc>(
+                            src, &self,
+                        ),
+                        _ => self.send_primary_selection(None),
+                    }
+                }
+            }
+        }
+    }
+}
+
 object_base! {
     self = ZwlrDataControlDeviceV1;
     version = self.version;
@@ -254,7 +277,7 @@ impl Object for ZwlrDataControlDeviceV1 {
     fn break_loops(&self) {
         break_device_loops::<WlrClipboardIpc>(self);
         break_device_loops::<WlrPrimarySelectionIpc>(self);
-        self.seat.remove_wlr_device(self);
+        self.seat.remove_data_control_device(self);
     }
 }
 
