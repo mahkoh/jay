@@ -5,6 +5,7 @@ use {
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
+            ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
@@ -197,6 +198,7 @@ impl Globals {
         add_singleton!(ZwpPointerGesturesV1Global);
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
+        add_singleton!(ExtOutputImageCaptureSourceManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

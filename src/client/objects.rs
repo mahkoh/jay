@@ -2,6 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::{
+            ext_image_capture_source_v1::ExtImageCaptureSourceV1,
             ipc::{
                 wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
@@ -31,11 +32,11 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
-            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId,
-            XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
+            ExtImageCaptureSourceV1Id, JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId,
+            WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId,
+            WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id,
+            XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
+            ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -67,6 +68,7 @@ pub struct Objects {
     pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
     pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
     pub xdg_popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
+    pub image_capture_sources: CopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -100,6 +102,7 @@ impl Objects {
             drm_lease_outputs: Default::default(),
             tablet_tools: Default::default(),
             xdg_popups: Default::default(),
+            image_capture_sources: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -137,6 +140,7 @@ impl Objects {
         self.drm_lease_outputs.clear();
         self.tablet_tools.clear();
         self.xdg_popups.clear();
+        self.image_capture_sources.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

@@ -2,6 +2,8 @@ pub mod ext_foreign_toplevel_handle_v1;
 pub mod ext_foreign_toplevel_list_v1;
 pub mod ext_idle_notification_v1;
 pub mod ext_idle_notifier_v1;
+pub mod ext_image_capture_source_v1;
+pub mod ext_output_image_capture_source_manager_v1;
 pub mod ext_session_lock_manager_v1;
 pub mod ext_session_lock_v1;
 pub mod ipc;

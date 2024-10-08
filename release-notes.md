@@ -5,6 +5,7 @@
 - Vulkan is now the default renderer.
 - Emulate vblank events on the nvidia driver.
 - Allow X windows to scale themselves.
+- Implement ext-image-capture-source-v1.
 
 # 1.6.0 (2024-09-25)
 
