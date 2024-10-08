@@ -824,8 +824,15 @@ impl VulkanRenderer {
             if attach_async_shm_sync_file {
                 if let VulkanImageMemory::Internal(shm) = &texture.tex.ty {
                     if let Some(data) = &shm.async_data {
-                        data.last_sample.set(Some(sync_file.clone()));
+                        data.last_gfx_use.set(Some(sync_file.clone()));
                     }
+                }
+            }
+        }
+        if attach_async_shm_sync_file {
+            if let VulkanImageMemory::Internal(shm) = &fb.ty {
+                if let Some(data) = &shm.async_data {
+                    data.last_gfx_use.set(Some(sync_file.clone()));
                 }
             }
         }
