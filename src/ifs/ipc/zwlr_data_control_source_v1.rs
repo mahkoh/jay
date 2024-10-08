@@ -4,14 +4,9 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to_regular_client, offer_source_to_wlr_device,
-                offer_source_to_x,
-                wl_data_device::ClipboardIpc,
+                detach_seat, offer_source_to_x,
                 x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::{
-                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
-                },
-                zwp_primary_selection_device_v1::PrimarySelectionIpc,
+                zwlr_data_control_device_v1::{WlrClipboardIpc, WlrPrimarySelectionIpc},
                 DataSource, DynDataSource, IpcLocation, SourceData,
             },
             wl_seat::WlSeatGlobal,
@@ -49,34 +44,10 @@ impl DynDataSource for ZwlrDataControlSourceV1 {
         ZwlrDataControlSourceV1::send_send(&self, mime_type, fd);
     }
 
-    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>) {
-        match self.location.get() {
-            IpcLocation::Clipboard => {
-                offer_source_to_regular_client::<ClipboardIpc, Self>(&self, client)
-            }
-            IpcLocation::PrimarySelection => {
-                offer_source_to_regular_client::<PrimarySelectionIpc, Self>(&self, client)
-            }
-        }
-    }
-
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>) {
         match self.location.get() {
-            IpcLocation::Clipboard => offer_source_to_x::<XClipboardIpc, Self>(&self, dd),
-            IpcLocation::PrimarySelection => {
-                offer_source_to_x::<XPrimarySelectionIpc, Self>(&self, dd)
-            }
-        }
-    }
-
-    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
-        match self.location.get() {
-            IpcLocation::Clipboard => {
-                offer_source_to_wlr_device::<WlrClipboardIpc, Self>(&self, dd)
-            }
-            IpcLocation::PrimarySelection => {
-                offer_source_to_wlr_device::<WlrPrimarySelectionIpc, Self>(&self, dd)
-            }
+            IpcLocation::Clipboard => offer_source_to_x::<XClipboardIpc>(self, dd),
+            IpcLocation::PrimarySelection => offer_source_to_x::<XPrimarySelectionIpc>(self, dd),
         }
     }
 
