@@ -3,11 +3,12 @@ use {
         client::{Client, ClientError, ClientId},
         ifs::{
             ipc::{
-                break_offer_loops, cancel_offer, destroy_data_offer, receive_data_offer,
-                zwlr_data_control_device_v1::{
+                break_offer_loops, cancel_offer,
+                data_control::zwlr_data_control_device_v1::{
                     WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
                 },
-                DataOffer, DataOfferId, DynDataOffer, IpcLocation, OfferData,
+                destroy_data_offer, receive_data_offer, DataOffer, DataOfferId, DynDataOffer,
+                IpcLocation, OfferData,
             },
             wl_seat::WlSeatGlobal,
         },

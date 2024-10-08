@@ -3,7 +3,8 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                wl_data_source::WlDataSource,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,

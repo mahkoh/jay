@@ -2,12 +2,7 @@ use {
     crate::{
         client::{Client, ClientError, ClientId},
         fixed::Fixed,
-        ifs::{
-            ipc::{
-                x_data_device::XIpcDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
-            },
-            wl_seat::WlSeatGlobal,
-        },
+        ifs::{ipc::x_data_device::XIpcDevice, wl_seat::WlSeatGlobal},
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
             smallmap::SmallMap,
@@ -26,6 +21,7 @@ use {
     uapi::OwnedFd,
 };
 
+pub mod data_control;
 pub mod wl_data_device;
 pub mod wl_data_device_manager;
 pub mod wl_data_offer;
@@ -33,10 +29,6 @@ pub mod wl_data_source;
 pub mod x_data_device;
 pub mod x_data_offer;
 pub mod x_data_source;
-pub mod zwlr_data_control_device_v1;
-pub mod zwlr_data_control_manager_v1;
-pub mod zwlr_data_control_offer_v1;
-pub mod zwlr_data_control_source_v1;
 pub mod zwp_primary_selection_device_manager_v1;
 pub mod zwp_primary_selection_device_v1;
 pub mod zwp_primary_selection_offer_v1;
@@ -133,12 +125,6 @@ pub trait DynDataOffer: 'static {
 
 pub trait IterableIpcVtable: IpcVtable {
     fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>);
-}
-
-pub trait WlrIpcVtable: IpcVtable<Device = ZwlrDataControlDeviceV1> {
-    fn for_each_device<C>(seat: &WlSeatGlobal, f: C)
     where
         C: FnMut(&Rc<Self::Device>);
 }
@@ -360,9 +346,9 @@ where
     offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-pub fn offer_source_to_wlr_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
+pub fn offer_source_to_data_control_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
 where
-    T: IpcVtable<Device = ZwlrDataControlDeviceV1>,
+    T: IpcVtable,
 {
     let data = src.source_data();
     let shared = data.shared.get();

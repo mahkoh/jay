@@ -7,8 +7,8 @@ use {
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
+                data_control::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
-                zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
             },
             jay_compositor::JayCompositorGlobal,
