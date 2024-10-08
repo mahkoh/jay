@@ -1,0 +1,16 @@
+# requests
+
+request receive {
+    mime_type: str,
+    fd: fd,
+}
+
+request destroy {
+
+}
+
+# events
+
+event offer {
+    mime_type: str,
+}

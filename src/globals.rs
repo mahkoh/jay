@@ -7,7 +7,10 @@ use {
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
-                data_control::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
+                data_control::{
+                    ext_data_control_manager_v1::ExtDataControlManagerV1Global,
+                    zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
+                },
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
             },
@@ -197,6 +200,7 @@ impl Globals {
         add_singleton!(ZwpPointerGesturesV1Global);
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
+        add_singleton!(ExtDataControlManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

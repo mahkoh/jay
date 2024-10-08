@@ -4,6 +4,7 @@
 - Tiles and workspaces can now be dragged with the mouse.
 - Vulkan is now the default renderer.
 - Emulate vblank events on the nvidia driver.
+- Add support fo ext-data-control-v1.
 
 # 1.6.0 (2024-09-25)
 
