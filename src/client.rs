@@ -172,6 +172,7 @@ impl Clients {
                 &global.wait_for_sync_obj,
                 &global.ring,
             )),
+            wire_scale: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -282,6 +283,7 @@ pub struct Client {
     pub surfaces_by_xwayland_serial: CopyHashMap<u64, Rc<WlSurface>>,
     pub activation_tokens: RefCell<VecDeque<ActivationToken>>,
     pub commit_timelines: Rc<CommitTimelines>,
+    pub wire_scale: Cell<Option<i32>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

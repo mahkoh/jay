@@ -27,6 +27,7 @@ use {
                 theme::ThemeParser,
                 ui_drag::UiDragParser,
                 vrr::VrrParser,
+                xwayland::XwaylandParser,
             },
             spanned::SpannedErrorExt,
             Action, Config, Libei, Theme, UiDrag,
@@ -114,6 +115,7 @@ impl Parser for ConfigParser<'_> {
                 tearing_val,
                 libei_val,
                 ui_drag_val,
+                xwayland_val,
             ),
         ) = ext.extract((
             (
@@ -150,6 +152,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("tearing")),
                 opt(val("libei")),
                 opt(val("ui-drag")),
+                opt(val("xwayland")),
             ),
         ))?;
         let mut keymap = None;
@@ -350,6 +353,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut xwayland = None;
+        if let Some(value) = xwayland_val {
+            match value.parse(&mut XwaylandParser(self.0)) {
+                Ok(v) => xwayland = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse Xwayland setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -378,6 +390,7 @@ impl Parser for ConfigParser<'_> {
             tearing,
             libei,
             ui_drag,
+            xwayland,
         })
     }
 }

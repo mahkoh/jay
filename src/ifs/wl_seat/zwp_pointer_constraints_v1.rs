@@ -12,7 +12,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        rect::Region,
+        rect::{Rect, Region},
         utils::clonecell::CloneCell,
         wire::{
             zwp_pointer_constraints_v1::*, WlPointerId, WlRegionId, WlSurfaceId,
@@ -125,11 +125,7 @@ impl SeatConstraint {
     }
 
     fn set_region(&self, region: WlRegionId) -> Result<(), ZwpPointerConstraintsV1Error> {
-        let region = if region.is_some() {
-            Some(self.client.lookup(region)?.region())
-        } else {
-            None
-        };
+        let region = get_region(&self.client, region)?;
         self.region.set(region);
         Ok(())
     }
@@ -166,6 +162,35 @@ impl ZwpPointerConstraintsV1Global {
     }
 }
 
+fn get_region(
+    client: &Client,
+    region: WlRegionId,
+) -> Result<Option<Rc<Region>>, ZwpPointerConstraintsV1Error> {
+    let region = if region.is_some() {
+        let mut region = client.lookup(region)?.region();
+        if let Some(scale) = client.wire_scale.get() {
+            let rects: Vec<_> = region
+                .rects()
+                .iter()
+                .map(|r| {
+                    Rect::new_sized(
+                        r.x1() / scale,
+                        r.y1() / scale,
+                        r.width() / scale,
+                        r.height() / scale,
+                    )
+                    .unwrap()
+                })
+                .collect();
+            region = Region::from_rects(&rects);
+        }
+        Some(region)
+    } else {
+        None
+    };
+    Ok(region)
+}
+
 impl ZwpPointerConstraintsV1 {
     fn create_constraint(
         &self,
@@ -181,11 +206,7 @@ impl ZwpPointerConstraintsV1 {
         if surface.constraints.contains(&seat.id) {
             return Err(ZwpPointerConstraintsV1Error::AlreadyConstrained);
         }
-        let region = if region.is_some() {
-            Some(self.client.lookup(region)?.region())
-        } else {
-            None
-        };
+        let region = get_region(&self.client, region)?;
         let one_shot = match lifetime {
             LT_ONESHOT => true,
             LT_PERSISTENT => false,

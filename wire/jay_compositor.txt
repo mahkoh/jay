@@ -92,6 +92,10 @@ request create_ei_session (since = 5) {
     id: id(jay_ei_session_builder),
 }
 
+request get_xwayland (since = 11) {
+    id: id(jay_xwayland),
+}
+
 # events
 
 event client_id {

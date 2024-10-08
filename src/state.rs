@@ -244,6 +244,8 @@ pub struct XWaylandState {
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
     pub ipc_device_ids: XIpcDeviceIds,
+    pub use_wire_scale: Cell<bool>,
+    pub wire_scale: Cell<Option<i32>>,
 }
 
 pub struct IdleState {
@@ -415,6 +417,7 @@ impl State {
     fn output_scales_changed(&self) {
         UpdateTextTexturesVisitor.visit_display(&self.root);
         self.reload_cursors();
+        self.update_xwayland_wire_scale();
     }
 
     fn cursor_sizes_changed(&self) {
@@ -1214,6 +1217,36 @@ impl State {
         let dx = x1 - x2;
         let dy = y1 - y2;
         dx * dx + dy * dy > self.ui_drag_threshold_squared.get()
+    }
+
+    pub fn update_xwayland_wire_scale(&self) {
+        let scale = self
+            .scales
+            .lock()
+            .iter()
+            .map(|v| v.0.round_up())
+            .max()
+            .unwrap_or(1);
+        let wire_scale = match self.xwayland.use_wire_scale.get() {
+            true => Some(scale as i32),
+            false => None,
+        };
+        self.xwayland.wire_scale.set(wire_scale);
+        for client in self.clients.clients.borrow().values() {
+            let client = &client.data;
+            if !client.is_xwayland {
+                continue;
+            }
+            if client.wire_scale.replace(wire_scale) == wire_scale {
+                continue;
+            }
+            for output in client.objects.outputs.lock().values() {
+                output.send_updates();
+            }
+            for surface in client.objects.surfaces.lock().values() {
+                surface.handle_xwayland_wire_scale_change();
+            }
+        }
     }
 }
 

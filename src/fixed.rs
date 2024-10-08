@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display, Formatter},
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
@@ -105,6 +105,22 @@ impl Add<i32> for Fixed {
 
     fn add(self, rhs: i32) -> Self::Output {
         Self(self.0 + (rhs << 8))
+    }
+}
+
+impl Mul<i32> for Fixed {
+    type Output = Self;
+
+    fn mul(self, rhs: i32) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+impl Div<i32> for Fixed {
+    type Output = Self;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        Self(self.0 / rhs)
     }
 }
 

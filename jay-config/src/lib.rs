@@ -66,6 +66,7 @@ pub mod tasks;
 pub mod theme;
 pub mod timer;
 pub mod video;
+pub mod xwayland;
 
 /// A planar direction.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq)]

@@ -182,6 +182,7 @@ async fn run(
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
     };
+    state.update_xwayland_wire_scale();
     state.ring.readable(&Rc::new(dfdread)).await?;
     state.xwayland.queue.clear();
     {

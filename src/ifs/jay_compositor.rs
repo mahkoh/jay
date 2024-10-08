@@ -18,6 +18,7 @@ use {
             jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
             jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
             jay_workspace_watcher::JayWorkspaceWatcher,
+            jay_xwayland::JayXwayland,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -70,7 +71,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        10
+        11
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -404,6 +405,18 @@ impl JayCompositorRequestHandler for JayCompositor {
             tracker: Default::default(),
             version: self.version,
             app_id: Default::default(),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn get_xwayland(&self, req: GetXwayland, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayXwayland {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

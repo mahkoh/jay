@@ -1166,6 +1166,18 @@ The table has the following fields:
 
   The value of this field should be a [UiDrag](#types-UiDrag).
 
+- `xwayland` (optional):
+
+  Configures the Xwayland settings.
+  
+  - Example:
+  
+    ```toml
+    xwayland = { scaling-mode = "downscaled" }
+    ```
+
+  The value of this field should be a [Xwayland](#types-Xwayland).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -3120,5 +3132,66 @@ The string should have one of the following values:
 
   VRR is enabled when a single game or video is displayed fullscreen.
 
+
+
+<a name="types-XScalingMode"></a>
+### `XScalingMode`
+
+The scaling mode of X windows.
+
+- Example:
+
+  ```toml
+  xwayland = { scaling-mode = "downscaled" }
+  ```
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `default`:
+
+  The default mode.
+  
+  Currently this means that windows are rendered at the lowest scale and then upscaled
+  if necessary.
+
+- `downscaled`:
+
+  Windows are rendered at the highest integer scale and then downscaled.
+  
+  This has significant performance implications unless the window is running on the
+  output with the highest scale and that scale is an integer scale.
+  
+  For example, on a 3840x2160 output with a 1.5 scale, a fullscreen window will be
+  rendered at 3840x2160 * 2 / 1.5 = 5120x2880 pixels and then downscaled to
+  3840x2160. This overhead gets worse the lower the scale of the output is.
+  
+  Additionally, this mode requires the X window to scale its contents itself. In the
+  example above, you might achieve this by setting the environment variable
+  `GDK_SCALE=2`.
+
+
+
+<a name="types-Xwayland"></a>
+### `Xwayland`
+
+Describes Xwayland settings.
+
+- Example:
+
+  ```toml
+  xwayland = { scaling-mode = "downscaled" }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `scaling-mode` (optional):
+
+  The scaling mode of X windows.
+
+  The value of this field should be a [XScalingMode](#types-XScalingMode).
 
 

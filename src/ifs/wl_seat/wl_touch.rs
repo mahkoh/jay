@@ -37,9 +37,10 @@ impl WlTouch {
         time: u32,
         surface: WlSurfaceId,
         id: i32,
-        x: Fixed,
-        y: Fixed,
+        mut x: Fixed,
+        mut y: Fixed,
     ) {
+        logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Down {
             self_id: self.id,
             serial,
@@ -60,7 +61,8 @@ impl WlTouch {
         })
     }
 
-    pub fn send_motion(&self, time: u32, id: i32, x: Fixed, y: Fixed) {
+    pub fn send_motion(&self, time: u32, id: i32, mut x: Fixed, mut y: Fixed) {
+        logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Motion {
             self_id: self.id,
             time,

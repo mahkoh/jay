@@ -769,9 +769,13 @@ impl WlSurface {
 
     pub fn send_preferred_buffer_scale(&self) {
         if self.version >= BUFFER_SCALE_SINCE {
+            let factor = match self.client.wire_scale.is_some() {
+                true => 1,
+                false => self.output.get().global.legacy_scale.get() as _,
+            };
             self.client.event(PreferredBufferScale {
                 self_id: self.id,
-                factor: self.output.get().global.legacy_scale.get() as _,
+                factor,
             });
         }
     }
@@ -908,6 +912,22 @@ impl WlSurface {
             }
         }
         Ok(())
+    }
+
+    pub fn handle_xwayland_wire_scale_change(&self) {
+        self.send_preferred_buffer_scale();
+        if let Some(fs) = self.fractional_scale.get() {
+            fs.send_preferred_scale();
+        }
+        if let Some(xsurface) = self.ext.get().into_xsurface() {
+            if let Some(window) = xsurface.xwindow.get() {
+                self.client
+                    .state
+                    .xwayland
+                    .queue
+                    .push(XWaylandEvent::Configure(window));
+            }
+        }
     }
 }
 
@@ -1093,7 +1113,7 @@ impl WlSurface {
             scale_changed || buffer_transform_changed || viewport_changed || alpha_changed;
         let mut buffer_changed = false;
         let mut old_raw_size = None;
-        let (dx, dy) = mem::take(&mut pending.offset);
+        let (mut dx, mut dy) = mem::take(&mut pending.offset);
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
@@ -1132,6 +1152,8 @@ impl WlSurface {
             }
         }
         if self.buffer.is_some() && (dx, dy) != (0, 0) {
+            // This is somewhat problematic since we don't accumulate small changes.
+            client_wire_scale_to_logical!(self.client, dx, dy);
             self.buf_x.fetch_add(dx);
             self.buf_y.fetch_add(dy);
             self.need_extents_update.set(true);
@@ -1210,7 +1232,8 @@ impl WlSurface {
                         buffer_transform: self.buffer_transform.get(),
                     };
                     let (buffer_width, buffer_height) = buffer.buffer.rect.size();
-                    let (dst_width, dst_height) = new_size.unwrap_or_default();
+                    let (mut dst_width, mut dst_height) = new_size.unwrap_or_default();
+                    client_wire_scale_to_logical!(self.client, dst_width, dst_height);
                     let damage_matrix = DamageMatrix::new(
                         self.buffer_transform.get(),
                         self.buffer_scale.get(),
@@ -1223,7 +1246,8 @@ impl WlSurface {
                     self.damage_matrix.set(damage_matrix);
                 }
             }
-            let (width, height) = new_size.unwrap_or_default();
+            let (mut width, mut height) = new_size.unwrap_or_default();
+            client_wire_scale_to_logical!(self.client, width, height);
             let (old_width, old_height) = buffer_abs_pos.size();
             if (width, height) != (old_width, old_height) {
                 self.need_extents_update.set(true);
@@ -1360,6 +1384,13 @@ impl WlSurface {
                 }
                 for damage in &pending.surface_damage {
                     let mut damage = damage.move_(pos.x1(), pos.y1());
+                    if let Some(scale) = self.client.wire_scale.get() {
+                        let x1 = damage.x1() / scale;
+                        let y1 = damage.y1() / scale;
+                        let x2 = (damage.x2() + scale - 1) / scale;
+                        let y2 = (damage.y2() + scale - 1) / scale;
+                        damage = Rect::new(x1, y1, x2, y2).unwrap();
+                    }
                     damage = damage.intersect(bounds.unwrap_or(pos));
                     self.client.state.damage(damage);
                 }
@@ -1406,12 +1437,13 @@ impl WlSurface {
         }
     }
 
-    fn accepts_input_at(&self, x: i32, y: i32) -> bool {
+    fn accepts_input_at(&self, mut x: i32, mut y: i32) -> bool {
         let rect = self.buffer_abs_pos.get().at_point(0, 0);
         if !rect.contains(x, y) {
             return false;
         }
         if let Some(ir) = self.input_region.get() {
+            logical_to_client_wire_scale!(self.client, x, y);
             if !ir.contains(x, y) {
                 return false;
             }
