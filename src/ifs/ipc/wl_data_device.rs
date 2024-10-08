@@ -173,14 +173,6 @@ impl IpcVtable for ClipboardIpc {
         dd.seat.clone()
     }
 
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        serial: Option<u64>,
-    ) -> Result<(), WlSeatError> {
-        seat.set_wl_data_source_selection(Some(source.clone()), serial)
-    }
-
     fn create_offer(
         device: &Rc<WlDataDevice>,
         offer_data: OfferData<Self::Device>,

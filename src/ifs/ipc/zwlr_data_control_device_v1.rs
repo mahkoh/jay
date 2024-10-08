@@ -143,11 +143,6 @@ trait WlrIpc {
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1>;
 
-    fn wlr_set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<ZwlrDataControlSourceV1>,
-    ) -> Result<(), WlSeatError>;
-
     fn wlr_send_selection(dd: &ZwlrDataControlDeviceV1, offer: Option<&Rc<ZwlrDataControlOfferV1>>);
 
     fn wlr_unset(seat: &Rc<WlSeatGlobal>);
@@ -159,13 +154,6 @@ impl WlrIpc for WlrClipboardIpcCore {
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
         &dd.clipboard_data
-    }
-
-    fn wlr_set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<ZwlrDataControlSourceV1>,
-    ) -> Result<(), WlSeatError> {
-        seat.set_selection(Some(source.clone()))
     }
 
     fn wlr_send_selection(
@@ -186,13 +174,6 @@ impl WlrIpc for WlrPrimarySelectionIpcCore {
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
         &dd.primary_selection_data
-    }
-
-    fn wlr_set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<ZwlrDataControlSourceV1>,
-    ) -> Result<(), WlSeatError> {
-        seat.set_primary_selection(Some(source.clone()))
     }
 
     fn wlr_send_selection(
@@ -227,16 +208,6 @@ impl<T: WlrIpc> IpcVtable for WlrIpcImpl<T> {
 
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal> {
         dd.seat.clone()
-    }
-
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        serial: Option<u64>,
-    ) -> Result<(), WlSeatError> {
-        debug_assert!(serial.is_none());
-        let _ = serial;
-        T::wlr_set_seat_selection(seat, source)
     }
 
     fn create_offer(

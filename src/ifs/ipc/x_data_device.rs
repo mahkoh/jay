@@ -6,7 +6,7 @@ use {
                 x_data_offer::XDataOffer, x_data_source::XDataSource, DeviceData, IpcLocation,
                 IpcVtable, OfferData, Role,
             },
-            wl_seat::{WlSeatError, WlSeatGlobal},
+            wl_seat::WlSeatGlobal,
         },
         state::State,
         xwayland::XWaylandEvent,
@@ -75,17 +75,6 @@ impl<T: XIpc> IpcVtable for T {
 
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal> {
         dd.seat.clone()
-    }
-
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        _serial: Option<u64>,
-    ) -> Result<(), WlSeatError> {
-        match source.location {
-            IpcLocation::Clipboard => seat.set_selection(Some(source.clone())),
-            IpcLocation::PrimarySelection => seat.set_primary_selection(Some(source.clone())),
-        }
     }
 
     fn create_offer(

@@ -6,7 +6,7 @@ use {
             ipc::{
                 x_data_device::XIpcDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
             },
-            wl_seat::{WlSeatError, WlSeatGlobal},
+            wl_seat::WlSeatGlobal,
         },
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
@@ -152,11 +152,6 @@ pub trait IpcVtable: Sized {
 
     fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer>;
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal>;
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        serial: Option<u64>,
-    ) -> Result<(), WlSeatError>;
     fn create_offer(
         dd: &Rc<Self::Device>,
         data: OfferData<Self::Device>,

@@ -121,14 +121,6 @@ impl IpcVtable for PrimarySelectionIpc {
         dd.seat.clone()
     }
 
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        serial: Option<u64>,
-    ) -> Result<(), WlSeatError> {
-        seat.set_zwp_primary_selection(Some(source.clone()), serial)
-    }
-
     fn create_offer(
         device: &Rc<ZwpPrimarySelectionDeviceV1>,
         offer_data: OfferData<Self::Device>,

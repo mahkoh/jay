@@ -1749,7 +1749,13 @@ impl Wm {
                 for target in &targets {
                     add_data_source_mime_type::<T>(&source, target);
                 }
-                if let Err(e) = T::set_seat_selection(&seat, &source, None) {
+                let res = match source.location {
+                    IpcLocation::Clipboard => seat.set_selection(Some(source.clone())),
+                    IpcLocation::PrimarySelection => {
+                        seat.set_primary_selection(Some(source.clone()))
+                    }
+                };
+                if let Err(e) = res {
                     log::error!("Could not set selection: {}", ErrorFmt(e));
                     return Ok(());
                 }
