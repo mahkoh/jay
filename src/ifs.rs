@@ -31,6 +31,7 @@ pub mod wl_callback;
 pub mod wl_compositor;
 pub mod wl_display;
 pub mod wl_drm;
+pub mod wl_fixes;
 pub mod wl_output;
 pub mod wl_region;
 pub mod wl_registry;

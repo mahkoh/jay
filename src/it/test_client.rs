@@ -25,7 +25,7 @@ use {
 
 pub struct TestClient {
     pub run: Rc<TestRun>,
-    pub _server: Rc<Client>,
+    pub server: Rc<Client>,
     pub tran: Rc<TestTransport>,
     pub registry: Rc<TestRegistry>,
     pub jc: Rc<TestJayCompositor>,

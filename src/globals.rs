@@ -15,6 +15,7 @@ use {
             jay_damage_tracking::JayDamageTrackingGlobal,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
+            wl_fixes::WlFixesGlobal,
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
@@ -197,6 +198,7 @@ impl Globals {
         add_singleton!(ZwpPointerGesturesV1Global);
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
+        add_singleton!(WlFixesGlobal);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

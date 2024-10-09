@@ -19,7 +19,8 @@ use {
                 test_toplevel_drag_manager::TestToplevelDragManager,
                 test_viewporter::TestViewporter,
                 test_virtual_keyboard_manager::TestVirtualKeyboardManager,
-                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
+                test_wl_fixes::TestWlFixes, test_xdg_activation::TestXdgActivation,
+                test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
             test_transport::TestTransport,
@@ -58,6 +59,7 @@ pub struct TestRegistrySingletons {
     pub zwp_virtual_keyboard_manager_v1: u32,
     pub zwp_input_method_manager_v2: u32,
     pub zwp_text_input_manager_v3: u32,
+    pub wl_fixes: u32,
 }
 
 pub struct TestRegistry {
@@ -85,6 +87,7 @@ pub struct TestRegistry {
     pub virtual_keyboard_manager: CloneCell<Option<Rc<TestVirtualKeyboardManager>>>,
     pub input_method_manager: CloneCell<Option<Rc<TestInputMethodManager>>>,
     pub text_input_manager: CloneCell<Option<Rc<TestTextInputManager>>>,
+    pub wl_fixes: CloneCell<Option<Rc<TestWlFixes>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -156,6 +159,7 @@ impl TestRegistry {
             zwp_virtual_keyboard_manager_v1,
             zwp_input_method_manager_v2,
             zwp_text_input_manager_v3,
+            wl_fixes,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -271,6 +275,7 @@ impl TestRegistry {
         1,
         TestTextInputManager
     );
+    create_singleton!(get_wl_fixes, wl_fixes, wl_fixes, 1, TestWlFixes);
 
     pub fn bind<O: TestObject>(
         &self,
