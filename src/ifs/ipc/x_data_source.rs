@@ -1,17 +1,9 @@
 use {
     crate::{
-        client::Client,
         ifs::{
             ipc::{
-                cancel_offers, detach_seat, offer_source_to_regular_client,
-                offer_source_to_wlr_device,
-                wl_data_device::ClipboardIpc,
-                x_data_device::XIpcDevice,
-                zwlr_data_control_device_v1::{
-                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
-                },
-                zwp_primary_selection_device_v1::PrimarySelectionIpc,
-                DataSource, DynDataSource, IpcLocation, SourceData,
+                cancel_offers, detach_seat, x_data_device::XIpcDevice, DataSource, DynDataSource,
+                IpcLocation, SourceData,
             },
             wl_seat::WlSeatGlobal,
         },
@@ -54,17 +46,6 @@ impl DynDataSource for XDataSource {
         });
     }
 
-    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>) {
-        match self.location {
-            IpcLocation::Clipboard => {
-                offer_source_to_regular_client::<ClipboardIpc, Self>(&self, client)
-            }
-            IpcLocation::PrimarySelection => {
-                offer_source_to_regular_client::<PrimarySelectionIpc, Self>(&self, client)
-            }
-        }
-    }
-
     fn offer_to_x(self: Rc<Self>, _dd: &Rc<XIpcDevice>) {
         self.cancel_unprivileged_offers();
         self.state.xwayland.queue.push(IpcSetSelection {
@@ -72,17 +53,6 @@ impl DynDataSource for XDataSource {
             seat: self.device.seat.id(),
             offer: None,
         });
-    }
-
-    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
-        match self.location {
-            IpcLocation::Clipboard => {
-                offer_source_to_wlr_device::<WlrClipboardIpc, Self>(&self, dd)
-            }
-            IpcLocation::PrimarySelection => {
-                offer_source_to_wlr_device::<WlrPrimarySelectionIpc, Self>(&self, dd)
-            }
-        }
     }
 
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {

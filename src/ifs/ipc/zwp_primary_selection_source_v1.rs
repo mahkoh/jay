@@ -4,10 +4,8 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to_regular_client, offer_source_to_wlr_device,
-                offer_source_to_x,
+                detach_seat, offer_source_to_x,
                 x_data_device::{XIpcDevice, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::{WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1},
                 zwp_primary_selection_device_v1::PrimarySelectionIpc,
                 DataSource, DynDataSource, SourceData,
             },
@@ -44,16 +42,8 @@ impl DynDataSource for ZwpPrimarySelectionSourceV1 {
         ZwpPrimarySelectionSourceV1::send_send(self, mime_type, fd)
     }
 
-    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>) {
-        offer_source_to_regular_client::<PrimarySelectionIpc, Self>(&self, client);
-    }
-
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>) {
-        offer_source_to_x::<XPrimarySelectionIpc, Self>(&self, dd);
-    }
-
-    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
-        offer_source_to_wlr_device::<WlrPrimarySelectionIpc, Self>(&self, dd)
+        offer_source_to_x::<XPrimarySelectionIpc>(self, dd);
     }
 
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {

@@ -3,7 +3,11 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                data_control::{
+                    ext_data_control_source_v1::ExtDataControlSourceV1,
+                    zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
+                },
+                wl_data_source::WlDataSource,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,
@@ -31,11 +35,11 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
-            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId,
-            XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
+            ExtDataControlSourceV1Id, JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId,
+            WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId,
+            WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id,
+            XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
+            ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -67,6 +71,7 @@ pub struct Objects {
     pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
     pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
     pub xdg_popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
+    pub ext_data_sources: CopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -100,6 +105,7 @@ impl Objects {
             drm_lease_outputs: Default::default(),
             tablet_tools: Default::default(),
             xdg_popups: Default::default(),
+            ext_data_sources: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -137,6 +143,7 @@ impl Objects {
         self.drm_lease_outputs.clear();
         self.tablet_tools.clear();
         self.xdg_popups.clear();
+        self.ext_data_sources.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

@@ -35,7 +35,10 @@ use {
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_session_lock_v1::ExtSessionLockV1,
-            ipc::{x_data_device::XIpcDeviceIds, DataOfferIds, DataSourceIds},
+            ipc::{
+                data_control::DataControlDeviceIds, x_data_device::XIpcDeviceIds, DataOfferIds,
+                DataSourceIds,
+            },
             jay_render_ctx::JayRenderCtx,
             jay_screencast::JayScreencast,
             jay_seat_events::JaySeatEvents,
@@ -220,6 +223,7 @@ pub struct State {
     pub cpu_worker: Rc<CpuWorker>,
     pub ui_drag_enabled: Cell<bool>,
     pub ui_drag_threshold_squared: Cell<i32>,
+    pub data_control_device_ids: DataControlDeviceIds,
 }
 
 // impl Drop for State {
