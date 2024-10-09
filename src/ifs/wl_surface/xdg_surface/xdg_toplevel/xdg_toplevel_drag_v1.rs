@@ -17,8 +17,18 @@ use {
     thiserror::Error,
 };
 
+fn clamp_offset(offset: i32) -> i32 {
+    const OFFSET_CLAMP: i32 = 100_000;
+    offset.clamp(-OFFSET_CLAMP, OFFSET_CLAMP)
+}
+
+const SET_OFFSET_SINCE: Version = Version(2);
+
+linear_ids!(ToplevelDragIds, ToplevelDragId, u64);
+
 pub struct XdgToplevelDragV1 {
     pub id: XdgToplevelDragV1Id,
+    pub toplevel_id: Cell<ToplevelDragId>,
     pub client: Rc<Client>,
     pub source: Rc<WlDataSource>,
     pub tracker: Tracker<Self>,
@@ -26,12 +36,14 @@ pub struct XdgToplevelDragV1 {
     pub x_off: Cell<i32>,
     pub y_off: Cell<i32>,
     pub version: Version,
+    pub enabled: Cell<bool>,
 }
 
 impl XdgToplevelDragV1 {
     pub fn new(id: XdgToplevelDragV1Id, source: &Rc<WlDataSource>, version: Version) -> Self {
         Self {
             id,
+            toplevel_id: Cell::new(source.data.client.state.toplevel_drag_ids.next()),
             client: source.data.client.clone(),
             source: source.clone(),
             tracker: Default::default(),
@@ -39,11 +51,14 @@ impl XdgToplevelDragV1 {
             x_off: Cell::new(0),
             y_off: Cell::new(0),
             version,
+            enabled: Cell::new(true),
         }
     }
 
     pub fn is_ongoing(&self) -> bool {
-        self.source.data.was_used() && !self.source.data.was_dropped_or_cancelled()
+        self.enabled.get()
+            && self.source.data.was_used()
+            && !self.source.data.was_dropped_or_cancelled()
     }
 
     fn detach(&self) {
@@ -101,7 +116,7 @@ impl XdgToplevelDragV1RequestHandler for XdgToplevelDragV1 {
         if toplevel.drag.set(Some(slf.clone())).is_some() {
             return Err(XdgToplevelDragV1Error::AlreadyDragged);
         }
-        if let Some(prev) = self.toplevel.set(Some(toplevel)) {
+        if let Some(prev) = self.toplevel.set(Some(toplevel.clone())) {
             if prev.xdg.surface.buffer.is_some() {
                 return Err(XdgToplevelDragV1Error::ToplevelAttached);
             }
@@ -109,9 +124,29 @@ impl XdgToplevelDragV1RequestHandler for XdgToplevelDragV1 {
                 prev.drag.set(None);
             }
         }
-        self.x_off.set(req.x_offset);
-        self.y_off.set(req.y_offset);
-        self.start_drag();
+        let x_off = clamp_offset(req.x_offset);
+        let y_off = clamp_offset(req.y_offset);
+        if self.version >= SET_OFFSET_SINCE {
+            let id = self.client.state.toplevel_drag_ids.next();
+            self.toplevel_id.set(id);
+            self.enabled.set(false);
+            let pending = &mut *toplevel.xdg.pending();
+            pending.toplevel_drag_id = Some(id);
+            pending.toplevel_drag_offset = Some((x_off, y_off));
+        } else {
+            self.x_off.set(x_off);
+            self.y_off.set(y_off);
+            self.start_drag();
+        }
+        Ok(())
+    }
+
+    fn set_offset(&self, req: SetOffset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if let Some(tl) = self.toplevel.get() {
+            let x_off = clamp_offset(req.x_offset);
+            let y_off = clamp_offset(req.y_offset);
+            tl.xdg.pending().toplevel_drag_offset = Some((x_off, y_off));
+        }
         Ok(())
     }
 }
@@ -133,7 +168,7 @@ impl XdgToplevelDragV1 {
     }
 
     pub fn finish_drag(&self, seat: &Rc<WlSeatGlobal>) {
-        if self.source.data.was_used() {
+        if self.enabled.get() && self.source.data.was_used() {
             if let Some(tl) = self.toplevel.get() {
                 let output = seat.get_output();
                 let (x, y) = seat.pointer_cursor().position();

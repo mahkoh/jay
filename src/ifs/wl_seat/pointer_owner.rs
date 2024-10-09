@@ -10,8 +10,10 @@ use {
                 wl_pointer::PendingScroll, Dnd, DroppedDnd, NodeSeatState, WlSeatError,
                 WlSeatGlobal, BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
-            wl_surface::{dnd_icon::DndIcon, WlSurface},
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
+            wl_surface::{
+                dnd_icon::DndIcon,
+                xdg_surface::xdg_toplevel::xdg_toplevel_drag_v1::XdgToplevelDragV1, WlSurface,
+            },
         },
         rect::Rect,
         tree::{

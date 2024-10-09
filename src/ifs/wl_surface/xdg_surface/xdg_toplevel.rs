@@ -1,4 +1,5 @@
 pub mod xdg_dialog_v1;
+pub mod xdg_toplevel_drag_v1;
 
 use {
     crate::{
@@ -12,12 +13,11 @@ use {
             wl_seat::{tablet::TabletTool, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
                 xdg_surface::{
-                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError,
+                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1, PendingXdgSurfaceData, XdgSurface,
                     XdgSurfaceExt,
                 },
                 WlSurface,
             },
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -41,6 +41,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
+    xdg_toplevel_drag_v1::XdgToplevelDragV1,
 };
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -681,14 +682,41 @@ impl ToplevelNodeBase for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
-    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
+    fn initial_configure(self: Rc<Self>) {
         let rect = self.xdg.absolute_desired_extents.get();
         if rect.is_empty() {
             self.send_configure(0, 0);
         } else {
             self.send_configure_checked(rect.width(), rect.height());
         }
-        Ok(())
+    }
+
+    fn before_apply_commit(self: Rc<Self>, pending: &mut PendingXdgSurfaceData) {
+        if let Some((x_off, y_off)) = pending.toplevel_drag_offset.take() {
+            if let Some(drag) = self.drag.get() {
+                if drag.is_ongoing() {
+                    if self.node_visible() {
+                        self.xdg.damage();
+                    }
+                    let extents = self.xdg.absolute_desired_extents.get();
+                    let extents = extents.move_(drag.x_off.get() - x_off, drag.y_off.get() - y_off);
+                    self.clone().tl_change_extents(&extents);
+                    if self.node_visible() {
+                        self.xdg.damage();
+                    }
+                }
+                drag.x_off.set(x_off);
+                drag.y_off.set(y_off);
+            }
+        }
+        if let Some(id) = pending.toplevel_drag_id.take() {
+            if let Some(drag) = self.drag.get() {
+                if id == drag.toplevel_id.get() {
+                    drag.enabled.set(true);
+                    drag.start_drag();
+                }
+            }
+        }
     }
 
     fn post_commit(self: Rc<Self>) {

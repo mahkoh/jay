@@ -48,6 +48,7 @@ use {
             },
             wl_surface::{
                 wl_subsurface::SubsurfaceIds,
+                xdg_surface::xdg_toplevel::xdg_toplevel_drag_v1::ToplevelDragIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
                 NoneSurfaceExt,
@@ -220,6 +221,7 @@ pub struct State {
     pub cpu_worker: Rc<CpuWorker>,
     pub ui_drag_enabled: Cell<bool>,
     pub ui_drag_threshold_squared: Cell<i32>,
+    pub toplevel_drag_ids: ToplevelDragIds,
 }
 
 // impl Drop for State {

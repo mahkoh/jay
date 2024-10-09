@@ -9,3 +9,8 @@ request attach {
     x_offset: i32,
     y_offset: i32,
 }
+
+request set_offset (since = 2) {
+    x_offset: i32,
+    y_offset: i32,
+}
