@@ -431,7 +431,7 @@ impl VulkanRenderer {
                 callback_id: Cell::new(0),
                 regions: Default::default(),
                 cpu: cpu.clone(),
-                last_sample: Default::default(),
+                last_gfx_use: Default::default(),
                 data_copied: Default::default(),
             });
         }

@@ -46,7 +46,7 @@ pub struct VulkanShmImageAsyncData {
     pub(super) callback_id: Cell<u64>,
     pub(super) regions: RefCell<Vec<BufferImageCopy2<'static>>>,
     pub(super) cpu: Rc<CpuWorker>,
-    pub(super) last_sample: Cell<Option<SyncFile>>,
+    pub(super) last_gfx_use: Cell<Option<SyncFile>>,
     pub(super) data_copied: Cell<bool>,
 }
 
@@ -215,7 +215,7 @@ impl VulkanShmImage {
         img.renderer.check_defunct()?;
         let Some(transfer_queue_idx) = img.renderer.device.distinct_transfer_queue_family_idx
         else {
-            let Some(sync_file) = data.last_sample.take() else {
+            let Some(sync_file) = data.last_gfx_use.take() else {
                 img.queue_state.set(QueueState::Released {
                     to: QueueFamily::Transfer,
                 });
