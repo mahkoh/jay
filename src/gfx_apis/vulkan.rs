@@ -91,8 +91,6 @@ pub enum VulkanError {
     CreateInstance(#[source] vk::Result),
     #[error("Could not create a debug-utils messenger")]
     Messenger(#[source] vk::Result),
-    #[error("Could not fstat the DRM FD")]
-    Fstat(#[source] OsError),
     #[error("Could not enumerate the physical devices")]
     EnumeratePhysicalDevices(#[source] vk::Result),
     #[error("Could not find a vulkan device that matches dev_t {0}")]

@@ -36,11 +36,10 @@ impl DrmFeedback {
         ids: &DrmFeedbackIds,
         render_ctx: &dyn GfxContext,
     ) -> Result<Self, DrmFeedbackError> {
-        let drm = match render_ctx.allocator().drm() {
-            Some(drm) => drm.raw(),
+        let main_device = match render_ctx.allocator().drm() {
+            Some(drm) => drm.dev(),
             _ => return Err(DrmFeedbackError::NoDrmDevice),
         };
-        let main_device = uapi::fstat(drm).map_err(OsError::from)?.st_rdev;
         let (data, index_map) = create_fd_data(render_ctx);
         let mut memfd =
             uapi::memfd_create("drm_feedback", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();

@@ -236,7 +236,13 @@ impl MetalBackend {
                     return;
                 }
             };
-            let master = Rc::new(DrmMaster::new(&slf.state.ring, res.fd.clone()));
+            let master = match DrmMaster::new(&slf.state.ring, res.fd.clone()) {
+                Ok(m) => Rc::new(m),
+                Err(e) => {
+                    log::error!("Could not open the drm device: {}", ErrorFmt(e));
+                    return;
+                }
+            };
             let dev = match slf.create_drm_device(dev, &master) {
                 Ok(d) => d,
                 Err(e) => {

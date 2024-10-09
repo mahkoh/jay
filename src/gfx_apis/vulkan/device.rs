@@ -104,11 +104,7 @@ impl VulkanInstance {
     }
 
     fn find_dev(&self, drm: &Drm) -> Result<PhysicalDevice, VulkanError> {
-        let stat = match uapi::fstat(drm.raw()) {
-            Ok(s) => s,
-            Err(e) => return Err(VulkanError::Fstat(e.into())),
-        };
-        let dev = stat.st_rdev;
+        let dev = drm.dev();
         log::log!(
             self.log_level,
             "Searching for vulkan device with devnum {}:{}",
