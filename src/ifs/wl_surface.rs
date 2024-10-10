@@ -55,7 +55,7 @@ use {
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
-            wp_presentation_feedback::WpPresentationFeedback,
+            wp_presentation_feedback::{WpPresentationFeedback, KIND_VRR, VRR_BOUNDS_SINCE},
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
@@ -68,10 +68,10 @@ use {
             VblankListener,
         },
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
-            transform_ext::TransformExt,
+            bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, double_buffered::DoubleBuffered, errorfmt::ErrorFmt,
+            event_listener::EventListener, linkedlist::LinkedList, numcell::NumCell,
+            smallmap::SmallMap, transform_ext::TransformExt,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -2099,13 +2099,25 @@ impl PresentationListener for WlSurface {
         refresh: u32,
         seq: u64,
         flags: u32,
+        vrr_refresh_max_nsec: u64,
     ) {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
+        let vrr_refresh_min_nsec = refresh as u64;
         for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
             if let Some(bindings) = bindings {
                 for binding in bindings.values() {
                     pf.send_sync_output(binding);
+                }
+            }
+            let mut flags = flags;
+            let mut refresh = refresh;
+            if flags.contains(KIND_VRR) {
+                if pf.version >= VRR_BOUNDS_SINCE {
+                    pf.send_variable_refresh_bounds(vrr_refresh_min_nsec, vrr_refresh_max_nsec);
+                } else {
+                    flags &= !KIND_VRR;
+                    refresh = 0;
                 }
             }
             pf.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
