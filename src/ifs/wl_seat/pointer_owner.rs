@@ -1227,7 +1227,7 @@ impl UiDragUsecase for TileDragUsecase {
             return;
         };
         let detach = || {
-            let placeholder = Rc::new(PlaceholderNode::new_empty(&seat.state));
+            let placeholder = Rc::new_cyclic(|weak| PlaceholderNode::new_empty(&seat.state, weak));
             src_parent
                 .clone()
                 .cnode_replace_child(src.tl_as_node(), placeholder.clone());
