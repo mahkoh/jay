@@ -143,8 +143,12 @@ pub struct SurfaceSendPreferredScaleVisitor;
 
 impl SurfaceSendPreferredScaleVisitor {
     fn schedule_realloc(&self, tl: &impl ToplevelNode) {
-        for sc in tl.tl_data().jay_screencasts.lock().values() {
+        let data = tl.tl_data();
+        for sc in data.jay_screencasts.lock().values() {
             sc.schedule_realloc_or_reconfigure();
+        }
+        for sc in data.ext_copy_sessions.lock().values() {
+            sc.buffer_size_changed();
         }
     }
 }
@@ -2102,7 +2106,7 @@ impl VblankListener for WlSurface {
 }
 
 impl LatchListener for WlSurface {
-    fn after_latch(self: Rc<Self>) {
+    fn after_latch(self: Rc<Self>, _on: &OutputNode) {
         if self.visible.get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();

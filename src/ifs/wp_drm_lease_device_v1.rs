@@ -210,6 +210,8 @@ efrom!(WpDrmLeaseDeviceV1Error, ClientError);
 enum ReopenError {
     #[error("Could not open the dev node")]
     OpenNode(#[source] OsError),
+    #[error("Could not create the DRM device")]
+    CreateDrm(#[source] DrmError),
     #[error("Could not drop DRM master")]
     DropMaster(#[source] DrmError),
 }
@@ -218,7 +220,7 @@ fn reopen_card(devnode: &str) -> Result<Rc<OwnedFd>, ReopenError> {
     let fd = uapi::open(devnode, c::O_RDWR | c::O_CLOEXEC, 0)
         .map_err(|e| ReopenError::OpenNode(e.into()))?;
     let fd = Rc::new(fd);
-    let drm = Drm::open_existing(fd.clone());
+    let drm = Drm::open_existing(fd.clone()).map_err(ReopenError::CreateDrm)?;
     if drm.is_master() {
         drm.drop_master().map_err(ReopenError::DropMaster)?;
     }

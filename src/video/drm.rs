@@ -144,6 +144,8 @@ pub enum DrmError {
     DropMaster(#[source] OsError),
     #[error("Could not queue a CRTC sequence")]
     QueueSequence(#[source] OsError),
+    #[error("Could not stat the DRM fd")]
+    Stat(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -177,17 +179,24 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
 
 pub struct Drm {
     fd: Rc<OwnedFd>,
+    dev: c::dev_t,
 }
 
 impl Drm {
-    pub fn open_existing(fd: Rc<OwnedFd>) -> Self {
-        Self { fd }
+    pub fn open_existing(fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
+        let stat = uapi::fstat(fd.raw()).map_err(|e| DrmError::Stat(e.into()))?;
+        Ok(Self {
+            fd,
+            dev: stat.st_rdev,
+        })
     }
 
     pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
-        Ok(Self {
-            fd: reopen(fd, need_primary)?,
-        })
+        Self::open_existing(reopen(fd, need_primary)?)
+    }
+
+    pub fn dev(&self) -> c::dev_t {
+        self.dev
     }
 
     pub fn fd(&self) -> &Rc<OwnedFd> {
@@ -291,16 +300,16 @@ impl DrmLease {
 }
 
 impl DrmMaster {
-    pub fn new(ring: &Rc<IoUring>, fd: Rc<OwnedFd>) -> Self {
-        Self {
-            drm: Drm { fd },
+    pub fn new(ring: &Rc<IoUring>, fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
+        Ok(Self {
+            drm: Drm::open_existing(fd)?,
             u32_bufs: Default::default(),
             u64_bufs: Default::default(),
             gem_handles: Default::default(),
             events: Default::default(),
             ring: ring.clone(),
             buf: RefCell::new(Buf::new(1024)),
-        }
+        })
     }
 
     pub fn raw(&self) -> c::c_int {

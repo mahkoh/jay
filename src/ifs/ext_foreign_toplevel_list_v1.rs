@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{NodeVisitorBase, ToplevelNode},
+        tree::{NodeVisitorBase, ToplevelOpt},
         wire::{
             ext_foreign_toplevel_list_v1::*, ExtForeignToplevelHandleV1Id,
             ExtForeignToplevelListV1Id,
@@ -105,10 +105,7 @@ impl ExtForeignToplevelListV1 {
         });
     }
 
-    pub fn publish_toplevel(
-        &self,
-        tl: &Rc<dyn ToplevelNode>,
-    ) -> Option<Rc<ExtForeignToplevelHandleV1>> {
+    pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Option<Rc<ExtForeignToplevelHandleV1>> {
         let id: ExtForeignToplevelHandleV1Id = match self.client.new_id() {
             Ok(i) => i,
             Err(e) => {
@@ -120,7 +117,7 @@ impl ExtForeignToplevelListV1 {
             id,
             client: self.client.clone(),
             tracker: Default::default(),
-            toplevel: tl.clone(),
+            toplevel: tl,
             version: self.version,
         });
         track!(self.client, handle);

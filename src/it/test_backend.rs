@@ -24,7 +24,7 @@ use {
             on_change::OnChange, oserror::OsError, syncqueue::SyncQueue,
         },
         video::{
-            drm::{ConnectorType, Drm},
+            drm::{ConnectorType, Drm, DrmError},
             gbm::{GbmDevice, GbmError},
         },
     },
@@ -42,6 +42,8 @@ pub enum TestBackendError {
     NoDrmNode,
     #[error("Could not open drm node {0}")]
     OpenDrmNode(String, #[source] OsError),
+    #[error("Could not open the drm device")]
+    OpenDrmDevice(#[source] DrmError),
     #[error("Could not create a render context")]
     RenderContext(#[source] GfxError),
     #[error("Could not create a gbm device")]
@@ -264,7 +266,7 @@ where
             ))
         }
     };
-    let drm = Drm::open_existing(file);
+    let drm = Drm::open_existing(file).map_err(TestBackendError::OpenDrmDevice)?;
     f(drm)
 }
 

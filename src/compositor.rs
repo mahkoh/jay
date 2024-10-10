@@ -576,6 +576,7 @@ fn create_dummy_output(state: &Rc<State>) {
         latch_event: Default::default(),
         presentation_event: Default::default(),
         flip_margin_ns: Default::default(),
+        ext_copy_sessions: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

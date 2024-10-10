@@ -119,6 +119,10 @@ impl GfxInternalFramebuffer for Framebuffer {
         self
     }
 
+    fn stride(&self) -> i32 {
+        self.gl.rb.stride
+    }
+
     fn staging_size(&self) -> usize {
         0
     }

@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::ToplevelNode,
+        tree::ToplevelOpt,
         wire::{ext_foreign_toplevel_handle_v1::*, ExtForeignToplevelHandleV1Id},
     },
     std::rc::Rc,
@@ -14,16 +14,15 @@ pub struct ExtForeignToplevelHandleV1 {
     pub id: ExtForeignToplevelHandleV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub toplevel: Rc<dyn ToplevelNode>,
+    pub toplevel: ToplevelOpt,
     pub version: Version,
 }
 
 impl ExtForeignToplevelHandleV1 {
     fn detach(&self) {
-        self.toplevel
-            .tl_data()
-            .handles
-            .remove(&(self.client.id, self.id));
+        if let Some(tl) = self.toplevel.get() {
+            tl.tl_data().handles.remove(&(self.client.id, self.id));
+        }
     }
 }
 
@@ -79,7 +78,11 @@ impl Object for ExtForeignToplevelHandleV1 {
     }
 }
 
-simple_add_obj!(ExtForeignToplevelHandleV1);
+dedicated_add_obj!(
+    ExtForeignToplevelHandleV1,
+    ExtForeignToplevelHandleV1Id,
+    foreign_toplevel_handles
+);
 
 #[derive(Debug, Error)]
 pub enum ExtForeignToplevelHandleV1Error {

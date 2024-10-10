@@ -321,11 +321,11 @@ impl GfxContext for GlRenderContext {
         _cpu_worker: &Rc<CpuWorker>,
         width: i32,
         height: i32,
-        _stride: i32,
+        stride: i32,
         format: &'static Format,
     ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError> {
         let fb = self.ctx.with_current(|| unsafe {
-            GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
+            GlRenderBuffer::new(&self.ctx, width, height, stride, format)?.create_framebuffer()
         })?;
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
     }

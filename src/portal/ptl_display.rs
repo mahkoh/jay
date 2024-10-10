@@ -162,13 +162,14 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
 
     fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<AHashMap<u32, GfxFormat>>) {
         self.render_ctx.take();
-        let dev_id = match uapi::fstat(fd.raw()) {
-            Ok(s) => s.st_rdev,
+        let drm = match Drm::open_existing(fd) {
+            Ok(d) => d,
             Err(e) => {
-                log::error!("Could not fstat display device: {}", ErrorFmt(e));
+                log::error!("Could not open the drm device: {}", ErrorFmt(e));
                 return;
             }
         };
+        let dev_id = drm.dev();
         let mut render_ctx = None;
         if let Some(ctx) = self.state.render_ctxs.get(&dev_id) {
             if let Some(ctx) = ctx.upgrade() {
@@ -176,7 +177,6 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
             }
         }
         if render_ctx.is_none() {
-            let drm = Drm::open_existing(fd);
             let ctx =
                 match create_gfx_context(&self.state.eng, &self.state.ring, &drm, GfxApi::OpenGl) {
                     Ok(c) => c,

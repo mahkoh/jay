@@ -1,0 +1,33 @@
+request create_frame {
+    frame: id(ext_image_copy_capture_frame_v1),
+}
+
+request destroy {
+
+}
+
+event buffer_size {
+    width: u32,
+    height: u32,
+}
+
+event shm_format {
+    format: u32,
+}
+
+event dmabuf_device {
+    device: pod(uapi::c::dev_t),
+}
+
+event dmabuf_format {
+    format: u32,
+    modifiers: array(pod(u8)),
+}
+
+event done {
+
+}
+
+event stopped {
+
+}

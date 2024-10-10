@@ -89,7 +89,7 @@ enum Target {
 }
 
 impl LatchListener for JayScreencast {
-    fn after_latch(self: Rc<Self>) {
+    fn after_latch(self: Rc<Self>, _on: &OutputNode) {
         self.schedule_toplevel_screencast();
     }
 }
@@ -780,17 +780,10 @@ efrom!(JayScreencastError, ClientError);
 
 fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {
-        match target {
-            Target::Output(o) => return o.global.pixel_size(),
-            Target::Toplevel(t) => {
-                let data = t.tl_data();
-                let (dw, dh) = data.desired_extents.get().size();
-                if let Some(ws) = data.workspace.get() {
-                    let scale = ws.output.get().global.persistent.scale.get();
-                    return scale.pixel_size(dw, dh);
-                };
-            }
-        }
+        return match target {
+            Target::Output(o) => o.global.pixel_size(),
+            Target::Toplevel(t) => t.tl_data().desired_pixel_size(),
+        };
     }
     (0, 0)
 }

@@ -59,7 +59,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c::dev_t, Errno},
+    uapi::c::dev_t,
 };
 
 #[derive(Debug, Error)]
@@ -114,8 +114,6 @@ pub enum XBackendError {
     MapWindow(#[source] XconError),
     #[error("Could not query device")]
     QueryDevice(#[source] XconError),
-    #[error("Could not fstat the drm device")]
-    DrmDeviceFstat(#[source] Errno),
     #[error("Render device does not support XRGB8888 format")]
     XRGB8888,
 }
@@ -174,10 +172,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
             Err(e) => return Err(XBackendError::DriOpen(e)),
         }
     };
-    let drm_dev = match uapi::fstat(drm.raw()) {
-        Ok(s) => s.st_rdev,
-        Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
-    };
+    let drm_dev = drm.dev();
     let gbm = GbmDevice::new(&drm)?;
     let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,

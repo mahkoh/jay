@@ -559,6 +559,13 @@ impl GfxInternalFramebuffer for TestGfxFb {
         self
     }
 
+    fn stride(&self) -> i32 {
+        let TestGfxImage::Shm(shm) = &*self.img else {
+            unreachable!();
+        };
+        shm.stride
+    }
+
     fn staging_size(&self) -> usize {
         0
     }

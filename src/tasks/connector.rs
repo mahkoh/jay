@@ -185,6 +185,7 @@ impl ConnectorHandler {
             vblank_event: Default::default(),
             presentation_event: Default::default(),
             flip_margin_ns: Default::default(),
+            ext_copy_sessions: Default::default(),
         });
         on.update_visible();
         on.update_rects();
@@ -283,6 +284,9 @@ impl ConnectorHandler {
         }
         for sc in on.screencopies.lock().drain_values() {
             sc.send_failed();
+        }
+        for sc in on.ext_copy_sessions.lock().drain_values() {
+            sc.stop();
         }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
