@@ -1,5 +1,6 @@
 use {
-    crate::utils::opaque::{opaque, Opaque, OpaqueError},
+    crate::utils::opaque::{opaque, Opaque, OpaqueError, OPAQUE_LEN},
+    arrayvec::ArrayString,
     std::{
         fmt::{Display, Formatter},
         str::FromStr,
@@ -11,6 +12,12 @@ pub struct ActivationToken(Opaque);
 
 pub fn activation_token() -> ActivationToken {
     ActivationToken(opaque())
+}
+
+impl ActivationToken {
+    pub fn to_string(self) -> ArrayString<OPAQUE_LEN> {
+        self.0.to_string()
+    }
 }
 
 impl Display for ActivationToken {
