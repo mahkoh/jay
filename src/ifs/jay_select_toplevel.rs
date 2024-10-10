@@ -1,7 +1,10 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::{jay_toplevel::JayToplevel, wl_seat::ToplevelSelector},
+        ifs::{
+            jay_toplevel::{JayToplevel, ID_SINCE},
+            wl_seat::ToplevelSelector,
+        },
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelNode,
@@ -17,6 +20,7 @@ pub struct JaySelectToplevel {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub destroyed: Cell<bool>,
+    pub version: Version,
 }
 
 pub struct JayToplevelSelector {
@@ -35,8 +39,8 @@ impl Drop for JayToplevelSelector {
         if self.jst.destroyed.get() {
             return;
         }
-        let id = match self.tl.take() {
-            None => JayToplevelId::NONE,
+        let jtl = match self.tl.take() {
+            None => None,
             Some(toplevel) => {
                 let id = match self.jst.client.new_id() {
                     Ok(id) => id,
@@ -51,6 +55,7 @@ impl Drop for JayToplevelSelector {
                     tracker: Default::default(),
                     toplevel,
                     destroyed: Cell::new(false),
+                    version: self.jst.version,
                 });
                 track!(self.jst.client, jtl);
                 self.jst.client.add_server_obj(&jtl);
@@ -58,10 +63,19 @@ impl Drop for JayToplevelSelector {
                     .tl_data()
                     .jay_toplevels
                     .set((jtl.client.id, jtl.id), jtl.clone());
-                jtl.id
+                Some(jtl)
             }
         };
-        self.jst.send_done(id);
+        match jtl {
+            None => self.jst.send_done(JayToplevelId::NONE),
+            Some(jtl) => {
+                self.jst.send_done(jtl.id);
+                if jtl.version >= ID_SINCE {
+                    jtl.send_id();
+                    jtl.send_done();
+                }
+            }
+        }
         let _ = self.jst.client.remove_obj(&*self.jst);
     }
 }

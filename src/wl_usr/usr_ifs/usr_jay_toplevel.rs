@@ -5,7 +5,7 @@ use {
         wire::{jay_toplevel::*, JayToplevelId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::{convert::Infallible, rc::Rc},
+    std::{cell::RefCell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayToplevel {
@@ -13,10 +13,12 @@ pub struct UsrJayToplevel {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayToplevelOwner>>>,
     pub version: Version,
+    pub toplevel_id: RefCell<Option<String>>,
 }
 
 pub trait UsrJayToplevelOwner {
     fn destroyed(&self) {}
+    fn done(&self, tl: &Rc<UsrJayToplevel>);
 }
 
 impl JayToplevelEventHandler for UsrJayToplevel {
@@ -25,6 +27,18 @@ impl JayToplevelEventHandler for UsrJayToplevel {
     fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.destroyed();
+        }
+        Ok(())
+    }
+
+    fn id_(&self, ev: Id<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        *self.toplevel_id.borrow_mut() = Some(ev.id.to_string());
+        Ok(())
+    }
+
+    fn done(&self, _ev: Done, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if let Some(owner) = self.owner.get() {
+            owner.done(slf);
         }
         Ok(())
     }

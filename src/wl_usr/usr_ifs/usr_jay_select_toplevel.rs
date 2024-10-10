@@ -1,9 +1,14 @@
 use {
     crate::{
+        ifs::jay_toplevel::ID_SINCE,
         object::Version,
         utils::clonecell::CloneCell,
         wire::{jay_select_toplevel::*, JaySelectToplevelId},
-        wl_usr::{usr_ifs::usr_jay_toplevel::UsrJayToplevel, usr_object::UsrObject, UsrCon},
+        wl_usr::{
+            usr_ifs::usr_jay_toplevel::{UsrJayToplevel, UsrJayToplevelOwner},
+            usr_object::UsrObject,
+            UsrCon,
+        },
     },
     std::{convert::Infallible, rc::Rc},
 };
@@ -15,6 +20,19 @@ pub struct UsrJaySelectToplevel {
     pub version: Version,
 }
 
+impl UsrJaySelectToplevel {
+    fn send(&self, tl: Option<Rc<UsrJayToplevel>>) {
+        if let Some(owner) = self.owner.get() {
+            owner.done(tl);
+        } else {
+            if let Some(tl) = tl {
+                self.con.remove_obj(&*tl);
+            }
+        }
+        self.con.remove_obj(self);
+    }
+}
+
 pub trait UsrJaySelectToplevelOwner {
     fn done(&self, toplevel: Option<Rc<UsrJayToplevel>>);
 }
@@ -22,7 +40,7 @@ pub trait UsrJaySelectToplevelOwner {
 impl JaySelectToplevelEventHandler for UsrJaySelectToplevel {
     type Error = Infallible;
 
-    fn done(&self, ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn done(&self, ev: Done, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let tl = if ev.id.is_none() {
             None
         } else {
@@ -31,20 +49,28 @@ impl JaySelectToplevelEventHandler for UsrJaySelectToplevel {
                 con: self.con.clone(),
                 owner: Default::default(),
                 version: self.version,
+                toplevel_id: Default::default(),
             });
             self.con.add_object(tl.clone());
             Some(tl)
         };
-        match self.owner.get() {
-            Some(owner) => owner.done(tl),
-            _ => {
+        'send: {
+            if self.version >= ID_SINCE {
                 if let Some(tl) = tl {
-                    self.con.remove_obj(&*tl);
+                    tl.owner.set(Some(slf.clone()));
+                    break 'send;
                 }
             }
+            self.send(tl);
         }
-        self.con.remove_obj(self);
         Ok(())
+    }
+}
+
+impl UsrJayToplevelOwner for UsrJaySelectToplevel {
+    fn done(&self, tl: &Rc<UsrJayToplevel>) {
+        tl.owner.take();
+        self.send(Some(tl.clone()));
     }
 }
 

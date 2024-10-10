@@ -71,7 +71,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        11
+        12
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -369,6 +369,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             client: self.client.clone(),
             tracker: Default::default(),
             destroyed: Cell::new(false),
+            version: self.version,
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
