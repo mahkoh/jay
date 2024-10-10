@@ -282,10 +282,18 @@ pub struct ToplevelData {
     pub jay_screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub ext_copy_sessions:
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
+    pub slf: Weak<dyn ToplevelNode>,
 }
 
 impl ToplevelData {
-    pub fn new(state: &Rc<State>, title: String, client: Option<Rc<Client>>) -> Self {
+    pub fn new<T: ToplevelNode>(
+        state: &Rc<State>,
+        title: String,
+        client: Option<Rc<Client>>,
+        slf: &Weak<T>,
+    ) -> Self {
+        let id = toplevel_identifier();
+        state.toplevels.set(id, slf.clone());
         Self {
             self_active: Cell::new(false),
             client,
@@ -307,12 +315,13 @@ impl ToplevelData {
             wants_attention: Cell::new(false),
             requested_attention: Cell::new(false),
             app_id: Default::default(),
-            identifier: Cell::new(toplevel_identifier()),
+            identifier: Cell::new(id),
             handles: Default::default(),
             render_highlight: Default::default(),
             jay_toplevels: Default::default(),
             jay_screencasts: Default::default(),
             ext_copy_sessions: Default::default(),
+            slf: slf.clone(),
         }
     }
 
@@ -359,7 +368,12 @@ impl ToplevelData {
         for screencast in self.ext_copy_sessions.lock().drain_values() {
             screencast.stop();
         }
-        self.identifier.set(toplevel_identifier());
+        {
+            let id = toplevel_identifier();
+            let prev = self.identifier.replace(id);
+            self.state.toplevels.remove(&prev);
+            self.state.toplevels.set(id, self.slf.clone());
+        }
         {
             let mut handles = self.handles.lock();
             for handle in handles.drain_values() {
@@ -476,7 +490,8 @@ impl ToplevelData {
             log::warn!("Cannot fullscreen root container in a workspace");
             return;
         }
-        let placeholder = Rc::new(PlaceholderNode::new_for(state, node.clone()));
+        let placeholder =
+            Rc::new_cyclic(|weak| PlaceholderNode::new_for(state, node.clone(), weak));
         parent.cnode_replace_child(node.tl_as_node(), placeholder.clone());
         let mut kb_foci = Default::default();
         if ws.visible.get() {
@@ -596,6 +611,12 @@ impl ToplevelData {
             return scale.pixel_size(dw, dh);
         };
         (0, 0)
+    }
+}
+
+impl Drop for ToplevelData {
+    fn drop(&mut self) {
+        self.state.toplevels.remove(&self.identifier.get());
     }
 }
 

@@ -271,6 +271,7 @@ fn start_compositor2(
         cpu_worker,
         ui_drag_enabled: Cell::new(true),
         ui_drag_threshold_squared: Cell::new(10),
+        toplevels: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

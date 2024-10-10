@@ -38,7 +38,7 @@ use {
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         mem,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     thiserror::Error,
 };
@@ -115,7 +115,7 @@ impl Debug for XdgToplevel {
 }
 
 impl XdgToplevel {
-    pub fn new(id: XdgToplevelId, surface: &Rc<XdgSurface>) -> Self {
+    pub fn new(id: XdgToplevelId, surface: &Rc<XdgSurface>, slf: &Weak<Self>) -> Self {
         let mut states = AHashSet::new();
         states.insert(STATE_TILED_LEFT);
         states.insert(STATE_TILED_RIGHT);
@@ -141,6 +141,7 @@ impl XdgToplevel {
                 state,
                 String::new(),
                 Some(surface.surface.client.clone()),
+                slf,
             ),
             drag: Default::default(),
             is_mapped: Cell::new(false),

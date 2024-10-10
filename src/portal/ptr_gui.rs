@@ -661,6 +661,7 @@ impl WindowData {
         buf.free.set(false);
 
         self.surface.attach(&buf.wl);
+        self.surface.damage();
         self.surface.commit();
     }
 

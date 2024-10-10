@@ -5,7 +5,11 @@ use {
         wire::{jay_workspace::*, JayWorkspaceId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::{convert::Infallible, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        convert::Infallible,
+        rc::Rc,
+    },
 };
 
 pub struct UsrJayWorkspace {
@@ -13,20 +17,19 @@ pub struct UsrJayWorkspace {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayWorkspaceOwner>>>,
     pub version: Version,
+    pub linear_id: Cell<u32>,
+    pub output: Cell<u32>,
+    pub name: RefCell<Option<String>>,
 }
 
 pub trait UsrJayWorkspaceOwner {
-    fn linear_id(self: Rc<Self>, ev: &LinearId) {
-        let _ = ev;
+    fn destroyed(&self, ws: &UsrJayWorkspace) {
+        let _ = ws;
     }
 
-    fn name(&self, ev: &Name) {
-        let _ = ev;
+    fn done(&self, ws: &Rc<UsrJayWorkspace>) {
+        let _ = ws;
     }
-
-    fn destroyed(&self) {}
-
-    fn done(&self) {}
 
     fn output(self: Rc<Self>, ev: &Output) {
         let _ = ev;
@@ -41,34 +44,31 @@ impl JayWorkspaceEventHandler for UsrJayWorkspace {
     type Error = Infallible;
 
     fn linear_id(&self, ev: LinearId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if let Some(owner) = self.owner.get() {
-            owner.linear_id(&ev);
-        }
+        self.linear_id.set(ev.linear_id);
         Ok(())
     }
 
     fn name(&self, ev: Name<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        *self.name.borrow_mut() = Some(ev.name.to_string());
+        Ok(())
+    }
+
+    fn destroyed(&self, _ev: Destroyed, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.name(&ev);
+            owner.destroyed(slf);
         }
         Ok(())
     }
 
-    fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn done(&self, _ev: Done, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.destroyed();
-        }
-        Ok(())
-    }
-
-    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if let Some(owner) = self.owner.get() {
-            owner.done();
+            owner.done(slf);
         }
         Ok(())
     }
 
     fn output(&self, ev: Output, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.output.set(ev.global_name);
         if let Some(owner) = self.owner.get() {
             owner.output(&ev);
         }

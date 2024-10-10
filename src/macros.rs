@@ -740,20 +740,28 @@ macro_rules! ei_object_base {
 
 macro_rules! logical_to_client_wire_scale {
     ($client:expr, $($field:expr),+ $(,)?) => {
-        if let Some(scale) = $client.wire_scale.get() {
-            $(
-                $field = $field * scale;
-            )+
+        #[expect(clippy::allow_attributes)]
+        {
+            #[allow(clippy::assign_op_pattern)]
+            if let Some(scale) = $client.wire_scale.get() {
+                $(
+                    $field = $field * scale;
+                )+
+            }
         }
     };
 }
 
 macro_rules! client_wire_scale_to_logical {
     ($client:expr, $($field:expr),+ $(,)?) => {
-        if let Some(scale) = $client.wire_scale.get() {
-            $(
-                $field = $field / scale;
-            )+
+        #[expect(clippy::allow_attributes)]
+        {
+            #[allow(clippy::assign_op_pattern)]
+            if let Some(scale) = $client.wire_scale.get() {
+                $(
+                    $field = $field / scale;
+                )+
+            }
         }
     };
 }

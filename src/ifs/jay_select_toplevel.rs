@@ -1,7 +1,10 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::{jay_toplevel::JayToplevel, wl_seat::ToplevelSelector},
+        ifs::{
+            jay_toplevel::{JayToplevel, ID_SINCE},
+            wl_seat::ToplevelSelector,
+        },
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelNode,
@@ -17,6 +20,7 @@ pub struct JaySelectToplevel {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub destroyed: Cell<bool>,
+    pub version: Version,
 }
 
 pub struct JayToplevelSelector {
@@ -35,38 +39,62 @@ impl Drop for JayToplevelSelector {
         if self.jst.destroyed.get() {
             return;
         }
-        let id = match self.tl.take() {
-            None => JayToplevelId::NONE,
+        self.jst.done(self.tl.take());
+    }
+}
+
+impl JaySelectToplevel {
+    pub fn done(&self, tl: Option<Rc<dyn ToplevelNode>>) {
+        let jtl = match tl {
+            None => None,
             Some(toplevel) => {
-                let id = match self.jst.client.new_id() {
+                let id = match self.client.new_id() {
                     Ok(id) => id,
                     Err(e) => {
-                        self.jst.client.error(e);
+                        self.client.error(e);
                         return;
                     }
                 };
                 let jtl = Rc::new(JayToplevel {
                     id,
-                    client: self.jst.client.clone(),
+                    client: self.client.clone(),
                     tracker: Default::default(),
                     toplevel,
                     destroyed: Cell::new(false),
+                    version: self.version,
                 });
-                track!(self.jst.client, jtl);
-                self.jst.client.add_server_obj(&jtl);
+                track!(self.client, jtl);
+                self.client.add_server_obj(&jtl);
                 jtl.toplevel
                     .tl_data()
                     .jay_toplevels
                     .set((jtl.client.id, jtl.id), jtl.clone());
-                jtl.id
+                Some(jtl)
             }
         };
-        self.jst.send_done(id);
-        let _ = self.jst.client.remove_obj(&*self.jst);
+        match jtl {
+            None => self.send_done(JayToplevelId::NONE),
+            Some(jtl) => {
+                self.send_done(jtl.id);
+                if jtl.version >= ID_SINCE {
+                    jtl.send_id();
+                    jtl.send_done();
+                }
+            }
+        }
+        let _ = self.client.remove_obj(self);
     }
-}
 
-impl JaySelectToplevel {
+    pub fn new(client: &Rc<Client>, id: JaySelectToplevelId, version: Version) -> Rc<Self> {
+        Rc::new(JaySelectToplevel {
+            id,
+            client: client.clone(),
+            tracker: Default::default(),
+            destroyed: Cell::new(false),
+            version,
+        })
+    }
+
     fn send_done(&self, id: JayToplevelId) {
         self.client.event(Done {
             self_id: self.id,

@@ -2,6 +2,7 @@ mod ptl_display;
 mod ptl_remote_desktop;
 mod ptl_render_ctx;
 mod ptl_screencast;
+mod ptl_session;
 mod ptl_text;
 mod ptr_gui;
 
@@ -16,12 +17,13 @@ use {
         forker::ForkerError,
         io_uring::IoUring,
         logger::Logger,
-        pipewire::pw_con::{PwConHolder, PwConOwner},
+        pipewire::pw_con::{PwCon, PwConHolder, PwConOwner},
         portal::{
             ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
-            ptl_remote_desktop::{add_remote_desktop_dbus_members, RemoteDesktopSession},
+            ptl_remote_desktop::add_remote_desktop_dbus_members,
             ptl_render_ctx::PortalRenderCtx,
-            ptl_screencast::{add_screencast_dbus_members, ScreencastSession},
+            ptl_screencast::add_screencast_dbus_members,
+            ptl_session::PortalSession,
         },
         utils::{
             clone3::{fork_with_pidfd, Forked},
@@ -200,11 +202,11 @@ async fn run_async(
         wheel,
         displays: Default::default(),
         dbus,
-        screencasts: Default::default(),
-        remote_desktop_sessions: Default::default(),
+        sessions: Default::default(),
         next_id: NumCell::new(1),
         render_ctxs: Default::default(),
         dma_buf_ids: Default::default(),
+        pw_con: pw_con.as_ref().map(|c| c.con.clone()),
     });
     if let Some(pw_con) = &pw_con {
         pw_con.con.owner.set(Some(state.clone()));
@@ -295,11 +297,11 @@ struct PortalState {
     wheel: Rc<Wheel>,
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
     dbus: Rc<DbusSocket>,
-    screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
-    remote_desktop_sessions: CopyHashMap<String, Rc<RemoteDesktopSession>>,
+    sessions: CopyHashMap<String, Rc<PortalSession>>,
     next_id: NumCell<u32>,
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
     dma_buf_ids: Rc<DmaBufIds>,
+    pw_con: Option<Rc<PwCon>>,
 }
 
 impl PortalState {

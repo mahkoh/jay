@@ -3,3 +3,10 @@ request destroy {
 
 event destroyed {
 }
+
+event id (since = 12) {
+    id: str,
+}
+
+event done (since = 12) {
+}

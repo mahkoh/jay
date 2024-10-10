@@ -31,6 +31,9 @@ impl JayWorkspaceWatcherEventHandler for UsrJayWorkspaceWatcher {
             con: self.con.clone(),
             owner: Default::default(),
             version: self.version,
+            linear_id: Default::default(),
+            output: Default::default(),
+            name: Default::default(),
         });
         self.con.add_object(jw.clone());
         if let Some(owner) = self.owner.get() {

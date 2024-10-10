@@ -27,6 +27,16 @@ impl UsrWlSurface {
         });
     }
 
+    pub fn damage(&self) {
+        self.con.request(DamageBuffer {
+            self_id: self.id,
+            x: 0,
+            y: 0,
+            width: i32::MAX,
+            height: i32::MAX,
+        });
+    }
+
     pub fn frame<F>(&self, f: F)
     where
         F: FnOnce() + 'static,

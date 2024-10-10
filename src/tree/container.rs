@@ -213,7 +213,7 @@ impl ContainerNode {
         let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(child.node_id(), child_node);
-        let slf = Rc::new(Self {
+        let slf = Rc::new_cyclic(|weak| Self {
             id: state.node_ids.next(),
             split: Cell::new(split),
             mono_child: CloneCell::new(None),
@@ -238,7 +238,7 @@ impl ContainerNode {
             state: state.clone(),
             render_data: Default::default(),
             scroller: Default::default(),
-            toplevel_data: ToplevelData::new(state, Default::default(), None),
+            toplevel_data: ToplevelData::new(state, Default::default(), None, weak),
             attention_requests: Default::default(),
         });
         child.tl_set_parent(slf.clone());

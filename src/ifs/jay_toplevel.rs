@@ -10,12 +10,15 @@ use {
     thiserror::Error,
 };
 
+pub const ID_SINCE: Version = Version(12);
+
 pub struct JayToplevel {
     pub id: JayToplevelId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub toplevel: Rc<dyn ToplevelNode>,
     pub destroyed: Cell<bool>,
+    pub version: Version,
 }
 
 impl JayToplevel {
@@ -34,6 +37,18 @@ impl JayToplevel {
 
     fn send_destroyed(&self) {
         self.client.event(Destroyed { self_id: self.id });
+    }
+
+    pub fn send_id(&self) {
+        let s = self.toplevel.tl_data().identifier.get().to_string();
+        self.client.event(Id {
+            self_id: self.id,
+            id: &s,
+        })
+    }
+
+    pub fn send_done(&self) {
+        self.client.event(Done { self_id: self.id })
     }
 }
 

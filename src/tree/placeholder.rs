@@ -22,7 +22,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
-        rc::Rc,
+        rc::{Rc, Weak},
         sync::Arc,
     },
 };
@@ -48,13 +48,14 @@ pub async fn placeholder_render_textures(state: Rc<State>) {
 }
 
 impl PlaceholderNode {
-    pub fn new_for(state: &Rc<State>, node: Rc<dyn ToplevelNode>) -> Self {
+    pub fn new_for(state: &Rc<State>, node: Rc<dyn ToplevelNode>, slf: &Weak<Self>) -> Self {
         Self {
             id: state.node_ids.next(),
             toplevel: ToplevelData::new(
                 state,
                 node.tl_data().title.borrow().clone(),
                 node.node_client(),
+                slf,
             ),
             destroyed: Default::default(),
             update_textures_scheduled: Cell::new(false),
@@ -63,10 +64,10 @@ impl PlaceholderNode {
         }
     }
 
-    pub fn new_empty(state: &Rc<State>) -> Self {
+    pub fn new_empty(state: &Rc<State>, slf: &Weak<Self>) -> Self {
         Self {
             id: state.node_ids.next(),
-            toplevel: ToplevelData::new(state, String::new(), None),
+            toplevel: ToplevelData::new(state, String::new(), None, slf),
             destroyed: Default::default(),
             update_textures_scheduled: Default::default(),
             state: state.clone(),
