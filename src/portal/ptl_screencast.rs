@@ -5,7 +5,7 @@ use {
         allocator::{AllocatorError, BufferObject, BufferUsage, BO_USE_RENDERING},
         dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply},
         format::{Format, XRGB8888},
-        ifs::jay_screencast::CLIENT_BUFFERS_SINCE,
+        ifs::{jay_compositor::GET_TOPLEVEL_SINCE, jay_screencast::CLIENT_BUFFERS_SINCE},
         pipewire::{
             pw_con::PwCon,
             pw_ifs::pw_client_node::{
@@ -29,6 +29,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
+            opaque::Opaque,
         },
         video::{dmabuf::DmaBuf, Modifier, LINEAR_MODIFIER},
         wire::jay_screencast::Ready,
@@ -54,6 +55,7 @@ use {
             usr_wl_buffer::UsrWlBuffer,
         },
     },
+    serde::{Deserialize, Serialize},
     std::{
         borrow::Cow,
         cell::{Cell, RefCell},
@@ -77,7 +79,7 @@ pub struct ScreencastSession {
 #[derive(Clone)]
 pub enum ScreencastPhase {
     Init,
-    SourcesSelected,
+    SourcesSelected(Rc<SourcesSelectedScreencast>),
     Selecting(Rc<SelectingScreencast>),
     SelectingWindow(Rc<SelectingWindowScreencast>),
     SelectingWorkspace(Rc<SelectingWorkspaceScreencast>),
@@ -87,6 +89,10 @@ pub enum ScreencastPhase {
 }
 
 unsafe impl UnsafeCellCloneSafe for ScreencastPhase {}
+
+pub struct SourcesSelectedScreencast {
+    pub restore_data: Cell<Option<Result<RestoreData, RestoreError>>>,
+}
 
 #[derive(Clone)]
 pub struct SelectingScreencastCore {
@@ -98,12 +104,14 @@ pub struct SelectingScreencastCore {
 pub struct SelectingScreencast {
     pub core: SelectingScreencastCore,
     pub guis: CopyHashMap<PortalDisplayId, Rc<SelectionGui>>,
+    pub restore_data: Cell<Option<RestoreData>>,
 }
 
 pub struct SelectingWindowScreencast {
     pub core: SelectingScreencastCore,
     pub dpy: Rc<PortalDisplay>,
     pub selector: Rc<UsrJaySelectToplevel>,
+    pub restoring: bool,
 }
 
 pub struct SelectingWorkspaceScreencast {
@@ -123,7 +131,7 @@ pub struct StartingScreencast {
 
 pub enum ScreencastTarget {
     Output(Rc<PortalOutput>),
-    Workspace(Rc<PortalOutput>, Rc<UsrJayWorkspace>),
+    Workspace(Rc<PortalOutput>, Rc<UsrJayWorkspace>, bool),
     Toplevel(Rc<UsrJayToplevel>),
 }
 
@@ -171,16 +179,22 @@ impl PwClientNodeOwner for StartingScreencast {
                 DynamicType::U32,
                 DynamicType::Array(Box::new(inner_type.clone())),
             ]);
-            let variants = &[DictEntry {
+            let mut variants = vec![DictEntry {
                 key: "streams".into(),
                 value: Variant::Array(
                     kt,
                     vec![Variant::U32(node_id), Variant::Array(inner_type, vec![])],
                 ),
             }];
+            if let Some(rd) = create_restore_data(&self.dpy, &self.target) {
+                variants.push(DictEntry {
+                    key: "restore_data".into(),
+                    value: rd,
+                });
+            }
             self.reply.ok(&StartReply {
                 response: PORTAL_SUCCESS,
-                results: Cow::Borrowed(variants),
+                results: Cow::Owned(variants),
             });
         }
         let mut supported_formats = PwClientNodePortSupportedFormats {
@@ -221,7 +235,7 @@ impl PwClientNodeOwner for StartingScreencast {
                 jsc.set_output(&o.jay);
                 jsc.set_allow_all_workspaces(true);
             }
-            ScreencastTarget::Workspace(o, ws) => {
+            ScreencastTarget::Workspace(o, ws, _) => {
                 jsc.set_output(&o.jay);
                 jsc.allow_workspace(ws);
             }
@@ -231,9 +245,10 @@ impl PwClientNodeOwner for StartingScreencast {
         jsc.configure();
         match &self.target {
             ScreencastTarget::Output(_) => {}
-            ScreencastTarget::Workspace(_, w) => {
+            ScreencastTarget::Workspace(_, w, true) => {
                 self.dpy.con.remove_obj(&**w);
             }
+            ScreencastTarget::Workspace(_, _, false) => {}
             ScreencastTarget::Toplevel(t) => {
                 self.dpy.con.remove_obj(&**t);
             }
@@ -439,7 +454,7 @@ impl ScreencastSession {
         self.state.screencasts.remove(self.session_obj.path());
         match self.phase.set(ScreencastPhase::Terminated) {
             ScreencastPhase::Init => {}
-            ScreencastPhase::SourcesSelected => {}
+            ScreencastPhase::SourcesSelected(_) => {}
             ScreencastPhase::Terminated => {}
             ScreencastPhase::Selecting(s) => {
                 s.core.reply.err("Session has been terminated");
@@ -461,9 +476,10 @@ impl ScreencastSession {
                 s.dpy.screencasts.remove(self.session_obj.path());
                 match &s.target {
                     ScreencastTarget::Output(_) => {}
-                    ScreencastTarget::Workspace(_, w) => {
+                    ScreencastTarget::Workspace(_, w, true) => {
                         s.dpy.con.remove_obj(&**w);
                     }
+                    ScreencastTarget::Workspace(_, _, false) => {}
                     ScreencastTarget::Toplevel(t) => {
                         s.dpy.con.remove_obj(&**t);
                     }
@@ -482,7 +498,7 @@ impl ScreencastSession {
 
     fn dbus_select_sources(
         self: &Rc<Self>,
-        _req: SelectSources,
+        req: SelectSources,
         reply: PendingReply<SelectSourcesReply<'static>>,
     ) {
         match self.phase.get() {
@@ -493,7 +509,11 @@ impl ScreencastSession {
                 return;
             }
         }
-        self.phase.set(ScreencastPhase::SourcesSelected);
+        self.phase.set(ScreencastPhase::SourcesSelected(Rc::new(
+            SourcesSelectedScreencast {
+                restore_data: Cell::new(get_restore_data(&req)),
+            },
+        )));
         reply.ok(&SelectSourcesReply {
             response: PORTAL_SUCCESS,
             results: Default::default(),
@@ -501,16 +521,16 @@ impl ScreencastSession {
     }
 
     fn dbus_start(self: &Rc<Self>, req: Start<'_>, reply: PendingReply<StartReply<'static>>) {
-        match self.phase.get() {
-            ScreencastPhase::SourcesSelected => {}
+        let restore_data = match self.phase.get() {
+            ScreencastPhase::SourcesSelected(s) => s.restore_data.take(),
             _ => {
                 self.kill();
                 reply.err("Session is not in the correct phase for starting");
                 return;
             }
-        }
+        };
         let request_obj = match self.state.dbus.add_object(req.handle.to_string()) {
-            Ok(r) => r,
+            Ok(r) => Rc::new(r),
             Err(_) => {
                 self.kill();
                 reply.err("Request handle is not unique");
@@ -527,10 +547,20 @@ impl ScreencastSession {
                 }
             });
         }
+        let reply = Rc::new(reply);
+        self.restore(&request_obj, &reply, restore_data, None);
+    }
+
+    fn start_interactive_selection(
+        self: &Rc<Self>,
+        request_obj: &Rc<DbusObject>,
+        reply: &Rc<PendingReply<StartReply<'static>>>,
+        restore_data: Option<RestoreData>,
+    ) {
         let guis = CopyHashMap::new();
         for dpy in self.state.displays.lock().values() {
             if dpy.outputs.len() > 0 {
-                guis.set(dpy.id, SelectionGui::new(self, dpy));
+                guis.set(dpy.id, SelectionGui::new(self, dpy, restore_data.is_some()));
             }
         }
         if guis.is_empty() {
@@ -542,11 +572,119 @@ impl ScreencastSession {
             .set(ScreencastPhase::Selecting(Rc::new(SelectingScreencast {
                 core: SelectingScreencastCore {
                     session: self.clone(),
-                    request_obj: Rc::new(request_obj),
-                    reply: Rc::new(reply),
+                    request_obj: request_obj.clone(),
+                    reply: reply.clone(),
                 },
                 guis,
+                restore_data: Cell::new(restore_data),
             })));
+    }
+
+    fn restore(
+        self: &Rc<Self>,
+        request_obj: &Rc<DbusObject>,
+        reply: &Rc<PendingReply<StartReply<'static>>>,
+        restore_data: Option<Result<RestoreData, RestoreError>>,
+        display: Option<Rc<PortalDisplay>>,
+    ) {
+        if let Some(rd) = restore_data {
+            if let Err(e) = self.try_restore(&request_obj, &reply, rd, display) {
+                log::error!("Could not restore session: {}", ErrorFmt(e));
+            } else {
+                return;
+            }
+        }
+        self.start_interactive_selection(&request_obj, &reply, None);
+    }
+
+    fn try_restore(
+        self: &Rc<Self>,
+        request_obj: &Rc<DbusObject>,
+        reply: &Rc<PendingReply<StartReply<'static>>>,
+        restore_data: Result<RestoreData, RestoreError>,
+        display: Option<Rc<PortalDisplay>>,
+    ) -> Result<(), RestoreError> {
+        let rd = restore_data?;
+        let dpy = if let Some(dpy) = display {
+            dpy
+        } else {
+            let dpy = self
+                .state
+                .displays
+                .lock()
+                .values()
+                .find(|d| d.unique_id == rd.display)
+                .cloned();
+            match dpy {
+                Some(dpy) => dpy,
+                _ => {
+                    if self.state.displays.len() == 0 {
+                        return Err(RestoreError::UnknownDisplay);
+                    } else if self.state.displays.len() == 1 {
+                        self.state.displays.lock().values().next().unwrap().clone()
+                    } else {
+                        self.start_interactive_selection(&request_obj, &reply, Some(rd));
+                        return Ok(());
+                    }
+                }
+            }
+        };
+        let start = |target: ScreencastTarget| {
+            SelectingScreencastCore {
+                session: self.clone(),
+                request_obj: request_obj.clone(),
+                reply: reply.clone(),
+            }
+            .starting(&dpy, target);
+        };
+        match &rd.ty {
+            RestoreDataType::Output(d) => {
+                let output = dpy
+                    .outputs
+                    .lock()
+                    .values()
+                    .find(|o| o.wl.name.borrow().as_ref() == Some(&d.name))
+                    .cloned();
+                let Some(output) = output else {
+                    return Err(RestoreError::UnknownOutput);
+                };
+                start(ScreencastTarget::Output(output));
+            }
+            RestoreDataType::Workspace(ws) => {
+                let ws = dpy
+                    .workspaces
+                    .lock()
+                    .values()
+                    .find(|w| w.name.borrow().as_ref() == Some(&ws.name))
+                    .cloned();
+                let Some(ws) = ws else {
+                    return Err(RestoreError::UnknownWorkspace);
+                };
+                let Some(output) = dpy.outputs.get(&ws.output.get()) else {
+                    return Err(RestoreError::UnknownOutput);
+                };
+                start(ScreencastTarget::Workspace(output, ws, false));
+            }
+            RestoreDataType::Toplevel(d) => {
+                if dpy.jc.version < GET_TOPLEVEL_SINCE {
+                    return Err(RestoreError::GetToplevel);
+                }
+                let selector = dpy.jc.get_toplevel(&d.id);
+                let selecting = Rc::new(SelectingWindowScreencast {
+                    core: SelectingScreencastCore {
+                        session: self.clone(),
+                        request_obj: request_obj.clone(),
+                        reply: reply.clone(),
+                    },
+                    dpy: dpy.clone(),
+                    selector: selector.clone(),
+                    restoring: true,
+                });
+                selector.owner.set(Some(selecting.clone()));
+                self.phase.set(ScreencastPhase::SelectingWindow(selecting));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -759,4 +897,123 @@ fn get_session<T>(
         reply.err(&msg);
     }
     res
+}
+
+fn create_restore_data(dpy: &PortalDisplay, rd: &ScreencastTarget) -> Option<Variant<'static>> {
+    let rd = RestoreData {
+        display: dpy.unique_id,
+        ty: match rd {
+            ScreencastTarget::Output(o) => RestoreDataType::Output(RestoreDataOutput {
+                name: o.wl.name.borrow().clone()?,
+            }),
+            ScreencastTarget::Workspace(_, w, _) => {
+                RestoreDataType::Workspace(RestoreDataWorkspace {
+                    name: w.name.borrow().clone()?,
+                })
+            }
+            ScreencastTarget::Toplevel(tl) => RestoreDataType::Toplevel(RestoreDataToplevel {
+                id: tl.toplevel_id.borrow().clone()?,
+            }),
+        },
+    };
+    Some(Variant::Struct(vec![
+        Variant::String("Jay".into()),
+        Variant::U32(1),
+        Variant::Variant(Box::new(Variant::String(
+            serde_json::to_string(&rd).unwrap().into(),
+        ))),
+    ]))
+}
+
+#[derive(Debug, Error)]
+pub enum RestoreError {
+    #[error("DBus restore data is not a struct")]
+    NotAStruct,
+    #[error("DBus restore data is not a struct with 3 fields")]
+    NotLen3,
+    #[error("DBus restore data first field is not a string")]
+    FirstNotString,
+    #[error("DBus restore data second field is not a u32")]
+    SecondNotU32,
+    #[error("DBus restore data third field is not a variant")]
+    ThirdNotVariant,
+    #[error("DBus restore data third field is not a string")]
+    ThirdNotString,
+    #[error("DBus restore data is not for Jay")]
+    NotJay,
+    #[error("DBus restore data is not version 1")]
+    NotVersion1,
+    #[error("DBus restore data could not be deserialized")]
+    Parse(#[source] serde_json::Error),
+    #[error("The display no longer exists")]
+    UnknownDisplay,
+    #[error("The output no longer exists")]
+    UnknownOutput,
+    #[error("The workspace no longer exists")]
+    UnknownWorkspace,
+    #[error("The display does not support toplevel restoration")]
+    GetToplevel,
+}
+
+fn get_restore_data(req: &SelectSources) -> Option<Result<RestoreData, RestoreError>> {
+    let restore_data = req.options.iter().find(|n| n.key == "restore_data")?;
+    Some(get_restore_data_(restore_data))
+}
+
+fn get_restore_data_(
+    restore_data: &DictEntry<Cow<str>, Variant>,
+) -> Result<RestoreData, RestoreError> {
+    let Variant::Struct(s) = &restore_data.value else {
+        return Err(RestoreError::NotAStruct);
+    };
+    if s.len() != 3 {
+        return Err(RestoreError::NotLen3);
+    }
+    let Variant::String(compositor) = &s[0] else {
+        return Err(RestoreError::FirstNotString);
+    };
+    let Variant::U32(version) = &s[1] else {
+        return Err(RestoreError::SecondNotU32);
+    };
+    let Variant::Variant(restore_data) = &s[2] else {
+        return Err(RestoreError::ThirdNotVariant);
+    };
+    let Variant::String(restore_data) = &**restore_data else {
+        return Err(RestoreError::ThirdNotString);
+    };
+    if compositor != "Jay" {
+        return Err(RestoreError::NotJay);
+    }
+    if *version != 1 {
+        return Err(RestoreError::NotVersion1);
+    }
+    serde_json::from_str(restore_data).map_err(RestoreError::Parse)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RestoreData {
+    display: Opaque,
+    ty: RestoreDataType,
+}
+
+#[derive(Serialize, Deserialize)]
+enum RestoreDataType {
+    Output(RestoreDataOutput),
+    Workspace(RestoreDataWorkspace),
+    Toplevel(RestoreDataToplevel),
+}
+
+#[derive(Serialize, Deserialize)]
+struct RestoreDataOutput {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RestoreDataWorkspace {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RestoreDataToplevel {
+    id: String,
 }

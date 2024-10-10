@@ -45,6 +45,7 @@ struct StaticButton {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ButtonRole {
+    Restore,
     Accept,
     SelectWorkspace,
     SelectWindow,
@@ -65,7 +66,7 @@ impl SelectionGui {
     }
 }
 
-fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
+fn create_accept_gui(surface: &Rc<SelectionGuiSurface>, for_restore: bool) -> Rc<dyn GuiElement> {
     let app = &surface.gui.screencast_session.app;
     let text = if app.is_empty() {
         format!("An application wants to capture the screen")
@@ -74,11 +75,13 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     };
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;
+    let restore_button = static_button(surface, ButtonRole::Restore, "Restore Session");
     let accept_button = static_button(surface, ButtonRole::Accept, "Share This Output");
     let workspace_button = static_button(surface, ButtonRole::SelectWorkspace, "Share A Workspace");
     let window_button = static_button(surface, ButtonRole::SelectWindow, "Share A Window");
     let reject_button = static_button(surface, ButtonRole::Reject, "Reject");
     for button in [
+        &restore_button,
         &accept_button,
         &workspace_button,
         &window_button,
@@ -88,6 +91,10 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
         button.border.set(2.0);
         button.padding.set(5.0);
     }
+    restore_button.bg_color.set(Color::from_rgb(170, 170, 200));
+    restore_button
+        .bg_hover_color
+        .set(Color::from_rgb(170, 170, 255));
     for button in [&accept_button, &workspace_button, &window_button] {
         button.bg_color.set(Color::from_rgb(170, 200, 170));
         button.bg_hover_color.set(Color::from_rgb(170, 255, 170));
@@ -101,7 +108,11 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     flow.cross_align.set(Align::Center);
     flow.in_margin.set(V_MARGIN);
     flow.cross_margin.set(H_MARGIN);
-    let mut elements: Vec<Rc<dyn GuiElement>> = vec![label, accept_button];
+    let mut elements: Vec<Rc<dyn GuiElement>> = vec![label];
+    if for_restore {
+        elements.push(restore_button);
+    }
+    elements.push(accept_button);
     if surface.gui.dpy.jc.caps.select_workspace.get() {
         elements.push(workspace_button);
     }
@@ -124,7 +135,7 @@ impl OverlayWindowOwner for SelectionGuiSurface {
 }
 
 impl SelectionGui {
-    pub fn new(ss: &Rc<ScreencastSession>, dpy: &Rc<PortalDisplay>) -> Rc<Self> {
+    pub fn new(ss: &Rc<ScreencastSession>, dpy: &Rc<PortalDisplay>, for_restore: bool) -> Rc<Self> {
         let gui = Rc::new(SelectionGui {
             screencast_session: ss.clone(),
             dpy: dpy.clone(),
@@ -136,7 +147,7 @@ impl SelectionGui {
                 output: output.clone(),
                 overlay: OverlayWindow::new(output),
             });
-            let element = create_accept_gui(&sgs);
+            let element = create_accept_gui(&sgs, for_restore);
             sgs.overlay.data.content.set(Some(element));
             gui.dpy
                 .windows
@@ -153,7 +164,10 @@ impl ButtonOwner for StaticButton {
             return;
         }
         match self.role {
-            ButtonRole::Accept | ButtonRole::SelectWorkspace | ButtonRole::SelectWindow => {
+            ButtonRole::Restore
+            | ButtonRole::Accept
+            | ButtonRole::SelectWorkspace
+            | ButtonRole::SelectWindow => {
                 log::info!("User has accepted the request");
                 let selecting = match self.surface.gui.screencast_session.phase.get() {
                     ScreencastPhase::Selecting(selecting) => selecting,
@@ -163,7 +177,14 @@ impl ButtonOwner for StaticButton {
                     gui.kill(false);
                 }
                 let dpy = &self.surface.output.dpy;
-                if self.role == ButtonRole::Accept {
+                if self.role == ButtonRole::Restore {
+                    selecting.core.session.restore(
+                        &selecting.core.request_obj,
+                        &selecting.core.reply,
+                        selecting.restore_data.take().map(Ok),
+                        Some(self.surface.gui.dpy.clone()),
+                    );
+                } else if self.role == ButtonRole::Accept {
                     selecting
                         .core
                         .starting(dpy, ScreencastTarget::Output(self.surface.output.clone()));
@@ -186,6 +207,7 @@ impl ButtonOwner for StaticButton {
                         core: selecting.core.clone(),
                         dpy: dpy.clone(),
                         selector: selector.clone(),
+                        restoring: false,
                     });
                     selector.owner.set(Some(selecting.clone()));
                     self.surface
@@ -206,6 +228,15 @@ impl ButtonOwner for StaticButton {
 impl UsrJaySelectToplevelOwner for SelectingWindowScreencast {
     fn done(&self, tl: Option<Rc<UsrJayToplevel>>) {
         let Some(tl) = tl else {
+            if self.restoring {
+                log::warn!("Could not restore session because toplevel no longer exists");
+                self.core.session.start_interactive_selection(
+                    &self.core.request_obj,
+                    &self.core.reply,
+                    None,
+                );
+                return;
+            }
             log::info!("User has aborted the selection");
             self.core.session.kill();
             return;
@@ -252,7 +283,7 @@ impl UsrJaySelectWorkspaceOwner for SelectingWorkspaceScreencast {
             }
         };
         self.core
-            .starting(&self.dpy, ScreencastTarget::Workspace(output, ws));
+            .starting(&self.dpy, ScreencastTarget::Workspace(output, ws, true));
     }
 }
 

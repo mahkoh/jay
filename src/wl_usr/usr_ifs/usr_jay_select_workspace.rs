@@ -3,7 +3,11 @@ use {
         object::Version,
         utils::clonecell::CloneCell,
         wire::{jay_select_workspace::*, JaySelectWorkspaceId},
-        wl_usr::{usr_ifs::usr_jay_workspace::UsrJayWorkspace, usr_object::UsrObject, UsrCon},
+        wl_usr::{
+            usr_ifs::usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
+            usr_object::UsrObject,
+            UsrCon,
+        },
     },
     std::{convert::Infallible, rc::Rc},
 };
@@ -30,20 +34,30 @@ impl JaySelectWorkspaceEventHandler for UsrJaySelectWorkspace {
         Ok(())
     }
 
-    fn selected(&self, ev: Selected, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn selected(&self, ev: Selected, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let tl = Rc::new(UsrJayWorkspace {
             id: ev.id,
             con: self.con.clone(),
             owner: Default::default(),
             version: self.version,
+            linear_id: Default::default(),
+            output: Default::default(),
+            name: Default::default(),
         });
         self.con.add_object(tl.clone());
+        tl.owner.set(Some(slf.clone()));
+        Ok(())
+    }
+}
+
+impl UsrJayWorkspaceOwner for UsrJaySelectWorkspace {
+    fn done(&self, ws: &Rc<UsrJayWorkspace>) {
+        ws.owner.take();
         match self.owner.get() {
-            Some(owner) => owner.done(ev.output, Some(tl)),
-            _ => self.con.remove_obj(&*tl),
+            Some(owner) => owner.done(ws.output.get(), Some(ws.clone())),
+            _ => self.con.remove_obj(&**ws),
         }
         self.con.remove_obj(self);
-        Ok(())
     }
 }
 

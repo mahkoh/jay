@@ -12,8 +12,13 @@ use {
             PortalState,
         },
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, oserror::OsError,
+            bitflags::BitflagsExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
+            opaque::{opaque, Opaque},
+            oserror::OsError,
         },
         video::drm::Drm,
         wire::{
@@ -26,6 +31,8 @@ use {
                 usr_jay_output::{UsrJayOutput, UsrJayOutputOwner},
                 usr_jay_pointer::UsrJayPointer,
                 usr_jay_render_ctx::UsrJayRenderCtxOwner,
+                usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
+                usr_jay_workspace_watcher::{UsrJayWorkspaceWatcher, UsrJayWorkspaceWatcherOwner},
                 usr_linux_dmabuf::UsrLinuxDmabuf,
                 usr_wl_compositor::UsrWlCompositor,
                 usr_wl_output::{UsrWlOutput, UsrWlOutputOwner},
@@ -61,9 +68,11 @@ struct PortalDisplayPrelude {
 shared_ids!(PortalDisplayId);
 pub struct PortalDisplay {
     pub id: PortalDisplayId,
+    pub unique_id: Opaque,
     pub con: Rc<UsrCon>,
     pub(super) state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
+    _workspace_watcher: Rc<UsrJayWorkspaceWatcher>,
     pub dmabuf: CloneCell<Option<Rc<UsrLinuxDmabuf>>>,
 
     pub jc: Rc<UsrJayCompositor>,
@@ -75,6 +84,7 @@ pub struct PortalDisplay {
 
     pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
     pub seats: CopyHashMap<u32, Rc<PortalSeat>>,
+    pub workspaces: CopyHashMap<u32, Rc<UsrJayWorkspace>>,
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
     pub screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
@@ -243,6 +253,20 @@ impl UsrWlRegistryOwner for PortalDisplay {
     }
 }
 
+impl UsrJayWorkspaceWatcherOwner for PortalDisplay {
+    fn new(self: Rc<Self>, ev: Rc<UsrJayWorkspace>, linear_id: u32) {
+        ev.owner.set(Some(self.clone()));
+        self.workspaces.set(linear_id, ev);
+    }
+}
+
+impl UsrJayWorkspaceOwner for PortalDisplay {
+    fn destroyed(&self, ws: &UsrJayWorkspace) {
+        self.workspaces.remove(&ws.linear_id.get());
+        self.con.remove_obj(ws);
+    }
+}
+
 impl UsrJayOutputOwner for PortalOutput {
     fn destroyed(&self) {
         log::info!(
@@ -398,12 +422,15 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     let comp = get!(comp_opt, WlCompositor);
     let fsm = get!(fsm_opt, WpFractionalScaleManagerV1);
     let vp = get!(vp_opt, WpViewporter);
+    let ww = jc.watch_workspaces();
 
     let dpy = Rc::new(PortalDisplay {
         id: dpy.state.id(),
+        unique_id: opaque(),
         con: dpy.con.clone(),
         state: dpy.state.clone(),
         registry: dpy.registry.clone(),
+        _workspace_watcher: ww.clone(),
         dmabuf: CloneCell::new(dmabuf_opt),
         jc,
         outputs: Default::default(),
@@ -416,11 +443,13 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         windows: Default::default(),
         screencasts: Default::default(),
         remote_desktop_sessions: Default::default(),
+        workspaces: Default::default(),
     });
 
     dpy.state.displays.set(dpy.id, dpy.clone());
     dpy.con.owner.set(Some(dpy.clone()));
     dpy.registry.owner.set(Some(dpy.clone()));
+    ww.owner.set(Some(dpy.clone()));
 
     let jrc = dpy.jc.get_render_context();
     jrc.owner.set(Some(dpy.clone()));
@@ -464,6 +493,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         con: dpy.con.clone(),
         owner: Default::default(),
         version: Version(version.min(4)),
+        name: Default::default(),
     });
     dpy.con.add_object(wl.clone());
     dpy.registry.request_bind(name, wl.version.0, wl.deref());

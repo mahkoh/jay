@@ -1,6 +1,7 @@
 use {
     arrayvec::ArrayString,
     rand::{thread_rng, Rng},
+    serde::{de, Deserialize, Deserializer, Serialize, Serializer},
     std::{
         fmt::{Debug, Display, Formatter},
         num::ParseIntError,
@@ -43,6 +44,26 @@ impl Display for Opaque {
 impl Debug for Opaque {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
+    }
+}
+
+impl Serialize for Opaque {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = self.to_string();
+        serializer.serialize_str(&s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Opaque {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = <&str>::deserialize(deserializer)?;
+        Opaque::from_str(s).map_err(de::Error::custom)
     }
 }
 

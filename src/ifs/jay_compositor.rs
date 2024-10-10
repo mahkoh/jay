@@ -34,6 +34,7 @@ use {
 
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
 pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
+pub const GET_TOPLEVEL_SINCE: Version = Version(12);
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
