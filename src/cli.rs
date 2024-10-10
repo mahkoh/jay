@@ -12,10 +12,14 @@ pub mod screenshot;
 mod seat_test;
 mod set_log_level;
 mod unlock;
+mod xwayland;
 
 use {
     crate::{
-        cli::{damage_tracking::DamageTrackingArgs, input::InputArgs, randr::RandrArgs},
+        cli::{
+            damage_tracking::DamageTrackingArgs, input::InputArgs, randr::RandrArgs,
+            xwayland::XwaylandArgs,
+        },
         compositor::start_compositor,
         format::{ref_formats, Format},
         portal,
@@ -72,6 +76,8 @@ pub enum Cmd {
     /// Modify damage tracking settings. (Only for debugging.)
     #[clap(hide = true)]
     DamageTracking(DamageTrackingArgs),
+    /// Inspect/modify xwayland settings.
+    Xwayland(XwaylandArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -259,6 +265,7 @@ pub fn main() {
         Cmd::Randr(a) => randr::main(cli.global, a),
         Cmd::Input(a) => input::main(cli.global, a),
         Cmd::DamageTracking(a) => damage_tracking::main(cli.global, a),
+        Cmd::Xwayland(a) => xwayland::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

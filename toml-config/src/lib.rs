@@ -34,6 +34,7 @@ use {
             set_direct_scanout_enabled, set_gfx_api, set_tearing_mode, set_vrr_cursor_hz,
             set_vrr_mode, Connector, DrmDevice,
         },
+        xwayland::set_x_scaling_mode,
     },
     std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc, time::Duration},
 };
@@ -1060,6 +1061,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if let Some(threshold) = config.ui_drag.threshold {
         set_ui_drag_threshold(threshold);
+    }
+    if let Some(xwayland) = config.xwayland {
+        if let Some(mode) = xwayland.scaling_mode {
+            set_x_scaling_mode(mode);
+        }
     }
 }
 

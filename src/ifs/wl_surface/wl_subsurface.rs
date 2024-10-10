@@ -135,7 +135,8 @@ impl WlSubsurface {
             v.pending.set(false);
             self.node.borrow_mut().replace(v);
         }
-        if let Some((x, y)) = pending.position.take() {
+        if let Some((mut x, mut y)) = pending.position.take() {
+            client_wire_scale_to_logical!(self.surface.client, x, y);
             self.position
                 .set(self.surface.buffer_abs_pos.get().at_point(x, y));
             let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();

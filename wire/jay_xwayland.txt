@@ -1,0 +1,18 @@
+# requests
+
+request get_scaling {
+}
+
+request set_scaling_mode {
+    mode: u32,
+}
+
+# events
+
+event scaling_mode {
+    mode: u32,
+}
+
+event implied_scale {
+    scale: i32,
+}

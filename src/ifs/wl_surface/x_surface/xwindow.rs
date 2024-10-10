@@ -140,13 +140,12 @@ pub struct Xwindow {
 
 impl XwindowData {
     pub fn new(state: &Rc<State>, event: &CreateNotify, client: &Rc<Client>) -> Self {
-        let extents = Rect::new_sized(
-            event.x as _,
-            event.y as _,
-            event.width as _,
-            event.height as _,
-        )
-        .unwrap();
+        let mut x = event.x as i32;
+        let mut y = event.y as i32;
+        let mut width = event.width as i32;
+        let mut height = event.height as i32;
+        client_wire_scale_to_logical!(client, x, y, width, height);
+        let extents = Rect::new_sized(x, y, width, height).unwrap();
         // log::info!("xwin {} new {:?} or {}", event.window, extents, event.override_redirect);
         Self {
             state: state.clone(),

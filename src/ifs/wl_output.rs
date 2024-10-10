@@ -12,7 +12,10 @@ use {
         rect::Rect,
         state::{ConnectorData, State},
         tree::{calculate_logical_size, OutputNode, TearingMode, VrrMode},
-        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, transform_ext::TransformExt},
+        utils::{
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            transform_ext::TransformExt,
+        },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
     ahash::AHashMap,
@@ -196,15 +199,7 @@ impl WlOutputGlobal {
         let bindings = self.bindings.borrow_mut();
         for binding in bindings.values() {
             for binding in binding.values() {
-                binding.send_geometry();
-                binding.send_mode();
-                binding.send_scale();
-                binding.send_done();
-                let xdg = binding.xdg_outputs.lock();
-                for xdg in xdg.values() {
-                    xdg.send_updates();
-                }
-                // binding.client.flush();
+                binding.send_updates();
             }
         }
     }
@@ -283,15 +278,33 @@ pub const SEND_SCALE_SINCE: Version = Version(2);
 pub const SEND_NAME_SINCE: Version = Version(4);
 
 impl WlOutput {
+    pub fn send_updates(&self) {
+        self.send_geometry();
+        self.send_mode();
+        if self.version >= SEND_SCALE_SINCE {
+            self.send_scale();
+        }
+        if self.version >= SEND_DONE_SINCE {
+            self.send_done();
+        }
+        let xdg = self.xdg_outputs.lock();
+        for xdg in xdg.values() {
+            xdg.send_updates();
+        }
+    }
+
     fn send_geometry(&self) {
         let Some(global) = self.global.get() else {
             return;
         };
         let pos = global.pos.get();
+        let mut x = pos.x1();
+        let mut y = pos.y1();
+        logical_to_client_wire_scale!(self.client, x, y);
         let event = Geometry {
             self_id: self.id,
-            x: pos.x1(),
-            y: pos.y1(),
+            x,
+            y,
             physical_width: global.width_mm,
             physical_height: global.height_mm,
             subpixel: SP_UNKNOWN,
@@ -306,7 +319,8 @@ impl WlOutput {
         let Some(global) = self.global.get() else {
             return;
         };
-        let mode = global.mode.get();
+        let mut mode = global.mode.get();
+        logical_to_client_wire_scale!(self.client, mode.width, mode.height);
         let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,
@@ -317,13 +331,17 @@ impl WlOutput {
         self.client.event(event);
     }
 
-    fn send_scale(self: &Rc<Self>) {
+    fn send_scale(&self) {
         let Some(global) = self.global.get() else {
             return;
         };
+        let factor = match self.client.wire_scale.is_some() {
+            true => 1,
+            false => global.legacy_scale.get() as _,
+        };
         let event = Scale {
             self_id: self.id,
-            factor: global.legacy_scale.get() as _,
+            factor,
         };
         self.client.event(event);
     }

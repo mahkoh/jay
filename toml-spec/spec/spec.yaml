@@ -2275,6 +2275,17 @@ Config:
           ```toml
           ui-drag = { enabled = false, threshold = 20 }
           ```
+    xwayland:
+      ref: Xwayland
+      required: false
+      description: |
+        Configures the Xwayland settings.
+
+        - Example:
+        
+          ```toml
+          xwayland = { scaling-mode = "downscaled" }
+          ```
 
 
 Idle:
@@ -2627,3 +2638,53 @@ UiDrag:
         Sets the distance at which ui dragging starts.
        
         The default is `10`.
+
+
+Xwayland:
+  kind: table
+  description: |
+    Describes Xwayland settings.
+    
+    - Example:
+    
+      ```toml
+      xwayland = { scaling-mode = "downscaled" }
+      ```
+  fields:
+    scaling-mode:
+      ref: XScalingMode
+      required: false
+      description: The scaling mode of X windows.
+
+
+XScalingMode:
+  description: |
+    The scaling mode of X windows.
+
+    - Example:
+    
+      ```toml
+      xwayland = { scaling-mode = "downscaled" }
+      ```
+  kind: string
+  values:
+    - value: default
+      description: |
+        The default mode.
+        
+        Currently this means that windows are rendered at the lowest scale and then upscaled
+        if necessary.
+    - value: downscaled
+      description: |
+        Windows are rendered at the highest integer scale and then downscaled.
+        
+        This has significant performance implications unless the window is running on the
+        output with the highest scale and that scale is an integer scale.
+        
+        For example, on a 3840x2160 output with a 1.5 scale, a fullscreen window will be
+        rendered at 3840x2160 * 2 / 1.5 = 5120x2880 pixels and then downscaled to
+        3840x2160. This overhead gets worse the lower the scale of the output is.
+        
+        Additionally, this mode requires the X window to scale its contents itself. In the
+        example above, you might achieve this by setting the environment variable
+        `GDK_SCALE=2`.

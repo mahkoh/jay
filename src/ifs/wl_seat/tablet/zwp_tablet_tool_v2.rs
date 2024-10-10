@@ -124,7 +124,8 @@ impl ZwpTabletToolV2 {
         self.client.event(Up { self_id: self.id });
     }
 
-    pub fn send_motion(&self, x: Fixed, y: Fixed) {
+    pub fn send_motion(&self, mut x: Fixed, mut y: Fixed) {
+        logical_to_client_wire_scale!(self.client, x, y);
         self.client.event(Motion {
             self_id: self.id,
             x,
@@ -199,7 +200,7 @@ impl ZwpTabletToolV2 {
 impl ZwpTabletToolV2RequestHandler for ZwpTabletToolV2 {
     type Error = ZwpTabletToolV2Error;
 
-    fn set_cursor(&self, req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_cursor(&self, mut req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(tool) = self.tool.get() else {
             return Ok(());
         };
@@ -209,6 +210,7 @@ impl ZwpTabletToolV2RequestHandler for ZwpTabletToolV2 {
         }
         let mut cursor_opt = None;
         if req.surface.is_some() {
+            client_wire_scale_to_logical!(self.client, req.hotspot_x, req.hotspot_y);
             let surface = self.seat.client.lookup(req.surface)?;
             let cursor = surface.get_cursor(&tool.cursor)?;
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);

@@ -34,6 +34,7 @@ mod tearing;
 mod theme;
 mod ui_drag;
 mod vrr;
+mod xwayland;
 
 #[derive(Debug, Error)]
 pub enum StringParserError {

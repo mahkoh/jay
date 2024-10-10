@@ -4,6 +4,8 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
+        scale::Scale,
+        utils::cell_ext::CellExt,
         wire::{wp_fractional_scale_v1::*, WpFractionalScaleV1Id},
     },
     std::rc::Rc,
@@ -38,17 +40,13 @@ impl WpFractionalScaleV1 {
     }
 
     pub fn send_preferred_scale(&self) {
+        let scale = match self.client.wire_scale.is_some() {
+            true => Scale::from_int(1),
+            false => self.surface.output.get().global.persistent.scale.get(),
+        };
         self.client.event(PreferredScale {
             self_id: self.id,
-            scale: self
-                .surface
-                .output
-                .get()
-                .global
-                .persistent
-                .scale
-                .get()
-                .to_wl(),
+            scale: scale.to_wl(),
         });
     }
 }

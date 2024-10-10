@@ -27,6 +27,7 @@ use {
             connector_type::{ConnectorType, CON_UNKNOWN},
             Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, Transform, VrrMode,
         },
+        xwayland::XScalingMode,
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
     bincode::Options,
@@ -814,6 +815,10 @@ impl Client {
         let res = self.send_with_response(&ClientMessage::ConnectorSize { connector });
         get_response!(res, (0, 0), ConnectorSize { width, height });
         (width, height)
+    }
+
+    pub fn set_x_scaling_mode(&self, mode: XScalingMode) {
+        self.send(&ClientMessage::SetXScalingMode { mode })
     }
 
     pub fn set_vrr_mode(&self, connector: Option<Connector>, mode: VrrMode) {

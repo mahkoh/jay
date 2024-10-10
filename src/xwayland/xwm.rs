@@ -913,13 +913,18 @@ impl Wm {
     async fn send_configure(&mut self, window: Rc<Xwindow>) {
         let extents = window.data.info.extents.get();
         // log::info!("xwin {} send_configure {:?}", window.data.window_id, extents);
+        let mut x = extents.x1();
+        let mut y = extents.y1();
+        let mut width = extents.width();
+        let mut height = extents.height();
+        logical_to_client_wire_scale!(self.client, x, y, width, height);
         let cw = ConfigureWindow {
             window: window.data.window_id,
             values: ConfigureWindowValues {
-                x: Some(extents.x1()),
-                y: Some(extents.y1()),
-                width: Some(extents.width() as u32),
-                height: Some(extents.height() as u32),
+                x: Some(x),
+                y: Some(y),
+                width: Some(width as u32),
+                height: Some(height as u32),
                 border_width: Some(0),
                 ..Default::default()
             },
@@ -2134,13 +2139,18 @@ impl Wm {
         if pending.width() > 0 && pending.height() > 0 {
             let dummy = Rect::new_sized(0, 0, 1, 1).unwrap();
             for rect in [dummy, pending] {
+                let mut x = rect.x1();
+                let mut y = rect.y1();
+                let mut width = rect.width();
+                let mut height = rect.height();
+                logical_to_client_wire_scale!(self.client, x, y, width, height);
                 let cw = ConfigureWindow {
                     window: data.window_id,
                     values: ConfigureWindowValues {
-                        x: Some(rect.x1()),
-                        y: Some(rect.y1()),
-                        width: Some(rect.width() as _),
-                        height: Some(rect.height() as _),
+                        x: Some(x),
+                        y: Some(y),
+                        width: Some(width as _),
+                        height: Some(height as _),
                         ..Default::default()
                     },
                 };
@@ -2213,13 +2223,12 @@ impl Wm {
         };
         self.update_override_redirect(data, event.override_redirect);
         if data.info.override_redirect.get() {
-            let extents = Rect::new_sized(
-                event.x as _,
-                event.y as _,
-                event.width as _,
-                event.height as _,
-            )
-            .unwrap();
+            let mut x = event.x as i32;
+            let mut y = event.y as i32;
+            let mut width = event.width as i32;
+            let mut height = event.height as i32;
+            client_wire_scale_to_logical!(self.client, x, y, width, height);
+            let extents = Rect::new_sized(x, y, width, height).unwrap();
             if let Some(window) = data.window.get() {
                 window.tl_change_extents(&extents);
                 self.state.tree_changed();
@@ -2248,15 +2257,19 @@ impl Wm {
         let mut height = de.height();
         if event.value_mask.contains(CONFIG_WINDOW_X) {
             x1 = event.x as _;
+            client_wire_scale_to_logical!(self.client, x1);
         }
         if event.value_mask.contains(CONFIG_WINDOW_Y) {
             y1 = event.y as _;
+            client_wire_scale_to_logical!(self.client, y1);
         }
         if event.value_mask.contains(CONFIG_WINDOW_WIDTH) {
             width = event.width as _;
+            client_wire_scale_to_logical!(self.client, width);
         }
         if event.value_mask.contains(CONFIG_WINDOW_HEIGHT) {
             height = event.height as _;
+            client_wire_scale_to_logical!(self.client, height);
         }
         data.info
             .pending_extents

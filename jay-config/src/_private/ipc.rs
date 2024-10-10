@@ -14,6 +14,7 @@ use {
         },
         Axis, Direction, PciId, Workspace,
         _private::{PollableId, WireMode},
+        xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -522,6 +523,9 @@ pub enum ClientMessage<'a> {
     },
     SetUiDragThreshold {
         threshold: i32,
+    },
+    SetXScalingMode {
+        mode: XScalingMode,
     },
 }
 

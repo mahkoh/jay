@@ -53,6 +53,7 @@ use {
             Connector, DrmDevice, Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode,
             Transform, VrrMode as ConfigVrrMode,
         },
+        xwayland::XScalingMode,
         Axis, Direction, Workspace,
     },
     libloading::Library,
@@ -756,6 +757,17 @@ impl ConfigProxyHandler {
         self.get_drm_device(device)?
             .dev
             .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
+        Ok(())
+    }
+
+    fn handle_set_x_scaling_mode(&self, mode: XScalingMode) -> Result<(), CphError> {
+        let use_wire_scale = match mode {
+            XScalingMode::DEFAULT => false,
+            XScalingMode::DOWNSCALED => true,
+            _ => return Err(CphError::UnknownXScalingMode(mode)),
+        };
+        self.state.xwayland.use_wire_scale.set(use_wire_scale);
+        self.state.update_xwayland_wire_scale();
         Ok(())
     }
 
@@ -1965,6 +1977,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetUiDragThreshold { threshold } => {
                 self.handle_set_ui_drag_threshold(threshold)
             }
+            ClientMessage::SetXScalingMode { mode } => self
+                .handle_set_x_scaling_mode(mode)
+                .wrn("set_x_scaling_mode")?,
         }
         Ok(())
     }
@@ -2034,6 +2049,8 @@ enum CphError {
     UnknownTearingMode(ConfigTearingMode),
     #[error("The format {0:?} is unknown")]
     UnknownFormat(ConfigFormat),
+    #[error("Unknown x scaling mode {0:?}")]
+    UnknownXScalingMode(XScalingMode),
 }
 
 trait WithRequestName {

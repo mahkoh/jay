@@ -4,6 +4,7 @@
 - Tiles and workspaces can now be dragged with the mouse.
 - Vulkan is now the default renderer.
 - Emulate vblank events on the nvidia driver.
+- Allow X windows to scale themselves.
 
 # 1.6.0 (2024-09-25)
 

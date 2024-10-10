@@ -211,6 +211,8 @@ fn start_compositor2(
             handler: Default::default(),
             queue: Default::default(),
             ipc_device_ids: Default::default(),
+            use_wire_scale: Default::default(),
+            wire_scale: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),

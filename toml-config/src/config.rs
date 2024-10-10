@@ -23,6 +23,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{Format, GfxApi, TearingMode, Transform, VrrMode},
+        xwayland::XScalingMode,
         Axis, Direction, Workspace,
     },
     std::{
@@ -303,6 +304,11 @@ pub struct Vrr {
 }
 
 #[derive(Debug, Clone)]
+pub struct Xwayland {
+    pub scaling_mode: Option<XScalingMode>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Tearing {
     pub mode: Option<TearingMode>,
 }
@@ -349,6 +355,7 @@ pub struct Config {
     pub tearing: Option<Tearing>,
     pub libei: Libei,
     pub ui_drag: UiDrag,
+    pub xwayland: Option<Xwayland>,
 }
 
 #[derive(Debug, Error)]

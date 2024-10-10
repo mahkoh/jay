@@ -86,8 +86,9 @@ impl WlPointer {
         }
     }
 
-    pub fn send_enter(&self, serial: u32, surface: WlSurfaceId, x: Fixed, y: Fixed) {
+    pub fn send_enter(&self, serial: u32, surface: WlSurfaceId, mut x: Fixed, mut y: Fixed) {
         self.last_motion.set((x, y));
+        logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,
@@ -105,10 +106,11 @@ impl WlPointer {
         })
     }
 
-    pub fn send_motion(&self, time: u32, x: Fixed, y: Fixed) {
+    pub fn send_motion(&self, time: u32, mut x: Fixed, mut y: Fixed) {
         if self.last_motion.replace((x, y)) == (x, y) {
             return;
         }
+        logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Motion {
             self_id: self.id,
             time,
@@ -135,7 +137,8 @@ impl WlPointer {
         })
     }
 
-    pub fn send_axis(&self, time: u32, axis: u32, value: Fixed) {
+    pub fn send_axis(&self, time: u32, axis: u32, mut value: Fixed) {
+        logical_to_client_wire_scale!(self.seat.client, value);
         self.seat.client.event(Axis {
             self_id: self.id,
             time,
@@ -183,13 +186,14 @@ impl WlPointer {
 impl WlPointerRequestHandler for WlPointer {
     type Error = WlPointerError;
 
-    fn set_cursor(&self, req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_cursor(&self, mut req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.seat.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_cursor with an invalid serial");
             return Ok(());
         }
         let mut cursor_opt = None;
         if req.surface.is_some() {
+            client_wire_scale_to_logical!(self.seat.client, req.hotspot_x, req.hotspot_y);
             let surface = self.seat.client.lookup(req.surface)?;
             let cursor = surface.get_cursor(&self.seat.global.pointer_cursor)?;
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
