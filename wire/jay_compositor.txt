@@ -96,6 +96,11 @@ request get_xwayland (since = 11) {
     id: id(jay_xwayland),
 }
 
+request get_toplevel (since = 12) {
+    id: id(jay_select_toplevel),
+    toplevel_id: str,
+}
+
 # events
 
 event client_id {
