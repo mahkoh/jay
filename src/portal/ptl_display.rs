@@ -5,9 +5,8 @@ use {
         ifs::wl_seat::POINTER,
         object::Version,
         portal::{
-            ptl_remote_desktop::RemoteDesktopSession,
             ptl_render_ctx::{PortalRenderCtx, PortalServerRenderCtx},
-            ptl_screencast::ScreencastSession,
+            ptl_session::PortalSession,
             ptr_gui::WindowData,
             PortalState,
         },
@@ -87,8 +86,7 @@ pub struct PortalDisplay {
     pub workspaces: CopyHashMap<u32, Rc<UsrJayWorkspace>>,
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
-    pub screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
-    pub remote_desktop_sessions: CopyHashMap<String, Rc<RemoteDesktopSession>>,
+    pub sessions: CopyHashMap<String, Rc<PortalSession>>,
 }
 
 pub struct PortalOutput {
@@ -225,7 +223,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
 impl UsrConOwner for PortalDisplay {
     fn killed(&self) {
         log::info!("Removing display {}", self.id);
-        for sc in self.screencasts.lock().drain_values() {
+        for sc in self.sessions.lock().drain_values() {
             sc.kill();
         }
         self.windows.clear();
@@ -441,8 +439,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         fsm,
         vp,
         windows: Default::default(),
-        screencasts: Default::default(),
-        remote_desktop_sessions: Default::default(),
+        sessions: Default::default(),
         workspaces: Default::default(),
     });
 

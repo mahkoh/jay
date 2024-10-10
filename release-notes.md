@@ -8,6 +8,7 @@
 - Implement ext-image-capture-source-v1.
 - Implement ext-image-copy-capture-v1.
 - Implement screencast session restoration.
+- Fix screen sharing in zoom.
 
 # 1.6.0 (2024-09-25)
 

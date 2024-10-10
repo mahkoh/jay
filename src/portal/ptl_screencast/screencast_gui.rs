@@ -4,7 +4,7 @@ use {
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
             ptl_screencast::{
-                ScreencastPhase, ScreencastSession, ScreencastTarget, SelectingWindowScreencast,
+                PortalSession, ScreencastPhase, ScreencastTarget, SelectingWindowScreencast,
                 SelectingWorkspaceScreencast,
             },
             ptr_gui::{
@@ -27,7 +27,7 @@ const H_MARGIN: f32 = 30.0;
 const V_MARGIN: f32 = 20.0;
 
 pub struct SelectionGui {
-    screencast_session: Rc<ScreencastSession>,
+    screencast_session: Rc<PortalSession>,
     dpy: Rc<PortalDisplay>,
     surfaces: CopyHashMap<u32, Rc<SelectionGuiSurface>>,
 }
@@ -57,7 +57,7 @@ impl SelectionGui {
         for surface in self.surfaces.lock().drain_values() {
             surface.overlay.data.kill(false);
         }
-        if let ScreencastPhase::Selecting(s) = self.screencast_session.phase.get() {
+        if let ScreencastPhase::Selecting(s) = self.screencast_session.sc_phase.get() {
             s.guis.remove(&self.dpy.id);
             if upwards && s.guis.is_empty() {
                 self.screencast_session.kill();
@@ -135,7 +135,7 @@ impl OverlayWindowOwner for SelectionGuiSurface {
 }
 
 impl SelectionGui {
-    pub fn new(ss: &Rc<ScreencastSession>, dpy: &Rc<PortalDisplay>, for_restore: bool) -> Rc<Self> {
+    pub fn new(ss: &Rc<PortalSession>, dpy: &Rc<PortalDisplay>, for_restore: bool) -> Rc<Self> {
         let gui = Rc::new(SelectionGui {
             screencast_session: ss.clone(),
             dpy: dpy.clone(),
@@ -169,7 +169,7 @@ impl ButtonOwner for StaticButton {
             | ButtonRole::SelectWorkspace
             | ButtonRole::SelectWindow => {
                 log::info!("User has accepted the request");
-                let selecting = match self.surface.gui.screencast_session.phase.get() {
+                let selecting = match self.surface.gui.screencast_session.sc_phase.get() {
                     ScreencastPhase::Selecting(selecting) => selecting,
                     _ => return,
                 };
@@ -178,9 +178,8 @@ impl ButtonOwner for StaticButton {
                 }
                 let dpy = &self.surface.output.dpy;
                 if self.role == ButtonRole::Restore {
-                    selecting.core.session.restore(
+                    selecting.core.session.screencast_restore(
                         &selecting.core.request_obj,
-                        &selecting.core.reply,
                         selecting.restore_data.take().map(Ok),
                         Some(self.surface.gui.dpy.clone()),
                     );
@@ -199,7 +198,7 @@ impl ButtonOwner for StaticButton {
                     self.surface
                         .gui
                         .screencast_session
-                        .phase
+                        .sc_phase
                         .set(ScreencastPhase::SelectingWorkspace(selecting));
                 } else {
                     let selector = dpy.jc.select_toplevel(&seat.wl);
@@ -213,7 +212,7 @@ impl ButtonOwner for StaticButton {
                     self.surface
                         .gui
                         .screencast_session
-                        .phase
+                        .sc_phase
                         .set(ScreencastPhase::SelectingWindow(selecting));
                 }
             }
@@ -230,18 +229,16 @@ impl UsrJaySelectToplevelOwner for SelectingWindowScreencast {
         let Some(tl) = tl else {
             if self.restoring {
                 log::warn!("Could not restore session because toplevel no longer exists");
-                self.core.session.start_interactive_selection(
-                    &self.core.request_obj,
-                    &self.core.reply,
-                    None,
-                );
+                self.core
+                    .session
+                    .start_interactive_selection(&self.core.request_obj, None);
                 return;
             }
             log::info!("User has aborted the selection");
             self.core.session.kill();
             return;
         };
-        match self.core.session.phase.get() {
+        match self.core.session.sc_phase.get() {
             ScreencastPhase::SelectingWindow(s) => {
                 self.dpy.con.remove_obj(&*s.selector);
             }
@@ -263,7 +260,7 @@ impl UsrJaySelectWorkspaceOwner for SelectingWorkspaceScreencast {
             self.core.session.kill();
             return;
         };
-        match self.core.session.phase.get() {
+        match self.core.session.sc_phase.get() {
             ScreencastPhase::SelectingWorkspace(s) => {
                 self.dpy.con.remove_obj(&*s.selector);
             }
