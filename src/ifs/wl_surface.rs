@@ -4,6 +4,7 @@ pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
+pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
@@ -46,6 +47,7 @@ use {
                 dnd_icon::DndIcon,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
+                wp_fifo_v1::WpFifoV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
@@ -317,6 +319,8 @@ pub struct WlSurface {
     presentation_listener: EventListener<dyn PresentationListener>,
     commit_version: NumCell<u64>,
     latched_commit_version: Cell<u64>,
+    fifo: CloneCell<Option<Rc<WpFifoV1>>>,
+    clear_fifo_on_vblank: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -438,6 +442,8 @@ struct PendingState {
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
+    fifo_barrier_set: bool,
+    fifo_barrier_wait: bool,
 }
 
 struct AttachedSubsurfaceState {
@@ -515,6 +521,8 @@ impl PendingState {
             &mut self.presentation_feedback,
             &mut next.presentation_feedback,
         );
+        self.fifo_barrier_set |= mem::take(&mut next.fifo_barrier_set);
+        self.fifo_barrier_wait |= mem::take(&mut next.fifo_barrier_wait);
         macro_rules! merge_ext {
             ($name:ident) => {
                 if let Some(e) = &mut self.$name {
@@ -638,6 +646,8 @@ impl WlSurface {
             presentation_listener: EventListener::new(slf.clone()),
             commit_version: Default::default(),
             latched_commit_version: Default::default(),
+            fifo: Default::default(),
+            clear_fifo_on_vblank: Default::default(),
         }
     }
 
@@ -1314,13 +1324,21 @@ impl WlSurface {
             }
         }
         self.ext.get().after_apply_commit();
+        let fifo_barrier_set = mem::take(&mut pending.fifo_barrier_set);
+        if fifo_barrier_set {
+            self.commit_timeline.set_fifo_barrier();
+        }
         if self.visible.get() {
             let output = self.output.get();
             if has_frame_requests {
                 self.vblank_listener.attach(&output.vblank_event);
             }
-            if has_presentation_feedback {
+            if has_presentation_feedback || fifo_barrier_set {
                 self.latch_listener.attach(&output.latch_event);
+            }
+            if fifo_barrier_set {
+                // If we have a fifo barrier, must trigger latching.
+                output.global.connector.damage();
             }
             if damage_full {
                 let mut damage = buffer_abs_pos
@@ -1341,10 +1359,16 @@ impl WlSurface {
                 let rect = output.global.pos.get();
                 self.client.state.damage(rect);
             }
+        } else {
+            if fifo_barrier_set {
+                self.latch_listener
+                    .attach(&self.client.state.const_40hz_latch);
+            }
         }
         pending.buffer_damage.clear();
         pending.surface_damage.clear();
         pending.damage_full = false;
+        pending.fifo_barrier_wait = false;
         if tearing_changed {
             if let Some(tl) = self.toplevel.get() {
                 if tl.tl_data().is_fullscreen.get() {
@@ -1631,6 +1655,8 @@ impl Object for WlSurface {
         self.drm_feedback.clear();
         self.commit_timeline.clear(ClearReason::BreakLoops);
         self.alpha_modifier.take();
+        self.text_input_connections.clear();
+        self.fifo.take();
     }
 }
 
@@ -2101,12 +2127,15 @@ impl VblankListener for WlSurface {
                 let _ = fr.client.remove_obj(&*fr);
             }
         }
+        if self.clear_fifo_on_vblank.take() {
+            self.commit_timeline.clear_fifo_barrier();
+        }
         self.vblank_listener.detach();
     }
 }
 
 impl LatchListener for WlSurface {
-    fn after_latch(self: Rc<Self>, _on: &OutputNode) {
+    fn after_latch(self: Rc<Self>, _on: &OutputNode, tearing: bool) {
         if self.visible.get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();
@@ -2121,6 +2150,14 @@ impl LatchListener for WlSurface {
                 }
                 self.latched_commit_version.set(self.commit_version.get());
             }
+        }
+        if tearing && self.visible.get() {
+            if self.commit_timeline.has_fifo_barrier() {
+                self.vblank_listener.attach(&self.output.get().vblank_event);
+                self.clear_fifo_on_vblank.set(true);
+            }
+        } else {
+            self.commit_timeline.clear_fifo_barrier();
         }
         self.latch_listener.detach();
     }

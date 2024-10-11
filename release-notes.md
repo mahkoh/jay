@@ -9,6 +9,7 @@
 - Implement ext-image-copy-capture-v1.
 - Implement screencast session restoration.
 - Fix screen sharing in zoom.
+- Implement wp-fifo-v1.
 
 # 1.6.0 (2024-09-25)
 

@@ -159,6 +159,7 @@ Jay supports the following wayland protocols:
 | wp_content_type_manager_v1                           | 1               |               |
 | wp_cursor_shape_manager_v1                           | 1               |               |
 | wp_drm_lease_device_v1                               | 1               |               |
+| wp_fifo_manager_v1                                   | 1               |               |
 | wp_fractional_scale_manager_v1                       | 1               |               |
 | wp_linux_drm_syncobj_manager_v1                      | 1               |               |
 | wp_presentation                                      | 1               |               |

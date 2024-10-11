@@ -148,7 +148,7 @@ impl Clients {
         bounding_caps: ClientCaps,
         is_xwayland: bool,
     ) -> Result<Rc<Client>, ClientError> {
-        let data = Rc::new(Client {
+        let data = Rc::new_cyclic(|slf| Client {
             id,
             state: global.clone(),
             checking_queue_size: Cell::new(false),
@@ -171,6 +171,8 @@ impl Clients {
             commit_timelines: Rc::new(CommitTimelines::new(
                 &global.wait_for_sync_obj,
                 &global.ring,
+                &global.eng,
+                slf,
             )),
             wire_scale: Default::default(),
         });

@@ -89,7 +89,7 @@ enum Target {
 }
 
 impl LatchListener for JayScreencast {
-    fn after_latch(self: Rc<Self>, _on: &OutputNode) {
+    fn after_latch(self: Rc<Self>, _on: &OutputNode, _tearing: bool) {
         self.schedule_toplevel_screencast();
     }
 }

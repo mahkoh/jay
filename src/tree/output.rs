@@ -95,7 +95,7 @@ pub struct OutputNode {
 }
 
 pub trait LatchListener {
-    fn after_latch(self: Rc<Self>, on: &OutputNode);
+    fn after_latch(self: Rc<Self>, on: &OutputNode, tearing: bool);
 }
 
 pub trait VblankListener {
@@ -135,10 +135,10 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
-    pub fn latched(&self) {
+    pub fn latched(&self, tearing: bool) {
         self.schedule.latched();
         for listener in self.latch_event.iter() {
-            listener.after_latch(self);
+            listener.after_latch(self, tearing);
         }
     }
 
