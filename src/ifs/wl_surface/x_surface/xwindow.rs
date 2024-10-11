@@ -347,12 +347,7 @@ impl Node for Xwindow {
         }
         let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {
-            tree.push(FoundNode {
-                node: self.x.surface.clone(),
-                x,
-                y,
-            });
-            return FindTreeResult::AcceptsInput;
+            return self.x.surface.find_tree_at_(x, y, tree);
         }
         FindTreeResult::Other
     }
