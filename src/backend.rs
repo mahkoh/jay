@@ -65,6 +65,15 @@ pub struct Mode {
     pub refresh_rate_millihz: u32,
 }
 
+impl Mode {
+    pub fn refresh_nsec(&self) -> u64 {
+        match self.refresh_rate_millihz {
+            0 => u64::MAX,
+            n => 1_000_000_000_000 / (n as u64),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
     pub modes: Vec<Mode>,

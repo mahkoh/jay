@@ -1,0 +1,9 @@
+request set_timestamp {
+    tv_sec_hi: u32,
+    tv_sec_lo: u32,
+    tv_nsec: u32,
+}
+
+request destroy {
+
+}

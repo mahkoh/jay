@@ -548,7 +548,7 @@ fn create_dummy_output(state: &Rc<State>) {
             &backend::Mode {
                 width: 0,
                 height: 0,
-                refresh_rate_millihz: 0,
+                refresh_rate_millihz: 40_000,
             },
             0,
             0,
@@ -582,8 +582,10 @@ fn create_dummy_output(state: &Rc<State>) {
         vblank_event: Default::default(),
         latch_event: Default::default(),
         presentation_event: Default::default(),
+        render_margin_ns: Default::default(),
         flip_margin_ns: Default::default(),
         ext_copy_sessions: Default::default(),
+        before_latch_event: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

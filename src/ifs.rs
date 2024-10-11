@@ -45,6 +45,7 @@ pub mod wl_shm_pool;
 pub mod wl_subcompositor;
 pub mod wl_surface;
 pub mod wp_alpha_modifier_v1;
+pub mod wp_commit_timing_manager_v1;
 pub mod wp_content_type_manager_v1;
 pub mod wp_content_type_v1;
 pub mod wp_cursor_shape_device_v1;
