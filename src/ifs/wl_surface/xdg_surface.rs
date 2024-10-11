@@ -8,7 +8,9 @@ use {
             wl_surface::{
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
-                    xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
+                    xdg_toplevel::{
+                        xdg_toplevel_drag_v1::ToplevelDragId, XdgToplevel, WM_CAPABILITIES_SINCE,
+                    },
                 },
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
             },
@@ -141,6 +143,8 @@ impl XdgPopupParent for Popup {
 #[derive(Default, Debug)]
 pub struct PendingXdgSurfaceData {
     geometry: Option<Rect>,
+    toplevel_drag_offset: Option<(i32, i32)>,
+    toplevel_drag_id: Option<ToplevelDragId>,
 }
 
 impl PendingXdgSurfaceData {
@@ -153,12 +157,18 @@ impl PendingXdgSurfaceData {
             };
         }
         opt!(geometry);
+        opt!(toplevel_drag_offset);
+        opt!(toplevel_drag_id);
     }
 }
 
 pub trait XdgSurfaceExt: Debug {
-    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
-        Ok(())
+    fn initial_configure(self: Rc<Self>) {
+        // nothing
+    }
+
+    fn before_apply_commit(self: Rc<Self>, pending: &mut PendingXdgSurfaceData) {
+        let _ = pending;
     }
 
     fn post_commit(self: Rc<Self>) {
@@ -493,7 +503,7 @@ impl SurfaceExt for XdgSurface {
     ) -> Result<(), WlSurfaceError> {
         if !self.have_initial_commit.get() {
             if let Some(ext) = self.ext.get() {
-                ext.initial_configure()?;
+                ext.initial_configure();
                 self.do_send_configure();
                 self.have_initial_commit.set(true);
             }
@@ -508,6 +518,9 @@ impl SurfaceExt for XdgSurface {
                         ext.geometry_changed();
                     }
                 }
+            }
+            if let Some(ext) = self.ext.get() {
+                ext.before_apply_commit(pending);
             }
         }
         Ok(())

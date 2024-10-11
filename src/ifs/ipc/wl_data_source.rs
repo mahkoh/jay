@@ -15,7 +15,7 @@ use {
                 SOURCE_STATE_DROPPED,
             },
             wl_seat::WlSeatGlobal,
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
+            wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
         object::{Object, Version},

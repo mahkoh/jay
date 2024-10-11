@@ -67,7 +67,6 @@ pub mod xdg_activation_token_v1;
 pub mod xdg_activation_v1;
 pub mod xdg_positioner;
 pub mod xdg_toplevel_drag_manager_v1;
-pub mod xdg_toplevel_drag_v1;
 pub mod xdg_wm_base;
 pub mod xdg_wm_dialog_v1;
 pub mod zwlr_layer_shell_v1;
