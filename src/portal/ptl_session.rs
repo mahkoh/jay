@@ -100,6 +100,7 @@ impl PortalSession {
         &self,
         pw_node_id: Option<u32>,
         restore_data: Option<Variant<'static>>,
+        mapping_id: Option<&str>,
     ) {
         let inner_type = DynamicType::DictEntry(
             Box::new(DynamicType::String),
@@ -131,6 +132,12 @@ impl PortalSession {
             variants.push(DictEntry {
                 key: "restore_data".into(),
                 value: rd,
+            });
+        }
+        if let Some(mapping_id) = mapping_id {
+            variants.push(DictEntry {
+                key: "mapping_id".into(),
+                value: Variant::String(mapping_id.into()),
             });
         }
         if let Some(reply) = self.start_reply.take() {

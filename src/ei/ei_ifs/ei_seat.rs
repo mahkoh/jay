@@ -346,6 +346,7 @@ impl EiSeat {
         apply!(EI_CAP_KEYBOARD, create_keyboard);
         apply!(EI_CAP_TOUCHSCREEN, create_touchscreen);
         for output in self.client.state.root.outputs.lock().values() {
+            device.send_region_mapping_id(&output.global.connector.name);
             device.send_region(
                 output.node_absolute_position(),
                 output.global.persistent.scale.get(),

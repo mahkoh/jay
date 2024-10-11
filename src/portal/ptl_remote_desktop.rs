@@ -90,7 +90,7 @@ impl UsrJayEiSessionOwner for StartingRemoteDesktop {
                 Some(self.dpy.clone()),
             );
         } else {
-            self.session.send_start_reply(None, None);
+            self.session.send_start_reply(None, None, None);
         }
     }
 

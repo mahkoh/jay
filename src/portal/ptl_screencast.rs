@@ -159,8 +159,19 @@ bitflags! {
 
 impl PwClientNodeOwner for StartingScreencast {
     fn bound_id(&self, node_id: u32) {
-        self.session
-            .send_start_reply(Some(node_id), create_restore_data(&self.dpy, &self.target));
+        {
+            let output = match &self.target {
+                ScreencastTarget::Output(o) => Some(o),
+                ScreencastTarget::Workspace(o, _, _) => Some(o),
+                ScreencastTarget::Toplevel(_) => None,
+            };
+            let mapping_id = output.and_then(|o| o.wl.name.borrow().clone());
+            self.session.send_start_reply(
+                Some(node_id),
+                create_restore_data(&self.dpy, &self.target),
+                mapping_id.as_deref(),
+            );
+        }
         let mut supported_formats = PwClientNodePortSupportedFormats {
             media_type: Some(SPA_MEDIA_TYPE_video),
             media_sub_type: Some(SPA_MEDIA_SUBTYPE_raw),
