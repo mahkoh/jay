@@ -754,7 +754,7 @@ pub(super) fn add_screencast_dbus_members(
     });
     object.set_property::<AvailableSourceTypes>(Variant::U32(MONITOR.0));
     object.set_property::<AvailableCursorModes>(Variant::U32(EMBEDDED.0));
-    object.set_property::<version>(Variant::U32(4));
+    object.set_property::<version>(Variant::U32(5));
 }
 
 fn dbus_create_session(
