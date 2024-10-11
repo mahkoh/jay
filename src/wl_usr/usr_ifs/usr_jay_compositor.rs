@@ -96,7 +96,6 @@ impl UsrJayCompositor {
         jo
     }
 
-    #[expect(dead_code)]
     pub fn watch_workspaces(&self) -> Rc<UsrJayWorkspaceWatcher> {
         let ww = Rc::new(UsrJayWorkspaceWatcher {
             id: self.con.id(),
@@ -138,6 +137,22 @@ impl UsrJayCompositor {
             self_id: self.id,
             id: sc.id,
             seat: seat.id,
+        });
+        self.con.add_object(sc.clone());
+        sc
+    }
+
+    pub fn get_toplevel(&self, id: &str) -> Rc<UsrJaySelectToplevel> {
+        let sc = Rc::new(UsrJaySelectToplevel {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+            version: self.version,
+        });
+        self.con.request(GetToplevel {
+            self_id: self.id,
+            id: sc.id,
+            toplevel_id: id,
         });
         self.con.add_object(sc.clone());
         sc

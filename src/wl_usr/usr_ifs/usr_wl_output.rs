@@ -5,7 +5,7 @@ use {
         wire::{wl_output::*, WlOutputId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::{convert::Infallible, rc::Rc},
+    std::{cell::RefCell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlOutput {
@@ -13,6 +13,7 @@ pub struct UsrWlOutput {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrWlOutputOwner>>>,
     pub version: Version,
+    pub name: RefCell<Option<String>>,
 }
 
 pub trait UsrWlOutputOwner {
@@ -71,6 +72,7 @@ impl WlOutputEventHandler for UsrWlOutput {
     }
 
     fn name(&self, ev: Name<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        *self.name.borrow_mut() = Some(ev.name.to_string());
         if let Some(owner) = self.owner.get() {
             owner.name(&ev);
         }

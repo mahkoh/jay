@@ -15,8 +15,8 @@ use {
         wire_ei::{
             ei_device::{
                 ClientFrame, ClientStartEmulating, ClientStopEmulating, Destroyed, DeviceType,
-                Done, EiDeviceRequestHandler, Interface, Paused, Region, Release, Resumed,
-                ServerFrame, ServerStartEmulating,
+                Done, EiDeviceRequestHandler, Interface, Paused, Region, RegionMappingId, Release,
+                Resumed, ServerFrame, ServerStartEmulating,
             },
             EiDeviceId,
         },
@@ -97,6 +97,13 @@ impl EiDevice {
             width: rect.width() as u32,
             hight: rect.height() as u32,
             scale: (1.0 / scale.to_f64()) as f32,
+        });
+    }
+
+    pub fn send_region_mapping_id(&self, mapping_id: &str) {
+        self.client.event(RegionMappingId {
+            self_id: self.id,
+            mapping_id,
         });
     }
 

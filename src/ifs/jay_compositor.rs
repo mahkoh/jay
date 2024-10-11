@@ -23,17 +23,18 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         screenshoter::take_screenshot,
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, toplevel_identifier::ToplevelIdentifier},
         wire::{jay_compositor::*, JayCompositorId, JayScreenshotId},
     },
     bstr::ByteSlice,
     log::Level,
-    std::{cell::Cell, ops::Deref, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc, str::FromStr},
     thiserror::Error,
 };
 
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
 pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
+pub const GET_TOPLEVEL_SINCE: Version = Version(12);
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
@@ -71,7 +72,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        11
+        12
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -364,12 +365,7 @@ impl JayCompositorRequestHandler for JayCompositor {
 
     fn select_toplevel(&self, req: SelectToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
-        let obj = Rc::new(JaySelectToplevel {
-            id: req.id,
-            client: self.client.clone(),
-            tracker: Default::default(),
-            destroyed: Cell::new(false),
-        });
+        let obj = JaySelectToplevel::new(&self.client, req.id, self.version);
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         let selector = JayToplevelSelector {
@@ -420,6 +416,26 @@ impl JayCompositorRequestHandler for JayCompositor {
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn get_toplevel(&self, req: GetToplevel<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = JaySelectToplevel::new(&self.client, req.id, self.version);
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        let tl = match ToplevelIdentifier::from_str(req.toplevel_id) {
+            Ok(id) => self
+                .client
+                .state
+                .toplevels
+                .get(&id)
+                .and_then(|w| w.upgrade()),
+            Err(e) => {
+                log::error!("Could not parse toplevel id: {}", ErrorFmt(e));
+                None
+            }
+        };
+        obj.done(tl);
         Ok(())
     }
 }

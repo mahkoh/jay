@@ -2,17 +2,18 @@ mod remote_desktop_gui;
 
 use {
     crate::{
-        dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply, FALSE},
+        dbus::{prelude::Variant, DbusObject, PendingReply},
         ifs::jay_compositor::CREATE_EI_SESSION_SINCE,
         portal::{
             ptl_display::{PortalDisplay, PortalDisplayId},
             ptl_remote_desktop::remote_desktop_gui::SelectionGui,
+            ptl_screencast::ScreencastPhase,
+            ptl_session::{PortalSession, PortalSessionReply},
             PortalState, PORTAL_SUCCESS,
         },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
         },
         wire_dbus::{
             org,
@@ -21,23 +22,14 @@ use {
                     ConnectToEIS, ConnectToEISReply, CreateSession, CreateSessionReply,
                     SelectDevices, SelectDevicesReply, Start, StartReply,
                 },
-                session::{CloseReply as SessionCloseReply, Closed},
+                session::CloseReply as SessionCloseReply,
             },
         },
         wl_usr::usr_ifs::usr_jay_ei_session::{UsrJayEiSession, UsrJayEiSessionOwner},
     },
-    std::{borrow::Cow, cell::Cell, ops::Deref, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc},
     uapi::OwnedFd,
 };
-
-shared_ids!(ScreencastSessionId);
-pub struct RemoteDesktopSession {
-    _id: ScreencastSessionId,
-    state: Rc<PortalState>,
-    pub app: String,
-    session_obj: DbusObject,
-    pub phase: CloneCell<RemoteDesktopPhase>,
-}
 
 #[derive(Clone)]
 pub enum RemoteDesktopPhase {
@@ -52,25 +44,23 @@ pub enum RemoteDesktopPhase {
 unsafe impl UnsafeCellCloneSafe for RemoteDesktopPhase {}
 
 pub struct SelectingDisplay {
-    pub session: Rc<RemoteDesktopSession>,
+    pub session: Rc<PortalSession>,
     pub request_obj: Rc<DbusObject>,
-    pub reply: Rc<PendingReply<StartReply<'static>>>,
     pub guis: CopyHashMap<PortalDisplayId, Rc<SelectionGui>>,
 }
 
 pub struct StartingRemoteDesktop {
-    pub session: Rc<RemoteDesktopSession>,
-    pub _request_obj: Rc<DbusObject>,
-    pub reply: Rc<PendingReply<StartReply<'static>>>,
+    pub session: Rc<PortalSession>,
+    pub request_obj: Rc<DbusObject>,
     pub dpy: Rc<PortalDisplay>,
     pub ei_session: Rc<UsrJayEiSession>,
 }
 
 pub struct StartedRemoteDesktop {
-    session: Rc<RemoteDesktopSession>,
-    dpy: Rc<PortalDisplay>,
-    ei_session: Rc<UsrJayEiSession>,
-    ei_fd: Cell<Option<Rc<OwnedFd>>>,
+    pub session: Rc<PortalSession>,
+    pub dpy: Rc<PortalDisplay>,
+    pub ei_session: Rc<UsrJayEiSession>,
+    pub ei_fd: Cell<Option<Rc<OwnedFd>>>,
 }
 
 bitflags! {
@@ -83,34 +73,6 @@ bitflags! {
 
 impl UsrJayEiSessionOwner for StartingRemoteDesktop {
     fn created(&self, fd: &Rc<OwnedFd>) {
-        {
-            let inner_type = DynamicType::DictEntry(
-                Box::new(DynamicType::String),
-                Box::new(DynamicType::Variant),
-            );
-            let kt = DynamicType::Struct(vec![
-                DynamicType::U32,
-                DynamicType::Array(Box::new(inner_type.clone())),
-            ]);
-            let variants = [
-                DictEntry {
-                    key: "devices".into(),
-                    value: Variant::U32(DeviceTypes::all().0),
-                },
-                DictEntry {
-                    key: "clipboard_enabled".into(),
-                    value: Variant::Bool(FALSE),
-                },
-                DictEntry {
-                    key: "streams".into(),
-                    value: Variant::Array(kt, vec![]),
-                },
-            ];
-            self.reply.ok(&StartReply {
-                response: PORTAL_SUCCESS,
-                results: Cow::Borrowed(&variants[..]),
-            });
-        }
         let started = Rc::new(StartedRemoteDesktop {
             session: self.session.clone(),
             dpy: self.dpy.clone(),
@@ -118,14 +80,23 @@ impl UsrJayEiSessionOwner for StartingRemoteDesktop {
             ei_fd: Cell::new(Some(fd.clone())),
         });
         self.session
-            .phase
+            .rd_phase
             .set(RemoteDesktopPhase::Started(started.clone()));
         started.ei_session.owner.set(Some(started.clone()));
+        if let ScreencastPhase::SourcesSelected(s) = self.session.sc_phase.get() {
+            self.session.screencast_restore(
+                &self.request_obj,
+                s.restore_data.take(),
+                Some(self.dpy.clone()),
+            );
+        } else {
+            self.session.send_start_reply(None, None, None);
+        }
     }
 
     fn failed(&self, reason: &str) {
         log::error!("Could not create session: {}", reason);
-        self.reply.err(reason);
+        self.session.reply_err(reason);
         self.session.kill();
     }
 }
@@ -137,60 +108,28 @@ impl SelectingDisplay {
         let ei_session = builder.commit();
         let starting = Rc::new(StartingRemoteDesktop {
             session: self.session.clone(),
-            _request_obj: self.request_obj.clone(),
-            reply: self.reply.clone(),
+            request_obj: self.request_obj.clone(),
             dpy: dpy.clone(),
             ei_session,
         });
         self.session
-            .phase
+            .rd_phase
             .set(RemoteDesktopPhase::Starting(starting.clone()));
         starting.ei_session.owner.set(Some(starting.clone()));
-        dpy.remote_desktop_sessions.set(
+        dpy.sessions.set(
             self.session.session_obj.path().to_owned(),
             self.session.clone(),
         );
     }
 }
 
-impl RemoteDesktopSession {
-    pub(super) fn kill(&self) {
-        self.session_obj.emit_signal(&Closed);
-        self.state
-            .remote_desktop_sessions
-            .remove(self.session_obj.path());
-        match self.phase.set(RemoteDesktopPhase::Terminated) {
-            RemoteDesktopPhase::Init => {}
-            RemoteDesktopPhase::DevicesSelected => {}
-            RemoteDesktopPhase::Terminated => {}
-            RemoteDesktopPhase::Selecting(s) => {
-                s.reply.err("Session has been terminated");
-                for gui in s.guis.lock().drain_values() {
-                    gui.kill(false);
-                }
-            }
-            RemoteDesktopPhase::Starting(s) => {
-                s.reply.err("Session has been terminated");
-                s.ei_session.con.remove_obj(s.ei_session.deref());
-                s.dpy
-                    .remote_desktop_sessions
-                    .remove(self.session_obj.path());
-            }
-            RemoteDesktopPhase::Started(s) => {
-                s.ei_session.con.remove_obj(s.ei_session.deref());
-                s.dpy
-                    .remote_desktop_sessions
-                    .remove(self.session_obj.path());
-            }
-        }
-    }
-
+impl PortalSession {
     fn dbus_select_devices(
         self: &Rc<Self>,
         _req: SelectDevices,
         reply: PendingReply<SelectDevicesReply<'static>>,
     ) {
-        match self.phase.get() {
+        match self.rd_phase.get() {
             RemoteDesktopPhase::Init => {}
             _ => {
                 self.kill();
@@ -198,15 +137,19 @@ impl RemoteDesktopSession {
                 return;
             }
         }
-        self.phase.set(RemoteDesktopPhase::DevicesSelected);
+        self.rd_phase.set(RemoteDesktopPhase::DevicesSelected);
         reply.ok(&SelectDevicesReply {
             response: PORTAL_SUCCESS,
             results: Default::default(),
         });
     }
 
-    fn dbus_start(self: &Rc<Self>, req: Start<'_>, reply: PendingReply<StartReply<'static>>) {
-        match self.phase.get() {
+    fn dbus_start_remote_desktop(
+        self: &Rc<Self>,
+        req: Start<'_>,
+        reply: PendingReply<StartReply<'static>>,
+    ) {
+        match self.rd_phase.get() {
             RemoteDesktopPhase::DevicesSelected => {}
             _ => {
                 self.kill();
@@ -243,11 +186,12 @@ impl RemoteDesktopSession {
             reply.err("There are no running displays");
             return;
         }
-        self.phase
+        self.start_reply
+            .set(Some(PortalSessionReply::RemoteDesktop(reply)));
+        self.rd_phase
             .set(RemoteDesktopPhase::Selecting(Rc::new(SelectingDisplay {
                 session: self.clone(),
                 request_obj: Rc::new(request_obj),
-                reply: Rc::new(reply),
                 guis,
             })));
     }
@@ -257,7 +201,7 @@ impl RemoteDesktopSession {
         _req: ConnectToEIS,
         reply: PendingReply<ConnectToEISReply>,
     ) {
-        let RemoteDesktopPhase::Started(started) = self.phase.get() else {
+        let RemoteDesktopPhase::Started(started) = self.rd_phase.get() else {
             self.kill();
             reply.err("Sources have already been selected");
             return;
@@ -305,10 +249,7 @@ fn dbus_create_session(
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
     log::info!("Create remote desktop session {:#?}", req);
-    if state
-        .remote_desktop_sessions
-        .contains(req.session_handle.0.deref())
-    {
+    if state.sessions.contains(req.session_handle.0.deref()) {
         reply.err("Session already exists");
         return;
     }
@@ -319,12 +260,15 @@ fn dbus_create_session(
             return;
         }
     };
-    let session = Rc::new(RemoteDesktopSession {
+    let session = Rc::new(PortalSession {
         _id: state.id(),
         state: state.clone(),
+        pw_con: state.pw_con.clone(),
         app: req.app_id.to_string(),
         session_obj: obj,
-        phase: CloneCell::new(RemoteDesktopPhase::Init),
+        sc_phase: CloneCell::new(ScreencastPhase::Init),
+        rd_phase: CloneCell::new(RemoteDesktopPhase::Init),
+        start_reply: Default::default(),
     });
     {
         use org::freedesktop::impl_::portal::session::*;
@@ -336,7 +280,7 @@ fn dbus_create_session(
         session.session_obj.set_property::<version>(Variant::U32(2));
     }
     state
-        .remote_desktop_sessions
+        .sessions
         .set(req.session_handle.0.to_string(), session);
     reply.ok(&CreateSessionReply {
         response: PORTAL_SUCCESS,
@@ -356,7 +300,7 @@ fn dbus_select_devices(
 
 fn dbus_start(state: &Rc<PortalState>, req: Start, reply: PendingReply<StartReply<'static>>) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {
-        s.dbus_start(req, reply);
+        s.dbus_start_remote_desktop(req, reply);
     }
 }
 
@@ -374,8 +318,8 @@ fn get_session<T>(
     state: &Rc<PortalState>,
     reply: &PendingReply<T>,
     handle: &str,
-) -> Option<Rc<RemoteDesktopSession>> {
-    let res = state.remote_desktop_sessions.get(handle);
+) -> Option<Rc<PortalSession>> {
+    let res = state.sessions.get(handle);
     if res.is_none() {
         let msg = format!("Remote desktop session `{}` does not exist", handle);
         reply.err(&msg);

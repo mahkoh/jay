@@ -347,7 +347,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
             );
             return Err(XdgSurfaceError::AlreadyConstructed);
         }
-        let toplevel = Rc::new(XdgToplevel::new(req.id, slf));
+        let toplevel = Rc::new_cyclic(|weak| XdgToplevel::new(req.id, slf, weak));
         track!(self.surface.client, toplevel);
         self.surface.client.add_client_obj(&toplevel)?;
         self.ext.set(Some(toplevel.clone()));

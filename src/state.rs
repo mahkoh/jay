@@ -78,6 +78,7 @@ use {
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
             hash_map_ext::HashMapExt, linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue,
             refcounted::RefCounted, run_toplevel::RunToplevel,
+            toplevel_identifier::ToplevelIdentifier,
         },
         video::{
             dmabuf::DmaBufIds,
@@ -107,7 +108,7 @@ use {
         mem,
         num::Wrapping,
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
         sync::Arc,
         time::Duration,
     },
@@ -220,6 +221,7 @@ pub struct State {
     pub cpu_worker: Rc<CpuWorker>,
     pub ui_drag_enabled: Cell<bool>,
     pub ui_drag_threshold_squared: Cell<i32>,
+    pub toplevels: CopyHashMap<ToplevelIdentifier, Weak<dyn ToplevelNode>>,
 }
 
 // impl Drop for State {
@@ -875,6 +877,7 @@ impl State {
         self.ei_acceptor_future.take();
         self.ei_clients.clear();
         self.slow_ei_clients.clear();
+        self.toplevels.clear();
     }
 
     pub fn damage_hardware_cursors(&self, render: bool) {

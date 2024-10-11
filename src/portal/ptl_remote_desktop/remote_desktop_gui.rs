@@ -3,7 +3,7 @@ use {
         ifs::wl_seat::{wl_pointer::PRESSED, BTN_LEFT},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-            ptl_remote_desktop::{RemoteDesktopPhase, RemoteDesktopSession},
+            ptl_remote_desktop::{PortalSession, RemoteDesktopPhase},
             ptr_gui::{
                 Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
                 OverlayWindowOwner,
@@ -19,7 +19,7 @@ const H_MARGIN: f32 = 30.0;
 const V_MARGIN: f32 = 20.0;
 
 pub struct SelectionGui {
-    remote_desktop_session: Rc<RemoteDesktopSession>,
+    remote_desktop_session: Rc<PortalSession>,
     dpy: Rc<PortalDisplay>,
     surfaces: CopyHashMap<u32, Rc<SelectionGuiSurface>>,
 }
@@ -46,7 +46,7 @@ impl SelectionGui {
         for surface in self.surfaces.lock().drain_values() {
             surface.overlay.data.kill(false);
         }
-        if let RemoteDesktopPhase::Selecting(s) = self.remote_desktop_session.phase.get() {
+        if let RemoteDesktopPhase::Selecting(s) = self.remote_desktop_session.rd_phase.get() {
             s.guis.remove(&self.dpy.id);
             if upwards && s.guis.is_empty() {
                 self.remote_desktop_session.kill();
@@ -99,7 +99,7 @@ impl OverlayWindowOwner for SelectionGuiSurface {
 }
 
 impl SelectionGui {
-    pub fn new(ss: &Rc<RemoteDesktopSession>, dpy: &Rc<PortalDisplay>) -> Rc<Self> {
+    pub fn new(ss: &Rc<PortalSession>, dpy: &Rc<PortalDisplay>) -> Rc<Self> {
         let gui = Rc::new(SelectionGui {
             remote_desktop_session: ss.clone(),
             dpy: dpy.clone(),
@@ -130,7 +130,7 @@ impl ButtonOwner for StaticButton {
         match self.role {
             ButtonRole::Accept => {
                 log::info!("User has accepted the request");
-                let selecting = match self.surface.gui.remote_desktop_session.phase.get() {
+                let selecting = match self.surface.gui.remote_desktop_session.rd_phase.get() {
                     RemoteDesktopPhase::Selecting(selecting) => selecting,
                     _ => return,
                 };

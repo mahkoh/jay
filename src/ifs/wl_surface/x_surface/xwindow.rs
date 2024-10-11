@@ -205,18 +205,21 @@ impl Xwindow {
         if xsurface.xwindow.is_some() {
             return Err(XWindowError::AlreadyAttached);
         }
-        let tld = ToplevelData::new(
-            &data.state,
-            data.info.title.borrow_mut().clone().unwrap_or_default(),
-            Some(surface.client.clone()),
-        );
-        tld.pos.set(surface.extents.get());
-        let slf = Rc::new(Self {
-            id: data.state.node_ids.next(),
-            data: data.clone(),
-            display_link: Default::default(),
-            toplevel_data: tld,
-            x: xsurface,
+        let slf = Rc::new_cyclic(|weak| {
+            let tld = ToplevelData::new(
+                &data.state,
+                data.info.title.borrow_mut().clone().unwrap_or_default(),
+                Some(surface.client.clone()),
+                weak,
+            );
+            tld.pos.set(surface.extents.get());
+            Self {
+                id: data.state.node_ids.next(),
+                data: data.clone(),
+                display_link: Default::default(),
+                toplevel_data: tld,
+                x: xsurface,
+            }
         });
         slf.x.xwindow.set(Some(slf.clone()));
         slf.x.surface.set_toplevel(Some(slf.clone()));
@@ -344,12 +347,7 @@ impl Node for Xwindow {
         }
         let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {
-            tree.push(FoundNode {
-                node: self.x.surface.clone(),
-                x,
-                y,
-            });
-            return FindTreeResult::AcceptsInput;
+            return self.x.surface.find_tree_at_(x, y, tree);
         }
         FindTreeResult::Other
     }
