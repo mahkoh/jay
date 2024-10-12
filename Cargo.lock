@@ -1280,8 +1280,9 @@ dependencies = [
 
 [[package]]
 name = "tracy-client-sys"
-version = "0.24.0"
-source = "git+https://github.com/mahkoh/rust_tracy_client.git?branch=jorth/debuginfod#0ffd3d3375039aa984189daf776f633312e890c8"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68613466112302fdbeabc5fa55f7d57462a0b247d5a6b7d7e09401fb471a144d"
 dependencies = [
  "cc",
 ]
