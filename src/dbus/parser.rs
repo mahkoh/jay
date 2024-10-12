@@ -4,7 +4,7 @@ use {
         DbusError, DbusType, DynamicType, Parser,
     },
     bstr::ByteSlice,
-    std::{borrow::Cow, mem, rc::Rc},
+    std::{borrow::Cow, rc::Rc},
     uapi::{OwnedFd, Pod},
 };
 
@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
         self.align_to(T::ALIGNMENT)?;
         match uapi::pod_read_init(&self.buf[self.pos..]) {
             Ok(v) => {
-                self.pos += mem::size_of::<T>();
+                self.pos += size_of::<T>();
                 Ok(v)
             }
             _ => Err(DbusError::UnexpectedEof),
@@ -95,13 +95,13 @@ impl<'a> Parser<'a> {
             return Err(DbusError::UnexpectedEof);
         }
         if T::IS_POD {
-            if len % mem::size_of::<T>() != 0 {
+            if len % size_of::<T>() != 0 {
                 return Err(DbusError::PodArrayLength);
             }
             let slice = unsafe {
                 std::slice::from_raw_parts(
                     self.buf[self.pos..].as_ptr() as *const T,
-                    len / mem::size_of::<T>(),
+                    len / size_of::<T>(),
                 )
             };
             self.pos += len;

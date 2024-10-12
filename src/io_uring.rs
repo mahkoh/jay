@@ -36,7 +36,6 @@ use {
     },
     std::{
         cell::{Cell, RefCell, UnsafeCell},
-        mem::{self},
         rc::Rc,
         sync::atomic::{
             AtomicU32,
@@ -119,7 +118,7 @@ impl IoUring {
             Err(e) => return Err(IoUringError::MapSqRing(e)),
         };
         let sqesmap_map = mmap(
-            params.sq_entries as usize * mem::size_of::<io_uring_sqe>(),
+            params.sq_entries as usize * size_of::<io_uring_sqe>(),
             c::PROT_READ | c::PROT_WRITE,
             c::MAP_SHARED | c::MAP_POPULATE,
             fd.raw(),
@@ -130,8 +129,7 @@ impl IoUring {
             Err(e) => return Err(IoUringError::MapSqEntries(e)),
         };
         let cqmap_map = mmap(
-            params.cq_off.cqes as usize
-                + params.cq_entries as usize * mem::size_of::<io_uring_cqe>(),
+            params.cq_off.cqes as usize + params.cq_entries as usize * size_of::<io_uring_cqe>(),
             c::PROT_READ | c::PROT_WRITE,
             c::MAP_SHARED | c::MAP_POPULATE,
             fd.raw(),

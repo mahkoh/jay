@@ -372,7 +372,7 @@ macro_rules! assert_size_eq {
         struct AssertEqSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
         impl<T, U> AssertEqSize<T, U> {
             const VAL: usize = {
-                if std::mem::size_of::<T>() != std::mem::size_of::<U>() {
+                if size_of::<T>() != size_of::<U>() {
                     panic!("Types have different size");
                 }
                 1
@@ -388,7 +388,7 @@ macro_rules! assert_size_le {
         struct AssertLeSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
         impl<T, U> AssertLeSize<T, U> {
             const VAL: usize = {
-                if std::mem::size_of::<T>() > std::mem::size_of::<U>() {
+                if size_of::<T>() > size_of::<U>() {
                     panic!("Left type has size larger than right type");
                 }
                 1
@@ -403,7 +403,7 @@ macro_rules! assert_align_eq {
         struct AssertEqAlign<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
         impl<T, U> AssertEqAlign<T, U> {
             const VAL: usize = {
-                if std::mem::align_of::<T>() != std::mem::align_of::<U>() {
+                if align_of::<T>() != align_of::<U>() {
                     panic!("Types have different alignment");
                 }
                 1

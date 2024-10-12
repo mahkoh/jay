@@ -6,7 +6,7 @@ use {
         page_size::page_size,
         ptr_ext::{MutPtrExt, PtrExt},
     },
-    std::{marker::PhantomData, mem, ops::Range, rc::Rc},
+    std::{marker::PhantomData, ops::Range, rc::Rc},
     thiserror::Error,
     uapi::{c, OwnedFd, Pod},
 };
@@ -107,8 +107,8 @@ impl PwMemMap {
 
     fn check<T>(&self, offset: usize) {
         assert!(offset <= self.range.len());
-        assert!(mem::size_of::<T>() <= self.range.len() - offset);
-        assert_eq!((mem::align_of::<T>() - 1) & (self.range.start + offset), 0);
+        assert!(size_of::<T>() <= self.range.len() - offset);
+        assert_eq!((align_of::<T>() - 1) & (self.range.start + offset), 0);
     }
 
     pub fn typed<T: Pod>(self: &Rc<Self>) -> Rc<PwMemTyped<T>> {

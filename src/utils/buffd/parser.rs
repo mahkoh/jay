@@ -1,7 +1,7 @@
 use {
     crate::{fixed::Fixed, globals::GlobalName, object::ObjectId, utils::buffd::BufFdIn},
     bstr::{BStr, ByteSlice},
-    std::{mem, ptr, rc::Rc},
+    std::{ptr, rc::Rc},
     thiserror::Error,
     uapi::{OwnedFd, Pod},
 };
@@ -122,30 +122,30 @@ impl<'a, 'b> MsgParser<'a, 'b> {
 
     pub fn binary<T: Pod>(&mut self) -> Result<T, MsgParserError> {
         let array = self.array()?;
-        if array.len() < mem::size_of::<T>() {
+        if array.len() < size_of::<T>() {
             return Err(MsgParserError::UnexpectedEof);
         }
-        if array.len() > mem::size_of::<T>() {
+        if array.len() > size_of::<T>() {
             return Err(MsgParserError::BinaryArrayTooLarge);
         }
         unsafe { Ok(ptr::read_unaligned(array.as_ptr() as _)) }
     }
 
     pub fn binary_array<T: Pod>(&mut self) -> Result<&'b [T], MsgParserError> {
-        if std::mem::align_of::<T>() > 4 {
+        if align_of::<T>() > 4 {
             panic!("Alignment of binary array element is too large");
         };
-        if std::mem::size_of::<T>() == 0 {
+        if size_of::<T>() == 0 {
             panic!("Size of binary array element is 0");
         };
         let array = self.array()?;
-        if array.len() % mem::size_of::<T>() != 0 {
+        if array.len() % size_of::<T>() != 0 {
             return Err(MsgParserError::BinaryArraySize);
         }
         unsafe {
             Ok(std::slice::from_raw_parts(
                 array.as_ptr() as _,
-                array.len() / mem::size_of::<T>(),
+                array.len() / size_of::<T>(),
             ))
         }
     }

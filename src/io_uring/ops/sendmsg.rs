@@ -8,11 +8,7 @@ use {
         time::Time,
         utils::{buf::Buf, vec_ext::UninitVecExt},
     },
-    std::{
-        mem::{self, MaybeUninit},
-        ptr,
-        rc::Rc,
-    },
+    std::{mem::MaybeUninit, ptr, rc::Rc},
     uapi::{c, OwnedFd},
 };
 
@@ -44,7 +40,7 @@ impl IoUring {
                 let mut fd_ids = self.ring.fd_ids_scratch.borrow_mut();
                 fd_ids.clear();
                 fd_ids.extend(st.fds.iter().map(|f| f.raw()));
-                let space = uapi::cmsg_space(mem::size_of_val(&fd_ids[..]));
+                let space = uapi::cmsg_space(size_of_val(&fd_ids[..]));
                 st.cmsg.clear();
                 st.cmsg.reserve(space);
                 st.cmsg.set_len_safe(space);

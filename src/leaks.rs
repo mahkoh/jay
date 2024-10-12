@@ -55,7 +55,7 @@ mod leaks {
             any,
             cell::Cell,
             marker::PhantomData,
-            mem, ptr,
+            ptr,
         },
         uapi::c,
     };
@@ -115,7 +115,7 @@ mod leaks {
                     let slice = unsafe {
                         std::slice::from_raw_parts(
                             lo as *const *mut u8,
-                            (hi - lo) / mem::size_of::<usize>(),
+                            (hi - lo) / size_of::<usize>(),
                         )
                     };
                     for addr in slice {
@@ -301,11 +301,11 @@ mod leaks {
             IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut res = vec![];
             for allocation in ALLOCATIONS.get().deref().values() {
-                let num = allocation.len / mem::size_of::<usize>();
+                let num = allocation.len / size_of::<usize>();
                 let elements = std::slice::from_raw_parts(allocation.addr as *const *mut u8, num);
                 for (offset, pos) in elements.iter().enumerate() {
                     if *pos == addr {
-                        res.push((allocation.clone(), offset * mem::size_of::<usize>()));
+                        res.push((allocation.clone(), offset * size_of::<usize>()));
                         break;
                     }
                 }

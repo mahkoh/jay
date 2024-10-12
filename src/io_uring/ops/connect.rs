@@ -4,7 +4,7 @@ use {
         sys::{io_uring_sqe, IORING_OP_CONNECT},
         IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
     },
-    std::{mem, ptr, rc::Rc},
+    std::{ptr, rc::Rc},
     uapi::{c, OwnedFd, SockAddr},
 };
 
@@ -20,7 +20,7 @@ impl IoUring {
             unsafe {
                 ptr::copy_nonoverlapping(t, &mut pw.sockaddr as *mut _ as *mut _, 1);
             }
-            pw.addrlen = mem::size_of::<T>() as _;
+            pw.addrlen = size_of::<T>() as _;
             pw.data = Some(Data {
                 pr: pr.clone(),
                 _fd: fd.clone(),
