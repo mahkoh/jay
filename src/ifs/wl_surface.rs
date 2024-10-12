@@ -59,7 +59,7 @@ use {
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
-            wp_presentation_feedback::WpPresentationFeedback,
+            wp_presentation_feedback::{WpPresentationFeedback, VRR_REFRESH_SINCE},
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUringError,
@@ -2190,6 +2190,7 @@ impl PresentationListener for WlSurface {
         refresh: u32,
         seq: u64,
         flags: u32,
+        vrr: bool,
     ) {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
@@ -2198,6 +2199,10 @@ impl PresentationListener for WlSurface {
                 for binding in bindings.values() {
                     pf.send_sync_output(binding);
                 }
+            }
+            let mut refresh = refresh;
+            if vrr && pf.version < VRR_REFRESH_SINCE {
+                refresh = 0;
             }
             pf.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
             let _ = pf.client.remove_obj(&*pf);

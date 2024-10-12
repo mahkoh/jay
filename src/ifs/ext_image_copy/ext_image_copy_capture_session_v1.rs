@@ -301,6 +301,7 @@ impl PresentationListener for ExtImageCopyCaptureSessionV1 {
         _refresh: u32,
         _seq: u64,
         _flags: u32,
+        _vrr: bool,
     ) {
         self.presentation_listener.detach();
         let Some(frame) = self.frame.get() else {

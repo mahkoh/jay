@@ -24,6 +24,8 @@ pub const KIND_HW_CLOCK: u32 = 0x2;
 pub const KIND_HW_COMPLETION: u32 = 0x4;
 pub const KIND_ZERO_COPY: u32 = 0x8;
 
+pub const VRR_REFRESH_SINCE: Version = Version(2);
+
 impl WpPresentationFeedback {
     pub fn send_sync_output(&self, output: &WlOutput) {
         self.client.event(SyncOutput {
