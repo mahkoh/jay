@@ -4,7 +4,7 @@ use {
         xcon::{wire_type::Message, XconError},
     },
     bstr::{BStr, ByteSlice},
-    std::{borrow::Cow, mem, rc::Rc},
+    std::{borrow::Cow, rc::Rc},
     uapi::{OwnedFd, Pod},
 };
 
@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
     pub fn read_pod<T: Pod>(&mut self) -> Result<T, XconError> {
         match uapi::pod_read_init(&self.buf[self.pos..]) {
             Ok(v) => {
-                self.pos += mem::size_of::<T>();
+                self.pos += size_of::<T>();
                 Ok(v)
             }
             _ => Err(XconError::UnexpectedEof),
@@ -78,13 +78,13 @@ impl<'a> Parser<'a> {
     ) -> Result<&'a [T], XconError> {
         let n = match n {
             Some(n) => n,
-            _ => self.rem() / mem::size_of::<T>(),
+            _ => self.rem() / size_of::<T>(),
         };
-        let len = mem::size_of::<T>() * n;
+        let len = size_of::<T>() * n;
         if len > self.rem() {
             return Err(XconError::UnexpectedEof);
         }
-        if self.buf[self.pos..].as_ptr() as usize & (mem::align_of::<T>() - 1) != 0 {
+        if self.buf[self.pos..].as_ptr() as usize & (align_of::<T>() - 1) != 0 {
             return Err(XconError::UnalignedSlice);
         }
         let res =

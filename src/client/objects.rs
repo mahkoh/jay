@@ -43,7 +43,7 @@ use {
             ZwpTabletToolV2Id,
         },
     },
-    std::{cell::RefCell, mem, rc::Rc},
+    std::{cell::RefCell, rc::Rc},
 };
 
 pub struct Objects {
@@ -81,7 +81,7 @@ pub struct Objects {
 }
 
 pub const MIN_SERVER_ID: u32 = 0xff000000;
-const SEG_SIZE: usize = 8 * mem::size_of::<usize>();
+const SEG_SIZE: usize = usize::BITS as usize;
 
 impl Objects {
     pub fn new() -> Self {

@@ -457,26 +457,26 @@ impl DrmMaster {
         let mut t = MaybeUninit::<T>::uninit();
         match mode_getprobblob(self.raw(), blob.0, &mut t) {
             Err(e) => Err(DrmError::GetPropBlob(e)),
-            Ok(n) if n != mem::size_of::<T>() => Err(DrmError::InvalidProbSize),
+            Ok(n) if n != size_of::<T>() => Err(DrmError::InvalidProbSize),
             _ => unsafe { Ok(t.assume_init()) },
         }
     }
 
     pub fn getblob_vec<T: Pod>(&self, blob: DrmBlob) -> Result<Vec<T>, DrmError> {
-        assert_ne!(mem::size_of::<T>(), 0);
+        assert_ne!(size_of::<T>(), 0);
         let mut vec = vec![];
         loop {
             let (_, bytes) = vec.split_at_spare_mut_bytes_ext();
             match mode_getprobblob(self.raw(), blob.0, bytes) {
                 Err(e) => return Err(DrmError::GetPropBlob(e)),
-                Ok(n) if n % mem::size_of::<T>() != 0 => return Err(DrmError::UnalignedPropSize),
+                Ok(n) if n % size_of::<T>() != 0 => return Err(DrmError::UnalignedPropSize),
                 Ok(n) if n <= bytes.len() => {
                     unsafe {
-                        vec.set_len(n / mem::size_of::<T>());
+                        vec.set_len(n / size_of::<T>());
                     }
                     return Ok(vec);
                 }
-                Ok(n) => vec.reserve_exact(n / mem::size_of::<T>()),
+                Ok(n) => vec.reserve_exact(n / size_of::<T>()),
             }
         }
     }
@@ -499,10 +499,10 @@ impl DrmMaster {
         }
         let formats_start = header.formats_offset as usize;
         let formats_end = formats_start
-            .wrapping_add((header.count_formats as usize).wrapping_mul(mem::size_of::<u32>()));
+            .wrapping_add((header.count_formats as usize).wrapping_mul(size_of::<u32>()));
         let modifiers_start = header.modifiers_offset as usize;
         let modifiers_end = modifiers_start.wrapping_add(
-            (header.count_modifiers as usize).wrapping_mul(mem::size_of::<drm_format_modifier>()),
+            (header.count_modifiers as usize).wrapping_mul(size_of::<drm_format_modifier>()),
         );
         if blob.len() < formats_end || formats_end < formats_start {
             log::error!("Formats of IN_FORMATS blob don't fit in the blob");

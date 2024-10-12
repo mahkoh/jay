@@ -80,8 +80,8 @@ impl IoOut {
         bincode_ops()
             .serialize_into(&mut self.scratch, &msg)
             .map_err(ForkerError::EncodeFailed)?;
-        let len = self.scratch.len() - mem::size_of_val(&0usize);
-        self.scratch[..mem::size_of_val(&len)].copy_from_slice(uapi::as_bytes(&len));
+        let len = self.scratch.len() - size_of_val(&0usize);
+        self.scratch[..size_of_val(&len)].copy_from_slice(uapi::as_bytes(&len));
         let mut buf = self.scratch.borrow();
         match self
             .outgoing

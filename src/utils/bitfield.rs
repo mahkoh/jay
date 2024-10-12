@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use std::mem;
-
-const SEG_SIZE: usize = 8 * mem::size_of::<usize>();
+const SEG_SIZE: usize = usize::BITS as usize;
 
 #[derive(Default)]
 pub struct Bitfield {

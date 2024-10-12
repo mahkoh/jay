@@ -1,6 +1,5 @@
 use {
     crate::forker::ForkerError,
-    std::mem,
     uapi::{c, OwnedFd},
 };
 
@@ -41,7 +40,7 @@ pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
         let pid = c::syscall(
             c::SYS_clone3,
             &mut args as *const _ as usize,
-            mem::size_of::<clone_args>(),
+            size_of::<clone_args>(),
         );
         if let Err(e) = uapi::map_err!(pid) {
             return Err(ForkerError::Fork(e.into()));

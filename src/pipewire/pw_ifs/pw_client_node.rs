@@ -40,7 +40,6 @@ use {
     },
     std::{
         cell::{Cell, RefCell},
-        mem,
         rc::Rc,
         sync::atomic::Ordering::{Relaxed, Release},
     },
@@ -326,13 +325,13 @@ impl PwClientNode {
                 let sm = port.supported_metas.get();
                 let mut metas = vec![];
                 if sm.contains(SUPPORTED_META_HEADER) {
-                    metas.push((SPA_META_Header, mem::size_of::<spa_meta_header>()));
+                    metas.push((SPA_META_Header, size_of::<spa_meta_header>()));
                 }
                 if sm.contains(SUPPORTED_META_BUSY) {
-                    metas.push((SPA_META_Busy, mem::size_of::<spa_meta_busy>()));
+                    metas.push((SPA_META_Busy, size_of::<spa_meta_busy>()));
                 }
                 if sm.contains(SUPPORTED_META_VIDEO_CROP) {
-                    metas.push((SPA_META_VideoCrop, mem::size_of::<spa_meta_region>()));
+                    metas.push((SPA_META_VideoCrop, size_of::<spa_meta_region>()));
                 }
                 let sf = &*port.supported_formats.borrow();
                 let num_formats = sf.formats.len() as u32;

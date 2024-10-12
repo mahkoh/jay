@@ -12,11 +12,7 @@ use {
     },
     ahash::AHashMap,
     bstr::{BStr, BString, ByteSlice},
-    std::{
-        fmt::Debug,
-        mem::{self, MaybeUninit},
-        rc::Rc,
-    },
+    std::{fmt::Debug, mem::MaybeUninit, rc::Rc},
     thiserror::Error,
     uapi::{OwnedFd, Pod},
 };
@@ -52,11 +48,11 @@ impl<'a> PwParser<'a> {
     }
 
     fn read_raw<T: Pod>(&mut self, offset: usize) -> Result<T, PwParserError> {
-        if self.pos + offset + mem::size_of::<T>() <= self.data.len() {
+        if self.pos + offset + size_of::<T>() <= self.data.len() {
             unsafe {
                 let mut res = MaybeUninit::uninit();
                 let src = self.data[self.pos + offset..].as_ptr();
-                std::ptr::copy_nonoverlapping(src, res.as_mut_ptr() as _, mem::size_of::<T>());
+                std::ptr::copy_nonoverlapping(src, res.as_mut_ptr() as _, size_of::<T>());
                 Ok(res.assume_init())
             }
         } else {

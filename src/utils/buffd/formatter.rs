@@ -101,7 +101,7 @@ impl<'a> MsgFormatter<'a> {
     }
 
     pub fn binary<T: ?Sized + Packed>(&mut self, t: &T) -> &mut Self {
-        self.uint(mem::size_of_val(t) as u32);
+        self.uint(size_of_val(t) as u32);
         self.write(uapi::as_bytes(t));
         let none = [0; 4];
         self.write(&none[..self.meta.write_pos.wrapping_neg() & 3]);

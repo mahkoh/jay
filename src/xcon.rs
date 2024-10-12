@@ -597,7 +597,7 @@ impl Xcon {
             long_offset: 0,
             long_length: 128,
         };
-        let format = mem::size_of::<T>() as u8 * 8;
+        let format = size_of::<T>() as u8 * 8;
         loop {
             let res = self.call(&gp).await?;
             let res = res.get();
@@ -611,10 +611,10 @@ impl Xcon {
             if res.format != format {
                 return Err(XconError::InvalidPropertyFormat(format, res.format));
             }
-            if res.data.len() % mem::size_of::<T>() != 0 {
+            if res.data.len() % size_of::<T>() != 0 {
                 return Err(XconError::IrregularPropertyLength);
             }
-            let len = res.data.len() / mem::size_of::<T>();
+            let len = res.data.len() / size_of::<T>();
             buf.reserve(len);
             let (_, uninit) = buf.split_at_spare_mut_bytes_ext();
             uninit[..res.data.len()].copy_from_slice(uapi::as_maybe_uninit_bytes(res.data));

@@ -20,7 +20,7 @@ use {
             PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
         },
     },
-    std::{mem, rc::Rc, slice},
+    std::{rc::Rc, slice},
 };
 
 pub(super) struct VulkanPipeline {
@@ -45,7 +45,7 @@ impl VulkanDevice {
         &self,
         info: PipelineCreateInfo,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
-        self.create_pipeline_(info, mem::size_of::<V>() as _, mem::size_of::<F>() as _)
+        self.create_pipeline_(info, size_of::<V>() as _, size_of::<F>() as _)
     }
 
     fn create_pipeline_(

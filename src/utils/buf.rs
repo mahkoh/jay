@@ -313,7 +313,7 @@ pub struct TypedBuf<T: Pod> {
 impl<T: Pod> TypedBuf<T> {
     pub fn new() -> Self {
         Self {
-            buf: Buf::new(mem::size_of::<T>()),
+            buf: Buf::new(size_of::<T>()),
             _phantom: Default::default(),
         }
     }

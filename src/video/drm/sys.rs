@@ -16,7 +16,6 @@ use {
     std::{
         ffi::CString,
         io::{BufRead, BufReader},
-        mem,
     },
     uapi::{c, pod_zeroed, OwnedFd, Pod, Ustring},
 };
@@ -921,7 +920,7 @@ const DRM_IOCTL_MODE_CREATEPROPBLOB: u64 = drm_iowr::<drm_mode_create_blob>(0xbd
 pub fn mode_create_blob<T>(fd: c::c_int, t: &T) -> Result<DrmBlob, OsError> {
     let mut res = drm_mode_create_blob {
         data: t as *const T as _,
-        length: mem::size_of_val(t) as _,
+        length: size_of_val(t) as _,
         blob_id: 0,
     };
 
@@ -1096,7 +1095,7 @@ pub fn mode_getprobblob<T: Pod + ?Sized>(
 ) -> Result<usize, OsError> {
     let mut res = drm_mode_get_blob {
         blob_id,
-        length: mem::size_of_val(t) as _,
+        length: size_of_val(t) as _,
         data: t as *const T as *const u8 as _,
     };
     unsafe {

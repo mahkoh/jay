@@ -590,7 +590,7 @@ impl VulkanRenderer {
                                 buf,
                                 pipeline.pipeline_layout,
                                 ShaderStageFlags::FRAGMENT,
-                                mem::size_of_val(&vert) as _,
+                                size_of_val(&vert) as _,
                                 uapi::as_bytes(&frag),
                             );
                         }
