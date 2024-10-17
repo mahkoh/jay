@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_surface::{
             ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-            tray::jay_tray_item_v1::JayTrayItemV1,
+            tray::{ext_tray_item_v1::ExtTrayItemV1, jay_tray_item_v1::JayTrayItemV1},
             x_surface::xwindow::Xwindow,
             xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
@@ -64,7 +64,11 @@ pub trait NodeVisitorBase: Sized {
         node.node_visit_children(self);
     }
 
-    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+    fn visit_jay_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+        node.node_visit_children(self);
+    }
+
+    fn visit_ext_tray_item(&mut self, node: &Rc<ExtTrayItemV1>) {
         node.node_visit_children(self);
     }
 }
@@ -82,7 +86,8 @@ pub trait NodeVisitor {
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>);
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>);
-    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>);
+    fn visit_jay_tray_item(&mut self, node: &Rc<JayTrayItemV1>);
+    fn visit_ext_tray_item(&mut self, node: &Rc<ExtTrayItemV1>);
 }
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
@@ -134,8 +139,12 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
         <T as NodeVisitorBase>::visit_lock_surface(self, node)
     }
 
-    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
-        <T as NodeVisitorBase>::visit_tray_item(self, node)
+    fn visit_jay_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+        <T as NodeVisitorBase>::visit_jay_tray_item(self, node)
+    }
+
+    fn visit_ext_tray_item(&mut self, node: &Rc<ExtTrayItemV1>) {
+        <T as NodeVisitorBase>::visit_ext_tray_item(self, node)
     }
 }
 
@@ -208,7 +217,12 @@ impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
         node.node_visit_children(self);
     }
 
-    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+    fn visit_jay_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+        (self.f)(node.clone());
+        node.node_visit_children(self);
+    }
+
+    fn visit_ext_tray_item(&mut self, node: &Rc<ExtTrayItemV1>) {
         (self.f)(node.clone());
         node.node_visit_children(self);
     }

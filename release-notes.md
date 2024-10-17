@@ -13,6 +13,7 @@
 - Implement wp-commit-timing-v1.
 - Implement jay-tray-v1. You can get tray icons and menus by using
   https://github.com/mahkoh/wl-tray-bridge.
+- Implement ext-tray-v1.
 
 # 1.6.0 (2024-09-25)
 
