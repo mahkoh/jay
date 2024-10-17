@@ -200,6 +200,7 @@ pub struct WlSeatGlobal {
     tablet: TabletSeatData,
     ei_seats: CopyHashMap<(ClientId, EiSeatId), Rc<EiSeat>>,
     ui_drag_highlight: Cell<Option<Rect>>,
+    keyboard_node_serial: Cell<u64>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -229,6 +230,7 @@ impl WlSeatGlobal {
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
             keyboard_node: CloneCell::new(state.root.clone()),
+            keyboard_node_serial: Default::default(),
             bindings: Default::default(),
             x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),

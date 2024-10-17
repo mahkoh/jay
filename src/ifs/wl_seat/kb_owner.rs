@@ -29,8 +29,8 @@ impl KbOwnerHolder {
         self.owner.get().ungrab(seat)
     }
 
-    pub fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) {
-        self.owner.get().set_kb_node(seat, node);
+    pub fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>, serial: u64) {
+        self.owner.get().set_kb_node(seat, node, serial);
     }
 
     pub fn clear(&self) {
@@ -45,12 +45,13 @@ struct GrabKbOwner;
 trait KbOwner {
     fn grab(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) -> bool;
     fn ungrab(&self, seat: &Rc<WlSeatGlobal>);
-    fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>);
+    fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>, serial: u64);
 }
 
 impl KbOwner for DefaultKbOwner {
     fn grab(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) -> bool {
-        self.set_kb_node(seat, node);
+        let serial = seat.state.next_serial(node.node_client().as_deref());
+        self.set_kb_node(seat, node, serial);
         seat.kb_owner.owner.set(Rc::new(GrabKbOwner));
         true
     }
@@ -59,7 +60,7 @@ impl KbOwner for DefaultKbOwner {
         // nothing
     }
 
-    fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) {
+    fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>, serial: u64) {
         let old = seat.keyboard_node.get();
         if old.node_id() == node.node_id() {
             return;
@@ -78,6 +79,7 @@ impl KbOwner for DefaultKbOwner {
         }
         // log::info!("focus {}", node.node_id());
         node.clone().node_on_focus(seat);
+        seat.keyboard_node_serial.set(serial);
         seat.keyboard_node.set(node.clone());
         seat.tablet_on_keyboard_node_change();
     }
@@ -92,7 +94,7 @@ impl KbOwner for GrabKbOwner {
         seat.kb_owner.owner.set(seat.kb_owner.default.clone());
     }
 
-    fn set_kb_node(&self, _seat: &Rc<WlSeatGlobal>, _node: Rc<dyn Node>) {
+    fn set_kb_node(&self, _seat: &Rc<WlSeatGlobal>, _node: Rc<dyn Node>, _serial: u64) {
         // nothing
     }
 }
