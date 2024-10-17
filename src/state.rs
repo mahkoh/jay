@@ -586,7 +586,10 @@ impl State {
         self.globals.add_global(self, global)
     }
 
-    pub fn remove_global<T: RemovableWaylandGlobal>(&self, global: &T) -> Result<(), GlobalsError> {
+    pub fn remove_global<T: RemovableWaylandGlobal>(
+        &self,
+        global: &Rc<T>,
+    ) -> Result<(), GlobalsError> {
         self.globals.remove(self, global)
     }
 

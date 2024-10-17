@@ -23,6 +23,7 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
+        backend::KeyState,
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -64,7 +65,10 @@ use {
                 zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
-            wl_surface::{dnd_icon::DndIcon, WlSurface},
+            wl_surface::{
+                dnd_icon::DndIcon, ext_tray_item_v1::ExtTrayItemV1,
+                xdg_surface::xdg_popup::XdgPopup, WlSurface,
+            },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
@@ -81,9 +85,9 @@ use {
             rc_eq::rc_eq, smallmap::SmallMap,
         },
         wire::{
-            wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, WlTouchId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
-            ZwpRelativePointerV1Id, ZwpTextInputV3Id,
+            wl_seat::*, ExtIdleNotificationV1Id, ExtTrayItemV1Id, WlDataDeviceId, WlKeyboardId,
+            WlPointerId, WlSeatId, WlTouchId, XdgPopupId, ZwlrDataControlDeviceV1Id,
+            ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
         wire_ei::EiSeatId,
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
@@ -200,6 +204,8 @@ pub struct WlSeatGlobal {
     tablet: TabletSeatData,
     ei_seats: CopyHashMap<(ClientId, EiSeatId), Rc<EiSeat>>,
     ui_drag_highlight: Cell<Option<Rect>>,
+    keyboard_node_serial: Cell<u64>,
+    tray_popups: CopyHashMap<(ClientId, ExtTrayItemV1Id, XdgPopupId), Rc<ExtTrayItemV1>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -229,6 +235,7 @@ impl WlSeatGlobal {
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
             keyboard_node: CloneCell::new(state.root.clone()),
+            keyboard_node_serial: Default::default(),
             bindings: Default::default(),
             x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),
@@ -271,6 +278,7 @@ impl WlSeatGlobal {
             tablet: Default::default(),
             ei_seats: Default::default(),
             ui_drag_highlight: Default::default(),
+            tray_popups: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -1038,6 +1046,48 @@ impl WlSeatGlobal {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.regions_changed();
         });
+    }
+
+    pub fn add_tray_item_popup(&self, item: &Rc<ExtTrayItemV1>, popup: &Rc<XdgPopup>) {
+        self.tray_popups
+            .set((item.client.id, item.id, popup.id), item.clone());
+    }
+
+    pub fn remove_tray_item_popup(&self, item: &Rc<ExtTrayItemV1>, popup: &Rc<XdgPopup>) {
+        self.tray_popups
+            .remove(&(item.client.id, item.id, popup.id));
+    }
+
+    fn handle_node_button(
+        self: &Rc<Self>,
+        node: Rc<dyn Node>,
+        time_usec: u64,
+        button: u32,
+        state: KeyState,
+        serial: u64,
+    ) {
+        if self.tray_popups.is_not_empty() && state == KeyState::Pressed {
+            let id = node.node_tray_item().map(|t| (t.client.id, t.id));
+            self.tray_popups.lock().retain(|_, item| {
+                let retain = Some((item.client.id, item.id)) == id;
+                if !retain {
+                    item.destroy_popups();
+                }
+                retain
+            })
+        }
+        node.node_on_button(self, time_usec, button, state, serial);
+    }
+
+    pub fn handle_focus_request(self: &Rc<Self>, client: &Client, node: Rc<dyn Node>, serial: u64) {
+        let Some(max_serial) = client.focus_stealing_serial.get() else {
+            return;
+        };
+        let serial = serial.min(max_serial);
+        if serial <= self.keyboard_node_serial.get() {
+            return;
+        }
+        self.focus_node_with_serial(node, serial);
     }
 }
 

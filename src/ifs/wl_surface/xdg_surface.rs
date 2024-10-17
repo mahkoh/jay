@@ -6,6 +6,7 @@ use {
         client::ClientError,
         ifs::{
             wl_surface::{
+                ext_tray_item_v1::ExtTrayItemV1,
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
                     xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
@@ -17,7 +18,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, OutputNode, StackedNode, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, Node, OutputNode, StackedNode, WorkspaceNode},
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -138,6 +139,10 @@ impl XdgPopupParent for Popup {
             }
         }
     }
+
+    fn tray_item(&self) -> Option<Rc<ExtTrayItemV1>> {
+        self.parent.clone().tray_item()
+    }
 }
 
 #[derive(Default, Debug)]
@@ -173,6 +178,14 @@ pub trait XdgSurfaceExt: Debug {
 
     fn geometry_changed(&self) {
         // nothing
+    }
+
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        None
+    }
+
+    fn tray_item(&self) -> Option<Rc<ExtTrayItemV1>> {
+        None
     }
 }
 
@@ -525,6 +538,14 @@ impl SurfaceExt for XdgSurface {
 
     fn extents_changed(&self) {
         self.update_extents();
+    }
+
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        self.ext.get()?.focus_node()
+    }
+
+    fn tray_item(self: Rc<Self>) -> Option<Rc<ExtTrayItemV1>> {
+        self.ext.get()?.tray_item()
     }
 }
 
