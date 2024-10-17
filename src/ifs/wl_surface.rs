@@ -2,6 +2,7 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
+pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
 pub mod wp_commit_timer_v1;
@@ -46,6 +47,7 @@ use {
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
                 dnd_icon::DndIcon,
+                tray::TrayItemId,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
                 wp_commit_timer_v1::WpCommitTimerV1,
@@ -126,6 +128,7 @@ pub enum SurfaceRole {
     XSurface,
     ExtSessionLockSurface,
     InputPopup,
+    TrayItem,
 }
 
 impl SurfaceRole {
@@ -140,6 +143,7 @@ impl SurfaceRole {
             SurfaceRole::XSurface => "xwayland surface",
             SurfaceRole::ExtSessionLockSurface => "ext_session_lock_surface",
             SurfaceRole::InputPopup => "input_popup_surface",
+            SurfaceRole::TrayItem => "tray_item",
         }
     }
 }
@@ -412,6 +416,10 @@ trait SurfaceExt {
     ) -> Result<(), WlSurfaceError> {
         surface.pending.borrow_mut().consume_child(child, consume)
     }
+
+    fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
+        None
+    }
 }
 
 pub struct NoneSurfaceExt;
@@ -450,6 +458,7 @@ struct PendingState {
     fifo_barrier_set: bool,
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
+    tray_item_ack_serial: Option<u32>,
 }
 
 struct AttachedSubsurfaceState {
@@ -501,6 +510,7 @@ impl PendingState {
         opt!(content_type);
         opt!(alpha_multiplier);
         opt!(commit_time);
+        opt!(tray_item_ack_serial);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -1719,6 +1729,10 @@ impl Node for WlSurface {
 
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         self.toplevel.get()
+    }
+
+    fn node_tray_item(&self) -> Option<TrayItemId> {
+        self.ext.get().tray_item()
     }
 
     fn node_on_key(

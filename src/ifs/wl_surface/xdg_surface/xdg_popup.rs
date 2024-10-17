@@ -5,7 +5,10 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
-            wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+            wl_surface::{
+                tray::TrayItemId,
+                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+            },
             xdg_positioner::{
                 XdgPositioned, XdgPositioner, CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y,
                 CA_SLIDE_X, CA_SLIDE_Y,
@@ -41,6 +44,12 @@ pub trait XdgPopupParent {
     fn output(&self) -> Rc<OutputNode>;
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
+    fn tray_item(&self) -> Option<TrayItemId> {
+        None
+    }
+    fn allow_popup_focus(&self) -> bool {
+        false
+    }
 }
 
 pub struct XdgPopup {
@@ -391,6 +400,17 @@ impl XdgSurfaceExt for XdgPopup {
 
     fn extents_changed(&self) {
         self.xdg.surface.client.state.tree_changed();
+    }
+
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        if self.parent.get()?.allow_popup_focus() {
+            return Some(self.xdg.surface.clone());
+        }
+        None
+    }
+
+    fn tray_item(&self) -> Option<TrayItemId> {
+        self.parent.get()?.tray_item()
     }
 }
 

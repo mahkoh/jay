@@ -19,6 +19,7 @@ use {
             },
             wl_surface::{
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
+                tray::DynTrayItem,
                 zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
                 SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
             },
@@ -94,6 +95,8 @@ pub struct OutputNode {
     pub ext_copy_sessions:
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
     pub before_latch_event: EventSource<dyn BeforeLatchListener>,
+    pub tray_start_rel: Cell<i32>,
+    pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -418,6 +421,9 @@ impl OutputNode {
         if let Some(c) = self.workspace.get() {
             c.change_extents(&self.workspace_rect.get());
         }
+        for item in self.tray_items.iter() {
+            item.send_current_configure();
+        }
     }
 
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
@@ -579,7 +585,7 @@ impl OutputNode {
                 if let Some(scale) = scale {
                     width = (width as f64 / scale).round() as _;
                 }
-                let pos = output_width - width - 1;
+                let pos = self.tray_start_rel.get() - width - 1;
                 status.tex_x = pos;
             }
         }
@@ -714,6 +720,7 @@ impl OutputNode {
         let height = (y2 - y1).max(0);
         self.workspace_rect
             .set(Rect::new_sized_unchecked(x1, y1, width, height));
+        self.update_tray_positions();
         self.schedule_update_render_data();
     }
 
@@ -929,6 +936,9 @@ impl OutputNode {
         self.title_visible.set(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
+        for item in self.tray_items.iter() {
+            item.set_visible(lower_visible);
+        }
         if let Some(ws) = self.workspace.get() {
             ws.set_visible(visible);
         }
@@ -1164,6 +1174,37 @@ impl OutputNode {
             before: None,
         });
     }
+
+    pub fn update_tray_positions(self: &Rc<Self>) {
+        let th = self.state.theme.sizes.title_height.get();
+        let rect = self.non_exclusive_rect.get();
+        let output_width = rect.width();
+        let mut right = output_width;
+        let mut have_any = false;
+        let icon_size = self.state.tray_icon_size();
+        for item in self.tray_items.rev_iter() {
+            if item.data().surface.buffer.is_none() {
+                continue;
+            }
+            have_any = true;
+            right -= th;
+            let rel_pos = Rect::new_sized(right, 1, icon_size, icon_size).unwrap();
+            let abs_pos = rel_pos.move_(rect.x1(), rect.y1());
+            item.set_position(abs_pos, rel_pos);
+        }
+        if have_any {
+            right -= 2;
+        }
+        let prev_right = self.tray_start_rel.replace(right);
+        if prev_right != right {
+            {
+                let min = prev_right.min(right);
+                let rect = Rect::new_sized(rect.x1() + min, 0, output_width, th).unwrap();
+                self.state.damage(rect);
+            }
+            self.schedule_update_render_data();
+        }
+    }
 }
 
 pub struct OutputTitle {
@@ -1227,6 +1268,9 @@ impl Node for OutputNode {
             for surface in layers.iter() {
                 visitor.visit_layer_surface(surface.deref());
             }
+        }
+        for item in self.tray_items.iter() {
+            item.deref().clone().node_visit(visitor);
         }
     }
 
@@ -1321,6 +1365,19 @@ impl Node for OutputNode {
                 let (x, y) = non_exclusive_rect.translate(x, y);
                 if y < bar_height {
                     search_layers = false;
+                    for item in self.tray_items.iter() {
+                        let data = item.data();
+                        let pos = data.rel_pos.get();
+                        if pos.contains(x, y) {
+                            let (x, y) = pos.translate(x, y);
+                            tree.push(FoundNode {
+                                node: item.deref().clone().into_node(),
+                                x,
+                                y,
+                            });
+                            return data.find_tree_at(x, y, tree);
+                        }
+                    }
                 } else {
                     if let Some(ws) = self.workspace.get() {
                         let y = y - bar_height;

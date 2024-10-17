@@ -50,7 +50,7 @@ impl Global for RemovedOutputGlobal {
 simple_add_global!(RemovedOutputGlobal);
 
 impl RemovableWaylandGlobal for WlOutputGlobal {
-    fn create_replacement(&self) -> Rc<dyn Global> {
+    fn create_replacement(self: Rc<Self>) -> Rc<dyn Global> {
         Rc::new(RemovedOutputGlobal { name: self.name })
     }
 }
