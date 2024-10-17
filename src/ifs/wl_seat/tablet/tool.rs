@@ -212,7 +212,7 @@ impl TabletTool {
         });
         if state == ToolButtonState::Pressed {
             if let Some(node) = n.get_focus_node(self.tablet.seat.id) {
-                self.tablet.seat.focus_node(node);
+                self.tablet.seat.focus_node_with_serial(node, serial.get());
             }
         }
     }
@@ -260,7 +260,7 @@ impl TabletTool {
         if let Some(changes) = changes {
             if changes.down == Some(true) {
                 if let Some(node) = n.get_focus_node(self.tablet.seat.id) {
-                    self.tablet.seat.focus_node(node);
+                    self.tablet.seat.focus_node_with_serial(node, serial.get());
                 }
             }
         }

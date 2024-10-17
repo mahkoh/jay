@@ -134,7 +134,7 @@ impl Node for ExtSessionLockSurfaceV1 {
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.focus_node(self.surface.clone());
+        seat.focus_node_with_serial(self.surface.clone(), self.client.next_serial());
     }
 }
 
