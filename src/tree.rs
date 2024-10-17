@@ -250,7 +250,7 @@ pub trait Node: 'static {
         time_usec: u64,
         button: u32,
         state: KeyState,
-        serial: u32,
+        serial: u64,
     ) {
         let _ = seat;
         let _ = time_usec;
@@ -322,7 +322,7 @@ pub trait Node: 'static {
         let _ = dnd;
     }
 
-    fn node_on_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+    fn node_on_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u64) {
         let _ = dnd;
         let _ = x;
         let _ = y;

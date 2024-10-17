@@ -1137,7 +1137,7 @@ impl WlSeatGlobal {
         time_usec: u64,
         button: u32,
         state: KeyState,
-        serial: u32,
+        serial: u64,
     ) {
         let (state, pressed) = match state {
             KeyState::Released => (wl_pointer::RELEASED, false),
@@ -1250,7 +1250,7 @@ impl WlSeatGlobal {
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         let serial = n.client.next_serial();
-        n.client.last_enter_serial.set(serial);
+        n.client.last_enter_serial.set(Some(serial));
         self.surface_pointer_event(Version::ALL, n, |p| p.send_enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
         for (_, constraint) in &n.constraints {
@@ -1428,7 +1428,7 @@ impl WlSeatGlobal {
         dnd: &Dnd,
         x: Fixed,
         y: Fixed,
-        serial: u32,
+        serial: u64,
     ) {
         if let Some(src) = &dnd.src {
             if !surface.client.is_xwayland {

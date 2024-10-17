@@ -86,22 +86,22 @@ impl WlPointer {
         }
     }
 
-    pub fn send_enter(&self, serial: u32, surface: WlSurfaceId, mut x: Fixed, mut y: Fixed) {
+    pub fn send_enter(&self, serial: u64, surface: WlSurfaceId, mut x: Fixed, mut y: Fixed) {
         self.last_motion.set((x, y));
         logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Enter {
             self_id: self.id,
-            serial,
+            serial: serial as u32,
             surface,
             surface_x: x,
             surface_y: y,
         })
     }
 
-    pub fn send_leave(&self, serial: u32, surface: WlSurfaceId) {
+    pub fn send_leave(&self, serial: u64, surface: WlSurfaceId) {
         self.seat.client.event(Leave {
             self_id: self.id,
-            serial,
+            serial: serial as u32,
             surface,
         })
     }
@@ -119,10 +119,10 @@ impl WlPointer {
         })
     }
 
-    pub fn send_button(&self, serial: u32, time: u32, button: u32, state: u32) {
+    pub fn send_button(&self, serial: u64, time: u32, button: u32, state: u32) {
         self.seat.client.event(Button {
             self_id: self.id,
-            serial,
+            serial: serial as u32,
             time,
             button,
             state,
@@ -187,7 +187,7 @@ impl WlPointerRequestHandler for WlPointer {
     type Error = WlPointerError;
 
     fn set_cursor(&self, mut req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if !self.seat.client.valid_serial(req.serial) {
+        if self.seat.client.map_serial(req.serial).is_none() {
             log::warn!("Client tried to set_cursor with an invalid serial");
             return Ok(());
         }

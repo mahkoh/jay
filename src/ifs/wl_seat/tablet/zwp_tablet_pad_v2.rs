@@ -68,21 +68,21 @@ impl ZwpTabletPadV2 {
         });
     }
 
-    pub fn send_enter(&self, serial: u32, tablet: &ZwpTabletV2, surface: &WlSurface) {
+    pub fn send_enter(&self, serial: u64, tablet: &ZwpTabletV2, surface: &WlSurface) {
         self.entered.set(true);
         self.client.event(Enter {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             tablet: tablet.id,
             surface: surface.id,
         });
     }
 
-    pub fn send_leave(&self, serial: u32, surface: &WlSurface) {
+    pub fn send_leave(&self, serial: u64, surface: &WlSurface) {
         self.entered.set(false);
         self.client.event(Leave {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             surface: surface.id,
         });
     }

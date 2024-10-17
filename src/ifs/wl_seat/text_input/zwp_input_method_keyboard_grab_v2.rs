@@ -42,7 +42,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
         });
     }
 
-    fn update_state(&self, serial: u32, kb_state: &KeyboardState) {
+    fn update_state(&self, serial: u64, kb_state: &KeyboardState) {
         self.send_keymap(kb_state);
         self.send_modifiers(serial, kb_state);
         self.kb_state_id.set(kb_state.id);
@@ -56,10 +56,10 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.send_key(serial, time_usec, key, state);
     }
 
-    fn send_key(&self, serial: u32, time_usec: u64, key: u32, state: u32) {
+    fn send_key(&self, serial: u64, time_usec: u64, key: u32, state: u32) {
         self.client.event(Key {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time: (time_usec / 1000) as _,
             key,
             state,
@@ -74,10 +74,10 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.send_modifiers(serial, kb_state);
     }
 
-    fn send_modifiers(&self, serial: u32, kb_state: &KeyboardState) {
+    fn send_modifiers(&self, serial: u64, kb_state: &KeyboardState) {
         self.client.event(Modifiers {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             mods_depressed: kb_state.mods.mods_depressed,
             mods_latched: kb_state.mods.mods_latched,
             mods_locked: kb_state.mods.mods_locked,

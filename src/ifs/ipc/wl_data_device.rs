@@ -73,11 +73,11 @@ impl WlDataDevice {
         x: Fixed,
         y: Fixed,
         offer: WlDataOfferId,
-        serial: u32,
+        serial: u64,
     ) {
         self.client.event(Enter {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             surface,
             x,
             y,
@@ -103,10 +103,10 @@ impl WlDataDeviceRequestHandler for WlDataDevice {
     type Error = WlDataDeviceError;
 
     fn start_drag(&self, req: StartDrag, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if !self.client.valid_serial(req.serial) {
+        let Some(serial) = self.client.map_serial(req.serial) else {
             log::warn!("Client tried to start_drag with an invalid serial");
             return Ok(());
-        }
+        };
         let origin = self.client.lookup(req.origin)?;
         let source = if req.source.is_some() {
             Some(self.client.lookup(req.source)?)
@@ -119,16 +119,16 @@ impl WlDataDeviceRequestHandler for WlDataDevice {
         } else {
             None
         };
-        self.seat.start_drag(&origin, source, icon, req.serial)?;
+        self.seat.start_drag(&origin, source, icon, serial)?;
         Ok(())
     }
 
     fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if !self.client.valid_serial(req.serial) {
+        let Some(serial) = self.client.map_serial(req.serial) else {
             log::warn!("Client tried to set_selection with an invalid serial");
             return Ok(());
-        }
-        if !self.seat.may_modify_selection(&self.client, req.serial) {
+        };
+        if !self.seat.may_modify_selection(&self.client, serial) {
             log::warn!("Ignoring disallowed set_selection request");
             return Ok(());
         }
@@ -137,8 +137,7 @@ impl WlDataDeviceRequestHandler for WlDataDevice {
         } else {
             Some(self.client.lookup(req.source)?)
         };
-        self.seat
-            .set_wl_data_source_selection(src, Some(req.serial))?;
+        self.seat.set_wl_data_source_selection(src, Some(serial))?;
         Ok(())
     }
 
@@ -177,7 +176,7 @@ impl IpcVtable for ClipboardIpc {
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         seat.set_wl_data_source_selection(Some(source.clone()), serial)
     }

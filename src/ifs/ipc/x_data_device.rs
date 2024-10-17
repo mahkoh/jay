@@ -80,7 +80,7 @@ impl<T: XIpc> IpcVtable for T {
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
-        _serial: Option<u32>,
+        _serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         match source.location {
             IpcLocation::Clipboard => seat.set_selection(Some(source.clone())),

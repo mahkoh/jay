@@ -173,9 +173,9 @@ pub struct WlSeatGlobal {
     tree_changed: Rc<AsyncEvent>,
     tree_changed_needs_layout: Cell<bool>,
     selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
-    selection_serial: Cell<u32>,
+    selection_serial: Cell<u64>,
     primary_selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
-    primary_selection_serial: Cell<u32>,
+    primary_selection_serial: Cell<u64>,
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
     gesture_owner: GestureOwnerHolder,
@@ -766,7 +766,7 @@ impl WlSeatGlobal {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
             icon.surface().set_output(&self.pointer_cursor.output());
@@ -798,7 +798,7 @@ impl WlSeatGlobal {
     pub fn set_wl_data_source_selection(
         self: &Rc<Self>,
         selection: Option<Rc<WlDataSource>>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         if let Some(serial) = serial {
             self.selection_serial.set(serial);
@@ -825,18 +825,16 @@ impl WlSeatGlobal {
         self.selection.get()
     }
 
-    pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
-        let dist = serial.wrapping_sub(self.selection_serial.get()) as i32;
-        if dist < 0 {
+    pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u64) -> bool {
+        if serial < self.selection_serial.get() {
             return false;
         }
         self.keyboard_node.get().node_client_id() == Some(client.id)
     }
 
-    pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: Option<u32>) -> bool {
+    pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: Option<u64>) -> bool {
         if let Some(serial) = serial {
-            let dist = serial.wrapping_sub(self.primary_selection_serial.get()) as i32;
-            if dist < 0 {
+            if serial < self.primary_selection_serial.get() {
                 return false;
             }
         }
@@ -851,7 +849,7 @@ impl WlSeatGlobal {
     pub fn set_zwp_primary_selection(
         self: &Rc<Self>,
         selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         if let Some(serial) = serial {
             self.primary_selection_serial.set(serial);

@@ -106,7 +106,6 @@ use {
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         mem,
-        num::Wrapping,
         ops::DerefMut,
         rc::{Rc, Weak},
         sync::Arc,
@@ -169,7 +168,7 @@ pub struct State {
     pub run_args: RunArgs,
     pub xwayland: XWaylandState,
     pub acceptor: CloneCell<Option<Rc<Acceptor>>>,
-    pub serial: NumCell<Wrapping<u32>>,
+    pub serial: NumCell<u64>,
     pub run_toplevel: Rc<RunToplevel>,
     pub config_dir: Option<String>,
     pub config_file_id: NumCell<u64>,
@@ -755,8 +754,8 @@ impl State {
         }
     }
 
-    pub fn next_serial(&self, client: Option<&Client>) -> u32 {
-        let serial = self.serial.fetch_add(Wrapping(1)).0;
+    pub fn next_serial(&self, client: Option<&Client>) -> u64 {
+        let serial = self.serial.fetch_add(1);
         if let Some(client) = client {
             'update_range: {
                 let mut serials = client.serials.borrow_mut();

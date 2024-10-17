@@ -102,7 +102,7 @@ impl XdgPositioned {
         }
 
         let mut x1 = self.off_x;
-        let mut y1 = self.off_x;
+        let mut y1 = self.off_y;
 
         if anchor.contains(E_LEFT) {
             x1 += self.ar.x1();

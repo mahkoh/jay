@@ -161,7 +161,7 @@ impl Clients {
             is_xwayland,
             effective_caps,
             bounding_caps,
-            last_enter_serial: Cell::new(0),
+            last_enter_serial: Default::default(),
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
             symmetric_delete: Cell::new(false),
@@ -277,7 +277,7 @@ pub struct Client {
     pub is_xwayland: bool,
     pub effective_caps: ClientCaps,
     pub bounding_caps: ClientCaps,
-    pub last_enter_serial: Cell<u32>,
+    pub last_enter_serial: Cell<Option<u64>>,
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,
     pub symmetric_delete: Cell<bool>,
@@ -291,8 +291,8 @@ pub struct Client {
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
 
 pub struct SerialRange {
-    pub lo: u32,
-    pub hi: u32,
+    pub lo: u64,
+    pub hi: u64,
 }
 
 impl Client {
@@ -320,20 +320,28 @@ impl Client {
         }
     }
 
-    pub fn valid_serial(&self, serial: u32) -> bool {
+    pub fn map_serial(&self, serial: u32) -> Option<u64> {
         let serials = self.serials.borrow_mut();
+        let latest = serials.back()?;
+        let mut serial = ((latest.hi >> 32) << 32) | (serial as u64);
+        if serial > latest.hi {
+            serial = serial.checked_sub(1 << 32)?;
+        }
         for range in serials.iter().rev() {
-            if serial.wrapping_sub(range.hi) as i32 > 0 {
-                return false;
+            if serial > range.hi {
+                return None;
             }
-            if serial.wrapping_sub(range.lo) as i32 >= 0 {
-                return true;
+            if serial >= range.lo {
+                return Some(serial);
             }
         }
-        serials.len() == NUM_CACHED_SERIAL_RANGES
+        if serials.len() == NUM_CACHED_SERIAL_RANGES {
+            return Some(serial);
+        }
+        None
     }
 
-    pub fn next_serial(&self) -> u32 {
+    pub fn next_serial(&self) -> u64 {
         self.state.next_serial(Some(self))
     }
 

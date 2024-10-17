@@ -60,11 +60,11 @@ impl ZwpTabletPadGroupV2 {
         self.client.event(Done { self_id: self.id });
     }
 
-    pub fn send_mode_switch(&self, time: u32, serial: u32, mode: u32) {
+    pub fn send_mode_switch(&self, time: u32, serial: u64, mode: u32) {
         self.client.event(ModeSwitch {
             self_id: self.id,
             time,
-            serial,
+            serial: serial as _,
             mode,
         });
     }

@@ -232,7 +232,7 @@ impl<T: WlrIpc> IpcVtable for WlrIpcImpl<T> {
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         debug_assert!(serial.is_none());
         let _ = serial;
