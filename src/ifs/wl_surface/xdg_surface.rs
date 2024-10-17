@@ -105,25 +105,27 @@ impl XdgPopupParent for Popup {
     fn post_commit(&self) {
         let mut wl = self.workspace_link.borrow_mut();
         let mut dl = self.display_link.borrow_mut();
-        let ws = match self.parent.workspace.get() {
-            Some(ws) => ws,
-            _ => {
-                log::info!("no ws");
-                return;
-            }
-        };
         let surface = &self.popup.xdg.surface;
         let state = &surface.client.state;
         if surface.buffer.is_some() {
+            let mut any_set = false;
             if wl.is_none() {
-                self.popup.xdg.set_workspace(&ws);
-                *wl = Some(ws.stacked.add_last(self.popup.clone()));
+                if let Some(ws) = self.parent.workspace.get() {
+                    self.popup.xdg.set_workspace(&ws);
+                    *wl = Some(ws.stacked.add_last(self.popup.clone()));
+                    any_set = true;
+                }
+            }
+            if dl.is_none() {
                 *dl = Some(
                     self.parent
                         .popup_display_stack
                         .get()
                         .add_last(self.popup.clone()),
                 );
+                any_set = true;
+            }
+            if any_set {
                 state.tree_changed();
                 self.popup.set_visible(self.parent.surface.visible.get());
             }
