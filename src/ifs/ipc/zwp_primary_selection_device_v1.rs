@@ -69,13 +69,13 @@ impl ZwpPrimarySelectionDeviceV1RequestHandler for ZwpPrimarySelectionDeviceV1 {
     type Error = ZwpPrimarySelectionDeviceV1Error;
 
     fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if !self.client.valid_serial(req.serial) {
+        let Some(serial) = self.client.map_serial(req.serial) else {
             log::warn!("Client tried to set_selection with an invalid serial");
             return Ok(());
-        }
+        };
         if !self
             .seat
-            .may_modify_primary_selection(&self.client, Some(req.serial))
+            .may_modify_primary_selection(&self.client, Some(serial))
         {
             log::warn!("Ignoring disallowed set_selection request");
             return Ok(());
@@ -85,7 +85,7 @@ impl ZwpPrimarySelectionDeviceV1RequestHandler for ZwpPrimarySelectionDeviceV1 {
         } else {
             Some(self.client.lookup(req.source)?)
         };
-        self.seat.set_zwp_primary_selection(src, Some(req.serial))?;
+        self.seat.set_zwp_primary_selection(src, Some(serial))?;
         Ok(())
     }
 
@@ -124,7 +124,7 @@ impl IpcVtable for PrimarySelectionIpc {
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError> {
         seat.set_zwp_primary_selection(Some(source.clone()), serial)
     }

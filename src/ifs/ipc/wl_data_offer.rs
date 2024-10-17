@@ -68,7 +68,7 @@ impl DynDataOffer for WlDataOffer {
         cancel_offer::<ClipboardIpc>(self);
     }
 
-    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u32) {
+    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u64) {
         self.device.send_enter(surface, x, y, self.id, serial);
     }
 

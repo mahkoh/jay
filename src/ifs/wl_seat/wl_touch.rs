@@ -33,7 +33,7 @@ impl WlTouch {
 
     pub fn send_down(
         &self,
-        serial: u32,
+        serial: u64,
         time: u32,
         surface: WlSurfaceId,
         id: i32,
@@ -43,7 +43,7 @@ impl WlTouch {
         logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Down {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time,
             surface,
             id,
@@ -52,10 +52,10 @@ impl WlTouch {
         })
     }
 
-    pub fn send_up(&self, serial: u32, time: u32, id: i32) {
+    pub fn send_up(&self, serial: u64, time: u32, id: i32) {
         self.seat.client.event(Up {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time,
             id,
         })

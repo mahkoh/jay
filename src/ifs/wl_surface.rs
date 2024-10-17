@@ -1776,7 +1776,7 @@ impl Node for WlSurface {
         time_usec: u64,
         button: u32,
         state: KeyState,
-        serial: u32,
+        serial: u64,
     ) {
         seat.button_surface(&self, time_usec, button, state, serial);
     }
@@ -1829,7 +1829,7 @@ impl Node for WlSurface {
         dnd.seat.dnd_surface_leave(self, dnd);
     }
 
-    fn node_on_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+    fn node_on_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u64) {
         dnd.seat.dnd_surface_enter(self, dnd, x, y, serial);
     }
 

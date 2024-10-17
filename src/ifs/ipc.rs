@@ -115,7 +115,7 @@ pub trait DynDataOffer: 'static {
             any::type_name_of_val(self)
         )
     }
-    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u32) {
+    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u64) {
         let _ = surface;
         let _ = x;
         let _ = y;
@@ -155,7 +155,7 @@ pub trait IpcVtable: Sized {
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
-        serial: Option<u32>,
+        serial: Option<u64>,
     ) -> Result<(), WlSeatError>;
     fn create_offer(
         dd: &Rc<Self::Device>,

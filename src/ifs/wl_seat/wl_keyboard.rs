@@ -44,7 +44,7 @@ impl WlKeyboard {
 
     fn send_kb_state(
         &self,
-        serial: u32,
+        serial: u64,
         kb_state: &KeyboardState,
         surface_id: WlSurfaceId,
         send_leave: bool,
@@ -78,7 +78,7 @@ impl WlKeyboard {
         });
     }
 
-    pub fn enter(&self, serial: u32, surface: WlSurfaceId, kb_state: &KeyboardState) {
+    pub fn enter(&self, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
         if kb_state.id != self.kb_state_id.get() {
             self.send_kb_state(serial, kb_state, surface, false);
         } else {
@@ -87,26 +87,26 @@ impl WlKeyboard {
         }
     }
 
-    fn send_enter(&self, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
+    fn send_enter(&self, serial: u64, surface: WlSurfaceId, keys: &[u32]) {
         self.seat.client.event(Enter {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             surface,
             keys,
         })
     }
 
-    pub fn send_leave(&self, serial: u32, surface: WlSurfaceId) {
+    pub fn send_leave(&self, serial: u64, surface: WlSurfaceId) {
         self.seat.client.event(Leave {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             surface,
         })
     }
 
     pub fn on_key(
         &self,
-        serial: u32,
+        serial: u64,
         time: u32,
         key: u32,
         state: u32,
@@ -119,17 +119,17 @@ impl WlKeyboard {
         self.send_key(serial, time, key, state);
     }
 
-    fn send_key(&self, serial: u32, time: u32, key: u32, state: u32) {
+    fn send_key(&self, serial: u64, time: u32, key: u32, state: u32) {
         self.seat.client.event(Key {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time,
             key,
             state,
         })
     }
 
-    pub fn on_mods_changed(&self, serial: u32, surface: WlSurfaceId, kb_state: &KeyboardState) {
+    pub fn on_mods_changed(&self, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
         if self.kb_state_id.get() != kb_state.id {
             self.send_kb_state(serial, kb_state, surface, true);
         } else {
@@ -137,10 +137,10 @@ impl WlKeyboard {
         }
     }
 
-    fn send_modifiers(&self, serial: u32, mods: &ModifierState) {
+    fn send_modifiers(&self, serial: u64, mods: &ModifierState) {
         self.seat.client.event(Modifiers {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             mods_depressed: mods.mods_depressed,
             mods_latched: mods.mods_latched,
             mods_locked: mods.mods_locked,

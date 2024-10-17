@@ -1356,7 +1356,7 @@ impl Node for OutputNode {
         _time_usec: u64,
         button: u32,
         state: KeyState,
-        _serial: u32,
+        _serial: u64,
     ) {
         if button != BTN_LEFT {
             return;

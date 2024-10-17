@@ -23,20 +23,20 @@ impl ZwpPointerGestureHoldV1 {
         self.seat.hold_bindings.remove(&self.client, self);
     }
 
-    pub fn send_hold_begin(&self, n: &WlSurface, serial: u32, time_usec: u64, finger_count: u32) {
+    pub fn send_hold_begin(&self, n: &WlSurface, serial: u64, time_usec: u64, finger_count: u32) {
         self.client.event(Begin {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time: (time_usec / 1000) as u32,
             surface: n.id,
             fingers: finger_count,
         });
     }
 
-    pub fn send_hold_end(&self, serial: u32, time_usec: u64, cancelled: bool) {
+    pub fn send_hold_end(&self, serial: u64, time_usec: u64, cancelled: bool) {
         self.client.event(End {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             time: (time_usec / 1000) as u32,
             cancelled: cancelled as _,
         });

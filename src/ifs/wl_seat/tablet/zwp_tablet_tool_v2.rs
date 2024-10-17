@@ -98,11 +98,11 @@ impl ZwpTabletToolV2 {
         self.client.event(Removed { self_id: self.id });
     }
 
-    pub fn send_proximity_in(&self, serial: u32, tablet: &ZwpTabletV2, surface: &WlSurface) {
+    pub fn send_proximity_in(&self, serial: u64, tablet: &ZwpTabletV2, surface: &WlSurface) {
         self.entered.set(true);
         self.client.event(ProximityIn {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             tablet: tablet.id,
             surface: surface.id,
         });
@@ -113,10 +113,10 @@ impl ZwpTabletToolV2 {
         self.client.event(ProximityOut { self_id: self.id });
     }
 
-    pub fn send_down(&self, serial: u32) {
+    pub fn send_down(&self, serial: u64) {
         self.client.event(Down {
             self_id: self.id,
-            serial,
+            serial: serial as _,
         });
     }
 
@@ -177,10 +177,10 @@ impl ZwpTabletToolV2 {
         });
     }
 
-    pub fn send_button(&self, serial: u32, button: u32, state: ToolButtonState) {
+    pub fn send_button(&self, serial: u64, button: u32, state: ToolButtonState) {
         self.client.event(Button {
             self_id: self.id,
-            serial,
+            serial: serial as _,
             button,
             state: match state {
                 ToolButtonState::Released => 0,
@@ -204,7 +204,7 @@ impl ZwpTabletToolV2RequestHandler for ZwpTabletToolV2 {
         let Some(tool) = self.tool.get() else {
             return Ok(());
         };
-        if !self.seat.client.valid_serial(req.serial) {
+        if self.seat.client.map_serial(req.serial).is_none() {
             log::warn!("Client tried to set_cursor with an invalid serial");
             return Ok(());
         }

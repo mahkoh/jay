@@ -128,7 +128,7 @@ impl PointerOwnerHolder {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         self.owner
             .get()
@@ -230,7 +230,7 @@ trait PointerOwner {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         let _ = origin;
         let _ = icon;
@@ -284,7 +284,7 @@ struct SimpleGrabPointerOwner<T> {
     usecase: T,
     buttons: SmallMap<u32, (), 1>,
     node: Rc<dyn Node>,
-    serial: u32,
+    serial: u64,
 }
 
 struct DndPointerOwner {
@@ -473,7 +473,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         self.usecase
             .start_drag(self, seat, origin, src, icon, serial)
@@ -627,7 +627,7 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         let _ = grab;
         let _ = origin;
@@ -720,7 +720,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
         icon: Option<Rc<DndIcon>>,
-        serial: u32,
+        serial: u64,
     ) -> Result<(), WlSeatError> {
         let button = match grab.buttons.iter().next() {
             Some((b, _)) => b,
