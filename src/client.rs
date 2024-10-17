@@ -175,6 +175,7 @@ impl Clients {
                 slf,
             )),
             wire_scale: Default::default(),
+            focus_stealing_serial: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -286,6 +287,7 @@ pub struct Client {
     pub activation_tokens: RefCell<VecDeque<ActivationToken>>,
     pub commit_timelines: Rc<CommitTimelines>,
     pub wire_scale: Cell<Option<i32>>,
+    pub focus_stealing_serial: Cell<Option<u64>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

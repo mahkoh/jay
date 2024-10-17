@@ -211,6 +211,7 @@ impl TabletTool {
             tool.send_frame(time);
         });
         if state == ToolButtonState::Pressed {
+            n.client.focus_stealing_serial.set(Some(serial.get()));
             if let Some(node) = n.get_focus_node(self.tablet.seat.id) {
                 self.tablet.seat.focus_node_with_serial(node, serial.get());
             }
@@ -259,6 +260,7 @@ impl TabletTool {
         });
         if let Some(changes) = changes {
             if changes.down == Some(true) {
+                n.client.focus_stealing_serial.set(Some(serial.get()));
                 if let Some(node) = n.get_focus_node(self.tablet.seat.id) {
                     self.tablet.seat.focus_node_with_serial(node, serial.get());
                 }

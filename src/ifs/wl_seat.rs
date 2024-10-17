@@ -1041,6 +1041,18 @@ impl WlSeatGlobal {
             ei_seat.regions_changed();
         });
     }
+
+    #[expect(dead_code)]
+    pub fn handle_focus_request(self: &Rc<Self>, client: &Client, node: Rc<dyn Node>, serial: u64) {
+        let Some(max_serial) = client.focus_stealing_serial.get() else {
+            return;
+        };
+        let serial = serial.min(max_serial);
+        if serial <= self.keyboard_node_serial.get() {
+            return;
+        }
+        self.focus_node_with_serial(node, serial);
+    }
 }
 
 impl CursorUserOwner for WlSeatGlobal {
