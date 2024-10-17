@@ -64,7 +64,7 @@ impl Global for RemovedWpDrmLeaseDeviceV1Global {
 }
 
 impl RemovableWaylandGlobal for WpDrmLeaseDeviceV1Global {
-    fn create_replacement(&self) -> Rc<dyn Global> {
+    fn create_replacement(self: Rc<Self>) -> Rc<dyn Global> {
         Rc::new(RemovedWpDrmLeaseDeviceV1Global {
             name: self.name,
             bindings: Default::default(),

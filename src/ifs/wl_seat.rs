@@ -23,6 +23,7 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
+        backend::KeyState,
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -64,7 +65,12 @@ use {
                 zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
-            wl_surface::{dnd_icon::DndIcon, WlSurface},
+            wl_surface::{
+                dnd_icon::DndIcon,
+                tray::{DynTrayItem, TrayItemId},
+                xdg_surface::xdg_popup::XdgPopup,
+                WlSurface,
+            },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
@@ -82,8 +88,8 @@ use {
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, WlTouchId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
-            ZwpRelativePointerV1Id, ZwpTextInputV3Id,
+            WlSeatId, WlTouchId, XdgPopupId, ZwlrDataControlDeviceV1Id,
+            ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
         wire_ei::EiSeatId,
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
@@ -201,6 +207,7 @@ pub struct WlSeatGlobal {
     ei_seats: CopyHashMap<(ClientId, EiSeatId), Rc<EiSeat>>,
     ui_drag_highlight: Cell<Option<Rect>>,
     keyboard_node_serial: Cell<u64>,
+    tray_popups: CopyHashMap<(TrayItemId, XdgPopupId), Rc<dyn DynTrayItem>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -273,6 +280,7 @@ impl WlSeatGlobal {
             tablet: Default::default(),
             ei_seats: Default::default(),
             ui_drag_highlight: Default::default(),
+            tray_popups: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -1042,7 +1050,37 @@ impl WlSeatGlobal {
         });
     }
 
-    #[expect(dead_code)]
+    pub fn add_tray_item_popup<T: DynTrayItem>(&self, item: &Rc<T>, popup: &Rc<XdgPopup>) {
+        self.tray_popups
+            .set((item.data().tray_item_id, popup.id), item.clone());
+    }
+
+    pub fn remove_tray_item_popup<T: DynTrayItem>(&self, item: &T, popup: &Rc<XdgPopup>) {
+        self.tray_popups
+            .remove(&(item.data().tray_item_id, popup.id));
+    }
+
+    fn handle_node_button(
+        self: &Rc<Self>,
+        node: Rc<dyn Node>,
+        time_usec: u64,
+        button: u32,
+        state: KeyState,
+        serial: u64,
+    ) {
+        if self.tray_popups.is_not_empty() && state == KeyState::Pressed {
+            let id = node.node_tray_item();
+            self.tray_popups.lock().retain(|&(tray_item_id, _), item| {
+                let retain = Some(tray_item_id) == id;
+                if !retain {
+                    item.destroy_popups();
+                }
+                retain
+            })
+        }
+        node.node_on_button(self, time_usec, button, state, serial);
+    }
+
     pub fn handle_focus_request(self: &Rc<Self>, client: &Client, node: Rc<dyn Node>, serial: u64) {
         let Some(max_serial) = client.focus_stealing_serial.get() else {
             return;

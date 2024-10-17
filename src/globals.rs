@@ -261,11 +261,11 @@ impl Globals {
     pub fn remove<T: RemovableWaylandGlobal>(
         &self,
         state: &State,
-        global: &T,
+        global: &Rc<T>,
     ) -> Result<(), GlobalsError> {
         let _global = self.take(global.name(), true)?;
         global.remove(self);
-        let replacement = global.create_replacement();
+        let replacement = global.clone().create_replacement();
         assert_eq!(global.name(), replacement.name());
         assert_eq!(global.interface().0, replacement.interface().0);
         self.removed.set(global.name(), replacement);
@@ -360,5 +360,5 @@ pub trait WaylandGlobal: Global + 'static {
 }
 
 pub trait RemovableWaylandGlobal: WaylandGlobal {
-    fn create_replacement(&self) -> Rc<dyn Global>;
+    fn create_replacement(self: Rc<Self>) -> Rc<dyn Global>;
 }

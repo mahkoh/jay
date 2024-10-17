@@ -47,6 +47,7 @@ use {
                 SeatIds, WlSeatGlobal,
             },
             wl_surface::{
+                tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
@@ -222,6 +223,7 @@ pub struct State {
     pub ui_drag_threshold_squared: Cell<i32>,
     pub toplevels: CopyHashMap<ToplevelIdentifier, Weak<dyn ToplevelNode>>,
     pub const_40hz_latch: EventSource<dyn LatchListener>,
+    pub tray_item_ids: TrayItemIds,
 }
 
 // impl Drop for State {
@@ -586,7 +588,10 @@ impl State {
         self.globals.add_global(self, global)
     }
 
-    pub fn remove_global<T: RemovableWaylandGlobal>(&self, global: &T) -> Result<(), GlobalsError> {
+    pub fn remove_global<T: RemovableWaylandGlobal>(
+        &self,
+        global: &Rc<T>,
+    ) -> Result<(), GlobalsError> {
         self.globals.remove(self, global)
     }
 
@@ -1253,6 +1258,10 @@ impl State {
                 surface.handle_xwayland_wire_scale_change();
             }
         }
+    }
+
+    pub fn tray_icon_size(&self) -> i32 {
+        (self.theme.sizes.title_height.get() - 2).max(0)
     }
 }
 

@@ -2,6 +2,7 @@ use {
     crate::{
         ifs::wl_surface::{
             ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
+            tray::jay_tray_item_v1::JayTrayItemV1,
             x_surface::xwindow::Xwindow,
             xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
@@ -62,6 +63,10 @@ pub trait NodeVisitorBase: Sized {
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
         node.node_visit_children(self);
     }
+
+    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+        node.node_visit_children(self);
+    }
 }
 
 pub trait NodeVisitor {
@@ -77,6 +82,7 @@ pub trait NodeVisitor {
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>);
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>);
+    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>);
 }
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
@@ -126,6 +132,10 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
 
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
         <T as NodeVisitorBase>::visit_lock_surface(self, node)
+    }
+
+    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
+        <T as NodeVisitorBase>::visit_tray_item(self, node)
     }
 }
 
@@ -194,6 +204,11 @@ impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
     }
 
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
+        (self.f)(node.clone());
+        node.node_visit_children(self);
+    }
+
+    fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
         (self.f)(node.clone());
         node.node_visit_children(self);
     }

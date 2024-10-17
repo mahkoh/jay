@@ -13,15 +13,15 @@ use {
 
 const INVALID_INPUT: u32 = 0;
 
-const NONE: u32 = 0;
-const TOP: u32 = 1;
-const BOTTOM: u32 = 2;
-const LEFT: u32 = 3;
-const RIGHT: u32 = 4;
-const TOP_LEFT: u32 = 5;
-const BOTTOM_LEFT: u32 = 6;
-const TOP_RIGHT: u32 = 7;
-const BOTTOM_RIGHT: u32 = 8;
+pub const ANCHOR_NONE: u32 = 0;
+pub const ANCHOR_TOP: u32 = 1;
+pub const ANCHOR_BOTTOM: u32 = 2;
+pub const ANCHOR_LEFT: u32 = 3;
+pub const ANCHOR_RIGHT: u32 = 4;
+pub const ANCHOR_TOP_LEFT: u32 = 5;
+pub const ANCHOR_BOTTOM_LEFT: u32 = 6;
+pub const ANCHOR_TOP_RIGHT: u32 = 7;
+pub const ANCHOR_BOTTOM_RIGHT: u32 = 8;
 
 bitflags! {
     Edge: u32;
@@ -34,15 +34,15 @@ bitflags! {
 impl Edge {
     fn from_enum(e: u32) -> Option<Self> {
         let s = match e {
-            NONE => Self::none(),
-            TOP => E_TOP,
-            BOTTOM => E_BOTTOM,
-            LEFT => E_LEFT,
-            RIGHT => E_RIGHT,
-            TOP_LEFT => E_TOP | E_LEFT,
-            BOTTOM_LEFT => E_BOTTOM | E_LEFT,
-            TOP_RIGHT => E_TOP | E_RIGHT,
-            BOTTOM_RIGHT => E_BOTTOM | E_RIGHT,
+            ANCHOR_NONE => Self::none(),
+            ANCHOR_TOP => E_TOP,
+            ANCHOR_BOTTOM => E_BOTTOM,
+            ANCHOR_LEFT => E_LEFT,
+            ANCHOR_RIGHT => E_RIGHT,
+            ANCHOR_TOP_LEFT => E_TOP | E_LEFT,
+            ANCHOR_BOTTOM_LEFT => E_BOTTOM | E_LEFT,
+            ANCHOR_TOP_RIGHT => E_TOP | E_RIGHT,
+            ANCHOR_BOTTOM_RIGHT => E_BOTTOM | E_RIGHT,
             _ => return None,
         };
         Some(s)

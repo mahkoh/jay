@@ -147,6 +147,7 @@ Jay supports the following wayland protocols:
 | ext_output_image_capture_source_manager_v1           | 1               |               |
 | ext_session_lock_manager_v1                          | 1               | Yes           |
 | ext_transient_seat_manager_v1                        | 1[^ts_rejected] | Yes           |
+| jay_tray_v1                                          | 1               |               |
 | org_kde_kwin_server_decoration_manager               | 1               |               |
 | wl_compositor                                        | 6               |               |
 | wl_data_device_manager                               | 3               |               |

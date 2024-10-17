@@ -1,0 +1,7 @@
+request destroy {
+}
+
+request get_tray_item {
+    id: id(jay_tray_item_v1),
+    surface: id(wl_surface),
+}

@@ -7,7 +7,10 @@ keymap = """
     };
     """
 
-on-graphics-initialized = { type = "exec", exec = "mako" }
+on-graphics-initialized = [
+    { type = "exec", exec = "mako" },
+    { type = "exec", exec = "wl-tray-bridge" },
+]
 
 [shortcuts]
 alt-h = "focus-left"
