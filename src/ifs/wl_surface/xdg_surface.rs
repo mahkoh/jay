@@ -389,6 +389,8 @@ impl XdgSurfaceRequestHandler for XdgSurface {
                 workspace_link: Default::default(),
             });
             popup.parent.set(Some(user.clone()));
+            popup.xdg.set_popup_stack(&parent.popup_display_stack.get());
+            popup.xdg.set_output(&parent.surface.output.get());
             parent.popups.set(req.id, user);
         }
         self.ext.set(Some(popup));
