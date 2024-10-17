@@ -148,6 +148,13 @@ impl Renderer<'_> {
                         );
                     }
                 }
+                for item in output.tray_items.iter() {
+                    if item.surface.buffer.is_some() {
+                        let rect = item.rel_pos.get().move_(x, y);
+                        let bounds = self.base.scale_rect(rect);
+                        self.render_surface(&item.surface, rect.x1(), rect.y1(), Some(&bounds));
+                    }
+                }
             }
             if let Some(ws) = output.workspace.get() {
                 self.render_workspace(&ws, x, y + th + 1);
