@@ -1150,7 +1150,10 @@ impl WlSeatGlobal {
     ) {
         let (state, pressed) = match state {
             KeyState::Released => (wl_pointer::RELEASED, false),
-            KeyState::Pressed => (wl_pointer::PRESSED, true),
+            KeyState::Pressed => {
+                surface.client.focus_stealing_serial.set(Some(serial));
+                (wl_pointer::PRESSED, true)
+            }
         };
         let time = (time_usec / 1000) as u32;
         self.surface_pointer_event(Version::ALL, surface, |p| {
@@ -1372,6 +1375,7 @@ impl WlSeatGlobal {
         y: Fixed,
     ) {
         let serial = surface.client.next_serial();
+        surface.client.focus_stealing_serial.set(Some(serial));
         let time = (time_usec / 1000) as _;
         self.surface_touch_event(Version::ALL, surface, |t| {
             t.send_down(serial, time, surface.id, id, x, y)
