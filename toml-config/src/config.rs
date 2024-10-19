@@ -70,7 +70,7 @@ pub enum Action {
         idle: Duration,
     },
     ConfigureInput {
-        input: Input,
+        input: Box<Input>,
     },
     ConfigureOutput {
         out: Output,
@@ -97,7 +97,7 @@ pub enum Action {
         level: LogLevel,
     },
     SetRenderDevice {
-        dev: DrmDeviceMatch,
+        dev: Box<DrmDeviceMatch>,
     },
     SetStatus {
         status: Option<Status>,

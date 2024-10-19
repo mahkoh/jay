@@ -167,7 +167,9 @@ impl ActionParser<'_> {
                 is_inputs_array: false,
             })
             .map_spanned_err(ActionParserError::ConfigureInput)?;
-        Ok(Action::ConfigureInput { input })
+        Ok(Action::ConfigureInput {
+            input: Box::new(input),
+        })
     }
 
     fn parse_configure_idle(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
@@ -273,7 +275,7 @@ impl ActionParser<'_> {
             .extract(val("dev"))?
             .parse_map(&mut DrmDeviceMatchParser(self.0))
             .map_spanned_err(ActionParserError::SetRenderDevice)?;
-        Ok(Action::SetRenderDevice { dev })
+        Ok(Action::SetRenderDevice { dev: Box::new(dev) })
     }
 
     fn parse_configure_direct_scanout(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
