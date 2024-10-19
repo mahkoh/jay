@@ -8,7 +8,10 @@ use {
         dbus::{DbusError, TRUE},
         udev::UdevDevice,
         utils::{
-            bitflags::BitflagsExt, cell_ext::CellExt, errorfmt::ErrorFmt, nonblock::set_nonblock,
+            bitflags::BitflagsExt,
+            cell_ext::CellExt,
+            errorfmt::ErrorFmt,
+            nonblock::{set_block, set_nonblock},
         },
         video::drm::DrmMaster,
         wire_dbus::org::freedesktop::login1::session::{
@@ -236,6 +239,12 @@ impl MetalBackend {
                     return;
                 }
             };
+            if let Err(e) = set_block(res.fd.raw()) {
+                log::error!(
+                    "Could not set drm file descriptor to blocking: {}",
+                    ErrorFmt(e),
+                );
+            }
             let master = match DrmMaster::new(&slf.state.ring, res.fd.clone()) {
                 Ok(m) => Rc::new(m),
                 Err(e) => {
