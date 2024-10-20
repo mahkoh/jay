@@ -19,8 +19,8 @@ pub struct Opaque {
 pub fn opaque() -> Opaque {
     let mut rng = thread_rng();
     Opaque {
-        lo: rng.gen(),
-        hi: rng.gen(),
+        lo: rng.r#gen(),
+        hi: rng.r#gen(),
     }
 }
 

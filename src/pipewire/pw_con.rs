@@ -177,14 +177,14 @@ impl PwCon {
             |fmt| {
                 f(fmt);
                 if self.ack_registry_generation.get() != self.registry_generation.get() {
-                    let gen = self.registry_generation.get();
+                    let generation = self.registry_generation.get();
                     fmt.write_struct(|f| {
                         f.write_id(FOOTER_REGISTRY_GENERATION);
                         f.write_struct(|f| {
-                            f.write_ulong(gen);
+                            f.write_ulong(generation);
                         });
                     });
-                    self.ack_registry_generation.set(gen);
+                    self.ack_registry_generation.set(generation);
                 }
             },
         );
@@ -415,9 +415,9 @@ impl Incoming {
                     let s2 = p2.read_struct()?;
                     if opcode == FOOTER_REGISTRY_GENERATION {
                         let mut p3 = s2.fields;
-                        let gen = p3.read_ulong()?;
-                        self.con.registry_generation.set(gen);
-                        log::debug!("registry generation = {}", gen);
+                        let generation = p3.read_ulong()?;
+                        self.con.registry_generation.set(generation);
+                        log::debug!("registry generation = {}", generation);
                     } else {
                         log::warn!("Unknown message footer: {}", opcode);
                     }
