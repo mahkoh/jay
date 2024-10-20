@@ -20,7 +20,9 @@ pub fn main(global: GlobalArgs, args: RunPrivilegedArgs) {
         let mut path = PathBuf::from(xrd);
         path.push(&wd);
         if path.exists() {
-            std::env::set_var(WAYLAND_DISPLAY, &wd);
+            unsafe {
+                std::env::set_var(WAYLAND_DISPLAY, &wd);
+            }
         }
     }
     let mut argv = UstrPtr::new();

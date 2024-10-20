@@ -332,9 +332,11 @@ struct Forker {
 
 impl Forker {
     fn handle(ppid: c::pid_t, socket: OwnedFd) -> ! {
-        env::set_var("XDG_SESSION_TYPE", "wayland");
-        env::remove_var(DISPLAY);
-        env::remove_var(WAYLAND_DISPLAY);
+        unsafe {
+            env::set_var("XDG_SESSION_TYPE", "wayland");
+            env::remove_var(DISPLAY);
+            env::remove_var(WAYLAND_DISPLAY);
+        }
         set_process_name("the ol' forker");
         setup_deathsig(ppid);
         reset_signals();
@@ -409,9 +411,11 @@ impl Forker {
 
     fn handle_set_env(self: &Rc<Self>, var: &[u8], val: Option<Vec<u8>>) {
         let var = OsStr::from_bytes(var);
-        match val {
-            Some(val) => env::set_var(var, OsStr::from_bytes(&val)),
-            _ => env::remove_var(var),
+        unsafe {
+            match val {
+                Some(val) => env::set_var(var, OsStr::from_bytes(&val)),
+                _ => env::remove_var(var),
+            }
         }
     }
 
@@ -513,9 +517,11 @@ impl Forker {
                         c::signal(c::SIGCHLD, c::SIG_DFL);
                     }
                     for (key, val) in env {
-                        match val {
-                            None => env::remove_var(&key),
-                            Some(val) => env::set_var(&key, &val),
+                        unsafe {
+                            match val {
+                                None => env::remove_var(&key),
+                                Some(val) => env::set_var(&key, &val),
+                            }
                         }
                     }
                     let prog = prog.into_ustr();
