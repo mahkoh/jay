@@ -175,7 +175,7 @@ impl Drop for RenderingFrame {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn ___tracy_demangle(
     mangled: *const std::ffi::c_char,
 ) -> *const std::ffi::c_char {

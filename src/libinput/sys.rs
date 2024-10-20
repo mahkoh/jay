@@ -34,7 +34,7 @@ pub struct libinput_tablet_tool(u8);
 pub struct libinput_event_touch(u8);
 
 #[link(name = "input")]
-extern "C" {
+unsafe extern "C" {
     pub fn libinput_log_set_handler(libinput: *mut libinput, log_handler: libinput_log_handler);
     pub fn libinput_log_set_priority(libinput: *mut libinput, priority: libinput_log_priority);
     pub fn libinput_path_create_context(

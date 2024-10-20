@@ -83,7 +83,7 @@ struct gbm_import_fd_modifier_data {
 }
 
 #[link(name = "gbm")]
-extern "C" {
+unsafe extern "C" {
     fn gbm_create_device(fd: c::c_int) -> *mut Device;
     fn gbm_device_destroy(dev: *mut Device);
 
