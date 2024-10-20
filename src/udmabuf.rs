@@ -241,7 +241,7 @@ impl Drop for UdmabufMap {
 
 impl MappedBuffer for UdmabufMap {
     unsafe fn data(&self) -> &[u8] {
-        &*self.data
+        unsafe { &*self.data }
     }
 
     fn data_ptr(&self) -> *mut u8 {

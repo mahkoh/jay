@@ -67,7 +67,9 @@ impl VulkanAllocation {
     ) {
         allocator.total.fetch_sub(self.size);
         let block = self.block.take().unwrap();
-        do_free(gpu, &device.device, block, self.mem);
+        unsafe {
+            do_free(gpu, &device.device, block, self.mem);
+        }
     }
 }
 
@@ -363,12 +365,14 @@ unsafe fn do_free(
     mut block: MemoryBlock<DeviceMemory>,
     ptr: Option<*mut u8>,
 ) {
-    let device = AshMemoryDevice::wrap(device);
-    if let Some(_ptr) = ptr {
-        // log::info!("free = {:?} - {:?} ({})", ptr, ptr.add(block.size() as usize), block.size());
-        block.unmap(device);
+    unsafe {
+        let device = AshMemoryDevice::wrap(device);
+        if let Some(_ptr) = ptr {
+            // log::info!("free = {:?} - {:?} ({})", ptr, ptr.add(block.size() as usize), block.size());
+            block.unmap(device);
+        }
+        gpu.dealloc(device, block);
     }
-    gpu.dealloc(device, block);
 }
 
 impl Drop for UnsyncAllocatorStorage {

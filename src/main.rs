@@ -37,7 +37,7 @@
     clippy::unnecessary_cast,
     clippy::manual_flatten
 )]
-#![warn(clippy::allow_attributes)]
+#![warn(clippy::allow_attributes, unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 mod macros;

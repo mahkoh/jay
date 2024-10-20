@@ -35,7 +35,7 @@ impl<T> VecStorage<T> {
     }
 
     unsafe fn to_vector<U>(&mut self) -> Vec<U> {
-        Vec::from_raw_parts(self.ptr as _, 0, self.cap)
+        unsafe { Vec::from_raw_parts(self.ptr as _, 0, self.cap) }
     }
 }
 

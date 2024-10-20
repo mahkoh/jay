@@ -155,11 +155,13 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
         writeln!(f, "       if self.{}.is_null() {{", name)?;
         writeln!(f, "           panic!(\"Could not load `{}`\");", name)?;
         writeln!(f, "       }}")?;
+        writeln!(f, "       unsafe {{")?;
         writeln!(
             f,
-            "       ptr::read(&self.{} as *const *mut u8 as *const unsafe extern fn({}) -> {})({})",
+            "           ptr::read(&self.{} as *const *mut u8 as *const unsafe extern fn({}) -> {})({})",
             name, args_tys, ret, args_names
         )?;
+        writeln!(f, "       }}")?;
         writeln!(f, "    }}")?;
     }
     writeln!(f, "}}")?;

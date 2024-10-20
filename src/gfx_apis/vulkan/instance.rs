@@ -190,12 +190,12 @@ unsafe extern "system" fn debug_callback(
         DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Trace,
         _ => Level::Warn,
     };
-    let data = &*p_callback_data;
-    let message = Ustr::from_ptr(data.p_message);
+    let data = unsafe { &*p_callback_data };
+    let message = unsafe { Ustr::from_ptr(data.p_message) };
     let message_id_name = if data.p_message_id_name.is_null() {
         ustr!("<null>")
     } else {
-        Ustr::from_ptr(data.p_message_id_name)
+        unsafe { Ustr::from_ptr(data.p_message_id_name) }
     };
     log::log!(
         Level::Info,

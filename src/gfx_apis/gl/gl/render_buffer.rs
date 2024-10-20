@@ -39,10 +39,17 @@ impl GlRenderBuffer {
         };
         let gles = &ctx.dpy.gles;
         let mut rbo = 0;
-        (gles.glGenRenderbuffers)(1, &mut rbo);
-        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
-        (gles.glRenderbufferStorage)(GL_RENDERBUFFER, shm_info.gl_internal_format, width, height);
-        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
+        unsafe {
+            (gles.glGenRenderbuffers)(1, &mut rbo);
+            (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
+            (gles.glRenderbufferStorage)(
+                GL_RENDERBUFFER,
+                shm_info.gl_internal_format,
+                width,
+                height,
+            );
+            (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
+        }
         Ok(Rc::new(GlRenderBuffer {
             _img: None,
             ctx: ctx.clone(),
@@ -63,12 +70,14 @@ impl GlRenderBuffer {
         }
         let gles = ctx.dpy.gles;
         let mut rbo = 0;
-        (gles.glGenRenderbuffers)(1, &mut rbo);
-        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
-        ctx.dpy
-            .procs
-            .glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
-        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
+        unsafe {
+            (gles.glGenRenderbuffers)(1, &mut rbo);
+            (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
+            ctx.dpy
+                .procs
+                .glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
+            (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
+        }
         Ok(Rc::new(GlRenderBuffer {
             _img: Some(img.clone()),
             ctx: ctx.clone(),
@@ -85,28 +94,30 @@ impl GlRenderBuffer {
     ) -> Result<GlFrameBuffer, RenderError> {
         let gles = self.ctx.dpy.gles;
         let mut fbo = 0;
-        (gles.glGenFramebuffers)(1, &mut fbo);
-        (gles.glBindFramebuffer)(GL_FRAMEBUFFER, fbo);
-        (gles.glFramebufferRenderbuffer)(
-            GL_FRAMEBUFFER,
-            GL_COLOR_ATTACHMENT0,
-            GL_RENDERBUFFER,
-            self.rbo,
-        );
-        let status = (gles.glCheckFramebufferStatus)(GL_FRAMEBUFFER);
-        (gles.glBindFramebuffer)(GL_FRAMEBUFFER, 0);
-        let fb = GlFrameBuffer {
-            rb: self.clone(),
-            _tex: None,
-            ctx: self.ctx.clone(),
-            fbo,
-            width: self.width,
-            height: self.height,
-        };
-        if status != GL_FRAMEBUFFER_COMPLETE {
-            return Err(RenderError::CreateFramebuffer);
+        unsafe {
+            (gles.glGenFramebuffers)(1, &mut fbo);
+            (gles.glBindFramebuffer)(GL_FRAMEBUFFER, fbo);
+            (gles.glFramebufferRenderbuffer)(
+                GL_FRAMEBUFFER,
+                GL_COLOR_ATTACHMENT0,
+                GL_RENDERBUFFER,
+                self.rbo,
+            );
+            let status = (gles.glCheckFramebufferStatus)(GL_FRAMEBUFFER);
+            (gles.glBindFramebuffer)(GL_FRAMEBUFFER, 0);
+            let fb = GlFrameBuffer {
+                rb: self.clone(),
+                _tex: None,
+                ctx: self.ctx.clone(),
+                fbo,
+                width: self.width,
+                height: self.height,
+            };
+            if status != GL_FRAMEBUFFER_COMPLETE {
+                return Err(RenderError::CreateFramebuffer);
+            }
+            Ok(fb)
         }
-        Ok(fb)
     }
 }
 

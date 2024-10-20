@@ -194,39 +194,43 @@ thread_local! {
 }
 
 unsafe fn kill() -> ! {
-    c::signal(c::SIGBUS, c::SIG_DFL);
-    raise(c::SIGBUS);
+    unsafe {
+        c::signal(c::SIGBUS, c::SIG_DFL);
+        raise(c::SIGBUS);
+    }
     unreachable!();
 }
 
 unsafe extern "C" fn sigbus(sig: i32, info: &c::siginfo_t, _ucontext: *mut c::c_void) {
-    assert_eq!(sig, c::SIGBUS);
-    let mut memr_ptr = MEM.get();
-    while !memr_ptr.is_null() {
-        let memr = &*memr_ptr;
-        let mem = &*memr.mem;
-        let lo = mem.data as *mut u8 as usize;
-        let hi = lo + mem.len();
-        let fault_addr = info.si_addr() as usize;
-        if fault_addr < lo || fault_addr >= hi {
-            memr_ptr = memr.outer;
-            continue;
+    unsafe {
+        assert_eq!(sig, c::SIGBUS);
+        let mut memr_ptr = MEM.get();
+        while !memr_ptr.is_null() {
+            let memr = &*memr_ptr;
+            let mem = &*memr.mem;
+            let lo = mem.data as *mut u8 as usize;
+            let hi = lo + mem.len();
+            let fault_addr = info.si_addr() as usize;
+            if fault_addr < lo || fault_addr >= hi {
+                memr_ptr = memr.outer;
+                continue;
+            }
+            let res = c::mmap64(
+                lo as _,
+                hi - lo,
+                c::PROT_WRITE | c::PROT_READ,
+                c::MAP_ANONYMOUS | c::MAP_PRIVATE | c::MAP_FIXED,
+                -1,
+                0,
+            );
+            if res == c::MAP_FAILED {
+                kill();
+            }
+            mem.failed.set(true);
+            return;
         }
-        let res = c::mmap64(
-            lo as _,
-            hi - lo,
-            c::PROT_WRITE | c::PROT_READ,
-            c::MAP_ANONYMOUS | c::MAP_PRIVATE | c::MAP_FIXED,
-            -1,
-            0,
-        );
-        if res == c::MAP_FAILED {
-            kill();
-        }
-        mem.failed.set(true);
-        return;
+        kill();
     }
-    kill();
 }
 
 pub fn init() -> Result<(), ClientMemError> {

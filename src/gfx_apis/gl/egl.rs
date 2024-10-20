@@ -83,12 +83,12 @@ unsafe extern "C" fn egl_log(
         _ => Level::Warn,
     };
     let command = if !command.is_null() {
-        CStr::from_ptr(command).to_bytes()
+        unsafe { CStr::from_ptr(command).to_bytes() }
     } else {
         b"none"
     };
     let message = if !message.is_null() {
-        CStr::from_ptr(message).to_bytes()
+        unsafe { CStr::from_ptr(message).to_bytes() }
     } else {
         b"none"
     };

@@ -158,7 +158,7 @@ pub struct GbmBoMap {
 
 impl MappedBuffer for GbmBoMap {
     unsafe fn data(&self) -> &[u8] {
-        &*self.data
+        unsafe { &*self.data }
     }
 
     fn data_ptr(&self) -> *mut u8 {
@@ -171,36 +171,38 @@ impl MappedBuffer for GbmBoMap {
 }
 
 unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmError> {
-    Ok(DmaBuf {
-        id: dmabuf_ids.next(),
-        width: gbm_bo_get_width(bo) as _,
-        height: gbm_bo_get_height(bo) as _,
-        modifier: gbm_bo_get_modifier(bo),
-        format: {
-            let format = gbm_bo_get_format(bo);
-            match formats().get(&format).copied() {
-                Some(f) => f,
-                _ => return Err(GbmError::UnknownFormat),
-            }
-        },
-        planes: {
-            let mut planes = PlaneVec::new();
-            for plane in 0..gbm_bo_get_plane_count(bo) {
-                let offset = gbm_bo_get_offset(bo, plane);
-                let stride = gbm_bo_get_stride_for_plane(bo, plane);
-                let fd = gbm_bo_get_fd_for_plane(bo, plane);
-                if fd < 0 {
-                    return Err(GbmError::DrmFd);
+    unsafe {
+        Ok(DmaBuf {
+            id: dmabuf_ids.next(),
+            width: gbm_bo_get_width(bo) as _,
+            height: gbm_bo_get_height(bo) as _,
+            modifier: gbm_bo_get_modifier(bo),
+            format: {
+                let format = gbm_bo_get_format(bo);
+                match formats().get(&format).copied() {
+                    Some(f) => f,
+                    _ => return Err(GbmError::UnknownFormat),
                 }
-                planes.push(DmaBufPlane {
-                    offset,
-                    stride,
-                    fd: Rc::new(OwnedFd::new(fd)),
-                })
-            }
-            planes
-        },
-    })
+            },
+            planes: {
+                let mut planes = PlaneVec::new();
+                for plane in 0..gbm_bo_get_plane_count(bo) {
+                    let offset = gbm_bo_get_offset(bo, plane);
+                    let stride = gbm_bo_get_stride_for_plane(bo, plane);
+                    let fd = gbm_bo_get_fd_for_plane(bo, plane);
+                    if fd < 0 {
+                        return Err(GbmError::DrmFd);
+                    }
+                    planes.push(DmaBufPlane {
+                        offset,
+                        stride,
+                        fd: Rc::new(OwnedFd::new(fd)),
+                    })
+                }
+                planes
+            },
+        })
+    }
 }
 
 impl GbmDevice {

@@ -76,24 +76,30 @@ impl EglContext {
         &self,
         f: F,
     ) -> Result<T, RenderError> {
-        if (self.dpy.egl.eglMakeCurrent)(
-            self.dpy.dpy,
-            EGLSurface::none(),
-            EGLSurface::none(),
-            self.ctx,
-        ) == EGL_FALSE
-        {
-            return Err(RenderError::MakeCurrent);
+        unsafe {
+            if (self.dpy.egl.eglMakeCurrent)(
+                self.dpy.dpy,
+                EGLSurface::none(),
+                EGLSurface::none(),
+                self.ctx,
+            ) == EGL_FALSE
+            {
+                return Err(RenderError::MakeCurrent);
+            }
+            let prev = CURRENT.get();
+            CURRENT.set(self.ctx);
+            let res = f();
+            if (self.dpy.egl.eglMakeCurrent)(
+                self.dpy.dpy,
+                EGLSurface::none(),
+                EGLSurface::none(),
+                prev,
+            ) == EGL_FALSE
+            {
+                panic!("Could not restore EGLContext");
+            }
+            CURRENT.set(prev);
+            res
         }
-        let prev = CURRENT.get();
-        CURRENT.set(self.ctx);
-        let res = f();
-        if (self.dpy.egl.eglMakeCurrent)(self.dpy.dpy, EGLSurface::none(), EGLSurface::none(), prev)
-            == EGL_FALSE
-        {
-            panic!("Could not restore EGLContext");
-        }
-        CURRENT.set(prev);
-        res
     }
 }

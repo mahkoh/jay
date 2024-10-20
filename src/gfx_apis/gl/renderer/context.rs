@@ -44,16 +44,18 @@ pub(crate) struct TexProg {
 
 impl TexProg {
     unsafe fn from(prog: GlProgram, alpha_multiplier: bool) -> Self {
-        let alpha = match alpha_multiplier {
-            true => prog.get_uniform_location(c"alpha"),
-            false => 0,
-        };
-        Self {
-            pos: prog.get_attrib_location(c"pos"),
-            texcoord: prog.get_attrib_location(c"texcoord"),
-            tex: prog.get_uniform_location(c"tex"),
-            alpha,
-            prog,
+        unsafe {
+            let alpha = match alpha_multiplier {
+                true => prog.get_uniform_location(c"alpha"),
+                false => 0,
+            };
+            Self {
+                pos: prog.get_attrib_location(c"pos"),
+                texcoord: prog.get_attrib_location(c"texcoord"),
+                tex: prog.get_uniform_location(c"tex"),
+                alpha,
+                prog,
+            }
         }
     }
 }
@@ -129,8 +131,10 @@ impl GlRenderContext {
                     tex_frac_src.push_str("#define ALPHA\n");
                 }
                 tex_frac_src.push_str(tex_frag);
-                let prog = GlProgram::from_shaders(ctx, tex_vert, &tex_frac_src)?;
-                Ok::<_, RenderError>(TexProg::from(prog, alpha_multiplier))
+                unsafe {
+                    let prog = GlProgram::from_shaders(ctx, tex_vert, &tex_frac_src)?;
+                    Ok::<_, RenderError>(TexProg::from(prog, alpha_multiplier))
+                }
             };
             Ok::<_, RenderError>(enum_map! {
                 TexCopyType::Identity => enum_map! {
@@ -149,11 +153,13 @@ impl GlRenderContext {
         } else {
             None
         };
-        let fill_prog = GlProgram::from_shaders(
-            ctx,
-            include_str!("../shaders/fill.vert.glsl"),
-            include_str!("../shaders/fill.frag.glsl"),
-        )?;
+        let fill_prog = unsafe {
+            GlProgram::from_shaders(
+                ctx,
+                include_str!("../shaders/fill.vert.glsl"),
+                include_str!("../shaders/fill.frag.glsl"),
+            )?
+        };
         Ok(Self {
             ctx: ctx.clone(),
             gbm: ctx.dpy.gbm.clone(),
@@ -164,8 +170,8 @@ impl GlRenderContext {
             tex_internal,
             tex_external,
 
-            fill_prog_pos: fill_prog.get_attrib_location(c"pos"),
-            fill_prog_color: fill_prog.get_uniform_location(c"color"),
+            fill_prog_pos: unsafe { fill_prog.get_attrib_location(c"pos") },
+            fill_prog_color: unsafe { fill_prog.get_uniform_location(c"color") },
             fill_prog,
 
             gl_state: Default::default(),

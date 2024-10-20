@@ -671,7 +671,7 @@ impl Drop for VulkanBoMapping {
 
 impl MappedBuffer for VulkanBoMapping {
     unsafe fn data(&self) -> &[u8] {
-        &*self.data
+        unsafe { &*self.data }
     }
 
     fn data_ptr(&self) -> *mut u8 {

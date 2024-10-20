@@ -49,27 +49,31 @@ impl<T: 'static, F: Future<Output = T>> SpawnedFutureVTableProxy<T, F> {
     };
 
     unsafe fn poll(data: *mut u8, ctx: &mut Context<'_>) -> Poll<T> {
-        let task = (data as *const Task<T, F>).deref();
-        if &task.state & COMPLETED == 0 {
-            task.waker.set(Some(ctx.waker().clone()));
-            Poll::Pending
-        } else if &task.state & EMPTIED == 0 {
-            task.state.or_assign(EMPTIED);
-            Poll::Ready(ptr::read(&*task.data.get().deref().result))
-        } else {
-            panic!("Future polled after it has already been emptied");
+        unsafe {
+            let task = (data as *const Task<T, F>).deref();
+            if &task.state & COMPLETED == 0 {
+                task.waker.set(Some(ctx.waker().clone()));
+                Poll::Pending
+            } else if &task.state & EMPTIED == 0 {
+                task.state.or_assign(EMPTIED);
+                Poll::Ready(ptr::read(&*task.data.get().deref().result))
+            } else {
+                panic!("Future polled after it has already been emptied");
+            }
         }
     }
 
     unsafe fn drop(data: *mut u8) {
-        {
-            let task = (data as *const Task<T, F>).deref();
-            task.state.or_assign(CANCELLED);
-            if &task.state & RUNNING == 0 {
-                task.drop_data();
+        unsafe {
+            {
+                let task = (data as *const Task<T, F>).deref();
+                task.state.or_assign(CANCELLED);
+                if &task.state & RUNNING == 0 {
+                    task.drop_data();
+                }
             }
+            Task::<T, F>::dec_ref_count(data as _);
         }
-        Task::<T, F>::dec_ref_count(data as _);
     }
 }
 
@@ -160,27 +164,33 @@ impl<T, F: Future<Output = T>> Task<T, F> {
     );
 
     unsafe fn run_proxy(data: *const u8, run: bool) {
-        let task = data as *const Self;
-        if run {
-            task.deref().run();
-        } else {
-            Self::task_runnable_dropped(task);
+        unsafe {
+            let task = data as *const Self;
+            if run {
+                task.deref().run();
+            } else {
+                Self::task_runnable_dropped(task);
+            }
+            Self::dec_ref_count(task);
         }
-        Self::dec_ref_count(task);
     }
 
     #[cold]
     unsafe fn task_runnable_dropped(task: *const Self) {
-        let task = task.deref();
-        task.state.and_assign(!RUNNING);
-        if task.state.get() & CANCELLED != 0 {
-            task.drop_data();
+        unsafe {
+            let task = task.deref();
+            task.state.and_assign(!RUNNING);
+            if task.state.get() & CANCELLED != 0 {
+                task.drop_data();
+            }
         }
     }
 
     unsafe fn dec_ref_count(slf: *const Self) {
-        if slf.deref().ref_count.fetch_sub(1) == 1 {
-            drop(Box::from_raw(slf as *mut Self));
+        unsafe {
+            if slf.deref().ref_count.fetch_sub(1) == 1 {
+                drop(Box::from_raw(slf as *mut Self));
+            }
         }
     }
 
@@ -189,80 +199,92 @@ impl<T, F: Future<Output = T>> Task<T, F> {
     }
 
     unsafe fn waker_clone(data: *const ()) -> RawWaker {
-        let task = &mut *(data as *mut Self);
-        task.inc_ref_count();
-        RawWaker::new(data, Self::VTABLE)
+        unsafe {
+            let task = &mut *(data as *mut Self);
+            task.inc_ref_count();
+            RawWaker::new(data, Self::VTABLE)
+        }
     }
 
     unsafe fn waker_wake(data: *const ()) {
-        Self::waker_wake_by_ref(data);
-        Self::waker_drop(data);
+        unsafe {
+            Self::waker_wake_by_ref(data);
+            Self::waker_drop(data);
+        }
     }
 
     unsafe fn waker_wake_by_ref(data: *const ()) {
-        (data as *const Self).deref().schedule_run();
+        unsafe {
+            (data as *const Self).deref().schedule_run();
+        }
     }
 
     unsafe fn waker_drop(data: *const ()) {
-        Self::dec_ref_count(data as _)
+        unsafe { Self::dec_ref_count(data as _) }
     }
 
     unsafe fn schedule_run(&self) {
-        if &self.state & (COMPLETED | CANCELLED) == 0 {
-            if &self.state & RUNNING == 0 {
-                self.state.or_assign(RUNNING);
-                self.inc_ref_count();
-                let data = self as *const _ as _;
-                self.queue.push(
-                    Runnable {
-                        data,
-                        run: Self::run_proxy,
-                    },
-                    self.phase,
-                );
-            } else {
-                self.state.or_assign(RUN_AGAIN);
+        unsafe {
+            if &self.state & (COMPLETED | CANCELLED) == 0 {
+                if &self.state & RUNNING == 0 {
+                    self.state.or_assign(RUNNING);
+                    self.inc_ref_count();
+                    let data = self as *const _ as _;
+                    self.queue.push(
+                        Runnable {
+                            data,
+                            run: Self::run_proxy,
+                        },
+                        self.phase,
+                    );
+                } else {
+                    self.state.or_assign(RUN_AGAIN);
+                }
             }
         }
     }
 
     unsafe fn run(&self) {
-        if &self.state & CANCELLED == 0 {
-            let data = self.data.get().deref_mut();
-            self.inc_ref_count();
-            let raw_waker = RawWaker::new(self as *const _ as _, Self::VTABLE);
-            let waker = Waker::from_raw(raw_waker);
+        unsafe {
+            if &self.state & CANCELLED == 0 {
+                let data = self.data.get().deref_mut();
+                self.inc_ref_count();
+                let raw_waker = RawWaker::new(self as *const _ as _, Self::VTABLE);
+                let waker = Waker::from_raw(raw_waker);
 
-            let mut ctx = Context::from_waker(&waker);
-            let poll = {
-                dynamic_zone!(self.zone);
-                Pin::new_unchecked(&mut *data.future).poll(&mut ctx)
-            };
-            if let Poll::Ready(d) = poll {
-                ManuallyDrop::drop(&mut data.future);
-                ptr::write(&mut data.result, ManuallyDrop::new(d));
-                self.state.or_assign(COMPLETED);
-                if let Some(waker) = self.waker.take() {
-                    waker.wake();
+                let mut ctx = Context::from_waker(&waker);
+                let poll = {
+                    dynamic_zone!(self.zone);
+                    Pin::new_unchecked(&mut *data.future).poll(&mut ctx)
+                };
+                if let Poll::Ready(d) = poll {
+                    ManuallyDrop::drop(&mut data.future);
+                    ptr::write(&mut data.result, ManuallyDrop::new(d));
+                    self.state.or_assign(COMPLETED);
+                    if let Some(waker) = self.waker.take() {
+                        waker.wake();
+                    }
                 }
             }
-        }
 
-        self.state.and_assign(!RUNNING);
+            self.state.and_assign(!RUNNING);
 
-        if &self.state & CANCELLED != 0 {
-            self.drop_data();
-        } else if &self.state & RUN_AGAIN != 0 {
-            self.state.and_assign(!RUN_AGAIN);
-            self.schedule_run()
+            if &self.state & CANCELLED != 0 {
+                self.drop_data();
+            } else if &self.state & RUN_AGAIN != 0 {
+                self.state.and_assign(!RUN_AGAIN);
+                self.schedule_run()
+            }
         }
     }
 
     unsafe fn drop_data(&self) {
-        if &self.state & COMPLETED == 0 {
-            ManuallyDrop::drop(&mut self.data.get().deref_mut().future);
-        } else if &self.state & EMPTIED == 0 {
-            ManuallyDrop::drop(&mut self.data.get().deref_mut().result);
+        unsafe {
+            if &self.state & COMPLETED == 0 {
+                ManuallyDrop::drop(&mut self.data.get().deref_mut().future);
+            } else if &self.state & EMPTIED == 0 {
+                ManuallyDrop::drop(&mut self.data.get().deref_mut().result);
+            }
         }
     }
 }

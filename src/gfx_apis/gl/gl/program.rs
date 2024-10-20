@@ -21,41 +21,45 @@ impl GlProgram {
         vert: &str,
         frag: &str,
     ) -> Result<Self, RenderError> {
-        let vert = GlShader::compile(ctx, GL_VERTEX_SHADER, vert)?;
-        let frag = GlShader::compile(ctx, GL_FRAGMENT_SHADER, frag)?;
-        Self::link(&vert, &frag)
+        unsafe {
+            let vert = GlShader::compile(ctx, GL_VERTEX_SHADER, vert)?;
+            let frag = GlShader::compile(ctx, GL_FRAGMENT_SHADER, frag)?;
+            Self::link(&vert, &frag)
+        }
     }
 
     pub(in crate::gfx_apis::gl) unsafe fn link(
         vert: &GlShader,
         frag: &GlShader,
     ) -> Result<Self, RenderError> {
-        let gles = vert.ctx.dpy.gles;
-        let res = GlProgram {
-            ctx: vert.ctx.clone(),
-            prog: (gles.glCreateProgram)(),
-        };
-        (gles.glAttachShader)(res.prog, vert.shader);
-        (gles.glAttachShader)(res.prog, frag.shader);
-        (gles.glLinkProgram)(res.prog);
-        (gles.glDetachShader)(res.prog, vert.shader);
-        (gles.glDetachShader)(res.prog, frag.shader);
+        unsafe {
+            let gles = vert.ctx.dpy.gles;
+            let res = GlProgram {
+                ctx: vert.ctx.clone(),
+                prog: (gles.glCreateProgram)(),
+            };
+            (gles.glAttachShader)(res.prog, vert.shader);
+            (gles.glAttachShader)(res.prog, frag.shader);
+            (gles.glLinkProgram)(res.prog);
+            (gles.glDetachShader)(res.prog, vert.shader);
+            (gles.glDetachShader)(res.prog, frag.shader);
 
-        let mut ok = 0;
-        (gles.glGetProgramiv)(res.prog, GL_LINK_STATUS, &mut ok);
-        if ok == GL_FALSE as GLint {
-            return Err(RenderError::ProgramLink);
+            let mut ok = 0;
+            (gles.glGetProgramiv)(res.prog, GL_LINK_STATUS, &mut ok);
+            if ok == GL_FALSE as GLint {
+                return Err(RenderError::ProgramLink);
+            }
+
+            Ok(res)
         }
-
-        Ok(res)
     }
 
     pub unsafe fn get_uniform_location(&self, name: &CStr) -> GLint {
-        (self.ctx.dpy.gles.glGetUniformLocation)(self.prog, name.as_ptr() as _)
+        unsafe { (self.ctx.dpy.gles.glGetUniformLocation)(self.prog, name.as_ptr() as _) }
     }
 
     pub unsafe fn get_attrib_location(&self, name: &CStr) -> GLint {
-        (self.ctx.dpy.gles.glGetAttribLocation)(self.prog, name.as_ptr() as _)
+        unsafe { (self.ctx.dpy.gles.glGetAttribLocation)(self.prog, name.as_ptr() as _) }
     }
 }
 

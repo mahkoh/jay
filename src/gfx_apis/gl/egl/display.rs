@@ -312,21 +312,23 @@ unsafe fn query_formats(
 ) -> Result<AHashMap<u32, EglFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
-    let res = procs.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
+    let res = unsafe { procs.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num) };
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufFormats);
     }
     vec.reserve_exact(num as usize);
-    let res = procs.eglQueryDmaBufFormatsEXT(dpy, num, vec.as_mut_ptr(), &mut num);
+    let res = unsafe { procs.eglQueryDmaBufFormatsEXT(dpy, num, vec.as_mut_ptr(), &mut num) };
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufFormats);
     }
-    vec.set_len(num as usize);
+    unsafe {
+        vec.set_len(num as usize);
+    }
     let mut res = AHashMap::new();
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {
-            let (modifiers, external_only) = query_modifiers(procs, dpy, fmt, format)?;
+            let (modifiers, external_only) = unsafe { query_modifiers(procs, dpy, fmt, format)? };
             res.insert(
                 format.drm,
                 EglFormat {
@@ -349,32 +351,38 @@ unsafe fn query_modifiers(
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
-    let res = procs.eglQueryDmaBufModifiersEXT(
-        dpy,
-        gl_format,
-        num,
-        ptr::null_mut(),
-        ptr::null_mut(),
-        &mut num,
-    );
+    let res = unsafe {
+        procs.eglQueryDmaBufModifiersEXT(
+            dpy,
+            gl_format,
+            num,
+            ptr::null_mut(),
+            ptr::null_mut(),
+            &mut num,
+        )
+    };
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufModifiers);
     }
     mods.reserve_exact(num as usize);
     ext_only.reserve_exact(num as usize);
-    let res = procs.eglQueryDmaBufModifiersEXT(
-        dpy,
-        gl_format,
-        num,
-        mods.as_mut_ptr(),
-        ext_only.as_mut_ptr(),
-        &mut num,
-    );
+    let res = unsafe {
+        procs.eglQueryDmaBufModifiersEXT(
+            dpy,
+            gl_format,
+            num,
+            mods.as_mut_ptr(),
+            ext_only.as_mut_ptr(),
+            &mut num,
+        )
+    };
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufModifiers);
     }
-    mods.set_len(num as usize);
-    ext_only.set_len(num as usize);
+    unsafe {
+        mods.set_len(num as usize);
+        ext_only.set_len(num as usize);
+    }
     let mut res = IndexMap::new();
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
