@@ -164,7 +164,7 @@ unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
             self.cell.set(self.val);
         }
     }
-    CLIENT.with(|cell| {
+    CLIENT.with(|cell| unsafe {
         let client = data as *const Client;
         Rc::increment_strong_count(client);
         let client = Rc::from_raw(client);
@@ -190,14 +190,16 @@ impl<T: Config> ConfigEntryGen<T> {
         size: usize,
     ) -> *const u8 {
         logging::init();
-        init(
-            srv_data,
-            srv_unref,
-            srv_handler,
-            init_data,
-            size,
-            T::configure,
-        )
+        unsafe {
+            init(
+                srv_data,
+                srv_unref,
+                srv_handler,
+                init_data,
+                size,
+                T::configure,
+            )
+        }
     }
 }
 
@@ -239,21 +241,25 @@ pub unsafe extern "C" fn init(
         pressed_keysym: Cell::new(None),
         feat_mod_mask: Cell::new(false),
     });
-    let init = slice::from_raw_parts(init, size);
+    let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
     Rc::into_raw(client) as *const u8
 }
 
 pub unsafe extern "C" fn unref(data: *const u8) {
     let client = data as *const Client;
-    drop(Rc::from_raw(client));
+    unsafe {
+        drop(Rc::from_raw(client));
+    }
 }
 
 pub unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
-    with_client(data, |client| {
-        let msg = slice::from_raw_parts(msg, size);
-        client.handle_msg(msg);
-    });
+    unsafe {
+        with_client(data, |client| {
+            let msg = slice::from_raw_parts(msg, size);
+            client.handle_msg(msg);
+        });
+    }
 }
 
 macro_rules! get_response {

@@ -41,6 +41,7 @@
     clippy::single_char_add_str,
     clippy::single_match
 )]
+#![warn(unsafe_op_in_unsafe_fn)]
 
 use {
     crate::{_private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector},
