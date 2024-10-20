@@ -20,17 +20,21 @@ impl GlShader {
         src: &str,
     ) -> Result<Self, RenderError> {
         let gles = ctx.dpy.gles;
-        let shader = (gles.glCreateShader)(ty);
+        let shader = unsafe { (gles.glCreateShader)(ty) };
         let res = GlShader {
             ctx: ctx.clone(),
             shader,
         };
         let len = src.len() as _;
-        (gles.glShaderSource)(shader, 1, &(src.as_ptr() as _), &len);
-        (gles.glCompileShader)(shader);
+        unsafe {
+            (gles.glShaderSource)(shader, 1, &(src.as_ptr() as _), &len);
+            (gles.glCompileShader)(shader);
+        }
 
         let mut ok = 0;
-        (gles.glGetShaderiv)(shader, GL_COMPILE_STATUS, &mut ok);
+        unsafe {
+            (gles.glGetShaderiv)(shader, GL_COMPILE_STATUS, &mut ok);
+        }
         if ok == GL_FALSE as GLint {
             return Err(RenderError::ShaderCompileFailed);
         }

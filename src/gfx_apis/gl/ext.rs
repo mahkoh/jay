@@ -19,7 +19,7 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
         return None;
     }
     let mut res = AHashSet::new();
-    let ext = CStr::from_ptr(ext).to_bytes();
+    let ext = unsafe { CStr::from_ptr(ext).to_bytes() };
     for part in ext.split_str(" ") {
         let name = part.trim();
         if name.len() > 0 {
@@ -32,8 +32,10 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
 }
 
 unsafe fn get_dpy_extensions(dpy: EGLDisplay) -> Option<AHashSet<String>> {
-    let ext = (EGL.as_ref()?.eglQueryString)(dpy, EGL_EXTENSIONS);
-    get_extensions(ext)
+    unsafe {
+        let ext = (EGL.as_ref()?.eglQueryString)(dpy, EGL_EXTENSIONS);
+        get_extensions(ext)
+    }
 }
 
 fn get_typed_ext<T>(exts: &AHashSet<String>, mut base: T, map: &[(&str, T)]) -> T
@@ -103,7 +105,7 @@ pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
         ("EGL_KHR_wait_sync", KHR_WAIT_SYNC),
         ("EGL_ANDROID_native_fence_sync", ANDROID_NATIVE_FENCE_SYNC),
     ];
-    match get_dpy_extensions(dpy) {
+    match unsafe { get_dpy_extensions(dpy) } {
         Some(exts) => get_typed_ext(&exts, DisplayExt::none(), &map),
         _ => DisplayExt::none(),
     }

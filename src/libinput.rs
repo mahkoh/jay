@@ -41,12 +41,14 @@ unsafe extern "C" fn open_restricted(
     _flags: c::c_int,
     user_data: *mut c::c_void,
 ) -> c::c_int {
-    let ud = (user_data as *const UserData).deref();
-    match ud.adapter.open(CStr::from_ptr(path)) {
-        Ok(f) => f.unwrap(),
-        Err(e) => {
-            log::error!("Could not open device for libinput: {}", ErrorFmt(e));
-            -1
+    unsafe {
+        let ud = (user_data as *const UserData).deref();
+        match ud.adapter.open(CStr::from_ptr(path)) {
+            Ok(f) => f.unwrap(),
+            Err(e) => {
+                log::error!("Could not open device for libinput: {}", ErrorFmt(e));
+                -1
+            }
         }
     }
 }
@@ -173,7 +175,7 @@ unsafe extern "C" fn jay_libinput_log_handler(
     line: *const c::c_char,
 ) {
     assert!(line.is_not_null());
-    let str = CStr::from_ptr(line);
+    let str = unsafe { CStr::from_ptr(line) };
     let priority = match LogPriority(priority as _) {
         LIBINPUT_LOG_PRIORITY_DEBUG => log::Level::Debug,
         LIBINPUT_LOG_PRIORITY_INFO => log::Level::Info,

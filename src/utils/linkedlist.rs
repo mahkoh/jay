@@ -296,8 +296,10 @@ struct NodeData<T> {
 }
 
 unsafe fn dec_ref_count<T>(slf: NonNull<NodeData<T>>, n: usize) {
-    if slf.as_ref().rc.fetch_sub(n) == n {
-        drop(Box::from_raw(slf.as_ptr()));
+    unsafe {
+        if slf.as_ref().rc.fetch_sub(n) == n {
+            drop(Box::from_raw(slf.as_ptr()));
+        }
     }
 }
 
@@ -337,55 +339,63 @@ impl<T> LinkedNode<T> {
 }
 
 unsafe fn prepend_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
-    let dref = data.as_ref();
-    let tref = t.data.as_ref();
-    if tref.rc.get() < LINKED_NODE_REF_COUNT {
-        log::error!("Trying to prepend a node whose linked node has already been dropped");
-        return;
+    unsafe {
+        let dref = data.as_ref();
+        let tref = t.data.as_ref();
+        if tref.rc.get() < LINKED_NODE_REF_COUNT {
+            log::error!("Trying to prepend a node whose linked node has already been dropped");
+            return;
+        }
+        t.detach();
+        tref.prev.set(dref.prev.get());
+        tref.next.set(data);
+        dref.prev.get().as_ref().next.set(t.data);
+        dref.prev.set(t.data);
     }
-    t.detach();
-    tref.prev.set(dref.prev.get());
-    tref.next.set(data);
-    dref.prev.get().as_ref().next.set(t.data);
-    dref.prev.set(t.data);
 }
 
 unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
-    let dref = data.as_ref();
-    let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(LINKED_NODE_REF_COUNT),
-        prev: Cell::new(dref.prev.get()),
-        next: Cell::new(data),
-        data: Some(t),
-    })));
-    dref.prev.get().as_ref().next.set(node);
-    dref.prev.set(node);
-    LinkedNode { data: node }
+    unsafe {
+        let dref = data.as_ref();
+        let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+            rc: NumCell::new(LINKED_NODE_REF_COUNT),
+            prev: Cell::new(dref.prev.get()),
+            next: Cell::new(data),
+            data: Some(t),
+        })));
+        dref.prev.get().as_ref().next.set(node);
+        dref.prev.set(node);
+        LinkedNode { data: node }
+    }
 }
 
 unsafe fn append_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
-    let dref = data.as_ref();
-    let tref = t.data.as_ref();
-    if tref.rc.get() < LINKED_NODE_REF_COUNT {
-        log::error!("Trying to append a node whose linked node has already been dropped");
-        return;
+    unsafe {
+        let dref = data.as_ref();
+        let tref = t.data.as_ref();
+        if tref.rc.get() < LINKED_NODE_REF_COUNT {
+            log::error!("Trying to append a node whose linked node has already been dropped");
+            return;
+        }
+        t.detach();
+        tref.prev.set(data);
+        tref.next.set(dref.next.get());
+        dref.next.get().as_ref().prev.set(t.data);
+        dref.next.set(t.data);
     }
-    t.detach();
-    tref.prev.set(data);
-    tref.next.set(dref.next.get());
-    dref.next.get().as_ref().prev.set(t.data);
-    dref.next.set(t.data);
 }
 
 unsafe fn append<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
-    let dref = data.as_ref();
-    let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(LINKED_NODE_REF_COUNT),
-        prev: Cell::new(data),
-        next: Cell::new(dref.next.get()),
-        data: Some(t),
-    })));
-    dref.next.get().as_ref().prev.set(node);
-    dref.next.set(node);
-    LinkedNode { data: node }
+    unsafe {
+        let dref = data.as_ref();
+        let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+            rc: NumCell::new(LINKED_NODE_REF_COUNT),
+            prev: Cell::new(data),
+            next: Cell::new(dref.next.get()),
+            data: Some(t),
+        })));
+        dref.next.get().as_ref().prev.set(node);
+        dref.next.set(node);
+        LinkedNode { data: node }
+    }
 }

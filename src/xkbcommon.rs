@@ -415,7 +415,7 @@ unsafe extern "C" fn jay_xkbcommon_log_handler(
     line: *const c::c_char,
 ) {
     assert!(line.is_not_null());
-    let buf = CStr::from_ptr(line);
+    let buf = unsafe { CStr::from_ptr(line) };
     let level = match XkbLogLevel(level) {
         XKB_LOG_LEVEL_CRITICAL | XKB_LOG_LEVEL_ERROR => log::Level::Error,
         XKB_LOG_LEVEL_WARNING => log::Level::Warn,

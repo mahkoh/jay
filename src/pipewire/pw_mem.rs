@@ -88,21 +88,23 @@ impl PwMemMap {
     #[expect(dead_code)]
     pub unsafe fn read<T: Pod>(&self) -> &T {
         self.check::<T>(0);
-        (self.map.ptr.cast::<u8>().add(self.range.start) as *const T).deref()
+        unsafe { (self.map.ptr.cast::<u8>().add(self.range.start) as *const T).deref() }
     }
 
     #[expect(dead_code)]
     pub unsafe fn write<T: Pod>(&self) -> &mut T {
         self.check::<T>(0);
-        (self.map.ptr.cast::<u8>().add(self.range.start) as *mut T).deref_mut()
+        unsafe { (self.map.ptr.cast::<u8>().add(self.range.start) as *mut T).deref_mut() }
     }
 
     #[expect(dead_code)]
     pub unsafe fn bytes_mut(&self) -> &mut [u8] {
-        std::slice::from_raw_parts_mut(
-            self.map.ptr.cast::<u8>().add(self.range.start) as _,
-            self.range.len(),
-        )
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self.map.ptr.cast::<u8>().add(self.range.start) as _,
+                self.range.len(),
+            )
+        }
     }
 
     fn check<T>(&self, offset: usize) {
@@ -136,11 +138,11 @@ impl PwMemMap {
 
 impl<T: Pod> PwMemTyped<T> {
     pub unsafe fn read(&self) -> &T {
-        (self.mem.map.ptr.cast::<u8>().add(self.offset) as *const T).deref()
+        unsafe { (self.mem.map.ptr.cast::<u8>().add(self.offset) as *const T).deref() }
     }
 
     pub unsafe fn write(&self) -> &mut T {
-        (self.mem.map.ptr.cast::<u8>().add(self.offset) as *mut T).deref_mut()
+        unsafe { (self.mem.map.ptr.cast::<u8>().add(self.offset) as *mut T).deref_mut() }
     }
 }
 

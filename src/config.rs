@@ -170,7 +170,9 @@ unsafe extern "C" fn default_client_init(
     extern "C" fn configure() {
         jay_toml_config::configure();
     }
-    jay_config::_private::client::init(srv_data, srv_unref, srv_handler, msg, size, configure)
+    unsafe {
+        jay_config::_private::client::init(srv_data, srv_unref, srv_handler, msg, size, configure)
+    }
 }
 
 impl ConfigProxy {
@@ -279,11 +281,11 @@ impl ConfigProxy {
             return Err(ConfigError::CopyConfigFile(e));
         }
         let unlink = UnlinkOnDrop(&copy);
-        let lib = match Library::new(&copy) {
+        let lib = match unsafe { Library::new(&copy) } {
             Ok(l) => l,
             Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
         };
-        let entry = lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0");
+        let entry = unsafe { lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0") };
         let entry = match entry {
             Ok(e) => *e,
             Err(e) => return Err(ConfigError::LibraryDoesNotContainEntry(e)),
@@ -295,18 +297,22 @@ impl ConfigProxy {
 
 unsafe extern "C" fn unref(data: *const u8) {
     let server = data as *const ConfigProxyHandler;
-    drop(Rc::from_raw(server));
+    unsafe {
+        drop(Rc::from_raw(server));
+    }
 }
 
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
-    let server = (data as *const ConfigProxyHandler).deref();
-    if server.dropped.get() {
-        return;
+    unsafe {
+        let server = (data as *const ConfigProxyHandler).deref();
+        if server.dropped.get() {
+            return;
+        }
+        let rc = Rc::from_raw(server);
+        let msg = std::slice::from_raw_parts(msg, size);
+        rc.handle_request(msg);
+        mem::forget(rc);
     }
-    let rc = Rc::from_raw(server);
-    let msg = std::slice::from_raw_parts(msg, size);
-    rc.handle_request(msg);
-    mem::forget(rc);
 }
 
 pub struct InvokedShortcut {
