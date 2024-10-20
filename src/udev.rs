@@ -19,7 +19,7 @@ struct udev_list_entry(u8);
 struct udev_device(u8);
 
 #[link(name = "udev")]
-extern "C" {
+unsafe extern "C" {
     fn udev_new() -> *mut udev;
     fn udev_unref(udev: *mut udev) -> *mut udev;
 

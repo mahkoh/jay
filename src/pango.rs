@@ -20,7 +20,7 @@ struct cairo_surface_t(u8);
 struct cairo_t(u8);
 
 #[link(name = "cairo")]
-extern "C" {
+unsafe extern "C" {
     fn cairo_image_surface_create(
         format: cairo_format_t,
         width: c::c_int,
@@ -47,7 +47,7 @@ extern "C" {
 struct PangoContext_(u8);
 
 #[link(name = "pangocairo-1.0")]
-extern "C" {
+unsafe extern "C" {
     fn pango_cairo_create_context(cr: *mut cairo_t) -> *mut PangoContext_;
     fn pango_cairo_show_layout(cr: *mut cairo_t, layout: *mut PangoLayout_);
 }
@@ -56,7 +56,7 @@ extern "C" {
 struct GObject(u8);
 
 #[link(name = "gobject-2.0")]
-extern "C" {
+unsafe extern "C" {
     fn g_object_unref(object: *mut GObject);
 }
 
@@ -66,7 +66,7 @@ struct PangoFontDescription_(u8);
 struct PangoLayout_(u8);
 
 #[link(name = "pango-1.0")]
-extern "C" {
+unsafe extern "C" {
     fn pango_font_description_from_string(str: *const c::c_char) -> *mut PangoFontDescription_;
     fn pango_font_description_free(desc: *mut PangoFontDescription_);
     fn pango_font_description_get_size(desc: *mut PangoFontDescription_) -> c::c_int;

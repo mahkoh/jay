@@ -71,7 +71,7 @@ impl Default for xkb_rule_names {
 }
 
 #[link(name = "xkbcommon")]
-extern "C" {
+unsafe extern "C" {
     fn xkb_context_new(flags: xkb_context_flags) -> *mut xkb_context;
     fn xkb_context_unref(context: *mut xkb_context);
     fn xkb_context_set_log_verbosity(context: *mut xkb_context, verbosity: c::c_int);
@@ -121,7 +121,7 @@ pub struct XkbContext {
     ids: KeymapIds,
 }
 
-extern "C" {
+unsafe extern "C" {
     fn jay_xkbcommon_log_handler_bridge();
 }
 
