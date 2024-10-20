@@ -270,29 +270,33 @@ mod leaks {
 
     unsafe impl GlobalAlloc for TracingAllocator {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            let res = c::calloc(layout.size(), 1) as *mut u8;
-            if IN_ALLOCATOR.get() == 0 {
-                IN_ALLOCATOR.set(1);
-                ALLOCATIONS.get().deref_mut().insert(
-                    res,
-                    Allocation {
-                        addr: res,
-                        len: layout.size(),
-                        backtrace: Backtrace::new_unresolved(),
-                    },
-                );
-                // log::info!("allocated [0x{:x}, 0x{:x})", res as usize, res as usize + layout.size());
-                IN_ALLOCATOR.set(0);
+            unsafe {
+                let res = c::calloc(layout.size(), 1) as *mut u8;
+                if IN_ALLOCATOR.get() == 0 {
+                    IN_ALLOCATOR.set(1);
+                    ALLOCATIONS.get().deref_mut().insert(
+                        res,
+                        Allocation {
+                            addr: res,
+                            len: layout.size(),
+                            backtrace: Backtrace::new_unresolved(),
+                        },
+                    );
+                    // log::info!("allocated [0x{:x}, 0x{:x})", res as usize, res as usize + layout.size());
+                    IN_ALLOCATOR.set(0);
+                }
+                res
             }
-            res
         }
 
         unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-            if INITIALIZED.get() {
-                ALLOCATIONS.get().deref_mut().remove(&ptr);
+            unsafe {
+                if INITIALIZED.get() {
+                    ALLOCATIONS.get().deref_mut().remove(&ptr);
+                }
+                // c::memset(ptr as _, 0, layout.size());
+                c::free(ptr as _);
             }
-            // c::memset(ptr as _, 0, layout.size());
-            c::free(ptr as _);
         }
     }
 

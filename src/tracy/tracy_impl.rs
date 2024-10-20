@@ -183,16 +183,18 @@ unsafe extern "C" fn ___tracy_demangle(
     if mangled.is_null() {
         return ptr::null();
     }
-    let Ok(mangled) = CStr::from_ptr(mangled).to_str() else {
+    let Ok(mangled) = unsafe { CStr::from_ptr(mangled) }.to_str() else {
         return ptr::null();
     };
     let demangled = rustc_demangle::demangle(mangled);
     static mut BUF: Vec<u8> = Vec::new();
-    BUF.clear();
-    if write!(BUF, "{demangled:#}\0").is_err() {
-        return ptr::null();
+    unsafe {
+        BUF.clear();
+        if write!(BUF, "{demangled:#}\0").is_err() {
+            return ptr::null();
+        }
+        BUF.as_ptr().cast()
     }
-    BUF.as_ptr().cast()
 }
 
 static ENABLED: AtomicBool = AtomicBool::new(false);

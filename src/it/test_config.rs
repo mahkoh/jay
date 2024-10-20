@@ -59,25 +59,29 @@ unsafe extern "C" fn init(
 ) -> *const u8 {
     let tc = CONFIG.get();
     assert!(tc.is_not_null());
-    Rc::increment_strong_count(tc);
-    {
-        let tc = &*tc;
-        tc.srv.set(Some(ServerData {
-            srv_data,
-            srv_unref,
-            srv_handler,
-        }));
+    unsafe {
+        Rc::increment_strong_count(tc);
+        {
+            let tc = &*tc;
+            tc.srv.set(Some(ServerData {
+                srv_data,
+                srv_unref,
+                srv_handler,
+            }));
+        }
+        tc.cast()
     }
-    tc.cast()
 }
 
 unsafe extern "C" fn unref(data: *const u8) {
-    Rc::decrement_strong_count(data.cast::<TestConfig>());
+    unsafe {
+        Rc::decrement_strong_count(data.cast::<TestConfig>());
+    }
 }
 
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
-    let tc = &*data.cast::<TestConfig>();
-    let msg = std::slice::from_raw_parts(msg, size);
+    let tc = unsafe { &*data.cast::<TestConfig>() };
+    let msg = unsafe { std::slice::from_raw_parts(msg, size) };
     let res = bincode_ops().deserialize::<ServerMessage>(msg);
     let msg = match res {
         Ok(msg) => msg,
