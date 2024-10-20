@@ -408,7 +408,7 @@ impl Drop for XkbState {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn jay_xkbcommon_log_handler(
     _ctx: *mut xkb_context,
     level: xkb_log_level,

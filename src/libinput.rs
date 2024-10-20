@@ -166,7 +166,7 @@ impl Drop for LibInput {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "C" fn jay_libinput_log_handler(
     _libinput: *mut libinput,
     priority: libinput_log_priority,

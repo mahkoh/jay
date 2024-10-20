@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! config {
     ($f:path) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[used]
         pub static mut JAY_CONFIG_ENTRY_V1: $crate::_private::ConfigEntry = {
             struct X;
