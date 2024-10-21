@@ -328,6 +328,8 @@ impl CursorUser {
             KnownCursor::AllScroll => &cursors.all_scroll,
             KnownCursor::ZoomIn => &cursors.zoom_in,
             KnownCursor::ZoomOut => &cursors.zoom_out,
+            KnownCursor::DndAsk => &cursors.dnd_ask,
+            KnownCursor::AllResize => &cursors.all_resize,
         };
         self.set_cursor2(Some(
             tpl.instantiate(&self.group.state, self.group.size.get()),

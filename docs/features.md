@@ -163,7 +163,7 @@ Jay supports the following wayland protocols:
 | wp_color_manager_v1                                  | 1[^color_mng]   |               |
 | wp_commit_timing_manager_v1                          | 1               |               |
 | wp_content_type_manager_v1                           | 1               |               |
-| wp_cursor_shape_manager_v1                           | 1               |               |
+| wp_cursor_shape_manager_v1                           | 2               |               |
 | wp_drm_lease_device_v1                               | 1               |               |
 | wp_fifo_manager_v1                                   | 1               |               |
 | wp_fractional_scale_manager_v1                       | 1               |               |

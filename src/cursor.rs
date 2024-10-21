@@ -111,6 +111,8 @@ pub struct ServerCursors {
     pub all_scroll: ServerCursorTemplate,
     pub zoom_in: ServerCursorTemplate,
     pub zoom_out: ServerCursorTemplate,
+    pub dnd_ask: ServerCursorTemplate,
+    pub all_resize: ServerCursorTemplate,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
@@ -149,6 +151,8 @@ pub enum KnownCursor {
     AllScroll,
     ZoomIn,
     ZoomOut,
+    DndAsk,
+    AllResize,
 }
 
 impl ServerCursors {
@@ -201,6 +205,8 @@ impl ServerCursors {
             all_scroll: load(&["all-scroll", "grabbing"])?,
             zoom_in: load(&["zoom-in"])?,
             zoom_out: load(&["zoom-out"])?,
+            dnd_ask: load(&["dnd-ask", "dnd-copy", "copy"])?,
+            all_resize: load(&["all-resize", "move"])?,
         }))
     }
 }

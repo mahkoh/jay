@@ -45,6 +45,10 @@ const ROW_RESIZE: u32 = 31;
 const ALL_SCROLL: u32 = 32;
 const ZOOM_IN: u32 = 33;
 const ZOOM_OUT: u32 = 34;
+const DND_ASK: u32 = 35;
+const ALL_RESIZE: u32 = 36;
+
+const V2: Version = Version(2);
 
 pub enum CursorShapeCursorUser {
     Seat(Rc<WlSeatGlobal>),
@@ -103,6 +107,8 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
             ALL_SCROLL => KnownCursor::AllScroll,
             ZOOM_IN => KnownCursor::ZoomIn,
             ZOOM_OUT => KnownCursor::ZoomOut,
+            DND_ASK if self.version >= V2 => KnownCursor::DndAsk,
+            ALL_RESIZE if self.version >= V2 => KnownCursor::AllResize,
             _ => return Err(WpCursorShapeDeviceV1Error::UnknownShape(req.shape)),
         };
         let tablet_tool;
