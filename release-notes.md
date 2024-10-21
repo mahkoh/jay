@@ -11,6 +11,7 @@
 - Fix screen sharing in zoom.
 - Implement wp-fifo-v1.
 - Implement wp-commit-timing-v1.
+- Implement ext-tray-v1.
 
 # 1.6.0 (2024-09-25)
 

@@ -13,7 +13,7 @@ use {
                 wl_pointer::PendingScroll,
                 Dnd, NodeSeatState, WlSeatGlobal,
             },
-            wl_surface::WlSurface,
+            wl_surface::{tray::TrayItemId, WlSurface},
         },
         rect::Rect,
         renderer::Renderer,
@@ -175,6 +175,10 @@ pub trait Node: 'static {
     }
 
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        None
+    }
+
+    fn node_tray_item(&self) -> Option<TrayItemId> {
         None
     }
 

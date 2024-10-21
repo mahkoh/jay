@@ -336,7 +336,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
                 serial,
             }));
         pn.node_seat_state().add_pointer_grab(seat);
-        pn.node_on_button(seat, time_usec, button, state, serial);
+        seat.handle_node_button(pn, time_usec, button, state, serial);
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -448,9 +448,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
             }
         }
         let serial = seat.state.next_serial(self.node.node_client().as_deref());
-        self.node
-            .clone()
-            .node_on_button(seat, time_usec, button, state, serial);
+        seat.handle_node_button(self.node.clone(), time_usec, button, state, serial);
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {

@@ -159,7 +159,8 @@ impl NodeSeatState {
     fn release_kb_focus2(&self, focus_last: bool) {
         self.release_kb_grab();
         while let Some((_, seat)) = self.kb_foci.pop() {
-            seat.kb_owner.set_kb_node(&seat, seat.state.root.clone());
+            seat.kb_owner
+                .set_kb_node(&seat, seat.state.root.clone(), seat.state.next_serial(None));
             // log::info!("keyboard_node = root");
             if focus_last {
                 seat.get_output()
@@ -935,7 +936,15 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_node(self: &Rc<Self>, node: Rc<dyn Node>) {
-        self.kb_owner.set_kb_node(self, node);
+        if self.keyboard_node.get().node_id() == node.node_id() {
+            return;
+        }
+        let serial = self.state.next_serial(node.node_client().as_deref());
+        self.focus_node_with_serial(node, serial);
+    }
+
+    pub fn focus_node_with_serial(self: &Rc<Self>, node: Rc<dyn Node>, serial: u64) {
+        self.kb_owner.set_kb_node(self, node, serial);
     }
 
     pub(super) fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
@@ -1141,7 +1150,10 @@ impl WlSeatGlobal {
     ) {
         let (state, pressed) = match state {
             KeyState::Released => (wl_pointer::RELEASED, false),
-            KeyState::Pressed => (wl_pointer::PRESSED, true),
+            KeyState::Pressed => {
+                surface.client.focus_stealing_serial.set(Some(serial));
+                (wl_pointer::PRESSED, true)
+            }
         };
         let time = (time_usec / 1000) as u32;
         self.surface_pointer_event(Version::ALL, surface, |p| {
@@ -1150,7 +1162,7 @@ impl WlSeatGlobal {
         self.surface_pointer_frame(surface);
         if pressed {
             if let Some(node) = surface.get_focus_node(self.id) {
-                self.focus_node(node);
+                self.focus_node_with_serial(node, serial);
             }
         }
     }
@@ -1363,12 +1375,13 @@ impl WlSeatGlobal {
         y: Fixed,
     ) {
         let serial = surface.client.next_serial();
+        surface.client.focus_stealing_serial.set(Some(serial));
         let time = (time_usec / 1000) as _;
         self.surface_touch_event(Version::ALL, surface, |t| {
             t.send_down(serial, time, surface.id, id, x, y)
         });
         if let Some(node) = surface.get_focus_node(self.id) {
-            self.focus_node(node);
+            self.focus_node_with_serial(node, serial);
         }
     }
 
