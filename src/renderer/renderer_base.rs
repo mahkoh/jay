@@ -30,8 +30,7 @@ impl RendererBase<'_> {
 
     pub fn scale_point(&self, mut x: i32, mut y: i32) -> (i32, i32) {
         if self.scaled {
-            x = (x as f64 * self.scalef).round() as _;
-            y = (y as f64 * self.scalef).round() as _;
+            [x, y] = self.scale.pixel_size([x, y]);
         }
         (x, y)
     }
@@ -46,10 +45,9 @@ impl RendererBase<'_> {
 
     pub fn scale_rect(&self, mut rect: Rect) -> Rect {
         if self.scaled {
-            let x1 = (rect.x1() as f64 * self.scalef).round() as _;
-            let y1 = (rect.y1() as f64 * self.scalef).round() as _;
-            let x2 = (rect.x2() as f64 * self.scalef).round() as _;
-            let y2 = (rect.y2() as f64 * self.scalef).round() as _;
+            let [x1, y1, x2, y2] =
+                self.scale
+                    .pixel_size([rect.x1(), rect.y1(), rect.x2(), rect.y2()]);
             rect = Rect::new(x1, y1, x2, y2).unwrap();
         }
         rect
