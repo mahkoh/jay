@@ -1,5 +1,6 @@
 pub mod activation_token;
 pub mod array;
+pub mod array_to_tuple;
 pub mod asyncevent;
 pub mod bindings;
 pub mod bitfield;

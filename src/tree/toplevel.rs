@@ -17,6 +17,7 @@ use {
             PlaceholderNode, WorkspaceNode,
         },
         utils::{
+            array_to_tuple::ArrayToTuple,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
@@ -608,7 +609,7 @@ impl ToplevelData {
         let (dw, dh) = self.desired_extents.get().size();
         if let Some(ws) = self.workspace.get() {
             let scale = ws.output.get().global.persistent.scale.get();
-            return scale.pixel_size(dw, dh);
+            return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)
     }

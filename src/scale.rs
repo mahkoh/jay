@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 const BASE: u32 = 120;
+const BASE64: i64 = BASE as i64;
 const BASEF: f64 = BASE as f64;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -38,15 +39,13 @@ impl Scale {
         self.0
     }
 
-    pub fn pixel_size(self, width: i32, height: i32) -> (i32, i32) {
+    #[inline(always)]
+    pub fn pixel_size<const N: usize>(self, v: [i32; N]) -> [i32; N] {
         if self == Scale::default() {
-            return (width, height);
+            return v;
         }
-        let scale = self.to_f64();
-        (
-            (width as f64 * scale).round() as i32,
-            (height as f64 * scale).round() as i32,
-        )
+        let scale = self.0 as i64;
+        v.map(|v| ((v as i64 * scale + BASE64 / 2) / BASE64) as i32)
     }
 }
 
