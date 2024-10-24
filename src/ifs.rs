@@ -26,6 +26,7 @@ pub mod jay_seat_events;
 pub mod jay_select_toplevel;
 pub mod jay_select_workspace;
 pub mod jay_toplevel;
+pub mod jay_tray_v1;
 pub mod jay_workspace;
 pub mod jay_workspace_watcher;
 pub mod jay_xwayland;

@@ -11,6 +11,8 @@
 - Fix screen sharing in zoom.
 - Implement wp-fifo-v1.
 - Implement wp-commit-timing-v1.
+- Implement jay-tray-v1. You can get tray icons and menus by using
+  https://github.com/mahkoh/wl-tray-bridge.
 
 # 1.6.0 (2024-09-25)
 

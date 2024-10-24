@@ -1,0 +1,30 @@
+request destroy {
+}
+
+request ack_configure {
+    serial: u32,
+}
+
+request get_popup {
+    popup: id(xdg_popup),
+    seat: id(wl_seat),
+    serial: u32,
+    keyboard_focus: u32,
+}
+
+event configure_size {
+    width: i32,
+    height: i32,
+}
+
+event preferred_anchor {
+    anchor: u32,
+}
+
+event preferred_gravity {
+    gravity: u32,
+}
+
+event configure {
+    serial: u32,
+}

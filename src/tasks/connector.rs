@@ -2,7 +2,10 @@ use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         globals::GlobalName,
-        ifs::wl_output::{PersistentOutputState, WlOutputGlobal},
+        ifs::{
+            jay_tray_v1::JayTrayV1Global,
+            wl_output::{PersistentOutputState, WlOutputGlobal},
+        },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
@@ -146,6 +149,10 @@ impl ConnectorHandler {
             .state
             .eng
             .spawn("output schedule", schedule.clone().drive());
+        let tray = Rc::new(JayTrayV1Global {
+            name: self.state.globals.name(),
+            output: global.opt.clone(),
+        });
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
@@ -188,6 +195,8 @@ impl ConnectorHandler {
             flip_margin_ns: Default::default(),
             ext_copy_sessions: Default::default(),
             before_latch_event: Default::default(),
+            tray_start_rel: Default::default(),
+            tray_items: Default::default(),
         });
         on.update_visible();
         on.update_rects();
@@ -247,6 +256,7 @@ impl ConnectorHandler {
             config.connector_connected(self.id);
         }
         self.state.add_global(&global);
+        self.state.add_global(&tray);
         self.state.tree_changed();
         on.update_presentation_type();
         'outer: loop {
@@ -324,9 +334,13 @@ impl ConnectorHandler {
         for seat in self.state.globals.seats.lock().values() {
             seat.cursor_group().output_disconnected(&on, &target);
         }
+        for item in on.tray_items.iter() {
+            item.destroy_node();
+        }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
-        let _ = self.state.remove_global(&*global);
+        let _ = self.state.remove_global(&global);
+        let _ = self.state.remove_global(&tray);
         self.state.tree_changed();
         self.state.damage(self.state.root.extents.get());
     }

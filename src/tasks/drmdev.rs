@@ -74,7 +74,7 @@ impl DrvDevHandler {
             config.del_drm_dev(self.id);
         }
         self.data.lease_global.bindings.clear();
-        let _ = self.state.remove_global(&*self.data.lease_global);
+        let _ = self.state.remove_global(&self.data.lease_global);
         self.data.handler.set(None);
         self.state.drm_devs.remove(&self.id);
     }

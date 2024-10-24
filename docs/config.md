@@ -32,7 +32,10 @@ keymap = """
     """
 
 # An action that will be executed when the GPU has been initialized.
-on-graphics-initialized = { type = "exec", exec = "mako" }
+on-graphics-initialized = [
+    { type = "exec", exec = "mako" },
+    { type = "exec", exec = "wl-tray-bridge" },
+]
 
 # Shortcuts that are processed by the compositor.
 # The left hand side should be a key, possibly prefixed with modifiers.
@@ -266,7 +269,10 @@ If you want to run an action at startup, you can use the top-level `on-graphics-
 field:
 
 ```toml
-on-graphics-initialized = { type = "exec", exec = "mako" }
+on-graphics-initialized = [
+    { type = "exec", exec = "mako" },
+    { type = "exec", exec = "wl-tray-bridge" },
+]
 ```
 
 ### Setting Environment Variables
@@ -490,7 +496,7 @@ output.name = "left"
 
 See the specification for more details.
 
-# Theming
+### Theming
 
 You can configure the colors, sizes, and fonts used by the compositor with the top-level `theme` table.
 
@@ -500,3 +506,10 @@ bg-color = "#ff000"
 ```
 
 See the specification for more details.
+
+### Tray Icons and Menus
+
+The default configuration will try to start [wl-tray-bridge] to give you access to tray
+icons and menus.
+
+[wl-tray-bridge]: https://github.com/mahkoh/wl-tray-bridge

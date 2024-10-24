@@ -50,6 +50,16 @@ impl<T> NumCell<T> {
     }
 
     #[inline(always)]
+    pub fn add_fetch(&self, n: T) -> T
+    where
+        T: Copy + Add<T, Output = T>,
+    {
+        let res = self.t.get() + n;
+        self.t.set(res);
+        res
+    }
+
+    #[inline(always)]
     pub fn fetch_sub(&self, n: T) -> T
     where
         T: Copy + Sub<T, Output = T>,
