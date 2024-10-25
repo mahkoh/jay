@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.7.0 (2024-10-25)
+
 - Various bugfixes.
 - Tiles and workspaces can now be dragged with the mouse.
 - Vulkan is now the default renderer.
