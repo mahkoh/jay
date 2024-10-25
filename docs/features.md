@@ -140,6 +140,7 @@ Jay supports the following wayland protocols:
 
 | Global                                               | Version         | Privileged    |
 |------------------------------------------------------|:----------------|---------------|
+| ext_data_control_manager_v1                          | 1               | Yes           |
 | ext_foreign_toplevel_image_capture_source_manager_v1 | 1               |               |
 | ext_foreign_toplevel_list_v1                         | 1               | Yes           |
 | ext_idle_notifier_v1                                 | 1               | Yes           |

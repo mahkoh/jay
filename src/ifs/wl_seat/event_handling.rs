@@ -9,13 +9,12 @@ use {
         fixed::Fixed,
         ifs::{
             ipc::{
+                offer_source_to_regular_client,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 x_data_device::{XClipboardIpc, XPrimarySelectionIpc},
-                zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
-                DynDataSource,
             },
             wl_seat::{
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
@@ -1037,17 +1036,6 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn for_each_wlr_data_device<C>(&self, ver: Version, mut f: C)
-    where
-        C: FnMut(&Rc<ZwlrDataControlDeviceV1>),
-    {
-        for dd in self.wlr_data_devices.lock().values() {
-            if dd.version >= ver {
-                f(dd);
-            }
-        }
-    }
-
     fn surface_pointer_frame(&self, surface: &WlSurface) {
         self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.send_frame());
     }
@@ -1445,7 +1433,7 @@ impl WlSeatGlobal {
     ) {
         if let Some(src) = &dnd.src {
             if !surface.client.is_xwayland {
-                src.clone().offer_to_regular_client(&surface.client);
+                offer_source_to_regular_client::<ClipboardIpc>(src.clone(), &surface.client);
             }
             src.for_each_data_offer(|offer| {
                 offer.send_enter(surface.id, x, y, serial);

@@ -10,8 +10,11 @@ use {
             ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
+                data_control::{
+                    ext_data_control_manager_v1::ExtDataControlManagerV1Global,
+                    zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
+                },
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
-                zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
             },
             jay_compositor::JayCompositorGlobal,
@@ -207,6 +210,7 @@ impl Globals {
         add_singleton!(ExtImageCopyCaptureManagerV1Global);
         add_singleton!(WpFifoManagerV1Global);
         add_singleton!(WpCommitTimingManagerV1Global);
+        add_singleton!(ExtDataControlManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

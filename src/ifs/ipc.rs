@@ -2,12 +2,7 @@ use {
     crate::{
         client::{Client, ClientError, ClientId},
         fixed::Fixed,
-        ifs::{
-            ipc::{
-                x_data_device::XIpcDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
-            },
-            wl_seat::{WlSeatError, WlSeatGlobal},
-        },
+        ifs::{ipc::x_data_device::XIpcDevice, wl_seat::WlSeatGlobal},
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
             smallmap::SmallMap,
@@ -26,6 +21,7 @@ use {
     uapi::OwnedFd,
 };
 
+pub mod data_control;
 pub mod wl_data_device;
 pub mod wl_data_device_manager;
 pub mod wl_data_offer;
@@ -33,10 +29,6 @@ pub mod wl_data_source;
 pub mod x_data_device;
 pub mod x_data_offer;
 pub mod x_data_source;
-pub mod zwlr_data_control_device_v1;
-pub mod zwlr_data_control_manager_v1;
-pub mod zwlr_data_control_offer_v1;
-pub mod zwlr_data_control_source_v1;
 pub mod zwp_primary_selection_device_manager_v1;
 pub mod zwp_primary_selection_device_v1;
 pub mod zwp_primary_selection_offer_v1;
@@ -64,9 +56,7 @@ pub trait DataSource: DynDataSource {
 pub trait DynDataSource: 'static {
     fn source_data(&self) -> &SourceData;
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>);
-    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>);
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>);
-    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>);
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>);
     fn cancel_unprivileged_offers(&self);
 
@@ -139,12 +129,6 @@ pub trait IterableIpcVtable: IpcVtable {
         C: FnMut(&Rc<Self::Device>);
 }
 
-pub trait WlrIpcVtable: IpcVtable<Device = ZwlrDataControlDeviceV1> {
-    fn for_each_device<C>(seat: &WlSeatGlobal, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>);
-}
-
 pub trait IpcVtable: Sized {
     type Device;
     type Source: DataSource;
@@ -152,11 +136,6 @@ pub trait IpcVtable: Sized {
 
     fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer>;
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal>;
-    fn set_seat_selection(
-        seat: &Rc<WlSeatGlobal>,
-        source: &Rc<Self::Source>,
-        serial: Option<u64>,
-    ) -> Result<(), WlSeatError>;
     fn create_offer(
         dd: &Rc<Self::Device>,
         data: OfferData<Self::Device>,
@@ -320,8 +299,8 @@ pub fn detach_seat<S: DataSource>(src: &S, seat: &Rc<WlSeatGlobal>) {
     // data.client.flush();
 }
 
-fn offer_source_to_device<T: IpcVtable, S: DynDataSource>(
-    src: &Rc<S>,
+fn offer_source_to_device<T: IpcVtable>(
+    src: &Rc<dyn DynDataSource>,
     dd: &Rc<T::Device>,
     data: &SourceData,
     shared: Rc<SharedState>,
@@ -356,31 +335,29 @@ fn offer_source_to_device<T: IpcVtable, S: DynDataSource>(
     }
 }
 
-fn offer_source_to_x<T, S>(src: &Rc<S>, dd: &Rc<XIpcDevice>)
+fn offer_source_to_x<T>(src: Rc<dyn DynDataSource>, dd: &Rc<XIpcDevice>)
 where
     T: IpcVtable<Device = XIpcDevice>,
-    S: DynDataSource,
 {
     let data = src.source_data();
     src.cancel_unprivileged_offers();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
-    offer_source_to_device::<T, S>(src, dd, data, shared);
+    offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-pub fn offer_source_to_wlr_device<T, S>(src: &Rc<S>, dd: &Rc<T::Device>)
+pub fn offer_source_to_data_control_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
 where
-    T: IpcVtable<Device = ZwlrDataControlDeviceV1>,
-    S: DynDataSource,
+    T: IpcVtable,
 {
     let data = src.source_data();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
-    offer_source_to_device::<T, _>(src, dd, data, shared);
+    offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
-    src: &Rc<S>,
+pub fn offer_source_to_regular_client<T: IterableIpcVtable>(
+    src: Rc<dyn DynDataSource>,
     client: &Rc<Client>,
 ) {
     let data = src.source_data();
@@ -395,7 +372,7 @@ fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     T::for_each_device(&seat, client.id, |dd| {
-        offer_source_to_device::<T, S>(src, dd, data, shared.clone());
+        offer_source_to_device::<T>(&src, dd, data, shared.clone());
     });
 }
 
