@@ -155,6 +155,7 @@ pub trait HardwareCursorUpdate {
 
 pub trait HardwareCursor: Debug {
     fn damage(&self);
+    fn passive_damage(&self);
 }
 
 pub type TransformMatrix = [[f64; 2]; 2];

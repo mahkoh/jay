@@ -446,6 +446,7 @@ pub struct MetalConnector {
     pub has_damage: NumCell<u64>,
     pub cursor_changed: Cell<bool>,
     pub cursor_damage: Cell<bool>,
+    pub passive_cursor_damage: Cell<bool>,
     pub next_vblank_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
@@ -521,9 +522,15 @@ impl Debug for MetalHardwareCursor {
 impl HardwareCursor for MetalHardwareCursor {
     fn damage(&self) {
         self.connector.cursor_damage.set(true);
+        self.connector.passive_cursor_damage.set(false);
         if self.connector.can_present.get() {
             self.connector.schedule_present();
         }
+    }
+
+    fn passive_damage(&self) {
+        self.connector.cursor_damage.set(true);
+        self.connector.passive_cursor_damage.set(true);
     }
 }
 
@@ -1078,6 +1085,7 @@ fn create_connector(
         frontend_state: Cell::new(FrontState::Disconnected),
         cursor_changed: Cell::new(false),
         cursor_damage: Cell::new(false),
+        passive_cursor_damage: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
         cursor_sync_file: Default::default(),
@@ -2013,7 +2021,7 @@ impl MetalBackend {
             }
         }
         if connector.has_damage.is_not_zero()
-            || connector.cursor_damage.get()
+            || (connector.cursor_damage.get() && !connector.passive_cursor_damage.get())
             || connector.cursor_changed.get()
         {
             connector.schedule_present();

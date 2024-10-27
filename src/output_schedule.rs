@@ -126,6 +126,10 @@ impl OutputSchedule {
     }
 
     pub fn hardware_cursor_changed(&self) {
+        if let Some(hc) = self.hardware_cursor.get() {
+            hc.passive_damage();
+        }
+
         if !self.needs_hardware_cursor_commit.replace(true) {
             self.trigger();
         }
