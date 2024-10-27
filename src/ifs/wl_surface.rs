@@ -1372,11 +1372,6 @@ impl WlSurface {
                 if has_frame_requests {
                     output.global.connector.damage();
                 }
-            } else if has_frame_requests && output.schedule.vrr_enabled() {
-                // Frame requests must be dispatched at the highest possible frame rate.
-                // Therefore we must trigger a vsync of the output as soon as possible.
-                let rect = output.global.pos.get();
-                self.client.state.damage(rect);
             }
         } else {
             if fifo_barrier_set {
