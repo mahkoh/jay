@@ -173,6 +173,9 @@ impl MetalConnector {
             _ => return Ok(()),
         };
 
+        if self.has_damage.get() > 0 || self.cursor_damage.get() {
+            node.schedule.commit_cursor();
+        }
         self.latch_cursor(&node)?;
         let cursor_programming = self.compute_cursor_programming();
         let latched = self.latch(&node);

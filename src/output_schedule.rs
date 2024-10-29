@@ -165,6 +165,10 @@ impl OutputSchedule {
                 break;
             }
         }
+        self.commit_cursor();
+    }
+
+    pub fn commit_cursor(&self) {
         if self.needs_hardware_cursor_commit.take() {
             if let Some(hc) = self.hardware_cursor.get() {
                 hc.damage();
