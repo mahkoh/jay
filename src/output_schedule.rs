@@ -15,6 +15,17 @@ use {
     std::{cell::Cell, rc::Rc},
 };
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Change {
+    /// The backend has applied the latest changes.
+    None,
+    /// There are changes that the backend is not yet aware of.
+    Scheduled,
+    /// The backend is aware that there are changes and will apply them as part of the
+    /// next latch event.
+    AwaitingLatch,
+}
+
 pub struct OutputSchedule {
     changed: AsyncEvent,
     run: Cell<bool>,
@@ -32,9 +43,8 @@ pub struct OutputSchedule {
 
     vrr_enabled: Cell<bool>,
 
-    present_scheduled: Cell<bool>,
-    needs_hardware_cursor_commit: Cell<bool>,
-    needs_software_cursor_damage: Cell<bool>,
+    hardware_cursor_change: Cell<Change>,
+    software_cursor_change: Cell<Change>,
 
     iteration: NumCell<u64>,
 }
@@ -53,9 +63,8 @@ impl OutputSchedule {
             ring: ring.clone(),
             eng: eng.clone(),
             vrr_enabled: Default::default(),
-            present_scheduled: Cell::new(true),
-            needs_hardware_cursor_commit: Default::default(),
-            needs_software_cursor_damage: Default::default(),
+            hardware_cursor_change: Cell::new(Change::None),
+            software_cursor_change: Cell::new(Change::None),
             hardware_cursor: Default::default(),
             persistent: persistent.clone(),
             last_present_nsec: Default::default(),
@@ -79,9 +88,9 @@ impl OutputSchedule {
 
     fn trigger(&self) {
         let trigger = self.vrr_enabled.get()
-            && !self.present_scheduled.get()
             && self.cursor_delta_nsec.is_some()
-            && (self.needs_software_cursor_damage.get() || self.needs_hardware_cursor_commit.get());
+            && (self.software_cursor_change.get() == Change::Scheduled
+                || self.hardware_cursor_change.get() == Change::Scheduled);
         if trigger {
             self.run.set(true);
             self.changed.trigger();
@@ -90,7 +99,12 @@ impl OutputSchedule {
 
     pub fn latched(&self) {
         self.last_present_nsec.set(self.eng.now().nsec());
-        self.present_scheduled.set(false);
+        if self.software_cursor_change.get() == Change::AwaitingLatch {
+            self.software_cursor_change.set(Change::None);
+        }
+        if self.hardware_cursor_change.get() == Change::AwaitingLatch {
+            self.hardware_cursor_change.set(Change::None);
+        }
         self.iteration.fetch_add(1);
         self.trigger();
     }
@@ -126,25 +140,26 @@ impl OutputSchedule {
     }
 
     pub fn hardware_cursor_changed(&self) {
-        if !self.needs_hardware_cursor_commit.replace(true) {
+        if self.hardware_cursor_change.get() == Change::None {
+            self.hardware_cursor_change.set(Change::Scheduled);
             self.trigger();
         }
     }
 
     pub fn software_cursor_changed(&self) {
-        if !self.needs_software_cursor_damage.replace(true) {
+        if self.software_cursor_change.get() == Change::None {
+            self.software_cursor_change.set(Change::Scheduled);
             self.trigger();
         }
     }
 
     async fn run_once(&self) {
-        if self.present_scheduled.get() {
-            return;
-        }
-        if !self.needs_hardware_cursor_commit.get() && !self.needs_software_cursor_damage.get() {
-            return;
-        }
         loop {
+            if self.hardware_cursor_change.get() != Change::Scheduled
+                && self.software_cursor_change.get() != Change::Scheduled
+            {
+                return;
+            }
             if !self.vrr_enabled.get() {
                 return;
             }
@@ -165,15 +180,19 @@ impl OutputSchedule {
                 break;
             }
         }
-        if self.needs_hardware_cursor_commit.take() {
+        self.commit_cursor();
+    }
+
+    pub fn commit_cursor(&self) {
+        if self.hardware_cursor_change.get() == Change::Scheduled {
             if let Some(hc) = self.hardware_cursor.get() {
                 hc.damage();
-                self.present_scheduled.set(true);
             }
+            self.hardware_cursor_change.set(Change::AwaitingLatch);
         }
-        if self.needs_software_cursor_damage.take() {
+        if self.software_cursor_change.get() == Change::Scheduled {
             self.connector.damage();
-            self.present_scheduled.set(true);
+            self.software_cursor_change.set(Change::AwaitingLatch);
         }
     }
 }
