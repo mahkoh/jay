@@ -42,7 +42,7 @@ This will install Jay under `$HOME/.cargo/bin/jay`.
 If you want to use the latest version from git, run
 
 ```
-cargo install --locked --git https://github.com/mahkoh/jay.git jay
+cargo install --locked --git https://github.com/mahkoh/jay.git jay-compositor
 ```
 
 If you only want to build Jay without installing it, run the following command from within this repository:
