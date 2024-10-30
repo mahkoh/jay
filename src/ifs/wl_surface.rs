@@ -1290,11 +1290,11 @@ impl WlSurface {
                 damage_full = true;
             }
         }
-        let has_frame_requests = {
+        let has_new_frame_requests = pending.frame_request.is_not_empty();
+        {
             let frs = &mut *self.frame_requests.borrow_mut();
             frs.append(&mut pending.frame_request);
-            frs.is_not_empty()
-        };
+        }
         let has_presentation_feedback = {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
@@ -1349,7 +1349,7 @@ impl WlSurface {
         }
         if self.visible.get() {
             let output = self.output.get();
-            if has_frame_requests {
+            if has_new_frame_requests {
                 self.vblank_listener.attach(&output.vblank_event);
             }
             if has_presentation_feedback || fifo_barrier_set {
@@ -1369,10 +1369,10 @@ impl WlSurface {
                 self.client.state.damage(damage);
             } else if pending.has_damage() {
                 self.apply_damage(pending);
-                if has_frame_requests {
+                if has_new_frame_requests {
                     output.global.connector.damage();
                 }
-            } else if has_frame_requests && output.schedule.vrr_enabled() {
+            } else if has_new_frame_requests && output.schedule.vrr_enabled() {
                 // Frame requests must be dispatched at the highest possible frame rate.
                 // Therefore we must trigger a vsync of the output as soon as possible.
                 let rect = output.global.pos.get();
