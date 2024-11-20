@@ -18,7 +18,7 @@ use {
     ahash::AHashMap,
     jay_config::{
         input::{acceleration::AccelProfile, SwitchEvent},
-        keyboard::{mods::Modifiers, Keymap, ModifiedKeySym},
+        keyboard::{mods::Modifiers, AppMod, Keymap, ModifiedKeySym},
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
@@ -35,7 +35,7 @@ use {
     toml::toml_parser,
 };
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum SimpleCommand {
     Close,
     DisablePointerConstraint,
@@ -53,6 +53,13 @@ pub enum SimpleCommand {
     ToggleSplit,
     Forward(bool),
     EnableWindowManagement(bool),
+    SetAppMod(AppMod),
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionOrTunnel {
+    Action(Action),
+    Tunnel(Vec<ModifiedKeySym>),
 }
 
 #[derive(Debug, Clone)]
@@ -322,7 +329,7 @@ pub struct Libei {
 pub struct Shortcut {
     pub mask: Modifiers,
     pub keysym: ModifiedKeySym,
-    pub action: Action,
+    pub action: ActionOrTunnel,
     pub latch: Option<Action>,
 }
 
@@ -330,7 +337,7 @@ pub struct Shortcut {
 pub struct Config {
     pub keymap: Option<ConfigKeymap>,
     pub repeat_rate: Option<RepeatRate>,
-    pub shortcuts: Vec<Shortcut>,
+    pub shortcuts: ahash::HashMap<(String, String), Vec<Shortcut>>,
     pub on_graphics_initialized: Option<Action>,
     pub on_idle: Option<Action>,
     pub status: Option<Status>,

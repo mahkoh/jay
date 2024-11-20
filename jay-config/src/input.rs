@@ -7,7 +7,7 @@ use {
     crate::{
         input::{acceleration::AccelProfile, capability::Capability},
         keyboard::{mods::Modifiers, Keymap},
-        Axis, Direction, ModifiedKeySym, Workspace,
+        AppMod, Axis, Direction, ModifiedKeySym, Workspace,
         _private::{ipc::WorkspaceSource, DEFAULT_SEAT_NAME},
         video::Connector,
     },
@@ -213,8 +213,13 @@ impl Seat {
     ///
     /// CapsLock and NumLock are ignored during modifier evaluation. Therefore, bindings
     /// containing these modifiers will never be invoked.
-    pub fn bind<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(self, mod_sym: T, f: F) {
-        self.bind_masked(Modifiers(!0), mod_sym, f)
+    pub fn bind<T: Into<ModifiedKeySym>, F: FnMut(Seat) + 'static>(
+        self,
+        mod_sym: T,
+        app_mod: AppMod,
+        f: F,
+    ) {
+        self.bind_masked(Modifiers(!0), mod_sym, app_mod, f)
     }
 
     /// Creates a compositor-wide hotkey while ignoring some modifiers.
@@ -233,13 +238,25 @@ impl Seat {
     ///
     /// If `mod_sym` contains any modifiers, then these modifiers are automatically added
     /// to the mask. The synthetic `RELEASE` modifier is always added to the mask.
-    pub fn bind_masked<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(
+    pub fn bind_masked<T: Into<ModifiedKeySym>, F: FnMut(Seat) + 'static>(
         self,
         mod_mask: Modifiers,
         mod_sym: T,
+        app_mod: AppMod,
         f: F,
     ) {
-        get!().bind_masked(self, mod_mask, mod_sym.into(), f)
+        get!().bind_masked(self, mod_mask, mod_sym.into(), app_mod, f)
+    }
+
+    /// Creates a shortcut only active if its mod is active.
+    pub fn bind_tunnel<T: Into<ModifiedKeySym>>(
+        self,
+        mod_mask: Modifiers,
+        mod_sym: T,
+        app_mod: AppMod,
+        tunnel: Vec<ModifiedKeySym>,
+    ) {
+        get!().bind_tunnel(self, mod_mask, mod_sym.into(), app_mod, tunnel)
     }
 
     /// Registers a callback to be executed when the currently pressed key is released.
@@ -248,13 +265,18 @@ impl Seat {
     ///
     /// The callback will be executed once when the key is released regardless of any
     /// modifiers.
-    pub fn latch<F: FnOnce() + 'static>(self, f: F) {
-        get!().latch(self, f)
+    pub fn latch<F: FnOnce() + 'static>(self, app_mod: AppMod, f: F) {
+        get!().latch(self, app_mod, f)
     }
 
     /// Unbinds a hotkey.
-    pub fn unbind<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
-        get!().unbind(self, mod_sym.into())
+    pub fn unbind<T: Into<ModifiedKeySym>>(self, mod_sym: T, app_mod: AppMod) {
+        get!().unbind(self, mod_sym.into(), app_mod)
+    }
+
+    /// Moves the keyboard focus of the seat in the specified direction.
+    pub fn set_app_mod(self, app_mod: AppMod) {
+        get!().set_app_mod(self, app_mod)
     }
 
     /// Moves the keyboard focus of the seat in the specified direction.
@@ -274,8 +296,8 @@ impl Seat {
 
     /// Returns the repeat rate of the seat.
     ///
-    /// The returned tuple is `(rate, delay)` where `rate` is the number of times keys repeat per second
-    /// and `delay` is the time after the button press after which keys start repeating.
+    /// The returned tuple is `(rate, delay)` where `rate` is the number of times keys repeat per
+    /// second and `delay` is the time after the button press after which keys start repeating.
     pub fn repeat_rate(self) -> (i32, i32) {
         get!((25, 250)).seat_get_repeat_rate(self)
     }
@@ -444,10 +466,10 @@ impl Seat {
     /// });
     /// ```
     pub fn set_window_management_key<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
-        self.bind(mod_sym, move || {
+        self.bind(mod_sym, Default::default(), move |_seat| {
             self.set_window_management_enabled(true);
             self.forward();
-            self.latch(move || {
+            self.latch(Default::default(), move || {
                 self.set_window_management_enabled(false);
             });
         });
