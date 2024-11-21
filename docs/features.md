@@ -153,6 +153,7 @@ Jay supports the following wayland protocols:
 | wl_compositor                                        | 6               |               |
 | wl_data_device_manager                               | 3               |               |
 | wl_drm                                               | 2               |               |
+| wl_fixes                                             | 1               |               |
 | wl_output                                            | 4               |               |
 | wl_seat                                              | 9               |               |
 | wl_shm                                               | 2               |               |
