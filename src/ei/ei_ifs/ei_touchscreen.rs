@@ -10,8 +10,8 @@ use {
         utils::clonecell::UnsafeCellCloneSafe,
         wire_ei::{
             ei_touchscreen::{
-                ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler, Release,
-                ServerDown, ServerMotion, ServerUp,
+                ClientCancel, ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler,
+                Release, ServerCancel, ServerDown, ServerMotion, ServerUp,
             },
             EiTouchscreenId,
         },
@@ -33,6 +33,7 @@ pub enum TouchChange {
     Down(f32, f32),
     Motion(f32, f32),
     Up,
+    Cancel,
 }
 
 unsafe impl UnsafeCellCloneSafe for TouchChange {}
@@ -65,12 +66,22 @@ impl EiTouchscreen {
         });
     }
 
+    pub fn send_cancel(&self, touchid: u32) {
+        self.client.event(ServerCancel {
+            self_id: self.id,
+            touchid,
+        });
+    }
+
     fn set_client_event(&self, touchid: u32, event: TouchChange) -> Result<(), EiTouchscreenError> {
         match self.device.touch_changes.lock().entry(touchid) {
             Entry::Occupied(mut o) => {
                 use TouchChange::*;
                 match (o.get(), event) {
-                    (Motion(_, _), Motion(_, _)) | (Down(_, _), Down(_, _)) | (Up, Up) => {
+                    (Motion(_, _), Motion(_, _))
+                    | (Down(_, _), Down(_, _))
+                    | (Up, Up)
+                    | (Cancel, Cancel) => {
                         o.insert(event);
                         Ok(())
                     }
@@ -103,6 +114,10 @@ impl EiTouchscreenRequestHandler for EiTouchscreen {
 
     fn client_up(&self, req: ClientUp, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_client_event(req.touchid, TouchChange::Up)
+    }
+
+    fn client_cancel(&self, req: ClientCancel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.set_client_event(req.touchid, TouchChange::Cancel)
     }
 }
 

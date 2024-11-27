@@ -233,6 +233,7 @@ impl EiDeviceRequestHandler for EiDevice {
                         seat.touch_motion_at(time, id, x, y);
                     }
                     TouchChange::Up => seat.touch_up(time, id),
+                    TouchChange::Cancel => seat.touch_cancel(time, id),
                 }
             }
             seat.touch_frame(time);
