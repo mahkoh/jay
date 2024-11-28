@@ -17,6 +17,10 @@ request client_up (sender) {
     touchid: u32,
 }
 
+request client_cancel (sender, since = 2) {
+    touchid: u32,
+}
+
 event destroyed {
     serial: u32,
 }
@@ -34,5 +38,9 @@ event server_motion (receiver) {
 }
 
 event server_up (receiver) {
+    touchid: u32,
+}
+
+event server_cancel (receiver, since = 2) {
     touchid: u32,
 }
