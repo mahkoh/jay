@@ -54,6 +54,28 @@ impl ClientMem {
         client: Option<&Client>,
         cpu: Option<&Rc<CpuWorker>>,
     ) -> Result<Self, ClientMemError> {
+        Self::new2(fd, len, read_only, client, cpu, c::MAP_SHARED)
+    }
+
+    #[cfg_attr(not(feature = "it"), expect(dead_code))]
+    pub fn new_private(
+        fd: &Rc<OwnedFd>,
+        len: usize,
+        read_only: bool,
+        client: Option<&Client>,
+        cpu: Option<&Rc<CpuWorker>>,
+    ) -> Result<Self, ClientMemError> {
+        Self::new2(fd, len, read_only, client, cpu, c::MAP_PRIVATE)
+    }
+
+    fn new2(
+        fd: &Rc<OwnedFd>,
+        len: usize,
+        read_only: bool,
+        client: Option<&Client>,
+        cpu: Option<&Rc<CpuWorker>>,
+        flags: c::c_int,
+    ) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
         if let Ok(seals) = uapi::fcntl_get_seals(fd.raw()) {
             if seals & c::F_SEAL_SHRINK != 0 {
@@ -79,7 +101,7 @@ impl ClientMem {
                 false => c::PROT_READ | c::PROT_WRITE,
             };
             unsafe {
-                let data = c::mmap64(ptr::null_mut(), len, prot, c::MAP_SHARED, fd.raw(), 0);
+                let data = c::mmap64(ptr::null_mut(), len, prot, flags, fd.raw(), 0);
                 if data == c::MAP_FAILED {
                     return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
                 }
