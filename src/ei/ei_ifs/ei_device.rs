@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         rect::Rect,
         scale::Scale,
-        utils::syncqueue::SyncQueue,
+        utils::{copyhashmap::CopyHashMap, syncqueue::SyncQueue},
         wire_ei::{
             ei_device::{
                 ClientFrame, ClientStartEmulating, ClientStopEmulating, Destroyed, DeviceType,
@@ -37,7 +37,7 @@ pub struct EiDevice {
     pub seat: Rc<EiSeat>,
 
     pub button_changes: SyncQueue<(u32, KeyState)>,
-    pub touch_changes: SyncQueue<(u32, TouchChange)>,
+    pub touch_changes: CopyHashMap<u32, TouchChange>,
     pub scroll_px: [Cell<Option<f32>>; 2],
     pub scroll_v120: [Cell<Option<i32>>; 2],
     pub scroll_stop: [Cell<Option<bool>>; 2],
@@ -219,7 +219,7 @@ impl EiDeviceRequestHandler for EiDevice {
             }
         }
         if self.touch_changes.is_not_empty() {
-            while let Some((touch_id, change)) = self.touch_changes.pop() {
+            for (touch_id, change) in self.touch_changes.lock().drain() {
                 let id = touch_id as i32;
                 match change {
                     TouchChange::Down(x, y) => {
