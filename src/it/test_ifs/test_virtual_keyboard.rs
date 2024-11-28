@@ -31,7 +31,7 @@ impl TestVirtualKeyboard {
         uapi::lseek(memfd.raw(), 0, c::SEEK_SET).unwrap();
         uapi::fcntl_add_seals(
             memfd.raw(),
-            c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
+            c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK,
         )
         .unwrap();
         self.tran.send(Keymap {
