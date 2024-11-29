@@ -1,4 +1,5 @@
 use {
+    super::{ShortcutOrTunnel, Tunnel},
     crate::{
         backend::{
             AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis, AXIS_120,
@@ -39,7 +40,7 @@ use {
         tree::{Direction, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap},
         wire::WlDataOfferId,
-        xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
+        xkbcommon::{KeyboardState, XkbKeyDirection, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
     isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
     jay_config::{
@@ -47,11 +48,27 @@ use {
         keyboard::{
             mods::{Modifiers, CAPS, NUM, RELEASE},
             syms::{KeySym, SYM_Escape},
+            AppMod, ModifiedKeySym,
         },
     },
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
 };
+
+macro_rules! log_file {
+    ($($arg:expr),*) => {{
+        #[cfg(feature = "debug_keys")]
+        {
+            use std::{fs::OpenOptions, io::prelude::*};
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .open("keyspressed.log")
+                .expect("Can't open file.");
+            file.write_fmt(format_args!($($arg),*)).unwrap();
+        }
+    }};
+}
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -234,6 +251,332 @@ impl NodeSeatState {
         self.pointer_foci.clear();
         self.dnd_targets.clear();
         self.pointer_grabs.clear();
+    }
+}
+
+struct KeyEventState<'seat> {
+    seat: &'seat Rc<WlSeatGlobal>,
+    time_usec: u64,
+    key: u32,
+    key_state: KeyState,
+    xkb_dir: XkbKeyDirection,
+    state: u32,
+    xkb_state_rc: Rc<RefCell<XkbState>>,
+    new_mods: bool,
+    shortcuts: SmallVec<[InvokedShortcut; 1]>,
+    forward: bool,
+}
+impl<'seat> KeyEventState<'seat> {
+    fn run<F>(
+        seat: &'seat Rc<WlSeatGlobal>,
+        time_usec: u64,
+        key: u32,
+        key_state: KeyState,
+        mut get_state: F,
+    ) where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let xkb_state_rc = get_state();
+        let key_event_state = &mut Self {
+            seat,
+            key,
+            key_state,
+            time_usec,
+            xkb_state_rc,
+            new_mods: false,
+            shortcuts: Default::default(),
+            forward: seat.current_app_mod.borrow().is_insert(),
+            // Will be setup in key_event_state.prepare() :
+            xkb_dir: XKB_KEY_UP,
+            state: Default::default(),
+        };
+        key_event_state.run_inner(get_state);
+    }
+    fn run_inner<F>(&mut self, mut get_state: F)
+    where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let seat = self.seat;
+        if self.prepare() {
+            return;
+        }
+        seat.state.for_each_seat_tester(|t| {
+            t.send_key(seat.id, self.time_usec, self.key, self.key_state);
+        });
+        // log_file!(
+        //     "Keys pressed {:?} ",
+        //     self.xkb_state_rc.borrow().kb_state.pressed_keys
+        // );
+        let get_state = &mut get_state;
+        if self.handle_shortcut_modal(get_state) {
+            // Tunnel handled, nothing more to do.
+            return;
+        };
+        if self.handle_shortcut_global(get_state) {
+            // Tunnel handled, nothing more to do.
+            return;
+        }
+        self.handle_key_event(get_state);
+        self.clean_up();
+        log_file!("\n")
+    }
+    fn clean_up(&mut self) {
+        let key = self.key.clone();
+        let key_state = self.key_state.clone();
+        let xkb_state_rc = self.xkb_state_rc.clone();
+        let mut xkb_state = xkb_state_rc.borrow_mut();
+        match key_state {
+            KeyState::Released => {
+                xkb_state.kb_state.pressed_keys.remove(&key);
+            }
+            KeyState::Pressed => {
+                xkb_state.kb_state.pressed_keys.insert(key);
+            }
+        }
+        drop(xkb_state);
+        self.seat.latest_kb_state.set(xkb_state_rc);
+    }
+    fn prepare(&mut self) -> bool {
+        let xkb_state_rc = self.xkb_state_rc.clone();
+        let key = self.key;
+        let (state, xkb_dir) = {
+            let xkb_state = xkb_state_rc.borrow();
+            match self.key_state {
+                KeyState::Released => {
+                    if xkb_state.kb_state.pressed_keys.not_contains(&key) {
+                        return true;
+                    }
+                    (wl_keyboard::RELEASED, XKB_KEY_UP)
+                }
+                KeyState::Pressed => {
+                    if xkb_state.kb_state.pressed_keys.contains(&key) {
+                        return true;
+                    }
+                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
+                }
+            }
+        };
+        self.state = state;
+        self.xkb_dir = xkb_dir;
+        false
+    }
+    fn handle_shortcut_modal<F>(&mut self, get_state: &mut F) -> bool
+    where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let seat = self.seat;
+        let xkb_state_rc = self.xkb_state_rc.clone();
+        let xkb_state = xkb_state_rc.borrow();
+        let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+        if self.state == wl_keyboard::RELEASED {
+            mods |= RELEASE.0;
+        }
+        let current_shortcuts_cell = &*seat.current_shortcuts.borrow();
+        let current_shortcuts = current_shortcuts_cell.borrow();
+        let keysyms = xkb_state.unmodified_keysyms(self.key);
+        for &sym in keysyms {
+            if !seat.state.lock.locked.get() {
+                if let Some(sot) = current_shortcuts.get(&sym) {
+                    match sot {
+                        ShortcutOrTunnel::Tunnel(keys_sequence) => {
+                            drop(xkb_state);
+                            self.handle_tunnel(keys_sequence, get_state);
+                            return true;
+                        }
+                        ShortcutOrTunnel::Shortcut(key_mods) => {
+                            for (key_mods, mask) in key_mods {
+                                if mods & mask == key_mods {
+                                    self.shortcuts.push(InvokedShortcut {
+                                        unmasked_mods: Modifiers(mods),
+                                        effective_mods: Modifiers(key_mods),
+                                        sym: KeySym(sym),
+                                        app_mod: seat.current_app_mod.borrow().clone(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    fn handle_shortcut_global<F>(&mut self, get_state: &mut F) -> bool
+    where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let seat = self.seat;
+        let xkb_state_rc = self.xkb_state_rc.clone();
+        let xkb_state = xkb_state_rc.borrow_mut();
+        if self.shortcuts.is_empty() {
+            let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+            if self.state == wl_keyboard::RELEASED {
+                mods |= RELEASE.0;
+            }
+            let global_shortcuts = &*seat.global_shortcuts.borrow();
+            let keysyms = xkb_state.unmodified_keysyms(self.key);
+            let mut revert_pointer_to_default = false;
+            for &sym in keysyms {
+                if sym == SYM_Escape.0 && mods == 0 {
+                    revert_pointer_to_default = true;
+                }
+                if !seat.state.lock.locked.get() {
+                    if let Some(sot) = global_shortcuts.get(&sym) {
+                        match sot {
+                            ShortcutOrTunnel::Tunnel(keys_sequence) => {
+                                drop(xkb_state);
+                                self.handle_tunnel(keys_sequence, get_state);
+                                return true;
+                            }
+                            ShortcutOrTunnel::Shortcut(key_mods) => {
+                                for (key_mods, mask) in key_mods {
+                                    if mods & mask == key_mods {
+                                        self.shortcuts.push(InvokedShortcut {
+                                            unmasked_mods: Modifiers(mods),
+                                            effective_mods: Modifiers(key_mods),
+                                            sym: KeySym(sym),
+                                            app_mod: AppMod::global(),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if revert_pointer_to_default {
+                drop(xkb_state);
+                seat.pointer_owner.revert_to_default(seat);
+            }
+        }
+        return false;
+    }
+    fn handle_tunnel<F>(&mut self, keys_sequence: &Vec<Tunnel>, get_state: &mut F)
+    where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        // nothing will be done for this key,
+        // so we will clean up anyway.
+        // Let's do it first to save the final state.
+        self.clean_up();
+        if matches!(self.key_state, KeyState::Released) {
+            return;
+        }
+        let xkb_state_rc = self.xkb_state_rc.clone();
+        let mut xkb_state = xkb_state_rc.borrow_mut();
+        let final_modifiers = xkb_state.kb_state.mods.clone();
+        let final_keys_pressed = xkb_state.kb_state.pressed_keys.drain(..);
+        // release lock, handle_key_event will called bellow
+        drop(xkb_state);
+
+        log_file!("Start Tunnel\n");
+        for (_mod_keysym, keys) in keys_sequence {
+            log_file!("\tStart Seq - ({:?})\n", keys);
+            // log_file!(
+            //     "\texpect KeySym({})\n",
+            //     xkb_state_rc
+            //         .borrow()
+            //         .keysym_get_name(&mod_keysym.sym)
+            //         .unwrap_or("<INVALID>".to_string())
+            // );
+            // log_file!(
+            //     "\texpect Key({})\n",
+            //     xkb_state_rc
+            //         .borrow()
+            //         .key_from_mod_keysym(&mod_keysym.sym)
+            //         .map(|num| format!("{num}"))
+            //         .unwrap_or("<INVALID>".to_string())
+            // );
+            self.forward = true;
+            let mut simulate = |key: &u32, key_state: KeyState| {
+                // TODO: handle, when :
+                // - Modifier already pressed in xkbcommon
+                // (only last item in key is not a modifier)
+                // - Modifier is a persistent one (as Caps Lock)
+                log_file!("\t\t");
+                self.key = key.clone();
+                self.key_state = key_state;
+                if self.prepare() {
+                    // Should not happen, because pressed keys have been cleaned up
+                    return;
+                }
+                self.handle_key_event(&mut *get_state);
+                self.clean_up();
+                log_file!("\n");
+            };
+            use KeyState::{Pressed, Released};
+            for key in keys {
+                simulate(key, Pressed);
+            }
+            for key in keys {
+                simulate(key, Released);
+            }
+            log_file!("\tEnd Seq\n");
+        }
+        log_file!("End Tunnel\n");
+        // reset final state
+        self.xkb_state_rc = get_state();
+        xkb_state = xkb_state_rc.borrow_mut();
+        xkb_state.kb_state.mods = final_modifiers;
+        xkb_state.kb_state.pressed_keys = final_keys_pressed;
+        drop(xkb_state);
+        self.seat.latest_kb_state.set(xkb_state_rc);
+    }
+    fn handle_key_event<F>(&mut self, mut get_state: F)
+    where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let seat = self.seat;
+        let mut xkb_state_rc = self.xkb_state_rc.clone();
+        let time_usec = self.time_usec.clone();
+        let key = self.key.clone();
+        let state = self.state.clone();
+        let mut xkb_state = xkb_state_rc.borrow_mut();
+        log_file!("{:?}({}) ", self.key_state, xkb_state.key_get_name(key));
+        self.new_mods = xkb_state.update(self.key, self.xkb_dir);
+
+        let node = seat.keyboard_node.get();
+        let input_method_grab = seat.input_method_grab.get();
+        let shortcuts = &self.shortcuts;
+        if shortcuts.is_not_empty() {
+            seat.forward.set(state == wl_keyboard::RELEASED);
+            if let Some(config) = seat.state.config.get() {
+                let id = xkb_state.kb_state.id;
+                drop(xkb_state);
+                for shortcut in shortcuts {
+                    config.invoke_shortcut(seat.id(), &shortcut);
+                }
+                xkb_state_rc = get_state();
+                xkb_state = xkb_state_rc.borrow_mut();
+                if id != xkb_state.kb_state.id {
+                    return;
+                }
+            }
+            self.forward = seat.forward.get();
+        }
+        if self.forward {
+            match &input_method_grab {
+                Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
+                _ => node.node_on_key(seat, time_usec, key, state, &xkb_state.kb_state),
+            }
+            seat.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_key(time_usec, key, state, &xkb_state.kb_state);
+            });
+        }
+        if self.new_mods {
+            seat.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_modifiers_changed(&xkb_state.kb_state);
+            });
+            seat.state.for_each_seat_tester(|t| {
+                t.send_modifiers(seat.id, &xkb_state.kb_state.mods);
+            });
+            match &input_method_grab {
+                Some(g) => g.on_modifiers(&xkb_state.kb_state),
+                _ => node.node_on_mods(seat, &xkb_state.kb_state),
+            }
+        }
+        drop(xkb_state);
+        self.xkb_state_rc = xkb_state_rc;
     }
 }
 
@@ -579,7 +922,8 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_button(self.id, time_usec, button, state);
         });
-        self.pointer_owner.button(self, time_usec, button, state);
+        self.pointer_owner
+            .button(self, time_usec, button, state);
     }
 
     pub fn axis_source(&self, axis_source: AxisSource) {
@@ -629,14 +973,16 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
             );
         });
-        self.gesture_owner.swipe_update(self, time_usec, dx, dy)
+        self.gesture_owner
+            .swipe_update(self, time_usec, dx, dy)
     }
 
     fn swipe_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
         self.state.for_each_seat_tester(|t| {
             t.send_swipe_end(self.id, time_usec, cancelled);
         });
-        self.gesture_owner.swipe_end(self, time_usec, cancelled)
+        self.gesture_owner
+            .swipe_end(self, time_usec, cancelled)
     }
 
     fn pinch_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
@@ -677,14 +1023,16 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_pinch_end(self.id, time_usec, cancelled);
         });
-        self.gesture_owner.pinch_end(self, time_usec, cancelled)
+        self.gesture_owner
+            .pinch_end(self, time_usec, cancelled)
     }
 
     fn hold_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
         self.state.for_each_seat_tester(|t| {
             t.send_hold_begin(self.id, time_usec, finger_count);
         });
-        self.gesture_owner.hold_begin(self, time_usec, finger_count)
+        self.gesture_owner
+            .hold_begin(self, time_usec, finger_count)
     }
 
     fn hold_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
@@ -792,116 +1140,11 @@ impl WlSeatGlobal {
         time_usec: u64,
         key: u32,
         key_state: KeyState,
-        mut get_state: F,
+        get_state: F,
     ) where
         F: FnMut() -> Rc<RefCell<XkbState>>,
     {
-        let mut xkb_state_rc = get_state();
-        let mut xkb_state = xkb_state_rc.borrow_mut();
-        let (state, xkb_dir) = {
-            match key_state {
-                KeyState::Released => {
-                    if xkb_state.kb_state.pressed_keys.not_contains(&key) {
-                        return;
-                    }
-                    (wl_keyboard::RELEASED, XKB_KEY_UP)
-                }
-                KeyState::Pressed => {
-                    if xkb_state.kb_state.pressed_keys.contains(&key) {
-                        return;
-                    }
-                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
-                }
-            }
-        };
-        let mut shortcuts = SmallVec::<[_; 1]>::new();
-        let new_mods;
-        {
-            let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
-            if state == wl_keyboard::RELEASED {
-                mods |= RELEASE.0;
-            }
-            let scs = &*self.shortcuts.borrow();
-            let keysyms = xkb_state.unmodified_keysyms(key);
-            let mut revert_pointer_to_default = false;
-            for &sym in keysyms {
-                if sym == SYM_Escape.0 && mods == 0 {
-                    revert_pointer_to_default = true;
-                }
-                if !self.state.lock.locked.get() {
-                    if let Some(key_mods) = scs.get(&sym) {
-                        for (key_mods, mask) in key_mods {
-                            if mods & mask == key_mods {
-                                shortcuts.push(InvokedShortcut {
-                                    unmasked_mods: Modifiers(mods),
-                                    effective_mods: Modifiers(key_mods),
-                                    sym: KeySym(sym),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            if revert_pointer_to_default {
-                drop(xkb_state);
-                self.pointer_owner.revert_to_default(self);
-                xkb_state = xkb_state_rc.borrow_mut();
-            }
-            new_mods = xkb_state.update(key, xkb_dir);
-        }
-        self.state.for_each_seat_tester(|t| {
-            t.send_key(self.id, time_usec, key, key_state);
-        });
-        let node = self.keyboard_node.get();
-        let input_method_grab = self.input_method_grab.get();
-        let mut forward = true;
-        if shortcuts.is_not_empty() {
-            self.forward.set(state == wl_keyboard::RELEASED);
-            if let Some(config) = self.state.config.get() {
-                let id = xkb_state.kb_state.id;
-                drop(xkb_state);
-                for shortcut in shortcuts {
-                    config.invoke_shortcut(self.id(), &shortcut);
-                }
-                xkb_state_rc = get_state();
-                xkb_state = xkb_state_rc.borrow_mut();
-                if id != xkb_state.kb_state.id {
-                    return;
-                }
-            }
-            forward = self.forward.get();
-        }
-        if forward {
-            match &input_method_grab {
-                Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
-                _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
-            }
-            self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_key(time_usec, key, state, &xkb_state.kb_state);
-            });
-        }
-        if new_mods {
-            self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_modifiers_changed(&xkb_state.kb_state);
-            });
-            self.state.for_each_seat_tester(|t| {
-                t.send_modifiers(self.id, &xkb_state.kb_state.mods);
-            });
-            match &input_method_grab {
-                Some(g) => g.on_modifiers(&xkb_state.kb_state),
-                _ => node.node_on_mods(self, &xkb_state.kb_state),
-            }
-        }
-        match key_state {
-            KeyState::Released => {
-                xkb_state.kb_state.pressed_keys.remove(&key);
-            }
-            KeyState::Pressed => {
-                xkb_state.kb_state.pressed_keys.insert(key);
-            }
-        }
-        drop(xkb_state);
-        self.latest_kb_state.set(xkb_state_rc);
+        KeyEventState::run(self, time_usec, key, key_state, get_state)
     }
 
     pub(super) fn for_each_ei_seat(&self, mut f: impl FnMut(&Rc<EiSeat>)) {
@@ -919,6 +1162,43 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
+        let top_app_name = n.tl_data().app_id.borrow().clone();
+        *self.current_top_app_name.borrow_mut() = top_app_name.clone();
+        let current_app_mod = self.current_app_mod.borrow().clone();
+        if !current_app_mod.is_window() && current_app_mod.app_name != top_app_name {
+            let app_mod = if self
+                .modal_shortcuts
+                .borrow()
+                .contains_key(&top_app_name)
+            {
+                // If this app has some shortcuts defined, let's use previous app_mod
+                if let Some(last_app_mod) = self.last_app_mods.borrow().get(&top_app_name) {
+                    last_app_mod.clone()
+                } else {
+                    AppMod {
+                        app_name: top_app_name.clone(),
+                        mod_name: AppMod::MOD_NAME_INITIAL.to_string(),
+                    }
+                }
+            } else {
+                // Otherwise, let's use Jay insert's mod
+                AppMod::insert()
+            };
+            let AppMod { app_name, mod_name } = app_mod.clone();
+            *self.current_shortcuts.borrow_mut() = self
+                .modal_shortcuts
+                .borrow_mut()
+                .entry(app_name)
+                .or_default()
+                .entry(mod_name)
+                .or_default()
+                .clone();
+            self.last_app_mods
+                .borrow_mut()
+                .insert(top_app_name, app_mod.clone());
+            *self.current_app_mod.borrow_mut() = app_mod;
+        }
+
         let node = match n.tl_focus_child(self.id) {
             Some(n) => n,
             _ => n.tl_into_node(),
@@ -1089,22 +1369,92 @@ impl WlSeatGlobal {
     }
 
     pub fn clear_shortcuts(&self) {
-        self.shortcuts.borrow_mut().clear();
+        self.global_shortcuts.borrow_mut().clear();
+        self.modal_shortcuts.borrow_mut().clear();
+        self.current_shortcuts.borrow_mut().take();
     }
 
-    pub fn add_shortcut(&self, mod_mask: Modifiers, mods: Modifiers, keysym: KeySym) {
-        self.shortcuts
-            .borrow_mut()
-            .entry(keysym.0)
-            .or_default()
-            .insert(mods.0, mod_mask.0);
+    pub fn add_shortcut(
+        &self,
+        mod_mask: Modifiers,
+        mods: Modifiers,
+        keysym: KeySym,
+        app_mod: AppMod,
+        tunnel: Option<Vec<ModifiedKeySym>>,
+    ) {
+        let shortcuts_rc = if app_mod.is_global() {
+            self.global_shortcuts.clone()
+        } else {
+            let AppMod { app_name, mod_name } = app_mod;
+            let mut modal_shortcuts_all = self.modal_shortcuts.borrow_mut();
+            modal_shortcuts_all
+                .entry(app_name)
+                .or_default()
+                .entry(mod_name)
+                .or_default()
+                .clone()
+        };
+        let mut shortcuts_mut = shortcuts_rc.borrow_mut();
+        if let Some(tunnels) = tunnel {
+            let Some(tunnels) = tunnels
+                .into_iter()
+                .map(|mod_keysym| {
+                    self.create_tunnel(&self.seat_xkb_state.get().borrow(), mod_keysym)
+                })
+                .collect()
+            else {
+                return;
+            };
+
+            shortcuts_mut.insert(keysym.0, ShortcutOrTunnel::Tunnel(tunnels));
+        } else {
+            let shortcut_or_tunnel = shortcuts_mut.entry(keysym.0);
+            match shortcut_or_tunnel.or_insert(ShortcutOrTunnel::Shortcut(Default::default())) {
+                ShortcutOrTunnel::Shortcut(shortcut) => {
+                    let _ = shortcut.insert(mods.0, mod_mask.0);
+                }
+                entry => {
+                    let map = SmallMap::new_with(mods.0, mod_mask.0);
+                    *entry = ShortcutOrTunnel::Shortcut(map);
+                }
+            }
+        }
     }
 
-    pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym) {
-        if let Entry::Occupied(mut oe) = self.shortcuts.borrow_mut().entry(keysym.0) {
-            oe.get_mut().remove(&mods.0);
-            if oe.get().is_empty() {
-                oe.remove();
+    pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym, app_mod: AppMod) {
+        if app_mod.is_global() {
+            if let Entry::Occupied(mut oe) = self.global_shortcuts.borrow_mut().entry(keysym.0) {
+                match oe.get_mut() {
+                    ShortcutOrTunnel::Tunnel(_) => {
+                        let _ = oe.remove();
+                    }
+                    ShortcutOrTunnel::Shortcut(ref mut shortcut) => {
+                        shortcut.remove(&mods.0);
+                        if shortcut.is_empty() {
+                            oe.remove();
+                        }
+                    }
+                }
+            }
+            return;
+        }
+        let AppMod { app_name, mod_name } = app_mod.clone();
+        if let Entry::Occupied(oe) = self.modal_shortcuts.borrow_mut().entry(app_name) {
+            if let Entry::Occupied(ref mut oe_current) = oe.into_mut().entry(mod_name) {
+                let rc_current = oe_current.get_mut();
+                if let Entry::Occupied(mut oe) = rc_current.borrow_mut().entry(keysym.0) {
+                    match oe.get_mut() {
+                        ShortcutOrTunnel::Tunnel(_) => {
+                            let _ = oe.remove();
+                        }
+                        ShortcutOrTunnel::Shortcut(ref mut shortcut) => {
+                            shortcut.remove(&mods.0);
+                            if shortcut.is_empty() {
+                                oe.remove();
+                            }
+                        }
+                    }
+                }
             }
         }
     }

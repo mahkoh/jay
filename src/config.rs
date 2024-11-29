@@ -1,7 +1,5 @@
 mod handler;
 
-#[cfg(feature = "it")]
-use crate::it::test_config::TEST_CONFIG_ENTRY;
 use {
     crate::{
         backend::{ConnectorId, DrmDeviceId, InputDeviceId},
@@ -21,13 +19,16 @@ use {
             ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat, SwitchEvent},
-        keyboard::{mods::Modifiers, syms::KeySym},
+        keyboard::{mods::Modifiers, syms::KeySym, AppMod},
         video::{Connector, DrmDevice},
     },
     libloading::Library,
     std::{cell::Cell, io, mem, ptr, rc::Rc},
     thiserror::Error,
 };
+
+#[cfg(feature = "it")]
+use crate::it::test_config::TEST_CONFIG_ENTRY;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -69,6 +70,7 @@ impl ConfigProxy {
                 seat: Seat(seat.raw() as _),
                 mods: shortcut.effective_mods,
                 sym: shortcut.sym,
+                app_mod: shortcut.app_mod.clone(),
             }
         } else {
             ServerMessage::InvokeShortcut2 {
@@ -76,6 +78,7 @@ impl ConfigProxy {
                 unmasked_mods: shortcut.unmasked_mods,
                 effective_mods: shortcut.effective_mods,
                 sym: shortcut.sym,
+                app_mod: shortcut.app_mod.clone(),
             }
         };
         self.send(&msg);
@@ -319,4 +322,5 @@ pub struct InvokedShortcut {
     pub unmasked_mods: Modifiers,
     pub effective_mods: Modifiers,
     pub sym: KeySym,
+    pub app_mod: AppMod,
 }

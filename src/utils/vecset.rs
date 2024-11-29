@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+#[derive(Debug)]
 pub struct VecSet<T> {
     vec: Vec<T>,
 }
@@ -23,6 +24,15 @@ impl<T> VecSet<T> {
     pub fn clear(&mut self) {
         self.vec.clear();
     }
+
+    pub fn drain<RANGE>(&mut self, range: RANGE) -> Self
+    where
+        RANGE: std::ops::RangeBounds<usize>,
+    {
+        Self {
+            vec: self.vec.drain(range).collect(),
+        }
+    }
 }
 
 impl<T: PartialEq> VecSet<T> {
@@ -32,6 +42,15 @@ impl<T: PartialEq> VecSet<T> {
         }
         self.vec.push(val);
         true
+    }
+
+    #[allow(dead_code)]
+    pub fn extend(&mut self, vec: impl IntoIterator<Item = T>) -> bool {
+        let mut res = false;
+        for item in vec {
+            res |= self.insert(item);
+        }
+        res
     }
 
     pub fn remove(&mut self, val: &T) -> bool {
