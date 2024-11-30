@@ -29,6 +29,7 @@ use {
     thiserror::Error,
 };
 
+pub mod ext_tray_item_v1;
 pub mod jay_tray_item_v1;
 
 tree_id!(TrayItemNodeId);
