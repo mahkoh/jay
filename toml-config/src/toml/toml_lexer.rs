@@ -14,7 +14,7 @@ pub enum Token<'a> {
     Literal(&'a [u8]),
 }
 
-impl<'a> Token<'a> {
+impl Token<'_> {
     pub fn name(self, value_context: bool) -> &'static str {
         match self {
             Token::Dot => "`.`",

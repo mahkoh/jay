@@ -138,7 +138,7 @@ impl Udev {
     }
 
     pub fn create_monitor(self: &Rc<Self>) -> Result<UdevMonitor, UdevError> {
-        let res = unsafe { udev_monitor_new_from_netlink(self.udev, "udev\0".as_ptr() as _) };
+        let res = unsafe { udev_monitor_new_from_netlink(self.udev, c"udev".as_ptr() as _) };
         if res.is_null() {
             return Err(UdevError::NewMonitor(Errno::default().into()));
         }

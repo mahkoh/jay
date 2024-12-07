@@ -25,7 +25,7 @@ pub enum ModeParserError {
 
 pub struct ModeParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for ModeParser<'a> {
+impl Parser for ModeParser<'_> {
     type Value = Mode;
     type Error = ModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

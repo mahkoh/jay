@@ -17,7 +17,7 @@ pub struct SpannedError<'a, E> {
     pub cause: Option<E>,
 }
 
-impl<'a, E: Error> Display for SpannedError<'a, E> {
+impl<E: Error> Display for SpannedError<'_, E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let original = self.input.deref();
         let span = self.span;
@@ -57,7 +57,7 @@ impl<'a, E: Error> Display for SpannedError<'a, E> {
     }
 }
 
-impl<'a, E: Error> Error for SpannedError<'a, E> {}
+impl<E: Error> Error for SpannedError<'_, E> {}
 
 fn translate_position(input: &[u8], index: usize) -> (usize, usize) {
     if input.is_empty() {

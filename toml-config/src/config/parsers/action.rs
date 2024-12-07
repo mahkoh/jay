@@ -314,7 +314,7 @@ impl ActionParser<'_> {
     }
 }
 
-impl<'a> Parser for ActionParser<'a> {
+impl Parser for ActionParser<'_> {
     type Value = Action;
     type Error = ActionParserError;
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Array, DataType::Table];
