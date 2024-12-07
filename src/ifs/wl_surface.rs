@@ -1516,8 +1516,10 @@ impl WlSurface {
                     continue;
                 }
                 let pos = child.sub_surface.position.get();
-                if pos.contains(x, y) {
-                    let (x, y) = pos.translate(x, y);
+                let ext = child.sub_surface.surface.extents.get();
+                let ext = ext.move_(pos.x1(), pos.y1());
+                if ext.contains(x, y) {
+                    let (x, y) = ext.translate(x, y);
                     if let Some(res) = child.sub_surface.surface.find_surface_at(x, y) {
                         return Some(res);
                     }
