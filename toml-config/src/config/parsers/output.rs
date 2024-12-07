@@ -38,7 +38,7 @@ pub struct OutputParser<'a> {
     pub name_ok: bool,
 }
 
-impl<'a> Parser for OutputParser<'a> {
+impl Parser for OutputParser<'_> {
     type Value = Output;
     type Error = OutputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -150,7 +150,7 @@ impl<'a> Parser for OutputParser<'a> {
 
 pub struct OutputsParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for OutputsParser<'a> {
+impl Parser for OutputsParser<'_> {
     type Value = Vec<Output>;
     type Error = OutputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

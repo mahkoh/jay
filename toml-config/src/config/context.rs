@@ -50,7 +50,7 @@ impl<'a> Context<'a> {
     }
 }
 
-impl<'a> ErrorHandler for Context<'a> {
+impl ErrorHandler for Context<'_> {
     fn handle(&self, err: Spanned<ParserError>) {
         log::warn!("{}", Report::new(self.error(err)));
     }

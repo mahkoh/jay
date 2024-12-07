@@ -25,7 +25,7 @@ pub enum OutputMatchParserError {
 
 pub struct OutputMatchParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for OutputMatchParser<'a> {
+impl Parser for OutputMatchParser<'_> {
     type Value = OutputMatch;
     type Error = OutputMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Table];

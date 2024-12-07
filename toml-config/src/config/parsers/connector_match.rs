@@ -25,7 +25,7 @@ pub enum ConnectorMatchParserError {
 
 pub struct ConnectorMatchParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for ConnectorMatchParser<'a> {
+impl Parser for ConnectorMatchParser<'_> {
     type Value = ConnectorMatch;
     type Error = ConnectorMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

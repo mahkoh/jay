@@ -7,7 +7,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        rect::Rect,
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
@@ -36,7 +35,7 @@ pub struct WlSubsurface {
     unique_id: SubsurfaceId,
     pub surface: Rc<WlSurface>,
     pub(super) parent: Rc<WlSurface>,
-    pub position: Cell<Rect>,
+    pub position: Cell<(i32, i32)>,
     sync_requested: Cell<bool>,
     sync_ancestor: Cell<bool>,
     node: RefCell<Option<LinkedNode<StackElement>>>,
@@ -137,8 +136,7 @@ impl WlSubsurface {
         }
         if let Some((mut x, mut y)) = pending.position.take() {
             client_wire_scale_to_logical!(self.surface.client, x, y);
-            self.position
-                .set(self.surface.buffer_abs_pos.get().at_point(x, y));
+            self.position.set((x, y));
             let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();
             self.surface
                 .set_absolute_position(parent_x + x, parent_y + y);

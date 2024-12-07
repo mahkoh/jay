@@ -34,7 +34,7 @@ pub struct DrmDeviceParser<'a> {
     pub name_ok: bool,
 }
 
-impl<'a> Parser for DrmDeviceParser<'a> {
+impl Parser for DrmDeviceParser<'_> {
     type Value = ConfigDrmDevice;
     type Error = DrmDeviceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -89,7 +89,7 @@ impl<'a> Parser for DrmDeviceParser<'a> {
 
 pub struct DrmDevicesParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for DrmDevicesParser<'a> {
+impl Parser for DrmDevicesParser<'_> {
     type Value = Vec<ConfigDrmDevice>;
     type Error = DrmDeviceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

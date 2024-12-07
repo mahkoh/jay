@@ -389,12 +389,12 @@ impl Renderer<'_> {
                             continue;
                         }
                         let pos = child.sub_surface.position.get();
-                        let (x1, y1) = self.base.scale_point(pos.x1(), pos.y1());
+                        let (x1, y1) = self.base.scale_point(pos.0, pos.1);
                         self.render_surface_scaled(
                             &child.sub_surface.surface,
                             x + x1,
                             y + y1,
-                            Some((pos.x1(), pos.y1())),
+                            Some(pos),
                             bounds,
                             true,
                         );

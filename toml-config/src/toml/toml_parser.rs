@@ -58,7 +58,7 @@ struct Parser<'a, 'b> {
 
 type Key = VecDeque<Spanned<String>>;
 
-impl<'a, 'b> Parser<'a, 'b> {
+impl<'a> Parser<'a, '_> {
     fn parse(mut self) -> Result<Spanned<Value>, Spanned<ParserError>> {
         self.parse_document()
     }

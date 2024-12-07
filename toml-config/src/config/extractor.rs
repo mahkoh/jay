@@ -69,7 +69,7 @@ impl<'v> Extractor<'v> {
     }
 }
 
-impl<'v> Drop for Extractor<'v> {
+impl Drop for Extractor<'_> {
     fn drop(&mut self) {
         if !self.log_unused {
             return;
