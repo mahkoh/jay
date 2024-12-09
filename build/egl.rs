@@ -131,7 +131,7 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     for (name, _, _) in map.iter().copied() {
         writeln!(
             f,
-            "            {}: unsafe {{ (egl.eglGetProcAddress)(\"{}\\0\".as_ptr() as _) }},",
+            "            {}: unsafe {{ (egl.eglGetProcAddress)(c\"{}\".as_ptr() as _) }},",
             name, name
         )?;
     }

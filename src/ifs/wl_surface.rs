@@ -742,8 +742,7 @@ impl WlSurface {
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
-                ss.surface
-                    .set_absolute_position(x1 + pos.x1(), y1 + pos.y1());
+                ss.surface.set_absolute_position(x1 + pos.0, y1 + pos.1);
             }
         }
         for (_, con) in &self.text_input_connections {
@@ -878,7 +877,7 @@ impl WlSurface {
                 let ce = ss.surface.extents.get();
                 if !ce.is_empty() {
                     let cp = ss.position.get();
-                    let ce = ce.move_(cp.x1(), cp.y1());
+                    let ce = ce.move_(cp.0, cp.1);
                     extents = if extents.is_empty() {
                         ce
                     } else {
@@ -1516,8 +1515,10 @@ impl WlSurface {
                     continue;
                 }
                 let pos = child.sub_surface.position.get();
-                if pos.contains(x, y) {
-                    let (x, y) = pos.translate(x, y);
+                let ext = child.sub_surface.surface.extents.get();
+                let ext = ext.move_(pos.0, pos.1);
+                if ext.contains(x, y) {
+                    let (x, y) = ext.translate(x, y);
                     if let Some(res) = child.sub_surface.surface.find_surface_at(x, y) {
                         return Some(res);
                     }

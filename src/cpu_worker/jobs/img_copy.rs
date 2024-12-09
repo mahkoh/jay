@@ -6,7 +6,6 @@ use {
     std::ptr,
 };
 
-#[expect(clippy::manual_non_exhaustive)]
 pub struct ImgCopyWork {
     pub src: *mut u8,
     pub dst: *mut u8,

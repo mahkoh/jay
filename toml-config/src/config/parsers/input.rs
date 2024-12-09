@@ -53,7 +53,7 @@ pub struct InputParser<'a> {
     pub is_inputs_array: bool,
 }
 
-impl<'a> Parser for InputParser<'a> {
+impl Parser for InputParser<'_> {
     type Value = Input;
     type Error = InputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -254,7 +254,7 @@ impl<'a> Parser for InputParser<'a> {
 
 pub struct InputsParser<'a>(pub &'a Context<'a>);
 
-impl<'a> Parser for InputsParser<'a> {
+impl Parser for InputsParser<'_> {
     type Value = Vec<Input>;
     type Error = InputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];
