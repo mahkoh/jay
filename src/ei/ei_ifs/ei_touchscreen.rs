@@ -7,15 +7,16 @@ use {
         },
         fixed::Fixed,
         leaks::Tracker,
+        utils::clonecell::UnsafeCellCloneSafe,
         wire_ei::{
             ei_touchscreen::{
-                ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler, Release,
-                ServerDown, ServerMotion, ServerUp,
+                ClientCancel, ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler,
+                Release, ServerCancel, ServerDown, ServerMotion, ServerUp,
             },
             EiTouchscreenId,
         },
     },
-    std::rc::Rc,
+    std::{collections::hash_map::Entry, rc::Rc},
     thiserror::Error,
 };
 
@@ -32,7 +33,10 @@ pub enum TouchChange {
     Down(f32, f32),
     Motion(f32, f32),
     Up,
+    Cancel,
 }
+
+unsafe impl UnsafeCellCloneSafe for TouchChange {}
 
 ei_device_interface!(EiTouchscreen, ei_touchscreen, touchscreen);
 
@@ -61,6 +65,35 @@ impl EiTouchscreen {
             touchid,
         });
     }
+
+    pub fn send_cancel(&self, touchid: u32) {
+        self.client.event(ServerCancel {
+            self_id: self.id,
+            touchid,
+        });
+    }
+
+    fn set_client_event(&self, touchid: u32, event: TouchChange) -> Result<(), EiTouchscreenError> {
+        match self.device.touch_changes.lock().entry(touchid) {
+            Entry::Occupied(mut o) => {
+                use TouchChange::*;
+                match (o.get(), event) {
+                    (Motion(_, _), Motion(_, _))
+                    | (Down(_, _), Down(_, _))
+                    | (Up, Up)
+                    | (Cancel, Cancel) => {
+                        o.insert(event);
+                        Ok(())
+                    }
+                    _ => Err(EiTouchscreenError::InvalidEventCombination),
+                }
+            }
+            Entry::Vacant(v) => {
+                v.insert(event);
+                Ok(())
+            }
+        }
+    }
 }
 
 impl EiTouchscreenRequestHandler for EiTouchscreen {
@@ -72,24 +105,19 @@ impl EiTouchscreenRequestHandler for EiTouchscreen {
     }
 
     fn client_down(&self, req: ClientDown, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.device
-            .touch_changes
-            .push((req.touchid, TouchChange::Down(req.x, req.y)));
-        Ok(())
+        self.set_client_event(req.touchid, TouchChange::Down(req.x, req.y))
     }
 
     fn client_motion(&self, req: ClientMotion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.device
-            .touch_changes
-            .push((req.touchid, TouchChange::Motion(req.x, req.y)));
-        Ok(())
+        self.set_client_event(req.touchid, TouchChange::Motion(req.x, req.y))
     }
 
     fn client_up(&self, req: ClientUp, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.device
-            .touch_changes
-            .push((req.touchid, TouchChange::Up));
-        Ok(())
+        self.set_client_event(req.touchid, TouchChange::Up)
+    }
+
+    fn client_cancel(&self, req: ClientCancel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.set_client_event(req.touchid, TouchChange::Cancel)
     }
 }
 
@@ -104,5 +132,7 @@ impl EiObject for EiTouchscreen {}
 pub enum EiTouchscreenError {
     #[error(transparent)]
     EiClientError(Box<EiClientError>),
+    #[error("Touch frame contains an invalid combination of events")]
+    InvalidEventCombination,
 }
 efrom!(EiTouchscreenError, EiClientError);
