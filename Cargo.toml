@@ -82,3 +82,7 @@ opt-level = 3
 rc_tracking = []
 it = []
 tracy = ["dep:tracy-client-sys", "dep:rustc-demangle"]
+
+# default = ["debug_keys"]
+debug_keys = []
+debug_seat = []

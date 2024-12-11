@@ -44,7 +44,12 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use {
-    crate::{_private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector},
+    crate::{
+        _private::ipc::WorkspaceSource,
+        keyboard::{AppMod, ModifiedKeySym},
+        video::Connector,
+    },
+    input::Seat,
     serde::{Deserialize, Serialize},
     std::{
         fmt::{Debug, Display, Formatter},
@@ -96,7 +101,7 @@ impl Axis {
 }
 
 /// Exits the compositor.
-pub fn quit() {
+pub fn quit(_seat: Seat) {
     get!().quit()
 }
 
@@ -108,7 +113,7 @@ pub fn switch_to_vt(n: u32) {
 /// Reloads the configuration.
 ///
 /// If the configuration cannot be reloaded, this function has no effect.
-pub fn reload() {
+pub fn reload(_seat: Seat) {
     get!().reload()
 }
 

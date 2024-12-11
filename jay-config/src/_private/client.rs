@@ -28,7 +28,7 @@ use {
             Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, Transform, VrrMode,
         },
         xwayland::XScalingMode,
-        Axis, Direction, ModifiedKeySym, PciId, Workspace,
+        AppMod, Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
     bincode::Options,
     futures_util::task::ArcWake,
@@ -75,7 +75,7 @@ fn ignore_panic(name: &str, f: impl FnOnce()) {
 struct KeyHandler {
     registered_mask: Modifiers,
     cb_mask: Modifiers,
-    cb: Option<Callback>,
+    cb: Option<Callback<Seat>>,
     latched: Vec<Box<dyn FnOnce()>>,
 }
 
@@ -84,7 +84,7 @@ pub(crate) struct Client {
     srv_data: *const u8,
     srv_unref: unsafe extern "C" fn(data: *const u8),
     srv_handler: unsafe extern "C" fn(data: *const u8, msg: *const u8, size: usize),
-    key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), KeyHandler>>,
+    key_handlers: RefCell<HashMap<(Seat, AppMod, ModifiedKeySym), KeyHandler>>,
     timer_handlers: RefCell<HashMap<Timer, Callback>>,
     response: RefCell<Vec<Response>>,
     on_new_seat: RefCell<Option<Callback<Seat>>>,
@@ -108,7 +108,8 @@ pub(crate) struct Client {
     i3bar_separator: RefCell<Option<Rc<String>>>,
     pressed_keysym: Cell<Option<KeySym>>,
 
-    feat_mod_mask: Cell<bool>,
+    feat_mod_mask_global: Cell<bool>,
+    feat_mod_mask_modal: Cell<bool>,
 }
 
 struct Interest {
@@ -239,7 +240,8 @@ pub unsafe extern "C" fn init(
         status_task: Default::default(),
         i3bar_separator: Default::default(),
         pressed_keysym: Cell::new(None),
-        feat_mod_mask: Cell::new(false),
+        feat_mod_mask_global: Cell::new(false),
+        feat_mod_mask_modal: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -337,9 +339,13 @@ impl Client {
         self.send(&ClientMessage::Move { seat, direction });
     }
 
-    pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
+    pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T, app_mod: AppMod) {
         let mod_sym = mod_sym.into();
-        if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, mod_sym)) {
+        if let Entry::Occupied(mut oe) =
+            self.key_handlers
+                .borrow_mut()
+                .entry((seat, app_mod.clone(), mod_sym.clone()))
+        {
             oe.get_mut().cb = None;
             if oe.get().latched.is_empty() {
                 oe.remove();
@@ -347,14 +353,22 @@ impl Client {
                     seat,
                     mods: mod_sym.mods,
                     sym: mod_sym.sym,
+                    app_mod,
                 })
             }
         }
     }
 
+    pub fn set_app_mod(&self, seat: Seat, app_mod: AppMod) {
+        self.send(&ClientMessage::SetAppMod { seat, app_mod });
+    }
+
     fn with_response<F: FnOnce()>(&self, f: F) -> Response {
         f();
-        self.response.borrow_mut().pop().unwrap_or(Response::None)
+        self.response
+            .borrow_mut()
+            .pop()
+            .unwrap_or(Response::None)
     }
 
     pub fn seats(&self) -> Vec<Seat> {
@@ -1023,8 +1037,8 @@ impl Client {
         self.send(&ClientMessage::SetEiSocketEnabled { enabled })
     }
 
-    pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, f: F) {
-        if !self.feat_mod_mask.get() {
+    pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, app_mod: AppMod, f: F) {
+        if !self.feat_mod_mask_global.get() {
             log::error!("compositor does not support latching");
             return;
         }
@@ -1036,7 +1050,7 @@ impl Client {
         let f = Box::new(f);
         let register = {
             let mut kh = self.key_handlers.borrow_mut();
-            match kh.entry((seat, mods | keysym)) {
+            match kh.entry((seat, app_mod.clone(), mods | keysym)) {
                 Entry::Occupied(mut o) => {
                     let o = o.get_mut();
                     o.latched.push(f);
@@ -1059,22 +1073,54 @@ impl Client {
                 mods,
                 mod_mask: mods,
                 sym: keysym,
+                app_mod,
+                tunnel: None,
             });
         }
     }
 
-    pub fn bind_masked<F: FnMut() + 'static>(
+    pub fn bind_tunnel(
+        &self,
+        seat: Seat,
+        mod_mask: Modifiers,
+        mod_sym: ModifiedKeySym,
+        app_mod: AppMod,
+        tunnel: Vec<ModifiedKeySym>,
+    ) {
+        let msg = if self.feat_mod_mask_modal.get() {
+            ClientMessage::AddShortcut2 {
+                seat,
+                mods: mod_sym.mods,
+                mod_mask,
+                sym: mod_sym.sym,
+                app_mod,
+                tunnel: Some(tunnel),
+            }
+        } else {
+            ClientMessage::AddShortcut {
+                seat,
+                mods: mod_sym.mods,
+                sym: mod_sym.sym,
+                app_mod,
+                tunnel: Some(tunnel),
+            }
+        };
+        self.send(&msg);
+    }
+
+    pub fn bind_masked<F: FnMut(Seat) + 'static>(
         &self,
         seat: Seat,
         mut mod_mask: Modifiers,
         mod_sym: ModifiedKeySym,
+        app_mod: AppMod,
         mut f: F,
     ) {
         mod_mask |= mod_sym.mods | RELEASE;
         let register = {
             let mut kh = self.key_handlers.borrow_mut();
-            let cb = cb(move |_| f());
-            match kh.entry((seat, mod_sym)) {
+            let cb = cb(move |seat| f(seat));
+            match kh.entry((seat, app_mod.clone(), mod_sym)) {
                 Entry::Occupied(mut o) => {
                     let o = o.get_mut();
                     o.cb = Some(cb);
@@ -1097,18 +1143,22 @@ impl Client {
             }
         };
         if register {
-            let msg = if self.feat_mod_mask.get() {
+            let msg = if self.feat_mod_mask_global.get() {
                 ClientMessage::AddShortcut2 {
                     seat,
                     mods: mod_sym.mods,
                     mod_mask,
                     sym: mod_sym.sym,
+                    app_mod,
+                    tunnel: None,
                 }
             } else {
                 ClientMessage::AddShortcut {
                     seat,
                     mods: mod_sym.mods,
                     sym: mod_sym.sym,
+                    app_mod,
+                    tunnel: None,
                 }
             };
             self.send(&msg);
@@ -1198,7 +1248,9 @@ impl Client {
                     let mut fut = fut.borrow_mut();
                     let fut = &mut *fut;
                     let res = catch_unwind(AssertUnwindSafe(|| {
-                        fut.task.as_mut().poll(&mut Context::from_waker(&fut.waker))
+                        fut.task
+                            .as_mut()
+                            .poll(&mut Context::from_waker(&fut.waker))
                     }));
                     match res {
                         Err(_) => {
@@ -1259,12 +1311,13 @@ impl Client {
         unmasked_mods: Modifiers,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
     ) {
         let ms = ModifiedKeySym { mods, sym };
         let handler = self
             .key_handlers
             .borrow_mut()
-            .get_mut(&(seat, ms))
+            .get_mut(&(seat, app_mod.clone(), ms))
             .map(|kh| {
                 let cb = if kh.cb_mask & unmasked_mods == mods {
                     kh.cb.clone()
@@ -1284,15 +1337,24 @@ impl Client {
             ignore_panic("latch", latched);
         }
         if let Some(handler) = handler {
-            run_cb("shortcut", &handler, ());
+            run_cb("shortcut", &handler, seat);
         }
         self.pressed_keysym.set(None);
         if was_latched {
-            if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, ms)) {
+            if let Entry::Occupied(mut oe) =
+                self.key_handlers
+                    .borrow_mut()
+                    .entry((seat, app_mod.clone(), ms))
+            {
                 let o = oe.get_mut();
                 if o.latched.is_empty() {
                     if o.cb.is_none() {
-                        self.send(&ClientMessage::RemoveShortcut { seat, mods, sym });
+                        self.send(&ClientMessage::RemoveShortcut {
+                            seat,
+                            mods,
+                            sym,
+                            app_mod,
+                        });
                         oe.remove();
                     } else if o.cb_mask != o.registered_mask {
                         o.registered_mask = o.cb_mask;
@@ -1301,6 +1363,8 @@ impl Client {
                             mods: ms.mods,
                             mod_mask: o.cb_mask,
                             sym: ms.sym,
+                            app_mod,
+                            tunnel: None,
                         });
                     }
                 }
@@ -1327,16 +1391,24 @@ impl Client {
             ServerMessage::Response { response } => {
                 self.response.borrow_mut().push(response);
             }
-            ServerMessage::InvokeShortcut { seat, mods, sym } => {
-                self.handle_invoke_shortcut(seat, mods, mods, sym);
+            ServerMessage::InvokeShortcut {
+                seat,
+                mods,
+                sym,
+                app_mod,
+            } => {
+                self.handle_invoke_shortcut(seat, mods, mods, sym, app_mod);
+                // self.handle_invoke_shortcut(seat, mods, mods, sym);
             }
             ServerMessage::InvokeShortcut2 {
                 seat,
                 unmasked_mods,
                 effective_mods,
                 sym,
+                app_mod,
             } => {
-                self.handle_invoke_shortcut(seat, unmasked_mods, effective_mods, sym);
+                self.handle_invoke_shortcut(seat, unmasked_mods, effective_mods, sym, app_mod);
+                // self.handle_invoke_shortcut(seat, unmasked_mods, effective_mods, sym);
             }
             ServerMessage::NewInputDevice { device } => {
                 let handler = self.on_new_input_device.borrow_mut().clone();
@@ -1424,7 +1496,8 @@ impl Client {
                 for feat in features {
                     match feat {
                         ServerFeature::NONE => {}
-                        ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
+                        ServerFeature::MOD_MASK => self.feat_mod_mask_global.set(true),
+                        ServerFeature::MOD_MASK_MODAL => self.feat_mod_mask_modal.set(true),
                         _ => {}
                     }
                 }
@@ -1435,7 +1508,11 @@ impl Client {
                 event,
             } => {
                 let _ = seat;
-                let cb = self.on_switch_event.borrow().get(&input_device).cloned();
+                let cb = self
+                    .on_switch_event
+                    .borrow()
+                    .get(&input_device)
+                    .cloned();
                 if let Some(cb) = cb {
                     run_cb("switch event", &cb, event);
                 }
