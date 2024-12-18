@@ -57,7 +57,6 @@ impl ClientMem {
         Self::new2(fd, len, read_only, client, cpu, c::MAP_SHARED)
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn new_private(
         fd: &Rc<OwnedFd>,
         len: usize,

@@ -354,7 +354,7 @@ impl Input {
         let data = Rc::new(RefCell::new(Vec::new()));
         jay_input::Keymap::handle(&self.tc, input, data.clone(), |d, map| {
             let mem = Rc::new(
-                ClientMem::new(&map.keymap, map.keymap_len as _, true, None, None).unwrap(),
+                ClientMem::new_private(&map.keymap, map.keymap_len as _, true, None, None).unwrap(),
             )
             .offset(0);
             mem.read(d.borrow_mut().deref_mut()).unwrap();

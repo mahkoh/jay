@@ -169,7 +169,7 @@ impl JayInput {
     where
         F: FnOnce(&Rc<XkbKeymap>) -> Result<(), JayInputError>,
     {
-        let cm = Rc::new(ClientMem::new(
+        let cm = Rc::new(ClientMem::new_private(
             keymap,
             len as _,
             true,

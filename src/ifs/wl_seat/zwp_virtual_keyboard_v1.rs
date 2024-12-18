@@ -56,7 +56,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         if req.size > MAX_SIZE {
             return Err(ZwpVirtualKeyboardV1Error::OversizedKeymap);
         }
-        let client_mem = ClientMem::new(
+        let client_mem = ClientMem::new_private(
             &req.fd,
             req.size as usize - 1,
             true,
