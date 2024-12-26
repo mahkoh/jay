@@ -75,6 +75,7 @@ mod t0040_virtual_keyboard;
 mod t0041_input_method;
 mod t0042_toplevel_select;
 mod t0043_destroy_registry;
+mod t0044_stacked_focus;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -137,5 +138,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0041_input_method,
         t0042_toplevel_select,
         t0043_destroy_registry,
+        t0044_stacked_focus,
     }
 }
