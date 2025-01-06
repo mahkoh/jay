@@ -6,9 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 
 pub use consts::*;
 use {
-    crate::utils::{
-        errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim, vecset::VecSet,
-    },
+    crate::utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, vecset::VecSet},
     bstr::{BStr, ByteSlice},
     isnt::std_1::primitive::IsntConstPtrExt,
     std::{
@@ -423,5 +421,9 @@ unsafe extern "C" fn jay_xkbcommon_log_handler(
         XKB_LOG_LEVEL_DEBUG => log::Level::Debug,
         _ => log::Level::Error,
     };
-    log::log!(level, "xkbcommon: {}", buf.to_bytes().trim_end().as_bstr());
+    log::log!(
+        level,
+        "xkbcommon: {}",
+        buf.to_bytes().trim_ascii_end().as_bstr(),
+    );
 }

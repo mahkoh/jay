@@ -22,7 +22,7 @@ use {
             },
         },
         udev::UdevError,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim},
+        utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt},
     },
     bstr::ByteSlice,
     isnt::std_1::primitive::IsntConstPtrExt,
@@ -182,5 +182,9 @@ unsafe extern "C" fn jay_libinput_log_handler(
         LIBINPUT_LOG_PRIORITY_ERROR => log::Level::Error,
         _ => log::Level::Error,
     };
-    log::log!(priority, "libinput: {}", str.to_bytes().trim().as_bstr());
+    log::log!(
+        priority,
+        "libinput: {}",
+        str.to_bytes().trim_ascii().as_bstr()
+    );
 }
