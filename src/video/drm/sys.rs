@@ -3,7 +3,7 @@
 
 use {
     crate::{
-        utils::{bitflags::BitflagsExt, oserror::OsError, trim::AsciiTrim},
+        utils::{bitflags::BitflagsExt, oserror::OsError},
         video::drm::{
             DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
             DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
@@ -163,7 +163,7 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
             break;
         }
         if let Some(pf) = buf.strip_prefix(b"DEVNAME=") {
-            return Ok(uapi::format_ustr!("/dev/{}", pf.trim_end().as_bstr()));
+            return Ok(uapi::format_ustr!("/dev/{}", pf.trim_ascii_end().as_bstr()));
         }
     }
     Err(OsError(c::ENOENT))
