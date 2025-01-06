@@ -276,6 +276,14 @@ impl Node for WorkspaceNode {
             fs.tl_into_node().node_do_focus(seat, direction);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
+        } else if let Some(float) = self
+            .stacked
+            .rev_iter()
+            .find_map(|node| (*node).clone().node_into_float())
+        {
+            if let Some(child) = float.child.get() {
+                child.node_do_focus(seat, direction);
+            }
         }
     }
 
