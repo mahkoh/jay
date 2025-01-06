@@ -1,7 +1,10 @@
 //! Keyboard modifiers
 
 use {
-    crate::{keyboard::syms::KeySym, ModifiedKeySym},
+    crate::{
+        keyboard::syms::{self, KeySym},
+        ModifiedKeySym,
+    },
     serde::{Deserialize, Serialize},
     std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
@@ -13,6 +16,24 @@ pub struct Modifiers(pub u32);
 impl Modifiers {
     /// No modifiers.
     pub const NONE: Self = Modifiers(0);
+
+    pub fn into_keysyms(self) -> Vec<KeySym> {
+        let mut keysyms = Vec::with_capacity(8);
+        let modifiers = self.0;
+        let mut mask = |target: Modifiers, keysym: KeySym| {
+            if (target.0 & modifiers) > 0 {
+                keysyms.push(keysym)
+            }
+        };
+        mask(SHIFT, syms::SYM_Shift_L);
+        mask(LOCK, syms::SYM_Caps_Lock);
+        mask(CTRL, syms::SYM_Control_L);
+        mask(ALT, syms::SYM_Alt_L);
+        mask(NUM, syms::SYM_Num_Lock);
+        mask(MOD4, syms::SYM_Num_Lock);
+        mask(LOGO, syms::SYM_Meta_L);
+        keysyms
+    }
 }
 
 /// The Shift modifier

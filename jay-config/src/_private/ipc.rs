@@ -4,7 +4,7 @@ use {
             acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
             Seat, SwitchEvent,
         },
-        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        keyboard::{mods::Modifiers, syms::KeySym, AppMod, Keymap, ModifiedKeySym},
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
@@ -27,6 +27,7 @@ pub struct ServerFeature(u16);
 impl ServerFeature {
     pub const NONE: Self = Self(0);
     pub const MOD_MASK: Self = Self(1);
+    pub const MOD_MASK_MODAL: Self = Self(2);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,6 +61,7 @@ pub enum ServerMessage {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
     },
     TimerExpired {
         timer: Timer,
@@ -86,6 +88,7 @@ pub enum ServerMessage {
         unmasked_mods: Modifiers,
         effective_mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
     },
     SwitchEvent {
         seat: Seat,
@@ -157,11 +160,14 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
+        tunnel: Option<Vec<ModifiedKeySym>>,
     },
     RemoveShortcut {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
     },
     Run {
         prog: &'a str,
@@ -475,6 +481,8 @@ pub enum ClientMessage<'a> {
         mods: Modifiers,
         mod_mask: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
+        tunnel: Option<Vec<ModifiedKeySym>>,
     },
     SetFocusFollowsMouseMode {
         seat: Seat,
@@ -526,6 +534,10 @@ pub enum ClientMessage<'a> {
     },
     SetXScalingMode {
         mode: XScalingMode,
+    },
+    SetAppMod {
+        seat: Seat,
+        app_mod: AppMod,
     },
 }
 

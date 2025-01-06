@@ -37,6 +37,7 @@ use {
             toml_value::Value,
         },
     },
+    ahash::HashMapExt,
     indexmap::IndexMap,
     std::collections::HashSet,
     thiserror::Error,
@@ -120,7 +121,7 @@ impl Parser for ConfigParser<'_> {
         ) = ext.extract((
             (
                 opt(val("keymap")),
-                opt(val("shortcuts")),
+                recover(opt(arr("shortcuts"))),
                 opt(val("on-graphics-initialized")),
                 opt(val("status")),
                 opt(val("outputs")),
@@ -168,24 +169,51 @@ impl Parser for ConfigParser<'_> {
             }
         }
         let mut used_keys = HashSet::new();
-        let mut shortcuts = vec![];
+        let mut shortcuts = ahash::HashMap::new();
         if let Some(value) = shortcuts_val {
-            value
-                .parse(&mut ShortcutsParser {
+            for value in value.value {
+                let mut shortcuts_mod = vec![];
+                // let app_name = match value.parse(&mut ShortcutsAppNameParser { cx: self.0 }) {
+                //     Ok(name) => name,
+                //     Err(e) => {
+                //         log::warn!("Could not parse a shortcut.app_name: {}", self.0.error(e));
+                //     }
+                // };
+                // let mod_name = match value.parse(&mut ShortcutsModNameParser { cx: self.0 }) {
+                //     Ok(name) => name,
+                //     Err(e) => {
+                //         log::warn!("Could not parse a shortcut.mod_name: {}", self.0.error(e));
+                //     }
+                // };
+                let parser = &mut ShortcutsParser {
                     cx: self.0,
                     used_keys: &mut used_keys,
-                    shortcuts: &mut shortcuts,
-                })
-                .map_spanned_err(ConfigParserError::ParseShortcuts)?;
+                    shortcuts: &mut shortcuts_mod,
+                    app_name: "Default".to_string(),
+                    mod_name: "Default".to_string(),
+                };
+                value
+                    .parse(parser)
+                    .map_spanned_err(ConfigParserError::ParseShortcuts)?;
+                let ShortcutsParser {
+                    app_name, mod_name, ..
+                } = parser;
+                shortcuts.insert((app_name.clone(), mod_name.clone()), shortcuts_mod);
+            }
         }
         if let Some(value) = complex_shortcuts_val {
-            value
-                .parse(&mut ComplexShortcutsParser {
-                    cx: self.0,
-                    used_keys: &mut used_keys,
-                    shortcuts: &mut shortcuts,
-                })
-                .map_spanned_err(ConfigParserError::ParseShortcuts)?;
+            let _ = value;
+            let _ = ComplexShortcutsParser::EXPECTED;
+            todo!("Handle complexe shortucuts.");
+            // for value in value.value {
+            //     value
+            //         .parse(&mut ComplexShortcutsParser {
+            //             cx: self.0,
+            //             used_keys: &mut used_keys,
+            //             shortcuts: &mut shortcuts,
+            //         })
+            //         .map_spanned_err(ConfigParserError::ParseShortcuts)?;
+            // }
         }
         if shortcuts.is_empty() {
             log::warn!("Config defines no shortcuts");

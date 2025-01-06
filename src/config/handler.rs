@@ -45,7 +45,7 @@ use {
             },
             FocusFollowsMouseMode, InputDevice, Seat,
         },
-        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        keyboard::{mods::Modifiers, syms::KeySym, AppMod, Keymap, ModifiedKeySym},
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
@@ -570,7 +570,11 @@ impl ConfigProxyHandler {
     }
 
     fn get_drm_device(&self, dev: DrmDevice) -> Result<Rc<DrmDevData>, CphError> {
-        match self.state.drm_devs.get(&DrmDeviceId::from_raw(dev.0 as _)) {
+        match self
+            .state
+            .drm_devs
+            .get(&DrmDeviceId::from_raw(dev.0 as _))
+        {
             Some(dev) => Ok(dev),
             _ => Err(CphError::DrmDeviceDoesNotExist(dev)),
         }
@@ -757,6 +761,12 @@ impl ConfigProxyHandler {
         self.get_drm_device(device)?
             .dev
             .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
+        Ok(())
+    }
+
+    fn handle_set_app_mod(&self, seat: Seat, app_mod: AppMod) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_app_mod(app_mod);
         Ok(())
     }
 
@@ -1278,9 +1288,11 @@ impl ConfigProxyHandler {
         mod_mask: Modifiers,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
+        tunnel: Option<Vec<ModifiedKeySym>>,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.add_shortcut(mod_mask, mods, sym);
+        seat.add_shortcut(mod_mask, mods, sym, app_mod, tunnel);
         Ok(())
     }
 
@@ -1289,9 +1301,10 @@ impl ConfigProxyHandler {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
+        app_mod: AppMod,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.remove_shortcut(mods, sym);
+        seat.remove_shortcut(mods, sym, app_mod);
         Ok(())
     }
 
@@ -1654,11 +1667,22 @@ impl ConfigProxyHandler {
             ClientMessage::SetSplit { seat, axis } => {
                 self.handle_set_split(seat, axis).wrn("set_split")?
             }
-            ClientMessage::AddShortcut { seat, mods, sym } => self
-                .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
+            ClientMessage::AddShortcut {
+                seat,
+                mods,
+                sym,
+                app_mod,
+                tunnel,
+            } => self
+                .handle_add_shortcut(seat, Modifiers(!0), mods, sym, app_mod, tunnel)
                 .wrn("add_shortcut")?,
-            ClientMessage::RemoveShortcut { seat, mods, sym } => self
-                .handle_remove_shortcut(seat, mods, sym)
+            ClientMessage::RemoveShortcut {
+                seat,
+                mods,
+                sym,
+                app_mod,
+            } => self
+                .handle_remove_shortcut(seat, mods, sym, app_mod)
                 .wrn("remove_shortcut")?,
             ClientMessage::Focus { seat, direction } => {
                 self.handle_focus(seat, direction).wrn("focus")?
@@ -1934,8 +1958,10 @@ impl ConfigProxyHandler {
                 mod_mask,
                 mods,
                 sym,
+                app_mod,
+                tunnel,
             } => self
-                .handle_add_shortcut(seat, mod_mask, mods, sym)
+                .handle_add_shortcut(seat, mod_mask, mods, sym, app_mod, tunnel)
                 .wrn("add_shortcut")?,
             ClientMessage::SetFocusFollowsMouseMode { seat, mode } => self
                 .handle_set_focus_follows_mouse_mode(seat, mode)
@@ -1980,6 +2006,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetXScalingMode { mode } => self
                 .handle_set_x_scaling_mode(mode)
                 .wrn("set_x_scaling_mode")?,
+            ClientMessage::SetAppMod { seat, app_mod } => self
+                .handle_set_app_mod(seat, app_mod)
+                .wrn("set_app_mod")?,
         }
         Ok(())
     }

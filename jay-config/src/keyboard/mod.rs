@@ -3,11 +3,97 @@
 use {
     crate::keyboard::{mods::Modifiers, syms::KeySym},
     serde::{Deserialize, Serialize},
-    std::ops::{BitOr, BitOrAssign},
+    std::{
+        fmt,
+        ops::{BitOr, BitOrAssign},
+    },
 };
 
 pub mod mods;
 pub mod syms;
+
+#[derive(Serialize, Deserialize, Clone, Eq, Hash, Debug)]
+pub struct AppMod {
+    pub app_name: String,
+    pub mod_name: String,
+}
+
+const APP_NAME_JAY: &str = "Jay";
+const MOD_NAME_GLOBAL: &str = "Global";
+const MOD_NAME_WINDOW: &str = "Window";
+const MOD_NAME_INSERT: &str = "Insert";
+const MOD_NAME_INITIAL: &str = "Init";
+
+impl AppMod {
+    pub const APP_NAME_JAY: &str = APP_NAME_JAY;
+    pub const MOD_NAME_GLOBAL: &str = MOD_NAME_GLOBAL;
+    pub const MOD_NAME_WINDOW: &str = MOD_NAME_WINDOW;
+    pub const MOD_NAME_INSERT: &str = MOD_NAME_INSERT;
+    pub const MOD_NAME_INITIAL: &str = MOD_NAME_INITIAL;
+
+    pub fn is_global(&self) -> bool {
+        let Self { app_name, mod_name } = self;
+        app_name == APP_NAME_JAY && mod_name == MOD_NAME_GLOBAL
+    }
+    pub fn global() -> Self {
+        Self {
+            app_name: APP_NAME_JAY.to_string(),
+            mod_name: MOD_NAME_GLOBAL.to_string(),
+        }
+    }
+    pub fn is_window(&self) -> bool {
+        let Self { app_name, mod_name } = self;
+        app_name == APP_NAME_JAY && mod_name == MOD_NAME_WINDOW
+    }
+    pub fn is_insert(&self) -> bool {
+        let Self { app_name, mod_name } = self;
+        app_name == APP_NAME_JAY && mod_name == MOD_NAME_INSERT
+    }
+    pub fn insert() -> Self {
+        Self {
+            app_name: APP_NAME_JAY.to_string(),
+            mod_name: MOD_NAME_INSERT.to_string(),
+        }
+    }
+    pub fn as_tuple(self) -> (String, String) {
+        let Self { app_name, mod_name } = self;
+        (app_name, mod_name)
+    }
+}
+
+impl fmt::Display for AppMod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let AppMod { app_name, mod_name } = self;
+        write!(f, r#"AppMod("{}", "{}")"#, app_name, mod_name)
+    }
+}
+
+impl Default for AppMod {
+    fn default() -> Self {
+        Self {
+            app_name: APP_NAME_JAY.to_string(),
+            mod_name: MOD_NAME_WINDOW.to_string(),
+        }
+    }
+}
+
+impl PartialEq for AppMod {
+    fn eq(&self, other: &Self) -> bool {
+        self.app_name == other.app_name && self.mod_name == other.mod_name
+    }
+    fn ne(&self, other: &Self) -> bool {
+        self.app_name != other.app_name || self.mod_name != other.mod_name
+    }
+}
+
+impl From<&(String, String)> for AppMod {
+    fn from(app_mod_key: &(String, String)) -> Self {
+        Self {
+            app_name: app_mod_key.0.clone(),
+            mod_name: app_mod_key.1.clone(),
+        }
+    }
+}
 
 /// A keysym with zero or more modifiers
 #[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Hash, Debug)]
