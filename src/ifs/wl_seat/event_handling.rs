@@ -761,9 +761,9 @@ impl WlSeatGlobal {
         self.touch_owner.motion(self, time_usec, id, x, y);
     }
 
-    fn touch_cancel(self: &Rc<Self>, time_usec: u64, id: i32) {
+    pub fn touch_cancel(self: &Rc<Self>, time_usec: u64, id: i32) {
         self.for_each_ei_seat(|ei_seat| {
-            ei_seat.handle_touch_up(id as _);
+            ei_seat.handle_touch_cancel(id as _);
         });
         self.state.for_each_seat_tester(|t| {
             t.send_touch_cancel(self.id, time_usec, id);

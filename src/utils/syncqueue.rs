@@ -37,6 +37,7 @@ impl<T> SyncQueue<T> {
         unsafe { self.el.get().deref_mut().is_empty() }
     }
 
+    #[expect(dead_code)]
     pub fn is_not_empty(&self) -> bool {
         !self.is_empty()
     }
