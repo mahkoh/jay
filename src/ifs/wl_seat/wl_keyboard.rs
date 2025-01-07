@@ -2,11 +2,12 @@ use {
     crate::{
         client::ClientError,
         ifs::wl_seat::WlSeat,
+        keyboard::{KeyboardState, KeyboardStateId, ModifierState},
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
-        xkbcommon::{KeyboardState, KeyboardStateId, ModifierState, XkbCommonError},
+        xkbcommon::XkbCommonError,
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

@@ -2,11 +2,11 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::wl_seat::{text_input::zwp_input_method_v2::ZwpInputMethodV2, wl_keyboard},
+        keyboard::{KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
         wire::{zwp_input_method_keyboard_grab_v2::*, ZwpInputMethodKeyboardGrabV2Id},
-        xkbcommon::{KeyboardState, KeyboardStateId},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

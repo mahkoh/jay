@@ -6,7 +6,10 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 
 pub use consts::*;
 use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, vecset::VecSet},
+    crate::{
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, ModifierState},
+        utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt},
+    },
     bstr::{BStr, ByteSlice},
     isnt::std_1::primitive::IsntConstPtrExt,
     std::{
@@ -249,35 +252,6 @@ impl Deref for XkbKeymapStr {
 impl Drop for XkbKeymapStr {
     fn drop(&mut self) {
         unsafe { c::free(self.s as _) }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-pub struct ModifierState {
-    pub mods_depressed: u32,
-    pub mods_latched: u32,
-    pub mods_locked: u32,
-    pub mods_effective: u32,
-    pub group: u32,
-}
-
-linear_ids!(KeyboardStateIds, KeyboardStateId, u64);
-
-pub struct KeyboardState {
-    pub id: KeyboardStateId,
-    pub map: Rc<OwnedFd>,
-    pub map_len: usize,
-    pub pressed_keys: VecSet<u32>,
-    pub mods: ModifierState,
-}
-
-pub trait DynKeyboardState {
-    fn borrow(&self) -> Ref<'_, KeyboardState>;
-}
-
-impl DynKeyboardState for RefCell<KeyboardState> {
-    fn borrow(&self) -> Ref<'_, KeyboardState> {
-        self.borrow()
     }
 }
 
