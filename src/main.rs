@@ -74,6 +74,7 @@ mod ifs;
 mod io_uring;
 #[cfg(feature = "it")]
 mod it;
+mod keyboard;
 mod libinput;
 mod logger;
 mod logind;

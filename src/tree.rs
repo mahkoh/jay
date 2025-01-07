@@ -15,10 +15,10 @@ use {
             },
             wl_surface::{tray::TrayItemId, WlSurface},
         },
+        keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
         utils::numcell::NumCell,
-        xkbcommon::KeyboardState,
     },
     jay_config::Direction as JayDirection,
     std::{

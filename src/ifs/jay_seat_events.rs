@@ -11,10 +11,10 @@ use {
             wl_pointer::PendingScroll,
             SeatId,
         },
+        keyboard::ModifierState,
         leaks::Tracker,
         object::{Object, Version},
         wire::{jay_seat_events::*, JaySeatEventsId},
-        xkbcommon::ModifierState,
     },
     std::{convert::Infallible, rc::Rc},
 };

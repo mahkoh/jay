@@ -6,6 +6,7 @@ use {
             ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
             ei_object::{EiObject, EiVersion},
         },
+        keyboard::KeyboardState,
         leaks::Tracker,
         wire_ei::{
             ei_keyboard::{
@@ -13,7 +14,6 @@ use {
             },
             EiKeyboardId,
         },
-        xkbcommon::KeyboardState,
     },
     std::rc::Rc,
     thiserror::Error,
