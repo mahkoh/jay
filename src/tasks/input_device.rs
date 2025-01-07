@@ -16,13 +16,13 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         Some(dev_t) => udev_props(dev_t, 3),
     };
     let data = Rc::new(DeviceHandlerData {
+        keyboard_id: state.physical_keyboard_ids.next(),
         seat: Default::default(),
         px_per_scroll_wheel: Cell::new(PX_PER_SCROLL),
         device: dev.clone(),
         syspath: props.syspath,
         devnode: props.devnode,
         keymap: Default::default(),
-        xkb_state: Default::default(),
         output: Default::default(),
         tablet_init: dev.tablet_info(),
         tablet_pad_init: dev.tablet_pad_info(),

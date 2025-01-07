@@ -43,4 +43,8 @@ impl<T: PartialEq> VecSet<T> {
         }
         false
     }
+
+    pub fn pop(&mut self) -> Option<T> {
+        self.vec.pop()
+    }
 }

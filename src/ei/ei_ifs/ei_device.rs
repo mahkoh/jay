@@ -189,7 +189,8 @@ impl EiDeviceRequestHandler for EiDevice {
             seat.button_event(time, button, pressed);
         }
         while let Some((button, pressed)) = self.key_changes.pop() {
-            seat.key_event_with_seat_state(time, button, pressed);
+            let phy = seat.get_physical_keyboard(self.seat.keyboard_id, None);
+            phy.phy_state.update(time, seat, button, pressed);
         }
         if let Some((x, y)) = self.relative_motion.take() {
             let x = Fixed::from_f32(x);
