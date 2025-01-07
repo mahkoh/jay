@@ -7,7 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 pub use consts::*;
 use {
     crate::{
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, ModifierState},
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt},
     },
     bstr::{BStr, ByteSlice},
@@ -288,24 +288,22 @@ impl KeyboardState {
 }
 
 impl XkbState {
-    pub fn mods(&self) -> ModifierState {
+    pub fn mods(&self) -> kbvm::Components {
         self.kb_state.mods
     }
 
     fn fetch(&mut self, changes: xkb_state_component) -> bool {
         unsafe {
             if changes != 0 {
-                self.kb_state.mods.mods_depressed =
+                self.kb_state.mods.mods_pressed.0 =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_DEPRESSED.raw() as _);
-                self.kb_state.mods.mods_latched =
+                self.kb_state.mods.mods_latched.0 =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LATCHED.raw() as _);
-                self.kb_state.mods.mods_locked =
+                self.kb_state.mods.mods_locked.0 =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LOCKED.raw() as _);
-                self.kb_state.mods.mods_effective = self.kb_state.mods.mods_depressed
-                    | self.kb_state.mods.mods_latched
-                    | self.kb_state.mods.mods_locked;
-                self.kb_state.mods.group =
+                self.kb_state.mods.group_locked.0 =
                     xkb_state_serialize_layout(self.state, XKB_STATE_LAYOUT_EFFECTIVE.raw() as _);
+                self.kb_state.mods.update_effective();
                 true
             } else {
                 false
@@ -359,7 +357,7 @@ impl XkbState {
             let num = xkb_keymap_key_get_syms_by_level(
                 self.map.keymap,
                 key + 8,
-                self.kb_state.mods.group,
+                self.kb_state.mods.group.0,
                 0,
                 &mut res,
             );

@@ -2,13 +2,14 @@ use {
     crate::{
         client::ClientError,
         ifs::wl_seat::WlSeat,
-        keyboard::{KeyboardState, KeyboardStateId, ModifierState},
+        keyboard::{KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
         xkbcommon::XkbCommonError,
     },
+    kbvm::Components,
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
@@ -138,14 +139,14 @@ impl WlKeyboard {
         }
     }
 
-    fn send_modifiers(&self, serial: u64, mods: &ModifierState) {
+    fn send_modifiers(&self, serial: u64, mods: &Components) {
         self.seat.client.event(Modifiers {
             self_id: self.id,
             serial: serial as _,
-            mods_depressed: mods.mods_depressed,
-            mods_latched: mods.mods_latched,
-            mods_locked: mods.mods_locked,
-            group: mods.group,
+            mods_depressed: mods.mods_pressed.0,
+            mods_latched: mods.mods_latched.0,
+            mods_locked: mods.mods_locked.0,
+            group: mods.group.0,
         })
     }
 
