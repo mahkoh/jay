@@ -9,11 +9,11 @@ use {
             },
             wl_surface::WlSurface,
         },
+        kbvm::KbvmError,
         keyboard::KeyboardState,
         leaks::Tracker,
         object::{Object, Version},
         wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
-        xkbcommon::XkbCommonError,
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,
@@ -74,8 +74,8 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         let map = self
             .client
             .state
-            .xkb_ctx
-            .keymap_from_str(&map)
+            .kb_ctx
+            .parse_keymap(&map)
             .map_err(ZwpVirtualKeyboardV1Error::ParseKeymap)?;
         *self.kb_state.borrow_mut() = KeyboardState {
             id: self.client.state.keyboard_state_ids.next(),
@@ -103,6 +103,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
                 wl_keyboard::RELEASED => kb_state.pressed_keys.remove(&req.key),
                 _ => kb_state.pressed_keys.insert(req.key),
             };
+            self.seat.latest_kb_state_id.set(kb_state.id);
             self.seat.latest_kb_state.set(self.kb_state.clone());
         }
         Ok(())
@@ -118,6 +119,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         self.for_each_kb(|serial, surface, kb| {
             kb.on_mods_changed(serial, surface.id, &kb_state);
         });
+        self.seat.latest_kb_state_id.set(kb_state.id);
         self.seat.latest_kb_state.set(self.kb_state.clone());
         Ok(())
     }
@@ -154,6 +156,6 @@ pub enum ZwpVirtualKeyboardV1Error {
     #[error("Could not read the keymap")]
     ReadKeymap(#[source] ClientMemError),
     #[error("Could not parse the keymap")]
-    ParseKeymap(#[source] XkbCommonError),
+    ParseKeymap(#[source] KbvmError),
 }
 efrom!(ZwpVirtualKeyboardV1Error, ClientError);

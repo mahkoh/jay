@@ -29,6 +29,13 @@ impl<T> SyncQueue<T> {
         }
     }
 
+    pub fn append(&self, src: &mut Vec<T>) {
+        unsafe {
+            self.el.get().deref_mut().extend(src.drain(..));
+        }
+    }
+
+    #[inline]
     pub fn pop(&self) -> Option<T> {
         unsafe { self.el.get().deref_mut().pop_front() }
     }

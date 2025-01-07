@@ -10,6 +10,7 @@ use {
         format::config_formats,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         io_uring::TaskResultExt,
+        kbvm::{KbvmError, KbvmMap},
         output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
@@ -28,7 +29,6 @@ use {
             stack::Stack,
             timer::{TimerError, TimerFd},
         },
-        xkbcommon::{XkbCommonError, XkbKeymap},
     },
     bincode::Options,
     jay_config::{
@@ -73,7 +73,7 @@ pub(super) struct ConfigProxyHandler {
     pub handle_msg: unsafe extern "C" fn(data: *const u8, msg: *const u8, size: usize),
     pub state: Rc<State>,
     pub next_id: NumCell<u64>,
-    pub keymaps: CopyHashMap<Keymap, Rc<XkbKeymap>>,
+    pub keymaps: CopyHashMap<Keymap, Rc<KbvmMap>>,
     pub bufs: Stack<Vec<u8>>,
 
     pub workspace_ids: NumCell<u64>,
@@ -180,7 +180,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_parse_keymap(&self, keymap: &str) -> Result<(), CphError> {
-        let (keymap, res) = match self.state.xkb_ctx.keymap_from_str(keymap) {
+        let (keymap, res) = match self.state.kb_ctx.parse_keymap(keymap.as_bytes()) {
             Ok(keymap) => {
                 let id = Keymap(self.id());
                 self.keymaps.set(id, keymap);
@@ -594,7 +594,7 @@ impl ConfigProxyHandler {
         }
     }
 
-    fn get_keymap(&self, keymap: Keymap) -> Result<Rc<XkbKeymap>, CphError> {
+    fn get_keymap(&self, keymap: Keymap) -> Result<Rc<KbvmMap>, CphError> {
         match self.keymaps.get(&keymap) {
             Some(k) => Ok(k),
             None => Err(CphError::KeymapDoesNotExist(keymap)),
@@ -2007,7 +2007,7 @@ enum CphError {
     #[error("Repeat delay is negative")]
     NegativeRepeatDelay,
     #[error("Parsing failed")]
-    ParseKeymapError(#[from] XkbCommonError),
+    ParseKeymapError(#[from] KbvmError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Connector {0:?} does not exist")]

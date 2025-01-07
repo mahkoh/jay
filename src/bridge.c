@@ -30,20 +30,3 @@ void jay_libinput_log_handler_bridge(
     jay_libinput_log_handler(libinput, priority, line);
     free(line);
 }
-
-void jay_xkbcommon_log_handler(
-    void *ctx,
-    int xkb_log_level,
-    const char *line
-);
-
-void jay_xkbcommon_log_handler_bridge(
-    void *ctx,
-    int xkb_log_level,
-    const char *format,
-    va_list args
-) {
-    char *line = fmt(format, args);
-    jay_xkbcommon_log_handler(ctx, xkb_log_level, line);
-    free(line);
-}

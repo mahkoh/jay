@@ -64,9 +64,9 @@ impl EiConnection {
         if version == EiVersion(0) {
             return;
         }
-        let xkb_state_id = match self.context() {
-            EiContext::Sender => seat.seat_xkb_state().borrow().id,
-            EiContext::Receiver => seat.latest_xkb_state().borrow().id,
+        let kb_state_id = match self.context() {
+            EiContext::Sender => seat.seat_kb_state().borrow().id,
+            EiContext::Receiver => seat.latest_kb_state().borrow().id,
         };
         let seat = Rc::new(EiSeat {
             id: self.client.new_id(),
@@ -75,7 +75,8 @@ impl EiConnection {
             version,
             seat: seat.clone(),
             capabilities: Cell::new(0),
-            kb_state_id: Cell::new(xkb_state_id),
+            kb_state_id: Cell::new(kb_state_id),
+            keyboard_id: self.client.state.physical_keyboard_ids.next(),
             device: Default::default(),
             pointer: Default::default(),
             pointer_absolute: Default::default(),

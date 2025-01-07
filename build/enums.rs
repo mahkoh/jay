@@ -9,9 +9,6 @@ use {
 #[path = "../src/macros.rs"]
 mod macros;
 
-#[path = "../src/xkbcommon/consts.rs"]
-mod xkbcommon;
-
 #[path = "../src/libinput/consts.rs"]
 mod libinput;
 
@@ -140,22 +137,6 @@ pub fn main() -> anyhow::Result<()> {
     write_ty(&mut f, pango::CAIRO_STATUSES, "cairo_status_t")?;
     write_ty(&mut f, pango::CAIRO_OPERATORS, "cairo_operator_t")?;
     write_ty(&mut f, pango::PANGO_ELLIPSIZE_MODES, "PangoEllipsizeMode_")?;
-
-    let mut f = open("xkbcommon_tys.rs")?;
-    write_ty(&mut f, xkbcommon::XKB_LOG_LEVEL, "xkb_log_level")?;
-    write_ty(&mut f, xkbcommon::XKB_CONTEXT_FLAGS, "xkb_context_flags")?;
-    write_ty(
-        &mut f,
-        xkbcommon::XKB_KEYMAP_COMPILE_FLAGS,
-        "xkb_keymap_compile_flags",
-    )?;
-    write_ty(&mut f, xkbcommon::XKB_KEYMAP_FORMAT, "xkb_keymap_format")?;
-    write_ty(
-        &mut f,
-        xkbcommon::XKB_STATE_COMPONENT,
-        "xkb_state_component",
-    )?;
-    write_ty(&mut f, xkbcommon::XKB_KEY_DIRECTION, "xkb_key_direction")?;
 
     Ok(())
 }

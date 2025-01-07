@@ -26,6 +26,7 @@ use {
             workspace_manager::workspace_manager_done,
         },
         io_uring::{IoUring, IoUringError},
+        kbvm::KbvmContext,
         leaks,
         logger::Logger,
         output_schedule::OutputSchedule,
@@ -49,7 +50,6 @@ use {
         version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
         wheel::{Wheel, WheelError},
-        xkbcommon::XkbContext,
     },
     ahash::AHashSet,
     forker::ForkerProxy,
@@ -139,8 +139,10 @@ fn start_compositor2(
     init_fd_limit();
     leaks::init();
     clientmem::init()?;
-    let xkb_ctx = XkbContext::new().unwrap();
-    let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
+    let kb_ctx = KbvmContext::default();
+    let kb_keymap = kb_ctx
+        .parse_keymap(include_str!("keymap.xkb").as_bytes())
+        .unwrap();
     let engine = AsyncEngine::new();
     let ring = IoUring::new(&engine, 32)?;
     let _signal_future = sighand::install(&engine, &ring)?;
@@ -151,10 +153,10 @@ fn start_compositor2(
     scales.add(Scale::from_int(1));
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let state = Rc::new(State {
-        xkb_ctx,
+        kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
-        default_keymap: xkb_keymap,
+        default_keymap: kb_keymap,
         eng: engine.clone(),
         render_ctx: Default::default(),
         drm_feedback: Default::default(),
@@ -254,6 +256,7 @@ fn start_compositor2(
         wait_for_sync_obj: Rc::new(WaitForSyncObj::new(&ring, &engine)),
         explicit_sync_enabled: Cell::new(true),
         keyboard_state_ids: Default::default(),
+        physical_keyboard_ids: Default::default(),
         security_context_acceptors: Default::default(),
         cursor_user_group_ids: Default::default(),
         cursor_user_ids: Default::default(),

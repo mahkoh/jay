@@ -2,12 +2,11 @@ use {
     crate::{
         client::ClientError,
         ifs::wl_seat::WlSeat,
-        keyboard::{KeyboardState, KeyboardStateId},
+        keyboard::{KeyboardError, KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
-        xkbcommon::XkbCommonError,
     },
     kbvm::Components,
     std::{cell::Cell, rc::Rc},
@@ -183,6 +182,6 @@ pub enum WlKeyboardError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
-    XkbCommonError(#[from] XkbCommonError),
+    KeyboardError(#[from] KeyboardError),
 }
 efrom!(WlKeyboardError, ClientError);
