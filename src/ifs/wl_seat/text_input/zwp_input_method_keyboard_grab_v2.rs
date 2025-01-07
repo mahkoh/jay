@@ -78,10 +78,10 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.client.event(Modifiers {
             self_id: self.id,
             serial: serial as _,
-            mods_depressed: kb_state.mods.mods_depressed,
-            mods_latched: kb_state.mods.mods_latched,
-            mods_locked: kb_state.mods.mods_locked,
-            group: kb_state.mods.group,
+            mods_depressed: kb_state.mods.mods_pressed.0,
+            mods_latched: kb_state.mods.mods_latched.0,
+            mods_locked: kb_state.mods.mods_locked.0,
+            group: kb_state.mods.group.0,
         })
     }
 

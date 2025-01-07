@@ -818,7 +818,7 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let new_mods;
         {
-            let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+            let mut mods = xkb_state.mods().mods.0 & !(CAPS.0 | NUM.0);
             if state == wl_keyboard::RELEASED {
                 mods |= RELEASE.0;
             }

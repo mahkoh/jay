@@ -45,10 +45,10 @@ impl EiKeyboard {
         self.client.event(Modifiers {
             self_id: self.id,
             serial: self.client.serial(),
-            depressed: state.mods.mods_depressed,
-            locked: state.mods.mods_locked,
-            latched: state.mods.mods_latched,
-            group: state.mods.group,
+            depressed: state.mods.mods_pressed.0,
+            locked: state.mods.mods_locked.0,
+            latched: state.mods.mods_latched.0,
+            group: state.mods.group.0,
         });
     }
 

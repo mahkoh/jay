@@ -11,7 +11,6 @@ use {
             wl_pointer::PendingScroll,
             SeatId,
         },
-        keyboard::ModifierState,
         leaks::Tracker,
         object::{Object, Version},
         wire::{jay_seat_events::*, JaySeatEventsId},
@@ -26,12 +25,12 @@ pub struct JaySeatEvents {
 }
 
 impl JaySeatEvents {
-    pub fn send_modifiers(&self, seat: SeatId, mods: &ModifierState) {
+    pub fn send_modifiers(&self, seat: SeatId, mods: &kbvm::Components) {
         self.client.event(Modifiers {
             self_id: self.id,
             seat: seat.raw(),
-            modifiers: mods.mods_effective,
-            group: mods.group,
+            modifiers: mods.mods.0,
+            group: mods.group.0,
         });
     }
 
