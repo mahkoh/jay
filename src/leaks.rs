@@ -165,8 +165,9 @@ mod leaks {
                 objs.sort_by_key(|o| o.0);
                 log::info!("Client {} leaked {} objects", objs[0].1.client, objs.len());
                 for (_, obj) in objs {
-                    let time =
-                        chrono::NaiveDateTime::from_timestamp_opt(obj.time.0, obj.time.1).unwrap();
+                    let time = chrono::DateTime::from_timestamp(obj.time.0, obj.time.1)
+                        .unwrap()
+                        .naive_utc();
                     log::info!("  [{}] {}", time.format("%H:%M:%S%.3f"), obj.ty,);
                     match find_allocation_containing(obj.addr) {
                         Some(mut alloc) => {

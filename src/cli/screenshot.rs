@@ -229,7 +229,7 @@ pub fn buf_to_bytes(
         let mut encoder = Encoder::new(&mut out, buf.width as _, buf.height as _);
         encoder.set_color(ColorType::Rgba);
         encoder.set_depth(BitDepth::Eight);
-        encoder.set_srgb(SrgbRenderingIntent::Perceptual);
+        encoder.set_source_srgb(SrgbRenderingIntent::Perceptual);
         let mut writer = encoder.write_header().unwrap();
         writer.write_image_data(&image_data).unwrap();
     }
