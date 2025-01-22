@@ -43,8 +43,8 @@ use {
         },
         Device,
     },
-    enum_map::{enum_map, Enum, EnumMap},
     isnt::std_1::collections::IsntHashMapExt,
+    linearize::{static_map, Linearize, StaticMap},
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -109,13 +109,13 @@ pub(super) struct UsedTexture {
     release_sync: ReleaseSync,
 }
 
-#[derive(Enum)]
+#[derive(Linearize)]
 pub(super) enum TexCopyType {
     Identity,
     Multiply,
 }
 
-#[derive(Enum)]
+#[derive(Linearize)]
 pub(super) enum TexSourceType {
     Opaque,
     HasAlpha,
@@ -145,7 +145,7 @@ pub(super) struct PendingFrame {
 
 pub(super) struct VulkanFormatPipelines {
     pub(super) fill: Rc<VulkanPipeline>,
-    pub(super) tex: EnumMap<TexCopyType, EnumMap<TexSourceType, Rc<VulkanPipeline>>>,
+    pub(super) tex: StaticMap<TexCopyType, StaticMap<TexSourceType, Rc<VulkanPipeline>>>,
 }
 
 impl VulkanDevice {
@@ -276,12 +276,12 @@ impl VulkanRenderer {
         let tex_mult_alpha = create_tex_mult_pipeline(&self.tex_frag_mult_alpha_shader)?;
         let pipelines = Rc::new(VulkanFormatPipelines {
             fill,
-            tex: enum_map! {
-                TexCopyType::Identity => enum_map! {
+            tex: static_map! {
+                TexCopyType::Identity => static_map! {
                     TexSourceType::HasAlpha => tex_alpha.clone(),
                     TexSourceType::Opaque => tex_opaque.clone(),
                 },
-                TexCopyType::Multiply => enum_map! {
+                TexCopyType::Multiply => static_map! {
                     TexSourceType::HasAlpha => tex_mult_alpha.clone(),
                     TexSourceType::Opaque => tex_mult_opaque.clone(),
                 },

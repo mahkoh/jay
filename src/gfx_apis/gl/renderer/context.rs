@@ -24,8 +24,8 @@ use {
         },
     },
     ahash::AHashMap,
-    enum_map::{enum_map, Enum, EnumMap},
     jay_config::video::GfxApi,
+    linearize::{static_map, Linearize, StaticMap},
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -60,13 +60,13 @@ impl TexProg {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Enum)]
+#[derive(Copy, Clone, PartialEq, Linearize)]
 pub(in crate::gfx_apis::gl) enum TexCopyType {
     Identity,
     Multiply,
 }
 
-#[derive(Copy, Clone, PartialEq, Enum)]
+#[derive(Copy, Clone, PartialEq, Linearize)]
 pub(in crate::gfx_apis::gl) enum TexSourceType {
     Opaque,
     HasAlpha,
@@ -79,8 +79,8 @@ pub(in crate::gfx_apis::gl) struct GlRenderContext {
 
     pub(crate) render_node: Rc<CString>,
 
-    pub(crate) tex_internal: EnumMap<TexCopyType, EnumMap<TexSourceType, TexProg>>,
-    pub(crate) tex_external: Option<EnumMap<TexCopyType, EnumMap<TexSourceType, TexProg>>>,
+    pub(crate) tex_internal: StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>,
+    pub(crate) tex_external: Option<StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>>,
 
     pub(crate) fill_prog: GlProgram,
     pub(crate) fill_prog_pos: GLint,
@@ -136,12 +136,12 @@ impl GlRenderContext {
                     Ok::<_, RenderError>(TexProg::from(prog, alpha_multiplier))
                 }
             };
-            Ok::<_, RenderError>(enum_map! {
-                TexCopyType::Identity => enum_map! {
+            Ok::<_, RenderError>(static_map! {
+                TexCopyType::Identity => static_map! {
                     TexSourceType::Opaque => create_program(false, false)?,
                     TexSourceType::HasAlpha => create_program(false, true)?,
                 },
-                TexCopyType::Multiply => enum_map! {
+                TexCopyType::Multiply => static_map! {
                     TexSourceType::Opaque => create_program(true, false)?,
                     TexSourceType::HasAlpha => create_program(true, true)?,
                 },
