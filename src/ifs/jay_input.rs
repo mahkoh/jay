@@ -75,8 +75,8 @@ impl JayInput {
     fn send_keymap(&self, map: &KbvmMap) {
         self.client.event(Keymap {
             self_id: self.id,
-            keymap: map.map.clone(),
-            keymap_len: (map.map_len - 1) as _,
+            keymap: map.map.map.clone(),
+            keymap_len: (map.map.len - 1) as _,
         });
     }
 

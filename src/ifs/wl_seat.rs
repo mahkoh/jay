@@ -73,7 +73,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         kbvm::{KbvmMap, KbvmMapId, KbvmState, PhysicalKeyboardState},
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd},
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
@@ -104,7 +104,6 @@ use {
         rc::{Rc, Weak},
     },
     thiserror::Error,
-    uapi::OwnedFd,
 };
 pub use {
     event_handling::NodeSeatState,
@@ -1179,11 +1178,15 @@ impl WlSeat {
         })
     }
 
-    pub fn keymap_fd(&self, state: &KeyboardState) -> Result<Rc<OwnedFd>, WlKeyboardError> {
+    pub fn keymap_fd(&self, state: &KeyboardState) -> Result<KeymapFd, WlKeyboardError> {
+        let fd = match self.client.is_xwayland {
+            true => &state.xwayland_map,
+            _ => &state.map,
+        };
         if self.version >= READ_ONLY_KEYMAP_SINCE {
-            return Ok(state.map.clone());
+            return Ok(fd.clone());
         }
-        Ok(state.create_new_keymap_fd()?)
+        Ok(fd.create_unprotected_fd()?)
     }
 }
 

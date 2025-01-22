@@ -27,7 +27,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
     }
 
     fn send_keymap(&self, kb_state: &KeyboardState) {
-        let map = match kb_state.create_new_keymap_fd() {
+        let map = match kb_state.map.create_unprotected_fd() {
             Ok(m) => m,
             Err(e) => {
                 log::error!("Could not create new keymap fd: {}", ErrorFmt(e));
@@ -37,8 +37,8 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.client.event(Keymap {
             self_id: self.id,
             format: wl_keyboard::XKB_V1,
-            fd: map,
-            size: kb_state.map_len as _,
+            fd: map.map,
+            size: map.len as _,
         });
     }
 

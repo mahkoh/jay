@@ -80,7 +80,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         *self.kb_state.borrow_mut() = KeyboardState {
             id: self.client.state.keyboard_state_ids.next(),
             map: map.map.clone(),
-            map_len: map.map_len,
+            xwayland_map: map.xwayland_map.clone(),
             pressed_keys: Default::default(),
             mods: Default::default(),
         };
