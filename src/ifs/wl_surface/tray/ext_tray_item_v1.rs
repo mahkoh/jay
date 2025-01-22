@@ -15,23 +15,23 @@ use {
         object::{Object, Version},
         tree::NodeVisitor,
         utils::copyhashmap::CopyHashMap,
-        wire::{jay_tray_item_v1::*, JayTrayItemV1Id, XdgPopupId},
+        wire::{ext_tray_item_v1::*, ExtTrayItemV1Id, XdgPopupId},
     },
     std::rc::Rc,
     thiserror::Error,
 };
 
-pub struct JayTrayItemV1 {
-    id: JayTrayItemV1Id,
+pub struct ExtTrayItemV1 {
+    id: ExtTrayItemV1Id,
     pub tracker: Tracker<Self>,
     version: Version,
     data: TrayItemData,
     popups: CopyHashMap<XdgPopupId, Rc<Popup<Self>>>,
 }
 
-impl JayTrayItemV1 {
+impl ExtTrayItemV1 {
     pub fn new(
-        id: JayTrayItemV1Id,
+        id: ExtTrayItemV1Id,
         version: Version,
         surface: &Rc<WlSurface>,
         output: &Rc<OutputGlobalOpt>,
@@ -45,7 +45,7 @@ impl JayTrayItemV1 {
         }
     }
 
-    pub fn install(self: &Rc<Self>) -> Result<(), JayTrayItemV1Error> {
+    pub fn install(self: &Rc<Self>) -> Result<(), ExtTrayItemV1Error> {
         install(self)?;
         Ok(())
     }
@@ -80,8 +80,8 @@ impl JayTrayItemV1 {
     }
 }
 
-impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
-    type Error = JayTrayItemV1Error;
+impl ExtTrayItemV1RequestHandler for ExtTrayItemV1 {
+    type Error = ExtTrayItemV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy(self)?;
@@ -98,14 +98,14 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
             0 => FocusHint::None,
             1 => FocusHint::OnDemand,
             2 => FocusHint::Immediate,
-            n => return Err(JayTrayItemV1Error::InvalidFocusHint(n)),
+            n => return Err(ExtTrayItemV1Error::InvalidFocusHint(n)),
         };
         get_popup(slf, req.popup, req.seat, req.serial, focus)?;
         Ok(())
     }
 }
 
-impl TrayItem for JayTrayItemV1 {
+impl TrayItem for ExtTrayItemV1 {
     fn send_initial_configure(&self) {
         self.send_preferred_anchor();
         self.send_preferred_gravity();
@@ -127,25 +127,25 @@ impl TrayItem for JayTrayItemV1 {
     }
 
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_jay_tray_item(&self);
+        visitor.visit_ext_tray_item(&self);
     }
 }
 
 object_base! {
-    self = JayTrayItemV1;
+    self = ExtTrayItemV1;
     version = self.version;
 }
 
-impl Object for JayTrayItemV1 {
+impl Object for ExtTrayItemV1 {
     fn break_loops(&self) {
         self.destroy_node();
     }
 }
 
-simple_add_obj!(JayTrayItemV1);
+simple_add_obj!(ExtTrayItemV1);
 
 #[derive(Debug, Error)]
-pub enum JayTrayItemV1Error {
+pub enum ExtTrayItemV1Error {
     #[error(transparent)]
     TrayItemError(#[from] TrayItemError),
     #[error("The focus hint {} is invalid", .0)]

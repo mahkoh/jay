@@ -3,6 +3,7 @@ use {
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         globals::GlobalName,
         ifs::{
+            ext_tray_v1::ExtTrayV1Global,
             jay_tray_v1::JayTrayV1Global,
             wl_output::{PersistentOutputState, WlOutputGlobal},
         },
@@ -149,7 +150,11 @@ impl ConnectorHandler {
             .state
             .eng
             .spawn("output schedule", schedule.clone().drive());
-        let tray = Rc::new(JayTrayV1Global {
+        let jay_tray = Rc::new(JayTrayV1Global {
+            name: self.state.globals.name(),
+            output: global.opt.clone(),
+        });
+        let ext_tray = Rc::new(ExtTrayV1Global {
             name: self.state.globals.name(),
             output: global.opt.clone(),
         });
@@ -256,7 +261,8 @@ impl ConnectorHandler {
             config.connector_connected(self.id);
         }
         self.state.add_global(&global);
-        self.state.add_global(&tray);
+        self.state.add_global(&jay_tray);
+        self.state.add_global(&ext_tray);
         self.state.tree_changed();
         on.update_presentation_type();
         'outer: loop {
@@ -340,7 +346,8 @@ impl ConnectorHandler {
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&global);
-        let _ = self.state.remove_global(&tray);
+        let _ = self.state.remove_global(&jay_tray);
+        let _ = self.state.remove_global(&ext_tray);
         self.state.tree_changed();
         self.state.damage(self.state.root.extents.get());
     }
