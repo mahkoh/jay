@@ -87,7 +87,7 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
             kb_state: Rc::new(RefCell::new(KeyboardState {
                 id: self.client.state.keyboard_state_ids.next(),
                 map: seat_keymap.map.clone(),
-                map_len: seat_keymap.map_len,
+                xwayland_map: seat_keymap.xwayland_map.clone(),
                 pressed_keys: Default::default(),
                 mods: Default::default(),
             })),

@@ -36,8 +36,8 @@ impl EiKeyboard {
         self.client.event(Keymap {
             self_id: self.id,
             keymap_type: KEYMAP_TYPE_XKB,
-            size: state.map_len as _,
-            keymap: state.map.clone(),
+            size: state.map.len as _,
+            keymap: state.map.map.clone(),
         });
     }
 

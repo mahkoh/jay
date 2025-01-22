@@ -16,7 +16,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let virtual_keymap_str = {
         let xkb = KbvmContext::default();
         let map = xkb.parse_keymap(VIRTUAL_KEYMAP.as_bytes()).unwrap();
-        read_keymap(&map.map, map.map_len)
+        read_keymap(&map.map.map, map.map.len)
     };
 
     let ds = run.create_default_setup().await?;

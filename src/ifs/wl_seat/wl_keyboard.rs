@@ -74,8 +74,8 @@ impl WlKeyboard {
         self.seat.client.event(Keymap {
             self_id: self.id,
             format: XKB_V1,
-            fd,
-            size: state.map_len as _,
+            fd: fd.map,
+            size: fd.len as _,
         });
     }
 

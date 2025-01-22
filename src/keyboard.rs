@@ -21,8 +21,8 @@ linear_ids!(KeyboardStateIds, KeyboardStateId, u64);
 
 pub struct KeyboardState {
     pub id: KeyboardStateId,
-    pub map: Rc<OwnedFd>,
-    pub map_len: usize,
+    pub map: KeymapFd,
+    pub xwayland_map: KeymapFd,
     pub pressed_keys: VecSet<u32>,
     pub mods: Components,
 }
@@ -37,13 +37,19 @@ impl DynKeyboardState for RefCell<KeyboardState> {
     }
 }
 
-impl KeyboardState {
-    pub fn create_new_keymap_fd(&self) -> Result<Rc<OwnedFd>, KeyboardError> {
+#[derive(Clone)]
+pub struct KeymapFd {
+    pub map: Rc<OwnedFd>,
+    pub len: usize,
+}
+
+impl KeymapFd {
+    pub fn create_unprotected_fd(&self) -> Result<Self, KeyboardError> {
         let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
             Ok(fd) => fd,
             Err(e) => return Err(KeyboardError::KeymapMemfd(e.into())),
         };
-        let target = self.map_len as c::off_t;
+        let target = self.len as c::off_t;
         let mut pos = 0;
         while pos < target {
             let rem = target - pos;
@@ -53,6 +59,9 @@ impl KeyboardState {
                 Err(e) => return Err(KeyboardError::KeymapCopy(e.into())),
             }
         }
-        Ok(Rc::new(fd))
+        Ok(Self {
+            map: Rc::new(fd),
+            len: self.len,
+        })
     }
 }

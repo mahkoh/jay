@@ -2,7 +2,7 @@ use {
     crate::{
         backend::KeyState,
         ifs::wl_seat::WlSeatGlobal,
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd},
         utils::{oserror::OsError, syncqueue::SyncQueue, vecset::VecSet},
     },
     kbvm::{
@@ -21,7 +21,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::c,
 };
 
 #[derive(Debug, Error)]
@@ -54,8 +54,8 @@ pub struct KbvmMap {
     pub id: KbvmMapId,
     pub state_machine: StateMachine,
     pub lookup_table: LookupTable,
-    pub map: Rc<OwnedFd>,
-    pub map_len: usize,
+    pub map: KeymapFd,
+    pub xwayland_map: KeymapFd,
 }
 
 pub struct KbvmState {
@@ -89,20 +89,23 @@ impl KbvmContext {
             .ctx
             .keymap_from_bytes(WriteToLog, None, keymap)
             .map_err(KbvmError::CouldNotParseKeymap)?;
-        let (memfd, len) = create_keymap_memfd(&map).map_err(KbvmError::KeymapMemfd)?;
         let builder = map.to_builder();
         Ok(Rc::new(KbvmMap {
             id: self.ids.next(),
             state_machine: builder.build_state_machine(),
-            map: Rc::new(memfd),
-            map_len: len + 1,
+            map: create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?,
+            xwayland_map: create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?,
             lookup_table: builder.build_lookup_table(),
         }))
     }
 }
 
-fn create_keymap_memfd(map: &Keymap) -> Result<(OwnedFd, usize), OsError> {
-    let str = format!("{}\n", map.format());
+fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<KeymapFd, OsError> {
+    let mut format = map.format();
+    if xwayland {
+        format = format.lookup_only(true).rename_long_keys(true);
+    }
+    let str = format!("{}\n", format);
     let mut memfd = uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING)?;
     memfd.write_all(str.as_bytes())?;
     memfd.write_all(&[0])?;
@@ -111,7 +114,10 @@ fn create_keymap_memfd(map: &Keymap) -> Result<(OwnedFd, usize), OsError> {
         memfd.raw(),
         c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
     )?;
-    Ok((memfd, str.len()))
+    Ok(KeymapFd {
+        map: Rc::new(memfd),
+        len: str.len() + 1,
+    })
 }
 
 impl KbvmMap {
@@ -122,7 +128,7 @@ impl KbvmMap {
             kb_state: KeyboardState {
                 id,
                 map: self.map.clone(),
-                map_len: self.map_len,
+                xwayland_map: self.xwayland_map.clone(),
                 pressed_keys: Default::default(),
                 mods: Default::default(),
             },
