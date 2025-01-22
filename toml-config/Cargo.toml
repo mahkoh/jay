@@ -12,7 +12,7 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 jay-config = { version = "1.6.0", path = "../jay-config" }
 log = "0.4.14"
-thiserror = "1.0.57"
+thiserror = "2.0.11"
 error_reporter = "1.0.0"
 phf = { version = "0.11.2", features = ["macros"] }
 indexmap = "2.2.5"

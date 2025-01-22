@@ -1991,7 +1991,7 @@ enum CphError {
     UnknownAccelProfile(AccelProfile),
     #[error("Queried unknown capability: {}", (.0).0)]
     UnknownCapability(Capability),
-    #[error("The sized {0} is outside the valid range [{}, {}] for component {}", .1.min(), .1.max(), .1.name())]
+    #[error("The sized {} is outside the valid range [{}, {}] for component {}", .0, .1.min(), .1.max(), .1.name())]
     InvalidSize(i32, ThemeSized),
     #[error("The ol' forker is not available")]
     NoForker,
