@@ -103,7 +103,7 @@ pub enum XconError {
     ExtensionUnavailable(&'static str),
     #[error("The server returned error {0}")]
     CoreError(u8),
-    #[error("The extension `{}` returned error {1}", .0.name())]
+    #[error("The extension `{}` returned error {}", .0.name(), .1)]
     ExtensionError(Extension, u8),
     #[error("The connection to the server has already been closed")]
     Dead,
