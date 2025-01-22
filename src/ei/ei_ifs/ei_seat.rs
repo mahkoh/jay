@@ -197,6 +197,19 @@ impl EiSeat {
         }
     }
 
+    pub fn handle_touch_cancel(&self, id: u32) {
+        if self.is_sender() {
+            return;
+        }
+        if let Some(b) = self.touchscreen.get() {
+            if self.client.versions.ei_touchscreen() >= EiVersion(2) {
+                b.send_cancel(id);
+            } else {
+                b.send_up(id);
+            }
+        }
+    }
+
     pub fn handle_touch_frame(&self, time_usec: u64) {
         if self.is_sender() {
             return;
