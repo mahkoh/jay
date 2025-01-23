@@ -52,6 +52,7 @@ impl ExtIdleNotifierV1 {
         id: ExtIdleNotificationV1Id,
         timeout: u32,
         seat: WlSeatId,
+        skip_if_inhibited: bool,
     ) -> Result<(), ExtIdleNotifierV1Error> {
         let seat = self.client.lookup(seat)?;
         let notification = Rc::new(ExtIdleNotificationV1 {
@@ -66,11 +67,10 @@ impl ExtIdleNotifierV1 {
         });
         track!(self.client, notification);
         self.client.add_client_obj(&notification)?;
-        let future = self
-            .client
-            .state
-            .eng
-            .spawn("idle notifier", run(notification.clone()));
+        let future = self.client.state.eng.spawn(
+            "idle notifier",
+            run(notification.clone(), skip_if_inhibited),
+        );
         notification.task.set(Some(future));
         Ok(())
     }
@@ -89,7 +89,7 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
         req: GetIdleNotification,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.create_notification(req.id, req.timeout, req.seat)
+        self.create_notification(req.id, req.timeout, req.seat, true)
     }
 
     fn get_input_idle_notification(
@@ -97,11 +97,11 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
         req: GetInputIdleNotification,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.create_notification(req.id, req.timeout, req.seat)
+        self.create_notification(req.id, req.timeout, req.seat, false)
     }
 }
 
-async fn run(n: Rc<ExtIdleNotificationV1>) {
+async fn run(n: Rc<ExtIdleNotificationV1>, skip_if_inhibited: bool) {
     loop {
         let now = n.client.state.now_usec();
         let elapsed = now.saturating_sub(n.seat.last_input());
@@ -117,10 +117,18 @@ async fn run(n: Rc<ExtIdleNotificationV1>) {
                 return;
             }
         } else {
-            n.send_idled();
-            n.seat.add_idle_notification(&n);
+            let idle = &n.client.state.idle;
+            let send_idle = !skip_if_inhibited || idle.inhibitors.is_empty();
+            if send_idle {
+                n.send_idled();
+                n.seat.add_idle_notification(&n);
+            } else {
+                idle.add_inhibited_notification(&n);
+            }
             n.resume.triggered().await;
-            n.send_resumed();
+            if send_idle {
+                n.send_resumed();
+            }
         }
     }
 }
