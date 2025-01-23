@@ -26,6 +26,7 @@ pub struct ExtIdleNotificationV1 {
 impl ExtIdleNotificationV1 {
     fn detach(&self) {
         self.seat.remove_idle_notification(self);
+        self.client.state.idle.remove_inhibited_notification(self);
         self.task.take();
     }
 }

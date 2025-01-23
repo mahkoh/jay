@@ -34,6 +34,7 @@ use {
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
+            ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
             ipc::{
                 data_control::DataControlDeviceIds, x_data_device::XIpcDeviceIds, DataOfferIds,
@@ -94,8 +95,8 @@ use {
         },
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
-            ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
+            JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
         },
         xkbcommon::{KeyboardStateIds, XkbContext, XkbKeymap, XkbState},
         xwayland::{self, XWaylandEvent},
@@ -264,6 +265,8 @@ pub struct IdleState {
     pub inhibitors: CopyHashMap<IdleInhibitorId, Rc<ZwpIdleInhibitorV1>>,
     pub inhibitors_changed: Cell<bool>,
     pub backend_idle: Cell<bool>,
+    pub inhibited_idle_notifications:
+        CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
 }
 
 impl IdleState {
@@ -283,6 +286,25 @@ impl IdleState {
         self.inhibitors.remove(&inhibitor.inhibit_id);
         self.inhibitors_changed.set(true);
         self.change.trigger();
+        if self.inhibitors.is_empty() {
+            self.resume_inhibited_notifications();
+        }
+    }
+
+    fn resume_inhibited_notifications(&self) {
+        for notification in self.inhibited_idle_notifications.lock().drain_values() {
+            notification.resume.trigger();
+        }
+    }
+
+    pub fn add_inhibited_notification(&self, n: &Rc<ExtIdleNotificationV1>) {
+        self.inhibited_idle_notifications
+            .set((n.client.id, n.id), n.clone());
+    }
+
+    pub fn remove_inhibited_notification(&self, n: &ExtIdleNotificationV1) {
+        self.inhibited_idle_notifications
+            .remove(&(n.client.id, n.id));
     }
 }
 
