@@ -143,7 +143,7 @@ Jay supports the following wayland protocols:
 | ext_data_control_manager_v1                          | 1               | Yes           |
 | ext_foreign_toplevel_image_capture_source_manager_v1 | 1               |               |
 | ext_foreign_toplevel_list_v1                         | 1               | Yes           |
-| ext_idle_notifier_v1                                 | 1               | Yes           |
+| ext_idle_notifier_v1                                 | 2               | Yes           |
 | ext_image_copy_capture_manager_v1                    | 1[^composited]  | Yes           |
 | ext_output_image_capture_source_manager_v1           | 1               |               |
 | ext_session_lock_manager_v1                          | 1               | Yes           |

@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
-        wire::{ext_idle_notifier_v1::*, ExtIdleNotifierV1Id},
+        wire::{ext_idle_notifier_v1::*, ExtIdleNotificationV1Id, ExtIdleNotifierV1Id, WlSeatId},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -46,6 +46,36 @@ pub struct ExtIdleNotifierV1 {
     pub version: Version,
 }
 
+impl ExtIdleNotifierV1 {
+    fn create_notification(
+        &self,
+        id: ExtIdleNotificationV1Id,
+        timeout: u32,
+        seat: WlSeatId,
+    ) -> Result<(), ExtIdleNotifierV1Error> {
+        let seat = self.client.lookup(seat)?;
+        let notification = Rc::new(ExtIdleNotificationV1 {
+            id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            resume: Default::default(),
+            task: Cell::new(None),
+            seat: seat.global.clone(),
+            duration_usec: (timeout as u64).max(1000).saturating_mul(1000),
+            version: self.version,
+        });
+        track!(self.client, notification);
+        self.client.add_client_obj(&notification)?;
+        let future = self
+            .client
+            .state
+            .eng
+            .spawn("idle notifier", run(notification.clone()));
+        notification.task.set(Some(future));
+        Ok(())
+    }
+}
+
 impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
     type Error = ExtIdleNotifierV1Error;
 
@@ -59,26 +89,15 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
         req: GetIdleNotification,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let seat = self.client.lookup(req.seat)?;
-        let notification = Rc::new(ExtIdleNotificationV1 {
-            id: req.id,
-            client: self.client.clone(),
-            tracker: Default::default(),
-            resume: Default::default(),
-            task: Cell::new(None),
-            seat: seat.global.clone(),
-            duration_usec: (req.timeout as u64).max(1000).saturating_mul(1000),
-            version: self.version,
-        });
-        track!(self.client, notification);
-        self.client.add_client_obj(&notification)?;
-        let future = self
-            .client
-            .state
-            .eng
-            .spawn("idle notifier", run(notification.clone()));
-        notification.task.set(Some(future));
-        Ok(())
+        self.create_notification(req.id, req.timeout, req.seat)
+    }
+
+    fn get_input_idle_notification(
+        &self,
+        req: GetInputIdleNotification,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.create_notification(req.id, req.timeout, req.seat)
     }
 }
 
@@ -118,7 +137,7 @@ impl Global for ExtIdleNotifierV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn required_caps(&self) -> ClientCaps {

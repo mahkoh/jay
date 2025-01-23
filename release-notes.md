@@ -4,6 +4,7 @@
 - Add support fo ext-data-control-v1.
 - Implement wl-fixes.
 - Implement ei_touchscreen v2.
+- Implement idle-notification v2.
 
 # 1.7.0 (2024-10-25)
 
