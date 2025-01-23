@@ -52,11 +52,14 @@ impl EiKeyboard {
         });
     }
 
-    pub fn send_key(&self, key: u32, state: u32) {
+    pub fn send_key(&self, key: u32, state: KeyState) {
         self.client.event(ServerKey {
             self_id: self.id,
             key,
-            state,
+            state: match state {
+                KeyState::Released => 0,
+                KeyState::Pressed => 1,
+            },
         });
     }
 }

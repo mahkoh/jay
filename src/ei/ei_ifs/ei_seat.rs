@@ -111,7 +111,7 @@ impl EiSeat {
         self: &Rc<Self>,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         if self.is_sender() {

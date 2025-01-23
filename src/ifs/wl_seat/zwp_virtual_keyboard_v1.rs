@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::KeyState,
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
         ifs::{
@@ -90,14 +91,14 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
     fn key(&self, req: Key, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let kb_state = &mut *self.kb_state.borrow_mut();
         let contains = kb_state.pressed_keys.contains(&req.key);
-        let valid = match req.state {
-            wl_keyboard::RELEASED => contains,
-            wl_keyboard::PRESSED => !contains,
+        let (state, valid) = match req.state {
+            wl_keyboard::RELEASED => (KeyState::Released, contains),
+            wl_keyboard::PRESSED => (KeyState::Pressed, !contains),
             _ => return Err(ZwpVirtualKeyboardV1Error::UnknownState(req.state)),
         };
         if valid {
             self.for_each_kb(|serial, surface, kb| {
-                kb.on_key(serial, req.time, req.key, req.state, surface.id, kb_state);
+                kb.on_key(serial, req.time, req.key, state, surface.id, kb_state);
             });
             match req.state {
                 wl_keyboard::RELEASED => kb_state.pressed_keys.remove(&req.key),
