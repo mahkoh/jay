@@ -5,9 +5,9 @@ mod toml;
 
 use {
     crate::config::{
-        parse_config, Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
-        ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
-        SimpleCommand, Status, Theme,
+        parse_config, Action, ActionOrTunnel, Config, ConfigConnector, ConfigDrmDevice,
+        ConfigKeymap, ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch,
+        Shortcut, SimpleCommand, Status, Theme,
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
@@ -21,7 +21,7 @@ use {
             Seat, SwitchEvent,
         },
         is_reload,
-        keyboard::{Keymap, ModifiedKeySym},
+        keyboard::{AppMod, Keymap, ModifiedKeySym},
         logging::set_log_level,
         on_devices_enumerated, on_idle, quit, reload, set_default_workspace_capture,
         set_explicit_sync_enabled, set_idle, set_ui_drag_enabled, set_ui_drag_threshold,
@@ -44,27 +44,27 @@ fn default_seat() -> Seat {
 }
 
 trait FnBuilder: Sized {
-    fn new<F: Fn() + 'static>(f: F) -> Self;
+    fn new<F: Fn(Seat) + 'static>(f: F) -> Self;
 }
 
-impl FnBuilder for Box<dyn Fn()> {
-    fn new<F: Fn() + 'static>(f: F) -> Self {
+impl FnBuilder for Box<dyn Fn(Seat)> {
+    fn new<F: Fn(Seat) + 'static>(f: F) -> Self {
         Box::new(f)
     }
 }
 
-impl FnBuilder for Rc<dyn Fn()> {
-    fn new<F: Fn() + 'static>(f: F) -> Self {
+impl FnBuilder for Rc<dyn Fn(Seat)> {
+    fn new<F: Fn(Seat) + 'static>(f: F) -> Self {
         Rc::new(f)
     }
 }
 
 impl Action {
-    fn into_fn(self, state: &Rc<State>) -> Box<dyn Fn()> {
+    fn into_fn(self, state: &Rc<State>) -> Box<dyn Fn(Seat)> {
         self.into_fn_impl(state)
     }
 
-    fn into_rc_fn(self, state: &Rc<State>) -> Rc<dyn Fn()> {
+    fn into_rc_fn(self, state: &Rc<State>) -> Rc<dyn Fn(Seat)> {
         self.into_fn_impl(state)
     }
 
@@ -72,49 +72,52 @@ impl Action {
         let s = state.persistent.seat;
         match self {
             Action::SimpleCommand { cmd } => match cmd {
-                SimpleCommand::Focus(dir) => B::new(move || s.focus(dir)),
-                SimpleCommand::Move(dir) => B::new(move || s.move_(dir)),
-                SimpleCommand::Split(axis) => B::new(move || s.create_split(axis)),
-                SimpleCommand::ToggleSplit => B::new(move || s.toggle_split()),
-                SimpleCommand::ToggleMono => B::new(move || s.toggle_mono()),
-                SimpleCommand::ToggleFullscreen => B::new(move || s.toggle_fullscreen()),
-                SimpleCommand::FocusParent => B::new(move || s.focus_parent()),
-                SimpleCommand::Close => B::new(move || s.close()),
-                SimpleCommand::DisablePointerConstraint => {
-                    B::new(move || s.disable_pointer_constraint())
+                SimpleCommand::SetAppMod(app_mod) => {
+                    B::new(move |seat| seat.set_app_mod(app_mod.clone()))
                 }
-                SimpleCommand::ToggleFloating => B::new(move || s.toggle_floating()),
+                SimpleCommand::Focus(dir) => B::new(move |_| s.focus(dir)),
+                SimpleCommand::Move(dir) => B::new(move |_| s.move_(dir)),
+                SimpleCommand::Split(axis) => B::new(move |_| s.create_split(axis)),
+                SimpleCommand::ToggleSplit => B::new(move |_| s.toggle_split()),
+                SimpleCommand::ToggleMono => B::new(move |_| s.toggle_mono()),
+                SimpleCommand::ToggleFullscreen => B::new(move |_| s.toggle_fullscreen()),
+                SimpleCommand::FocusParent => B::new(move |_| s.focus_parent()),
+                SimpleCommand::Close => B::new(move |_| s.close()),
+                SimpleCommand::DisablePointerConstraint => {
+                    B::new(move |_| s.disable_pointer_constraint())
+                }
+                SimpleCommand::ToggleFloating => B::new(move |_| s.toggle_floating()),
                 SimpleCommand::Quit => B::new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
-                    B::new(move || load_config(false, &persistent))
+                    B::new(move |_| load_config(false, &persistent))
                 }
                 SimpleCommand::ReloadConfigSo => B::new(reload),
-                SimpleCommand::None => B::new(|| ()),
-                SimpleCommand::Forward(bool) => B::new(move || s.set_forward(bool)),
+                SimpleCommand::None => B::new(|_| ()),
+                SimpleCommand::Forward(bool) => B::new(move |_| s.set_forward(bool)),
                 SimpleCommand::EnableWindowManagement(bool) => {
-                    B::new(move || s.set_window_management_enabled(bool))
+                    B::new(move |_| s.set_window_management_enabled(bool))
                 }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
-                B::new(move || {
+                B::new(move |seat| {
                     for action in &actions {
-                        action();
+                        action(seat);
                     }
                 })
             }
-            Action::Exec { exec } => B::new(move || create_command(&exec).spawn()),
-            Action::SwitchToVt { num } => B::new(move || switch_to_vt(num)),
+            Action::Exec { exec } => B::new(move |_| create_command(&exec).spawn()),
+            Action::SwitchToVt { num } => B::new(move |_| switch_to_vt(num)),
             Action::ShowWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                B::new(move || s.show_workspace(workspace))
+                B::new(move |_| s.show_workspace(workspace))
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                B::new(move || s.set_workspace(workspace))
+                B::new(move |_| s.set_workspace(workspace))
             }
-            Action::ConfigureConnector { con } => B::new(move || {
+            Action::ConfigureConnector { con } => B::new(move |_| {
                 for c in connectors() {
                     if con.match_.matches(c) {
                         con.apply(c);
@@ -123,7 +126,7 @@ impl Action {
             }),
             Action::ConfigureInput { input } => {
                 let state = state.clone();
-                B::new(move || {
+                B::new(move |_| {
                     for c in input_devices() {
                         if input.match_.matches(c, &state) {
                             input.apply(c, &state);
@@ -133,7 +136,7 @@ impl Action {
             }
             Action::ConfigureOutput { out } => {
                 let state = state.clone();
-                B::new(move || {
+                B::new(move |_| {
                     for c in connectors() {
                         if out.match_.matches(c, &state) {
                             out.apply(c);
@@ -141,36 +144,36 @@ impl Action {
                     }
                 })
             }
-            Action::SetEnv { env } => B::new(move || {
+            Action::SetEnv { env } => B::new(move |_| {
                 for (k, v) in &env {
                     set_env(k, v);
                 }
             }),
-            Action::UnsetEnv { env } => B::new(move || {
+            Action::UnsetEnv { env } => B::new(move |_| {
                 for k in &env {
                     unset_env(k);
                 }
             }),
             Action::SetKeymap { map } => {
                 let state = state.clone();
-                B::new(move || state.set_keymap(&map))
+                B::new(move |_| state.set_keymap(&map))
             }
             Action::SetStatus { status } => {
                 let state = state.clone();
-                B::new(move || state.set_status(&status))
+                B::new(move |_| state.set_status(&status))
             }
             Action::SetTheme { theme } => {
                 let state = state.clone();
-                B::new(move || state.apply_theme(&theme))
+                B::new(move |_| state.apply_theme(&theme))
             }
-            Action::SetLogLevel { level } => B::new(move || set_log_level(level)),
-            Action::SetGfxApi { api } => B::new(move || set_gfx_api(api)),
+            Action::SetLogLevel { level } => B::new(move |_| set_log_level(level)),
+            Action::SetGfxApi { api } => B::new(move |_| set_gfx_api(api)),
             Action::ConfigureDirectScanout { enabled } => {
-                B::new(move || set_direct_scanout_enabled(enabled))
+                B::new(move |_| set_direct_scanout_enabled(enabled))
             }
             Action::ConfigureDrmDevice { dev } => {
                 let state = state.clone();
-                B::new(move || {
+                B::new(move |_| {
                     for d in drm_devices() {
                         if dev.match_.matches(d, &state) {
                             dev.apply(d);
@@ -180,7 +183,7 @@ impl Action {
             }
             Action::SetRenderDevice { dev } => {
                 let state = state.clone();
-                B::new(move || {
+                B::new(move |_| {
                     for d in drm_devices() {
                         if dev.matches(d, &state) {
                             d.make_render_device();
@@ -188,10 +191,10 @@ impl Action {
                     }
                 })
             }
-            Action::ConfigureIdle { idle } => B::new(move || set_idle(Some(idle))),
+            Action::ConfigureIdle { idle } => B::new(move |_| set_idle(Some(idle))),
             Action::MoveToOutput { output, workspace } => {
                 let state = state.clone();
-                B::new(move || {
+                B::new(move |_| {
                     let output = 'get_output: {
                         for connector in connectors() {
                             if connector.connected() && output.matches(connector, &state) {
@@ -207,7 +210,7 @@ impl Action {
                 })
             }
             Action::SetRepeatRate { rate } => {
-                B::new(move || s.set_repeat_rate(rate.rate, rate.delay))
+                B::new(move |_| s.set_repeat_rate(rate.rate, rate.delay))
             }
         }
     }
@@ -603,43 +606,75 @@ impl Drop for State {
     }
 }
 
-type SwitchActions = Vec<(InputMatch, AHashMap<SwitchEvent, Box<dyn Fn()>>)>;
+type SwitchActions = Vec<(InputMatch, AHashMap<SwitchEvent, Box<dyn Fn(Seat)>>)>;
 
 impl State {
     fn unbind_all(&self) {
         let mut binds = self.persistent.binds.borrow_mut();
+
         for bind in binds.drain() {
-            self.persistent.seat.unbind(bind);
+            let (ref app_mod_key, shortcuts) = bind;
+            let app_mod: AppMod = app_mod_key.into();
+            for shortcut in shortcuts {
+                self.persistent.seat.unbind(shortcut, app_mod.clone());
+            }
         }
     }
 
-    fn apply_shortcuts(self: &Rc<Self>, shortcuts: impl IntoIterator<Item = Shortcut>) {
+    fn apply_shortcuts(
+        self: &Rc<Self>,
+        shortcuts: impl IntoIterator<Item = ((String, String), Vec<Shortcut>)>,
+    ) {
         let mut binds = self.persistent.binds.borrow_mut();
-        for shortcut in shortcuts {
-            if let Action::SimpleCommand {
-                cmd: SimpleCommand::None,
-            } = shortcut.action
-            {
-                if shortcut.latch.is_none() {
-                    self.persistent.seat.unbind(shortcut.keysym);
-                    binds.remove(&shortcut.keysym);
-                    continue;
+        for (app_mod_key, shortcuts) in shortcuts {
+            let app_mod_key = &app_mod_key;
+            let binds_shortcuts = binds
+                .entry(app_mod_key.clone())
+                .or_insert(AHashSet::new());
+            for shortcut in shortcuts {
+                match shortcut.action {
+                    ActionOrTunnel::Tunnel(tunnel) => {
+                        self.persistent.seat.bind_tunnel(
+                            shortcut.mask,
+                            shortcut.keysym.clone(),
+                            app_mod_key.into(),
+                            tunnel,
+                        );
+                    }
+                    ActionOrTunnel::Action(action) => {
+                        if let Action::SimpleCommand {
+                            cmd: SimpleCommand::None,
+                        } = action
+                        {
+                            if shortcut.latch.is_none() {
+                                self.persistent
+                                    .seat
+                                    .unbind(shortcut.keysym.clone(), app_mod_key.into());
+                                binds_shortcuts.remove(&shortcut.keysym);
+                                continue;
+                            }
+                        }
+                        let mut f = action.into_fn(self);
+                        if let Some(l) = shortcut.latch {
+                            let l = l.into_rc_fn(self);
+                            let s = self.persistent.seat;
+                            let app_mod: AppMod = app_mod_key.into();
+                            f = Box::new(move |seat| {
+                                f(seat);
+                                let l = l.clone();
+                                s.latch(app_mod.clone(), move || l(seat));
+                            });
+                        }
+                        self.persistent.seat.bind_masked(
+                            shortcut.mask,
+                            shortcut.keysym.clone(),
+                            app_mod_key.into(),
+                            f,
+                        );
+                    }
                 }
+                binds_shortcuts.insert(shortcut.keysym);
             }
-            let mut f = shortcut.action.into_fn(self);
-            if let Some(l) = shortcut.latch {
-                let l = l.into_rc_fn(self);
-                let s = self.persistent.seat;
-                f = Box::new(move || {
-                    f();
-                    let l = l.clone();
-                    s.latch(move || l());
-                });
-            }
-            self.persistent
-                .seat
-                .bind_masked(shortcut.mask, shortcut.keysym, f);
-            binds.insert(shortcut.keysym);
         }
     }
 
@@ -734,11 +769,12 @@ impl State {
         }
         let state = self.clone();
         let actions = actions.clone();
+        let seat = self.persistent.seat.clone();
         dev.on_switch_event(move |ev| {
             for (match_, actions) in &*actions {
                 if match_.matches(dev, &state) {
                     if let Some(action) = actions.get(&ev) {
-                        action();
+                        action(seat);
                     }
                 }
             }
@@ -811,7 +847,7 @@ struct PersistentState {
     seen_outputs: RefCell<AHashSet<OutputId>>,
     default: Config,
     seat: Seat,
-    binds: RefCell<AHashSet<ModifiedKeySym>>,
+    binds: RefCell<AHashMap<(String, String), AHashSet<ModifiedKeySym>>>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -903,13 +939,20 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         }
     }
     let switch_actions = Rc::new(switch_actions);
+    let persistent_seat = persistent.seat;
     match config.on_graphics_initialized {
         None => on_graphics_initialized(|| ()),
-        Some(a) => on_graphics_initialized(a.into_fn(&state)),
+        Some(a) => {
+            let f = a.into_fn(&state);
+            on_graphics_initialized(move || f(persistent_seat))
+        }
     }
     match config.on_idle {
         None => on_idle(|| ()),
-        Some(a) => on_idle(a.into_fn(&state)),
+        Some(a) => {
+            let f = a.into_fn(&state);
+            on_idle(move || f(persistent_seat))
+        }
     }
     state.unbind_all();
     state.apply_shortcuts(config.shortcuts);
@@ -959,7 +1002,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if initial_load && !is_reload() {
         if let Some(on_startup) = config.on_startup {
-            on_startup.into_fn(&state)();
+            on_startup.into_fn(&state)(persistent_seat);
         }
         if let Some(level) = config.log_level {
             set_log_level(level);

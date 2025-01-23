@@ -94,6 +94,7 @@ use {
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
     },
     ahash::AHashMap,
+    jay_config::keyboard::{AppMod, ModifiedKeySym},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -109,6 +110,21 @@ pub use {
     event_handling::NodeSeatState,
     pointer_owner::{ToplevelSelector, WorkspaceSelector},
 };
+
+macro_rules! log_file {
+    ($($arg:expr),*) => {{
+        #[cfg(feature = "debug_seat")]
+        {
+            use std::{fs::OpenOptions, io::prelude::*};
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .open("seat.log")
+                .expect("Can't open file.");
+            file.write_fmt(format_args!($($arg),*)).unwrap();
+        }
+    }};
+}
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -142,6 +158,14 @@ impl Drop for DroppedDnd {
         }
     }
 }
+
+type Shortcut = SmallMap<u32, u32, 2>;
+type Tunnel = (ModifiedKeySym, Vec<u32>);
+enum ShortcutOrTunnel {
+    Shortcut(Shortcut),
+    Tunnel(Vec<Tunnel>),
+}
+type ShortcutsOrTunnels = Rc<RefCell<AHashMap<u32, ShortcutOrTunnel>>>;
 
 linear_ids!(SeatIds, SeatId);
 
@@ -185,7 +209,12 @@ pub struct WlSeatGlobal {
     gesture_owner: GestureOwnerHolder,
     touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
-    shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
+    global_shortcuts: ShortcutsOrTunnels,
+    modal_shortcuts: RefCell<AHashMap<String, AHashMap<String, ShortcutsOrTunnels>>>,
+    last_app_mods: RefCell<AHashMap<String, AppMod>>,
+    current_shortcuts: RefCell<ShortcutsOrTunnels>,
+    current_app_mod: RefCell<AppMod>,
+    current_top_app_name: RefCell<String>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     changes: NumCell<u32>,
@@ -223,6 +252,19 @@ impl WlSeatGlobal {
         let cursor_user_group = CursorUserGroup::create(state);
         let cursor_user = cursor_user_group.create_user();
         cursor_user.activate();
+        let current_app_mod: RefCell<AppMod> = Default::default();
+        let AppMod { app_name, mod_name } = current_app_mod.borrow().clone();
+        let modal_shortcuts: RefCell<AHashMap<String, AHashMap<String, ShortcutsOrTunnels>>> =
+            Default::default();
+        let current_shortcuts = RefCell::new(
+            modal_shortcuts
+                .borrow_mut()
+                .entry(app_name)
+                .or_default()
+                .entry(mod_name)
+                .or_default()
+                .clone(),
+        );
         let slf = Rc::new(Self {
             id: state.seat_ids.next(),
             name,
@@ -258,7 +300,15 @@ impl WlSeatGlobal {
             gesture_owner: Default::default(),
             touch_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
-            shortcuts: Default::default(),
+            global_shortcuts: Default::default(),
+            modal_shortcuts,
+            current_app_mod,
+            current_shortcuts,
+            last_app_mods: RefCell::new(AHashMap::from([(
+                AppMod::APP_NAME_JAY.to_string(),
+                AppMod::default(),
+            )])),
+            current_top_app_name: RefCell::new(AppMod::default().app_name),
             queue_link: Default::default(),
             tree_changed_handler: Cell::new(None),
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
@@ -346,6 +396,67 @@ impl WlSeatGlobal {
 
     pub fn unset_x_data_device(&self, id: XIpcDeviceId) {
         self.x_data_devices.remove(&id);
+    }
+
+    pub fn set_app_mod(&self, app_mod: AppMod) {
+        log_file!("SetAppMod : {} => ", app_mod);
+
+        let get_last = |app_name: String| {
+            if let Some(previous_app_mod) = self.last_app_mods.borrow().get(&app_name) {
+                previous_app_mod.clone()
+            } else {
+                AppMod {
+                    app_name,
+                    mod_name: AppMod::MOD_NAME_INITIAL.to_string(),
+                }
+            }
+        };
+        let top_app_name = self.current_top_app_name.borrow().clone();
+        let mut new = match app_mod {
+            AppMod { app_name, mod_name } if app_name == "" && mod_name == "" => {
+                get_last(top_app_name.clone())
+            }
+            AppMod { app_name, mod_name } if app_name == "" => {
+                let mut last = get_last(top_app_name.clone());
+                last.mod_name = mod_name;
+                last
+            }
+            AppMod { app_name, mod_name } if mod_name == "" => get_last(app_name),
+            app_mod => app_mod,
+        };
+
+        if *self.current_app_mod.borrow() != new {
+            let new_shortcut;
+            'has_modal_shortcut: {
+                if let Some(map_app) = self.modal_shortcuts.borrow_mut().get(&new.app_name) {
+                    if let Some(shortcut) = map_app.get(&new.mod_name) {
+                        new_shortcut = shortcut.clone();
+                        break 'has_modal_shortcut;
+                    }
+                }
+                // If app has no shortcut, then uses Jay Insert mod
+                new = AppMod::insert();
+                let AppMod { app_name, mod_name } = AppMod::insert();
+                new_shortcut = self
+                    .modal_shortcuts
+                    .borrow_mut()
+                    .entry(app_name)
+                    .or_default()
+                    .entry(mod_name)
+                    .or_default()
+                    .clone();
+            }
+            *self.current_shortcuts.borrow_mut() = new_shortcut;
+            *self.current_app_mod.borrow_mut() = new.clone();
+        }
+
+        log_file!("{}\n", new);
+        if !new.is_window() {
+            // Jay Window's mod should not erase previous mod
+            self.last_app_mods
+                .borrow_mut()
+                .insert(top_app_name, new);
+        }
     }
 
     pub fn for_each_x_data_device(&self, mut f: impl FnMut(&Rc<XIpcDevice>)) {
@@ -507,6 +618,7 @@ impl WlSeatGlobal {
     }
 
     fn handle_xkb_state_change(&self, old: &XkbState, new: &XkbState) {
+        self.update_tunnels(new);
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_xkb_state_change(old.kb_state.id, &new.kb_state);
         });
@@ -520,6 +632,52 @@ impl WlSeatGlobal {
                 kb.enter(serial, surface.id, &new.kb_state);
             }
         });
+    }
+
+    pub fn create_tunnel(
+        &self,
+        xkb_state: &XkbState,
+        mod_keysym: ModifiedKeySym,
+    ) -> Option<Tunnel> {
+        let ModifiedKeySym { mods, sym } = mod_keysym;
+        let mut keys = mods.into_keysyms();
+        keys.push(sym);
+        keys.shrink_to_fit();
+        Some((
+            mod_keysym,
+            keys.into_iter()
+                .map(|keysym| xkb_state.key_from_mod_keysym(&keysym))
+                .collect::<Option<_>>()?,
+        ))
+    }
+
+    fn update_shortcut_or_tunnel(&self, xkb_state: &XkbState, shortcut: &mut ShortcutOrTunnel) {
+        match shortcut {
+            ShortcutOrTunnel::Tunnel(sequence) => {
+                for (mod_keysym, keys) in sequence.iter_mut() {
+                    let Some(tunnel) = self.create_tunnel(xkb_state, *mod_keysym) else {
+                        log_file!(
+                            "Tunnel({mod_keysym:?}) was valid in previous Keymap, that's a big issue...\n"
+                        );
+                        continue;
+                    };
+                    (_, *keys) = tunnel;
+                }
+            }
+            _ => (),
+        }
+    }
+    pub fn update_tunnels(&self, new: &XkbState) {
+        for (_, v1) in self.modal_shortcuts.borrow_mut().iter_mut() {
+            for (_, v2) in v1.iter_mut() {
+                for (_, shortcut) in v2.borrow_mut().iter_mut() {
+                    self.update_shortcut_or_tunnel(new, shortcut)
+                }
+            }
+        }
+        for (_, shortcut) in self.global_shortcuts.borrow_mut().iter_mut() {
+            self.update_shortcut_or_tunnel(new, shortcut)
+        }
     }
 
     pub fn get_xkb_state(&self, keymap: &Rc<XkbKeymap>) -> Option<Rc<RefCell<XkbState>>> {

@@ -11,6 +11,7 @@ use {
     },
     bstr::{BStr, ByteSlice},
     isnt::std_1::primitive::IsntConstPtrExt,
+    jay_config::keyboard::syms::KeySym,
     std::{
         cell::{Ref, RefCell},
         ffi::CStr,
@@ -42,6 +43,15 @@ pub enum XkbCommonError {
 struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
+type xkb_keymap_key_iter_t =
+    Option<unsafe extern "C" fn(keymap: *mut xkb_keymap, keycode: xkb_keycode_t, data: *mut Data)>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+struct Data {
+    keycode: u32,
+    sym_target: u32,
+    group: u32,
+}
 
 type xkb_keycode_t = u32;
 type xkb_layout_index_t = u32;
@@ -89,6 +99,14 @@ unsafe extern "C" {
     ) -> *mut c::c_char;
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
     // fn xkb_keymap_ref(keymap: *mut xkb_keymap) -> *mut xkb_keymap;
+    fn xkb_keysym_get_name(keysym: xkb_keysym_t, buffer: *mut c::c_char, size: c::size_t) -> i32;
+    fn xkb_keymap_key_get_name(keymap: *mut xkb_keymap, key: xkb_keycode_t) -> *const c::c_char;
+    // fn xkb_keymap_key_by_name(keymap: *mut xkb_keymap, name: *const c::c_char) -> xkb_keycode_t;
+    fn xkb_keymap_key_for_each(
+        keymap: *mut xkb_keymap,
+        iter: xkb_keymap_key_iter_t,
+        data: *mut c::c_void,
+    );
     fn xkb_keymap_key_get_syms_by_level(
         keymap: *mut xkb_keymap,
         key: xkb_keycode_t,
@@ -386,7 +404,7 @@ impl XkbState {
         unsafe {
             let num = xkb_keymap_key_get_syms_by_level(
                 self.map.keymap,
-                key + 8,
+                key + consts::XKB_KEYCODE_MIN,
                 self.kb_state.mods.group,
                 0,
                 &mut res,
@@ -398,12 +416,90 @@ impl XkbState {
             }
         }
     }
+
+    #[expect(dead_code)]
+    pub fn key_get_name(&self, key: u32) -> String {
+        unsafe {
+            let name = xkb_keymap_key_get_name(self.map.keymap, key + consts::XKB_KEYCODE_MIN);
+            CStr::from_ptr(name).to_string_lossy().to_string()
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn keysym_get_name(&self, keysym: &KeySym) -> Option<String> {
+        let size = 64;
+        let mut buffer: Vec<u8> = vec![0; size];
+        unsafe {
+            let buffer = buffer.as_mut_ptr() as *mut c::c_char;
+            let length = xkb_keysym_get_name(keysym.0, buffer, size);
+            if length == -1 {
+                None
+            } else {
+                Some(CStr::from_ptr(buffer).to_str().ok()?.to_string())
+            }
+        }
+    }
+
+    pub fn key_from_mod_keysym(&self, keysym: &KeySym) -> Option<u32> {
+        let keycode = self.keycode_from_keysym(keysym);
+        if keycode == consts::XKB_KEYCODE_INVALID
+            || keycode < consts::XKB_KEYCODE_MIN
+            || keycode > consts::XKB_KEYCODE_MAX
+        {
+            None
+        } else {
+            return Some(keycode - consts::XKB_KEYCODE_MIN);
+        }
+    }
+
+    #[no_mangle]
+    fn keycode_from_keysym(&self, keysym: &KeySym) -> u32 {
+        use consts::XKB_KEYCODE_INVALID;
+        let keymap = self.map.keymap;
+        let data = Data {
+            keycode: XKB_KEYCODE_INVALID,
+            sym_target: keysym.0,
+            group: self.kb_state.mods.group,
+        };
+        let data = Box::new(data);
+        unsafe {
+            let data = Box::into_raw(data) as *mut c::c_void;
+            xkb_keymap_key_for_each(keymap, Some(search_keycode_by_keysym as _), data);
+            let data = data as *mut Data;
+            let keycode = (*data).keycode;
+            keycode
+        }
+    }
 }
 
 impl Drop for XkbState {
     fn drop(&mut self) {
         unsafe {
             xkb_state_unref(self.state);
+        }
+    }
+}
+
+#[no_mangle]
+unsafe extern "C" fn search_keycode_by_keysym(
+    keymap: *mut xkb_keymap,
+    keycode: xkb_keycode_t,
+    data: *mut Data,
+) {
+    let Data {
+        sym_target, group, ..
+    } = unsafe { *data as Data };
+    let mut res = ptr::null();
+    let num = unsafe { xkb_keymap_key_get_syms_by_level(keymap, keycode, group, 0, &mut res) };
+    if num > 0 {
+        let syms = unsafe { std::slice::from_raw_parts(res, num as usize) };
+        for sym_found in syms {
+            if *sym_found == sym_target {
+                unsafe {
+                    (*data).keycode = keycode.clone();
+                }
+                break;
+            }
         }
     }
 }
