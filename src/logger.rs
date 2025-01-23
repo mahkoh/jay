@@ -181,24 +181,14 @@ impl Log for LogWrapper {
         let buffer = unsafe { &mut *buffer };
         buffer.clear();
         let now = SystemTime::now();
-        let _ = if let Some(mp) = record.module_path() {
-            writeln!(
-                buffer,
-                "[{} {:5} {}] {}",
-                humantime::format_rfc3339_millis(now),
-                record.level(),
-                mp,
-                record.args(),
-            )
-        } else {
-            writeln!(
-                buffer,
-                "[{} {:5}] {}",
-                humantime::format_rfc3339_millis(now),
-                record.level(),
-                record.args(),
-            )
-        };
+        let _ = writeln!(
+            buffer,
+            "[{} {:5} {}] {}",
+            humantime::format_rfc3339_millis(now),
+            record.level(),
+            record.target(),
+            record.args(),
+        );
         let mut fd = Fd::new(self.logger.file_fd.load(Relaxed));
         let _ = fd.write_all(buffer);
     }
