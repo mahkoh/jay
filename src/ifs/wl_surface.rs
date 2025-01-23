@@ -1741,7 +1741,7 @@ impl Node for WlSurface {
         seat: &WlSeatGlobal,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         seat.key_surface(self, time_usec, key, state, kb_state);

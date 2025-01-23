@@ -1,15 +1,19 @@
 use {
     crate::{
+        backend::KeyState,
         client::ClientError,
         ifs::wl_seat::WlSeat,
         keyboard::{KeyboardError, KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, vecset::VecSet},
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
     },
     kbvm::Components,
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -26,6 +30,7 @@ pub struct WlKeyboard {
     id: WlKeyboardId,
     seat: Rc<WlSeat>,
     kb_state_id: Cell<KeyboardStateId>,
+    pressed_keys: RefCell<VecSet<u32>>,
     pub tracker: Tracker<Self>,
 }
 
@@ -35,6 +40,7 @@ impl WlKeyboard {
             id,
             seat: seat.clone(),
             kb_state_id: Cell::new(KeyboardStateId::from_raw(0)),
+            pressed_keys: Default::default(),
             tracker: Default::default(),
         }
     }
@@ -89,6 +95,11 @@ impl WlKeyboard {
     }
 
     fn send_enter(&self, serial: u64, surface: WlSurfaceId, keys: &[u32]) {
+        {
+            let pk = &mut self.pressed_keys.borrow_mut();
+            pk.clear();
+            pk.extend(keys);
+        }
         self.seat.client.event(Enter {
             self_id: self.id,
             serial: serial as _,
@@ -110,7 +121,7 @@ impl WlKeyboard {
         serial: u64,
         time: u32,
         key: u32,
-        state: u32,
+        state: KeyState,
         surface: WlSurfaceId,
         kb_state: &KeyboardState,
     ) {
@@ -120,13 +131,31 @@ impl WlKeyboard {
         self.send_key(serial, time, key, state);
     }
 
-    fn send_key(&self, serial: u64, time: u32, key: u32, state: u32) {
+    fn send_key(&self, serial: u64, time: u32, key: u32, state: KeyState) {
+        {
+            let pk = &mut self.pressed_keys.borrow_mut();
+            match state {
+                KeyState::Released => {
+                    if !pk.remove(&key) {
+                        return;
+                    }
+                }
+                KeyState::Pressed => {
+                    if !pk.insert(key) {
+                        return;
+                    }
+                }
+            }
+        }
         self.seat.client.event(Key {
             self_id: self.id,
             serial: serial as _,
             time,
             key,
-            state,
+            state: match state {
+                KeyState::Released => RELEASED,
+                KeyState::Pressed => PRESSED,
+            },
         })
     }
 

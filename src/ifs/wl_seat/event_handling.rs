@@ -19,7 +19,7 @@ use {
             wl_seat::{
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
-                wl_keyboard::{self, WlKeyboard},
+                wl_keyboard::WlKeyboard,
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
                     AXIS_RELATIVE_DIRECTION_SINCE_VERSION, AXIS_SOURCE_SINCE_VERSION,
@@ -873,22 +873,18 @@ impl WlSeatGlobal {
                 }
             }
             self.send_components(&mut components_changed, &kbvm_state);
-            let state = match key_state {
-                KeyState::Released => wl_keyboard::RELEASED,
-                KeyState::Pressed => wl_keyboard::PRESSED,
-            };
             match self.input_method_grab.get() {
-                Some(g) => g.on_key(time_usec, kc.to_evdev(), state, &kbvm_state.kb_state),
+                Some(g) => g.on_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state),
                 _ => self.keyboard_node.get().node_on_key(
                     self,
                     time_usec,
                     kc.to_evdev(),
-                    state,
+                    key_state,
                     &kbvm_state.kb_state,
                 ),
             }
             self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_key(time_usec, kc.to_evdev(), state, &kbvm_state.kb_state);
+                ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
             });
             update_pressed_keys(&mut kbvm_state);
         }
@@ -1339,7 +1335,7 @@ impl WlSeatGlobal {
         surface: &WlSurface,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         let serial = surface.client.next_serial();
