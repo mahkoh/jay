@@ -29,6 +29,8 @@ pub const EI_DEVICE_TYPE_VIRTUAL: u32 = 1;
 #[expect(dead_code)]
 pub const EI_DEVICE_TYPE_PHYSICAL: u32 = 2;
 
+pub const REGION_MAPPING_ID_SINCE: EiVersion = EiVersion(2);
+
 pub struct EiDevice {
     pub id: EiDeviceId,
     pub client: Rc<EiClient>,
@@ -101,10 +103,12 @@ impl EiDevice {
     }
 
     pub fn send_region_mapping_id(&self, mapping_id: &str) {
-        self.client.event(RegionMappingId {
-            self_id: self.id,
-            mapping_id,
-        });
+        if self.version >= REGION_MAPPING_ID_SINCE {
+            self.client.event(RegionMappingId {
+                self_id: self.id,
+                mapping_id,
+            });
+        }
     }
 
     #[expect(dead_code)]
