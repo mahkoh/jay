@@ -10,6 +10,10 @@ use {
             wl_surface::{
                 x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel, WlSurface,
             },
+            workspace_manager::{
+                ext_workspace_handle_v1::ExtWorkspaceHandleV1,
+                ext_workspace_manager_v1::WorkspaceManagerId,
+            },
         },
         rect::Rect,
         renderer::Renderer,
@@ -25,6 +29,7 @@ use {
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            opt::Opt,
             threshold_counter::ThresholdCounter,
         },
         wire::JayWorkspaceId,
@@ -60,6 +65,8 @@ pub struct WorkspaceNode {
     pub title_texture: RefCell<Option<TextTexture>>,
     pub attention_requests: ThresholdCounter,
     pub render_highlight: NumCell<u32>,
+    pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
+    pub opt: Rc<Opt<WorkspaceNode>>,
 }
 
 impl WorkspaceNode {
@@ -68,6 +75,8 @@ impl WorkspaceNode {
         *self.output_link.borrow_mut() = None;
         self.fullscreen.set(None);
         self.jay_workspaces.clear();
+        self.ext_workspaces.clear();
+        self.opt.set(None);
     }
 
     pub fn update_has_captures(&self) {
@@ -95,6 +104,9 @@ impl WorkspaceNode {
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
         self.output.set(output.clone());
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_new_output(output);
+        }
         for jw in self.jay_workspaces.lock().values() {
             jw.send_output(output);
         }
@@ -171,6 +183,9 @@ impl WorkspaceNode {
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_visibility_changed();
+        }
         for stacked in self.stacked.iter() {
             stacked.stacked_prepare_set_visible();
         }
@@ -236,6 +251,9 @@ impl WorkspaceNode {
     fn mod_attention_requested(&self, set: bool) {
         let crossed_threshold = self.attention_requests.adj(set);
         if crossed_threshold {
+            for wh in self.ext_workspaces.lock().values() {
+                wh.handle_urgent_changed();
+            }
             self.output.get().schedule_update_render_data();
         }
     }

@@ -1,0 +1,43 @@
+event id {
+    id: str,
+}
+
+event name {
+    name: str,
+}
+
+event coordinates {
+    coordinates: array(u32),
+}
+
+event state {
+    state: u32,
+}
+
+event capabilities {
+    capabilities: u32,
+}
+
+event removed {
+
+}
+
+request destroy {
+
+}
+
+request activate {
+
+}
+
+request deactivate {
+
+}
+
+request assign {
+    workspace_group: id(ext_workspace_group_handle_v1),
+}
+
+request remove {
+
+}

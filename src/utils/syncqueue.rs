@@ -53,4 +53,10 @@ impl<T> SyncQueue<T> {
         self.swap(&mut res);
         res
     }
+
+    pub fn clear(&self) {
+        unsafe {
+            self.el.get().deref_mut().clear();
+        }
+    }
 }

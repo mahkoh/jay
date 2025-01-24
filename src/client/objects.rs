@@ -27,6 +27,7 @@ use {
                 xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
             },
+            workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
             xdg_positioner::XdgPositioner,
@@ -39,9 +40,9 @@ use {
         },
         wire::{
             ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
-            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, JayToplevelId,
-            JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId,
-            WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
+            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
+            JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
+            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
             WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId,
             XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
             ZwpTabletToolV2Id,
@@ -82,6 +83,8 @@ pub struct Objects {
     pub ext_copy_sessions:
         CopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
     pub ext_data_sources: CopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
+    pub ext_workspace_groups:
+        CopyHashMap<ExtWorkspaceGroupHandleV1Id, Rc<ExtWorkspaceGroupHandleV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -119,6 +122,7 @@ impl Objects {
             foreign_toplevel_handles: Default::default(),
             ext_copy_sessions: Default::default(),
             ext_data_sources: Default::default(),
+            ext_workspace_groups: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -160,6 +164,7 @@ impl Objects {
         self.foreign_toplevel_handles.clear();
         self.ext_copy_sessions.clear();
         self.ext_data_sources.clear();
+        self.ext_workspace_groups.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
