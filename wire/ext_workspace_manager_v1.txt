@@ -1,0 +1,23 @@
+event workspace_group {
+    workspace_group: id(ext_workspace_group_handle_v1),
+}
+
+event workspace {
+    workspace: id(ext_workspace_handle_v1),
+}
+
+request commit {
+
+}
+
+event done {
+
+}
+
+event finished {
+
+}
+
+request stop {
+
+}

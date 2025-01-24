@@ -1,0 +1,31 @@
+event capabilities {
+    capabilities: u32,
+}
+
+event output_enter {
+    output: id(wl_output),
+}
+
+event output_leave {
+    output: id(wl_output),
+}
+
+event workspace_enter {
+    workspace: id(ext_workspace_handle_v1),
+}
+
+event workspace_leave {
+    workspace: id(ext_workspace_handle_v1),
+}
+
+event removed {
+
+}
+
+request create_workspace {
+    workspace: str,
+}
+
+request destroy {
+
+}
