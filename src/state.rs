@@ -57,6 +57,7 @@ use {
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
                 NoneSurfaceExt,
             },
+            workspace_manager::WorkspaceManagerState,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
             wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
@@ -229,6 +230,7 @@ pub struct State {
     pub const_40hz_latch: EventSource<dyn LatchListener>,
     pub tray_item_ids: TrayItemIds,
     pub data_control_device_ids: DataControlDeviceIds,
+    pub workspace_managers: WorkspaceManagerState,
 }
 
 // impl Drop for State {
@@ -917,6 +919,7 @@ impl State {
         self.ei_clients.clear();
         self.slow_ei_clients.clear();
         self.toplevels.clear();
+        self.workspace_managers.clear();
     }
 
     pub fn damage_hardware_cursors(&self, render: bool) {

@@ -197,6 +197,7 @@ impl ConnectorHandler {
             before_latch_event: Default::default(),
             tray_start_rel: Default::default(),
             tray_items: Default::default(),
+            ext_workspace_groups: Default::default(),
         });
         on.update_visible();
         on.update_rects();
@@ -259,6 +260,7 @@ impl ConnectorHandler {
         self.state.add_global(&tray);
         self.state.tree_changed();
         on.update_presentation_type();
+        self.state.workspace_managers.announce_output(&on);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -330,6 +332,9 @@ impl ConnectorHandler {
                 before: None,
             };
             move_ws_to_output(&ws, &target, config);
+        }
+        for group in on.ext_workspace_groups.lock().drain_values() {
+            group.handle_destroyed();
         }
         for seat in self.state.globals.seats.lock().values() {
             seat.cursor_group().output_disconnected(&on, &target);
