@@ -52,7 +52,7 @@ impl Global for WpCursorShapeManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 
