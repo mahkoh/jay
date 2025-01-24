@@ -65,6 +65,7 @@ use {
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUringError,
+        keyboard::KeyboardState,
         leaks::Tracker,
         object::{Object, Version},
         rect::{DamageQueue, Rect, Region},
@@ -88,7 +89,6 @@ use {
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::KeyboardState,
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
@@ -1741,7 +1741,7 @@ impl Node for WlSurface {
         seat: &WlSeatGlobal,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         seat.key_surface(self, time_usec, key, state, kb_state);

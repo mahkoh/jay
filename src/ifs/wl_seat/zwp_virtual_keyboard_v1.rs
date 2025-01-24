@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::KeyState,
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
         ifs::{
@@ -9,10 +10,11 @@ use {
             },
             wl_surface::WlSurface,
         },
+        kbvm::KbvmError,
+        keyboard::KeyboardState,
         leaks::Tracker,
         object::{Object, Version},
         wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
-        xkbcommon::{KeyboardState, XkbCommonError},
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,
@@ -73,13 +75,13 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         let map = self
             .client
             .state
-            .xkb_ctx
-            .keymap_from_str(&map)
+            .kb_ctx
+            .parse_keymap(&map)
             .map_err(ZwpVirtualKeyboardV1Error::ParseKeymap)?;
         *self.kb_state.borrow_mut() = KeyboardState {
             id: self.client.state.keyboard_state_ids.next(),
             map: map.map.clone(),
-            map_len: map.map_len,
+            xwayland_map: map.xwayland_map.clone(),
             pressed_keys: Default::default(),
             mods: Default::default(),
         };
@@ -89,19 +91,20 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
     fn key(&self, req: Key, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let kb_state = &mut *self.kb_state.borrow_mut();
         let contains = kb_state.pressed_keys.contains(&req.key);
-        let valid = match req.state {
-            wl_keyboard::RELEASED => contains,
-            wl_keyboard::PRESSED => !contains,
+        let (state, valid) = match req.state {
+            wl_keyboard::RELEASED => (KeyState::Released, contains),
+            wl_keyboard::PRESSED => (KeyState::Pressed, !contains),
             _ => return Err(ZwpVirtualKeyboardV1Error::UnknownState(req.state)),
         };
         if valid {
             self.for_each_kb(|serial, surface, kb| {
-                kb.on_key(serial, req.time, req.key, req.state, surface.id, kb_state);
+                kb.on_key(serial, req.time, req.key, state, surface.id, kb_state);
             });
             match req.state {
                 wl_keyboard::RELEASED => kb_state.pressed_keys.remove(&req.key),
                 _ => kb_state.pressed_keys.insert(req.key),
             };
+            self.seat.latest_kb_state_id.set(kb_state.id);
             self.seat.latest_kb_state.set(self.kb_state.clone());
         }
         Ok(())
@@ -109,14 +112,15 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
 
     fn modifiers(&self, req: Modifiers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let kb_state = &mut *self.kb_state.borrow_mut();
-        kb_state.mods.mods_depressed = req.mods_depressed;
-        kb_state.mods.mods_latched = req.mods_latched;
-        kb_state.mods.mods_locked = req.mods_locked;
-        kb_state.mods.mods_effective = req.mods_depressed | req.mods_latched | req.mods_locked;
-        kb_state.mods.group = req.group;
+        kb_state.mods.mods_pressed.0 = req.mods_depressed;
+        kb_state.mods.mods_latched.0 = req.mods_latched;
+        kb_state.mods.mods_locked.0 = req.mods_locked;
+        kb_state.mods.group_locked.0 = req.group;
+        kb_state.mods.update_effective();
         self.for_each_kb(|serial, surface, kb| {
             kb.on_mods_changed(serial, surface.id, &kb_state);
         });
+        self.seat.latest_kb_state_id.set(kb_state.id);
         self.seat.latest_kb_state.set(self.kb_state.clone());
         Ok(())
     }
@@ -153,6 +157,6 @@ pub enum ZwpVirtualKeyboardV1Error {
     #[error("Could not read the keymap")]
     ReadKeymap(#[source] ClientMemError),
     #[error("Could not parse the keymap")]
-    ParseKeymap(#[source] XkbCommonError),
+    ParseKeymap(#[source] KbvmError),
 }
 efrom!(ZwpVirtualKeyboardV1Error, ClientError);

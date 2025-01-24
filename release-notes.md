@@ -1,3 +1,14 @@
+# Unreleased^2
+
+This release replaces xkbcommon by the kbvm crate.
+
+This is a huge change in how input is handled. The intention is that this is completely
+invisible to users.
+
+Therefore this release contains only this change. You can downgrade to the previous
+release to switch back to xkbcommon without any loss in functionality. In this case please
+report what is broken.
+
 # Unreleased
 
 - Various bugfixes.

@@ -1,12 +1,13 @@
 use {
     crate::{
+        backend::KeyState,
         client::{Client, ClientError},
         ifs::wl_seat::{text_input::zwp_input_method_v2::ZwpInputMethodV2, wl_keyboard},
+        keyboard::{KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
         wire::{zwp_input_method_keyboard_grab_v2::*, ZwpInputMethodKeyboardGrabV2Id},
-        xkbcommon::{KeyboardState, KeyboardStateId},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -27,7 +28,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
     }
 
     fn send_keymap(&self, kb_state: &KeyboardState) {
-        let map = match kb_state.create_new_keymap_fd() {
+        let map = match kb_state.map.create_unprotected_fd() {
             Ok(m) => m,
             Err(e) => {
                 log::error!("Could not create new keymap fd: {}", ErrorFmt(e));
@@ -37,8 +38,8 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.client.event(Keymap {
             self_id: self.id,
             format: wl_keyboard::XKB_V1,
-            fd: map,
-            size: kb_state.map_len as _,
+            fd: map.map,
+            size: map.len as _,
         });
     }
 
@@ -48,7 +49,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.kb_state_id.set(kb_state.id);
     }
 
-    pub fn on_key(&self, time_usec: u64, key: u32, state: u32, kb_state: &KeyboardState) {
+    pub fn on_key(&self, time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) {
         let serial = self.client.next_serial();
         if self.kb_state_id.get() != kb_state.id {
             self.update_state(serial, kb_state);
@@ -56,13 +57,16 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.send_key(serial, time_usec, key, state);
     }
 
-    fn send_key(&self, serial: u64, time_usec: u64, key: u32, state: u32) {
+    fn send_key(&self, serial: u64, time_usec: u64, key: u32, state: KeyState) {
         self.client.event(Key {
             self_id: self.id,
             serial: serial as _,
             time: (time_usec / 1000) as _,
             key,
-            state,
+            state: match state {
+                KeyState::Released => wl_keyboard::RELEASED,
+                KeyState::Pressed => wl_keyboard::PRESSED,
+            },
         })
     }
 
@@ -78,10 +82,10 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.client.event(Modifiers {
             self_id: self.id,
             serial: serial as _,
-            mods_depressed: kb_state.mods.mods_depressed,
-            mods_latched: kb_state.mods.mods_latched,
-            mods_locked: kb_state.mods.mods_locked,
-            group: kb_state.mods.group,
+            mods_depressed: kb_state.mods.mods_pressed.0,
+            mods_latched: kb_state.mods.mods_latched.0,
+            mods_locked: kb_state.mods.mods_locked.0,
+            group: kb_state.mods.group.0,
         })
     }
 

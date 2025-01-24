@@ -15,10 +15,10 @@ use {
             },
             wl_surface::{tray::TrayItemId, WlSurface},
         },
+        keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
         utils::numcell::NumCell,
-        xkbcommon::KeyboardState,
     },
     jay_config::Direction as JayDirection,
     std::{
@@ -189,7 +189,7 @@ pub trait Node: 'static {
         seat: &WlSeatGlobal,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         let _ = seat;

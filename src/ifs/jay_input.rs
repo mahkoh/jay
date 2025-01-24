@@ -4,6 +4,7 @@ use {
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
         ifs::wl_seat::WlSeatGlobal,
+        kbvm::{KbvmError, KbvmMap},
         leaks::Tracker,
         libinput::consts::{
             AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -13,7 +14,6 @@ use {
         state::{DeviceHandlerData, InputDeviceData},
         utils::errorfmt::ErrorFmt,
         wire::{jay_input::*, JayInputId},
-        xkbcommon::{XkbCommonError, XkbKeymap},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -72,11 +72,11 @@ impl JayInput {
         });
     }
 
-    fn send_keymap(&self, map: &XkbKeymap) {
+    fn send_keymap(&self, map: &KbvmMap) {
         self.client.event(Keymap {
             self_id: self.id,
-            keymap: map.map.clone(),
-            keymap_len: (map.map_len - 1) as _,
+            keymap: map.map.map.clone(),
+            keymap_len: (map.map.len - 1) as _,
         });
     }
 
@@ -167,7 +167,7 @@ impl JayInput {
 
     fn set_keymap_impl<F>(&self, keymap: &Rc<OwnedFd>, len: u32, f: F) -> Result<(), JayInputError>
     where
-        F: FnOnce(&Rc<XkbKeymap>) -> Result<(), JayInputError>,
+        F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
     {
         let cm = Rc::new(ClientMem::new_private(
             keymap,
@@ -180,7 +180,7 @@ impl JayInput {
         let mut map = vec![];
         cm.read(&mut map)?;
         self.or_error(|| {
-            let map = self.client.state.xkb_ctx.keymap_from_str(&map)?;
+            let map = self.client.state.kb_ctx.parse_keymap(&map)?;
             f(&map)?;
             Ok(())
         })
@@ -489,7 +489,7 @@ pub enum JayInputError {
     #[error("Could not access client memory")]
     ClientMemError(#[from] ClientMemError),
     #[error("Could not parse keymap")]
-    XkbCommonError(#[from] XkbCommonError),
+    ParseKeymap(#[from] KbvmError),
     #[error("Output is not connected")]
     OutputNotConnected,
 }

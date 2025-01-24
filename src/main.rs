@@ -74,6 +74,8 @@ mod ifs;
 mod io_uring;
 #[cfg(feature = "it")]
 mod it;
+mod kbvm;
+mod keyboard;
 mod libinput;
 mod logger;
 mod logind;
@@ -108,7 +110,6 @@ mod wire_ei;
 mod wire_xcon;
 mod wl_usr;
 mod xcon;
-mod xkbcommon;
 mod xwayland;
 
 fn main() {
