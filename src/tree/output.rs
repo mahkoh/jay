@@ -1204,6 +1204,7 @@ impl OutputNode {
             }
             self.schedule_update_render_data();
         }
+        self.state.tree_changed();
     }
 }
 
