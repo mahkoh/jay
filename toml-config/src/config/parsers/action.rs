@@ -33,6 +33,7 @@ use {
     indexmap::IndexMap,
     jay_config::{
         get_workspace,
+        keyboard::AppMod,
         Axis::{Horizontal, Vertical},
     },
     thiserror::Error,
@@ -80,6 +81,8 @@ pub enum ActionParserError {
     MoveToOutput(#[source] OutputMatchParserError),
     #[error("Could not parse a set-repeat-rate action")]
     RepeatRate(#[source] RepeatRateParserError),
+    #[error("Could not parse set_app_mod : too many args, 2 expected.")]
+    SetAppModTooManyArgs,
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -113,8 +116,35 @@ impl ActionParser<'_> {
             "consume" => Forward(false),
             "enable-window-management" => EnableWindowManagement(true),
             "disable-window-management" => EnableWindowManagement(false),
-            _ => {
-                return Err(ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span))
+            string => {
+                if string.starts_with("set_app_mod(") {
+                    static FN_PART_LEN: usize = 12;
+                    let len = string.len();
+                    // remove function name and first parenthesis
+                    let string = string.chars().skip(FN_PART_LEN);
+                    // remove last parenthesis
+                    let string = string.take(len - FN_PART_LEN - 1).collect::<String>();
+                    let mut args: Vec<_> = string.split(',').collect();
+                    if args.len() != 2 {
+                        return Err(ActionParserError::SetAppModTooManyArgs.spanned(span));
+                    }
+                    fn skip_spaces(arg: impl IntoIterator<Item = char>) -> String {
+                        arg.into_iter().skip_while(|c| c == &' ').collect()
+                    }
+                    fn parse_arg(arg: &str) -> String {
+                        let skipped_beg = skip_spaces(arg.chars());
+                        let skipped_end = skip_spaces(skipped_beg.chars().rev());
+                        skipped_end.chars().rev().collect()
+                    }
+                    let mod_name = parse_arg(args.pop().unwrap());
+                    let app_name = parse_arg(args.pop().unwrap());
+                    let app_mod = AppMod { app_name, mod_name };
+                    SetAppMod(app_mod)
+                } else {
+                    return Err(
+                        ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
+                    );
+                }
             }
         };
         Ok(Action::SimpleCommand { cmd })

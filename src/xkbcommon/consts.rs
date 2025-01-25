@@ -56,3 +56,7 @@ cenum! {
     XKB_KEY_UP = 0,
     XKB_KEY_DOWN = 1,
 }
+
+pub const XKB_KEYCODE_INVALID: u32 = u32::MAX;
+pub const XKB_KEYCODE_MAX: u32 = u32::MAX - 1;
+pub const XKB_KEYCODE_MIN: u32 = 8u32;
