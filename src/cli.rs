@@ -25,7 +25,7 @@ use {
         portal,
     },
     ::log::Level,
-    clap::{builder::PossibleValue, Args, Parser, Subcommand, ValueEnum},
+    clap::{builder::PossibleValue, Args, Parser, Subcommand, ValueEnum, ValueHint},
     clap_complete::Shell,
 };
 
@@ -97,7 +97,7 @@ pub struct IdleArgs {
 #[derive(Args, Debug)]
 pub struct RunPrivilegedArgs {
     /// The program to run
-    #[clap(required = true)]
+    #[clap(required = true, trailing_var_arg = true, value_hint = ValueHint::CommandWithArguments)]
     pub program: Vec<String>,
 }
 
@@ -121,6 +121,7 @@ pub struct ScreenshotArgs {
     /// in the current directory.
     ///
     /// The filename can contain the usual strftime parameters.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub filename: Option<String>,
 }
 
