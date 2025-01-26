@@ -23,6 +23,10 @@ use {
                 zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
                 SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
             },
+            workspace_manager::{
+                ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
+                ext_workspace_manager_v1::WorkspaceManagerId,
+            },
             wp_content_type_v1::ContentType,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
@@ -97,6 +101,7 @@ pub struct OutputNode {
     pub before_latch_event: EventSource<dyn BeforeLatchListener>,
     pub tray_start_rel: Cell<i32>,
     pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
+    pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -414,6 +419,7 @@ impl OutputNode {
         self.screencasts.clear();
         self.screencopies.clear();
         self.ext_copy_sessions.clear();
+        self.ext_workspace_groups.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -635,6 +641,9 @@ impl OutputNode {
                     jw.send_destroyed();
                     jw.workspace.set(None);
                 }
+                for wh in old.ext_workspaces.lock().values() {
+                    wh.handle_destroyed();
+                }
                 old.clear();
                 self.state.workspaces.remove(&old.name);
             } else {
@@ -678,7 +687,10 @@ impl OutputNode {
             title_texture: Default::default(),
             attention_requests: Default::default(),
             render_highlight: Default::default(),
+            ext_workspaces: Default::default(),
+            opt: Default::default(),
         });
+        ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
         *ws.output_link.borrow_mut() = Some(self.workspaces.add_last(ws.clone()));
         self.state.workspaces.set(name.to_string(), ws.clone());
@@ -694,6 +706,7 @@ impl OutputNode {
         for (client, e) in clients_to_kill.values() {
             client.error(e);
         }
+        self.state.workspace_managers.announce_workspace(self, &ws);
         self.schedule_update_render_data();
         ws
     }

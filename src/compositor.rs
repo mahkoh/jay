@@ -23,6 +23,7 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_surface::{zwp_input_popup_surface_v2::input_popup_positioning, NoneSurfaceExt},
+            workspace_manager::workspace_manager_done,
         },
         io_uring::{IoUring, IoUringError},
         leaks,
@@ -278,6 +279,7 @@ fn start_compositor2(
         const_40hz_latch: Default::default(),
         tray_item_ids: Default::default(),
         data_control_device_ids: Default::default(),
+        workspace_managers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -446,6 +448,10 @@ fn start_global_event_handlers(
             Phase::Present,
             handle_const_40hz_latch(state.clone()),
         ),
+        eng.spawn(
+            "workspace manager done",
+            workspace_manager_done(state.clone()),
+        ),
     ]
 }
 
@@ -593,6 +599,7 @@ fn create_dummy_output(state: &Rc<State>) {
         before_latch_event: Default::default(),
         tray_start_rel: Default::default(),
         tray_items: Default::default(),
+        ext_workspace_groups: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
@@ -615,6 +622,8 @@ fn create_dummy_output(state: &Rc<State>) {
         title_texture: Default::default(),
         attention_requests: Default::default(),
         render_highlight: Default::default(),
+        ext_workspaces: Default::default(),
+        opt: Default::default(),
     });
     *dummy_workspace.output_link.borrow_mut() =
         Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));

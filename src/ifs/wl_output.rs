@@ -13,7 +13,7 @@ use {
         state::{ConnectorData, State},
         tree::{calculate_logical_size, OutputNode, TearingMode, VrrMode},
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq,
             transform_ext::TransformExt,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
@@ -237,6 +237,11 @@ impl WlOutputGlobal {
         }
         if obj.version >= SEND_DONE_SINCE {
             obj.send_done();
+        }
+        for group in client.objects.ext_workspace_groups.lock().values() {
+            if rc_eq(&group.output, &self.opt) {
+                group.handle_new_output(&obj);
+            }
         }
         Ok(())
     }

@@ -8,6 +8,7 @@
 - Add an idle grace period. During the grace period, the screen goes black but is neither
   disabled nor locked. This is similar to how android handles going idle. The default is
   5 seconds.
+- Implement ext-workspace-v1.
 
 # 1.7.0 (2024-10-25)
 
