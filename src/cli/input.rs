@@ -10,7 +10,7 @@ use {
         utils::{errorfmt::ErrorFmt, string_ext::StringExt},
         wire::{jay_compositor, jay_input, JayInputId},
     },
-    clap::{Args, Subcommand, ValueEnum},
+    clap::{Args, Subcommand, ValueEnum, ValueHint},
     isnt::std_1::vec::IsntVecExt,
     std::{
         cell::RefCell,
@@ -106,7 +106,7 @@ pub enum DeviceCommand {
     /// Set the acceleration speed.
     SetAccelSpeed(SetAccelSpeedArgs),
     /// Set whether tap is enabled.
-    SetTapEnabled(SetTapDragEnabledArgs),
+    SetTapEnabled(SetTapEnabledArgs),
     /// Set whether tap-drag is enabled.
     SetTapDragEnabled(SetTapDragEnabledArgs),
     /// Set whether tap-drag-lock is enabled.
@@ -241,6 +241,7 @@ pub struct SetCursorSizeArgs {
 #[derive(Args, Debug, Clone)]
 pub struct SetKeymapArgs {
     /// The file to read the keymap from. Omit for stdin.
+    #[clap(value_hint = ValueHint::FilePath)]
     pub file: Option<String>,
 }
 
