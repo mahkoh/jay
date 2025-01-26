@@ -17,7 +17,7 @@ mod xwayland;
 use {
     crate::{
         cli::{
-            damage_tracking::DamageTrackingArgs, input::InputArgs, randr::RandrArgs,
+            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
             xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
@@ -99,38 +99,6 @@ pub struct RunPrivilegedArgs {
     /// The program to run
     #[clap(required = true)]
     pub program: Vec<String>,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum IdleCmd {
-    /// Print the idle status.
-    Status,
-    /// Set the idle interval.
-    Set(IdleSetArgs),
-}
-
-impl Default for IdleCmd {
-    fn default() -> Self {
-        Self::Status
-    }
-}
-
-#[derive(Args, Debug)]
-pub struct IdleSetArgs {
-    /// The interval of inactivity after which to disable the screens.
-    ///
-    /// This can be either a number in minutes and seconds or the keyword `disabled` to
-    /// disable the screensaver.
-    ///
-    /// Minutes and seconds can be specified in any of the following formats:
-    ///
-    /// * 1m
-    /// * 1m5s
-    /// * 1m 5s
-    /// * 1min 5sec
-    /// * 1 minute 5 seconds
-    #[clap(verbatim_doc_comment, required = true)]
-    pub interval: Vec<String>,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, PartialEq)]

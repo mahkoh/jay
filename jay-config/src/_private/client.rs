@@ -893,6 +893,10 @@ impl Client {
         self.send(&ClientMessage::SetIdle { timeout })
     }
 
+    pub fn set_idle_grace_period(&self, period: Duration) {
+        self.send(&ClientMessage::SetIdleGracePeriod { period })
+    }
+
     pub fn set_explicit_sync_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetExplicitSyncEnabled { enabled })
     }

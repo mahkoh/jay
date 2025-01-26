@@ -919,6 +919,10 @@ impl ConfigProxyHandler {
         self.state.idle.set_timeout(timeout);
     }
 
+    fn handle_set_idle_grace_period(&self, period: Duration) {
+        self.state.idle.set_grace_period(period);
+    }
+
     fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
         self.state.explicit_sync_enabled.set(enabled);
     }
@@ -1980,6 +1984,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetXScalingMode { mode } => self
                 .handle_set_x_scaling_mode(mode)
                 .wrn("set_x_scaling_mode")?,
+            ClientMessage::SetIdleGracePeriod { period } => {
+                self.handle_set_idle_grace_period(period)
+            }
         }
         Ok(())
     }

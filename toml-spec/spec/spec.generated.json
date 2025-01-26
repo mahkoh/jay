@@ -811,8 +811,25 @@
         "Vulkan"
       ]
     },
+    "GracePeriod": {
+      "description": "The definition of a grace period.\n\nOmitted values are set to 0. If all values are 0, the grace period is disabled.\n\n- Example:\n\n  ```toml\n  idle.grace-period.seconds = 3\n  ```\n",
+      "type": "object",
+      "properties": {
+        "minutes": {
+          "type": "integer",
+          "description": "The number of minutes the grace period lasts.",
+          "minimum": 0.0
+        },
+        "seconds": {
+          "type": "integer",
+          "description": "The number of seconds the grace period lasts.",
+          "minimum": 0.0
+        }
+      },
+      "required": []
+    },
     "Idle": {
-      "description": "The definition of an idle timeout.\n\nOmitted values are set to 0. If all values are 0, the idle timeout is disabled.\n\n- Example:\n\n  ```toml\n  idle.minutes = 10\n  ```\n",
+      "description": "The definition of an idle timeout.\n\nOmitted values are set to 0. If any value is explicitly set and all values are 0, the\nidle timeout is disabled.\n\n- Example:\n\n  ```toml\n  idle.minutes = 10\n  ```\n",
       "type": "object",
       "properties": {
         "minutes": {
@@ -824,6 +841,10 @@
           "type": "integer",
           "description": "The number of seconds before going idle.",
           "minimum": 0.0
+        },
+        "grace-period": {
+          "description": "The grace period after the timeout expires.\n\nDuring the grace period, the screen goes black but the outputs are not yet\ndisabled and the `on-idle` action does not yet run. This is a visual indicator\nthat the system will soon get idle.\n\nThe default is 5 seconds.\n",
+          "$ref": "#/$defs/GracePeriod"
         }
       },
       "required": []

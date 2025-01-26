@@ -224,8 +224,22 @@ pub fn workspaces() -> Vec<Workspace> {
 /// Configures the idle timeout.
 ///
 /// `None` disables the timeout.
+///
+/// The default is 10 minutes.
 pub fn set_idle(timeout: Option<Duration>) {
     get!().set_idle(timeout.unwrap_or_default())
+}
+
+/// Configures the idle grace period.
+///
+/// The grace period starts after the idle timeout expires. During the grace period, the
+/// screen goes black but the displays are not yet disabled and the idle callback (set
+/// with [`on_idle`]) is not yet called. This is a purely visual effect to inform the user
+/// that the machine will soon go idle.
+///
+/// The default is 5 seconds.
+pub fn set_idle_grace_period(timeout: Duration) {
+    get!().set_idle_grace_period(timeout)
 }
 
 /// Enables or disables explicit sync.

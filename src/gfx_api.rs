@@ -371,6 +371,7 @@ impl dyn GfxFramebuffer {
         render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
+        fill_black_in_grace_period: bool,
         transform: Transform,
         visualizer: Option<&DamageVisualizer>,
     ) -> GfxRenderPass {
@@ -383,6 +384,7 @@ impl dyn GfxFramebuffer {
             render_cursor,
             render_hardware_cursor,
             black_background,
+            fill_black_in_grace_period,
             transform,
             visualizer,
         )
@@ -406,6 +408,7 @@ impl dyn GfxFramebuffer {
         cursor_rect: Option<Rect>,
         scale: Scale,
         render_hardware_cursor: bool,
+        fill_black_in_grace_period: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
             acquire_sync,
@@ -417,6 +420,7 @@ impl dyn GfxFramebuffer {
             true,
             render_hardware_cursor,
             node.has_fullscreen(),
+            fill_black_in_grace_period,
             node.global.persistent.transform.get(),
         )
     }
@@ -432,6 +436,7 @@ impl dyn GfxFramebuffer {
         render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
+        fill_black_in_grace_period: bool,
         transform: Transform,
     ) -> Result<Option<SyncFile>, GfxError> {
         let pass = self.create_render_pass(
@@ -442,6 +447,7 @@ impl dyn GfxFramebuffer {
             render_cursor,
             render_hardware_cursor,
             black_background,
+            fill_black_in_grace_period,
             transform,
             None,
         );
@@ -722,9 +728,16 @@ pub fn create_render_pass(
     render_cursor: bool,
     render_hardware_cursor: bool,
     black_background: bool,
+    fill_black_in_grace_period: bool,
     transform: Transform,
     visualizer: Option<&DamageVisualizer>,
 ) -> GfxRenderPass {
+    if fill_black_in_grace_period && state.idle.in_grace_period.get() {
+        return GfxRenderPass {
+            ops: vec![],
+            clear: Some(Color::SOLID_BLACK),
+        };
+    }
     let mut ops = vec![];
     let mut renderer = Renderer {
         base: renderer_base(physical_size, &mut ops, scale, transform),

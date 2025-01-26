@@ -24,7 +24,8 @@ use {
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
         on_devices_enumerated, on_idle, quit, reload, set_default_workspace_capture,
-        set_explicit_sync_enabled, set_idle, set_ui_drag_enabled, set_ui_drag_threshold,
+        set_explicit_sync_enabled, set_idle, set_idle_grace_period, set_ui_drag_enabled,
+        set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
@@ -188,7 +189,14 @@ impl Action {
                     }
                 })
             }
-            Action::ConfigureIdle { idle } => B::new(move || set_idle(Some(idle))),
+            Action::ConfigureIdle { idle, grace_period } => B::new(move || {
+                if let Some(idle) = idle {
+                    set_idle(Some(idle))
+                }
+                if let Some(period) = grace_period {
+                    set_idle_grace_period(period)
+                }
+            }),
             Action::MoveToOutput { output, workspace } => {
                 let state = state.clone();
                 B::new(move || {
@@ -966,6 +974,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         }
         if let Some(idle) = config.idle {
             set_idle(Some(idle));
+        }
+        if let Some(period) = config.grace_period {
+            set_idle_grace_period(period);
         }
     }
     on_devices_enumerated({

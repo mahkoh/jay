@@ -266,6 +266,10 @@ impl TestConfig {
         self.send(ClientMessage::SetIdle { timeout })
     }
 
+    pub fn set_idle_grace_period(&self, period: Duration) -> TestResult {
+        self.send(ClientMessage::SetIdleGracePeriod { period })
+    }
+
     pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {
         self.send(ClientMessage::SetFloating {
             seat: Seat(seat.raw() as _),

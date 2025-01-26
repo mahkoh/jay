@@ -86,6 +86,7 @@ pub fn take_screenshot(
         include_cursor,
         true,
         false,
+        false,
         Transform::None,
     )?;
     let drm = match allocator.drm() {

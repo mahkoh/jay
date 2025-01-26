@@ -1,12 +1,59 @@
 use {
     crate::{
-        cli::{duration::parse_duration, GlobalArgs, IdleArgs, IdleCmd, IdleSetArgs},
+        cli::{duration::parse_duration, GlobalArgs, IdleArgs},
         tools::tool_client::{with_tool_client, Handle, ToolClient},
-        utils::stack::Stack,
+        utils::{debug_fn::debug_fn, stack::Stack},
         wire::{jay_compositor, jay_idle, JayIdleId, WlSurfaceId},
     },
+    clap::{Args, Subcommand},
     std::{cell::Cell, rc::Rc},
 };
+
+#[derive(Subcommand, Debug)]
+pub enum IdleCmd {
+    /// Print the idle status.
+    Status,
+    /// Set the idle interval.
+    Set(IdleSetArgs),
+    /// Set the idle grace period.
+    SetGracePeriod(IdleSetGracePeriodArgs),
+}
+
+impl Default for IdleCmd {
+    fn default() -> Self {
+        Self::Status
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct IdleSetArgs {
+    /// The interval of inactivity after which to disable the screens.
+    ///
+    /// This can be either a number in minutes and seconds or the keyword `disabled` to
+    /// disable the screensaver.
+    ///
+    /// Minutes and seconds can be specified in any of the following formats:
+    ///
+    /// * 1m
+    /// * 1m5s
+    /// * 1m 5s
+    /// * 1min 5sec
+    /// * 1 minute 5 seconds
+    #[clap(verbatim_doc_comment, required = true)]
+    pub interval: Vec<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct IdleSetGracePeriodArgs {
+    /// The grace period after the idle timeout expires.
+    ///
+    /// During this period, after the idle timeout expires, the screen only goes black
+    /// but is not yet disabled or locked.
+    ///
+    /// This uses the same formatting options as the idle timeout itself.
+    #[clap(verbatim_doc_comment, required = true)]
+    pub period: Vec<String>,
+}
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     with_tool_client(global.log_level.into(), |tc| async move {
@@ -31,15 +78,20 @@ impl Idle {
         match args.command.unwrap_or_default() {
             IdleCmd::Status => self.status(idle).await,
             IdleCmd::Set(args) => self.set(idle, args).await,
+            IdleCmd::SetGracePeriod(args) => self.set_grace_period(idle, args).await,
         }
     }
 
     async fn status(self, idle: JayIdleId) {
         let tc = &self.tc;
         tc.send(jay_idle::GetStatus { self_id: idle });
-        let interval = Rc::new(Cell::new(0u64));
-        jay_idle::Interval::handle(tc, idle, interval.clone(), |iv, msg| {
+        let timeout = Rc::new(Cell::new(0u64));
+        jay_idle::Interval::handle(tc, idle, timeout.clone(), |iv, msg| {
             iv.set(msg.interval);
+        });
+        let grace = Rc::new(Cell::new(0u64));
+        jay_idle::GracePeriod::handle(tc, idle, grace.clone(), |iv, msg| {
+            iv.set(msg.period);
         });
         struct Inhibitor {
             surface: WlSurfaceId,
@@ -57,26 +109,31 @@ impl Idle {
             });
         });
         tc.round_trip().await;
-        let minutes = interval.get() / 60;
-        let seconds = interval.get() % 60;
-        print!("Interval:");
-        if minutes == 0 && seconds == 0 {
-            print!(" disabled");
-        } else {
-            if minutes > 0 {
-                print!(" {} minute", minutes);
-                if minutes > 1 {
-                    print!("s");
+        let interval = |iv: u64| {
+            debug_fn(move |f| {
+                let minutes = iv / 60;
+                let seconds = iv % 60;
+                if minutes == 0 && seconds == 0 {
+                    write!(f, " disabled")?;
+                } else {
+                    if minutes > 0 {
+                        write!(f, " {} minute", minutes)?;
+                        if minutes > 1 {
+                            write!(f, "s")?;
+                        }
+                    }
+                    if seconds > 0 {
+                        write!(f, " {} second", seconds)?;
+                        if seconds > 1 {
+                            write!(f, "s")?;
+                        }
+                    }
                 }
-            }
-            if seconds > 0 {
-                print!(" {} second", seconds);
-                if seconds > 1 {
-                    print!("s");
-                }
-            }
-        }
-        println!();
+                Ok(())
+            })
+        };
+        println!("Interval:{}", interval(timeout.get()));
+        println!("Grace period:{}", interval(grace.get()));
         let mut inhibitors = inhibitors.take();
         inhibitors.sort_by_key(|i| i.pid);
         inhibitors.sort_by_key(|i| i.surface);
@@ -93,15 +150,27 @@ impl Idle {
 
     async fn set(self, idle: JayIdleId, args: IdleSetArgs) {
         let tc = &self.tc;
-        let interval = if args.interval.len() == 1 && args.interval[0] == "disabled" {
-            0
-        } else {
-            parse_duration(&args.interval).as_secs() as u64
-        };
         tc.send(jay_idle::SetInterval {
             self_id: idle,
-            interval,
+            interval: parse_idle_time(&args.interval),
         });
         tc.round_trip().await;
+    }
+
+    async fn set_grace_period(self, idle: JayIdleId, args: IdleSetGracePeriodArgs) {
+        let tc = &self.tc;
+        tc.send(jay_idle::SetGracePeriod {
+            self_id: idle,
+            period: parse_idle_time(&args.period),
+        });
+        tc.round_trip().await;
+    }
+}
+
+fn parse_idle_time(time: &[String]) -> u64 {
+    if time.len() == 1 && time[0] == "disabled" {
+        0
+    } else {
+        parse_duration(time).as_secs() as u64
     }
 }
