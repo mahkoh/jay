@@ -7,6 +7,10 @@ request set_interval {
     interval: pod(u64),
 }
 
+request set_grace_period (since = 13) {
+    period: pod(u64),
+}
+
 # events
 
 event interval {
@@ -18,4 +22,8 @@ event inhibitor {
     client_id: pod(u64),
     pid: pod(u64),
     comm: str,
+}
+
+event grace_period (since = 13) {
+    period: pod(u64),
 }

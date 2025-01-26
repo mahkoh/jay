@@ -261,17 +261,25 @@ pub struct IdleState {
     pub input: Cell<bool>,
     pub change: AsyncEvent,
     pub timeout: Cell<Duration>,
+    pub grace_period: Cell<Duration>,
     pub timeout_changed: Cell<bool>,
     pub inhibitors: CopyHashMap<IdleInhibitorId, Rc<ZwpIdleInhibitorV1>>,
     pub inhibitors_changed: Cell<bool>,
     pub backend_idle: Cell<bool>,
     pub inhibited_idle_notifications:
         CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
+    pub in_grace_period: Cell<bool>,
 }
 
 impl IdleState {
     pub fn set_timeout(&self, timeout: Duration) {
         self.timeout.set(timeout);
+        self.timeout_changed.set(true);
+        self.change.trigger();
+    }
+
+    pub fn set_grace_period(&self, grace_period: Duration) {
+        self.grace_period.set(grace_period);
         self.timeout_changed.set(true);
         self.change.trigger();
     }
@@ -937,6 +945,10 @@ impl State {
         output: &Rc<OutputNode>,
         hc: &mut dyn HardwareCursorUpdate,
     ) {
+        if self.idle.in_grace_period.get() {
+            hc.set_enabled(false);
+            return;
+        }
         let Some(g) = self.cursor_user_group_hardware_cursor.get() else {
             hc.set_enabled(false);
             return;
@@ -968,6 +980,7 @@ impl State {
             Some(output.global.pos.get()),
             output.global.persistent.scale.get(),
             render_hw_cursor,
+            true,
         )?;
         output.latched(false);
         output.perform_screencopies(

@@ -527,6 +527,9 @@ pub enum ClientMessage<'a> {
     SetXScalingMode {
         mode: XScalingMode,
     },
+    SetIdleGracePeriod {
+        period: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

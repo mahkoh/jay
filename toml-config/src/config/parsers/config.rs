@@ -294,9 +294,13 @@ impl Parser for ConfigParser<'_> {
             }
         }
         let mut idle = None;
+        let mut grace_period = None;
         if let Some(value) = idle_val {
             match value.parse(&mut IdleParser(self.0)) {
-                Ok(v) => idle = Some(v),
+                Ok(v) => {
+                    idle = v.timeout;
+                    grace_period = v.grace_period;
+                }
                 Err(e) => {
                     log::warn!("Could not parse the idle timeout: {}", self.0.error(e));
                 }
@@ -384,6 +388,7 @@ impl Parser for ConfigParser<'_> {
             render_device,
             inputs,
             idle,
+            grace_period,
             focus_follows_mouse: focus_follows_mouse.despan().unwrap_or(true),
             window_management_key,
             vrr,

@@ -200,6 +200,7 @@ impl JayScreencast {
                     true,
                     true,
                     false,
+                    false,
                     Transform::None,
                 );
                 match res {

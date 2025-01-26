@@ -504,6 +504,7 @@ impl MetalConnector {
             true,
             render_hw_cursor,
             node.has_fullscreen(),
+            true,
             node.global.persistent.transform.get(),
             Some(&self.state.damage_visualizer),
         );

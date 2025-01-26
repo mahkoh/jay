@@ -200,11 +200,13 @@ fn start_compositor2(
             input: Default::default(),
             change: Default::default(),
             timeout: Cell::new(Duration::from_secs(10 * 60)),
+            grace_period: Cell::new(Duration::from_secs(5)),
             timeout_changed: Default::default(),
             inhibitors: Default::default(),
             inhibitors_changed: Default::default(),
             inhibited_idle_notifications: Default::default(),
             backend_idle: Cell::new(true),
+            in_grace_period: Cell::new(false),
         },
         run_args,
         xwayland: XWaylandState {

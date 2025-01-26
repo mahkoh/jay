@@ -61,9 +61,12 @@ impl Idle {
             self.dead = true;
             return;
         }
+        let grace_period = self.state.idle.grace_period.get();
         let timeout = self.state.idle.timeout.get();
+        let after_grace = timeout.saturating_add(grace_period);
         let since = duration_since(self.last_input);
-        if since >= timeout {
+        if since >= after_grace {
+            self.set_in_grace_period(false);
             if !timeout.is_zero() && !self.is_inhibited {
                 if let Some(config) = self.state.config.get() {
                     config.idle();
@@ -71,9 +74,22 @@ impl Idle {
                 self.backend.set_idle(true);
                 self.idle = true;
             }
+        } else if since >= timeout {
+            if !timeout.is_zero() && !self.is_inhibited {
+                self.set_in_grace_period(true);
+            }
+            self.program_timer2(after_grace - since);
         } else {
             self.program_timer2(timeout - since);
         }
+    }
+
+    fn set_in_grace_period(&mut self, val: bool) {
+        if self.state.idle.in_grace_period.replace(val) == val {
+            return;
+        }
+        self.state.damage(self.state.root.extents.get());
+        self.state.damage_hardware_cursors(false);
     }
 
     fn handle_idle_changes(&mut self) {
@@ -82,6 +98,7 @@ impl Idle {
             if self.is_inhibited != is_inhibited {
                 self.is_inhibited = is_inhibited;
                 if !self.is_inhibited {
+                    self.last_input = now();
                     self.program_timer();
                 }
             }
@@ -91,6 +108,7 @@ impl Idle {
         }
         if self.state.idle.input.replace(false) {
             self.last_input = now();
+            self.set_in_grace_period(false);
             if self.idle {
                 self.backend.set_idle(false);
                 self.idle = false;

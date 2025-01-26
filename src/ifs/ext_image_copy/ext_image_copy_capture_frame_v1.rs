@@ -243,6 +243,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 true,
                 true,
                 true,
+                false,
                 jay_config::video::Transform::None,
             )
         });

@@ -1670,12 +1670,51 @@ The string should have one of the following values:
 
 
 
+<a name="types-GracePeriod"></a>
+### `GracePeriod`
+
+The definition of a grace period.
+
+Omitted values are set to 0. If all values are 0, the grace period is disabled.
+
+- Example:
+
+  ```toml
+  idle.grace-period.seconds = 3
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `minutes` (optional):
+
+  The number of minutes the grace period lasts.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `seconds` (optional):
+
+  The number of seconds the grace period lasts.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+
 <a name="types-Idle"></a>
 ### `Idle`
 
 The definition of an idle timeout.
 
-Omitted values are set to 0. If all values are 0, the idle timeout is disabled.
+Omitted values are set to 0. If any value is explicitly set and all values are 0, the
+idle timeout is disabled.
 
 - Example:
 
@@ -1706,6 +1745,18 @@ The table has the following fields:
   The numbers should be integers.
 
   The numbers should be greater than or equal to 0.
+
+- `grace-period` (optional):
+
+  The grace period after the timeout expires.
+  
+  During the grace period, the screen goes black but the outputs are not yet
+  disabled and the `on-idle` action does not yet run. This is a visual indicator
+  that the system will soon get idle.
+  
+  The default is 5 seconds.
+
+  The value of this field should be a [GracePeriod](#types-GracePeriod).
 
 
 <a name="types-Input"></a>

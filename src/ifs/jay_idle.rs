@@ -14,7 +14,10 @@ pub struct JayIdle {
     pub id: JayIdleId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
+
+const GRACE_PERIOD_SINCE: Version = Version(13);
 
 impl JayIdle {
     fn send_interval(&self) {
@@ -22,6 +25,14 @@ impl JayIdle {
         self.client.event(Interval {
             self_id: self.id,
             interval: to.as_secs(),
+        });
+    }
+
+    fn send_grace_period(&self) {
+        let to = self.client.state.idle.grace_period.get();
+        self.client.event(GracePeriod {
+            self_id: self.id,
+            period: to.as_secs(),
         });
     }
 
@@ -42,6 +53,9 @@ impl JayIdleRequestHandler for JayIdle {
 
     fn get_status(&self, _req: GetStatus, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_interval();
+        if self.version >= GRACE_PERIOD_SINCE {
+            self.send_grace_period();
+        }
         {
             let inhibitors = self.client.state.idle.inhibitors.lock();
             for inhibitor in inhibitors.values() {
@@ -56,11 +70,17 @@ impl JayIdleRequestHandler for JayIdle {
         self.client.state.idle.set_timeout(interval);
         Ok(())
     }
+
+    fn set_grace_period(&self, req: SetGracePeriod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let period = Duration::from_secs(req.period);
+        self.client.state.idle.set_grace_period(period);
+        Ok(())
+    }
 }
 
 object_base! {
     self = JayIdle;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for JayIdle {}

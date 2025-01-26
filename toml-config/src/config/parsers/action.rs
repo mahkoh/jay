@@ -177,7 +177,10 @@ impl ActionParser<'_> {
             .extract(val("idle"))?
             .parse_map(&mut IdleParser(self.0))
             .map_spanned_err(ActionParserError::ConfigureIdle)?;
-        Ok(Action::ConfigureIdle { idle })
+        Ok(Action::ConfigureIdle {
+            idle: idle.timeout,
+            grace_period: idle.grace_period,
+        })
     }
 
     fn parse_configure_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {

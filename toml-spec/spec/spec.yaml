@@ -2293,7 +2293,8 @@ Idle:
   description: |
     The definition of an idle timeout.
     
-    Omitted values are set to 0. If all values are 0, the idle timeout is disabled.
+    Omitted values are set to 0. If any value is explicitly set and all values are 0, the
+    idle timeout is disabled.
     
     - Example:
     
@@ -2309,6 +2310,44 @@ Idle:
       required: false
     seconds:
       description: The number of seconds before going idle.
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+    grace-period:
+      description: |
+        The grace period after the timeout expires.
+        
+        During the grace period, the screen goes black but the outputs are not yet
+        disabled and the `on-idle` action does not yet run. This is a visual indicator
+        that the system will soon get idle.
+        
+        The default is 5 seconds.
+      ref: GracePeriod
+      required: false
+
+
+GracePeriod:
+  kind: table
+  description: |
+    The definition of a grace period.
+    
+    Omitted values are set to 0. If all values are 0, the grace period is disabled.
+    
+    - Example:
+    
+      ```toml
+      idle.grace-period.seconds = 3
+      ```
+  fields:
+    minutes:
+      description: The number of minutes the grace period lasts.
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+    seconds:
+      description: The number of seconds the grace period lasts.
       kind: number
       integer_only: true
       minimum: 0
