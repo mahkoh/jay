@@ -6,7 +6,6 @@ The following libraries must be installed before compiling Jay:
 
 - libinput.so
 - libgbm.so
-- libxkbcommon.so
 - libudev.so
 - libpangocairo-1.0.so
 
