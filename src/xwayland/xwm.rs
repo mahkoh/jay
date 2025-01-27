@@ -978,7 +978,12 @@ impl Wm {
         }
     }
 
-    async fn focus_window(&mut self, window: Option<&Rc<XwindowData>>, initiator: Initiator) {
+    async fn focus_window(
+        &mut self,
+        window: Option<&Rc<XwindowData>>,
+        initiator: Initiator,
+        send_to_x: bool,
+    ) {
         // log::info!("xwm focus_window {:?}", window.map(|w| w.window_id));
         if let Some(old) = mem::replace(&mut self.focus_window, window.cloned()) {
             // log::info!("xwm unfocus {:?}", old.window_id);
@@ -1013,22 +1018,24 @@ impl Wm {
                 }
             }
         }
-        let accepts_input = window.info.icccm_hints.input.get();
-        let mask = if accepts_input {
-            EVENT_MASK_SUBSTRUCTURE_REDIRECT
-        } else {
-            0
-        };
-        self.send_wm_message(window, mask, &[self.atoms.WM_TAKE_FOCUS, 0])
-            .await;
-        if accepts_input {
-            let sif = SetInputFocus {
-                revert_to: INPUT_FOCUS_POINTER_ROOT,
-                focus: window.window_id,
-                time: 0,
+        if send_to_x {
+            let accepts_input = window.info.icccm_hints.input.get();
+            let mask = if accepts_input {
+                EVENT_MASK_SUBSTRUCTURE_REDIRECT
+            } else {
+                0
             };
-            let (_, serial) = self.c.call_with_serial(&sif);
-            self.last_input_serial = serial;
+            self.send_wm_message(window, mask, &[self.atoms.WM_TAKE_FOCUS, 0])
+                .await;
+            if accepts_input {
+                let sif = SetInputFocus {
+                    revert_to: INPUT_FOCUS_POINTER_ROOT,
+                    focus: window.window_id,
+                    time: 0,
+                };
+                let (_, serial) = self.c.call_with_serial(&sif);
+                self.last_input_serial = serial;
+            }
         }
         self.set_net_wm_state(window).await;
     }
@@ -1857,6 +1864,7 @@ impl Wm {
         }
         let new_window = self.windows.get(&event.event);
         let mut focus_window = self.focus_window.as_ref();
+        let mut send_to_x = true;
         if let Some(window) = new_window {
             if let Some(w) = window.window.get() {
                 if let Some(prev) = focus_window {
@@ -1869,12 +1877,14 @@ impl Wm {
                     {
                         // log::info!("xwm ACCEPT");
                         focus_window = new_window;
+                        send_to_x = false;
                     }
                 }
             }
         }
         let fw = focus_window.cloned();
-        self.focus_window(fw.as_ref(), Initiator::X).await;
+        self.focus_window(fw.as_ref(), Initiator::X, send_to_x)
+            .await;
         Ok(())
     }
 
@@ -1903,7 +1913,7 @@ impl Wm {
             }
         }
         self.set_net_active_window(window).await;
-        self.focus_window(window, initiator).await;
+        self.focus_window(window, initiator, true).await;
         if let Some(w) = window {
             self.move_to_top_of_stack(w);
             self.configure_stack_position(w).await;
