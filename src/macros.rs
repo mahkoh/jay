@@ -249,6 +249,7 @@ macro_rules! cenum {
     }
 }
 
+#[expect(unused_macros)]
 macro_rules! bitor {
     ($name:ident) => {
         impl std::ops::BitOr for $name {

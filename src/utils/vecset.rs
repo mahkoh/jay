@@ -19,7 +19,6 @@ impl<T> Deref for VecSet<T> {
 }
 
 impl<T> VecSet<T> {
-    #[expect(dead_code)]
     pub fn clear(&mut self) {
         self.vec.clear();
     }
@@ -42,5 +41,18 @@ impl<T: PartialEq> VecSet<T> {
             }
         }
         false
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        self.vec.pop()
+    }
+
+    pub fn extend(&mut self, vals: &[T])
+    where
+        T: Copy,
+    {
+        for v in vals.iter().copied() {
+            self.insert(v);
+        }
     }
 }

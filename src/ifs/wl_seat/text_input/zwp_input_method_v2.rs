@@ -13,11 +13,11 @@ use {
                 ZwpInputPopupSurfaceV2, ZwpInputPopupSurfaceV2Error,
             },
         },
+        keyboard::KeyboardStateId,
         leaks::Tracker,
         object::{Object, Version},
         utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
         wire::{zwp_input_method_v2::*, ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id},
-        xkbcommon::KeyboardStateId,
     },
     std::{
         cell::{Cell, RefCell},

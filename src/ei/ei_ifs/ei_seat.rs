@@ -16,7 +16,8 @@ use {
             EiContext,
         },
         fixed::Fixed,
-        ifs::wl_seat::{wl_pointer::PendingScroll, WlSeatGlobal},
+        ifs::wl_seat::{wl_pointer::PendingScroll, PhysicalKeyboardId, WlSeatGlobal},
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         leaks::Tracker,
         tree::Node,
         utils::{array, bitflags::BitflagsExt, clonecell::CloneCell},
@@ -26,7 +27,6 @@ use {
             },
             EiSeatId,
         },
-        xkbcommon::{DynKeyboardState, KeyboardState, KeyboardStateId},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -49,6 +49,7 @@ pub struct EiSeat {
     pub seat: Rc<WlSeatGlobal>,
     pub capabilities: Cell<u64>,
     pub kb_state_id: Cell<KeyboardStateId>,
+    pub keyboard_id: PhysicalKeyboardId,
 
     pub device: CloneCell<Option<Rc<EiDevice>>>,
     pub pointer: CloneCell<Option<Rc<EiPointer>>>,
@@ -75,7 +76,11 @@ impl EiSeat {
         }
     }
 
-    pub fn handle_xkb_state_change(self: &Rc<Self>, old_id: KeyboardStateId, new: &KeyboardState) {
+    pub fn handle_keyboard_state_change(
+        self: &Rc<Self>,
+        old_id: KeyboardStateId,
+        new: &KeyboardState,
+    ) {
         if self.keyboard.is_none() {
             return;
         }
@@ -94,7 +99,7 @@ impl EiSeat {
             if self.is_sender() {
                 return;
             }
-            self.handle_xkb_state_change(old_id, state);
+            self.handle_keyboard_state_change(old_id, state);
             return;
         }
         if let Some(kb) = self.keyboard.get() {
@@ -106,7 +111,7 @@ impl EiSeat {
         self: &Rc<Self>,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         if self.is_sender() {
@@ -114,7 +119,7 @@ impl EiSeat {
         }
         let old_id = self.kb_state_id.get();
         if old_id != kb_state.id {
-            self.handle_xkb_state_change(old_id, kb_state);
+            self.handle_keyboard_state_change(old_id, kb_state);
         }
         if let Some(kb) = self.keyboard.get() {
             kb.send_key(key, state);
@@ -298,8 +303,8 @@ impl EiSeat {
 
     fn get_kb_state(&self) -> Rc<dyn DynKeyboardState> {
         match self.context() {
-            EiContext::Sender => self.seat.seat_xkb_state(),
-            EiContext::Receiver => self.seat.latest_xkb_state(),
+            EiContext::Sender => self.seat.seat_kb_state(),
+            EiContext::Receiver => self.seat.latest_kb_state(),
         }
     }
 

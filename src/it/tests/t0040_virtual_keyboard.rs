@@ -3,7 +3,7 @@ use {
         backend::KeyState,
         clientmem::ClientMem,
         it::{test_error::TestResult, testrun::TestRun},
-        xkbcommon::XkbContext,
+        kbvm::KbvmContext,
     },
     bstr::ByteSlice,
     std::rc::Rc,
@@ -14,9 +14,9 @@ testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
     let virtual_keymap_str = {
-        let xkb = XkbContext::new()?;
-        let map = xkb.keymap_from_str(VIRTUAL_KEYMAP).unwrap();
-        read_keymap(&map.map, map.map_len)
+        let xkb = KbvmContext::default();
+        let map = xkb.parse_keymap(VIRTUAL_KEYMAP.as_bytes()).unwrap();
+        read_keymap(&map.map.map, map.map.len)
     };
 
     let ds = run.create_default_setup().await?;

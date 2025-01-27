@@ -48,7 +48,7 @@ use {
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
                 tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
-                SeatIds, WlSeatGlobal,
+                PhysicalKeyboardId, PhysicalKeyboardIds, SeatIds, WlSeatGlobal,
             },
             wl_surface::{
                 tray::TrayItemIds,
@@ -66,6 +66,8 @@ use {
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
         io_uring::IoUring,
+        kbvm::{KbvmContext, KbvmMap},
+        keyboard::KeyboardStateIds,
         leaks::Tracker,
         logger::Logger,
         rect::{Rect, Region},
@@ -99,7 +101,6 @@ use {
             ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
             JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::{KeyboardStateIds, XkbContext, XkbKeymap, XkbState},
         xwayland::{self, XWaylandEvent},
     },
     ahash::{AHashMap, AHashSet},
@@ -121,10 +122,10 @@ use {
 };
 
 pub struct State {
-    pub xkb_ctx: XkbContext,
+    pub kb_ctx: KbvmContext,
     pub backend: CloneCell<Rc<dyn Backend>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
-    pub default_keymap: Rc<XkbKeymap>,
+    pub default_keymap: Rc<KbvmMap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
@@ -205,6 +206,7 @@ pub struct State {
     pub wait_for_sync_obj: Rc<WaitForSyncObj>,
     pub explicit_sync_enabled: Cell<bool>,
     pub keyboard_state_ids: KeyboardStateIds,
+    pub physical_keyboard_ids: PhysicalKeyboardIds,
     pub security_context_acceptors: SecurityContextAcceptors,
     pub cursor_user_group_ids: CursorUserGroupIds,
     pub cursor_user_ids: CursorUserIds,
@@ -326,13 +328,13 @@ pub struct InputDeviceData {
 }
 
 pub struct DeviceHandlerData {
+    pub keyboard_id: PhysicalKeyboardId,
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub px_per_scroll_wheel: Cell<f64>,
     pub device: Rc<dyn InputDevice>,
     pub syspath: Option<String>,
     pub devnode: Option<String>,
-    pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
-    pub xkb_state: CloneCell<Option<Rc<RefCell<XkbState>>>>,
+    pub keymap: CloneCell<Option<Rc<KbvmMap>>>,
     pub output: CloneCell<Option<Rc<OutputGlobalOpt>>>,
     pub tablet_init: Option<Box<TabletInit>>,
     pub tablet_pad_init: Option<Box<TabletPadInit>>,

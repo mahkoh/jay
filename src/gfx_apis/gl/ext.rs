@@ -1,12 +1,9 @@
 use {
-    crate::{
-        gfx_apis::gl::{
-            egl::sys::{EGLDisplay, EGL_EXTENSIONS},
-            gl::sys::GL_EXTENSIONS,
-            sys::{EGL, GLESV2},
-            RenderError,
-        },
-        utils::trim::AsciiTrim,
+    crate::gfx_apis::gl::{
+        egl::sys::{EGLDisplay, EGL_EXTENSIONS},
+        gl::sys::GL_EXTENSIONS,
+        sys::{EGL, GLESV2},
+        RenderError,
     },
     ahash::AHashSet,
     bstr::ByteSlice,
@@ -21,7 +18,7 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
     let mut res = AHashSet::new();
     let ext = unsafe { CStr::from_ptr(ext).to_bytes() };
     for part in ext.split_str(" ") {
-        let name = part.trim();
+        let name = part.trim_ascii();
         if name.len() > 0 {
             if let Ok(s) = str::from_utf8(name) {
                 res.insert(s.to_string());

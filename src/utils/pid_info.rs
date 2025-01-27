@@ -1,5 +1,5 @@
 use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsError, trim::AsciiTrim},
+    crate::utils::{errorfmt::ErrorFmt, oserror::OsError},
     bstr::ByteSlice,
     uapi::{c, OwnedFd},
 };
@@ -12,7 +12,7 @@ pub struct PidInfo {
 
 pub fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
     let comm = match std::fs::read(format!("/proc/{}/comm", pid)) {
-        Ok(name) => name.trim().as_bstr().to_string(),
+        Ok(name) => name.trim_ascii_end().as_bstr().to_string(),
         Err(e) => {
             log::warn!("Could not read `comm` of pid {}: {}", pid, ErrorFmt(e));
             "Unknown".to_string()

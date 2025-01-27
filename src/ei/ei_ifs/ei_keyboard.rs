@@ -6,6 +6,7 @@ use {
             ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
             ei_object::{EiObject, EiVersion},
         },
+        keyboard::KeyboardState,
         leaks::Tracker,
         wire_ei::{
             ei_keyboard::{
@@ -13,7 +14,6 @@ use {
             },
             EiKeyboardId,
         },
-        xkbcommon::KeyboardState,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -36,8 +36,8 @@ impl EiKeyboard {
         self.client.event(Keymap {
             self_id: self.id,
             keymap_type: KEYMAP_TYPE_XKB,
-            size: state.map_len as _,
-            keymap: state.map.clone(),
+            size: state.map.len as _,
+            keymap: state.map.map.clone(),
         });
     }
 
@@ -45,18 +45,21 @@ impl EiKeyboard {
         self.client.event(Modifiers {
             self_id: self.id,
             serial: self.client.serial(),
-            depressed: state.mods.mods_depressed,
-            locked: state.mods.mods_locked,
-            latched: state.mods.mods_latched,
-            group: state.mods.group,
+            depressed: state.mods.mods_pressed.0,
+            locked: state.mods.mods_locked.0,
+            latched: state.mods.mods_latched.0,
+            group: state.mods.group.0,
         });
     }
 
-    pub fn send_key(&self, key: u32, state: u32) {
+    pub fn send_key(&self, key: u32, state: KeyState) {
         self.client.event(ServerKey {
             self_id: self.id,
             key,
-            state,
+            state: match state {
+                KeyState::Released => 0,
+                KeyState::Pressed => 1,
+            },
         });
     }
 }

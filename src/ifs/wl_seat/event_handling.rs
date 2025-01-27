@@ -19,7 +19,7 @@ use {
             wl_seat::{
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
-                wl_keyboard::{self, WlKeyboard},
+                wl_keyboard::WlKeyboard,
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
                     AXIS_RELATIVE_DIRECTION_SINCE_VERSION, AXIS_SOURCE_SINCE_VERSION,
@@ -33,15 +33,19 @@ use {
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
+        kbvm::KbvmState,
+        keyboard::KeyboardState,
         object::Version,
         rect::Rect,
         state::DeviceHandlerData,
         tree::{Direction, Node, ToplevelNode},
-        utils::{bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap},
+        utils::{
+            bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap,
+            syncqueue::SyncQueue,
+        },
         wire::WlDataOfferId,
-        xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
+    isnt::std_1::primitive::IsntSliceExt,
     jay_config::{
         input::SwitchEvent,
         keyboard::{
@@ -49,8 +53,9 @@ use {
             syms::{KeySym, SYM_Escape},
         },
     },
+    kbvm::{state_machine::Event, ModifierMask},
     smallvec::SmallVec,
-    std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
+    std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
 };
 
 #[derive(Default)]
@@ -319,7 +324,11 @@ impl WlSeatGlobal {
                 time_usec,
                 key,
                 state,
-            } => self.key_event(time_usec, key, state, || dev.get_effective_xkb_state(self)),
+            } => {
+                self.get_physical_keyboard(dev.keyboard_id, dev.keymap.get().as_ref())
+                    .phy_state
+                    .update(time_usec, self, key, state);
+            }
             InputEvent::ConnectorPosition {
                 time_usec,
                 connector,
@@ -778,130 +787,125 @@ impl WlSeatGlobal {
         self.touch_owner.frame(self);
     }
 
-    pub fn key_event_with_seat_state(
+    pub fn key_events(
         self: &Rc<Self>,
         time_usec: u64,
-        key: u32,
-        key_state: KeyState,
+        events: &SyncQueue<Event>,
+        kbvm_state_rc: &Rc<RefCell<KbvmState>>,
     ) {
-        self.key_event(time_usec, key, key_state, || self.seat_xkb_state.get());
-    }
-
-    pub(super) fn key_event<F>(
-        self: &Rc<Self>,
-        time_usec: u64,
-        key: u32,
-        key_state: KeyState,
-        mut get_state: F,
-    ) where
-        F: FnMut() -> Rc<RefCell<XkbState>>,
-    {
-        let mut xkb_state_rc = get_state();
-        let mut xkb_state = xkb_state_rc.borrow_mut();
-        let (state, xkb_dir) = {
-            match key_state {
-                KeyState::Released => {
-                    if xkb_state.kb_state.pressed_keys.not_contains(&key) {
-                        return;
-                    }
-                    (wl_keyboard::RELEASED, XKB_KEY_UP)
-                }
-                KeyState::Pressed => {
-                    if xkb_state.kb_state.pressed_keys.contains(&key) {
-                        return;
-                    }
-                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
-                }
-            }
-        };
+        let mut kbvm_state = kbvm_state_rc.borrow_mut();
+        self.latest_kb_state.set(kbvm_state_rc.clone());
+        self.latest_kb_state_id.set(kbvm_state.kb_state.id);
         let mut shortcuts = SmallVec::<[_; 1]>::new();
-        let new_mods;
-        {
-            let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
-            if state == wl_keyboard::RELEASED {
-                mods |= RELEASE.0;
-            }
-            let scs = &*self.shortcuts.borrow();
-            let keysyms = xkb_state.unmodified_keysyms(key);
-            let mut revert_pointer_to_default = false;
-            for &sym in keysyms {
-                if sym == SYM_Escape.0 && mods == 0 {
-                    revert_pointer_to_default = true;
+        let mut components_changed = false;
+        while let Some(event) = events.pop() {
+            components_changed |= kbvm_state.kb_state.mods.apply_event(event);
+            let (key_state, kc) = match event {
+                Event::KeyDown(kc) => (KeyState::Pressed, kc),
+                Event::KeyUp(kc) => (KeyState::Released, kc),
+                _ => continue,
+            };
+            let update_pressed_keys = |kbvm_state: &mut KbvmState| {
+                let pk = &mut kbvm_state.kb_state.pressed_keys;
+                match key_state {
+                    KeyState::Released => pk.remove(&kc.to_evdev()),
+                    KeyState::Pressed => pk.insert(kc.to_evdev()),
                 }
-                if !self.state.lock.locked.get() {
-                    if let Some(key_mods) = scs.get(&sym) {
-                        for (key_mods, mask) in key_mods {
-                            if mods & mask == key_mods {
-                                shortcuts.push(InvokedShortcut {
-                                    unmasked_mods: Modifiers(mods),
-                                    effective_mods: Modifiers(key_mods),
-                                    sym: KeySym(sym),
-                                });
+            };
+            shortcuts.clear();
+            {
+                let mut mods = kbvm_state.kb_state.mods.mods.0 & !(CAPS.0 | NUM.0);
+                if key_state == KeyState::Released {
+                    mods |= RELEASE.0;
+                }
+                let scs = &*self.shortcuts.borrow();
+                let keysyms = kbvm_state.map.lookup_table.lookup(
+                    kbvm_state.kb_state.mods.group,
+                    ModifierMask::default(),
+                    kc,
+                );
+                let mut revert_pointer_to_default = false;
+                for props in keysyms {
+                    let sym = props.keysym().0;
+                    if sym == SYM_Escape.0 && mods == 0 {
+                        revert_pointer_to_default = true;
+                    }
+                    if !self.state.lock.locked.get() {
+                        if let Some(key_mods) = scs.get(&sym) {
+                            for (key_mods, mask) in key_mods {
+                                if mods & mask == key_mods {
+                                    shortcuts.push(InvokedShortcut {
+                                        unmasked_mods: Modifiers(mods),
+                                        effective_mods: Modifiers(key_mods),
+                                        sym: KeySym(sym),
+                                    });
+                                }
                             }
                         }
                     }
                 }
-            }
-            if revert_pointer_to_default {
-                drop(xkb_state);
-                self.pointer_owner.revert_to_default(self);
-                xkb_state = xkb_state_rc.borrow_mut();
-            }
-            new_mods = xkb_state.update(key, xkb_dir);
-        }
-        self.state.for_each_seat_tester(|t| {
-            t.send_key(self.id, time_usec, key, key_state);
-        });
-        let node = self.keyboard_node.get();
-        let input_method_grab = self.input_method_grab.get();
-        let mut forward = true;
-        if shortcuts.is_not_empty() {
-            self.forward.set(state == wl_keyboard::RELEASED);
-            if let Some(config) = self.state.config.get() {
-                let id = xkb_state.kb_state.id;
-                drop(xkb_state);
-                for shortcut in shortcuts {
-                    config.invoke_shortcut(self.id(), &shortcut);
-                }
-                xkb_state_rc = get_state();
-                xkb_state = xkb_state_rc.borrow_mut();
-                if id != xkb_state.kb_state.id {
-                    return;
+                if revert_pointer_to_default {
+                    drop(kbvm_state);
+                    self.pointer_owner.revert_to_default(self);
+                    kbvm_state = kbvm_state_rc.borrow_mut();
                 }
             }
-            forward = self.forward.get();
-        }
-        if forward {
-            match &input_method_grab {
-                Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
-                _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
-            }
-            self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_key(time_usec, key, state, &xkb_state.kb_state);
-            });
-        }
-        if new_mods {
-            self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_modifiers_changed(&xkb_state.kb_state);
-            });
             self.state.for_each_seat_tester(|t| {
-                t.send_modifiers(self.id, &xkb_state.kb_state.mods);
+                t.send_key(self.id, time_usec, kc.to_evdev(), key_state);
             });
-            match &input_method_grab {
-                Some(g) => g.on_modifiers(&xkb_state.kb_state),
-                _ => node.node_on_mods(self, &xkb_state.kb_state),
+            if shortcuts.is_not_empty() {
+                self.forward.set(key_state == KeyState::Released);
+                if let Some(config) = self.state.config.get() {
+                    drop(kbvm_state);
+                    for shortcut in &shortcuts {
+                        config.invoke_shortcut(self.id(), shortcut);
+                    }
+                    kbvm_state = kbvm_state_rc.borrow_mut();
+                    if kbvm_state.kb_state.id != self.latest_kb_state_id.get() {
+                        update_pressed_keys(&mut kbvm_state);
+                        kbvm_state.apply_events(events);
+                        return;
+                    }
+                }
+                if !self.forward.get() {
+                    update_pressed_keys(&mut kbvm_state);
+                    continue;
+                }
             }
+            self.send_components(&mut components_changed, &kbvm_state);
+            match self.input_method_grab.get() {
+                Some(g) => g.on_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state),
+                _ => self.keyboard_node.get().node_on_key(
+                    self,
+                    time_usec,
+                    kc.to_evdev(),
+                    key_state,
+                    &kbvm_state.kb_state,
+                ),
+            }
+            self.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
+            });
+            update_pressed_keys(&mut kbvm_state);
         }
-        match key_state {
-            KeyState::Released => {
-                xkb_state.kb_state.pressed_keys.remove(&key);
-            }
-            KeyState::Pressed => {
-                xkb_state.kb_state.pressed_keys.insert(key);
-            }
+        self.send_components(&mut components_changed, &kbvm_state);
+    }
+
+    fn send_components(&self, components_changed: &mut bool, kbvm_state: &KbvmState) {
+        if !mem::take(components_changed) {
+            return;
         }
-        drop(xkb_state);
-        self.latest_kb_state.set(xkb_state_rc);
+        let kb_state = &kbvm_state.kb_state;
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_modifiers_changed(kb_state);
+        });
+        self.state.for_each_seat_tester(|t| {
+            t.send_modifiers(self.id, &kb_state.mods);
+        });
+        match self.input_method_grab.get() {
+            Some(g) => g.on_modifiers(kb_state),
+            _ => self.keyboard_node.get().node_on_mods(self, kb_state),
+        }
     }
 
     pub(super) fn for_each_ei_seat(&self, mut f: impl FnMut(&Rc<EiSeat>)) {
@@ -1331,7 +1335,7 @@ impl WlSeatGlobal {
         surface: &WlSurface,
         time_usec: u64,
         key: u32,
-        state: u32,
+        state: KeyState,
         kb_state: &KeyboardState,
     ) {
         let serial = surface.client.next_serial();
