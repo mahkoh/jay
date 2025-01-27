@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.9.0 (2025-01-27)
+
 This release replaces xkbcommon by the kbvm crate.
 
 This is a huge change in how input is handled. The intention is that this is completely
