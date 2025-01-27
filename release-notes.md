@@ -1,7 +1,9 @@
 # Unreleased
 
+# 1.8.0 (2025-01-27)
+
 - Various bugfixes.
-- Add support fo ext-data-control-v1.
+- Implement ext-data-control-v1.
 - Implement wl-fixes.
 - Implement ei_touchscreen v2.
 - Implement idle-notification v2.

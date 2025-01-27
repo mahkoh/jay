@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.8.0
+
 - Needs jay-config release.
 - Needs jay-toml-config release.
 - Needs jay-compositor release.

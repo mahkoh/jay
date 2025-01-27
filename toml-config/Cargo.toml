@@ -1,6 +1,6 @@
 [package]
 name = "jay-toml-config"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 license = "GPL-3.0-only"
 description = "Internal dependency of the Jay compositor"
@@ -10,7 +10,7 @@ repository = "https://github.com/mahkoh/jay"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-jay-config = { version = "1.6.0", path = "../jay-config" }
+jay-config = { version = "1.7.0", path = "../jay-config" }
 log = "0.4.14"
 thiserror = "2.0.11"
 error_reporter = "1.0.0"
