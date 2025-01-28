@@ -112,7 +112,7 @@ impl Global for XdgWmBaseGlobal {
     }
 
     fn version(&self) -> u32 {
-        6
+        7
     }
 }
 
