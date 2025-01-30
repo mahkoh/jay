@@ -9,10 +9,7 @@ pub const FILL_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.vert
 pub const FILL_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.frag.spv"));
 pub const TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.vert.spv"));
 pub const TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.spv"));
-pub const TEX_FRAG_MULT_OPAQUE: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.mult+opaque.spv"));
-pub const TEX_FRAG_MULT_ALPHA: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.mult+alpha.spv"));
+pub const TEX_FRAG_MULT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.mult.spv"));
 
 pub struct VulkanShader {
     pub(super) device: Rc<VulkanDevice>,

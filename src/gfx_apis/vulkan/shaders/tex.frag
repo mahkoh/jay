@@ -1,5 +1,7 @@
 #version 450
 
+#include "frag_spec_const.glsl"
+
 #ifdef ALPHA_MULTIPLIER
 layout(push_constant, std430) uniform Data {
 	layout(offset = 64) float mul;
@@ -11,10 +13,11 @@ layout(location = 0) out vec4 out_color;
 
 void main() {
 #ifdef ALPHA_MULTIPLIER
-#ifdef ALPHA
-	out_color = textureLod(tex, tex_pos, 0) * data.mul;
-#endif // !ALPHA
-	out_color = vec4(textureLod(tex, tex_pos, 0).rgb * data.mul, data.mul);
+	if (src_has_alpha) {
+		out_color = textureLod(tex, tex_pos, 0) * data.mul;
+	} else {
+		out_color = vec4(textureLod(tex, tex_pos, 0).rgb * data.mul, data.mul);
+	}
 #else // !ALPHA_MULTIPLIER
 	out_color = textureLod(tex, tex_pos, 0);
 #endif

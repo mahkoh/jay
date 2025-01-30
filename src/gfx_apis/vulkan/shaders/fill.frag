@@ -1,5 +1,7 @@
 #version 450
 
+#include "frag_spec_const.glsl"
+
 layout(push_constant, std430) uniform Data {
 	layout(offset = 32) vec4 color;
 } data;

@@ -1,7 +1,7 @@
 use {
     crate::open,
-    anyhow::{bail, Context},
-    shaderc::CompileOptions,
+    anyhow::{anyhow, bail, Context},
+    shaderc::{CompileOptions, ResolvedInclude},
     std::{io::Write, path::Path},
 };
 
@@ -12,21 +12,17 @@ pub fn main() -> anyhow::Result<()> {
     compile_simple("fill.frag")?;
     compile_simple("fill.vert")?;
     compile_simple("tex.vert")?;
-    compile_tex_frag("tex.frag.spv", false, false)?;
-    compile_tex_frag("tex.frag.mult+opaque.spv", false, true)?;
-    compile_tex_frag("tex.frag.mult+alpha.spv", true, true)?;
+    compile_tex_frag("tex.frag.spv", false)?;
+    compile_tex_frag("tex.frag.mult.spv", true)?;
     Ok(())
 }
 
-fn compile_tex_frag(out: &str, alpha: bool, alpha_multiplier: bool) -> anyhow::Result<()> {
+fn compile_tex_frag(out: &str, alpha_multiplier: bool) -> anyhow::Result<()> {
     let mut opts = CompileOptions::new().unwrap();
-    if alpha {
-        opts.add_macro_definition("ALPHA", None);
-    }
     if alpha_multiplier {
         opts.add_macro_definition("ALPHA_MULTIPLIER", None);
     }
-    compile_shader("tex.frag", out, Some(&opts)).with_context(|| out.to_string())?;
+    compile_shader("tex.frag", out, Some(opts)).with_context(|| out.to_string())?;
     Ok(())
 }
 
@@ -34,7 +30,15 @@ fn compile_simple(name: &str) -> anyhow::Result<()> {
     compile_shader(name, &format!("{name}.spv"), None).with_context(|| name.to_string())
 }
 
-fn compile_shader(name: &str, out: &str, options: Option<&CompileOptions>) -> anyhow::Result<()> {
+fn compile_shader(name: &str, out: &str, options: Option<CompileOptions>) -> anyhow::Result<()> {
+    let read = |path: &str| std::fs::read_to_string(format!("{}/{}", ROOT, path));
+    let mut options = options.unwrap_or_else(|| CompileOptions::new().unwrap());
+    options.set_include_callback(|name, _, _, _| {
+        Ok(ResolvedInclude {
+            resolved_name: name.to_string(),
+            content: read(name).map_err(|e| anyhow!(e).to_string())?,
+        })
+    });
     let stage = match Path::new(name)
         .extension()
         .and_then(|e| e.to_str())
@@ -44,10 +48,10 @@ fn compile_shader(name: &str, out: &str, options: Option<&CompileOptions>) -> an
         "vert" => shaderc::ShaderKind::Vertex,
         n => bail!("Unknown shader stage {}", n),
     };
-    let src = std::fs::read_to_string(format!("{}/{}", ROOT, name))?;
+    let src = read(name)?;
     let compiler = shaderc::Compiler::new().unwrap();
     let binary = compiler
-        .compile_into_spirv(&src, stage, name, "main", options)
+        .compile_into_spirv(&src, stage, name, "main", Some(&options))
         .unwrap();
     let mut file = open(out)?;
     file.write_all(binary.as_binary_u8())?;

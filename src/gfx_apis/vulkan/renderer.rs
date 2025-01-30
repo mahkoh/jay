@@ -18,8 +18,8 @@ use {
             semaphore::VulkanSemaphore,
             shaders::{
                 FillFragPushConstants, FillVertPushConstants, TexFragPushConstants,
-                TexVertPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG,
-                TEX_FRAG_MULT_ALPHA, TEX_FRAG_MULT_OPAQUE, TEX_VERT,
+                TexVertPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG, TEX_FRAG_MULT,
+                TEX_VERT,
             },
             VulkanError,
         },
@@ -74,8 +74,7 @@ pub struct VulkanRenderer {
     pub(super) fill_frag_shader: Rc<VulkanShader>,
     pub(super) tex_vert_shader: Rc<VulkanShader>,
     pub(super) tex_frag_shader: Rc<VulkanShader>,
-    pub(super) tex_frag_mult_opaque_shader: Rc<VulkanShader>,
-    pub(super) tex_frag_mult_alpha_shader: Rc<VulkanShader>,
+    pub(super) tex_frag_mult_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
@@ -160,8 +159,7 @@ impl VulkanDevice {
         let tex_descriptor_set_layout = self.create_descriptor_set_layout(&sampler)?;
         let tex_vert_shader = self.create_shader(TEX_VERT)?;
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
-        let tex_frag_mult_opaque_shader = self.create_shader(TEX_FRAG_MULT_OPAQUE)?;
-        let tex_frag_mult_alpha_shader = self.create_shader(TEX_FRAG_MULT_ALPHA)?;
+        let tex_frag_mult_shader = self.create_shader(TEX_FRAG_MULT)?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
         let transfer_command_buffers = self
             .distinct_transfer_queue_family_idx
@@ -219,8 +217,7 @@ impl VulkanDevice {
             fill_frag_shader,
             tex_vert_shader,
             tex_frag_shader,
-            tex_frag_mult_opaque_shader,
-            tex_frag_mult_alpha_shader,
+            tex_frag_mult_shader,
             tex_descriptor_set_layout,
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
@@ -246,34 +243,37 @@ impl VulkanRenderer {
                     format,
                     vert: self.fill_vert_shader.clone(),
                     frag: self.fill_frag_shader.clone(),
-                    alpha: true,
+                    blend: true,
+                    src_has_alpha: true,
                     frag_descriptor_set_layout: None,
                 },
             )?;
-        let create_tex_pipeline = |alpha| {
+        let create_tex_pipeline = |src_has_alpha| {
             self.device
                 .create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
                     format,
                     vert: self.tex_vert_shader.clone(),
                     frag: self.tex_frag_shader.clone(),
-                    alpha,
+                    blend: src_has_alpha,
+                    src_has_alpha,
                     frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
                 })
         };
-        let create_tex_mult_pipeline = |frag: &Rc<VulkanShader>| {
+        let create_tex_mult_pipeline = |src_has_alpha: bool| {
             self.device
                 .create_pipeline::<TexVertPushConstants, TexFragPushConstants>(PipelineCreateInfo {
                     format,
                     vert: self.tex_vert_shader.clone(),
-                    frag: frag.clone(),
-                    alpha: true,
+                    frag: self.tex_frag_mult_shader.clone(),
+                    blend: true,
+                    src_has_alpha,
                     frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
                 })
         };
         let tex_opaque = create_tex_pipeline(false)?;
         let tex_alpha = create_tex_pipeline(true)?;
-        let tex_mult_opaque = create_tex_mult_pipeline(&self.tex_frag_mult_opaque_shader)?;
-        let tex_mult_alpha = create_tex_mult_pipeline(&self.tex_frag_mult_alpha_shader)?;
+        let tex_mult_opaque = create_tex_mult_pipeline(false)?;
+        let tex_mult_alpha = create_tex_mult_pipeline(true)?;
         let pipelines = Rc::new(VulkanFormatPipelines {
             fill,
             tex: static_map! {
