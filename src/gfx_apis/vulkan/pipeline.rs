@@ -18,6 +18,7 @@ use {
             PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
             PipelineVertexInputStateCreateInfo, PipelineViewportStateCreateInfo, PolygonMode,
             PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
+            SpecializationInfo, SpecializationMapEntry,
         },
     },
     std::{rc::Rc, slice},
@@ -36,7 +37,8 @@ pub(super) struct PipelineCreateInfo {
     pub(super) format: vk::Format,
     pub(super) vert: Rc<VulkanShader>,
     pub(super) frag: Rc<VulkanShader>,
-    pub(super) alpha: bool,
+    pub(super) blend: bool,
+    pub(super) src_has_alpha: bool,
     pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
 }
 
@@ -89,6 +91,15 @@ impl VulkanDevice {
         };
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
+        let mut frag_spec_data = ArrayVec::<_, 4>::new();
+        frag_spec_data.extend((info.src_has_alpha as u32).to_ne_bytes());
+        let frag_spec_entries = [SpecializationMapEntry::default()
+            .constant_id(0)
+            .size(4)
+            .offset(0)];
+        let frag_spec = SpecializationInfo::default()
+            .map_entries(&frag_spec_entries)
+            .data(&frag_spec_data);
         let pipeline = {
             let stages = [
                 PipelineShaderStageCreateInfo::default()
@@ -98,6 +109,7 @@ impl VulkanDevice {
                 PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::FRAGMENT)
                     .module(info.frag.module)
+                    .specialization_info(&frag_spec)
                     .name(c"main"),
             ];
             let input_assembly_state = PipelineInputAssemblyStateCreateInfo::default()
@@ -113,7 +125,7 @@ impl VulkanDevice {
                 .rasterization_samples(SampleCountFlags::TYPE_1);
             let mut blending = PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA);
-            if info.alpha {
+            if info.blend {
                 blending = blending
                     .blend_enable(true)
                     .src_color_blend_factor(BlendFactor::ONE)
