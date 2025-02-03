@@ -427,6 +427,8 @@ pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
+    pub default_properties: Vec<(DrmProperty, u64)>,
+    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
 
     pub dev: Rc<MetalDrmDevice>,
     pub backend: Rc<MetalBackend>,
@@ -942,6 +944,8 @@ pub struct MetalCrtc {
     pub id: DrmCrtc,
     pub idx: usize,
     pub _master: Rc<DrmMaster>,
+    pub default_properties: Vec<(DrmProperty, u64)>,
+    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -951,7 +955,6 @@ pub struct MetalCrtc {
 
     pub active: MutableProperty<bool>,
     pub mode_id: MutableProperty<DrmBlob>,
-    pub out_fence_ptr: DrmProperty,
     pub vrr_enabled: MutableProperty<bool>,
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
@@ -987,6 +990,8 @@ pub struct PlaneFormat {
 pub struct MetalPlane {
     pub id: DrmPlane,
     pub _master: Rc<DrmMaster>,
+    pub default_properties: Vec<(DrmProperty, u64)>,
+    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
 
     pub ty: PlaneType,
 
@@ -1044,16 +1049,94 @@ fn get_connectors(
     Ok((connectors, futures))
 }
 
+#[derive(Copy, Clone)]
+enum DefaultValue {
+    Fixed(u64),
+    Enum(&'static str),
+    Bitmask(&'static [&'static str]),
+    RangeMax,
+}
+
+fn create_default_properties(
+    props: &CollectedProperties,
+    defaults: &[(&str, DefaultValue)],
+) -> Vec<(DrmProperty, u64)> {
+    let mut res = vec![];
+    let mut defaults = defaults.iter();
+    'outer: loop {
+        let Some(&(name, def)) = defaults.next() else {
+            break;
+        };
+        if let Some((definition, _)) = props.props.get(name.as_bytes().as_bstr()) {
+            let value = match def {
+                DefaultValue::Fixed(v) => v,
+                DefaultValue::Enum(e) => match &definition.ty {
+                    DrmPropertyType::Enum {
+                        values,
+                        bitmask: false,
+                    } => match values.iter().find(|v| v.name == e) {
+                        None => continue,
+                        Some(v) => v.value,
+                    },
+                    _ => continue,
+                },
+                DefaultValue::Bitmask(e) => match &definition.ty {
+                    DrmPropertyType::Enum {
+                        values,
+                        bitmask: true,
+                    } => {
+                        let mut res = 0;
+                        for &e in e {
+                            match values.iter().find(|v| v.name == e) {
+                                None => continue 'outer,
+                                Some(v) => res |= 1 << v.value,
+                            }
+                        }
+                        res
+                    }
+                    _ => continue,
+                },
+                DefaultValue::RangeMax => match &definition.ty {
+                    DrmPropertyType::Range { max, .. } => *max,
+                    DrmPropertyType::SignedRange { max, .. } => *max as u64,
+                    _ => continue,
+                },
+            };
+            res.push((definition.id, value));
+        }
+    }
+    res
+}
+
 fn create_connector(
     backend: &Rc<MetalBackend>,
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
-    let display = create_connector_display_data(connector, dev, None)?;
+    let props = collect_properties(&dev.master, connector)?;
+    let default_properties = create_default_properties(
+        &props,
+        &[
+            ("Broadcast RGB", DefaultValue::Enum("Automatic")),
+            ("Colorspace", DefaultValue::Enum("Default")),
+            ("HDR_OUTPUT_METADATA", DefaultValue::Fixed(0)),
+            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
+            ("Output format", DefaultValue::Enum("Default")),
+            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
+            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0)),
+            ("content type", DefaultValue::Enum("No Data")),
+            ("dither", DefaultValue::Enum("off")),
+            ("max bpc", DefaultValue::RangeMax),
+        ],
+    );
+    let untyped_properties = props.to_untyped();
+    let display = create_connector_display_data(connector, dev, Some(props), None)?;
     let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
         state: backend.state.clone(),
+        default_properties,
+        untyped_properties: RefCell::new(untyped_properties),
         dev: dev.clone(),
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
@@ -1114,6 +1197,7 @@ fn create_connector(
 fn create_connector_display_data(
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
+    props: Option<CollectedProperties>,
     non_desktop_override: Option<bool>,
 ) -> Result<ConnectorDisplayData, DrmError> {
     let info = dev.master.get_connector_info(connector, true)?;
@@ -1125,7 +1209,10 @@ fn create_connector_display_data(
             }
         }
     }
-    let props = collect_properties(&dev.master, connector)?;
+    let props = match props {
+        Some(p) => p,
+        _ => collect_properties(&dev.master, connector)?,
+    };
     let connection = ConnectorStatus::from_drm(info.connection);
     let mut name = String::new();
     let mut manufacturer = String::new();
@@ -1315,16 +1402,27 @@ fn create_crtc(
         }
     }
     let props = collect_properties(master, crtc)?;
+    let default_properties = create_default_properties(
+        &props,
+        &[
+            ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default")),
+            ("CTM", DefaultValue::Fixed(0)),
+            ("DEGAMMA_LUT", DefaultValue::Fixed(0)),
+            ("GAMMA_LUT", DefaultValue::Fixed(0)),
+            ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
+        ],
+    );
     Ok(MetalCrtc {
         id: crtc,
         idx,
         _master: master.clone(),
+        default_properties,
+        untyped_properties: RefCell::new(props.to_untyped()),
         lease: Cell::new(None),
         possible_planes,
         connector: Default::default(),
         active: props.get("ACTIVE")?.map(|v| v == 1),
         mode_id: props.get("MODE_ID")?.map(|v| DrmBlob(v as u32)),
-        out_fence_ptr: props.get("OUT_FENCE_PTR")?.id,
         vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
         mode_blob: Default::default(),
         have_queued_sequence: Cell::new(false),
@@ -1387,9 +1485,27 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
             ))
         }
     };
+    let default_properties = create_default_properties(
+        &props,
+        &[
+            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default")),
+            ("AMD_PLANE_CTM", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0)),
+            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default")),
+            ("alpha", DefaultValue::RangeMax),
+            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied")),
+            ("rotation", DefaultValue::Bitmask(&["rotate-0"])),
+        ],
+    );
     Ok(MetalPlane {
         id: plane,
         _master: master.clone(),
+        default_properties,
+        untyped_properties: RefCell::new(props.to_untyped()),
         ty,
         possible_crtcs: info.possible_crtcs,
         formats,
@@ -1426,12 +1542,13 @@ fn collect_properties<T: DrmObject>(
 fn collect_untyped_properties<T: DrmObject>(
     master: &Rc<DrmMaster>,
     t: T,
-) -> Result<AHashMap<DrmProperty, u64>, DrmError> {
-    let mut props = AHashMap::new();
+    props: &mut AHashMap<DrmProperty, u64>,
+) -> Result<(), DrmError> {
+    props.clear();
     for prop in master.get_properties(t)? {
         props.insert(prop.id, prop.value);
     }
-    Ok(props)
+    Ok(())
 }
 
 struct CollectedProperties {
@@ -1448,6 +1565,14 @@ impl CollectedProperties {
             }),
             _ => Err(DrmError::MissingProperty(name.to_string().into_boxed_str())),
         }
+    }
+
+    fn to_untyped(&self) -> AHashMap<DrmProperty, u64> {
+        let mut res = AHashMap::new();
+        for (def, val) in self.props.values() {
+            res.insert(def.id, *val);
+        }
+        res
     }
 }
 
@@ -1582,7 +1707,8 @@ impl MetalBackend {
         }
         let mut preserve = Preserve::default();
         for c in dev.connectors.lock().values() {
-            let dd = create_connector_display_data(c.id, &dev.dev, c.non_desktop_override.get());
+            let dd =
+                create_connector_display_data(c.id, &dev.dev, None, c.non_desktop_override.get());
             let mut dd = match dd {
                 Ok(d) => d,
                 Err(e) => {
@@ -1847,24 +1973,23 @@ impl MetalBackend {
         let master = &dev.dev.master;
         for c in dev.connectors.lock().values() {
             let dd = c.display.borrow_mut();
-            let props = collect_untyped_properties(master, c.id)?;
+            let props = &mut *c.untyped_properties.borrow_mut();
+            collect_untyped_properties(master, c.id, props)?;
             dd.crtc_id
                 .value
-                .set(DrmCrtc(get(&props, dd.crtc_id.id)? as _));
+                .set(DrmCrtc(get(props, dd.crtc_id.id)? as _));
         }
         for c in dev.dev.crtcs.values() {
-            let props = collect_untyped_properties(master, c.id)?;
+            let props = &mut *c.untyped_properties.borrow_mut();
+            collect_untyped_properties(master, c.id, props)?;
             c.active.value.set(get(&props, c.active.id)? != 0);
             c.vrr_enabled.value.set(get(&props, c.vrr_enabled.id)? != 0);
-            c.mode_id
-                .value
-                .set(DrmBlob(get(&props, c.mode_id.id)? as _));
+            c.mode_id.value.set(DrmBlob(get(props, c.mode_id.id)? as _));
         }
         for c in dev.dev.planes.values() {
-            let props = collect_untyped_properties(master, c.id)?;
-            c.crtc_id
-                .value
-                .set(DrmCrtc(get(&props, c.crtc_id.id)? as _));
+            let props = &mut *c.untyped_properties.borrow_mut();
+            collect_untyped_properties(master, c.id, props)?;
+            c.crtc_id.value.set(DrmCrtc(get(props, c.crtc_id.id)? as _));
         }
         Ok(())
     }
@@ -2123,7 +2248,6 @@ impl MetalBackend {
             changes.change_object(crtc.id, |c| {
                 c.change(crtc.active.id, 0);
                 c.change(crtc.mode_id.id, 0);
-                c.change(crtc.out_fence_ptr, 0);
                 c.change(crtc.vrr_enabled.id, 0);
             })
         }
@@ -2292,6 +2416,28 @@ impl MetalBackend {
             .retain(|_, lease| !lease.try_revoke());
     }
 
+    fn reset_default_properties(&self, dev: &Rc<MetalDrmDeviceData>, changes: &mut Change) {
+        macro_rules! reset {
+            ($obj:expr) => {{
+                let props = &*$obj.untyped_properties.borrow();
+                for (k, v) in &$obj.default_properties {
+                    if props.get(k) != Some(v) {
+                        changes.change_object($obj.id, |c| c.change(*k, *v));
+                    }
+                }
+            }};
+        }
+        for connector in dev.connectors.lock().values() {
+            reset!(connector);
+        }
+        for plane in dev.dev.planes.values() {
+            reset!(plane);
+        }
+        for crtc in dev.dev.crtcs.values() {
+            reset!(crtc);
+        }
+    }
+
     fn init_drm_device(
         &self,
         dev: &Rc<MetalDrmDeviceData>,
@@ -2305,6 +2451,7 @@ impl MetalBackend {
         self.validate_preserve(dev, preserve);
         let mut flags = 0;
         let mut changes = dev.dev.master.change();
+        self.reset_default_properties(dev, &mut changes);
         if !self.can_use_current_drm_mode(dev) {
             log::warn!("Cannot use existing connector configuration. Trying to perform modeset.");
             flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
@@ -2428,7 +2575,6 @@ impl MetalBackend {
                     flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
                     c.change(crtc.active.id, 0);
                 }
-                c.change(crtc.out_fence_ptr, 0);
                 let vrr_requested = vrr_crtcs.contains(&crtc.id);
                 if crtc.vrr_enabled.value.get() != vrr_requested {
                     c.change(crtc.vrr_enabled.id, vrr_requested as _);
