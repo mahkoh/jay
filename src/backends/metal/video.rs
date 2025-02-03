@@ -2328,7 +2328,18 @@ impl MetalBackend {
                 }
             }
         }
-        if let Err(e) = changes.commit(flags, 0) {
+        let res = loop {
+            let res = changes.commit(flags, 0);
+            if let Err(e) = &res {
+                if flags.not_contains(DRM_MODE_ATOMIC_ALLOW_MODESET) {
+                    log::warn!("Fast commit failed, retrying with modeset: {}", ErrorFmt(e));
+                    flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+                    continue;
+                }
+            }
+            break res;
+        };
+        if let Err(e) = res {
             return Err(MetalError::Modeset(e));
         }
         for connector in dev.connectors.lock().values() {
