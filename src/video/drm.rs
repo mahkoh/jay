@@ -672,11 +672,11 @@ pub struct DrmPropertyDefinition {
 pub enum DrmPropertyType {
     Range {
         _min: u64,
-        _max: u64,
+        max: u64,
     },
     SignedRange {
         _min: i64,
-        _max: i64,
+        max: i64,
     },
     Object {
         _ty: u32,
@@ -684,7 +684,7 @@ pub enum DrmPropertyType {
     Blob,
     Enum {
         values: Vec<DrmPropertyEnumValue>,
-        _bitmask: bool,
+        bitmask: bool,
     },
 }
 

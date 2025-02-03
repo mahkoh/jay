@@ -278,12 +278,12 @@ pub fn mode_getproperty(
             if ty == DRM_MODE_PROP_RANGE {
                 DrmPropertyType::Range {
                     _min: vals[0],
-                    _max: vals[1],
+                    max: vals[1],
                 }
             } else {
                 DrmPropertyType::SignedRange {
                     _min: vals[0] as _,
-                    _max: vals[1] as _,
+                    max: vals[1] as _,
                 }
             }
         }
@@ -305,7 +305,7 @@ pub fn mode_getproperty(
             }
             DrmPropertyType::Enum {
                 values,
-                _bitmask: ty == DRM_MODE_PROP_BITMASK,
+                bitmask: ty == DRM_MODE_PROP_BITMASK,
             }
         }
         DRM_MODE_PROP_BLOB => DrmPropertyType::Blob,
