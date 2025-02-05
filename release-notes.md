@@ -1,5 +1,7 @@
 # Unreleased
 
+- Various bugfixes.
+
 # 1.9.0 (2025-01-27)
 
 This release replaces xkbcommon by the kbvm crate.

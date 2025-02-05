@@ -1,5 +1,7 @@
 # Unreleased
 
+- Needs jay-compositor release.
+
 # 1.9.0
 
 - Needs jay-compositor release.
