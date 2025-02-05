@@ -181,24 +181,7 @@ impl PwClientNodeOwner for StartingScreencast {
                 modifiers: vec![LINEAR_MODIFIER],
             }],
         };
-        if let Some(ctx) = self.dpy.render_ctx.get() {
-            if let Some(server_formats) = &ctx.server_formats {
-                supported_formats.formats.clear();
-                for format in server_formats.values() {
-                    if format.write_modifiers.is_empty() {
-                        continue;
-                    }
-                    if format.format.pipewire == SPA_VIDEO_FORMAT_UNKNOWN {
-                        continue;
-                    }
-                    let ptl_format = PwClientNodePortSupportedFormat {
-                        format: format.format,
-                        modifiers: format.write_modifiers.keys().copied().collect(),
-                    };
-                    supported_formats.formats.push(ptl_format);
-                }
-            }
-        }
+        init_supported_formats(&mut supported_formats, &self.dpy);
         let jsc_version = self.dpy.jc.version;
         let num_buffers = (jsc_version >= CLIENT_BUFFERS_SINCE).then_some(3);
         let port = self.node.create_port(true, supported_formats, num_buffers);
@@ -264,7 +247,7 @@ impl PwClientNodeOwner for StartedScreencast {
         };
         let modifier;
         let planes;
-        match self.allocate_buffer(fmt, modifiers, 1, 1) {
+        match self.allocate_buffer(fmt, modifiers) {
             Ok(bo) => {
                 let dmabuf = bo.dmabuf();
                 modifier = dmabuf.modifier;
@@ -276,6 +259,12 @@ impl PwClientNodeOwner for StartedScreencast {
                 return;
             }
         };
+        log::debug!(
+            "Negotiated format {} with modifier 0x{modifier:08x} at size {}x{}",
+            fmt.name,
+            self.width.get(),
+            self.height.get(),
+        );
         self.port.supported_formats.borrow_mut().formats = vec![PwClientNodePortSupportedFormat {
             format: fmt,
             modifiers: vec![modifier],
@@ -309,12 +298,7 @@ impl PwClientNodeOwner for StartedScreencast {
             self.dpy.con.remove_obj(&*buffer);
         }
         for _ in 0..self.port.buffers.borrow().len() {
-            let res = self.allocate_buffer(
-                self.format.get(),
-                &[self.modifier.get()],
-                self.width.get(),
-                self.height.get(),
-            );
+            let res = self.allocate_buffer(self.format.get(), &[self.modifier.get()]);
             match res {
                 Ok(b) => {
                     let params = dmabuf.create_params();
@@ -364,8 +348,6 @@ impl StartedScreencast {
         &self,
         format: &'static Format,
         modifiers: &[Modifier],
-        width: i32,
-        height: i32,
     ) -> Result<Rc<dyn BufferObject>, BufferAllocationError> {
         let Some(ctx) = self.dpy.render_ctx.get() else {
             return Err(BufferAllocationError::NoRenderContext);
@@ -387,8 +369,8 @@ impl StartedScreencast {
         }
         let buffer = ctx.ctx.ctx.allocator().create_bo(
             &self.dpy.state.dma_buf_ids,
-            width,
-            height,
+            self.width.get(),
+            self.height.get(),
             format,
             modifiers,
             usage,
@@ -708,14 +690,47 @@ impl UsrJayScreencastOwner for StartedScreencast {
     }
 
     fn config(&self, config: UsrJayScreencastServerConfig) {
-        self.width.set(config.width.max(1));
-        self.height.set(config.height.max(1));
+        let mut changed = false;
+        let width = config.width.max(1);
+        let height = config.height.max(1);
+        changed |= self.width.replace(width) != width;
+        changed |= self.height.replace(height) != height;
         self.port.supported_formats.borrow_mut().video_size = Some(PwPodRectangle {
             width: self.width.get() as _,
             height: self.height.get() as _,
         });
+        if changed && self.dpy.jc.version >= CLIENT_BUFFERS_SINCE {
+            self.fixated.set(false);
+            init_supported_formats(&mut self.port.supported_formats.borrow_mut(), &self.dpy);
+        }
         self.node.send_port_update(&self.port, self.fixated.get());
         self.node.send_active(true);
+    }
+}
+
+fn init_supported_formats(
+    supported_formats: &mut PwClientNodePortSupportedFormats,
+    dpy: &PortalDisplay,
+) {
+    let Some(ctx) = dpy.render_ctx.get() else {
+        return;
+    };
+    let Some(server_formats) = &ctx.server_formats else {
+        return;
+    };
+    supported_formats.formats.clear();
+    for format in server_formats.values() {
+        if format.write_modifiers.is_empty() {
+            continue;
+        }
+        if format.format.pipewire == SPA_VIDEO_FORMAT_UNKNOWN {
+            continue;
+        }
+        let ptl_format = PwClientNodePortSupportedFormat {
+            format: format.format,
+            modifiers: format.write_modifiers.keys().copied().collect(),
+        };
+        supported_formats.formats.push(ptl_format);
     }
 }
 
