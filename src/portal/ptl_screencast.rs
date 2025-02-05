@@ -264,7 +264,7 @@ impl PwClientNodeOwner for StartedScreencast {
         };
         let modifier;
         let planes;
-        match self.allocate_buffer(fmt, modifiers, 1, 1) {
+        match self.allocate_buffer(fmt, modifiers) {
             Ok(bo) => {
                 let dmabuf = bo.dmabuf();
                 modifier = dmabuf.modifier;
@@ -309,12 +309,7 @@ impl PwClientNodeOwner for StartedScreencast {
             self.dpy.con.remove_obj(&*buffer);
         }
         for _ in 0..self.port.buffers.borrow().len() {
-            let res = self.allocate_buffer(
-                self.format.get(),
-                &[self.modifier.get()],
-                self.width.get(),
-                self.height.get(),
-            );
+            let res = self.allocate_buffer(self.format.get(), &[self.modifier.get()]);
             match res {
                 Ok(b) => {
                     let params = dmabuf.create_params();
@@ -364,8 +359,6 @@ impl StartedScreencast {
         &self,
         format: &'static Format,
         modifiers: &[Modifier],
-        width: i32,
-        height: i32,
     ) -> Result<Rc<dyn BufferObject>, BufferAllocationError> {
         let Some(ctx) = self.dpy.render_ctx.get() else {
             return Err(BufferAllocationError::NoRenderContext);
@@ -387,8 +380,8 @@ impl StartedScreencast {
         }
         let buffer = ctx.ctx.ctx.allocator().create_bo(
             &self.dpy.state.dma_buf_ids,
-            width,
-            height,
+            self.width.get(),
+            self.height.get(),
             format,
             modifiers,
             usage,
