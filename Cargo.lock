@@ -646,9 +646,9 @@ dependencies = [
 
 [[package]]
 name = "kbvm"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "723f422224bcf2bcbf788f71bc022a269b5abf7f02c50b07f91cdc9dd67fa902"
+checksum = "ae990d9bd28ff4147b7eb92665be98e39829792f58d694f80aae3c3db21e5e87"
 dependencies = [
  "arrayvec",
  "bstr",
