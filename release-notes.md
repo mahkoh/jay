@@ -1,5 +1,12 @@
 # Unreleased
 
+# 1.9.1 (2025-02-13)
+
+This release updates the kbvm crate to fix an issue that would cause applications to
+interpret the AltGr key as the Alt key.
+
+Reported by @Honkeh in https://github.com/mahkoh/jay/issues/364.
+
 # 1.9.0 (2025-01-27)
 
 This release replaces xkbcommon by the kbvm crate.
