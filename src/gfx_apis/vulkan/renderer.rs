@@ -17,8 +17,7 @@ use {
             pipeline::{PipelineCreateInfo, VulkanPipeline},
             semaphore::VulkanSemaphore,
             shaders::{
-                FillFragPushConstants, FillVertPushConstants, TexFragPushConstants,
-                TexVertPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG, TEX_FRAG_MULT,
+                FillPushConstants, TexPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG,
                 TEX_VERT,
             },
             VulkanError,
@@ -74,7 +73,6 @@ pub struct VulkanRenderer {
     pub(super) fill_frag_shader: Rc<VulkanShader>,
     pub(super) tex_vert_shader: Rc<VulkanShader>,
     pub(super) tex_frag_shader: Rc<VulkanShader>,
-    pub(super) tex_frag_mult_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
@@ -159,7 +157,6 @@ impl VulkanDevice {
         let tex_descriptor_set_layout = self.create_descriptor_set_layout(&sampler)?;
         let tex_vert_shader = self.create_shader(TEX_VERT)?;
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
-        let tex_frag_mult_shader = self.create_shader(TEX_FRAG_MULT)?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
         let transfer_command_buffers = self
             .distinct_transfer_queue_family_idx
@@ -217,7 +214,6 @@ impl VulkanDevice {
             fill_frag_shader,
             tex_vert_shader,
             tex_frag_shader,
-            tex_frag_mult_shader,
             tex_descriptor_set_layout,
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
@@ -238,42 +234,31 @@ impl VulkanRenderer {
         }
         let fill = self
             .device
-            .create_pipeline::<FillVertPushConstants, FillFragPushConstants>(
-                PipelineCreateInfo {
-                    format,
-                    vert: self.fill_vert_shader.clone(),
-                    frag: self.fill_frag_shader.clone(),
-                    blend: true,
-                    src_has_alpha: true,
-                    frag_descriptor_set_layout: None,
-                },
-            )?;
-        let create_tex_pipeline = |src_has_alpha| {
+            .create_pipeline::<FillPushConstants>(PipelineCreateInfo {
+                format,
+                vert: self.fill_vert_shader.clone(),
+                frag: self.fill_frag_shader.clone(),
+                blend: true,
+                src_has_alpha: true,
+                has_alpha_mult: false,
+                frag_descriptor_set_layout: None,
+            })?;
+        let create_tex_pipeline = |src_has_alpha, has_alpha_mult| {
             self.device
-                .create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
+                .create_pipeline::<TexPushConstants>(PipelineCreateInfo {
                     format,
                     vert: self.tex_vert_shader.clone(),
                     frag: self.tex_frag_shader.clone(),
-                    blend: src_has_alpha,
+                    blend: src_has_alpha || has_alpha_mult,
                     src_has_alpha,
+                    has_alpha_mult,
                     frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
                 })
         };
-        let create_tex_mult_pipeline = |src_has_alpha: bool| {
-            self.device
-                .create_pipeline::<TexVertPushConstants, TexFragPushConstants>(PipelineCreateInfo {
-                    format,
-                    vert: self.tex_vert_shader.clone(),
-                    frag: self.tex_frag_mult_shader.clone(),
-                    blend: true,
-                    src_has_alpha,
-                    frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
-                })
-        };
-        let tex_opaque = create_tex_pipeline(false)?;
-        let tex_alpha = create_tex_pipeline(true)?;
-        let tex_mult_opaque = create_tex_mult_pipeline(false)?;
-        let tex_mult_alpha = create_tex_mult_pipeline(true)?;
+        let tex_opaque = create_tex_pipeline(false, false)?;
+        let tex_alpha = create_tex_pipeline(true, false)?;
+        let tex_mult_opaque = create_tex_pipeline(false, true)?;
+        let tex_mult_alpha = create_tex_pipeline(true, true)?;
         let pipelines = Rc::new(VulkanFormatPipelines {
             fill,
             tex: static_map! {
@@ -514,26 +499,17 @@ impl VulkanRenderer {
                 GfxApiOpt::Sync => {}
                 GfxApiOpt::FillRect(r) => {
                     bind(&pipelines.fill);
-                    let vert = FillVertPushConstants {
+                    let push = FillPushConstants {
                         pos: r.rect.to_points(),
-                    };
-                    let frag = FillFragPushConstants {
                         color: r.color.to_array_srgb(),
                     };
                     unsafe {
                         dev.cmd_push_constants(
                             buf,
                             pipelines.fill.pipeline_layout,
-                            ShaderStageFlags::VERTEX,
+                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
                             0,
-                            uapi::as_bytes(&vert),
-                        );
-                        dev.cmd_push_constants(
-                            buf,
-                            pipelines.fill.pipeline_layout,
-                            ShaderStageFlags::FRAGMENT,
-                            pipelines.fill.frag_push_offset,
-                            uapi::as_bytes(&frag),
+                            uapi::as_bytes(&push),
                         );
                         dev.cmd_draw(buf, 4, 1, 0, 0);
                     }
@@ -559,9 +535,10 @@ impl VulkanRenderer {
                     };
                     let pipeline = &pipelines.tex[copy_type][source_type];
                     bind(pipeline);
-                    let vert = TexVertPushConstants {
+                    let push = TexPushConstants {
                         pos: c.target.to_points(),
                         tex_pos: c.source.to_points(),
+                        alpha: c.alpha.unwrap_or_default(),
                     };
                     let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
@@ -580,20 +557,10 @@ impl VulkanRenderer {
                         dev.cmd_push_constants(
                             buf,
                             pipeline.pipeline_layout,
-                            ShaderStageFlags::VERTEX,
+                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
                             0,
-                            uapi::as_bytes(&vert),
+                            uapi::as_bytes(&push),
                         );
-                        if let Some(alpha) = c.alpha {
-                            let frag = TexFragPushConstants { alpha };
-                            dev.cmd_push_constants(
-                                buf,
-                                pipeline.pipeline_layout,
-                                ShaderStageFlags::FRAGMENT,
-                                size_of_val(&vert) as _,
-                                uapi::as_bytes(&frag),
-                            );
-                        }
                         dev.cmd_draw(buf, 4, 1, 0, 0);
                     }
                 }

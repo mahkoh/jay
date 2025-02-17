@@ -27,7 +27,6 @@ use {
 pub(super) struct VulkanPipeline {
     pub(super) vert: Rc<VulkanShader>,
     pub(super) _frag: Rc<VulkanShader>,
-    pub(super) frag_push_offset: u32,
     pub(super) pipeline_layout: PipelineLayout,
     pub(super) pipeline: Pipeline,
     pub(super) _frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
@@ -39,46 +38,32 @@ pub(super) struct PipelineCreateInfo {
     pub(super) frag: Rc<VulkanShader>,
     pub(super) blend: bool,
     pub(super) src_has_alpha: bool,
+    pub(super) has_alpha_mult: bool,
     pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
 }
 
 impl VulkanDevice {
-    pub(super) fn create_pipeline<V, F>(
+    pub(super) fn create_pipeline<P>(
         &self,
         info: PipelineCreateInfo,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
-        self.create_pipeline_(info, size_of::<V>() as _, size_of::<F>() as _)
+        self.create_pipeline_(info, size_of::<P>() as _)
     }
 
     fn create_pipeline_(
         &self,
         info: PipelineCreateInfo,
-        vert_push_size: u32,
-        frag_push_size: u32,
+        push_size: u32,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let pipeline_layout = {
-            let mut push_constant_ranges = ArrayVec::<_, 2>::new();
-            let mut push_constant_offset = 0;
-            if vert_push_size > 0 {
+            let mut push_constant_ranges = ArrayVec::<_, 1>::new();
+            if push_size > 0 {
                 push_constant_ranges.push(
                     PushConstantRange::default()
-                        .stage_flags(ShaderStageFlags::VERTEX)
+                        .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
                         .offset(0)
-                        .size(vert_push_size),
+                        .size(push_size),
                 );
-                push_constant_offset += vert_push_size;
-            }
-            if frag_push_size > 0 {
-                push_constant_ranges.push(
-                    PushConstantRange::default()
-                        .stage_flags(ShaderStageFlags::FRAGMENT)
-                        .offset(push_constant_offset)
-                        .size(frag_push_size),
-                );
-                #[expect(unused_assignments)]
-                {
-                    push_constant_offset += frag_push_size;
-                }
             }
             let mut descriptor_set_layouts = ArrayVec::<_, 1>::new();
             descriptor_set_layouts
@@ -91,12 +76,18 @@ impl VulkanDevice {
         };
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
-        let mut frag_spec_data = ArrayVec::<_, 4>::new();
-        frag_spec_data.extend((info.src_has_alpha as u32).to_ne_bytes());
-        let frag_spec_entries = [SpecializationMapEntry::default()
-            .constant_id(0)
-            .size(4)
-            .offset(0)];
+        let mut frag_spec_data = ArrayVec::<_, 8>::new();
+        let mut frag_spec_entries = ArrayVec::<_, 2>::new();
+        let mut frag_spec_entry = |data: &[u8]| {
+            let entry = SpecializationMapEntry::default()
+                .constant_id(frag_spec_entries.len() as _)
+                .size(data.len() as _)
+                .offset(frag_spec_data.len() as _);
+            frag_spec_entries.push(entry);
+            frag_spec_data.extend(data.iter().copied());
+        };
+        frag_spec_entry(&(info.src_has_alpha as u32).to_ne_bytes());
+        frag_spec_entry(&(info.has_alpha_mult as u32).to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);
@@ -173,7 +164,6 @@ impl VulkanDevice {
         Ok(Rc::new(VulkanPipeline {
             vert: info.vert,
             _frag: info.frag,
-            frag_push_offset: vert_push_size,
             pipeline_layout,
             pipeline,
             _frag_descriptor_set_layout: info.frag_descriptor_set_layout,

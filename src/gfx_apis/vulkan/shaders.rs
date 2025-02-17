@@ -9,7 +9,6 @@ pub const FILL_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.vert
 pub const FILL_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.frag.spv"));
 pub const TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.vert.spv"));
 pub const TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.spv"));
-pub const TEX_FRAG_MULT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.mult.spv"));
 
 pub struct VulkanShader {
     pub(super) device: Rc<VulkanDevice>,
@@ -18,35 +17,22 @@ pub struct VulkanShader {
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct FillVertPushConstants {
+pub struct FillPushConstants {
     pub pos: [[f32; 2]; 4],
-}
-
-unsafe impl Packed for FillVertPushConstants {}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct FillFragPushConstants {
     pub color: [f32; 4],
 }
 
-unsafe impl Packed for FillFragPushConstants {}
+unsafe impl Packed for FillPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct TexVertPushConstants {
+pub struct TexPushConstants {
     pub pos: [[f32; 2]; 4],
     pub tex_pos: [[f32; 2]; 4],
-}
-
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct TexFragPushConstants {
     pub alpha: f32,
 }
 
-unsafe impl Packed for TexVertPushConstants {}
-unsafe impl Packed for TexFragPushConstants {}
+unsafe impl Packed for TexPushConstants {}
 
 impl VulkanDevice {
     pub(super) fn create_shader(
