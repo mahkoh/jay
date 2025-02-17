@@ -12,17 +12,7 @@ pub fn main() -> anyhow::Result<()> {
     compile_simple("fill.frag")?;
     compile_simple("fill.vert")?;
     compile_simple("tex.vert")?;
-    compile_tex_frag("tex.frag.spv", false)?;
-    compile_tex_frag("tex.frag.mult.spv", true)?;
-    Ok(())
-}
-
-fn compile_tex_frag(out: &str, alpha_multiplier: bool) -> anyhow::Result<()> {
-    let mut opts = CompileOptions::new().unwrap();
-    if alpha_multiplier {
-        opts.add_macro_definition("ALPHA_MULTIPLIER", None);
-    }
-    compile_shader("tex.frag", out, Some(opts)).with_context(|| out.to_string())?;
+    compile_simple("tex.frag")?;
     Ok(())
 }
 

@@ -1,10 +1,7 @@
 #version 450
 //#extension GL_EXT_debug_printf : enable
 
-layout(push_constant, std430) uniform Data {
-	layout(offset = 0) vec2 pos[4];
-	layout(offset = 32) vec2 tex_pos[4];
-} data;
+#include "tex.common.glsl"
 
 layout(location = 0) out vec2 tex_pos;
 
