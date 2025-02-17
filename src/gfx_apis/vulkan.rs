@@ -2,6 +2,7 @@ mod allocator;
 mod bo_allocator;
 mod command;
 mod descriptor;
+mod descriptor_buffer;
 mod device;
 mod fence;
 mod format;

@@ -459,6 +459,9 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
+            shader_read_only_optimal_descriptor: self.sampler_read_only_descriptor(view),
+            descriptor_buffer_version: Cell::new(0),
+            descriptor_buffer_offset: Cell::new(0),
         });
         let shm = match &img.ty {
             VulkanImageMemory::DmaBuf(_) => unreachable!(),

@@ -7,7 +7,7 @@ use {
         utils::{numcell::NumCell, ptr_ext::MutPtrExt},
     },
     ash::{
-        vk::{DeviceMemory, DeviceSize, MemoryRequirements},
+        vk::{DeviceMemory, DeviceSize, MappedMemoryRange, MemoryRequirements},
         Device,
     },
     gpu_alloc::{Config, GpuAllocator, MemoryBlock, MemoryPropertyFlags, Request, UsageFlags},
@@ -71,6 +71,49 @@ impl VulkanAllocation {
             do_free(gpu, &device.device, block, self.mem);
         }
     }
+
+    pub fn upload<T, F>(&self, f: F) -> Result<T, VulkanError>
+    where
+        F: FnOnce(*mut u8, usize) -> T,
+    {
+        let t = f(self.mem.unwrap(), self.size as usize);
+        if let Some(mask) = self.coherency_mask {
+            let range = self.incoherent_range(mask);
+            let res = unsafe { self.device().device.flush_mapped_memory_ranges(&[range]) };
+            res.map_err(VulkanError::FlushMemory)?;
+        }
+        Ok(t)
+    }
+
+    pub fn download<T, F>(&self, f: F) -> Result<T, VulkanError>
+    where
+        F: FnOnce(*const u8, usize) -> T,
+    {
+        if let Some(mask) = self.coherency_mask {
+            let range = self.incoherent_range(mask);
+            let res = unsafe {
+                self.device()
+                    .device
+                    .invalidate_mapped_memory_ranges(&[range])
+            };
+            res.map_err(VulkanError::FlushMemory)?;
+        }
+        Ok(f(self.mem.unwrap(), self.size as usize))
+    }
+
+    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange {
+        MappedMemoryRange::default()
+            .memory(self.memory)
+            .offset(self.offset & !mask)
+            .size((self.size + mask) & !mask)
+    }
+
+    fn device(&self) -> &VulkanDevice {
+        match &self.allocator {
+            AllocatorType::Local(l) => &l.storage.device,
+            AllocatorType::Threaded { allocator, .. } => &allocator.storage.device,
+        }
+    }
 }
 
 impl Drop for VulkanAllocation {
@@ -128,7 +171,7 @@ impl VulkanDevice {
             )
         };
         let mut props = props.map_err(VulkanError::GetDeviceProperties)?;
-        props.buffer_device_address = false;
+        props.buffer_device_address = self.descriptor_buffer.is_some();
         let non_coherent_atom_size = props.non_coherent_atom_size;
         let allocator = GpuAllocator::new(config, props);
         Ok(Rc::new(VulkanAllocatorType {
