@@ -99,8 +99,8 @@ pub enum VulkanError {
     LoadImageProperties(#[source] vk::Result),
     #[error("Device does not support rending and texturing from the XRGB8888 format")]
     XRGB8888,
-    #[error("Device does not support sync obj import")]
-    SyncobjImport,
+    #[error("Device does not support sync file import")]
+    SyncFileImport,
     #[error("Could not start a command buffer")]
     BeginCommandBuffer(vk::Result),
     #[error("Could not end a command buffer")]

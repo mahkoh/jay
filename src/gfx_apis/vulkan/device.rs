@@ -242,7 +242,7 @@ impl VulkanInstance {
     fn supports_semaphore_import(&self, phy_dev: PhysicalDevice) -> bool {
         let mut props = ExternalSemaphoreProperties::default();
         let info = PhysicalDeviceExternalSemaphoreInfo::default()
-            .handle_type(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD);
+            .handle_type(ExternalSemaphoreHandleTypeFlags::SYNC_FD);
         unsafe {
             self.instance
                 .get_physical_device_external_semaphore_properties(phy_dev, &info, &mut props);
@@ -276,7 +276,7 @@ impl VulkanInstance {
             transfer_granularity_mask = (width_mask, height_mask);
         }
         if !self.supports_semaphore_import(phy_dev) {
-            return Err(VulkanError::SyncobjImport);
+            return Err(VulkanError::SyncFileImport);
         }
         let enabled_extensions: Vec<_> = REQUIRED_DEVICE_EXTENSIONS
             .iter()
