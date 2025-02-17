@@ -14,7 +14,7 @@ use {
         },
     },
     ash::{
-        vk::{Buffer, BufferCreateInfo, BufferUsageFlags, MappedMemoryRange},
+        vk::{Buffer, BufferCreateInfo, BufferUsageFlags},
         Device,
     },
     gpu_alloc::UsageFlags,
@@ -146,32 +146,14 @@ impl VulkanStagingBuffer {
     where
         F: FnOnce(*mut u8, usize) -> T,
     {
-        let t = f(self.allocation.mem.unwrap(), self.size as usize);
-        if let Some(mask) = self.allocation.coherency_mask {
-            let range = self.incoherent_range(mask);
-            let res = unsafe { self.device.device.flush_mapped_memory_ranges(&[range]) };
-            res.map_err(VulkanError::FlushMemory)?;
-        }
-        Ok(t)
+        self.allocation.upload(f)
     }
 
     pub fn download<T, F>(&self, f: F) -> Result<T, VulkanError>
     where
         F: FnOnce(*const u8, usize) -> T,
     {
-        if let Some(mask) = self.allocation.coherency_mask {
-            let range = self.incoherent_range(mask);
-            let res = unsafe { self.device.device.invalidate_mapped_memory_ranges(&[range]) };
-            res.map_err(VulkanError::FlushMemory)?;
-        }
-        Ok(f(self.allocation.mem.unwrap(), self.size as usize))
-    }
-
-    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange {
-        MappedMemoryRange::default()
-            .memory(self.allocation.memory)
-            .offset(self.allocation.offset & !mask)
-            .size((self.allocation.size + mask) & !mask)
+        self.allocation.download(f)
     }
 }
 

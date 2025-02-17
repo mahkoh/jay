@@ -12,7 +12,7 @@ use {
         vk::{
             BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, DynamicState, FrontFace,
             GraphicsPipelineCreateInfo, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
-            PipelineColorBlendStateCreateInfo, PipelineDynamicStateCreateInfo,
+            PipelineColorBlendStateCreateInfo, PipelineCreateFlags, PipelineDynamicStateCreateInfo,
             PipelineInputAssemblyStateCreateInfo, PipelineLayout, PipelineLayoutCreateInfo,
             PipelineMultisampleStateCreateInfo, PipelineRasterizationStateCreateInfo,
             PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
@@ -136,8 +136,13 @@ impl VulkanDevice {
                 .scissor_count(1);
             let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::default()
                 .color_attachment_formats(slice::from_ref(&info.format));
+            let mut flags = PipelineCreateFlags::empty();
+            if self.descriptor_buffer.is_some() {
+                flags |= PipelineCreateFlags::DESCRIPTOR_BUFFER_EXT;
+            }
             let create_info = GraphicsPipelineCreateInfo::default()
                 .push_next(&mut pipeline_rendering_create_info)
+                .flags(flags)
                 .stages(&stages)
                 .input_assembly_state(&input_assembly_state)
                 .vertex_input_state(&vertex_input_state)

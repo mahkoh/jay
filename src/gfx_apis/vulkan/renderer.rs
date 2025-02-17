@@ -11,10 +11,14 @@ use {
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
             command::{VulkanCommandBuffer, VulkanCommandPool},
             descriptor::VulkanDescriptorSetLayout,
+            descriptor_buffer::{
+                VulkanDescriptorBuffer, VulkanDescriptorBufferCache, VulkanDescriptorBufferWriter,
+            },
             device::VulkanDevice,
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
+            sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
                 FillPushConstants, TexPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG,
@@ -33,12 +37,13 @@ use {
         vk::{
             AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearColorValue, ClearValue,
             CommandBuffer, CommandBufferBeginInfo, CommandBufferSubmitInfo,
-            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR, DescriptorImageInfo,
-            DescriptorType, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout,
-            ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint,
-            PipelineStageFlags2, Rect2D, RenderingAttachmentInfo, RenderingInfo,
-            SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
-            WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
+            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR,
+            DescriptorBufferBindingInfoEXT, DescriptorImageInfo, DescriptorType, DeviceSize,
+            Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2,
+            ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2,
+            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
+            SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet,
+            QUEUE_FAMILY_FOREIGN_EXT,
         },
         Device,
     },
@@ -47,7 +52,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
-        mem,
+        mem, ptr,
         rc::Rc,
         slice,
     },
@@ -77,6 +82,10 @@ pub struct VulkanRenderer {
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
+    pub(super) sampler: Rc<VulkanSampler>,
+    pub(super) tex_sampler_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
+    pub(super) descriptor_buffer_version: NumCell<u64>,
+    pub(super) tex_descriptor_buffer_writer: RefCell<VulkanDescriptorBufferWriter>,
 }
 
 pub(super) struct CachedCommandBuffers {
@@ -128,6 +137,7 @@ pub(super) struct Memory {
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
+    descriptor_buffer: Option<VulkanDescriptorBuffer>,
 }
 
 pub(super) struct PendingFrame {
@@ -138,6 +148,7 @@ pub(super) struct PendingFrame {
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
     _release_fence: Option<Rc<VulkanFence>>,
+    _descriptor_buffer: Option<VulkanDescriptorBuffer>,
 }
 
 pub(super) struct VulkanFormatPipelines {
@@ -195,6 +206,14 @@ impl VulkanDevice {
             .collect();
         let allocator = self.create_allocator()?;
         let shm_allocator = self.create_threaded_allocator()?;
+        let tex_descriptor_buffer_cache = Rc::new(VulkanDescriptorBufferCache::new(
+            self,
+            &allocator,
+            &tex_descriptor_set_layout,
+        ));
+        let tex_descriptor_buffer_writer = RefCell::new(VulkanDescriptorBufferWriter::new(
+            &tex_descriptor_set_layout,
+        ));
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
@@ -218,6 +237,10 @@ impl VulkanDevice {
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
+            sampler,
+            tex_sampler_descriptor_buffer_cache: tex_descriptor_buffer_cache,
+            descriptor_buffer_version: Default::default(),
+            tex_descriptor_buffer_writer,
         });
         render.get_or_create_pipelines(XRGB8888.vk_format)?;
         Ok(render)
@@ -278,6 +301,51 @@ impl VulkanRenderer {
 
     pub(super) fn allocate_point(&self) -> u64 {
         self.last_point.fetch_add(1) + 1
+    }
+
+    fn create_descriptor_buffer(
+        &self,
+        buf: CommandBuffer,
+        opts: &[GfxApiOpt],
+    ) -> Result<(), VulkanError> {
+        let Some(db) = &self.device.descriptor_buffer else {
+            return Ok(());
+        };
+        zone!("create_descriptor_buffer");
+        let version = self.descriptor_buffer_version.add_fetch(1);
+        let memory = &mut *self.memory.borrow_mut();
+        let writer = &mut *self.tex_descriptor_buffer_writer.borrow_mut();
+        writer.clear();
+        for cmd in opts {
+            let GfxApiOpt::CopyTexture(c) = cmd else {
+                continue;
+            };
+            let tex = c.tex.clone().into_vk(&self.device.device);
+            if tex.descriptor_buffer_version.replace(version) == version {
+                continue;
+            }
+            let offset = writer.next_offset();
+            tex.descriptor_buffer_offset.set(offset);
+            let mut writer = writer.add_set();
+            writer.write(
+                self.tex_descriptor_set_layout.offsets[0],
+                &tex.shader_read_only_optimal_descriptor,
+            );
+        }
+        let buffer = self
+            .tex_sampler_descriptor_buffer_cache
+            .allocate(writer.len() as DeviceSize)?;
+        buffer.buffer.allocation.upload(|ptr, _| unsafe {
+            ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
+        })?;
+        let info = DescriptorBufferBindingInfoEXT::default()
+            .usage(self.tex_sampler_descriptor_buffer_cache.usage())
+            .address(buffer.buffer.address);
+        unsafe {
+            db.cmd_bind_descriptor_buffers(buf, slice::from_ref(&info));
+        }
+        memory.descriptor_buffer = Some(buffer);
+        Ok(())
     }
 
     fn collect_memory(&self, opts: &[GfxApiOpt]) {
@@ -543,17 +611,28 @@ impl VulkanRenderer {
                     let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-                    let write_descriptor_set = WriteDescriptorSet::default()
-                        .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
-                        .image_info(slice::from_ref(&image_info));
                     unsafe {
-                        self.device.push_descriptor.cmd_push_descriptor_set(
-                            buf,
-                            PipelineBindPoint::GRAPHICS,
-                            pipeline.pipeline_layout,
-                            0,
-                            slice::from_ref(&write_descriptor_set),
-                        );
+                        if let Some(db) = &self.device.descriptor_buffer {
+                            db.cmd_set_descriptor_buffer_offsets(
+                                buf,
+                                PipelineBindPoint::GRAPHICS,
+                                pipeline.pipeline_layout,
+                                0,
+                                &[0],
+                                &[tex.descriptor_buffer_offset.get()],
+                            );
+                        } else {
+                            let write_descriptor_set = WriteDescriptorSet::default()
+                                .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
+                                .image_info(slice::from_ref(&image_info));
+                            self.device.push_descriptor.cmd_push_descriptor_set(
+                                buf,
+                                PipelineBindPoint::GRAPHICS,
+                                pipeline.pipeline_layout,
+                                0,
+                                slice::from_ref(&write_descriptor_set),
+                            );
+                        }
                         dev.cmd_push_constants(
                             buf,
                             pipeline.pipeline_layout,
@@ -864,6 +943,7 @@ impl VulkanRenderer {
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
             _release_fence: memory.release_fence.take(),
+            _descriptor_buffer: memory.descriptor_buffer.take(),
         });
         self.pending_frames.set(frame.point, frame.clone());
         let future = self.eng.spawn(
@@ -921,6 +1001,7 @@ impl VulkanRenderer {
         let buf = self.gfx_command_buffers.allocate()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
+        self.create_descriptor_buffer(buf.buffer, opts)?;
         self.initial_barriers(buf.buffer, fb)?;
         self.begin_rendering(buf.buffer, fb, clear);
         self.set_viewport(buf.buffer, fb);
