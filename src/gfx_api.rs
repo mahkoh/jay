@@ -257,12 +257,28 @@ pub enum ResetStatus {
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
 
+    fn full_region(&self) -> Region {
+        let (width, height) = self.physical_size();
+        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
+    }
+
     fn render(
         &self,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError> {
+        self.render_with_region(acquire_sync, release_sync, ops, clear, &self.full_region())
+    }
+
+    fn render_with_region(
+        &self,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        ops: &[GfxApiOpt],
+        clear: Option<&Color>,
+        region: &Region,
     ) -> Result<Option<SyncFile>, GfxError>;
 
     fn format(&self) -> &'static Format;
@@ -395,8 +411,15 @@ impl dyn GfxFramebuffer {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         pass: &GfxRenderPass,
+        region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(acquire_sync, release_sync, &pass.ops, pass.clear.as_ref())
+        self.render_with_region(
+            acquire_sync,
+            release_sync,
+            &pass.ops,
+            pass.clear.as_ref(),
+            region,
+        )
     }
 
     pub fn render_output(
@@ -451,7 +474,7 @@ impl dyn GfxFramebuffer {
             transform,
             None,
         );
-        self.perform_render_pass(acquire_sync, release_sync, &pass)
+        self.perform_render_pass(acquire_sync, release_sync, &pass, &self.full_region())
     }
 
     pub fn render_hardware_cursor(

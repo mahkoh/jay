@@ -11,7 +11,13 @@ use {
         RectRaw,
     },
     smallvec::SmallVec,
-    std::{cell::UnsafeCell, mem, ops::Deref, rc::Rc},
+    std::{
+        cell::UnsafeCell,
+        fmt::{Debug, Formatter},
+        mem,
+        ops::Deref,
+        rc::Rc,
+    },
 };
 
 thread_local! {
@@ -194,6 +200,12 @@ impl RegionBuilder {
 pub struct DamageQueue {
     this: usize,
     datas: Rc<UnsafeCell<Vec<Vec<Rect>>>>,
+}
+
+impl Debug for DamageQueue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DamageQueue").finish_non_exhaustive()
+    }
 }
 
 impl DamageQueue {

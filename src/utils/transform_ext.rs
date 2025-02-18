@@ -18,6 +18,8 @@ pub trait TransformExt: Sized {
     fn from_wl(wl: i32) -> Option<Self>;
 
     fn apply_point(self, width: i32, height: i32, point: (i32, i32)) -> (i32, i32);
+
+    fn inverse(self) -> Self;
 }
 
 impl TransformExt for Transform {
@@ -66,6 +68,14 @@ impl TransformExt for Transform {
             FlipRotate90 => (y, x),
             FlipRotate180 => (x, height - y),
             FlipRotate270 => (width - y, height - x),
+        }
+    }
+
+    fn inverse(self) -> Self {
+        match self {
+            Rotate90 => Rotate270,
+            Rotate270 => Rotate90,
+            _ => self,
         }
     }
 }

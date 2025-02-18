@@ -25,6 +25,7 @@ use {
             wl_output::OutputId,
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
         },
+        rect::{DamageQueue, Rect},
         state::State,
         tree::OutputNode,
         udev::UdevDevice,
@@ -2600,11 +2601,25 @@ impl MetalBackend {
         ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<[RenderBuffer; N], MetalError> {
-        let create =
-            || self.create_scanout_buffer(dev, format, plane_modifiers, width, height, ctx, cursor);
+        let mut damage_queue = ArrayVec::from(DamageQueue::new::<N>());
+        let mut create = || {
+            self.create_scanout_buffer(
+                dev,
+                format,
+                plane_modifiers,
+                width,
+                height,
+                ctx,
+                cursor,
+                damage_queue.pop().unwrap(),
+            )
+        };
         let mut array = ArrayVec::<_, N>::new();
         for _ in 0..N {
             array.push(create()?);
+        }
+        if let Some(buffer) = array.first() {
+            buffer.damage_full();
         }
         Ok(array.into_inner().unwrap())
     }
@@ -2618,6 +2633,7 @@ impl MetalBackend {
         height: i32,
         render_ctx: &MetalRenderContext,
         cursor: bool,
+        damage_queue: DamageQueue,
     ) -> Result<RenderBuffer, MetalError> {
         let ctx = dev.ctx.get();
         let dev_gfx_formats = ctx.gfx.formats();
@@ -2746,7 +2762,8 @@ impl MetalBackend {
         };
         Ok(RenderBuffer {
             drm: drm_fb,
-            _dev_bo: dev_bo,
+            damage_queue,
+            dev_bo,
             _render_bo: render_bo,
             dev_fb,
             dev_tex,
@@ -2970,7 +2987,8 @@ impl MetalBackend {
 #[derive(Debug)]
 pub struct RenderBuffer {
     pub drm: Rc<DrmFramebuffer>,
-    pub _dev_bo: GbmBo,
+    pub damage_queue: DamageQueue,
+    pub dev_bo: GbmBo,
     pub _render_bo: Option<GbmBo>,
     // ctx = dev
     // buffer location = dev
@@ -3009,6 +3027,12 @@ impl RenderBuffer {
                 0,
             )
             .map_err(MetalError::CopyToOutput)
+    }
+
+    pub fn damage_full(&self) {
+        let dmabuf = self.dev_bo.dmabuf();
+        let rect = Rect::new_sized_unchecked(0, 0, dmabuf.width, dmabuf.height);
+        self.damage_queue.damage(&[rect]);
     }
 }
 

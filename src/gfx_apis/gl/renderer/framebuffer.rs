@@ -99,12 +99,13 @@ impl GfxFramebuffer for Framebuffer {
         (self.gl.width, self.gl.height)
     }
 
-    fn render(
+    fn render_with_region(
         &self,
         acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        _region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render(acquire_sync, ops, clear).map_err(|e| e.into())
     }

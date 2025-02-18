@@ -27,6 +27,7 @@ use {
             VulkanError,
         },
         io_uring::IoUring,
+        rect::Region,
         theme::Color,
         utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
         video::dmabuf::{dma_buf_export_sync_file, DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE},
@@ -965,6 +966,7 @@ impl VulkanRenderer {
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        _region: &Region,
     ) -> Result<Option<SyncFile>, VulkanError> {
         zone!("execute");
         let res = self.try_execute(fb, fb_acquire_sync, fb_release_sync, opts, clear);

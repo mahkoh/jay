@@ -35,7 +35,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
         damaged: Cell::new(false),
+        damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
+        damage_intersect: Default::default(),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());

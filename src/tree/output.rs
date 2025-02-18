@@ -794,13 +794,17 @@ impl OutputNode {
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
-        if self.node_visible() {
+        let visible = self.node_visible();
+        if visible {
             let old_pos = self.global.pos.get();
             self.state.damage(old_pos);
-            self.state.damage(*rect);
         }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.global.pos.set(*rect);
+        self.global.update_damage_matrix();
+        if visible {
+            self.state.damage(*rect);
+        }
         self.state.output_extents_changed();
         self.update_rects();
         if let Some(ls) = self.lock_surface.get() {
