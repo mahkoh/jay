@@ -29,22 +29,25 @@ use {
         io_uring::IoUring,
         rect::Region,
         theme::Color,
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
+        utils::{
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, once::Once,
+            stack::Stack,
+        },
         video::dmabuf::{dma_buf_export_sync_file, DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE},
     },
     ahash::AHashMap,
     ash::{
         vk,
         vk::{
-            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearColorValue, ClearValue,
-            CommandBuffer, CommandBufferBeginInfo, CommandBufferSubmitInfo,
+            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearAttachment, ClearColorValue,
+            ClearRect, ClearValue, CommandBuffer, CommandBufferBeginInfo, CommandBufferSubmitInfo,
             CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR,
             DescriptorBufferBindingInfoEXT, DescriptorImageInfo, DescriptorType, DeviceSize,
             Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2,
-            ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2,
-            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
-            SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet,
-            QUEUE_FAMILY_FOREIGN_EXT,
+            ImageSubresourceLayers, ImageSubresourceRange, Offset2D, Offset3D, PipelineBindPoint,
+            PipelineStageFlags2, Rect2D, RenderingAttachmentInfo, RenderingInfo,
+            SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
+            WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
         },
         Device,
     },
@@ -139,6 +142,17 @@ pub(super) struct Memory {
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
     descriptor_buffer: Option<VulkanDescriptorBuffer>,
+    paint_regions: Vec<PaintRegion>,
+    clear_rects: Vec<ClearRect>,
+    image_copy_regions: Vec<ImageCopy2<'static>>,
+}
+
+struct PaintRegion {
+    rect: Rect2D,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
 }
 
 pub(super) struct PendingFrame {
@@ -486,20 +500,31 @@ impl VulkanRenderer {
 
     fn begin_rendering(&self, buf: CommandBuffer, fb: &VulkanImage, clear: Option<&Color>) {
         zone!("begin_rendering");
+        let memory = &mut *self.memory.borrow_mut();
+        let clear_value = clear.map(|clear| ClearValue {
+            color: ClearColorValue {
+                float32: clear.to_array_srgb(),
+            },
+        });
+        let load_clear = memory.paint_regions.len() == 1 && {
+            let rect = &memory.paint_regions[0].rect;
+            rect.offset.x == 0
+                && rect.offset.y == 0
+                && rect.extent.width == fb.width
+                && rect.extent.height == fb.height
+        };
+        let (load_clear, manual_clear) = match load_clear {
+            false => (None, clear_value),
+            true => (clear_value, None),
+        };
         let rendering_attachment_info = {
             let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
                 .image_layout(ImageLayout::GENERAL)
                 .load_op(AttachmentLoadOp::LOAD)
                 .store_op(AttachmentStoreOp::STORE);
-            if let Some(clear) = clear {
-                rai = rai
-                    .clear_value(ClearValue {
-                        color: ClearColorValue {
-                            float32: clear.to_array_srgb(),
-                        },
-                    })
-                    .load_op(AttachmentLoadOp::CLEAR);
+            if let Some(clear) = load_clear {
+                rai = rai.clear_value(clear).load_op(AttachmentLoadOp::CLEAR);
             }
             rai
         };
@@ -515,6 +540,27 @@ impl VulkanRenderer {
             .color_attachments(slice::from_ref(&rendering_attachment_info));
         unsafe {
             self.device.device.cmd_begin_rendering(buf, &rendering_info);
+        }
+        if let Some(clear) = manual_clear {
+            let clear_attachment = ClearAttachment::default()
+                .color_attachment(0)
+                .clear_value(clear)
+                .aspect_mask(ImageAspectFlags::COLOR);
+            memory.clear_rects.clear();
+            for region in &memory.paint_regions {
+                memory.clear_rects.push(ClearRect {
+                    rect: region.rect,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                });
+            }
+            unsafe {
+                self.device.device.cmd_clear_attachments(
+                    buf,
+                    &[clear_attachment],
+                    &memory.clear_rects,
+                );
+            }
         }
     }
 
@@ -552,6 +598,7 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
     ) -> Result<(), VulkanError> {
         zone!("record_draws");
+        let memory = &*self.memory.borrow();
         let pipelines = self.get_or_create_pipelines(fb.format.vk_format)?;
         let dev = &self.device.device;
         let mut current_pipeline = None;
@@ -567,20 +614,27 @@ impl VulkanRenderer {
             match opt {
                 GfxApiOpt::Sync => {}
                 GfxApiOpt::FillRect(r) => {
-                    bind(&pipelines.fill);
                     let push = FillPushConstants {
                         pos: r.rect.to_points(),
                         color: r.color.to_array_srgb(),
                     };
-                    unsafe {
-                        dev.cmd_push_constants(
-                            buf,
-                            pipelines.fill.pipeline_layout,
-                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                            0,
-                            uapi::as_bytes(&push),
-                        );
-                        dev.cmd_draw(buf, 4, 1, 0, 0);
+                    for region in &memory.paint_regions {
+                        let mut push = push;
+                        let draw = region.constrain(&mut push.pos, None);
+                        if !draw {
+                            continue;
+                        }
+                        bind(&pipelines.fill);
+                        unsafe {
+                            dev.cmd_push_constants(
+                                buf,
+                                pipelines.fill.pipeline_layout,
+                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                                0,
+                                uapi::as_bytes(&push),
+                            );
+                            dev.cmd_draw(buf, 4, 1, 0, 0);
+                        }
                     }
                 }
                 GfxApiOpt::CopyTexture(c) => {
@@ -603,7 +657,6 @@ impl VulkanRenderer {
                         false => TexSourceType::Opaque,
                     };
                     let pipeline = &pipelines.tex[copy_type][source_type];
-                    bind(pipeline);
                     let push = TexPushConstants {
                         pos: c.target.to_points(),
                         tex_pos: c.source.to_points(),
@@ -612,36 +665,47 @@ impl VulkanRenderer {
                     let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-                    unsafe {
-                        if let Some(db) = &self.device.descriptor_buffer {
-                            db.cmd_set_descriptor_buffer_offsets(
-                                buf,
-                                PipelineBindPoint::GRAPHICS,
-                                pipeline.pipeline_layout,
-                                0,
-                                &[0],
-                                &[tex.descriptor_buffer_offset.get()],
-                            );
-                        } else {
-                            let write_descriptor_set = WriteDescriptorSet::default()
-                                .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
-                                .image_info(slice::from_ref(&image_info));
-                            self.device.push_descriptor.cmd_push_descriptor_set(
-                                buf,
-                                PipelineBindPoint::GRAPHICS,
-                                pipeline.pipeline_layout,
-                                0,
-                                slice::from_ref(&write_descriptor_set),
-                            );
+                    let init = Once::default();
+                    for region in &memory.paint_regions {
+                        let mut push = push;
+                        let draw = region.constrain(&mut push.pos, Some(&mut push.tex_pos));
+                        if !draw {
+                            continue;
                         }
-                        dev.cmd_push_constants(
-                            buf,
-                            pipeline.pipeline_layout,
-                            ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                            0,
-                            uapi::as_bytes(&push),
-                        );
-                        dev.cmd_draw(buf, 4, 1, 0, 0);
+                        init.exec(|| unsafe {
+                            bind(pipeline);
+                            if let Some(db) = &self.device.descriptor_buffer {
+                                db.cmd_set_descriptor_buffer_offsets(
+                                    buf,
+                                    PipelineBindPoint::GRAPHICS,
+                                    pipeline.pipeline_layout,
+                                    0,
+                                    &[0],
+                                    &[tex.descriptor_buffer_offset.get()],
+                                );
+                            } else {
+                                let write_descriptor_set = WriteDescriptorSet::default()
+                                    .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
+                                    .image_info(slice::from_ref(&image_info));
+                                self.device.push_descriptor.cmd_push_descriptor_set(
+                                    buf,
+                                    PipelineBindPoint::GRAPHICS,
+                                    pipeline.pipeline_layout,
+                                    0,
+                                    slice::from_ref(&write_descriptor_set),
+                                );
+                            }
+                        });
+                        unsafe {
+                            dev.cmd_push_constants(
+                                buf,
+                                pipeline.pipeline_layout,
+                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                                0,
+                                uapi::as_bytes(&push),
+                            );
+                            dev.cmd_draw(buf, 4, 1, 0, 0);
+                        }
                     }
                 }
             }
@@ -697,20 +761,33 @@ impl VulkanRenderer {
             .layer_count(1)
             .base_array_layer(0)
             .mip_level(0);
-        let image_copy = ImageCopy2::default()
-            .src_subresource(image_subresource_layers)
-            .dst_subresource(image_subresource_layers)
-            .extent(Extent3D {
-                width: fb.width,
-                height: fb.height,
+        memory.image_copy_regions.clear();
+        for region in &memory.paint_regions {
+            let offset = Offset3D {
+                x: region.rect.offset.x,
+                y: region.rect.offset.y,
+                z: 0,
+            };
+            let extent = Extent3D {
+                width: region.rect.extent.width,
+                height: region.rect.extent.height,
                 depth: 1,
-            });
+            };
+            memory.image_copy_regions.push(
+                ImageCopy2::default()
+                    .src_subresource(image_subresource_layers)
+                    .dst_subresource(image_subresource_layers)
+                    .src_offset(offset)
+                    .dst_offset(offset)
+                    .extent(extent),
+            );
+        }
         let copy_image_info = CopyImageInfo2::default()
             .src_image(fb.image)
             .src_image_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
             .dst_image(bridge.dmabuf_image)
             .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-            .regions(slice::from_ref(&image_copy));
+            .regions(&memory.image_copy_regions);
         unsafe {
             self.device.device.cmd_copy_image2(buf, &copy_image_info);
         }
@@ -966,10 +1043,10 @@ impl VulkanRenderer {
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
-        _region: &Region,
+        region: &Region,
     ) -> Result<Option<SyncFile>, VulkanError> {
         zone!("execute");
-        let res = self.try_execute(fb, fb_acquire_sync, fb_release_sync, opts, clear);
+        let res = self.try_execute(fb, fb_acquire_sync, fb_release_sync, opts, clear, region);
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
             memory.textures.clear();
@@ -991,6 +1068,39 @@ impl VulkanRenderer {
         Ok(semaphore)
     }
 
+    fn create_paint_regions(&self, fb: &VulkanImage, region: &Region) {
+        let memory = &mut *self.memory.borrow_mut();
+        memory.paint_regions.clear();
+        for rect in region.rects() {
+            let x1 = rect.x1().max(0);
+            let y1 = rect.y1().max(0);
+            let x2 = rect.x2();
+            let y2 = rect.y2();
+            if x1 as u32 > fb.width || y1 as u32 > fb.height || x2 <= 0 || y2 <= 0 {
+                continue;
+            }
+            let x2 = x2.min(fb.width as i32);
+            let y2 = y2.min(fb.height as i32);
+            let to_fb = |c: i32, max: u32| 2.0 * (c as f32 / max as f32) - 1.0;
+            memory.paint_regions.push(PaintRegion {
+                rect: Rect2D {
+                    offset: Offset2D {
+                        x: x1 as _,
+                        y: y1 as _,
+                    },
+                    extent: Extent2D {
+                        width: (x2 - x1) as u32,
+                        height: (y2 - y1) as u32,
+                    },
+                },
+                x1: to_fb(x1, fb.width),
+                x2: to_fb(x2, fb.width),
+                y1: to_fb(y1, fb.height),
+                y2: to_fb(y2, fb.height),
+            });
+        }
+    }
+
     fn try_execute(
         self: &Rc<Self>,
         fb: &VulkanImage,
@@ -998,8 +1108,10 @@ impl VulkanRenderer {
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        region: &Region,
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
+        self.create_paint_regions(fb, region);
         let buf = self.gfx_command_buffers.allocate()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
@@ -1124,4 +1236,52 @@ async fn await_release(
         frame.renderer.wait_semaphores.push(wait_semaphore);
     }
     renderer.pending_frames.remove(&frame.point);
+}
+
+impl PaintRegion {
+    fn constrain(&self, pos: &mut [[f32; 2]; 4], tex_pos: Option<&mut [[f32; 2]; 4]>) -> bool {
+        zone!("constrain");
+        let mut npos = *pos;
+        for [x, y] in &mut npos {
+            *x = x.clamp(self.x1, self.x2);
+            *y = y.clamp(self.y1, self.y2);
+        }
+        if npos == *pos {
+            return true;
+        }
+        if npos[0] == npos[1] && npos[2] == npos[3] {
+            return false;
+        }
+        if npos[0] == npos[2] && npos[1] == npos[3] {
+            return false;
+        }
+        if let Some(tp) = tex_pos {
+            let mut ntp = *tp;
+            for i in 0..4 {
+                if npos[i] == pos[i] {
+                    continue;
+                }
+                macro_rules! sub {
+                    ($l:expr, $r:expr) => {
+                        [$l[0] - $r[0], $l[1] - $r[1]]
+                    };
+                }
+                let dx = sub!(npos[i], pos[i]);
+                let dy = sub!(pos[(i + 1) & 3], pos[i]);
+                let dz = sub!(pos[(i + 2) & 3], pos[i]);
+                let det = 1.0 / (dy[0] * dz[1] - dy[1] * dz[0]);
+                let alpha = [
+                    (dx[0] * dz[1] - dx[1] * dz[0]) * det,
+                    (dx[1] * dy[0] - dx[0] * dy[1]) * det,
+                ];
+                let dy = sub!(tp[(i + 1) & 3], tp[i]);
+                let dz = sub!(tp[(i + 2) & 3], tp[i]);
+                ntp[i][0] += alpha[0] * dy[0] + alpha[1] * dz[0];
+                ntp[i][1] += alpha[0] * dy[1] + alpha[1] * dz[1];
+            }
+            *tp = ntp;
+        }
+        *pos = npos;
+        true
+    }
 }
