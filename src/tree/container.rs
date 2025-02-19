@@ -92,8 +92,7 @@ pub enum ContainerFocus {
 tree_id!(ContainerNodeId);
 
 pub struct ContainerTitle {
-    pub x: i32,
-    pub y: i32,
+    pub rect: Rect,
     pub tex: Rc<dyn GfxTexture>,
 }
 
@@ -765,11 +764,7 @@ impl ContainerNode {
                 }
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        x: rect.x1(),
-                        y: rect.y1(),
-                        tex,
-                    })
+                    titles.push(ContainerTitle { rect, tex })
                 }
             }
         }
@@ -840,11 +835,7 @@ impl ContainerNode {
             for (scale, tex) in tt {
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        x: rect.x1(),
-                        y: rect.y1(),
-                        tex,
-                    })
+                    titles.push(ContainerTitle { rect, tex })
                 }
             }
         }

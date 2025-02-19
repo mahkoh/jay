@@ -47,6 +47,7 @@ pub struct FloatNode {
     pub seat_state: NodeSeatState,
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
+    pub title_rect: Cell<Rect>,
     pub title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
@@ -124,6 +125,7 @@ impl FloatNode {
             seat_state: Default::default(),
             layout_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
+            title_rect: Default::default(),
             title: Default::default(),
             title_textures: Default::default(),
             cursors: Default::default(),
@@ -174,7 +176,9 @@ impl FloatNode {
             (pos.height() - 2 * bw - th - 1).max(0),
         )
         .unwrap();
+        let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
         child.clone().tl_change_extents(&cpos);
+        self.title_rect.set(tr);
         self.layout_scheduled.set(false);
         self.schedule_render_titles();
     }
@@ -188,7 +192,6 @@ impl FloatNode {
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
         let tc = match self.active.get() {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
@@ -205,7 +208,7 @@ impl FloatNode {
             _ => return on_completed.event(),
         };
         let scales = self.state.scales.lock();
-        let tr = Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
+        let tr = self.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
         for (scale, _) in scales.iter() {
             let tex =
