@@ -63,6 +63,8 @@ impl VulkanDescriptorBufferCache {
         self: &Rc<Self>,
         capacity: DeviceSize,
     ) -> Result<VulkanDescriptorBuffer, VulkanError> {
+        const MIN_ALLOCATION: DeviceSize = 1024;
+        let capacity = capacity.max(MIN_ALLOCATION);
         let mut smallest = None;
         let mut smallest_size = DeviceSize::MAX;
         let mut fitting = None;
@@ -128,7 +130,7 @@ impl VulkanDescriptorBufferCache {
             cache: self.clone(),
             buffer: ManuallyDrop::new(VulkanDescriptorBufferUnused {
                 device: self.device.clone(),
-                size: allocation.size,
+                size,
                 buffer,
                 allocation,
                 address,
