@@ -332,6 +332,8 @@ pub struct ConnectorDisplayData {
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
     pub _vrr_refresh_max_nsec: u64,
+    pub default_properties: Vec<(DrmProperty, u64)>,
+    pub untyped_properties: AHashMap<DrmProperty, u64>,
 
     pub connector_id: ConnectorKernelId,
     pub output_id: Rc<OutputId>,
@@ -427,8 +429,6 @@ pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
-    pub default_properties: Vec<(DrmProperty, u64)>,
-    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
 
     pub dev: Rc<MetalDrmDevice>,
     pub backend: Rc<MetalBackend>,
@@ -1113,30 +1113,11 @@ fn create_connector(
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
-    let props = collect_properties(&dev.master, connector)?;
-    let default_properties = create_default_properties(
-        &props,
-        &[
-            ("Broadcast RGB", DefaultValue::Enum("Automatic")),
-            ("Colorspace", DefaultValue::Enum("Default")),
-            ("HDR_OUTPUT_METADATA", DefaultValue::Fixed(0)),
-            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
-            ("Output format", DefaultValue::Enum("Default")),
-            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
-            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0)),
-            ("content type", DefaultValue::Enum("No Data")),
-            ("dither", DefaultValue::Enum("off")),
-            ("max bpc", DefaultValue::RangeMax),
-        ],
-    );
-    let untyped_properties = props.to_untyped();
-    let display = create_connector_display_data(connector, dev, Some(props), None)?;
+    let display = create_connector_display_data(connector, dev, None)?;
     let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
         state: backend.state.clone(),
-        default_properties,
-        untyped_properties: RefCell::new(untyped_properties),
         dev: dev.clone(),
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
@@ -1197,7 +1178,6 @@ fn create_connector(
 fn create_connector_display_data(
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
-    props: Option<CollectedProperties>,
     non_desktop_override: Option<bool>,
 ) -> Result<ConnectorDisplayData, DrmError> {
     let info = dev.master.get_connector_info(connector, true)?;
@@ -1209,10 +1189,7 @@ fn create_connector_display_data(
             }
         }
     }
-    let props = match props {
-        Some(p) => p,
-        _ => collect_properties(&dev.master, connector)?,
-    };
+    let props = collect_properties(&dev.master, connector)?;
     let connection = ConnectorStatus::from_drm(info.connection);
     let mut name = String::new();
     let mut manufacturer = String::new();
@@ -1350,6 +1327,21 @@ fn create_connector_display_data(
     };
     let mode = mode_opt.clone();
     drop(mode_opt);
+    let default_properties = create_default_properties(
+        &props,
+        &[
+            ("Broadcast RGB", DefaultValue::Enum("Automatic")),
+            ("Colorspace", DefaultValue::Enum("Default")),
+            ("HDR_OUTPUT_METADATA", DefaultValue::Fixed(0)),
+            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
+            ("Output format", DefaultValue::Enum("Default")),
+            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
+            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0)),
+            ("content type", DefaultValue::Enum("No Data")),
+            ("dither", DefaultValue::Enum("off")),
+            ("max bpc", DefaultValue::RangeMax),
+        ],
+    );
     Ok(ConnectorDisplayData {
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtcs,
@@ -1361,6 +1353,8 @@ fn create_connector_display_data(
         non_desktop_effective: non_desktop_override.unwrap_or(non_desktop),
         vrr_capable,
         _vrr_refresh_max_nsec: vrr_refresh_max_nsec,
+        default_properties,
+        untyped_properties: props.to_untyped(),
         connection,
         mm_width: info.mm_width,
         mm_height: info.mm_height,
@@ -1707,8 +1701,7 @@ impl MetalBackend {
         }
         let mut preserve = Preserve::default();
         for c in dev.connectors.lock().values() {
-            let dd =
-                create_connector_display_data(c.id, &dev.dev, None, c.non_desktop_override.get());
+            let dd = create_connector_display_data(c.id, &dev.dev, c.non_desktop_override.get());
             let mut dd = match dd {
                 Ok(d) => d,
                 Err(e) => {
@@ -1972,12 +1965,11 @@ impl MetalBackend {
         };
         let master = &dev.dev.master;
         for c in dev.connectors.lock().values() {
-            let dd = c.display.borrow_mut();
-            let props = &mut *c.untyped_properties.borrow_mut();
-            collect_untyped_properties(master, c.id, props)?;
+            let dd = &mut *c.display.borrow_mut();
+            collect_untyped_properties(master, c.id, &mut dd.untyped_properties)?;
             dd.crtc_id
                 .value
-                .set(DrmCrtc(get(props, dd.crtc_id.id)? as _));
+                .set(DrmCrtc(get(&dd.untyped_properties, dd.crtc_id.id)? as _));
         }
         for c in dev.dev.crtcs.values() {
             let props = &mut *c.untyped_properties.borrow_mut();
@@ -2418,17 +2410,25 @@ impl MetalBackend {
 
     fn reset_default_properties(&self, dev: &Rc<MetalDrmDeviceData>, changes: &mut Change) {
         macro_rules! reset {
-            ($obj:expr) => {{
-                let props = &*$obj.untyped_properties.borrow();
-                for (k, v) in &$obj.default_properties {
+            ($obj:expr, $default:expr, $untyped:expr) => {{
+                let props = $untyped;
+                for (k, v) in $default {
                     if props.get(k) != Some(v) {
                         changes.change_object($obj.id, |c| c.change(*k, *v));
                     }
                 }
             }};
+            ($obj:expr) => {
+                reset!(
+                    $obj,
+                    &$obj.default_properties,
+                    &*$obj.untyped_properties.borrow()
+                )
+            };
         }
         for connector in dev.connectors.lock().values() {
-            reset!(connector);
+            let dd = &*connector.display.borrow();
+            reset!(connector, &dd.default_properties, &dd.untyped_properties);
         }
         for plane in dev.dev.planes.values() {
             reset!(plane);
