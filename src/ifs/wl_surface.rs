@@ -1789,8 +1789,14 @@ impl Node for WlSurface {
     }
 
     fn node_on_focus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.tl_on_activate();
+        if let Some(xsurface) = self.ext.get().into_xsurface() {
+            if let Some(window) = xsurface.xwindow.get() {
+                self.client
+                    .state
+                    .xwayland
+                    .queue
+                    .push(XWaylandEvent::Activate(window.data.clone()));
+            }
         }
         seat.focus_surface(&self);
     }

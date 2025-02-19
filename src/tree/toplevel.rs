@@ -179,10 +179,6 @@ pub trait ToplevelNodeBase: Node {
         let _ = active;
     }
 
-    fn tl_on_activate(&self) {
-        // nothing
-    }
-
     fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
         None
     }

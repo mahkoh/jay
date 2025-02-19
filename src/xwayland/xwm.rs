@@ -2115,6 +2115,7 @@ impl Wm {
             // log::info!("xwin {} or {}", data.window_id, or);
             if let Some(window) = data.window.get() {
                 window.tl_destroy();
+                window.update_toplevel();
                 window.map_status_changed();
             }
         }

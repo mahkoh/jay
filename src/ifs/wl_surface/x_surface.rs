@@ -5,7 +5,7 @@ use {
             SurfaceExt, WlSurface, WlSurfaceError,
         },
         leaks::Tracker,
-        tree::ToplevelNode,
+        tree::{Node, ToplevelNode, ToplevelNodeBase},
         utils::clonecell::CloneCell,
         xwayland::XWaylandEvent,
     },
@@ -56,6 +56,15 @@ impl SurfaceExt for XSurface {
             xwindow.toplevel_data.pos.set(self.surface.extents.get());
             xwindow.tl_extents_changed();
         }
+    }
+
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        if let Some(xwindow) = self.xwindow.get() {
+            if xwindow.tl_accepts_keyboard_focus() {
+                return Some(xwindow.x.surface.clone());
+            }
+        }
+        None
     }
 
     fn into_xsurface(self: Rc<Self>) -> Option<Rc<XSurface>> {

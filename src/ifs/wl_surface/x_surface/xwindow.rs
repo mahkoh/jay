@@ -222,7 +222,7 @@ impl Xwindow {
             }
         });
         slf.x.xwindow.set(Some(slf.clone()));
-        slf.x.surface.set_toplevel(Some(slf.clone()));
+        slf.update_toplevel();
         Ok(slf)
     }
 
@@ -296,9 +296,25 @@ impl Xwindow {
             Change::None => {}
         }
         self.data.state.tree_changed();
-        if override_redirect {
-            self.data.state.damage(self.data.info.pending_extents.get());
+        self.damage_override_redirect();
+    }
+
+    fn damage_override_redirect(&self) {
+        if !self.data.info.override_redirect.get() {
+            return;
         }
+        let extents = self.x.surface.extents.get();
+        let (x, y) = self.x.surface.buffer_abs_pos.get().position();
+        let extents = extents.move_(x, y);
+        self.data.state.damage(extents);
+    }
+
+    pub fn update_toplevel(self: &Rc<Self>) {
+        let mut toplevel = None;
+        if !self.data.info.override_redirect.get() {
+            toplevel = Some(self.clone() as _);
+        }
+        self.x.surface.set_toplevel(toplevel);
     }
 }
 
@@ -398,14 +414,6 @@ impl ToplevelNodeBase for Xwindow {
             && self.data.info.input_model.get() != XInputModel::None
     }
 
-    fn tl_on_activate(&self) {
-        self.data
-            .state
-            .xwayland
-            .queue
-            .push(XWaylandEvent::Activate(self.data.clone()));
-    }
-
     fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
         Some(self.x.surface.clone())
     }
@@ -419,8 +427,6 @@ impl ToplevelNodeBase for Xwindow {
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
             if self.data.info.override_redirect.get() {
-                self.data.state.damage(old);
-                self.data.state.damage(*rect);
                 let (x, y) = rect.center();
                 let output = self.data.state.find_closest_output(x, y).0;
                 self.x.surface.set_output(&output);
@@ -482,9 +488,7 @@ impl StackedNode for Xwindow {
     stacked_node_impl!();
 
     fn stacked_set_visible(&self, visible: bool) {
-        let extents = self.x.surface.extents.get();
-        let (x, y) = self.x.surface.buffer_abs_pos.get().position();
-        self.data.state.damage(extents.move_(x, y));
+        self.damage_override_redirect();
         self.tl_set_visible(visible);
     }
 
