@@ -2059,14 +2059,6 @@ impl ToplevelNodeBase for ContainerNode {
         &self.toplevel_data
     }
 
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        self.focus_history
-            .last()
-            .map(|v| v.node.clone())
-            .or_else(|| self.children.first().map(|c| c.node.clone()))
-            .map(|tl| tl.tl_into_node())
-    }
-
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         for child in self.children.iter() {
             child.node.clone().tl_set_workspace(ws);

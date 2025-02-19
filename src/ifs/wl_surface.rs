@@ -777,9 +777,9 @@ impl WlSurface {
         Ok(cursor)
     }
 
-    pub fn get_focus_node(&self, seat: SeatId) -> Option<Rc<dyn Node>> {
+    pub fn get_focus_node(&self) -> Option<Rc<dyn Node>> {
         match self.toplevel.get() {
-            Some(tl) if tl.tl_accepts_keyboard_focus() => tl.tl_focus_child(seat),
+            Some(tl) if tl.tl_accepts_keyboard_focus() => tl.tl_focus_child(),
             Some(_) => None,
             _ => self.ext.get().focus_node(),
         }
@@ -1591,18 +1591,6 @@ impl WlSurface {
                 ss.surface.detach_node(set_invisible);
             }
         }
-        if let Some(tl) = self.toplevel.get() {
-            let data = tl.tl_data();
-            let mut remove = vec![];
-            for (seat, s) in data.focus_node.iter() {
-                if s.node_id() == self.node_id() {
-                    remove.push(seat);
-                }
-            }
-            for seat in remove {
-                data.focus_node.remove(&seat);
-            }
-        }
         self.seat_state.destroy_node(self);
         if self.visible.get() && self.toplevel.is_none() {
             self.client.state.damage(self.buffer_abs_pos.get());
@@ -1802,7 +1790,6 @@ impl Node for WlSurface {
 
     fn node_on_focus(self: Rc<Self>, seat: &WlSeatGlobal) {
         if let Some(tl) = self.toplevel.get() {
-            tl.tl_data().focus_node.insert(seat.id(), self.clone());
             tl.tl_on_activate();
         }
         seat.focus_surface(&self);

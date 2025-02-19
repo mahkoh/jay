@@ -7,6 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::Node,
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
@@ -373,6 +374,10 @@ impl SurfaceExt for WlSubsurface {
 
     fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
         Some(self)
+    }
+
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        self.parent.ext.get().focus_node()
     }
 
     fn consume_pending_child(

@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{tablet::TabletTool, NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
             wl_surface::{x_surface::XSurface, WlSurface, WlSurfaceError},
         },
         rect::Rect,
@@ -406,7 +406,7 @@ impl ToplevelNodeBase for Xwindow {
             .push(XWaylandEvent::Activate(self.data.clone()));
     }
 
-    fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
+    fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
         Some(self.x.surface.clone())
     }
 
