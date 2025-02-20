@@ -258,6 +258,18 @@ impl WlSubsurface {
         }
         Ok(())
     }
+
+    fn damage(&self) {
+        if !self.surface.visible.get() {
+            return;
+        }
+        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let mut rect = self.surface.extents.get().move_(x, y);
+        if let Some(tl) = self.surface.toplevel.get() {
+            rect = rect.intersect(tl.node_absolute_position());
+        }
+        self.surface.client.state.damage(rect);
+    }
 }
 
 impl WlSubsurfaceRequestHandler for WlSubsurface {
@@ -353,12 +365,13 @@ impl SurfaceExt for WlSubsurface {
         if self.had_buffer.replace(has_buffer) != has_buffer {
             if has_buffer {
                 if self.parent.visible.get() {
-                    let (x, y) = self.surface.buffer_abs_pos.get().position();
-                    let extents = self.surface.extents.get();
-                    self.surface.client.state.damage(extents.move_(x, y));
                     self.surface.set_visible(true);
+                    self.damage();
                 }
             } else {
+                if self.surface.toplevel.is_some() {
+                    self.damage();
+                }
                 self.surface.destroy_node();
             }
         }
