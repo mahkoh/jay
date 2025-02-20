@@ -92,8 +92,7 @@ pub enum ContainerFocus {
 tree_id!(ContainerNodeId);
 
 pub struct ContainerTitle {
-    pub x: i32,
-    pub y: i32,
+    pub rect: Rect,
     pub tex: Rc<dyn GfxTexture>,
 }
 
@@ -765,11 +764,7 @@ impl ContainerNode {
                 }
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        x: rect.x1(),
-                        y: rect.y1(),
-                        tex,
-                    })
+                    titles.push(ContainerTitle { rect, tex })
                 }
             }
         }
@@ -840,11 +835,7 @@ impl ContainerNode {
             for (scale, tex) in tt {
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        x: rect.x1(),
-                        y: rect.y1(),
-                        tex,
-                    })
+                    titles.push(ContainerTitle { rect, tex })
                 }
             }
         }
@@ -2057,14 +2048,6 @@ impl ContainingNode for ContainerNode {
 impl ToplevelNodeBase for ContainerNode {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
-    }
-
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        self.focus_history
-            .last()
-            .map(|v| v.node.clone())
-            .or_else(|| self.children.first().map(|c| c.node.clone()))
-            .map(|tl| tl.tl_into_node())
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {

@@ -11,6 +11,7 @@ use {
             create_render_pass, AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture,
             ReleaseSync, SyncFile,
         },
+        rect::Region,
         theme::Color,
         time::Time,
         tracy::FrameName,
@@ -30,7 +31,8 @@ use {
 
 struct Latched {
     pass: GfxRenderPass,
-    damage: u64,
+    damage_count: u64,
+    damage: Region,
 }
 
 #[derive(Debug)]
@@ -172,24 +174,24 @@ impl MetalConnector {
             Some(b) => b,
             _ => return Ok(()),
         };
+        let buffer = &buffers[self.next_buffer.get() % buffers.len()];
 
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();
         }
         self.latch_cursor(&node)?;
         let cursor_programming = self.compute_cursor_programming();
-        let latched = self.latch(&node);
+        let latched = self.latch(&node, buffer);
         node.latched(self.try_async_flip());
 
         if cursor_programming.is_none() && latched.is_none() {
             return Ok(());
         }
 
-        let buffer = &buffers[self.next_buffer.get() % buffers.len()];
         let mut present_fb = None;
         let mut direct_scanout_id = None;
         if let Some(latched) = &latched {
-            let fb = self.prepare_present_fb(buffer, &plane, &latched.pass, true)?;
+            let fb = self.prepare_present_fb(buffer, &plane, latched, true)?;
             direct_scanout_id = fb.direct_scanout_data.as_ref().map(|d| d.dma_buf_id);
             present_fb = Some(fb);
         }
@@ -212,12 +214,8 @@ impl MetalConnector {
         );
         if res.is_err() {
             if let Some(dsd_id) = direct_scanout_id {
-                let fb = self.prepare_present_fb(
-                    buffer,
-                    &plane,
-                    &latched.as_ref().unwrap().pass,
-                    false,
-                )?;
+                let fb =
+                    self.prepare_present_fb(buffer, &plane, latched.as_ref().unwrap(), false)?;
                 present_fb = Some(fb);
                 self.await_present_fb(present_fb.as_mut()).await;
                 res = self.program_connector(
@@ -241,7 +239,14 @@ impl MetalConnector {
                 }
             }
         }
+        let reset_damage = || {
+            for buffer in &*buffers {
+                buffer.damage_queue.clear();
+            }
+            buffers[0].damage_full();
+        };
         if let Err(e) = res {
+            reset_damage();
             if let MetalError::Commit(DrmError::Atomic(OsError(c::EACCES))) = e {
                 log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
                 return Ok(());
@@ -265,7 +270,10 @@ impl MetalConnector {
                 self.presentation_is_zero_copy
                     .set(fb.direct_scanout_data.is_some());
                 if fb.direct_scanout_data.is_none() {
+                    buffer.damage_queue.clear();
                     self.next_buffer.fetch_add(1);
+                } else {
+                    reset_damage();
                 }
                 self.next_framebuffer.set(Some(fb));
             }
@@ -275,7 +283,7 @@ impl MetalConnector {
             }
             self.can_present.set(false);
             if let Some(latched) = latched {
-                self.has_damage.fetch_sub(latched.damage);
+                self.has_damage.fetch_sub(latched.damage_count);
             }
             self.cursor_changed.set(false);
             Ok(())
@@ -487,12 +495,19 @@ impl MetalConnector {
         Some(programming)
     }
 
-    fn latch(&self, node: &Rc<OutputNode>) -> Option<Latched> {
-        let damage = self.has_damage.get();
-        if damage == 0 {
+    fn latch(&self, node: &Rc<OutputNode>, buffer: &RenderBuffer) -> Option<Latched> {
+        let damage_count = self.has_damage.get();
+        if damage_count == 0 {
             return None;
         }
         node.global.connector.damaged.set(false);
+        let damage = {
+            node.global.add_visualizer_damage();
+            let damage = &mut *node.global.connector.damage.borrow_mut();
+            buffer.damage_queue.damage(damage);
+            damage.clear();
+            buffer.damage_queue.get()
+        };
         let render_hw_cursor = !self.cursor_enabled.get();
         let mode = node.global.mode.get();
         let pass = create_render_pass(
@@ -508,7 +523,11 @@ impl MetalConnector {
             node.global.persistent.transform.get(),
             Some(&self.state.damage_visualizer),
         );
-        Some(Latched { pass, damage })
+        Some(Latched {
+            pass,
+            damage_count,
+            damage,
+        })
     }
 
     fn trim_scanout_cache(&self) {
@@ -692,7 +711,7 @@ impl MetalConnector {
         &self,
         buffer: &RenderBuffer,
         plane: &Rc<MetalPlane>,
-        pass: &GfxRenderPass,
+        latched: &Latched,
         try_direct_scanout: bool,
     ) -> Result<PresentFb, MetalError> {
         self.trim_scanout_cache();
@@ -706,7 +725,7 @@ impl MetalConnector {
             && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            direct_scanout_data = self.prepare_direct_scanout(&pass, plane);
+            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane);
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
@@ -723,7 +742,12 @@ impl MetalConnector {
             None => {
                 let sf = buffer
                     .render_fb()
-                    .perform_render_pass(AcquireSync::Unnecessary, ReleaseSync::Explicit, pass)
+                    .perform_render_pass(
+                        AcquireSync::Unnecessary,
+                        ReleaseSync::Explicit,
+                        &latched.pass,
+                        &latched.damage,
+                    )
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
                 fb = buffer.drm.clone();

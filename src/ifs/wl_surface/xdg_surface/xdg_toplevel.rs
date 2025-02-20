@@ -9,7 +9,7 @@ use {
         fixed::Fixed,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            wl_seat::{tablet::TabletTool, NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 xdg_surface::{
                     xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError,
@@ -582,7 +582,7 @@ impl ToplevelNodeBase for XdgToplevel {
         }
     }
 
-    fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
+    fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
         Some(self.xdg.surface.clone())
     }
 

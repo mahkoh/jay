@@ -349,7 +349,9 @@ pub struct ConnectorData {
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
     pub damaged: Cell<bool>,
+    pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
+    pub damage_intersect: Cell<Rect>,
 }
 
 pub struct OutputData {
@@ -831,6 +833,7 @@ impl State {
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
             if output.global.pos.get().intersects(&rect) {
+                output.global.add_damage_area(&rect);
                 if cursor && output.schedule.defer_cursor_updates() {
                     output.schedule.software_cursor_changed();
                 } else {

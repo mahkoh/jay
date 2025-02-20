@@ -923,7 +923,7 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        let node = match n.tl_focus_child(self.id) {
+        let node = match n.tl_focus_child() {
             Some(n) => n,
             _ => n.tl_into_node(),
         };
@@ -1153,7 +1153,7 @@ impl WlSeatGlobal {
         });
         self.surface_pointer_frame(surface);
         if pressed {
-            if let Some(node) = surface.get_focus_node(self.id) {
+            if let Some(node) = surface.get_focus_node() {
                 self.focus_node_with_serial(node, serial);
             }
         }
@@ -1372,7 +1372,7 @@ impl WlSeatGlobal {
         self.surface_touch_event(Version::ALL, surface, |t| {
             t.send_down(serial, time, surface.id, id, x, y)
         });
-        if let Some(node) = surface.get_focus_node(self.id) {
+        if let Some(node) = surface.get_focus_node() {
             self.focus_node_with_serial(node, serial);
         }
     }

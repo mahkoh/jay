@@ -7,7 +7,7 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
+            wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState},
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -22,7 +22,6 @@ use {
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
-            smallmap::SmallMap,
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
         },
@@ -172,10 +171,6 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 pub trait ToplevelNodeBase: Node {
     fn tl_data(&self) -> &ToplevelData;
 
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        None
-    }
-
     fn tl_accepts_keyboard_focus(&self) -> bool {
         true
     }
@@ -184,15 +179,8 @@ pub trait ToplevelNodeBase: Node {
         let _ = active;
     }
 
-    fn tl_on_activate(&self) {
-        // nothing
-    }
-
-    fn tl_focus_child(&self, seat: SeatId) -> Option<Rc<dyn Node>> {
-        self.tl_data()
-            .focus_node
-            .get(&seat)
-            .or_else(|| self.tl_default_focus_child())
+    fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
+        None
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
@@ -259,7 +247,6 @@ pub struct ToplevelData {
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
-    pub focus_node: SmallMap<SeatId, Rc<dyn Node>, 1>,
     pub visible: Cell<bool>,
     pub is_floating: Cell<bool>,
     pub float_width: Cell<i32>,
@@ -300,7 +287,6 @@ impl ToplevelData {
             client,
             state: state.clone(),
             active_surfaces: Default::default(),
-            focus_node: Default::default(),
             visible: Cell::new(false),
             is_floating: Default::default(),
             float_width: Default::default(),
@@ -393,7 +379,6 @@ impl ToplevelData {
         }
         self.workspace.take();
         self.seat_state.destroy_node(node);
-        self.focus_node.clear();
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {

@@ -253,7 +253,9 @@ impl Renderer<'_> {
             }
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
-                    let (x, y) = self.base.scale_point(x + title.x, y + title.y);
+                    let rect = title.rect.move_(x, y);
+                    let bounds = self.base.scale_rect(rect);
+                    let (x, y) = self.base.scale_point(rect.x1(), rect.y1());
                     self.base.render_texture(
                         &title.tex,
                         None,
@@ -262,7 +264,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         self.base.scale,
-                        None,
+                        Some(&bounds),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
@@ -486,7 +488,9 @@ impl Renderer<'_> {
         self.base.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale) {
             if let Some(texture) = title.texture() {
-                let (x, y) = self.base.scale_point(x + bw, y + bw);
+                let rect = floating.title_rect.get().move_(x, y);
+                let bounds = self.base.scale_rect(rect);
+                let (x, y) = self.base.scale_point(rect.x1(), rect.y1());
                 self.base.render_texture(
                     &texture,
                     None,
@@ -495,7 +499,7 @@ impl Renderer<'_> {
                     None,
                     None,
                     self.base.scale,
-                    None,
+                    Some(&bounds),
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,

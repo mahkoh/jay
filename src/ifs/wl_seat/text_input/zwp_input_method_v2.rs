@@ -174,6 +174,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
             version: self.version,
             tracker: Default::default(),
             positioning_scheduled: Cell::new(false),
+            was_on_screen: Default::default(),
         });
         track!(self.client, popup);
         self.client.add_client_obj(&popup)?;

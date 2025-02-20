@@ -376,12 +376,13 @@ impl GfxFramebuffer for TestGfxFb {
         }
     }
 
-    fn render(
+    fn render_with_region(
         &self,
         _acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        _region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {
             let points = rect.to_points();

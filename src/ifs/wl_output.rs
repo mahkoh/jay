@@ -4,6 +4,7 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
+        damage::DamageMatrix,
         format::{Format, XRGB8888},
         globals::{Global, GlobalName},
         ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
@@ -55,7 +56,7 @@ const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
     pub name: GlobalName,
-    pub _state: Rc<State>,
+    pub state: Rc<State>,
     pub connector: Rc<ConnectorData>,
     pub pos: Cell<Rect>,
     pub output_id: Rc<OutputId>,
@@ -71,6 +72,7 @@ pub struct WlOutputGlobal {
     pub legacy_scale: Cell<u32>,
     pub persistent: Rc<PersistentOutputState>,
     pub opt: Rc<OutputGlobalOpt>,
+    pub damage_matrix: Cell<DamageMatrix>,
 }
 
 #[derive(Default)]
@@ -151,9 +153,9 @@ impl WlOutputGlobal {
             persistent_state.transform.get(),
             scale,
         );
-        Self {
+        let global = Self {
             name,
-            _state: state.clone(),
+            state: state.clone(),
             connector: connector.clone(),
             pos: Cell::new(Rect::new_sized(x, y, width, height).unwrap()),
             output_id: output_id.clone(),
@@ -169,7 +171,10 @@ impl WlOutputGlobal {
             legacy_scale: Cell::new(scale.round_up()),
             persistent: persistent_state.clone(),
             opt: Default::default(),
-        }
+            damage_matrix: Default::default(),
+        };
+        global.update_damage_matrix();
+        global
     }
 
     pub fn position(&self) -> Rect {
@@ -252,6 +257,40 @@ impl WlOutputGlobal {
             .transform
             .get()
             .maybe_swap((mode.width, mode.height))
+    }
+
+    pub fn update_damage_matrix(&self) {
+        let pos = self.pos.get();
+        let mode = self.mode.get();
+        let matrix = DamageMatrix::new(
+            self.persistent.transform.get().inverse(),
+            1,
+            pos.width(),
+            pos.height(),
+            None,
+            mode.width,
+            mode.height,
+        );
+        self.damage_matrix.set(matrix);
+        self.connector
+            .damage_intersect
+            .set(Rect::new_sized_unchecked(0, 0, mode.width, mode.height));
+    }
+
+    pub fn add_damage_area(&self, area: &Rect) {
+        let pos = self.pos.get();
+        let rect = area.move_(-pos.x1(), -pos.y1());
+        let mut rect = self.damage_matrix.get().apply(0, 0, rect);
+        let damage = &mut *self.connector.damage.borrow_mut();
+        const MAX_CONNECTOR_DAMAGE: usize = 32;
+        if damage.len() >= MAX_CONNECTOR_DAMAGE {
+            rect = rect.union(damage.pop().unwrap());
+        }
+        damage.push(rect.intersect(self.connector.damage_intersect.get()));
+    }
+
+    pub fn add_visualizer_damage(&self) {
+        self.state.damage_visualizer.copy_damage(self);
     }
 }
 

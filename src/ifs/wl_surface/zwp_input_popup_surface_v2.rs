@@ -23,6 +23,7 @@ pub struct ZwpInputPopupSurfaceV2 {
     pub version: Version,
     pub tracker: Tracker<Self>,
     pub positioning_scheduled: Cell<bool>,
+    pub was_on_screen: Cell<bool>,
 }
 
 impl SurfaceExt for ZwpInputPopupSurfaceV2 {
@@ -57,6 +58,7 @@ impl ZwpInputPopupSurfaceV2 {
             && self.client.state.root_visible();
         self.surface.set_visible(is_visible);
         if was_visible != is_visible {
+            self.was_on_screen.set(false);
             if is_visible {
                 self.schedule_positioning();
             } else {
@@ -107,12 +109,16 @@ impl ZwpInputPopupSurfaceV2 {
                 rect = rect2;
             }
         }
-        self.surface.buffer_abs_pos.set(
-            self.surface
-                .buffer_abs_pos
-                .get()
-                .at_point(rect.x1() - extents.x1(), rect.y1() - extents.y1()),
-        );
+        let old = self.surface.buffer_abs_pos.get();
+        let new = old.at_point(rect.x1() - extents.x1(), rect.y1() - extents.y1());
+        if self.was_on_screen.get() && new != old {
+            self.damage();
+        }
+        self.surface.buffer_abs_pos.set(new);
+        if !self.was_on_screen.get() || new != old {
+            self.damage();
+        }
+        self.was_on_screen.set(true);
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpInputPopupSurfaceV2Error> {
