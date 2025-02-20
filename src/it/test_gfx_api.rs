@@ -5,9 +5,10 @@ use {
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
-            FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
-            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, GfxWriteModifier,
-            PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture, ShmMemory, SyncFile,
+            FramebufferRect, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
+            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
+            ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -37,6 +38,8 @@ enum TestGfxError {
     ImportDmaBuf(#[source] AllocatorError),
     #[error("Could not access the client memory")]
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
+    #[error("Text API does not support blend buffers")]
+    NoBlendBuffer,
 }
 
 impl From<TestGfxError> for GfxError {
@@ -188,6 +191,14 @@ impl GfxContext for TestGfxCtx {
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
         None
+    }
+
+    fn acquire_blend_buffer(
+        &self,
+        _width: i32,
+        _height: i32,
+    ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
+        Err(GfxError(Box::new(TestGfxError::NoBlendBuffer)))
     }
 }
 
@@ -383,6 +394,7 @@ impl GfxFramebuffer for TestGfxFb {
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         _region: &Region,
+        _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {
             let points = rect.to_points();

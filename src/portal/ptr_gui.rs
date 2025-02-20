@@ -636,6 +636,7 @@ impl WindowData {
             ReleaseSync::Implicit,
             self.scale.get(),
             Some(&Color::from_gray(0)),
+            None,
             &mut |r| {
                 if let Some(content) = self.content.get() {
                     content.render_at(r, 0.0, 0.0)

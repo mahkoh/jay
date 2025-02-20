@@ -755,6 +755,7 @@ impl XBackend {
                 ReleaseSync::Implicit,
                 &image.tex.get(),
                 true,
+                None,
             );
             if let Err(e) = res {
                 log::error!("Could not render screen: {}", ErrorFmt(e));
