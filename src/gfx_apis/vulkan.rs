@@ -24,9 +24,9 @@ use {
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxImage, GfxInternalFramebuffer,
-            GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture,
-            StagingBufferUsecase,
+            AsyncShmGfxTexture, GfxBlendBuffer, GfxContext, GfxError, GfxFormat, GfxImage,
+            GfxInternalFramebuffer, GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD,
+            STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -204,6 +204,8 @@ pub enum VulkanError {
     UndefinedContents,
     #[error("The framebuffer is being used by the transfer queue")]
     BusyInTransfer,
+    #[error("Vulkan does not support blend buffers")]
+    NoBlendBuffer,
 }
 
 impl From<VulkanError> for GfxError {
@@ -349,6 +351,14 @@ impl GfxContext for Context {
         self.0
             .device
             .create_staging_shell(size as u64, upload, download)
+    }
+
+    fn create_blend_buffer(
+        &self,
+        _width: i32,
+        _height: i32,
+    ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
+        Err(GfxError(Box::new(VulkanError::NoBlendBuffer)))
     }
 }
 

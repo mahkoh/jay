@@ -27,8 +27,8 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture,
-            PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD, SampleRect, SyncFile,
+            AcquireSync, BufferResv, GfxBlendBuffer, GfxContext, GfxError, GfxFramebuffer,
+            GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD, SampleRect, SyncFile,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -979,6 +979,7 @@ impl State {
         release_sync: ReleaseSync,
         tex: &Rc<dyn GfxTexture>,
         render_hw_cursor: bool,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let sync_file = fb.render_output(
             acquire_sync,
@@ -989,6 +990,7 @@ impl State {
             output.global.persistent.scale.get(),
             render_hw_cursor,
             true,
+            blend_buffer,
         )?;
         output.latched(false);
         output.perform_screencopies(
@@ -1064,6 +1066,7 @@ impl State {
             target_release_sync,
             &ops,
             Some(&Color::SOLID_BLACK),
+            None,
         )
     }
 

@@ -254,6 +254,8 @@ pub enum ResetStatus {
     Other(u32),
 }
 
+pub trait GfxBlendBuffer: Debug {}
+
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
 
@@ -264,6 +266,7 @@ pub trait GfxFramebuffer: Debug {
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         region: &Region,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
     fn format(&self) -> &'static Format;
@@ -291,9 +294,16 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.clone()
-            .render_with_region(acquire_sync, release_sync, ops, clear, &self.full_region())
+        self.clone().render_with_region(
+            acquire_sync,
+            release_sync,
+            ops,
+            clear,
+            &self.full_region(),
+            blend_buffer,
+        )
     }
 
     fn full_region(&self) -> Region {
@@ -318,7 +328,13 @@ impl dyn GfxFramebuffer {
         b: f32,
         a: f32,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(acquire_sync, release_sync, &[], Some(&Color { r, g, b, a }))
+        self.render(
+            acquire_sync,
+            release_sync,
+            &[],
+            Some(&Color { r, g, b, a }),
+            None,
+        )
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -362,7 +378,7 @@ impl dyn GfxFramebuffer {
             release_sync,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(fb_acquire_sync, fb_release_sync, &ops, clear)
+        self.render(fb_acquire_sync, fb_release_sync, &ops, clear, None)
     }
 
     pub fn render_custom(
@@ -371,12 +387,13 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         scale: Scale,
         clear: Option<&Color>,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(acquire_sync, release_sync, &ops, clear)
+        self.render(acquire_sync, release_sync, &ops, clear, blend_buffer)
     }
 
     pub fn create_render_pass(
@@ -413,6 +430,7 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         pass: &GfxRenderPass,
         region: &Region,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.clone().render_with_region(
             acquire_sync,
@@ -420,6 +438,7 @@ impl dyn GfxFramebuffer {
             &pass.ops,
             pass.clear.as_ref(),
             region,
+            blend_buffer,
         )
     }
 
@@ -433,6 +452,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         render_hardware_cursor: bool,
         fill_black_in_grace_period: bool,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
             acquire_sync,
@@ -446,6 +466,7 @@ impl dyn GfxFramebuffer {
             node.has_fullscreen(),
             fill_black_in_grace_period,
             node.global.persistent.transform.get(),
+            blend_buffer,
         )
     }
 
@@ -462,6 +483,7 @@ impl dyn GfxFramebuffer {
         black_background: bool,
         fill_black_in_grace_period: bool,
         transform: Transform,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let pass = self.create_render_pass(
             node,
@@ -475,7 +497,13 @@ impl dyn GfxFramebuffer {
             transform,
             None,
         );
-        self.perform_render_pass(acquire_sync, release_sync, &pass, &self.full_region())
+        self.perform_render_pass(
+            acquire_sync,
+            release_sync,
+            &pass,
+            &self.full_region(),
+            blend_buffer,
+        )
     }
 
     pub fn render_hardware_cursor(
@@ -498,7 +526,13 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(acquire_sync, release_sync, &ops, Some(&Color::TRANSPARENT))
+        self.render(
+            acquire_sync,
+            release_sync,
+            &ops,
+            Some(&Color::TRANSPARENT),
+            None,
+        )
     }
 }
 
@@ -665,6 +699,13 @@ pub trait GfxContext: Debug {
         }
         Rc::new(Dummy(size))
     }
+
+    #[expect(dead_code)]
+    fn create_blend_buffer(
+        &self,
+        width: i32,
+        height: i32,
+    ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError>;
 }
 
 #[derive(Clone, Debug)]

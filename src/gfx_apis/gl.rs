@@ -197,6 +197,8 @@ enum RenderError {
     UnsupportedShmFormat(&'static str),
     #[error("Could not access the client memory")]
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
+    #[error("OpenGL does not support blend buffers")]
+    NoBlendBuffer,
 }
 
 #[derive(Default)]

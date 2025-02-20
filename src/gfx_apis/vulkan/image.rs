@@ -3,9 +3,9 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
-            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, PendingShmTransfer, ReleaseSync,
-            ShmGfxTexture, ShmMemory, SyncFile,
+            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxBlendBuffer, GfxError,
+            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory, SyncFile,
         },
         gfx_apis::vulkan::{
             VulkanError, allocator::VulkanAllocation, device::VulkanDevice,
@@ -539,6 +539,7 @@ impl GfxFramebuffer for VulkanImage {
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         region: &Region,
+        _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
             .execute(&self, acquire_sync, release_sync, ops, clear, region)
