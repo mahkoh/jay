@@ -519,7 +519,7 @@ impl VulkanRenderer {
         let rendering_attachment_info = {
             let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
-                .image_layout(ImageLayout::GENERAL)
+                .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(AttachmentLoadOp::LOAD)
                 .store_op(AttachmentStoreOp::STORE);
             if let Some(clear) = load_clear {
