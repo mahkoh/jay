@@ -2,7 +2,7 @@ use {
     crate::{
         gfx_apis::vulkan::{
             VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
-            shaders::VulkanShader,
+            format::BLEND_FORMAT, shaders::VulkanShader,
         },
         utils::on_drop::OnDrop,
     },
@@ -39,6 +39,8 @@ pub(super) struct PipelineCreateInfo {
     pub(super) blend: bool,
     pub(super) src_has_alpha: bool,
     pub(super) has_alpha_mult: bool,
+    pub(super) with_blend_buffer: bool,
+    pub(super) is_out: bool,
     pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
 }
 
@@ -76,8 +78,8 @@ impl VulkanDevice {
         };
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
-        let mut frag_spec_data = ArrayVec::<_, 8>::new();
-        let mut frag_spec_entries = ArrayVec::<_, 2>::new();
+        let mut frag_spec_data = ArrayVec::<_, { 3 * 4 }>::new();
+        let mut frag_spec_entries = ArrayVec::<_, 3>::new();
         let mut frag_spec_entry = |data: &[u8]| {
             let entry = SpecializationMapEntry::default()
                 .constant_id(frag_spec_entries.len() as _)
@@ -88,6 +90,7 @@ impl VulkanDevice {
         };
         frag_spec_entry(&(info.src_has_alpha as u32).to_ne_bytes());
         frag_spec_entry(&(info.has_alpha_mult as u32).to_ne_bytes());
+        frag_spec_entry(&(info.with_blend_buffer as u32).to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);
@@ -114,6 +117,7 @@ impl VulkanDevice {
             let multisampling_state = PipelineMultisampleStateCreateInfo::default()
                 .sample_shading_enable(false)
                 .rasterization_samples(SampleCountFlags::TYPE_1);
+            let mut blend_attachments = ArrayVec::<_, 2>::new();
             let mut blending = PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA);
             if info.blend {
@@ -126,16 +130,35 @@ impl VulkanDevice {
                     .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
                     .alpha_blend_op(BlendOp::ADD);
             }
-            let color_blend_state = PipelineColorBlendStateCreateInfo::default()
-                .attachments(slice::from_ref(&blending));
+            if info.with_blend_buffer {
+                if info.is_out {
+                    blend_attachments.push(PipelineColorBlendAttachmentState::default());
+                    blend_attachments.push(
+                        PipelineColorBlendAttachmentState::default()
+                            .color_write_mask(ColorComponentFlags::RGBA),
+                    );
+                } else {
+                    blend_attachments.push(blending);
+                    blend_attachments.push(PipelineColorBlendAttachmentState::default());
+                }
+            } else {
+                blend_attachments.push(blending);
+            }
+            let color_blend_state =
+                PipelineColorBlendStateCreateInfo::default().attachments(&blend_attachments);
             let dynamic_states = [DynamicState::VIEWPORT, DynamicState::SCISSOR];
             let dynamic_state =
                 PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
             let viewport_state = PipelineViewportStateCreateInfo::default()
                 .viewport_count(1)
                 .scissor_count(1);
+            let mut color_attachment_formats = ArrayVec::<_, 2>::new();
+            if info.with_blend_buffer {
+                color_attachment_formats.push(BLEND_FORMAT.vk_format);
+            }
+            color_attachment_formats.push(info.format);
             let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::default()
-                .color_attachment_formats(slice::from_ref(&info.format));
+                .color_attachment_formats(&color_attachment_formats);
             let mut flags = PipelineCreateFlags::empty();
             if self.descriptor_buffer.is_some() {
                 flags |= PipelineCreateFlags::DESCRIPTOR_BUFFER_EXT;

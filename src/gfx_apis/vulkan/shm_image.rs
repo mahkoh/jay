@@ -460,12 +460,14 @@ impl VulkanRenderer {
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
             shader_read_only_optimal_descriptor: self.sampler_read_only_descriptor(view),
+            input_attachment_descriptor: Box::new([]),
             descriptor_buffer_version: Cell::new(0),
             descriptor_buffer_offset: Cell::new(0),
             execution_version: Cell::new(0),
         });
         let shm = match &img.ty {
             VulkanImageMemory::DmaBuf(_) => unreachable!(),
+            VulkanImageMemory::Blend(_) => unreachable!(),
             VulkanImageMemory::Internal(s) => s,
         };
         if data.is_not_empty() {

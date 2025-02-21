@@ -408,7 +408,7 @@ static XBGR16161616: &Format = &Format {
     ..default(ConfigFormat::XBGR16161616)
 };
 
-static ABGR16161616F: &Format = &Format {
+pub static ABGR16161616F: &Format = &Format {
     name: "abgr16161616f",
     vk_format: vk::Format::R16G16B16A16_SFLOAT,
     drm: fourcc_code('A', 'B', '4', 'H'),

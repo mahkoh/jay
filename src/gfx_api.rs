@@ -265,7 +265,9 @@ pub enum ResetStatus {
     Other(u32),
 }
 
-pub trait GfxBlendBuffer: Debug {}
+pub trait GfxBlendBuffer: Debug {
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
+}
 
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);

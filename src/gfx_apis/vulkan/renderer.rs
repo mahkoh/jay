@@ -4,8 +4,8 @@ use {
         cpu_worker::PendingJob,
         format::XRGB8888,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
-            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer, GfxFormat,
+            GfxFramebuffer, GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             VulkanError,
@@ -22,8 +22,8 @@ use {
             sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
-                FILL_FRAG, FILL_VERT, FillPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants,
-                VulkanShader,
+                FILL_FRAG, FILL_VERT, FillPushConstants, OUT_FRAG, OUT_VERT, OutPushConstants,
+                TEX_FRAG, TEX_VERT, TexPushConstants, VulkanShader,
             },
         },
         io_uring::IoUring,
@@ -42,13 +42,13 @@ use {
         vk::{
             self, AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearAttachment,
             ClearColorValue, ClearRect, ClearValue, CommandBuffer, CommandBufferBeginInfo,
-            CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR,
-            DescriptorBufferBindingInfoEXT, DescriptorImageInfo, DescriptorType, DeviceSize,
-            Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2,
-            ImageSubresourceLayers, ImageSubresourceRange, Offset2D, Offset3D, PipelineBindPoint,
-            PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Rect2D, RenderingAttachmentInfo,
-            RenderingInfo, SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags,
-            SubmitInfo2, Viewport, WriteDescriptorSet,
+            CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyImageInfo2, DependencyFlags,
+            DependencyInfoKHR, DescriptorBufferBindingInfoEXT, DescriptorImageInfo, DescriptorType,
+            DeviceSize, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout,
+            ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange, MemoryBarrier2,
+            Offset2D, Offset3D, PipelineBindPoint, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
+            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
+            SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet,
         },
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
@@ -67,6 +67,7 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) pipelines: CopyHashMap<vk::Format, Rc<VulkanFormatPipelines>>,
+    pub(super) pipelines_with_blend_buffer: CopyHashMap<vk::Format, Rc<VulkanFormatPipelines>>,
     pub(super) gfx_command_buffers: CachedCommandBuffers,
     pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -82,12 +83,16 @@ pub struct VulkanRenderer {
     pub(super) fill_frag_shader: Rc<VulkanShader>,
     pub(super) tex_vert_shader: Rc<VulkanShader>,
     pub(super) tex_frag_shader: Rc<VulkanShader>,
+    pub(super) out_vert_shader: Rc<VulkanShader>,
+    pub(super) out_frag_shader: Rc<VulkanShader>,
     pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
+    pub(super) out_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
     pub(super) sampler: Rc<VulkanSampler>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
+    pub(super) resource_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
 }
 
 pub(super) struct CachedCommandBuffers {
@@ -139,11 +144,12 @@ pub(super) struct Memory {
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
-    descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 1>,
+    descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 2>,
     paint_regions: Vec<PaintRegion>,
     clear_rects: Vec<ClearRect>,
     image_copy_regions: Vec<ImageCopy2<'static>>,
     sampler_descriptor_buffer_writer: VulkanDescriptorBufferWriter,
+    resource_descriptor_buffer_writer: VulkanDescriptorBufferWriter,
 }
 
 struct PaintRegion {
@@ -159,15 +165,17 @@ pub(super) struct PendingFrame {
     renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
     _fb: Rc<VulkanImage>,
+    _bb: Option<Rc<VulkanImage>>,
     _textures: Vec<UsedTexture>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
     _release_fence: Option<Rc<VulkanFence>>,
-    _descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 1>,
+    _descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 2>,
 }
 
 pub(super) struct VulkanFormatPipelines {
     pub(super) fill: Rc<VulkanPipeline>,
+    pub(super) out: Option<Rc<VulkanPipeline>>,
     pub(super) tex: StaticMap<TexCopyType, StaticMap<TexSourceType, Rc<VulkanPipeline>>>,
 }
 
@@ -181,6 +189,13 @@ impl VulkanDevice {
         let fill_frag_shader = self.create_shader(FILL_FRAG)?;
         let sampler = self.create_sampler()?;
         let tex_descriptor_set_layout = self.create_tex_descriptor_set_layout(&sampler)?;
+        let out_descriptor_set_layout = self
+            .descriptor_buffer
+            .as_ref()
+            .map(|db| self.create_out_descriptor_set_layout(db))
+            .transpose()?;
+        let out_vert_shader = self.create_shader(OUT_VERT)?;
+        let out_frag_shader = self.create_shader(OUT_FRAG)?;
         let tex_vert_shader = self.create_shader(TEX_VERT)?;
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
@@ -223,10 +238,13 @@ impl VulkanDevice {
         let shm_allocator = self.create_threaded_allocator()?;
         let sampler_descriptor_buffer_cache =
             Rc::new(VulkanDescriptorBufferCache::new(self, &allocator, true));
+        let resource_descriptor_buffer_cache =
+            Rc::new(VulkanDescriptorBufferCache::new(self, &allocator, false));
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
             pipelines: Default::default(),
+            pipelines_with_blend_buffer: Default::default(),
             gfx_command_buffers,
             transfer_command_buffers,
             wait_semaphores: Default::default(),
@@ -242,14 +260,18 @@ impl VulkanDevice {
             fill_frag_shader,
             tex_vert_shader,
             tex_frag_shader,
+            out_vert_shader,
+            out_frag_shader,
             tex_descriptor_set_layout,
+            out_descriptor_set_layout,
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
             sampler,
             sampler_descriptor_buffer_cache,
+            resource_descriptor_buffer_cache,
         });
-        render.get_or_create_pipelines(XRGB8888.vk_format)?;
+        render.get_or_create_pipelines(XRGB8888.vk_format, None)?;
         Ok(render)
     }
 }
@@ -258,8 +280,14 @@ impl VulkanRenderer {
     fn get_or_create_pipelines(
         &self,
         format: vk::Format,
+        bb: Option<&VulkanImage>,
     ) -> Result<Rc<VulkanFormatPipelines>, VulkanError> {
-        if let Some(pl) = self.pipelines.get(&format) {
+        let with_blend_buffer = bb.is_some();
+        let pipelines = match with_blend_buffer {
+            false => &self.pipelines,
+            true => &self.pipelines_with_blend_buffer,
+        };
+        if let Some(pl) = pipelines.get(&format) {
             return Ok(pl);
         }
         let fill = self
@@ -271,8 +299,28 @@ impl VulkanRenderer {
                 blend: true,
                 src_has_alpha: true,
                 has_alpha_mult: false,
+                with_blend_buffer,
+                is_out: false,
                 frag_descriptor_set_layout: None,
             })?;
+        let mut out = None;
+        if with_blend_buffer {
+            if let Some(layout) = &self.out_descriptor_set_layout {
+                out = Some(self.device.create_pipeline::<OutPushConstants>(
+                    PipelineCreateInfo {
+                        format,
+                        vert: self.out_vert_shader.clone(),
+                        frag: self.out_frag_shader.clone(),
+                        blend: false,
+                        src_has_alpha: true,
+                        has_alpha_mult: false,
+                        with_blend_buffer,
+                        is_out: true,
+                        frag_descriptor_set_layout: Some(layout.clone()),
+                    },
+                )?);
+            }
+        }
         let create_tex_pipeline = |src_has_alpha, has_alpha_mult| {
             self.device
                 .create_pipeline::<TexPushConstants>(PipelineCreateInfo {
@@ -282,6 +330,8 @@ impl VulkanRenderer {
                     blend: src_has_alpha || has_alpha_mult,
                     src_has_alpha,
                     has_alpha_mult,
+                    with_blend_buffer,
+                    is_out: false,
                     frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
                 })
         };
@@ -289,8 +339,9 @@ impl VulkanRenderer {
         let tex_alpha = create_tex_pipeline(true, false)?;
         let tex_mult_opaque = create_tex_pipeline(false, true)?;
         let tex_mult_alpha = create_tex_pipeline(true, true)?;
-        let pipelines = Rc::new(VulkanFormatPipelines {
+        let format_pipelines = Rc::new(VulkanFormatPipelines {
             fill,
+            out,
             tex: static_map! {
                 TexCopyType::Identity => static_map! {
                     TexSourceType::HasAlpha => tex_alpha.clone(),
@@ -302,8 +353,8 @@ impl VulkanRenderer {
                 },
             },
         });
-        self.pipelines.set(format, pipelines.clone());
-        Ok(pipelines)
+        pipelines.set(format, format_pipelines.clone());
+        Ok(format_pipelines)
     }
 
     pub(super) fn allocate_point(&self) -> u64 {
@@ -314,6 +365,7 @@ impl VulkanRenderer {
         &self,
         buf: CommandBuffer,
         opts: &[GfxApiOpt],
+        bb: Option<&VulkanImage>,
     ) -> Result<(), VulkanError> {
         let Some(db) = &self.device.descriptor_buffer else {
             return Ok(());
@@ -324,6 +376,15 @@ impl VulkanRenderer {
         memory.descriptor_buffers.clear();
         let sampler_writer = &mut memory.sampler_descriptor_buffer_writer;
         sampler_writer.clear();
+        let resource_writer = &mut memory.resource_descriptor_buffer_writer;
+        resource_writer.clear();
+        if let Some(bb) = bb {
+            let layout = self.out_descriptor_set_layout.as_ref().unwrap();
+            let offset = resource_writer.next_offset();
+            bb.descriptor_buffer_offset.set(offset);
+            let mut writer = resource_writer.add_set(layout);
+            writer.write(layout.offsets[0], &bb.input_attachment_descriptor);
+        }
         for cmd in opts {
             let GfxApiOpt::CopyTexture(c) = cmd else {
                 continue;
@@ -341,7 +402,10 @@ impl VulkanRenderer {
             );
         }
         let mut infos = ArrayVec::<_, 2>::new();
-        for (writer, cache) in [(&sampler_writer, &self.sampler_descriptor_buffer_cache)] {
+        for (writer, cache) in [
+            (&sampler_writer, &self.sampler_descriptor_buffer_cache),
+            (&resource_writer, &self.resource_descriptor_buffer_cache),
+        ] {
             let buffer = cache.allocate(writer.len() as DeviceSize)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
                 ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
@@ -403,11 +467,31 @@ impl VulkanRenderer {
         }
     }
 
-    fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) -> Result<(), VulkanError> {
+    fn initial_barriers(
+        &self,
+        buf: CommandBuffer,
+        fb: &VulkanImage,
+        bb: Option<&VulkanImage>,
+    ) -> Result<(), VulkanError> {
         zone!("initial_barriers");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
+        if let Some(bb) = bb {
+            let barrier = image_barrier()
+                .image(bb.image)
+                .old_layout(if bb.is_undefined.get() {
+                    ImageLayout::UNDEFINED
+                } else {
+                    ImageLayout::RENDERING_LOCAL_READ_KHR
+                })
+                .new_layout(ImageLayout::RENDERING_LOCAL_READ_KHR)
+                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+                .dst_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .src_access_mask(AccessFlags2::INPUT_ATTACHMENT_READ)
+                .dst_access_mask(AccessFlags2::COLOR_ATTACHMENT_WRITE);
+            memory.image_barriers.push(barrier);
+        }
         let mut need_fb_barrier = true;
         if let VulkanImageMemory::Internal(..) = &fb.ty {
             need_fb_barrier = fb.is_undefined.get()
@@ -497,12 +581,22 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn begin_rendering(&self, buf: CommandBuffer, fb: &VulkanImage, clear: Option<&Color>) {
+    fn begin_rendering(
+        &self,
+        buf: CommandBuffer,
+        fb: &VulkanImage,
+        clear: Option<&Color>,
+        bb: Option<&VulkanImage>,
+    ) {
         zone!("begin_rendering");
         let memory = &mut *self.memory.borrow_mut();
         let clear_value = clear.map(|clear| ClearValue {
             color: ClearColorValue {
-                float32: clear.to_array_srgb(None),
+                float32: if bb.is_some() {
+                    clear.to_array_linear(None)
+                } else {
+                    clear.to_array_srgb(None)
+                },
             },
         });
         let load_clear = memory.paint_regions.len() == 1 && {
@@ -516,16 +610,31 @@ impl VulkanRenderer {
             false => (None, clear_value),
             true => (clear_value, None),
         };
-        let rendering_attachment_info = {
+        let mut rais = ArrayVec::<_, 2>::new();
+        if let Some(bb) = bb {
+            let mut rai = RenderingAttachmentInfo::default()
+                .image_view(bb.render_view.unwrap_or(bb.texture_view))
+                .image_layout(ImageLayout::RENDERING_LOCAL_READ_KHR)
+                .load_op(AttachmentLoadOp::DONT_CARE)
+                .store_op(AttachmentStoreOp::DONT_CARE);
+            if let Some(clear) = load_clear {
+                rai = rai.clear_value(clear).load_op(AttachmentLoadOp::CLEAR);
+            }
+            rais.push(rai);
+        }
+        {
             let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
                 .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(AttachmentLoadOp::LOAD)
                 .store_op(AttachmentStoreOp::STORE);
             if let Some(clear) = load_clear {
-                rai = rai.clear_value(clear).load_op(AttachmentLoadOp::CLEAR);
+                rai = match bb.is_some() {
+                    true => rai.load_op(AttachmentLoadOp::DONT_CARE),
+                    false => rai.clear_value(clear).load_op(AttachmentLoadOp::CLEAR),
+                };
             }
-            rai
+            rais.push(rai);
         };
         let rendering_info = RenderingInfo::default()
             .render_area(Rect2D {
@@ -536,7 +645,7 @@ impl VulkanRenderer {
                 },
             })
             .layer_count(1)
-            .color_attachments(slice::from_ref(&rendering_attachment_info));
+            .color_attachments(&rais);
         unsafe {
             self.device.device.cmd_begin_rendering(buf, &rendering_info);
         }
@@ -597,10 +706,11 @@ impl VulkanRenderer {
         buf: CommandBuffer,
         fb: &VulkanImage,
         opts: &[GfxApiOpt],
+        bb: Option<&VulkanImage>,
     ) -> Result<(), VulkanError> {
         zone!("record_draws");
         let memory = &*self.memory.borrow();
-        let pipelines = self.get_or_create_pipelines(fb.format.vk_format)?;
+        let pipelines = self.get_or_create_pipelines(fb.format.vk_format, bb)?;
         let dev = &self.device.device;
         let mut current_pipeline = None;
         let mut bind = |pipeline: &VulkanPipeline| {
@@ -617,7 +727,11 @@ impl VulkanRenderer {
                 GfxApiOpt::FillRect(r) => {
                     let push = FillPushConstants {
                         pos: r.rect.to_points(),
-                        color: r.color.to_array_srgb(r.alpha),
+                        color: if bb.is_some() {
+                            r.color.to_array_linear(r.alpha)
+                        } else {
+                            r.color.to_array_srgb(r.alpha)
+                        },
                     };
                     for region in &memory.paint_regions {
                         let mut push = push;
@@ -708,6 +822,49 @@ impl VulkanRenderer {
                             dev.cmd_draw(buf, 4, 1, 0, 0);
                         }
                     }
+                }
+            }
+        }
+        if let Some(bb) = bb {
+            let db = self.device.descriptor_buffer.as_ref().unwrap();
+            let pipeline = pipelines.out.as_ref().unwrap();
+            let barrier = MemoryBarrier2::default()
+                .src_access_mask(AccessFlags2::COLOR_ATTACHMENT_WRITE)
+                .dst_access_mask(AccessFlags2::INPUT_ATTACHMENT_READ)
+                .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
+            let info = DependencyInfoKHR::default()
+                .memory_barriers(slice::from_ref(&barrier))
+                .dependency_flags(DependencyFlags::BY_REGION);
+            let dev = &self.device.device;
+            unsafe {
+                dev.cmd_pipeline_barrier2(buf, &info);
+                dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
+                db.cmd_set_descriptor_buffer_offsets(
+                    buf,
+                    PipelineBindPoint::GRAPHICS,
+                    pipeline.pipeline_layout,
+                    0,
+                    &[1],
+                    &[bb.descriptor_buffer_offset.get()],
+                );
+                for region in &memory.paint_regions {
+                    let push = OutPushConstants {
+                        pos: [
+                            [region.x2, region.y1],
+                            [region.x1, region.y1],
+                            [region.x2, region.y2],
+                            [region.x1, region.y2],
+                        ],
+                    };
+                    dev.cmd_push_constants(
+                        buf,
+                        pipeline.pipeline_layout,
+                        ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                        0,
+                        uapi::as_bytes(&push),
+                    );
+                    dev.cmd_draw(buf, 4, 1, 0, 0);
                 }
             }
         }
@@ -996,7 +1153,10 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn store_layouts(&self, fb: &VulkanImage) {
+    fn store_layouts(&self, fb: &VulkanImage, bb: Option<&VulkanImage>) {
+        if let Some(bb) = bb {
+            bb.is_undefined.set(false);
+        }
         fb.is_undefined.set(false);
         fb.contents_are_undefined.set(false);
         fb.queue_state.set(QueueState::Acquired {
@@ -1010,7 +1170,12 @@ impl VulkanRenderer {
         }
     }
 
-    fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>, fb: &Rc<VulkanImage>) {
+    fn create_pending_frame(
+        self: &Rc<Self>,
+        buf: Rc<VulkanCommandBuffer>,
+        fb: &Rc<VulkanImage>,
+        bb: Option<Rc<VulkanImage>>,
+    ) {
         zone!("create_pending_frame");
         let point = self.allocate_point();
         let mut memory = self.memory.borrow_mut();
@@ -1019,6 +1184,7 @@ impl VulkanRenderer {
             renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
             _fb: fb.clone(),
+            _bb: bb,
             _textures: mem::take(&mut memory.textures),
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
@@ -1046,9 +1212,18 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
         region: &Region,
+        blend_buffer: Option<Rc<VulkanImage>>,
     ) -> Result<Option<SyncFile>, VulkanError> {
         zone!("execute");
-        let res = self.try_execute(fb, fb_acquire_sync, fb_release_sync, opts, clear, region);
+        let res = self.try_execute(
+            fb,
+            fb_acquire_sync,
+            fb_release_sync,
+            opts,
+            clear,
+            region,
+            blend_buffer,
+        );
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
             memory.textures.clear();
@@ -1118,17 +1293,19 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
         region: &Region,
+        blend_buffer: Option<Rc<VulkanImage>>,
     ) -> Result<(), VulkanError> {
+        let bb = blend_buffer.as_deref();
         self.check_defunct()?;
         self.create_paint_regions(fb, region);
         let buf = self.gfx_command_buffers.allocate()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
-        self.create_descriptor_buffers(buf.buffer, opts)?;
-        self.initial_barriers(buf.buffer, fb)?;
-        self.begin_rendering(buf.buffer, fb, clear);
+        self.create_descriptor_buffers(buf.buffer, opts, bb)?;
+        self.initial_barriers(buf.buffer, fb, bb)?;
+        self.begin_rendering(buf.buffer, fb, clear, bb);
         self.set_viewport(buf.buffer, fb);
-        self.record_draws(buf.buffer, fb, opts)?;
+        self.record_draws(buf.buffer, fb, opts, bb)?;
         self.end_rendering(buf.buffer);
         self.copy_bridge_to_dmabuf(buf.buffer, fb);
         self.final_barriers(buf.buffer, fb);
@@ -1136,8 +1313,8 @@ impl VulkanRenderer {
         self.create_wait_semaphores(fb, &fb_acquire_sync)?;
         self.submit(buf.buffer)?;
         self.import_release_semaphore(fb, fb_release_sync);
-        self.store_layouts(fb);
-        self.create_pending_frame(buf, fb);
+        self.store_layouts(fb, bb);
+        self.create_pending_frame(buf, fb, blend_buffer);
         Ok(())
     }
 
@@ -1204,6 +1381,17 @@ impl dyn GfxTexture {
             .into_any()
             .downcast()
             .expect("Non-vulkan texture passed into vulkan");
+        img.assert_device(device);
+        img
+    }
+}
+
+impl dyn GfxBlendBuffer {
+    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanImage> {
+        let img: Rc<VulkanImage> = self
+            .into_any()
+            .downcast()
+            .expect("Non-vulkan blend buffer passed into vulkan");
         img.assert_device(device);
         img
     }

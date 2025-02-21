@@ -1,6 +1,6 @@
 use {
     crate::{
-        format::{FORMATS, Format},
+        format::{ABGR16161616F, FORMATS, Format},
         gfx_apis::vulkan::{VulkanError, instance::VulkanInstance},
         video::{LINEAR_MODIFIER, Modifier},
     },
@@ -38,16 +38,22 @@ pub struct VulkanModifier {
     pub render_needs_bridge: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct VulkanModifierLimits {
     pub max_width: u32,
     pub max_height: u32,
     pub exportable: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VulkanInternalFormat {
     pub limits: VulkanModifierLimits,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct VulkanBlendBufferLimits {
+    pub max_width: u32,
+    pub max_height: u32,
 }
 
 const FRAMEBUFFER_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
@@ -78,6 +84,11 @@ const TRANSFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
 );
 const SHM_USAGE: ImageUsageFlags =
     ImageUsageFlags::from_raw(TRANSFER_USAGE.as_raw() | TEX_USAGE.as_raw());
+
+pub const BLEND_FORMAT: &Format = ABGR16161616F;
+pub const BLEND_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
+    ImageUsageFlags::COLOR_ATTACHMENT.as_raw() | ImageUsageFlags::INPUT_ATTACHMENT.as_raw(),
+);
 
 impl VulkanInstance {
     pub(super) fn load_formats(
@@ -124,6 +135,29 @@ impl VulkanInstance {
             );
         }
         Ok(())
+    }
+
+    pub fn load_blend_format_limits(
+        &self,
+        phy_dev: PhysicalDevice,
+    ) -> Result<VulkanBlendBufferLimits, VulkanError> {
+        let format_properties = unsafe {
+            self.instance
+                .get_physical_device_format_properties(phy_dev, BLEND_FORMAT.vk_format)
+        };
+        let l = self
+            .load_internal_format(
+                phy_dev,
+                BLEND_FORMAT,
+                &format_properties,
+                FRAMEBUFFER_FEATURES,
+                BLEND_USAGE,
+            )?
+            .unwrap_or_default();
+        Ok(VulkanBlendBufferLimits {
+            max_width: l.limits.max_width,
+            max_height: l.limits.max_height,
+        })
     }
 
     fn load_shm_format(

@@ -3,7 +3,7 @@ use {
         format::XRGB8888,
         gfx_apis::vulkan::{
             VulkanError,
-            format::VulkanFormat,
+            format::{VulkanBlendBufferLimits, VulkanFormat},
             instance::{
                 API_VERSION, ApiVersionDisplay, Extensions, VulkanInstance,
                 map_extension_properties,
@@ -24,20 +24,21 @@ use {
             physical_device_drm, queue_family_foreign,
         },
         khr::{
-            driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
-            push_descriptor,
+            driver_properties, dynamic_rendering_local_read, external_fence_fd, external_memory_fd,
+            external_semaphore_fd, push_descriptor,
         },
         vk::{
-            DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, ExternalSemaphoreFeatureFlags,
-            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, MAX_MEMORY_TYPES,
-            MemoryPropertyFlags, MemoryType, PhysicalDevice,
-            PhysicalDeviceBufferDeviceAddressFeatures, PhysicalDeviceDescriptorBufferFeaturesEXT,
-            PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDriverProperties,
-            PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceProperties, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures, Queue,
-            QueueFlags,
+            self, DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize,
+            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
+            ExternalSemaphoreProperties, MAX_MEMORY_TYPES, MemoryPropertyFlags, MemoryType,
+            PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
+            PhysicalDeviceDescriptorBufferFeaturesEXT, PhysicalDeviceDescriptorBufferPropertiesEXT,
+            PhysicalDeviceDriverProperties, PhysicalDeviceDriverPropertiesKHR,
+            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
+            PhysicalDeviceDynamicRenderingLocalReadFeaturesKHR,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures, PhysicalDeviceProperties,
+            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
+            PhysicalDeviceTimelineSemaphoreFeatures, Queue, QueueFlags,
         },
     },
     isnt::std_1::collections::IsntHashMap2Ext,
@@ -63,6 +64,7 @@ pub struct VulkanDevice {
     pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
     pub(super) descriptor_buffer: Option<descriptor_buffer::Device>,
     pub(super) formats: AHashMap<u32, VulkanFormat>,
+    pub(super) blend_limits: VulkanBlendBufferLimits,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,
     pub(super) graphics_queue_idx: u32,
@@ -71,6 +73,8 @@ pub struct VulkanDevice {
     pub(super) transfer_granularity_mask: (u32, u32),
     pub(super) descriptor_buffer_offset_mask: DeviceSize,
     pub(super) combined_image_sampler_descriptor_size: usize,
+    pub(super) input_attachment_descriptor_size: usize,
+    pub(super) dynamic_rendering_local_read: Option<dynamic_rendering_local_read::Device>,
 }
 
 impl Drop for VulkanDevice {
@@ -271,7 +275,14 @@ impl VulkanInstance {
                 return Err(VulkanError::MissingDeviceExtension(ext));
             }
         }
+        let supported_features = unsafe { self.instance.get_physical_device_features(phy_dev) };
+        if supported_features.independent_blend == vk::FALSE {
+            return Err(VulkanError::NoIndependentBlend);
+        }
+        let enabled_features = PhysicalDeviceFeatures::default().independent_blend(true);
         let supports_descriptor_buffer = extensions.contains_key(descriptor_buffer::NAME);
+        let supports_dynamic_rendering_local_read =
+            extensions.contains_key(dynamic_rendering_local_read::NAME);
         let (graphics_queue_family_idx, transfer_queue_family) = self.find_queues(phy_dev)?;
         let mut distinct_transfer_queue_family_idx = None;
         let mut transfer_granularity_mask = (0, 0);
@@ -291,6 +302,9 @@ impl VulkanInstance {
         if supports_descriptor_buffer {
             enabled_extensions.push(descriptor_buffer::NAME.as_ptr());
         }
+        if supports_dynamic_rendering_local_read {
+            enabled_extensions.push(dynamic_rendering_local_read::NAME.as_ptr());
+        }
         let mut semaphore_features =
             PhysicalDeviceTimelineSemaphoreFeatures::default().timeline_semaphore(true);
         let mut synchronization2_features =
@@ -301,6 +315,9 @@ impl VulkanInstance {
             PhysicalDeviceDescriptorBufferFeaturesEXT::default().descriptor_buffer(true);
         let mut buffer_device_address_features =
             PhysicalDeviceBufferDeviceAddressFeatures::default().buffer_device_address(true);
+        let mut dynamic_rendering_local_read =
+            PhysicalDeviceDynamicRenderingLocalReadFeaturesKHR::default()
+                .dynamic_rendering_local_read(true);
         let mut queue_create_infos = ArrayVec::<_, 2>::new();
         queue_create_infos.push(
             DeviceQueueCreateInfo::default()
@@ -315,6 +332,7 @@ impl VulkanInstance {
             );
         }
         let mut device_create_info = DeviceCreateInfo::default()
+            .enabled_features(&enabled_features)
             .push_next(&mut semaphore_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
@@ -325,6 +343,9 @@ impl VulkanInstance {
                 .push_next(&mut descriptor_buffer_features)
                 .push_next(&mut buffer_device_address_features);
         }
+        if supports_dynamic_rendering_local_read {
+            device_create_info = device_create_info.push_next(&mut dynamic_rendering_local_read)
+        }
         let device = unsafe {
             self.instance
                 .create_device(phy_dev, &device_create_info, None)
@@ -334,6 +355,7 @@ impl VulkanInstance {
             Err(e) => return Err(VulkanError::CreateDevice(e)),
         };
         let destroy_device = OnDrop(|| unsafe { device.destroy_device(None) });
+        let blend_limits = self.load_blend_format_limits(phy_dev)?;
         let formats = self.load_formats(phy_dev)?;
         let supports_xrgb8888 = formats
             .get(&XRGB8888.drm)
@@ -359,8 +381,11 @@ impl VulkanInstance {
             image_drm_format_modifier::Device::new(&self.instance, &device);
         let descriptor_buffer = supports_descriptor_buffer
             .then(|| descriptor_buffer::Device::new(&self.instance, &device));
+        let dynamic_rendering_local_read = supports_dynamic_rendering_local_read
+            .then(|| dynamic_rendering_local_read::Device::new(&self.instance, &device));
         let mut descriptor_buffer_offset_mask = 0;
         let mut combined_image_sampler_descriptor_size = 0;
+        let mut input_attachment_descriptor_size = 0;
         if supports_descriptor_buffer {
             let mut descriptor_buffer_props =
                 PhysicalDeviceDescriptorBufferPropertiesEXT::default();
@@ -377,6 +402,8 @@ impl VulkanInstance {
                 - 1;
             combined_image_sampler_descriptor_size =
                 descriptor_buffer_props.combined_image_sampler_descriptor_size;
+            input_attachment_descriptor_size =
+                descriptor_buffer_props.input_attachment_descriptor_size;
         }
         let memory_properties =
             unsafe { self.instance.get_physical_device_memory_properties(phy_dev) };
@@ -415,6 +442,9 @@ impl VulkanInstance {
             transfer_granularity_mask,
             descriptor_buffer_offset_mask,
             combined_image_sampler_descriptor_size,
+            input_attachment_descriptor_size,
+            blend_limits,
+            dynamic_rendering_local_read,
         }))
     }
 }
