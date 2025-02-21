@@ -700,7 +700,6 @@ pub trait GfxContext: Debug {
         Rc::new(Dummy(size))
     }
 
-    #[expect(dead_code)]
     fn create_blend_buffer(
         &self,
         width: i32,

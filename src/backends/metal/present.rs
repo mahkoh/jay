@@ -749,7 +749,7 @@ impl MetalConnector {
                         ReleaseSync::Explicit,
                         &latched.pass,
                         &latched.damage,
-                        None,
+                        buffer.blend_buffer.as_ref(),
                     )
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
