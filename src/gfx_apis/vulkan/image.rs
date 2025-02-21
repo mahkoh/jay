@@ -531,7 +531,7 @@ impl GfxFramebuffer for VulkanImage {
     }
 
     fn render_with_region(
-        &self,
+        self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
@@ -539,7 +539,7 @@ impl GfxFramebuffer for VulkanImage {
         region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
-            .execute(self, acquire_sync, release_sync, ops, clear, region)
+            .execute(&self, acquire_sync, release_sync, ops, clear, region)
             .map_err(|e| e.into())
     }
 

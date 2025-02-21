@@ -257,23 +257,8 @@ pub enum ResetStatus {
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
 
-    fn full_region(&self) -> Region {
-        let (width, height) = self.physical_size();
-        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
-    }
-
-    fn render(
-        &self,
-        acquire_sync: AcquireSync,
-        release_sync: ReleaseSync,
-        ops: &[GfxApiOpt],
-        clear: Option<&Color>,
-    ) -> Result<Option<SyncFile>, GfxError> {
-        self.render_with_region(acquire_sync, release_sync, ops, clear, &self.full_region())
-    }
-
     fn render_with_region(
-        &self,
+        self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
@@ -300,8 +285,24 @@ pub trait GfxInternalFramebuffer: GfxFramebuffer {
 }
 
 impl dyn GfxFramebuffer {
+    pub fn render(
+        self: &Rc<Self>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        ops: &[GfxApiOpt],
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError> {
+        self.clone()
+            .render_with_region(acquire_sync, release_sync, ops, clear, &self.full_region())
+    }
+
+    fn full_region(&self) -> Region {
+        let (width, height) = self.physical_size();
+        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
+    }
+
     pub fn clear(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
     ) -> Result<Option<SyncFile>, GfxError> {
@@ -309,7 +310,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn clear_with(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         r: f32,
@@ -334,7 +335,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn copy_texture(
-        &self,
+        self: &Rc<Self>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         texture: &Rc<dyn GfxTexture>,
@@ -365,7 +366,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn render_custom(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         scale: Scale,
@@ -407,13 +408,13 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn perform_render_pass(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         pass: &GfxRenderPass,
         region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render_with_region(
+        self.clone().render_with_region(
             acquire_sync,
             release_sync,
             &pass.ops,
@@ -423,7 +424,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn render_output(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         node: &OutputNode,
@@ -449,7 +450,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn render_node(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         node: &dyn Node,
@@ -478,7 +479,7 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn render_hardware_cursor(
-        &self,
+        self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         cursor: &dyn Cursor,

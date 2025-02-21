@@ -158,6 +158,7 @@ pub(super) struct PendingFrame {
     point: u64,
     renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
+    _fb: Rc<VulkanImage>,
     _textures: Vec<UsedTexture>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
@@ -1008,7 +1009,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>) {
+    fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>, fb: &Rc<VulkanImage>) {
         zone!("create_pending_frame");
         let point = self.allocate_point();
         let mut memory = self.memory.borrow_mut();
@@ -1016,6 +1017,7 @@ impl VulkanRenderer {
             point,
             renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
+            _fb: fb.clone(),
             _textures: mem::take(&mut memory.textures),
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
@@ -1037,7 +1039,7 @@ impl VulkanRenderer {
 
     pub fn execute(
         self: &Rc<Self>,
-        fb: &VulkanImage,
+        fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
@@ -1102,7 +1104,7 @@ impl VulkanRenderer {
 
     fn try_execute(
         self: &Rc<Self>,
-        fb: &VulkanImage,
+        fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
@@ -1127,7 +1129,7 @@ impl VulkanRenderer {
         self.submit(buf.buffer)?;
         self.import_release_semaphore(fb, fb_release_sync);
         self.store_layouts(fb);
-        self.create_pending_frame(buf);
+        self.create_pending_frame(buf, fb);
         Ok(())
     }
 

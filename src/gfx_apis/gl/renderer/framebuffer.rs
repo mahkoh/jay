@@ -100,14 +100,16 @@ impl GfxFramebuffer for Framebuffer {
     }
 
     fn render_with_region(
-        &self,
+        self: Rc<Self>,
         acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         _region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(acquire_sync, ops, clear).map_err(|e| e.into())
+        (*self)
+            .render(acquire_sync, ops, clear)
+            .map_err(|e| e.into())
     }
 
     fn format(&self) -> &'static Format {
