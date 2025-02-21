@@ -9,7 +9,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{zwlr_data_control_manager_v1::*, ZwlrDataControlManagerV1Id},
+        wire::{ZwlrDataControlManagerV1Id, zwlr_data_control_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -1,11 +1,11 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_INPUT_METHOD},
+        client::{CAP_INPUT_METHOD, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
-        ifs::wl_seat::text_input::{zwp_input_method_v2::ZwpInputMethodV2, TextConnectReason},
+        ifs::wl_seat::text_input::{TextConnectReason, zwp_input_method_v2::ZwpInputMethodV2},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_input_method_manager_v2::*, ZwpInputMethodManagerV2Id},
+        wire::{ZwpInputMethodManagerV2Id, zwp_input_method_manager_v2::*},
     },
     std::rc::Rc,
     thiserror::Error,

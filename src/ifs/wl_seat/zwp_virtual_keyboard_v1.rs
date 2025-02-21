@@ -5,8 +5,8 @@ use {
         clientmem::{ClientMem, ClientMemError},
         ifs::{
             wl_seat::{
-                wl_keyboard::{self, WlKeyboard},
                 WlSeatGlobal,
+                wl_keyboard::{self, WlKeyboard},
             },
             wl_surface::WlSurface,
         },
@@ -14,7 +14,7 @@ use {
         keyboard::KeyboardState,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
+        wire::{ZwpVirtualKeyboardV1Id, zwp_virtual_keyboard_v1::*},
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,

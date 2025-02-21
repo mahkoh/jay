@@ -1,14 +1,14 @@
 use {
     crate::{
         object::Version,
-        wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
+        wire::{ZwlrLayerShellV1Id, zwlr_layer_shell_v1::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{
                 usr_wl_output::UsrWlOutput, usr_wl_surface::UsrWlSurface,
                 usr_wlr_layer_surface::UsrWlrLayerSurface,
             },
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

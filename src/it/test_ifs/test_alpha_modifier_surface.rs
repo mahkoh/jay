@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{wp_alpha_modifier_surface_v1::*, WpAlphaModifierSurfaceV1Id},
+        wire::{WpAlphaModifierSurfaceV1Id, wp_alpha_modifier_surface_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

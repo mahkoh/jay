@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_text_input_manager_v3::*, ZwpTextInputManagerV3Id},
+        wire::{ZwpTextInputManagerV3Id, zwp_text_input_manager_v3::*},
     },
     std::rc::Rc,
     thiserror::Error,

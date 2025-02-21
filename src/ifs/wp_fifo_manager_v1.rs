@@ -5,7 +5,7 @@ use {
         ifs::wl_surface::wp_fifo_v1::{WpFifoV1, WpFifoV1Error},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_fifo_manager_v1::*, WpFifoManagerV1Id},
+        wire::{WpFifoManagerV1Id, wp_fifo_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

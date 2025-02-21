@@ -37,10 +37,11 @@ xkb_keymap {
 
     ds.kb.press(1);
     run.sync().await;
-    tassert!(run
-        .cfg
-        .invoked_shortcuts
-        .contains(&(ds.seat.id(), SYM_F13.into())));
+    tassert!(
+        run.cfg
+            .invoked_shortcuts
+            .contains(&(ds.seat.id(), SYM_F13.into()))
+    );
 
     Ok(())
 }

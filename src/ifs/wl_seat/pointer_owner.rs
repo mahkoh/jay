@@ -1,23 +1,23 @@
 use {
     crate::{
-        backend::{AxisSource, KeyState, ScrollAxis, AXIS_120},
+        backend::{AXIS_120, AxisSource, KeyState, ScrollAxis},
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
             ipc,
             ipc::wl_data_source::WlDataSource,
             wl_seat::{
-                wl_pointer::PendingScroll, Dnd, DroppedDnd, NodeSeatState, WlSeatError,
-                WlSeatGlobal, BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
+                BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, DroppedDnd,
+                NodeSeatState, WlSeatError, WlSeatGlobal, wl_pointer::PendingScroll,
             },
-            wl_surface::{dnd_icon::DndIcon, WlSurface},
+            wl_surface::{WlSurface, dnd_icon::DndIcon},
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         rect::Rect,
         tree::{
-            move_ws_to_output, ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase,
-            FoundNode, Node, PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination,
-            WorkspaceNode, WsMoveConfig,
+            ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
+            PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination, WorkspaceNode,
+            WsMoveConfig, move_ws_to_output,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },

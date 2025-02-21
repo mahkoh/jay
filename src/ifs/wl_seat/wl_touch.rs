@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_touch::*, WlSurfaceId, WlTouchId},
+        wire::{WlSurfaceId, WlTouchId, wl_touch::*},
     },
     std::rc::Rc,
     thiserror::Error,

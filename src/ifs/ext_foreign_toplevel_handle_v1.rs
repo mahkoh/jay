@@ -4,7 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelOpt,
-        wire::{ext_foreign_toplevel_handle_v1::*, ExtForeignToplevelHandleV1Id},
+        wire::{ExtForeignToplevelHandleV1Id, ext_foreign_toplevel_handle_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

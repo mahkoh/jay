@@ -1,14 +1,14 @@
 use {
     crate::{
-        format::{formats, Format},
+        format::{Format, formats},
         object::Version,
         utils::clonecell::CloneCell,
         wire::{
-            zwp_linux_dmabuf_v1::{self, *},
             ZwpLinuxDmabufV1Id,
+            zwp_linux_dmabuf_v1::{self, *},
         },
         wl_usr::{
-            usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, usr_object::UsrObject, UsrCon,
+            UsrCon, usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, usr_object::UsrObject,
         },
     },
     std::{convert::Infallible, rc::Rc},

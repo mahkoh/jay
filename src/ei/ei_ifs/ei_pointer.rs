@@ -8,10 +8,10 @@ use {
         fixed::Fixed,
         leaks::Tracker,
         wire_ei::{
+            EiPointerId,
             ei_pointer::{
                 ClientMotionRelative, EiPointerRequestHandler, Release, ServerMotionRelative,
             },
-            EiPointerId,
         },
     },
     std::rc::Rc,

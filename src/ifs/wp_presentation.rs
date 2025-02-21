@@ -1,4 +1,4 @@
-pub use crate::wire::{wp_presentation::*, WpPresentationId};
+pub use crate::wire::{WpPresentationId, wp_presentation::*};
 use {
     crate::{
         client::{Client, ClientError},

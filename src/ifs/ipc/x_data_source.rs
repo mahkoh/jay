@@ -2,8 +2,8 @@ use {
     crate::{
         ifs::{
             ipc::{
-                cancel_offers, detach_seat, x_data_device::XIpcDevice, DataSource, DynDataSource,
-                IpcLocation, SourceData,
+                DataSource, DynDataSource, IpcLocation, SourceData, cancel_offers, detach_seat,
+                x_data_device::XIpcDevice,
             },
             wl_seat::WlSeatGlobal,
         },

@@ -4,7 +4,10 @@ use {
         error::Error,
         fmt::{Display, Formatter},
     },
-    uapi::{c, c::c_int, Errno},
+    uapi::{
+        Errno,
+        c::{self, c_int},
+    },
 };
 
 static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {

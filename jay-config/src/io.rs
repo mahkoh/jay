@@ -2,13 +2,13 @@
 
 use {
     crate::_private::PollableId,
-    futures_util::{io::AsyncRead, AsyncWrite},
+    futures_util::{AsyncWrite, io::AsyncRead},
     std::{
         future::poll_fn,
         io::{self, ErrorKind, IoSlice, IoSliceMut, Read, Write},
         os::fd::{AsFd, AsRawFd},
         pin::Pin,
-        task::{ready, Context, Poll},
+        task::{Context, Poll, ready},
     },
     thiserror::Error,
     uapi::c,

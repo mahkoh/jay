@@ -2,7 +2,7 @@ use {
     crate::{
         fixed::Fixed,
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{wp_viewport::*, WpViewportId},
+        wire::{WpViewportId, wp_viewport::*},
     },
     std::rc::Rc,
 };

@@ -17,14 +17,14 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
-        input::{acceleration::AccelProfile, SwitchEvent},
-        keyboard::{mods::Modifiers, Keymap, ModifiedKeySym},
+        Axis, Direction, Workspace,
+        input::{SwitchEvent, acceleration::AccelProfile},
+        keyboard::{Keymap, ModifiedKeySym, mods::Modifiers},
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
         video::{Format, GfxApi, TearingMode, Transform, VrrMode},
         xwayland::XScalingMode,
-        Axis, Direction, Workspace,
     },
     std::{
         error::Error,

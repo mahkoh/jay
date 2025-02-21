@@ -1,5 +1,5 @@
 use {
-    crate::gfx_apis::vulkan::{device::VulkanDevice, sampler::VulkanSampler, VulkanError},
+    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice, sampler::VulkanSampler},
     arrayvec::ArrayVec,
     ash::vk::{
         DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,

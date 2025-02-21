@@ -1,11 +1,11 @@
 use {
     crate::{
-        dbus::{prelude::Variant, DbusObject, DictEntry, DynamicType, PendingReply, FALSE},
+        dbus::{DbusObject, DictEntry, DynamicType, FALSE, PendingReply, prelude::Variant},
         pipewire::pw_con::PwCon,
         portal::{
+            PORTAL_SUCCESS, PortalState,
             ptl_remote_desktop::{DeviceTypes, RemoteDesktopPhase},
             ptl_screencast::{ScreencastPhase, ScreencastTarget},
-            PortalState, PORTAL_SUCCESS,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire_dbus::org::freedesktop::impl_::portal::{

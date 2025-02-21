@@ -2,10 +2,10 @@ use {
     crate::{
         object::Version,
         wire::{
-            jay_ei_session_builder::{Commit, JayEiSessionBuilderEventHandler, SetAppId},
             JayEiSessionBuilderId,
+            jay_ei_session_builder::{Commit, JayEiSessionBuilderEventHandler, SetAppId},
         },
-        wl_usr::{usr_ifs::usr_jay_ei_session::UsrJayEiSession, usr_object::UsrObject, UsrCon},
+        wl_usr::{UsrCon, usr_ifs::usr_jay_ei_session::UsrJayEiSession, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

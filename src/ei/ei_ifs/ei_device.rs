@@ -13,12 +13,12 @@ use {
         scale::Scale,
         utils::{copyhashmap::CopyHashMap, syncqueue::SyncQueue},
         wire_ei::{
+            EiDeviceId,
             ei_device::{
                 ClientFrame, ClientStartEmulating, ClientStopEmulating, Destroyed, DeviceType,
                 Done, EiDeviceRequestHandler, Interface, Paused, Region, RegionMappingId, Release,
                 Resumed, ServerFrame, ServerStartEmulating,
             },
-            EiDeviceId,
         },
     },
     std::{cell::Cell, rc::Rc},

@@ -2,7 +2,7 @@ use {
     crate::{format::Format, utils::oserror::OsError, video::Modifier},
     arrayvec::ArrayVec,
     std::rc::Rc,
-    uapi::{c::ioctl, OwnedFd, _IOW, _IOWR},
+    uapi::{_IOW, _IOWR, OwnedFd, c::ioctl},
 };
 
 #[derive(Clone, Debug)]

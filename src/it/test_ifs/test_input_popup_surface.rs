@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{zwp_input_popup_surface_v2::*, ZwpInputPopupSurfaceV2Id},
+        wire::{ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
 };

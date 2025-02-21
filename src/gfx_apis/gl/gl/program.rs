@@ -1,11 +1,11 @@
 use {
     crate::gfx_apis::gl::{
+        RenderError,
         egl::context::EglContext,
         gl::{
             shader::GlShader,
-            sys::{GLint, GLuint, GL_FALSE, GL_FRAGMENT_SHADER, GL_LINK_STATUS, GL_VERTEX_SHADER},
+            sys::{GL_FALSE, GL_FRAGMENT_SHADER, GL_LINK_STATUS, GL_VERTEX_SHADER, GLint, GLuint},
         },
-        RenderError,
     },
     std::{ffi::CStr, rc::Rc},
 };

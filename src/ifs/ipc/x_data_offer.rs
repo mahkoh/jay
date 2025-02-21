@@ -3,17 +3,16 @@ use {
         client::ClientId,
         ifs::{
             ipc::{
-                cancel_offer,
+                DataOffer, DataOfferId, DynDataOffer, IpcLocation, OfferData, cancel_offer,
                 x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-                DataOffer, DataOfferId, DynDataOffer, IpcLocation, OfferData,
             },
             wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
         xwayland::XWaylandEvent,
     },
-    std::rc::Rc,
     XWaylandEvent::IpcAddOfferMimeType,
+    std::rc::Rc,
 };
 
 pub struct XDataOffer {

@@ -1,12 +1,12 @@
 use {
     crate::{
         ifs::wl_surface::{
+            WlSurface,
             ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
             tray::jay_tray_item_v1::JayTrayItemV1,
             x_surface::xwindow::Xwindow,
             xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-            WlSurface,
         },
         tree::{
             ContainerNode, DisplayNode, FloatNode, Node, OutputNode, PlaceholderNode, WorkspaceNode,

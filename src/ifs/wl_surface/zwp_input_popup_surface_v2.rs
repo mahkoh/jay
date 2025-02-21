@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
-        wire::{zwp_input_popup_surface_v2::*, WlSurfaceId, ZwpInputPopupSurfaceV2Id},
+        wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -183,7 +183,9 @@ pub enum ZwpInputPopupSurfaceV2Error {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error("Surface {0} cannot be turned into a zwp_input_popup_surface_v2 because it already has an attached zwp_input_popup_surface_v2")]
+    #[error(
+        "Surface {0} cannot be turned into a zwp_input_popup_surface_v2 because it already has an attached zwp_input_popup_surface_v2"
+    )]
     AlreadyAttached(WlSurfaceId),
 }
 efrom!(ZwpInputPopupSurfaceV2Error, WlSurfaceError);

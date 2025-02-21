@@ -24,13 +24,13 @@ use {
             },
         },
         libinput::{
+            LibInput, LibInputAdapter, LibInputError,
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
                 LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_DEVICE_CAP_TABLET_PAD,
                 LIBINPUT_DEVICE_CAP_TABLET_TOOL,
             },
             device::{LibInputDevice, RegisteredDevice},
-            LibInput, LibInputAdapter, LibInputError,
         },
         logind::{LogindError, Session},
         state::State,
@@ -46,7 +46,7 @@ use {
             syncqueue::SyncQueue,
         },
         video::{
-            drm::{DrmError, DRM_MODE_ATOMIC_ALLOW_MODESET},
+            drm::{DRM_MODE_ATOMIC_ALLOW_MODESET, DrmError},
             gbm::GbmError,
         },
     },
@@ -61,7 +61,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]

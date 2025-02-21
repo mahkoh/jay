@@ -5,7 +5,7 @@ use {
         state::State,
         utils::buffd::MsgParser,
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        wire::{jay_screenshot::*, JayScreenshotId},
+        wire::{JayScreenshotId, jay_screenshot::*},
     },
     std::{
         cell::{Cell, RefCell},

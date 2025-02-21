@@ -2,14 +2,14 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::{
-            jay_toplevel::{JayToplevel, ID_SINCE},
+            jay_toplevel::{ID_SINCE, JayToplevel},
             wl_seat::ToplevelSelector,
         },
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelNode,
         utils::clonecell::CloneCell,
-        wire::{jay_select_toplevel::*, JaySelectToplevelId, JayToplevelId},
+        wire::{JaySelectToplevelId, JayToplevelId, jay_select_toplevel::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

@@ -6,7 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_session_lock_v1::*, ExtSessionLockV1Id},
+        wire::{ExtSessionLockV1Id, ext_session_lock_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

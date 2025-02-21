@@ -5,9 +5,9 @@ use {
     },
     crate::{
         dbus::{
-            CallError, DbusError, DbusSocket, Headers, MemberHandlerKey, Message, MethodHandlerApi,
-            Parser, PropertyGetAllHandlerProxy, PropertyGetHandlerProxy, MSG_ERROR,
-            MSG_METHOD_CALL, MSG_METHOD_RETURN, MSG_SIGNAL, NO_REPLY_EXPECTED,
+            CallError, DbusError, DbusSocket, Headers, MSG_ERROR, MSG_METHOD_CALL,
+            MSG_METHOD_RETURN, MSG_SIGNAL, MemberHandlerKey, Message, MethodHandlerApi,
+            NO_REPLY_EXPECTED, Parser, PropertyGetAllHandlerProxy, PropertyGetHandlerProxy,
         },
         utils::{
             bitflags::BitflagsExt,

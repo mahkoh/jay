@@ -6,8 +6,8 @@ use {
         leaks::Tracker,
         object::Object,
         utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
-        video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec, MAX_PLANES},
-        wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
+        video::dmabuf::{DmaBuf, DmaBufPlane, MAX_PLANES, PlaneVec},
+        wire::{WlBufferId, ZwpLinuxBufferParamsV1Id, zwp_linux_buffer_params_v1::*},
     },
     ahash::AHashMap,
     std::{
@@ -136,7 +136,7 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
         let modifier = ((req.modifier_hi as u64) << 32) | req.modifier_lo as u64;
         match self.modifier.get() {
             Some(m) if m != modifier => {
-                return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m))
+                return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m));
             }
             _ => self.modifier.set(Some(modifier)),
         }

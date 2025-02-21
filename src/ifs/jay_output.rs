@@ -4,7 +4,7 @@ use {
         ifs::wl_output::OutputGlobalOpt,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_output::*, JayOutputId},
+        wire::{JayOutputId, jay_output::*},
     },
     std::rc::Rc,
     thiserror::Error,

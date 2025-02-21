@@ -5,8 +5,8 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             wl_seat::{
-                zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1,
                 WlSeatGlobal,
+                zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1,
             },
             wl_surface::WlSurface,
         },
@@ -15,8 +15,8 @@ use {
         rect::{Rect, Region},
         utils::clonecell::CloneCell,
         wire::{
-            zwp_pointer_constraints_v1::*, WlPointerId, WlRegionId, WlSurfaceId,
-            ZwpPointerConstraintsV1Id,
+            WlPointerId, WlRegionId, WlSurfaceId, ZwpPointerConstraintsV1Id,
+            zwp_pointer_constraints_v1::*,
         },
     },
     std::{cell::Cell, rc::Rc},

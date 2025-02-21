@@ -4,7 +4,7 @@ pub mod usr_object;
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        client::{EventFormatter, RequestParser, MIN_SERVER_ID},
+        client::{EventFormatter, MIN_SERVER_ID, RequestParser},
         io_uring::{IoUring, IoUringError},
         object::{Interface, ObjectId, Version, WL_DISPLAY_ID},
         utils::{

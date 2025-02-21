@@ -12,16 +12,15 @@ use {
             wl_buffer::WlBufferStorage,
             wl_output::WlOutputGlobal,
             wl_seat::{
-                collect_kb_foci2,
+                BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci2,
                 tablet::{TabletTool, TabletToolChanges, TabletToolId},
                 wl_pointer::PendingScroll,
-                NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
             },
             wl_surface::{
+                SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
                 tray::DynTrayItem,
                 zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
-                SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
             },
             workspace_manager::{
                 ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
@@ -38,9 +37,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
-            NodeId, StackedNode, TddType, TileDragDestination, WorkspaceDragDestination,
-            WorkspaceNode, WorkspaceNodeId,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, StackedNode,
+            TddType, TileDragDestination, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,

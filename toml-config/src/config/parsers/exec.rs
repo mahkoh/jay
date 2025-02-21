@@ -1,14 +1,14 @@
 use {
     crate::{
         config::{
+            Exec,
             context::Context,
-            extractor::{arr, bol, opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, arr, bol, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
-                env::{EnvParser, EnvParserError},
                 StringParser, StringParserError,
+                env::{EnvParser, EnvParserError},
             },
-            Exec,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned, SpannedExt},

@@ -5,7 +5,7 @@ use {
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{zwp_linux_dmabuf_feedback_v1::*, ZwpLinuxDmabufFeedbackV1Id},
+        wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
     },
     std::{
         cell::{Cell, RefCell},
@@ -13,7 +13,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub struct TestDmabufFeedback {

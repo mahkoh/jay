@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_tray_v1::*, JayTrayV1Id},
+        wire::{JayTrayV1Id, jay_tray_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -1,10 +1,12 @@
 use {
     crate::{
         config::{
+            Action,
             context::Context,
-            extractor::{arr, bol, n32, opt, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
+                StringParser, StringParserError,
                 connector::{ConnectorParser, ConnectorParserError},
                 drm_device::{DrmDeviceParser, DrmDeviceParserError},
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
@@ -20,10 +22,8 @@ use {
                 repeat_rate::{RepeatRateParser, RepeatRateParserError},
                 status::{StatusParser, StatusParserError},
                 theme::{ThemeParser, ThemeParserError},
-                StringParser, StringParserError,
             },
             spanned::SpannedErrorExt,
-            Action,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned, SpannedExt},
@@ -32,8 +32,8 @@ use {
     },
     indexmap::IndexMap,
     jay_config::{
-        get_workspace,
         Axis::{Horizontal, Vertical},
+        get_workspace,
     },
     thiserror::Error,
 };
@@ -114,7 +114,9 @@ impl ActionParser<'_> {
             "enable-window-management" => EnableWindowManagement(true),
             "disable-window-management" => EnableWindowManagement(false),
             _ => {
-                return Err(ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span))
+                return Err(
+                    ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
+                );
             }
         };
         Ok(Action::SimpleCommand { cmd })

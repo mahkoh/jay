@@ -6,7 +6,7 @@ use {
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, numcell::NumCell, once::Once},
-        wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
+        wire::{WlKeyboardId, WlSurfaceId, wl_keyboard::*},
     },
     std::rc::Rc,
 };

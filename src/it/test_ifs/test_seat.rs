@@ -9,7 +9,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, once::Once},
-        wire::{wl_seat::*, WlSeatId},
+        wire::{WlSeatId, wl_seat::*},
     },
     std::{cell::Cell, rc::Rc},
 };

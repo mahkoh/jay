@@ -2,8 +2,8 @@ use {
     crate::{
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         gfx_apis::gl::{
-            egl::image::EglImage, gl::texture::GlTexture, Framebuffer, GlRenderContext,
-            RenderError, Texture,
+            Framebuffer, GlRenderContext, RenderError, Texture, egl::image::EglImage,
+            gl::texture::GlTexture,
         },
     },
     std::rc::Rc,

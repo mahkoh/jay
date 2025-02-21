@@ -4,14 +4,14 @@ use {
         object::Version,
         utils::clonecell::CloneCell,
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        wire::{jay_screencast::*, JayScreencastId},
+        wire::{JayScreencastId, jay_screencast::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{
                 usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel,
                 usr_jay_workspace::UsrJayWorkspace, usr_wl_buffer::UsrWlBuffer,
             },
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},

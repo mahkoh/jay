@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_alpha_modifier_v1::*, WpAlphaModifierV1Id},
+        wire::{WpAlphaModifierV1Id, wp_alpha_modifier_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

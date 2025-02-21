@@ -4,7 +4,7 @@ use {
             test_error::TestError, test_ifs::test_xdg_toplevel::TestXdgToplevel,
             test_object::TestObject, test_transport::TestTransport,
         },
-        wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
+        wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

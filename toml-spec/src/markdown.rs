@@ -106,7 +106,10 @@ fn write_variant_spec(buf: &mut Vec<u8>, spec: &VariantSpec) -> Result<()> {
             let ts = spec!(ts);
             match ts {
                 TableSpec::Tagged { types } => {
-                    writeln!(buf, "This table is a tagged union. The variant is determined by the `type` field. It takes one of the following values:")?;
+                    writeln!(
+                        buf,
+                        "This table is a tagged union. The variant is determined by the `type` field. It takes one of the following values:"
+                    )?;
                     writeln!(buf)?;
                     for (name, spec) in types {
                         writeln!(buf, "- `{name}`:")?;

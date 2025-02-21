@@ -7,7 +7,7 @@ use {
         },
         object::ObjectId,
         utils::buffd::MsgParser,
-        wire::{wl_display::*, WlDisplayId},
+        wire::{WlDisplayId, wl_display::*},
     },
     std::rc::Rc,
 };

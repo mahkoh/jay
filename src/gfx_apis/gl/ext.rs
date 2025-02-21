@@ -1,9 +1,9 @@
 use {
     crate::gfx_apis::gl::{
-        egl::sys::{EGLDisplay, EGL_EXTENSIONS},
+        RenderError,
+        egl::sys::{EGL_EXTENSIONS, EGLDisplay},
         gl::sys::GL_EXTENSIONS,
         sys::{EGL, GLESV2},
-        RenderError,
     },
     ahash::AHashSet,
     bstr::ByteSlice,

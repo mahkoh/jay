@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{xdg_toplevel_drag_manager_v1::*, XdgToplevelDragManagerV1Id},
+        wire::{XdgToplevelDragManagerV1Id, xdg_toplevel_drag_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -4,8 +4,8 @@ use {
         ifs::{
             ipc::data_control::{
                 private::{
-                    logic::{self, DataControlError},
                     DataControlDevice, DataControlDeviceData, DataControlIpc, DataControlOfferData,
+                    logic::{self, DataControlError},
                 },
                 zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
                 zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
@@ -15,8 +15,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            zwlr_data_control_device_v1::*, ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id,
-            ZwlrDataControlSourceV1Id,
+            ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id, ZwlrDataControlSourceV1Id,
+            zwlr_data_control_device_v1::*,
         },
     },
     std::rc::Rc,

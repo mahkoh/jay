@@ -13,7 +13,7 @@ use {
             linkedlist::{LinkedNode, NodeRef},
             numcell::NumCell,
         },
-        wire::{wl_subsurface::*, WlSubsurfaceId},
+        wire::{WlSubsurfaceId, wl_subsurface::*},
     },
     std::{
         cell::{Cell, RefCell, RefMut},

@@ -3,7 +3,7 @@ use {
         async_engine::Phase,
         it::{
             test_backend::TestBackend,
-            test_config::{with_test_config, TestConfig},
+            test_config::{TestConfig, with_test_config},
             testrun::TestRun,
             tests::TestCase,
         },
@@ -75,14 +75,16 @@ fn run_tests_(tests: Vec<&'static dyn TestCase>) {
         for _ in 0..num_cpus {
             let queue = queue.clone();
             let it_run = it_run.clone();
-            threads.push(std::thread::spawn(move || loop {
-                let test = match queue.lock().pop_front() {
-                    Some(t) => t,
-                    _ => break,
-                };
-                with_test_config(|cfg| {
-                    run_test(&it_run, test, cfg);
-                })
+            threads.push(std::thread::spawn(move || {
+                loop {
+                    let test = match queue.lock().pop_front() {
+                        Some(t) => t,
+                        _ => break,
+                    };
+                    with_test_config(|cfg| {
+                        run_test(&it_run, test, cfg);
+                    })
+                }
             }));
         }
         for thread in threads {

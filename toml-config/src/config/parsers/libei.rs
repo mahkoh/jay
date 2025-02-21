@@ -1,10 +1,10 @@
 use {
     crate::{
         config::{
-            context::Context,
-            extractor::{bol, opt, recover, Extractor, ExtractorError},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             Libei,
+            context::Context,
+            extractor::{Extractor, ExtractorError, bol, opt, recover},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

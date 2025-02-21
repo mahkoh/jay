@@ -4,7 +4,7 @@ use {
             test_error::TestResult, test_ifs::test_registry::TestRegistry, test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wl_fixes::*, WlFixesId},
+        wire::{WlFixesId, wl_fixes::*},
     },
     std::rc::Rc,
 };

@@ -2,10 +2,11 @@ use {
     crate::{
         backend::KeyState,
         ei::{
+            EiContext,
             ei_client::{EiClient, EiClientError},
             ei_ifs::{
                 ei_button::EiButton,
-                ei_device::{EiDevice, EiDeviceInterface, EI_DEVICE_TYPE_VIRTUAL},
+                ei_device::{EI_DEVICE_TYPE_VIRTUAL, EiDevice, EiDeviceInterface},
                 ei_keyboard::EiKeyboard,
                 ei_pointer::EiPointer,
                 ei_pointer_absolute::EiPointerAbsolute,
@@ -13,19 +14,18 @@ use {
                 ei_touchscreen::EiTouchscreen,
             },
             ei_object::{EiInterface, EiObject, EiVersion},
-            EiContext,
         },
         fixed::Fixed,
-        ifs::wl_seat::{wl_pointer::PendingScroll, PhysicalKeyboardId, WlSeatGlobal},
+        ifs::wl_seat::{PhysicalKeyboardId, WlSeatGlobal, wl_pointer::PendingScroll},
         keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         leaks::Tracker,
         tree::Node,
         utils::{array, bitflags::BitflagsExt, clonecell::CloneCell},
         wire_ei::{
+            EiSeatId,
             ei_seat::{
                 Bind, Capability, Destroyed, Device, Done, EiSeatRequestHandler, Name, Release,
             },
-            EiSeatId,
         },
     },
     std::{cell::Cell, rc::Rc},

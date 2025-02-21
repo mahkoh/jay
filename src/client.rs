@@ -5,7 +5,7 @@ use {
         ifs::{
             wl_display::WlDisplay,
             wl_registry::WlRegistry,
-            wl_surface::{commit_timeline::CommitTimelines, WlSurface},
+            wl_surface::{WlSurface, commit_timeline::CommitTimelines},
         },
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
@@ -18,7 +18,7 @@ use {
             errorfmt::ErrorFmt,
             numcell::NumCell,
             pending_serial::PendingSerial,
-            pid_info::{get_pid_info, get_socket_creds, PidInfo},
+            pid_info::{PidInfo, get_pid_info, get_socket_creds},
         },
         wire::WlRegistryId,
     },
@@ -32,7 +32,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 pub use {
     error::{ClientError, ParserError},

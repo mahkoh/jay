@@ -4,7 +4,7 @@ use {
         ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{xdg_dialog_v1::*, XdgDialogV1Id, XdgToplevelId},
+        wire::{XdgDialogV1Id, XdgToplevelId, xdg_dialog_v1::*},
     },
     std::{fmt::Debug, rc::Rc},
     thiserror::Error,

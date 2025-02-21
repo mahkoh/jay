@@ -17,7 +17,7 @@ use {
             run_toplevel::RunToplevel,
             stack::Stack,
             vecstorage::VecStorage,
-            xrd::{xrd, XRD},
+            xrd::{XRD, xrd},
         },
         wire_dbus::{
             org,
@@ -858,8 +858,8 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
 pub mod prelude {
     pub use {
         super::{
-            types::{Bool, DictEntry, ObjectPath, Variant},
             DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
+            types::{Bool, DictEntry, ObjectPath, Variant},
         },
         std::{borrow::Cow, rc::Rc},
         uapi::OwnedFd,

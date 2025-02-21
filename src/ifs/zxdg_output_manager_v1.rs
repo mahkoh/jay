@@ -5,7 +5,7 @@ use {
         ifs::zxdg_output_v1::ZxdgOutputV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zxdg_output_manager_v1::*, ZxdgOutputManagerV1Id},
+        wire::{ZxdgOutputManagerV1Id, zxdg_output_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

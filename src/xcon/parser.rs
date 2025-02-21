@@ -1,7 +1,7 @@
 use {
     crate::{
         utils::ptr_ext::PtrExt,
-        xcon::{wire_type::Message, XconError},
+        xcon::{XconError, wire_type::Message},
     },
     bstr::{BStr, ByteSlice},
     std::{borrow::Cow, rc::Rc},

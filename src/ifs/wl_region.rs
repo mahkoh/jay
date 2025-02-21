@@ -4,7 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region, RegionBuilder},
-        wire::{wl_region::*, WlRegionId},
+        wire::{WlRegionId, wl_region::*},
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,

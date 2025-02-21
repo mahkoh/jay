@@ -1,7 +1,7 @@
 use {
     crate::{
         gfx_api::SyncFile,
-        gfx_apis::vulkan::{device::VulkanDevice, VulkanError},
+        gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
     },
     ash::vk::{
         ExportFenceCreateInfo, ExternalFenceHandleTypeFlags, Fence, FenceCreateInfo,

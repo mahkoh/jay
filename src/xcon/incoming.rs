@@ -2,7 +2,7 @@ use {
     crate::{
         utils::{bufio::BufIoIncoming, errorfmt::ErrorFmt},
         xcon::{
-            consts::XGE_EVENT, Event, ExtensionData, ExtensionIdRange, Parser, XconData, XconError,
+            Event, ExtensionData, ExtensionIdRange, Parser, XconData, XconError, consts::XGE_EVENT,
         },
     },
     std::{mem, rc::Rc},

@@ -1,13 +1,13 @@
 use {
     crate::{
         object::Version,
-        wire::{zwlr_screencopy_manager_v1::*, ZwlrScreencopyManagerV1Id},
+        wire::{ZwlrScreencopyManagerV1Id, zwlr_screencopy_manager_v1::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{
                 usr_wl_output::UsrWlOutput, usr_zwlr_screencopy_frame::UsrZwlrScreencopyFrame,
             },
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

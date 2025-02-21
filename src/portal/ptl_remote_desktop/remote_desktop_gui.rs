@@ -1,6 +1,6 @@
 use {
     crate::{
-        ifs::wl_seat::{wl_pointer::PRESSED, BTN_LEFT},
+        ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
             ptl_remote_desktop::{PortalSession, RemoteDesktopPhase},

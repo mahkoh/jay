@@ -1,11 +1,11 @@
 use {
     crate::{
         config::{
+            UiDrag,
             context::Context,
-            extractor::{bol, int, opt, recover, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, bol, int, opt, recover},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::exec::ExecParserError,
-            UiDrag,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

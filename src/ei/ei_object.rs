@@ -1,8 +1,8 @@
 use {
     crate::{
         ei::{
-            ei_client::{EiClient, EiClientError},
             EiContext,
+            ei_client::{EiClient, EiClientError},
         },
         utils::buffd::EiMsgParser,
         wire_ei::EiHandshakeId,

@@ -330,7 +330,7 @@ unsafe extern "C" {
         index: c::c_uint,
     ) -> *mut libinput_tablet_pad_mode_group;
     pub fn libinput_device_tablet_pad_get_num_mode_groups(device: *mut libinput_device)
-        -> c::c_int;
+    -> c::c_int;
     pub fn libinput_device_tablet_pad_get_num_buttons(device: *mut libinput_device) -> c::c_int;
     pub fn libinput_device_tablet_pad_get_num_rings(device: *mut libinput_device) -> c::c_int;
     pub fn libinput_device_tablet_pad_get_num_strips(device: *mut libinput_device) -> c::c_int;

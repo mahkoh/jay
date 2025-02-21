@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::asyncevent::AsyncEvent,
-        wire::{ext_idle_notification_v1::*, ExtIdleNotificationV1Id},
+        wire::{ExtIdleNotificationV1Id, ext_idle_notification_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

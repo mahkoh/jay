@@ -2,7 +2,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
         cpu_worker::CpuWorker,
-        format::{Format, ARGB8888, XRGB8888},
+        format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
@@ -11,7 +11,7 @@ use {
         },
         rect::{Rect, Region},
         theme::Color,
-        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, LINEAR_MODIFIER},
+        video::{LINEAR_MODIFIER, dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx},
     },
     ahash::AHashMap,
     indexmap::IndexSet,

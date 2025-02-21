@@ -5,7 +5,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{xdg_activation_token_v1::*, XdgActivationTokenV1Id},
+        wire::{XdgActivationTokenV1Id, xdg_activation_token_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -3,17 +3,17 @@ use {
         client::{Client, ClientError, ClientId},
         ifs::{
             ipc::{
-                break_offer_loops, cancel_offer, destroy_data_offer, receive_data_offer,
+                DataOffer, DataOfferId, DynDataOffer, OfferData, break_offer_loops, cancel_offer,
+                destroy_data_offer, receive_data_offer,
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
-                DataOffer, DataOfferId, DynDataOffer, OfferData,
             },
             wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_primary_selection_offer_v1::*, ZwpPrimarySelectionOfferV1Id},
+        wire::{ZwpPrimarySelectionOfferV1Id, zwp_primary_selection_offer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

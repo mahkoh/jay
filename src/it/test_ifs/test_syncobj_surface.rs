@@ -4,7 +4,7 @@ use {
             test_error::TestResult, test_ifs::test_syncobj_timeline::TestSyncobjTimeline,
             test_object::TestObject, test_transport::TestTransport,
         },
-        wire::{wp_linux_drm_syncobj_surface_v1::*, WpLinuxDrmSyncobjSurfaceV1Id},
+        wire::{WpLinuxDrmSyncobjSurfaceV1Id, wp_linux_drm_syncobj_surface_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

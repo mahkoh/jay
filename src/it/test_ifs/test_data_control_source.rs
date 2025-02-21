@@ -8,7 +8,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{zwlr_data_control_source_v1::*, ZwlrDataControlSourceV1Id},
+        wire::{ZwlrDataControlSourceV1Id, zwlr_data_control_source_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     uapi::OwnedFd,

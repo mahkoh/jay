@@ -5,15 +5,15 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::{
+                Dnd, NodeSeatState, WlSeatGlobal,
                 tablet::{
                     PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
                     TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
                     ToolButtonState,
                 },
                 wl_pointer::PendingScroll,
-                Dnd, NodeSeatState, WlSeatGlobal,
             },
-            wl_surface::{tray::TrayItemId, WlSurface},
+            wl_surface::{WlSurface, tray::TrayItemId},
         },
         keyboard::KeyboardState,
         rect::Rect,

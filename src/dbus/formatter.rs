@@ -1,6 +1,6 @@
 use {
     crate::{
-        dbus::{types::Variant, DbusType, Formatter},
+        dbus::{DbusType, Formatter, types::Variant},
         utils::buf::DynamicBuf,
     },
     std::rc::Rc,

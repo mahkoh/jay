@@ -8,7 +8,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{zwp_text_input_v3::*, ZwpTextInputV3Id},
+        wire::{ZwpTextInputV3Id, zwp_text_input_v3::*},
     },
     std::{cell::Cell, rc::Rc},
 };

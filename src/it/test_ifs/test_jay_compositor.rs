@@ -11,8 +11,8 @@ use {
         utils::{buffd::MsgParser, cell_ext::CellExt},
         video::dmabuf::DmaBuf,
         wire::{
-            jay_compositor::{self, *},
             JayCompositorId,
+            jay_compositor::{self, *},
         },
     },
     std::{cell::Cell, rc::Rc},

@@ -1,8 +1,8 @@
 use {
     crate::{
         gfx_apis::vulkan::{
-            descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shaders::VulkanShader,
-            VulkanError,
+            VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
+            shaders::VulkanShader,
         },
         utils::on_drop::OnDrop,
     },

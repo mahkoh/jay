@@ -6,7 +6,7 @@ use {
         ifs::wl_shm_pool::{WlShmPool, WlShmPoolError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_shm::*, WlShmId},
+        wire::{WlShmId, wl_shm::*},
     },
     std::rc::Rc,
     thiserror::Error,

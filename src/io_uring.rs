@@ -1,7 +1,7 @@
 pub use ops::{
+    TaskResultExt,
     poll_external::{PendingPoll, PollCallback},
     timeout_external::{PendingTimeout, TimeoutCallback},
-    TaskResultExt,
 };
 use {
     crate::{
@@ -16,9 +16,9 @@ use {
             },
             pending_result::PendingResults,
             sys::{
-                io_uring_cqe, io_uring_enter, io_uring_params, io_uring_setup, io_uring_sqe,
-                IORING_ENTER_GETEVENTS, IORING_FEAT_NODROP, IORING_OFF_CQ_RING, IORING_OFF_SQES,
-                IORING_OFF_SQ_RING, IOSQE_IO_LINK,
+                IORING_ENTER_GETEVENTS, IORING_FEAT_NODROP, IORING_OFF_CQ_RING, IORING_OFF_SQ_RING,
+                IORING_OFF_SQES, IOSQE_IO_LINK, io_uring_cqe, io_uring_enter, io_uring_params,
+                io_uring_setup, io_uring_sqe,
             },
         },
         utils::{
@@ -27,7 +27,7 @@ use {
             buf::Buf,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
-            mmap::{mmap, Mmapped},
+            mmap::{Mmapped, mmap},
             oserror::OsError,
             ptr_ext::{MutPtrExt, PtrExt},
             stack::Stack,
@@ -44,8 +44,8 @@ use {
     },
     thiserror::Error,
     uapi::{
-        c::{self},
         OwnedFd,
+        c::{self},
     },
 };
 

@@ -1,7 +1,7 @@
 use {
     crate::utils::oserror::OsError,
-    smallvec::{smallvec_inline, SmallVec},
-    uapi::{c, Errno},
+    smallvec::{SmallVec, smallvec_inline},
+    uapi::{Errno, c},
 };
 
 #[cfg_attr(not(feature = "it"), expect(dead_code))]

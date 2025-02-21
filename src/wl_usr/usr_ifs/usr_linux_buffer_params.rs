@@ -3,8 +3,8 @@ use {
         object::Version,
         utils::clonecell::CloneCell,
         video::dmabuf::DmaBuf,
-        wire::{zwp_linux_buffer_params_v1::*, ZwpLinuxBufferParamsV1Id},
-        wl_usr::{usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject, UsrCon},
+        wire::{ZwpLinuxBufferParamsV1Id, zwp_linux_buffer_params_v1::*},
+        wl_usr::{UsrCon, usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject},
     },
     std::{convert::Infallible, ops::Deref, rc::Rc},
 };

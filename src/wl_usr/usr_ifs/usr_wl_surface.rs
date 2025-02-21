@@ -1,11 +1,11 @@
 use {
     crate::{
         object::Version,
-        wire::{wl_surface::*, WlSurfaceId},
+        wire::{WlSurfaceId, wl_surface::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{usr_wl_buffer::UsrWlBuffer, usr_wl_callback::UsrWlCallback},
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

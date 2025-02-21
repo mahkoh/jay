@@ -7,14 +7,14 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{zwlr_data_control_offer_v1::*, ZwlrDataControlOfferV1Id},
+        wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
     },
     ahash::AHashSet,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub struct TestDataControlOffer {

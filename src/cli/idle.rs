@@ -1,9 +1,9 @@
 use {
     crate::{
-        cli::{duration::parse_duration, GlobalArgs, IdleArgs},
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
+        cli::{GlobalArgs, IdleArgs, duration::parse_duration},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{debug_fn::debug_fn, stack::Stack},
-        wire::{jay_compositor, jay_idle, JayIdleId, WlSurfaceId},
+        wire::{JayIdleId, WlSurfaceId, jay_compositor, jay_idle},
     },
     clap::{Args, Subcommand},
     std::{cell::Cell, rc::Rc},

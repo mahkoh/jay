@@ -12,7 +12,7 @@ use {
         rect::Rect,
         tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
         utils::numcell::NumCell,
-        wire::{ext_session_lock_surface_v1::*, ExtSessionLockSurfaceV1Id, WlSurfaceId},
+        wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -157,7 +157,9 @@ pub enum ExtSessionLockSurfaceV1Error {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
-    #[error("Surface {0} cannot be turned into an ext_session_lock_surface because it already has an attached ext_session_lock_surface")]
+    #[error(
+        "Surface {0} cannot be turned into an ext_session_lock_surface because it already has an attached ext_session_lock_surface"
+    )]
     AlreadyAttached(WlSurfaceId),
 }
 efrom!(ExtSessionLockSurfaceV1Error, ClientError);

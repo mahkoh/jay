@@ -9,7 +9,7 @@ use {
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
-        client::{Client, ClientId, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
+        client::{Client, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
@@ -28,7 +28,7 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture,
-            PendingShmTransfer, ReleaseSync, SampleRect, SyncFile, STAGING_DOWNLOAD,
+            PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD, SampleRect, SyncFile,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -37,8 +37,8 @@ use {
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
             ipc::{
-                data_control::DataControlDeviceIds, x_data_device::XIpcDeviceIds, DataOfferIds,
-                DataSourceIds,
+                DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
+                x_data_device::XIpcDeviceIds,
             },
             jay_render_ctx::JayRenderCtx,
             jay_screencast::JayScreencast,
@@ -47,15 +47,15 @@ use {
             wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
-                tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
                 PhysicalKeyboardId, PhysicalKeyboardIds, SeatIds, WlSeatGlobal,
+                tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
             },
             wl_surface::{
+                NoneSurfaceExt,
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
-                NoneSurfaceExt,
             },
             workspace_manager::WorkspaceManagerState,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
@@ -91,9 +91,9 @@ use {
         video::{
             dmabuf::DmaBufIds,
             drm::{
+                Drm,
                 sync_obj::{SyncObj, SyncObjPoint},
                 wait_for_sync_obj::WaitForSyncObj,
-                Drm,
             },
         },
         wheel::Wheel,
@@ -106,8 +106,8 @@ use {
     ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
     jay_config::{
-        video::{GfxApi, Transform},
         PciId,
+        video::{GfxApi, Transform},
     },
     std::{
         cell::{Cell, RefCell},

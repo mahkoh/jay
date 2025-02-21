@@ -9,7 +9,7 @@ use {
         },
         tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
         utils::buffd::MsgParser,
-        wire::{xdg_toplevel::*, XdgToplevelId},
+        wire::{XdgToplevelId, xdg_toplevel::*},
     },
     ahash::AHashSet,
     std::{

@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, LogArgs},
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::errorfmt::ErrorFmt,
         wire::{jay_compositor, jay_log_file},
     },

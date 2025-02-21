@@ -1,20 +1,20 @@
 use {
     crate::{
         allocator::{
-            Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer, BO_USE_RENDERING,
-            BO_USE_WRITE,
+            Allocator, AllocatorError, BO_USE_RENDERING, BO_USE_WRITE, BufferObject, BufferUsage,
+            MappedBuffer,
         },
         format::Format,
         gfx_apis::vulkan::{
-            allocator::VulkanAllocator, command::VulkanCommandBuffer, device::VulkanDevice,
-            format::VulkanFormat, renderer::image_barrier, staging::VulkanStagingBuffer,
-            VulkanError,
+            VulkanError, allocator::VulkanAllocator, command::VulkanCommandBuffer,
+            device::VulkanDevice, format::VulkanFormat, renderer::image_barrier,
+            staging::VulkanStagingBuffer,
         },
         utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
         video::{
+            Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
-            Modifier,
         },
     },
     arrayvec::ArrayVec,
@@ -30,8 +30,8 @@ use {
         ImageSubresource, ImageSubresourceLayers, ImageTiling, ImageType, ImageUsageFlags,
         ImportMemoryFdInfoKHR, MemoryAllocateInfo, MemoryDedicatedAllocateInfo,
         MemoryFdPropertiesKHR, MemoryGetFdInfoKHR, MemoryPropertyFlags, MemoryRequirements2,
-        PipelineStageFlags2, SampleCountFlags, SharingMode, SubmitInfo2, SubresourceLayout,
-        QUEUE_FAMILY_FOREIGN_EXT,
+        PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, SampleCountFlags, SharingMode, SubmitInfo2,
+        SubresourceLayout,
     },
     std::{rc::Rc, slice},
     uapi::OwnedFd,

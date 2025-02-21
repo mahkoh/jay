@@ -1,8 +1,8 @@
 use {
     crate::{
         cli::GlobalArgs,
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
-        wire::{jay_compositor, jay_xwayland, JayXwaylandId},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
+        wire::{JayXwaylandId, jay_compositor, jay_xwayland},
     },
     clap::{Args, Subcommand, ValueEnum},
     jay_config::xwayland::XScalingMode,

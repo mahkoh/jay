@@ -11,7 +11,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         utils::errorfmt::ErrorFmt,
-        wire::{zwlr_screencopy_frame_v1::*, WlBufferId, ZwlrScreencopyFrameV1Id},
+        wire::{WlBufferId, ZwlrScreencopyFrameV1Id, zwlr_screencopy_frame_v1::*},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
     thiserror::Error,

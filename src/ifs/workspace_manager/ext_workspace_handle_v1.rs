@@ -12,7 +12,7 @@ use {
         object::{Object, Version},
         tree::{OutputNode, WorkspaceNode},
         utils::{clonecell::CloneCell, opt::Opt},
-        wire::{ext_workspace_handle_v1::*, ExtWorkspaceHandleV1Id},
+        wire::{ExtWorkspaceHandleV1Id, ext_workspace_handle_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

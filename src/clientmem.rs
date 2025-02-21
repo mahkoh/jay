@@ -12,12 +12,12 @@ use {
         ops::Deref,
         ptr,
         rc::Rc,
-        sync::atomic::{compiler_fence, Ordering},
+        sync::atomic::{Ordering, compiler_fence},
     },
     thiserror::Error,
     uapi::{
-        c::{self, raise},
         OwnedFd,
+        c::{self, raise},
     },
 };
 

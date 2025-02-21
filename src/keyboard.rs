@@ -6,7 +6,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, Errno, OwnedFd},
+    uapi::{Errno, OwnedFd, c},
 };
 
 #[derive(Debug, Error)]

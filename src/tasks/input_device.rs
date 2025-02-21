@@ -3,7 +3,7 @@ use {
         backend::{InputDevice, InputDeviceCapability},
         ifs::wl_seat::PX_PER_SCROLL,
         state::{DeviceHandlerData, InputDeviceData, State},
-        tasks::udev_utils::{udev_props, UdevProps},
+        tasks::udev_utils::{UdevProps, udev_props},
         utils::asyncevent::AsyncEvent,
     },
     jay_config::_private::DEFAULT_SEAT_NAME,

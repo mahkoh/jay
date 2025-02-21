@@ -1,12 +1,12 @@
 use {
     crate::{
-        allocator::{BufferObject, BufferUsage, BO_USE_RENDERING},
+        allocator::{BO_USE_RENDERING, BufferObject, BufferUsage},
         async_engine::{Phase, SpawnedFuture},
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{
-            needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
+            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, needs_render_usage,
         },
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::{
@@ -21,8 +21,8 @@ use {
             errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
         wire::{
-            wp_fractional_scale_v1::PreferredScale, zwlr_layer_surface_v1::Configure,
-            ZwpLinuxBufferParamsV1Id,
+            ZwpLinuxBufferParamsV1Id, wp_fractional_scale_v1::PreferredScale,
+            zwlr_layer_surface_v1::Configure,
         },
         wl_usr::usr_ifs::{
             usr_linux_buffer_params::{UsrLinuxBufferParams, UsrLinuxBufferParamsOwner},

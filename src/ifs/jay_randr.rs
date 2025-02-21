@@ -10,7 +10,7 @@ use {
         state::{ConnectorData, DrmDevData, OutputData},
         tree::{OutputNode, TearingMode, VrrMode},
         utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
-        wire::{jay_randr::*, JayRandrId},
+        wire::{JayRandrId, jay_randr::*},
     },
     jay_config::video::{
         GfxApi, TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,

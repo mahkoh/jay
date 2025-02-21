@@ -9,13 +9,13 @@ use {
         fixed::Fixed,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
+            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
-                xdg_surface::{
-                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError,
-                    XdgSurfaceExt,
-                },
                 WlSurface,
+                xdg_surface::{
+                    XdgSurface, XdgSurfaceError, XdgSurfaceExt,
+                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1,
+                },
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
@@ -25,12 +25,12 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            default_tile_drag_destination, ContainerSplit, Direction, FindTreeResult,
-            FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
+            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, ToplevelNodeId, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
-        wire::{xdg_toplevel::*, XdgToplevelId},
+        wire::{XdgToplevelId, xdg_toplevel::*},
     },
     ahash::{AHashMap, AHashSet},
     num_derive::FromPrimitive,

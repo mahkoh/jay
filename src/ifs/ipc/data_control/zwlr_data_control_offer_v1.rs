@@ -2,14 +2,14 @@ use {
     crate::{
         ifs::ipc::data_control::{
             private::{
-                logic::{self, DataControlError},
                 DataControlOffer, DataControlOfferData,
+                logic::{self, DataControlError},
             },
             zwlr_data_control_device_v1::WlrDataControlIpc,
         },
         leaks::Tracker,
         object::Object,
-        wire::{zwlr_data_control_offer_v1::*, ZwlrDataControlOfferV1Id},
+        wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

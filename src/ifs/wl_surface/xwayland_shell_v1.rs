@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::wl_surface::{x_surface::xwayland_surface_v1::XwaylandSurfaceV1, WlSurfaceError},
+        ifs::wl_surface::{WlSurfaceError, x_surface::xwayland_surface_v1::XwaylandSurfaceV1},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{xwayland_shell_v1::*, WlSurfaceId, XwaylandShellV1Id},
+        wire::{WlSurfaceId, XwaylandShellV1Id, xwayland_shell_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

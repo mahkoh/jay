@@ -2,13 +2,13 @@ use {
     crate::{
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
         gfx_apis::vulkan::{
-            device::VulkanDevice, instance::API_VERSION, renderer::VulkanRenderer, VulkanError,
+            VulkanError, device::VulkanDevice, instance::API_VERSION, renderer::VulkanRenderer,
         },
         utils::{numcell::NumCell, ptr_ext::MutPtrExt},
     },
     ash::{
-        vk::{DeviceMemory, DeviceSize, MappedMemoryRange, MemoryRequirements},
         Device,
+        vk::{DeviceMemory, DeviceSize, MappedMemoryRange, MemoryRequirements},
     },
     gpu_alloc::{Config, GpuAllocator, MemoryBlock, MemoryPropertyFlags, Request, UsageFlags},
     gpu_alloc_ash::AshMemoryDevice,

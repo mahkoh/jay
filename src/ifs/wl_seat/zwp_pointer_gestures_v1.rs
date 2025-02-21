@@ -9,7 +9,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_pointer_gestures_v1::*, ZwpPointerGesturesV1Id},
+        wire::{ZwpPointerGesturesV1Id, zwp_pointer_gestures_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

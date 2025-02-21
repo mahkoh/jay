@@ -1,7 +1,7 @@
 use {
     arrayvec::ArrayString,
-    rand::{thread_rng, Rng},
-    serde::{de, Deserialize, Deserializer, Serialize, Serializer},
+    rand::{Rng, thread_rng},
+    serde::{Deserialize, Deserializer, Serialize, Serializer, de},
     std::{
         fmt::{Debug, Display, Formatter},
         num::ParseIntError,

@@ -5,7 +5,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        wire::{xdg_positioner::*, XdgPositionerId},
+        wire::{XdgPositionerId, xdg_positioner::*},
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,

@@ -1,14 +1,14 @@
 use {
     crate::gfx_apis::gl::{
+        RenderError,
         egl::sys::{
-            EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
-            EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
-            EGL_OPENGL_ES_API, EGL_TRUE,
+            EGL_DEBUG_MSG_CRITICAL_KHR, EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR,
+            EGL_DEBUG_MSG_WARN_KHR, EGL_NONE, EGL_OPENGL_ES_API, EGL_TRUE, EGLAttrib, EGLLabelKHR,
+            EGLenum, EGLint,
         },
-        ext::{get_client_ext, ClientExt, EXT_PLATFORM_BASE, KHR_DEBUG, KHR_PLATFORM_GBM},
+        ext::{ClientExt, EXT_PLATFORM_BASE, KHR_DEBUG, KHR_PLATFORM_GBM, get_client_ext},
         proc::ExtProc,
         sys::EGL,
-        RenderError,
     },
     bstr::ByteSlice,
     log::Level,

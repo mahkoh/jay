@@ -2,14 +2,14 @@
 
 use {
     crate::{
-        video::connector_type::{
-            ConnectorType, CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI,
-            CON_DSI, CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA,
-            CON_HDMIB, CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA,
-            CON_VIRTUAL, CON_WRITEBACK,
-        },
-        PciId,
         _private::WireMode,
+        PciId,
+        video::connector_type::{
+            CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI, CON_DSI,
+            CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA, CON_HDMIB,
+            CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA, CON_VIRTUAL,
+            CON_WRITEBACK, ConnectorType,
+        },
     },
     serde::{Deserialize, Serialize},
     std::{str::FromStr, time::Duration},

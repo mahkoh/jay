@@ -7,7 +7,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{ext_foreign_toplevel_handle_v1::*, ExtForeignToplevelHandleV1Id},
+        wire::{ExtForeignToplevelHandleV1Id, ext_foreign_toplevel_handle_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

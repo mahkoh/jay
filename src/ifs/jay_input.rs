@@ -13,7 +13,7 @@ use {
         object::{Object, Version},
         state::{DeviceHandlerData, InputDeviceData},
         utils::errorfmt::ErrorFmt,
-        wire::{jay_input::*, JayInputId},
+        wire::{JayInputId, jay_input::*},
     },
     std::rc::Rc,
     thiserror::Error,

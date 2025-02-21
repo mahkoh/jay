@@ -4,16 +4,16 @@ use {
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{
+            SeatId,
             tablet::{
                 PadButtonState, TabletRingEventSource, TabletStripEventSource, TabletTool,
                 TabletToolChanges, TabletToolId, ToolButtonState,
             },
             wl_pointer::PendingScroll,
-            SeatId,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_seat_events::*, JaySeatEventsId},
+        wire::{JaySeatEventsId, jay_seat_events::*},
     },
     std::{convert::Infallible, rc::Rc},
 };

@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestResult, test_object::TestObject, test_transport::TestTransport},
-        wire::{wp_cursor_shape_device_v1::*, WpCursorShapeDeviceV1Id},
+        wire::{WpCursorShapeDeviceV1Id, wp_cursor_shape_device_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

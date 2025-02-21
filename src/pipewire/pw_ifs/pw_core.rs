@@ -59,7 +59,9 @@ impl PwCore {
         let name = p2.read_string()?;
         let change_mask = p2.read_long()?;
         let dict = p2.read_dict_struct()?;
-        log::info!("info: id={id}, cookie={cookie}, user_name={user_name}, host_name={host_name}, version_name={version_name}, name={name}, change_mask={change_mask}");
+        log::info!(
+            "info: id={id}, cookie={cookie}, user_name={user_name}, host_name={host_name}, version_name={version_name}, name={name}, change_mask={change_mask}"
+        );
         log::info!("dict: {:#?}", dict);
         Ok(())
     }

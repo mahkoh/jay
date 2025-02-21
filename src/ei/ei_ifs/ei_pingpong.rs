@@ -6,8 +6,8 @@ use {
         },
         leaks::Tracker,
         wire_ei::{
-            ei_pingpong::{Done, EiPingpongRequestHandler},
             EiPingpongId,
+            ei_pingpong::{Done, EiPingpongRequestHandler},
         },
     },
     std::rc::Rc,

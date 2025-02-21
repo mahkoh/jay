@@ -5,7 +5,7 @@ use {
         ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{xdg_toplevel_drag_manager_v1::*, XdgToplevelDragManagerV1Id},
+        wire::{XdgToplevelDragManagerV1Id, xdg_toplevel_drag_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

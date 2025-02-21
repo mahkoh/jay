@@ -1,6 +1,6 @@
 use {
     crate::{
-        allocator::{AllocatorError, BufferObject, BO_USE_LINEAR, BO_USE_RENDERING},
+        allocator::{AllocatorError, BO_USE_LINEAR, BO_USE_RENDERING, BufferObject},
         client::{Client, ClientError},
         format::XRGB8888,
         gfx_api::{
@@ -19,8 +19,8 @@ use {
             numcell::NumCell,
             option_ext::OptionExt,
         },
-        video::{dmabuf::DmaBuf, INVALID_MODIFIER, LINEAR_MODIFIER},
-        wire::{jay_screencast::*, JayScreencastId},
+        video::{INVALID_MODIFIER, LINEAR_MODIFIER, dmabuf::DmaBuf},
+        wire::{JayScreencastId, jay_screencast::*},
     },
     ahash::AHashSet,
     jay_config::video::Transform,
@@ -437,7 +437,7 @@ impl JayScreencast {
                     }
                     true => return Err(JayScreencastError::Modifier),
                     false if format.write_modifiers.is_empty() => {
-                        return Err(JayScreencastError::XRGB8888Writing)
+                        return Err(JayScreencastError::XRGB8888Writing);
                     }
                     false => format.write_modifiers.keys().copied().collect(),
                 };

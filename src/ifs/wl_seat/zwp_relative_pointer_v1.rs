@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_relative_pointer_v1::*, ZwpRelativePointerV1Id},
+        wire::{ZwpRelativePointerV1Id, zwp_relative_pointer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

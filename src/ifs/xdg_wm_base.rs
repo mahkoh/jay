@@ -9,7 +9,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::copyhashmap::CopyHashMap,
-        wire::{xdg_wm_base::*, XdgSurfaceId, XdgWmBaseId},
+        wire::{XdgSurfaceId, XdgWmBaseId, xdg_wm_base::*},
     },
     std::rc::Rc,
     thiserror::Error,

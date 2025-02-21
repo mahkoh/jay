@@ -3,16 +3,16 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                x_data_offer::XDataOffer, x_data_source::XDataSource, DeviceData, IpcLocation,
-                IpcVtable, OfferData, Role,
+                DeviceData, IpcLocation, IpcVtable, OfferData, Role, x_data_offer::XDataOffer,
+                x_data_source::XDataSource,
             },
             wl_seat::WlSeatGlobal,
         },
         state::State,
         xwayland::XWaylandEvent,
     },
-    std::rc::Rc,
     XWaylandEvent::IpcSetOffer,
+    std::rc::Rc,
 };
 
 linear_ids!(XIpcDeviceIds, XIpcDeviceId, u64);

@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_FOREIGN_TOPLEVEL_LIST},
+        client::{CAP_FOREIGN_TOPLEVEL_LIST, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
@@ -10,8 +10,8 @@ use {
         object::{Object, Version},
         tree::{NodeVisitorBase, ToplevelOpt},
         wire::{
-            ext_foreign_toplevel_list_v1::*, ExtForeignToplevelHandleV1Id,
-            ExtForeignToplevelListV1Id,
+            ExtForeignToplevelHandleV1Id, ExtForeignToplevelListV1Id,
+            ext_foreign_toplevel_list_v1::*,
         },
     },
     std::rc::Rc,

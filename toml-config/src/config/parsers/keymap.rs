@@ -1,10 +1,10 @@
 use {
     crate::{
         config::{
-            context::Context,
-            extractor::{opt, str, Extractor, ExtractorError},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             ConfigKeymap,
+            context::Context,
+            extractor::{Extractor, ExtractorError, opt, str},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
             toml_span::{Span, Spanned, SpannedExt},
@@ -14,7 +14,7 @@ use {
     indexmap::IndexMap,
     jay_config::{
         config_dir,
-        keyboard::{parse_keymap, Keymap},
+        keyboard::{Keymap, parse_keymap},
     },
     std::{io, path::PathBuf},
     thiserror::Error,
@@ -73,7 +73,7 @@ impl Parser for KeymapParser<'_> {
                 Ok(c) => c,
                 Err(e) => {
                     return Err(KeymapParserError::ReadFile(root.display().to_string(), e)
-                        .spanned(path.span))
+                        .spanned(path.span));
                 }
             };
             map_val = Some(file_content.as_str().spanned(path.span));

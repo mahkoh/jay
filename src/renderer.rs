@@ -2,10 +2,10 @@ use {
     crate::{
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
         ifs::wl_surface::{
-            x_surface::xwindow::Xwindow,
-            xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
-            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             SurfaceBuffer, WlSurface,
+            x_surface::xwindow::Xwindow,
+            xdg_surface::{XdgSurface, xdg_toplevel::XdgToplevel},
+            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
         },
         rect::Rect,
         renderer::renderer_base::RendererBase,

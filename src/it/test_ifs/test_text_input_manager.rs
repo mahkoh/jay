@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{zwp_text_input_manager_v3::*, ZwpTextInputManagerV3Id},
+        wire::{ZwpTextInputManagerV3Id, zwp_text_input_manager_v3::*},
     },
     std::{cell::Cell, rc::Rc},
 };

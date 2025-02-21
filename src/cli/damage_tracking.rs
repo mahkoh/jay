@@ -1,7 +1,7 @@
 use {
     crate::{
-        cli::{color::parse_color, duration::parse_duration, GlobalArgs},
-        tools::tool_client::{with_tool_client, ToolClient},
+        cli::{GlobalArgs, color::parse_color, duration::parse_duration},
+        tools::tool_client::{ToolClient, with_tool_client},
         wire::jay_damage_tracking::{SetVisualizerColor, SetVisualizerDecay, SetVisualizerEnabled},
     },
     clap::{Args, Subcommand},

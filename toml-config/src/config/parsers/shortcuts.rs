@@ -1,8 +1,9 @@
 use {
     crate::{
         config::{
+            Action, Shortcut, SimpleCommand,
             context::Context,
-            extractor::{opt, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::{ActionParser, ActionParserError},
@@ -11,7 +12,6 @@ use {
                 },
             },
             spanned::SpannedErrorExt,
-            Action, Shortcut, SimpleCommand,
         },
         toml::{
             toml_span::{Span, Spanned, SpannedExt},
@@ -19,7 +19,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::keyboard::{mods::Modifiers, ModifiedKeySym},
+    jay_config::keyboard::{ModifiedKeySym, mods::Modifiers},
     std::collections::HashSet,
     thiserror::Error,
 };

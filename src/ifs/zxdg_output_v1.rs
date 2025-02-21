@@ -1,10 +1,10 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::wl_output::{WlOutput, SEND_DONE_SINCE},
+        ifs::wl_output::{SEND_DONE_SINCE, WlOutput},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zxdg_output_v1::*, ZxdgOutputV1Id},
+        wire::{ZxdgOutputV1Id, zxdg_output_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

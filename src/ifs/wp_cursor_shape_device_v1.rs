@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         cursor::KnownCursor,
-        ifs::wl_seat::{tablet::TabletToolOpt, WlSeatGlobal},
+        ifs::wl_seat::{WlSeatGlobal, tablet::TabletToolOpt},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_cursor_shape_device_v1::*, WpCursorShapeDeviceV1Id},
+        wire::{WpCursorShapeDeviceV1Id, wp_cursor_shape_device_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

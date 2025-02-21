@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{zwlr_screencopy_frame_v1::*, ZwlrScreencopyFrameV1Id},
-        wl_usr::{usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject, UsrCon},
+        wire::{ZwlrScreencopyFrameV1Id, zwlr_screencopy_frame_v1::*},
+        wl_usr::{UsrCon, usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

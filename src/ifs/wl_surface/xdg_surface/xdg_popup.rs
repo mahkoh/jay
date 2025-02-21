@@ -4,14 +4,14 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
+            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
                 xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
             },
             xdg_positioner::{
-                XdgPositioned, XdgPositioner, CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y,
-                CA_SLIDE_X, CA_SLIDE_Y,
+                CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
+                XdgPositioned, XdgPositioner,
             },
         },
         leaks::Tracker,
@@ -23,7 +23,7 @@ use {
             StackedNode,
         },
         utils::clonecell::CloneCell,
-        wire::{xdg_popup::*, XdgPopupId},
+        wire::{XdgPopupId, xdg_popup::*},
     },
     std::{
         cell::{Cell, RefCell},

@@ -7,11 +7,11 @@ use {
         toml::toml_span::{Span, SpannedExt},
     },
     jay_config::keyboard::{
+        ModifiedKeySym,
         mods::{
-            Modifiers, ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, NUM, RELEASE,
+            ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, Modifiers, NUM, RELEASE,
             SHIFT,
         },
-        ModifiedKeySym,
     },
     thiserror::Error,
 };
@@ -51,7 +51,7 @@ impl Parser for ModifiedKeysymParser {
                     Some(_) => return Err(ModifiedKeysymParserError::MoreThanOneSym.spanned(span)),
                     _ => {
                         return Err(ModifiedKeysymParserError::UnknownKeysym(part.to_string())
-                            .spanned(span))
+                            .spanned(span));
                     }
                 },
             };

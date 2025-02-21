@@ -1,8 +1,8 @@
 use {
     crate::{
-        format::{Format, FORMATS},
-        gfx_apis::vulkan::{instance::VulkanInstance, VulkanError},
-        video::{Modifier, LINEAR_MODIFIER},
+        format::{FORMATS, Format},
+        gfx_apis::vulkan::{VulkanError, instance::VulkanInstance},
+        video::{LINEAR_MODIFIER, Modifier},
     },
     ahash::AHashMap,
     ash::{

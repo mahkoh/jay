@@ -1,5 +1,5 @@
 use {
-    crate::utils::opaque::{opaque, Opaque, OpaqueError, OPAQUE_LEN},
+    crate::utils::opaque::{OPAQUE_LEN, Opaque, OpaqueError, opaque},
     arrayvec::ArrayString,
     std::{
         fmt::{Display, Formatter},

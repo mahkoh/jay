@@ -5,7 +5,7 @@ use {
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{wl_data_source::*, WlDataSourceId},
+        wire::{WlDataSourceId, wl_data_source::*},
     },
     std::{cell::Cell, rc::Rc},
     uapi::OwnedFd,

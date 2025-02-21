@@ -4,7 +4,7 @@ use {
         StringSpec, TableSpec, TopLevelTypeSpec, VariantSpec,
     },
     anyhow::Result,
-    serde_json::{json, Map, Value},
+    serde_json::{Map, Value, json},
 };
 
 pub fn generate_json_schema(

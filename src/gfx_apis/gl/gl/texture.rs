@@ -2,14 +2,14 @@ use {
     crate::{
         format::Format,
         gfx_apis::gl::{
+            RenderError,
             egl::{context::EglContext, image::EglImage},
             ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::sys::{
-                GLint, GLuint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
+                GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+                GL_UNPACK_ROW_LENGTH_EXT, GLint, GLuint,
             },
-            sys::{GLeglImageOES, GLenum, GL_TEXTURE_EXTERNAL_OES},
-            RenderError,
+            sys::{GL_TEXTURE_EXTERNAL_OES, GLeglImageOES, GLenum},
         },
     },
     std::{cell::Cell, rc::Rc},

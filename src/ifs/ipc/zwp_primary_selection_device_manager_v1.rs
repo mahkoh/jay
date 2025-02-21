@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_primary_selection_device_manager_v1::*, ZwpPrimarySelectionDeviceManagerV1Id},
+        wire::{ZwpPrimarySelectionDeviceManagerV1Id, zwp_primary_selection_device_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -1,8 +1,8 @@
 use crate::{
     io_uring::{
-        ops::timeout::timespec64,
-        sys::{io_uring_sqe, IORING_OP_LINK_TIMEOUT, IORING_TIMEOUT_ABS},
         IoUring, IoUringData, IoUringTaskId, Task,
+        ops::timeout::timespec64,
+        sys::{IORING_OP_LINK_TIMEOUT, IORING_TIMEOUT_ABS, io_uring_sqe},
     },
     time::Time,
 };

@@ -5,7 +5,7 @@ use {
         ifs::{wl_region::WlRegion, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_compositor::*, WlCompositorId},
+        wire::{WlCompositorId, wl_compositor::*},
         xwayland::XWaylandEvent,
     },
     std::rc::Rc,

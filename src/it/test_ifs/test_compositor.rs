@@ -7,8 +7,8 @@ use {
             test_transport::TestTransport,
         },
         wire::{
-            wl_compositor::{CreateRegion, CreateSurface},
             WlCompositorId,
+            wl_compositor::{CreateRegion, CreateSurface},
         },
     },
     std::{cell::Cell, rc::Rc},

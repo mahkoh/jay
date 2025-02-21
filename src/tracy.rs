@@ -12,4 +12,4 @@ mod tracy_noop;
 #[cfg(not(feature = "tracy"))]
 use tracy_noop as imp;
 
-pub use imp::{enable_profiler, FrameName, ZoneName};
+pub use imp::{FrameName, ZoneName, enable_profiler};

@@ -5,7 +5,7 @@ use {
         ifs::wp_cursor_shape_device_v1::{CursorShapeCursorUser, WpCursorShapeDeviceV1},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_cursor_shape_manager_v1::*, WpCursorShapeDeviceV1Id, WpCursorShapeManagerV1Id},
+        wire::{WpCursorShapeDeviceV1Id, WpCursorShapeManagerV1Id, wp_cursor_shape_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

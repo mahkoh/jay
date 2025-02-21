@@ -1,9 +1,9 @@
 use {
     crate::{
         open,
-        tokens::{tokenize, Symbol, Token, TokenKind, TreeDelim},
+        tokens::{Symbol, Token, TokenKind, TreeDelim, tokenize},
     },
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result, bail},
     bstr::ByteSlice,
     std::{cell::Cell, collections::HashMap, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc},
 };
@@ -1171,7 +1171,10 @@ fn format_enum<F: Write>(f: &mut F, s: &Enum, protocols: &Protocols) -> Result<(
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
     writeln!(f)?;
-    writeln!(f, "    pub fn deserialize(parser: &mut Parser{lt_a}, value: u32) -> Result<Self, XconError> {{")?;
+    writeln!(
+        f,
+        "    pub fn deserialize(parser: &mut Parser{lt_a}, value: u32) -> Result<Self, XconError> {{"
+    )?;
     writeln!(f, "        let res = match value {{")?;
     for field in &s.variants {
         writeln!(
@@ -1233,7 +1236,10 @@ fn format_bitmask<F: Write>(f: &mut F, s: &Bitmask, protocols: &Protocols) -> Re
     writeln!(f, "        formatter.write_bytes(&bytes[..pos]);")?;
     writeln!(f, "    }}")?;
     writeln!(f)?;
-    writeln!(f, "    pub fn deserialize(&self, parser: &mut Parser, bitmask: u32) -> Result<Self, XconError> {{")?;
+    writeln!(
+        f,
+        "    pub fn deserialize(&self, parser: &mut Parser, bitmask: u32) -> Result<Self, XconError> {{"
+    )?;
     writeln!(
         f,
         "        let b = parser.read_slice(bitmask.count_ones() as usize * 4)?;"

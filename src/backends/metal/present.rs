@@ -2,14 +2,14 @@ use {
     crate::{
         backend::Connector,
         backends::metal::{
+            MetalError,
             video::{
                 MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
             },
-            MetalError,
         },
         gfx_api::{
-            create_render_pass, AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture,
-            ReleaseSync, SyncFile,
+            AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
+            create_render_pass,
         },
         rect::Region,
         theme::Color,
@@ -20,8 +20,8 @@ use {
         video::{
             dmabuf::DmaBufId,
             drm::{
-                DrmError, DrmFramebuffer, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC,
-                DRM_MODE_PAGE_FLIP_EVENT,
+                DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
+                DrmError, DrmFramebuffer,
             },
         },
     },
@@ -248,7 +248,9 @@ impl MetalConnector {
         if let Err(e) = res {
             reset_damage();
             if let MetalError::Commit(DrmError::Atomic(OsError(c::EACCES))) = e {
-                log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
+                log::debug!(
+                    "Could not perform atomic commit, likely because we're no longer the DRM master"
+                );
                 return Ok(());
             }
             Err(e)

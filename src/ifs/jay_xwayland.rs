@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_xwayland::*, JayXwaylandId},
+        wire::{JayXwaylandId, jay_xwayland::*},
     },
     jay_config::xwayland::XScalingMode,
     std::rc::Rc,

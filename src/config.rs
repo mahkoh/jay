@@ -16,9 +16,8 @@ use {
     bincode::Options,
     jay_config::{
         _private::{
-            bincode_ops,
+            ConfigEntry, VERSION, bincode_ops,
             ipc::{InitMessage, ServerFeature, ServerMessage, V1InitMessage},
-            ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},

@@ -6,18 +6,17 @@ use {
         client::Client,
         ifs::{
             ipc::{
-                add_data_source_mime_type, destroy_data_device, destroy_data_offer,
+                DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
+                SourceData, add_data_source_mime_type, destroy_data_device, destroy_data_offer,
                 destroy_data_source, receive_data_offer,
                 x_data_device::{XClipboardIpc, XIpc, XIpcDevice, XPrimarySelectionIpc},
                 x_data_offer::XDataOffer,
                 x_data_source::XDataSource,
-                DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
-                SourceData,
             },
             wl_seat::{SeatId, WlSeatGlobal},
             wl_surface::{
-                x_surface::xwindow::{XInputModel, Xwindow, XwindowData},
                 WlSurface,
+                x_surface::xwindow::{XInputModel, Xwindow, XwindowData},
             },
         },
         io_uring::{IoUring, IoUringError},
@@ -40,8 +39,10 @@ use {
             SetSelectionOwner, UnmapNotify, XfixesQueryVersion, XfixesSelectionNotify,
         },
         xcon::{
+            Event, XEvent, Xcon, XconError,
             consts::{
-                ATOM_ATOM, ATOM_NONE, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
+                _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE, ATOM_ATOM,
+                ATOM_NONE, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
                 ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL,
                 CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_X, CONFIG_WINDOW_Y,
                 EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
@@ -52,16 +53,14 @@ use {
                 PROP_MODE_APPEND, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID,
                 SELECTION_CLIENT_CLOSE_MASK, SELECTION_WINDOW_DESTROY_MASK,
                 SET_SELECTION_OWNER_MASK, STACK_MODE_ABOVE, STACK_MODE_BELOW,
-                WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE,
-                _NET_WM_STATE_TOGGLE,
+                WINDOW_CLASS_INPUT_OUTPUT,
             },
-            Event, XEvent, Xcon, XconError,
         },
         xwayland::{XWaylandError, XWaylandEvent},
     },
     ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     smallvec::SmallVec,
     std::{
         borrow::Cow,
@@ -72,7 +71,7 @@ use {
         rc::Rc,
         time::Duration,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 atoms! {
@@ -426,7 +425,7 @@ impl Wm {
                 Some(f) => f,
                 _ => break 'set_root_cursor,
             };
-            let first = match first.iter().find(|i| i.0 .0 == 1) {
+            let first = match first.iter().find(|i| i.0.0 == 1) {
                 Some(f) => f.1,
                 _ => break 'set_root_cursor,
             };

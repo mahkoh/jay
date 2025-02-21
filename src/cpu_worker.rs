@@ -23,7 +23,7 @@ use {
         thread,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub trait CpuJob {

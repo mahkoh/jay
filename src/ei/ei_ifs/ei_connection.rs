@@ -1,25 +1,25 @@
 use {
     crate::{
         ei::{
+            EiContext,
             ei_client::{EiClient, EiClientError},
             ei_ifs::{
                 ei_callback::EiCallback,
                 ei_seat::{
-                    EiSeat, EI_CAP_BUTTON, EI_CAP_KEYBOARD, EI_CAP_POINTER,
-                    EI_CAP_POINTER_ABSOLUTE, EI_CAP_SCROLL, EI_CAP_TOUCHSCREEN,
+                    EI_CAP_BUTTON, EI_CAP_KEYBOARD, EI_CAP_POINTER, EI_CAP_POINTER_ABSOLUTE,
+                    EI_CAP_SCROLL, EI_CAP_TOUCHSCREEN, EiSeat,
                 },
             },
             ei_object::{EiObject, EiObjectId, EiVersion},
-            EiContext,
         },
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
         wire_ei::{
+            EiButton, EiConnectionId, EiKeyboard, EiPointer, EiPointerAbsolute, EiScroll,
+            EiTouchscreen,
             ei_connection::{
                 Disconnect, Disconnected, EiConnectionRequestHandler, InvalidObject, Seat,
             },
-            EiButton, EiConnectionId, EiKeyboard, EiPointer, EiPointerAbsolute, EiScroll,
-            EiTouchscreen,
         },
     },
     std::{cell::Cell, rc::Rc},

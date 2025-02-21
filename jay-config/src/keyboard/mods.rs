@@ -1,7 +1,7 @@
 //! Keyboard modifiers
 
 use {
-    crate::{keyboard::syms::KeySym, ModifiedKeySym},
+    crate::{ModifiedKeySym, keyboard::syms::KeySym},
     serde::{Deserialize, Serialize},
     std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };

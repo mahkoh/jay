@@ -1,7 +1,7 @@
 use {
     crate::utils::{errorfmt::ErrorFmt, oserror::OsError},
     bstr::ByteSlice,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub struct PidInfo {

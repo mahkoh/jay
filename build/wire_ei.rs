@@ -1,9 +1,9 @@
 use {
     crate::{
         open,
-        tokens::{tokenize, Symbol, Token, TokenKind, TreeDelim},
+        tokens::{Symbol, Token, TokenKind, TreeDelim, tokenize},
     },
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result, bail},
     std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
 };
 

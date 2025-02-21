@@ -4,7 +4,7 @@ use {
         TY_SIGNATURE, TY_STRING, TY_UINT16, TY_UINT32, TY_UINT64, TY_UNIX_FD, TY_VARIANT,
     },
     crate::{
-        dbus::{types::Variant, DbusError, DynamicType, Parser},
+        dbus::{DbusError, DynamicType, Parser, types::Variant},
         utils::buf::DynamicBuf,
     },
     std::ops::Deref,

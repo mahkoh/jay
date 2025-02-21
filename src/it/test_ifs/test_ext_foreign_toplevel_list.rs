@@ -8,7 +8,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{ext_foreign_toplevel_list_v1::*, ExtForeignToplevelListV1Id},
+        wire::{ExtForeignToplevelListV1Id, ext_foreign_toplevel_list_v1::*},
     },
     std::{
         cell::{Cell, RefCell},

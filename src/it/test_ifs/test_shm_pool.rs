@@ -9,7 +9,7 @@ use {
             test_transport::TestTransport,
         },
         utils::clonecell::CloneCell,
-        wire::{wl_shm_pool::*, WlShmPoolId},
+        wire::{WlShmPoolId, wl_shm_pool::*},
     },
     std::{cell::Cell, rc::Rc},
 };

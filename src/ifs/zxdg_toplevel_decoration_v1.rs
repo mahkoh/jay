@@ -4,7 +4,7 @@ use {
         ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zxdg_toplevel_decoration_v1::*, ZxdgToplevelDecorationV1Id},
+        wire::{ZxdgToplevelDecorationV1Id, zxdg_toplevel_decoration_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

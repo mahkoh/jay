@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, BufferResv, GfxError, GfxFramebuffer,
-            GfxTexture, ReleaseSync, SyncFile, STAGING_DOWNLOAD,
+            GfxTexture, ReleaseSync, STAGING_DOWNLOAD, SyncFile,
         },
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -15,7 +15,7 @@ use {
         rect::Region,
         tree::{Node, OutputNode},
         utils::{cell_ext::CellExt, errorfmt::ErrorFmt, transform_ext::TransformExt},
-        wire::{ext_image_copy_capture_frame_v1::*, ExtImageCopyCaptureFrameV1Id},
+        wire::{ExtImageCopyCaptureFrameV1Id, ext_image_copy_capture_frame_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

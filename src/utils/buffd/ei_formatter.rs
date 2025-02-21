@@ -1,7 +1,7 @@
 use {
     crate::{
         ei::ei_object::EiObjectId,
-        utils::buffd::buf_out::{MsgFds, OutBuffer, OutBufferMeta, OUT_BUF_SIZE},
+        utils::buffd::buf_out::{MsgFds, OUT_BUF_SIZE, OutBuffer, OutBufferMeta},
     },
     std::{mem, rc::Rc},
     uapi::OwnedFd,

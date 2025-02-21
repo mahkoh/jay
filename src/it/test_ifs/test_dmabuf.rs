@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
+        wire::{ZwpLinuxDmabufV1Id, zwp_linux_dmabuf_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

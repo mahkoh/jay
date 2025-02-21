@@ -1,6 +1,6 @@
 use {
     crate::forker::ForkerError,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Default, Copy, Clone)]

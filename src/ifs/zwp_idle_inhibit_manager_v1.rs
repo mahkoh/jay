@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_idle_inhibit_manager_v1::*, ZwpIdleInhibitManagerV1Id},
+        wire::{ZwpIdleInhibitManagerV1Id, zwp_idle_inhibit_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

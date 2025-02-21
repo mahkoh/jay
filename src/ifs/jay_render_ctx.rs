@@ -5,7 +5,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
-        wire::{jay_render_ctx::*, JayRenderCtxId},
+        wire::{JayRenderCtxId, jay_render_ctx::*},
     },
     std::rc::Rc,
     thiserror::Error,

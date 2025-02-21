@@ -10,12 +10,12 @@ use {
         rc::Rc,
         slice,
         sync::{
-            atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
             Arc,
+            atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
         },
     },
     thiserror::Error,
-    uapi::{c, Fd},
+    uapi::{Fd, c},
 };
 
 #[derive(Debug, Error)]

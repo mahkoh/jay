@@ -4,7 +4,7 @@ use {
             test_error::TestError, test_ifs::test_subsurface::TestSubsurface,
             test_object::TestObject, test_transport::TestTransport,
         },
-        wire::{wl_subcompositor::*, WlSubcompositorId, WlSurfaceId},
+        wire::{WlSubcompositorId, WlSurfaceId, wl_subcompositor::*},
     },
     std::{cell::Cell, rc::Rc},
 };

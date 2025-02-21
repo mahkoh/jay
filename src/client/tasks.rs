@@ -9,7 +9,7 @@ use {
             vec_ext::VecExt,
         },
     },
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     std::{collections::VecDeque, mem, rc::Rc, time::Duration},
 };
 

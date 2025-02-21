@@ -15,11 +15,7 @@ impl ThresholdCounter {
     }
 
     pub fn adj(&self, inc: bool) -> bool {
-        if inc {
-            self.inc()
-        } else {
-            self.dec()
-        }
+        if inc { self.inc() } else { self.dec() }
     }
 
     pub fn active(&self) -> bool {

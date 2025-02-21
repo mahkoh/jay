@@ -10,7 +10,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{wl_surface::*, WlBufferId, WlSurfaceId},
+        wire::{WlBufferId, WlSurfaceId, wl_surface::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::bindings::Bindings,
-        wire::{wp_drm_lease_connector_v1::*, WpDrmLeaseConnectorV1Id},
+        wire::{WpDrmLeaseConnectorV1Id, wp_drm_lease_connector_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

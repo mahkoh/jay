@@ -4,7 +4,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_fifo_v1::*, WpFifoV1Id},
+        wire::{WpFifoV1Id, wp_fifo_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

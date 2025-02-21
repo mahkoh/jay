@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{
-            AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis, AXIS_120,
+            AXIS_120, AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis,
         },
         client::ClientId,
         config::InvokedShortcut,
@@ -17,21 +17,21 @@ use {
                 },
             },
             wl_seat::{
+                CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, SeatId, WlSeat, WlSeatGlobal,
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::WlKeyboard,
                 wl_pointer::{
-                    self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
-                    AXIS_RELATIVE_DIRECTION_SINCE_VERSION, AXIS_SOURCE_SINCE_VERSION,
-                    AXIS_STOP_SINCE_VERSION, AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED,
-                    POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
+                    self, AXIS_DISCRETE_SINCE_VERSION, AXIS_RELATIVE_DIRECTION_SINCE_VERSION,
+                    AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
+                    AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED, POINTER_FRAME_SINCE_VERSION,
+                    PendingScroll, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION, WlPointer,
                 },
                 wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
-                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
-            wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
+            wl_surface::{WlSurface, xdg_surface::xdg_popup::XdgPopup},
         },
         kbvm::KbvmState,
         keyboard::KeyboardState,
@@ -49,11 +49,11 @@ use {
     jay_config::{
         input::SwitchEvent,
         keyboard::{
-            mods::{Modifiers, CAPS, NUM, RELEASE},
+            mods::{CAPS, Modifiers, NUM, RELEASE},
             syms::{KeySym, SYM_Escape},
         },
     },
-    kbvm::{state_machine::Event, ModifierMask},
+    kbvm::{ModifierMask, state_machine::Event},
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
 };

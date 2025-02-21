@@ -1,8 +1,8 @@
 use {
     crate::{
         object::Version,
-        wire::{wl_display::*, WlDisplayId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{WlDisplayId, wl_display::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::rc::Rc,
 };

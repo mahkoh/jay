@@ -7,6 +7,7 @@ use {
             SyncFile,
         },
         gfx_apis::gl::{
+            RenderError,
             gl::{
                 frame_buffer::GlFrameBuffer,
                 sys::{GL_COLOR_BUFFER_BIT, GL_FRAMEBUFFER},
@@ -15,7 +16,6 @@ use {
             renderer::context::GlRenderContext,
             run_ops,
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
-            RenderError,
         },
         rect::Region,
         theme::Color,

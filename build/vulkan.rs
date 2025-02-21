@@ -1,6 +1,6 @@
 use {
     crate::open,
-    anyhow::{anyhow, bail, Context},
+    anyhow::{Context, anyhow, bail},
     shaderc::{CompileOptions, ResolvedInclude},
     std::{io::Write, path::Path},
 };

@@ -1,6 +1,6 @@
 use {
     crate::open,
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result, bail},
     std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
 };
 

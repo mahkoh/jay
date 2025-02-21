@@ -6,14 +6,13 @@ use {
         utils::{oserror::OsError, syncqueue::SyncQueue, vecset::VecSet},
     },
     kbvm::{
+        Keycode,
         lookup::LookupTable,
         state_machine::{self, Direction, Event, StateMachine},
         xkb::{
-            self,
+            self, Keymap,
             diagnostic::{Diagnostic, WriteToLog},
-            Keymap,
         },
-        Keycode,
     },
     std::{
         cell::{Cell, Ref, RefCell},

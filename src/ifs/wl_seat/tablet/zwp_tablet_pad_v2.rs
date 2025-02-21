@@ -3,14 +3,14 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_seat::tablet::{
-                zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2, zwp_tablet_seat_v2::ZwpTabletSeatV2,
-                zwp_tablet_v2::ZwpTabletV2, PadButtonState, TabletPad,
+                PadButtonState, TabletPad, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
+                zwp_tablet_seat_v2::ZwpTabletSeatV2, zwp_tablet_v2::ZwpTabletV2,
             },
             wl_surface::WlSurface,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_pad_v2::*, ZwpTabletPadV2Id},
+        wire::{ZwpTabletPadV2Id, zwp_tablet_pad_v2::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

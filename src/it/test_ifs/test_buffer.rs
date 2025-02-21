@@ -5,7 +5,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{wl_buffer::*, WlBufferId},
+        wire::{WlBufferId, wl_buffer::*},
     },
     std::{cell::Cell, rc::Rc},
 };

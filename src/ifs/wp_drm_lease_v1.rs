@@ -5,7 +5,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::clonecell::CloneCell,
-        wire::{wp_drm_lease_v1::*, WpDrmLeaseV1Id},
+        wire::{WpDrmLeaseV1Id, wp_drm_lease_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

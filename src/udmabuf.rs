@@ -4,20 +4,20 @@ use {
         format::Format,
         utils::{oserror::OsError, page_size::page_size},
         video::{
+            LINEAR_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
-            Modifier, LINEAR_MODIFIER,
         },
     },
     std::{ptr, rc::Rc},
     thiserror::Error,
     uapi::{
-        c,
+        _IOW, OwnedFd,
         c::{
-            ioctl, mmap, munmap, F_SEAL_SHRINK, MAP_SHARED, MFD_ALLOW_SEALING, O_RDONLY, PROT_READ,
-            PROT_WRITE,
+            self, F_SEAL_SHRINK, MAP_SHARED, MFD_ALLOW_SEALING, O_RDONLY, PROT_READ, PROT_WRITE,
+            ioctl, mmap, munmap,
         },
-        map_err, open, OwnedFd, _IOW,
+        map_err, open,
     },
 };
 

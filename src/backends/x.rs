@@ -3,10 +3,10 @@ use {
         allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            AxisSource, Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorEvent,
-            ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent, InputDevice,
+            AXIS_120, AxisSource, Backend, BackendDrmDevice, BackendEvent, Connector,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent, InputDevice,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState,
-            Mode, MonitorInfo, ScrollAxis, TransformMatrix, AXIS_120,
+            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
         },
         fixed::Fixed,
         format::XRGB8888,
@@ -20,7 +20,7 @@ use {
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmBo, GbmDevice, GbmError, GBM_BO_USE_RENDERING},
+            gbm::{GBM_BO_USE_RENDERING, GbmBo, GbmDevice, GbmError},
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
@@ -33,6 +33,7 @@ use {
             XkbPerClientFlags, XkbUseExtension,
         },
         xcon::{
+            Event, XEvent, Xcon, XconError,
             consts::{
                 ATOM_STRING, ATOM_WM_CLASS, EVENT_MASK_EXPOSURE, EVENT_MASK_STRUCTURE_NOTIFY,
                 EVENT_MASK_VISIBILITY_CHANGE, GRAB_MODE_ASYNC, GRAB_STATUS_SUCCESS,
@@ -46,7 +47,6 @@ use {
                 XI_EVENT_MASK_TOUCH_BEGIN, XI_EVENT_MASK_TOUCH_END, XI_EVENT_MASK_TOUCH_UPDATE,
                 XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
             },
-            Event, XEvent, Xcon, XconError,
         },
     },
     jay_config::video::GfxApi,

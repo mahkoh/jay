@@ -6,7 +6,7 @@ use {
         object::{Object, Version},
         tree::WorkspaceNode,
         utils::clonecell::CloneCell,
-        wire::{jay_workspace_watcher::*, JayWorkspaceWatcherId},
+        wire::{JayWorkspaceWatcherId, jay_workspace_watcher::*},
     },
     std::rc::Rc,
     thiserror::Error,

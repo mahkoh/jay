@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{wp_content_type_v1::*, WpContentTypeV1Id},
+        wire::{WpContentTypeV1Id, wp_content_type_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

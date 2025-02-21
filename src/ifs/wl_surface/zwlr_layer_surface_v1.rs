@@ -5,10 +5,10 @@ use {
             wl_output::OutputGlobalOpt,
             wl_seat::NodeSeatState,
             wl_surface::{
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
             },
-            zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
+            zwlr_layer_shell_v1::{OVERLAY, ZwlrLayerShellV1},
         },
         leaks::Tracker,
         object::Object,
@@ -26,7 +26,7 @@ use {
             numcell::NumCell,
             option_ext::OptionExt,
         },
-        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id},
+        wire::{WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
     },
     std::{
         cell::{Cell, RefCell, RefMut},
@@ -723,7 +723,9 @@ simple_add_obj!(ZwlrLayerSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerSurfaceV1Error {
-    #[error("Surface {0} cannot be turned into a zwlr_layer_surface because it already has an attached zwlr_layer_surface")]
+    #[error(
+        "Surface {0} cannot be turned into a zwlr_layer_surface because it already has an attached zwlr_layer_surface"
+    )]
     AlreadyAttached(WlSurfaceId),
     #[error("Width was set to 0 but anchor did not contain LEFT and RIGHT")]
     WidthZero,

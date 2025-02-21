@@ -13,7 +13,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]

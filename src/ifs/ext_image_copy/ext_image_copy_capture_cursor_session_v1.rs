@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_image_copy_capture_cursor_session_v1::*, ExtImageCopyCaptureCursorSessionV1Id},
+        wire::{ExtImageCopyCaptureCursorSessionV1Id, ext_image_copy_capture_cursor_session_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

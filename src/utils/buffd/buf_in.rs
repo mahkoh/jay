@@ -3,7 +3,7 @@ use {
         io_uring::IoUring,
         utils::{
             buf::Buf,
-            buffd::{BufFdError, BUF_SIZE, MAX_IN_FD},
+            buffd::{BUF_SIZE, BufFdError, MAX_IN_FD},
         },
     },
     smallvec::SmallVec,

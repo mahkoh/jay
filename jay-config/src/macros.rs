@@ -30,9 +30,7 @@ macro_rules! try_get {
 }
 
 macro_rules! get {
-    () => {{
-        get!(Default::default())
-    }};
+    () => {{ get!(Default::default()) }};
     ($def:expr) => {{
         let client = unsafe {
             let client = crate::_private::client::CLIENT.with(|client| client.get());

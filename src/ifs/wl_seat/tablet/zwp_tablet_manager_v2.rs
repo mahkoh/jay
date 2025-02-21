@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_manager_v2::*, ZwpTabletManagerV2Id},
+        wire::{ZwpTabletManagerV2Id, zwp_tablet_manager_v2::*},
     },
     std::rc::Rc,
     thiserror::Error,

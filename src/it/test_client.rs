@@ -1,6 +1,6 @@
 use {
     crate::{
-        cli::{screenshot::buf_to_bytes, ScreenshotFormat},
+        cli::{ScreenshotFormat, screenshot::buf_to_bytes},
         client::Client,
         globals::GlobalBase,
         it::{

@@ -2,15 +2,15 @@ use {
     crate::{
         format::Format,
         gfx_apis::gl::{
+            RenderError,
             egl::{context::EglContext, image::EglImage},
             gl::{
                 frame_buffer::GlFrameBuffer,
                 sys::{
-                    GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
-                    GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+                    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+                    GLeglImageOES, GLuint,
                 },
             },
-            RenderError,
         },
     },
     std::rc::Rc,

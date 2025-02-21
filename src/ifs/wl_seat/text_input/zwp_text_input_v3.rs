@@ -3,11 +3,11 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_seat::{
-                text_input::{
-                    zwp_input_method_v2::ZwpInputMethodV2, TextConnectReason, TextDisconnectReason,
-                    TextInputConnection, MAX_TEXT_SIZE,
-                },
                 WlSeatGlobal,
+                text_input::{
+                    MAX_TEXT_SIZE, TextConnectReason, TextDisconnectReason, TextInputConnection,
+                    zwp_input_method_v2::ZwpInputMethodV2,
+                },
             },
             wl_surface::WlSurface,
         },
@@ -15,7 +15,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         utils::{clonecell::CloneCell, numcell::NumCell},
-        wire::{zwp_text_input_v3::*, ZwpTextInputV3Id},
+        wire::{ZwpTextInputV3Id, zwp_text_input_v3::*},
     },
     std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
     thiserror::Error,

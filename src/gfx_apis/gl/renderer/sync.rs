@@ -1,12 +1,12 @@
 use {
     crate::{
         gfx_apis::gl::{
+            RenderError,
             egl::context::EglContext,
             sys::{
-                EGLBoolean, EGLSyncKHR, EGL_NONE, EGL_SYNC_NATIVE_FENCE_ANDROID,
-                EGL_SYNC_NATIVE_FENCE_FD_ANDROID, EGL_TRUE,
+                EGL_NONE, EGL_SYNC_NATIVE_FENCE_ANDROID, EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
+                EGL_TRUE, EGLBoolean, EGLSyncKHR,
             },
-            RenderError,
         },
         utils::errorfmt::ErrorFmt,
     },

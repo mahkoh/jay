@@ -10,7 +10,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire::{wl_shm::*, WlShmId},
+        wire::{WlShmId, wl_shm::*},
     },
     std::{cell::Cell, rc::Rc},
 };

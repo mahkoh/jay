@@ -14,7 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
         cpu_worker::{CpuWorker, CpuWorkerError},
-        damage::{visualize_damage, DamageVisualizer},
+        damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
         ei::ei_client::EiClients,
         forker,
@@ -22,7 +22,7 @@ use {
         ifs::{
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
-            wl_surface::{zwp_input_popup_surface_v2::input_popup_positioning, NoneSurfaceExt},
+            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             workspace_manager::workspace_manager_done,
         },
         io_uring::{IoUring, IoUringError},
@@ -37,9 +37,9 @@ use {
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
+            DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceNode,
             container_layout, container_render_positions, container_render_titles, float_layout,
-            float_titles, output_render_data, placeholder_render_textures, DisplayNode, NodeIds,
-            OutputNode, TearingMode, VrrMode, WorkspaceNode,
+            float_titles, output_render_data, placeholder_render_textures,
         },
         user_session::import_environment,
         utils::{

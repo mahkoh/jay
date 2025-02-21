@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_SCREENCOPY_MANAGER},
+        client::{CAP_SCREENCOPY_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -11,7 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_image_copy_capture_manager_v1::*, ExtImageCopyCaptureManagerV1Id},
+        wire::{ExtImageCopyCaptureManagerV1Id, ext_image_copy_capture_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,
