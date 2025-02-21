@@ -50,7 +50,7 @@ use {
             SubmitInfo2, Viewport, WriteDescriptorSet,
         },
     },
-    isnt::std_1::collections::IsntHashMapExt,
+    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     linearize::{Linearize, StaticMap, static_map},
     std::{
         cell::{Cell, RefCell},
@@ -543,25 +543,27 @@ impl VulkanRenderer {
         unsafe {
             self.device.device.cmd_begin_rendering(buf, &rendering_info);
         }
-        if let Some(clear) = manual_clear {
-            let clear_attachment = ClearAttachment::default()
-                .color_attachment(0)
-                .clear_value(clear)
-                .aspect_mask(ImageAspectFlags::COLOR);
-            memory.clear_rects.clear();
-            for region in &memory.paint_regions {
-                memory.clear_rects.push(ClearRect {
-                    rect: region.rect,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                });
-            }
-            unsafe {
-                self.device.device.cmd_clear_attachments(
-                    buf,
-                    &[clear_attachment],
-                    &memory.clear_rects,
-                );
+        if memory.paint_regions.is_not_empty() {
+            if let Some(clear) = manual_clear {
+                let clear_attachment = ClearAttachment::default()
+                    .color_attachment(0)
+                    .clear_value(clear)
+                    .aspect_mask(ImageAspectFlags::COLOR);
+                memory.clear_rects.clear();
+                for region in &memory.paint_regions {
+                    memory.clear_rects.push(ClearRect {
+                        rect: region.rect,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    });
+                }
+                unsafe {
+                    self.device.device.cmd_clear_attachments(
+                        buf,
+                        &[clear_attachment],
+                        &memory.clear_rects,
+                    );
+                }
             }
         }
     }
