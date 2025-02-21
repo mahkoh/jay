@@ -137,5 +137,8 @@ async fn send(data: Rc<Client>) {
             );
         }
     }
-    data.state.clients.kill(data.id);
+    let run_toplevel = data.state.run_toplevel.clone();
+    run_toplevel.schedule(move || {
+        data.state.clients.kill(data.id);
+    });
 }
