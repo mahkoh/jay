@@ -57,7 +57,7 @@ impl ZwpLinuxDmabufV1EventHandler for UsrLinuxDmabuf {
             if let Some(format) = formats().get(&ev.format) {
                 owner.modifier(
                     format,
-                    (ev.modifier_hi as u64) << 32 | (ev.modifier_lo as u64),
+                    ((ev.modifier_hi as u64) << 32) | (ev.modifier_lo as u64),
                 );
             }
         }

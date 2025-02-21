@@ -519,7 +519,7 @@ impl MetalBackend {
                 _ => None,
             },
             angle: match event.ring_position() {
-                n if n == -1.0 => None,
+                -1.0 => None,
                 n => Some(n),
             },
         });
@@ -539,7 +539,7 @@ impl MetalBackend {
                 _ => None,
             },
             position: match event.strip_position() {
-                n if n == -1.0 => None,
+                -1.0 => None,
                 n => Some(n),
             },
         });

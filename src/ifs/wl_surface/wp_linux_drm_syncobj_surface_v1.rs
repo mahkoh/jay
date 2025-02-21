@@ -72,7 +72,7 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
 }
 
 fn point(hi: u32, lo: u32) -> SyncObjPoint {
-    SyncObjPoint((hi as u64) << 32 | (lo as u64))
+    SyncObjPoint(((hi as u64) << 32) | (lo as u64))
 }
 
 object_base! {
