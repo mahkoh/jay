@@ -230,10 +230,10 @@ impl EiClient {
         match self.connection.get() {
             Some(d) => {
                 d.send_disconnected(Some(&msg));
-                self.state.clients.shutdown(self.id);
+                self.state.ei_clients.shutdown(self.id);
             }
             _ => {
-                self.state.clients.kill(self.id);
+                self.state.ei_clients.kill(self.id);
             }
         }
     }
