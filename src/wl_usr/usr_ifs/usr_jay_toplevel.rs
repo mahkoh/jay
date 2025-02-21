@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_toplevel::*, JayToplevelId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{JayToplevelId, jay_toplevel::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{cell::RefCell, convert::Infallible, rc::Rc},
 };

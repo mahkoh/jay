@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{xdg_wm_dialog_v1::*, XdgWmDialogV1Id},
+        wire::{XdgWmDialogV1Id, xdg_wm_dialog_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

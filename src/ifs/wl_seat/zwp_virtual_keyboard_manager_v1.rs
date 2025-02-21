@@ -1,12 +1,12 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_VIRTUAL_KEYBOARD_MANAGER},
+        client::{CAP_VIRTUAL_KEYBOARD_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_seat::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1,
         keyboard::KeyboardState,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_virtual_keyboard_manager_v1::*, ZwpVirtualKeyboardManagerV1Id},
+        wire::{ZwpVirtualKeyboardManagerV1Id, zwp_virtual_keyboard_manager_v1::*},
     },
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,

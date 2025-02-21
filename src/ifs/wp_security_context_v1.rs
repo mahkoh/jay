@@ -1,9 +1,9 @@
 use {
     crate::{
-        client::{Client, ClientError, CAPS_DEFAULT_SANDBOXED},
+        client::{CAPS_DEFAULT_SANDBOXED, Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_security_context_v1::*, WpSecurityContextV1Id},
+        wire::{WpSecurityContextV1Id, wp_security_context_v1::*},
     },
     std::{
         cell::{Cell, RefCell},

@@ -2,18 +2,18 @@ use {
     crate::{
         client::Client,
         ifs::ipc::{
+            IpcLocation, SourceData,
             data_control::{
                 ext_data_control_device_v1::ExtDataControlIpc,
                 private::{
-                    logic::{self, DataControlError},
                     DataControlSource, DataControlSourceData,
+                    logic::{self, DataControlError},
                 },
             },
-            IpcLocation, SourceData,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_data_control_source_v1::*, ExtDataControlSourceV1Id},
+        wire::{ExtDataControlSourceV1Id, ext_data_control_source_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

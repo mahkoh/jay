@@ -5,7 +5,7 @@ use {
         ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_subcompositor::*, WlSubcompositorId},
+        wire::{WlSubcompositorId, wl_subcompositor::*},
     },
     std::rc::Rc,
     thiserror::Error,

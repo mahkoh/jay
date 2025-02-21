@@ -7,7 +7,7 @@ use {
             timer::{TimerError, TimerFd},
         },
     },
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     std::{rc::Rc, time::Duration},
     uapi::c,
 };

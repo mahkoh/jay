@@ -8,7 +8,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{xdg_activation_v1::*, XdgActivationV1Id},
+        wire::{XdgActivationV1Id, xdg_activation_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

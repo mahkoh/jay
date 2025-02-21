@@ -8,9 +8,9 @@ use {
             ShmGfxTexture, ShmMemory, SyncFile,
         },
         gfx_apis::vulkan::{
-            allocator::VulkanAllocation, device::VulkanDevice, format::VulkanModifierLimits,
-            renderer::VulkanRenderer, shm_image::VulkanShmImage, transfer::TransferType,
-            VulkanError,
+            VulkanError, allocator::VulkanAllocation, device::VulkanDevice,
+            format::VulkanModifierLimits, renderer::VulkanRenderer, shm_image::VulkanShmImage,
+            transfer::TransferType,
         },
         rect::Region,
         theme::Color,

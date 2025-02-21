@@ -3,18 +3,17 @@ use {
         client::{Client, ClientError, ClientId},
         ifs::{
             ipc::{
-                break_device_loops, destroy_data_device,
-                zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
-                IpcVtable, IterableIpcVtable, OfferData, Role,
+                DeviceData, IpcVtable, IterableIpcVtable, OfferData, Role, break_device_loops,
+                destroy_data_device, zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            zwp_primary_selection_device_v1::*, ZwpPrimarySelectionDeviceV1Id,
-            ZwpPrimarySelectionOfferV1Id,
+            ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id,
+            zwp_primary_selection_device_v1::*,
         },
     },
     std::rc::Rc,

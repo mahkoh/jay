@@ -1,11 +1,11 @@
 use {
     crate::{
         config::{
+            ConfigConnector,
             context::Context,
-            extractor::{bol, opt, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, bol, opt, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::connector_match::{ConnectorMatchParser, ConnectorMatchParserError},
-            ConfigConnector,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

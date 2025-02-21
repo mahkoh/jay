@@ -5,8 +5,8 @@ use {
         ffi::{CStr, CString},
         ptr,
         sync::{
-            atomic::{AtomicBool, Ordering::Relaxed},
             LazyLock,
+            atomic::{AtomicBool, Ordering::Relaxed},
         },
     },
     tracy_client_sys::{

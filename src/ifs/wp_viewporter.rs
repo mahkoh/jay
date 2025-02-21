@@ -5,7 +5,7 @@ use {
         ifs::wl_surface::wp_viewport::{WpViewport, WpViewportError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_viewporter::*, WpViewporterId},
+        wire::{WpViewporterId, wp_viewporter::*},
     },
     std::rc::Rc,
     thiserror::Error,

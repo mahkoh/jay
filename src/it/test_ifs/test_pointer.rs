@@ -7,7 +7,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell},
-        wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
+        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_WORKSPACE},
+        client::{CAP_WORKSPACE, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
             wl_output::OutputGlobalOpt,
@@ -11,9 +11,9 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{move_ws_to_output, OutputNode, WorkspaceNode, WsMoveConfig},
+        tree::{OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output},
         utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
-        wire::{ext_workspace_manager_v1::*, ExtWorkspaceManagerV1Id},
+        wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

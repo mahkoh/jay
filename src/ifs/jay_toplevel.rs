@@ -4,7 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelNode,
-        wire::{jay_toplevel::*, JayToplevelId},
+        wire::{JayToplevelId, jay_toplevel::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

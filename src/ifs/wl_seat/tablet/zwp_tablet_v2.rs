@@ -1,10 +1,10 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::wl_seat::tablet::{zwp_tablet_seat_v2::ZwpTabletSeatV2, Tablet},
+        ifs::wl_seat::tablet::{Tablet, zwp_tablet_seat_v2::ZwpTabletSeatV2},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_v2::*, ZwpTabletV2Id},
+        wire::{ZwpTabletV2Id, zwp_tablet_v2::*},
     },
     std::rc::Rc,
     thiserror::Error,

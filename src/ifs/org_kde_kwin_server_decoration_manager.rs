@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{org_kde_kwin_server_decoration_manager::*, OrgKdeKwinServerDecorationManagerId},
+        wire::{OrgKdeKwinServerDecorationManagerId, org_kde_kwin_server_decoration_manager::*},
     },
     std::rc::Rc,
     thiserror::Error,

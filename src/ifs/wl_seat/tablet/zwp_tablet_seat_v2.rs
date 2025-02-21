@@ -2,18 +2,17 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::wl_seat::{
+            WlSeatGlobal,
             tablet::{
-                zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
+                Tablet, TabletPad, TabletTool, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
                 zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
                 zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2, zwp_tablet_pad_v2::ZwpTabletPadV2,
-                zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2, Tablet, TabletPad,
-                TabletTool,
+                zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2,
             },
-            WlSeatGlobal,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_seat_v2::*, ZwpTabletSeatV2Id},
+        wire::{ZwpTabletSeatV2Id, zwp_tablet_seat_v2::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

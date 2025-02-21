@@ -6,9 +6,9 @@ use {
         ifs::{
             jay_workspace::JayWorkspace,
             wl_output::OutputId,
-            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
+            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
-                x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel, WlSurface,
+                WlSurface, x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel,
             },
             workspace_manager::{
                 ext_workspace_handle_v1::ExtWorkspaceHandleV1,
@@ -20,9 +20,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode,
-            PlaceholderNode, StackedNode, ToplevelNode,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
+            NodeVisitorBase, OutputNode, PlaceholderNode, StackedNode, ToplevelNode,
+            container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,

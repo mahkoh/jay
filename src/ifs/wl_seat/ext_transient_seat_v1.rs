@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_transient_seat_v1::*, ExtTransientSeatV1Id},
+        wire::{ExtTransientSeatV1Id, ext_transient_seat_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

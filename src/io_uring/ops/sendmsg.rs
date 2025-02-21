@@ -1,15 +1,15 @@
 use {
     crate::{
         io_uring::{
-            pending_result::PendingResult,
-            sys::{io_uring_sqe, IORING_OP_SENDMSG},
             IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
+            pending_result::PendingResult,
+            sys::{IORING_OP_SENDMSG, io_uring_sqe},
         },
         time::Time,
         utils::{buf::Buf, vec_ext::UninitVecExt},
     },
     std::{mem::MaybeUninit, ptr, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 impl IoUring {

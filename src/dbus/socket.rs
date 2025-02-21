@@ -1,15 +1,15 @@
 use {
     crate::{
         dbus::{
+            AsyncProperty, AsyncReply, AsyncReplySlot, BUS_DEST, BUS_PATH, DbusError, DbusObject,
+            DbusObjectData, DbusSocket, DbusType, ErrorMessage, Formatter, HDR_DESTINATION,
+            HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL, HDR_SIGNATURE,
+            HDR_UNIX_FDS, Headers, InterfaceSignalHandlers, MSG_ERROR, MSG_METHOD_CALL,
+            MSG_METHOD_RETURN, MSG_SIGNAL, Message, MethodCall, NO_REPLY_EXPECTED, Parser,
+            Property, Reply, ReplyHandler, Signal, SignalHandler, SignalHandlerApi,
+            SignalHandlerData,
             property::Get,
             types::{ObjectPath, Signature, Variant},
-            AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusObject, DbusObjectData,
-            DbusSocket, DbusType, ErrorMessage, Formatter, Headers, InterfaceSignalHandlers,
-            Message, MethodCall, Parser, Property, Reply, ReplyHandler, Signal, SignalHandler,
-            SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH, HDR_DESTINATION,
-            HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL, HDR_SIGNATURE,
-            HDR_UNIX_FDS, MSG_ERROR, MSG_METHOD_CALL, MSG_METHOD_RETURN, MSG_SIGNAL,
-            NO_REPLY_EXPECTED,
         },
         utils::{bufio::BufIoMessage, errorfmt::ErrorFmt},
         wire_dbus::org,

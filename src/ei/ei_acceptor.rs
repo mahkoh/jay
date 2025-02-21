@@ -6,7 +6,7 @@ use {
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
+    uapi::{Errno, OwnedFd, Ustring, c, format_ustr},
 };
 
 #[derive(Debug, Error)]

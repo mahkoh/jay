@@ -263,7 +263,7 @@ where
             return Err(TestBackendError::OpenDrmNode(
                 node.as_os_str().as_bytes().as_bstr().to_string(),
                 e.into(),
-            ))
+            ));
         }
     };
     let drm = Drm::open_existing(file).map_err(TestBackendError::OpenDrmDevice)?;

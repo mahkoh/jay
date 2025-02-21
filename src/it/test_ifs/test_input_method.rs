@@ -12,7 +12,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, numcell::NumCell},
-        wire::{zwp_input_method_v2::*, ZwpInputMethodV2Id},
+        wire::{ZwpInputMethodV2Id, zwp_input_method_v2::*},
     },
     std::{cell::Cell, rc::Rc},
 };

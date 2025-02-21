@@ -1,8 +1,9 @@
 use {
     crate::{
         config::{
+            Input,
             context::Context,
-            extractor::{bol, fltorint, opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -10,7 +11,6 @@ use {
                 keymap::KeymapParser,
                 output_match::OutputMatchParser,
             },
-            Input,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned, SpannedExt},
@@ -20,8 +20,8 @@ use {
     ahash::AHashMap,
     indexmap::IndexMap,
     jay_config::input::{
-        acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
         SwitchEvent,
+        acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
     },
     thiserror::Error,
 };

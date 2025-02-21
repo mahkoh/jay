@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName, RemovableWaylandGlobal},
-        ifs::wl_output::{WlOutput, WlOutputGlobal, OUTPUT_VERSION},
+        ifs::wl_output::{OUTPUT_VERSION, WlOutput, WlOutputGlobal},
         object::Version,
         wire::WlOutputId,
     },

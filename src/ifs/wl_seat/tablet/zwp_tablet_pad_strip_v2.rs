@@ -2,11 +2,11 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::wl_seat::tablet::{
-            zwp_tablet_seat_v2::ZwpTabletSeatV2, TabletPadStrip, TabletStripEventSource,
+            TabletPadStrip, TabletStripEventSource, zwp_tablet_seat_v2::ZwpTabletSeatV2,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_pad_strip_v2::*, ZwpTabletPadStripV2Id},
+        wire::{ZwpTabletPadStripV2Id, zwp_tablet_pad_strip_v2::*},
     },
     std::rc::Rc,
     thiserror::Error,

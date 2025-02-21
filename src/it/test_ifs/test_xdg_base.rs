@@ -5,7 +5,7 @@ use {
             test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{xdg_wm_base::*, WlSurfaceId, XdgWmBaseId},
+        wire::{WlSurfaceId, XdgWmBaseId, xdg_wm_base::*},
     },
     std::{cell::Cell, rc::Rc},
 };

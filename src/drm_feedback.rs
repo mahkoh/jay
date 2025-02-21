@@ -4,7 +4,7 @@ use {
     byteorder::{NativeEndian, WriteBytesExt},
     std::{io::Write, rc::Rc},
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 linear_ids!(DrmFeedbackIds, DrmFeedbackId);

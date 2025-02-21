@@ -3,11 +3,11 @@ use {
         ifs::jay_toplevel::ID_SINCE,
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_select_toplevel::*, JaySelectToplevelId},
+        wire::{JaySelectToplevelId, jay_select_toplevel::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::usr_jay_toplevel::{UsrJayToplevel, UsrJayToplevelOwner},
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

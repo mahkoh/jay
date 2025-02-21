@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::{activation_token::ActivationToken, errorfmt::ErrorFmt, opaque::OpaqueError},
-        wire::{xdg_activation_v1::*, XdgActivationV1Id},
+        wire::{XdgActivationV1Id, xdg_activation_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -4,7 +4,7 @@ use {
         cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
         format::XRGB8888,
         gfx_apis,
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
         udmabuf::{Udmabuf, UdmabufError},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue, windows::WindowsExt},
         video::{

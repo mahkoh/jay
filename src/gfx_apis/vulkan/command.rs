@@ -1,5 +1,5 @@
 use {
-    crate::gfx_apis::vulkan::{device::VulkanDevice, renderer::CachedCommandBuffers, VulkanError},
+    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice, renderer::CachedCommandBuffers},
     ash::vk::{
         CommandBuffer, CommandBufferAllocateInfo, CommandBufferLevel, CommandPool,
         CommandPoolCreateFlags, CommandPoolCreateInfo,

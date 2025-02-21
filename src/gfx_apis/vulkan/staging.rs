@@ -3,10 +3,10 @@ use {
         cpu_worker::CpuWorker,
         gfx_api::GfxStagingBuffer,
         gfx_apis::vulkan::{
+            VulkanError,
             allocator::{VulkanAllocation, VulkanAllocator},
             device::VulkanDevice,
             renderer::VulkanRenderer,
-            VulkanError,
         },
         utils::{
             clonecell::CloneCell,
@@ -14,8 +14,8 @@ use {
         },
     },
     ash::{
-        vk::{Buffer, BufferCreateInfo, BufferUsageFlags},
         Device,
+        vk::{Buffer, BufferCreateInfo, BufferUsageFlags},
     },
     gpu_alloc::UsageFlags,
     std::{any::Any, cell::Cell, rc::Rc},

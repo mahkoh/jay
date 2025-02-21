@@ -3,12 +3,11 @@ use {
         client::{Client, ClientError, ClientId, WaylandObject, WaylandObjectLookup},
         ifs::{
             ipc::{
-                cancel_offer, cancel_offers,
+                DataOffer, DataOfferId, DataSource, DeviceData, DynDataOffer, DynDataSource,
+                IpcLocation, IpcVtable, OfferData, Role, SourceData, cancel_offer, cancel_offers,
                 data_control::{DataControlDeviceId, DynDataControlDevice},
                 detach_seat, offer_source_to_data_control_device, offer_source_to_x,
                 x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-                DataOffer, DataOfferId, DataSource, DeviceData, DynDataOffer, DynDataSource,
-                IpcLocation, IpcVtable, OfferData, Role, SourceData,
             },
             wl_seat::WlSeatGlobal,
         },
@@ -294,14 +293,14 @@ pub mod logic {
             client::ClientError,
             ifs::{
                 ipc::{
-                    add_data_source_mime_type, break_device_loops, break_offer_loops,
+                    IpcLocation, add_data_source_mime_type, break_device_loops, break_offer_loops,
                     break_source_loops,
                     data_control::private::{
                         Clipboard, DataControlDevice, DataControlOffer, DataControlSource,
                         PrimarySelection, Source, SourceId,
                     },
                     destroy_data_device, destroy_data_offer, destroy_data_source,
-                    receive_data_offer, IpcLocation,
+                    receive_data_offer,
                 },
                 wl_seat::WlSeatError,
             },

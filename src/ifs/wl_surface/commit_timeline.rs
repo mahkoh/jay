@@ -21,9 +21,9 @@ use {
             queue::AsyncQueue,
         },
         video::drm::{
+            DrmError,
             sync_obj::{SyncObj, SyncObjPoint},
             wait_for_sync_obj::{SyncObjWaiter, WaitForSyncObj, WaitForSyncObjHandle},
-            DrmError,
         },
     },
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
@@ -36,7 +36,7 @@ use {
         slice,
     },
     thiserror::Error,
-    uapi::{c::c_short, OwnedFd},
+    uapi::{OwnedFd, c::c_short},
 };
 
 const MAX_TIMELINE_DEPTH: usize = 256;

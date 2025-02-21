@@ -13,7 +13,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::opt::Opt,
-        wire::{ext_workspace_group_handle_v1::*, ExtWorkspaceGroupHandleV1Id},
+        wire::{ExtWorkspaceGroupHandleV1Id, ext_workspace_group_handle_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

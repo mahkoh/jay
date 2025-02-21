@@ -4,14 +4,14 @@ mod tests;
 use {
     crate::{
         io_uring::{
-            pending_result::PendingResult,
-            sys::{io_uring_sqe, IORING_OP_READ, IORING_OP_WRITE},
             IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
+            pending_result::PendingResult,
+            sys::{IORING_OP_READ, IORING_OP_WRITE, io_uring_sqe},
         },
         time::Time,
         utils::on_drop::OnDrop,
     },
-    uapi::{c, Fd},
+    uapi::{Fd, c},
 };
 
 impl IoUring {

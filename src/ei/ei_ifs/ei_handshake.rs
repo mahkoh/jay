@@ -1,19 +1,19 @@
 use {
     crate::{
         ei::{
+            EiContext,
             ei_client::{EiClient, EiClientError},
             ei_ifs::ei_connection::EiConnection,
-            ei_object::{EiInterface, EiObject, EiVersion, EI_HANDSHAKE_ID},
-            EiContext,
+            ei_object::{EI_HANDSHAKE_ID, EiInterface, EiObject, EiVersion},
         },
         leaks::Tracker,
         wire_ei::{
+            EiHandshake, EiHandshakeId,
             ei_handshake::{
                 ClientHandshakeVersion, ClientInterfaceVersion, Connection, ContextType,
                 EiHandshakeRequestHandler, Finish, Name, ServerHandshakeVersion,
                 ServerInterfaceVersion,
             },
-            EiHandshake, EiHandshakeId,
         },
     },
     std::{cell::Cell, rc::Rc},

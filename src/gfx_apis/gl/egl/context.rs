@@ -2,16 +2,16 @@ use {
     crate::{
         gfx_api::{GfxFormat, ResetStatus},
         gfx_apis::gl::{
+            RenderError,
             egl::{
                 display::EglDisplay,
-                sys::{EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},
+                sys::{EGL_FALSE, EGL_TRUE, EGLContext, EGLSurface},
             },
-            ext::{GlExt, EXT_CREATE_CONTEXT_ROBUSTNESS},
+            ext::{EXT_CREATE_CONTEXT_ROBUSTNESS, GlExt},
             sys::{
                 GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
                 GL_UNKNOWN_CONTEXT_RESET_ARB,
             },
-            RenderError,
         },
     },
     ahash::AHashMap,

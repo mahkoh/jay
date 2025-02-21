@@ -1,8 +1,8 @@
 use {
     crate::io_uring::{
-        pending_result::PendingResult,
-        sys::{io_uring_sqe, IORING_OP_TIMEOUT, IORING_TIMEOUT_ABS},
         IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
+        pending_result::PendingResult,
+        sys::{IORING_OP_TIMEOUT, IORING_TIMEOUT_ABS, io_uring_sqe},
     },
     uapi::c,
 };

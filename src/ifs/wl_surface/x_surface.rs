@@ -1,8 +1,8 @@
 use {
     crate::{
         ifs::wl_surface::{
-            x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
             SurfaceExt, WlSurface, WlSurfaceError,
+            x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
         },
         leaks::Tracker,
         tree::{Node, ToplevelNode, ToplevelNodeBase},

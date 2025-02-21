@@ -5,7 +5,7 @@ use {
         ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zxdg_decoration_manager_v1::*, ZxdgDecorationManagerV1Id},
+        wire::{ZxdgDecorationManagerV1Id, zxdg_decoration_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -4,7 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         video::dmabuf::{DmaBuf, DmaBufPlane},
-        wire::{jay_screenshot::*, JayScreenshotId},
+        wire::{JayScreenshotId, jay_screenshot::*},
     },
     std::{convert::Infallible, rc::Rc},
     uapi::OwnedFd,

@@ -7,12 +7,12 @@ use {
             hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsError, stack::Stack,
         },
         video::drm::{
-            sync_obj::{SyncObj, SyncObjCtx, SyncObjPoint},
             DrmError,
+            sync_obj::{SyncObj, SyncObjCtx, SyncObjPoint},
         },
     },
     std::{cell::Cell, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub struct WaitForSyncObj {

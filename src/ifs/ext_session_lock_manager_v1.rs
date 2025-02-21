@@ -1,11 +1,11 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_SESSION_LOCK_MANAGER},
+        client::{CAP_SESSION_LOCK_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::ext_session_lock_v1::ExtSessionLockV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_session_lock_manager_v1::*, ExtSessionLockManagerV1Id},
+        wire::{ExtSessionLockManagerV1Id, ext_session_lock_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

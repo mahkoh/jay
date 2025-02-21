@@ -8,24 +8,24 @@ use {
             GfxImage, GfxInternalFramebuffer, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
+            GfxGlState, RenderError, Texture,
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
             ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
             renderer::{framebuffer::Framebuffer, image::Image},
-            GfxGlState, RenderError, Texture,
         },
         rect::Rect,
         video::{
             dmabuf::DmaBuf,
-            drm::{sync_obj::SyncObjCtx, Drm},
+            drm::{Drm, sync_obj::SyncObjCtx},
             gbm::GbmDevice,
         },
     },
     ahash::AHashMap,
     jay_config::video::GfxApi,
-    linearize::{static_map, Linearize, StaticMap},
+    linearize::{Linearize, StaticMap, static_map},
     std::{
         cell::{Cell, RefCell},
         ffi::CString,

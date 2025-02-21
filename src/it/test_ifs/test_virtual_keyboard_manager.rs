@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{zwp_virtual_keyboard_manager_v1::*, ZwpVirtualKeyboardManagerV1Id},
+        wire::{ZwpVirtualKeyboardManagerV1Id, zwp_virtual_keyboard_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

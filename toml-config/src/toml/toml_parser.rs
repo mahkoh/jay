@@ -6,8 +6,8 @@ use {
     },
     bstr::ByteSlice,
     indexmap::{
-        map::{raw_entry_v1::RawEntryMut, RawEntryApiV1},
         IndexMap,
+        map::{RawEntryApiV1, raw_entry_v1::RawEntryMut},
     },
     std::{collections::VecDeque, mem, str::FromStr},
     thiserror::Error,

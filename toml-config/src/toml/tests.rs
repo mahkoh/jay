@@ -2,7 +2,7 @@ use {
     crate::{
         config::error::SpannedError,
         toml::{
-            toml_parser::{parse, ErrorHandler, ParserError},
+            toml_parser::{ErrorHandler, ParserError, parse},
             toml_span::{Span, Spanned, SpannedExt},
             toml_value::Value,
         },
@@ -11,7 +11,7 @@ use {
     std::{
         convert::Infallible,
         os::unix::ffi::OsStrExt,
-        panic::{catch_unwind, AssertUnwindSafe},
+        panic::{AssertUnwindSafe, catch_unwind},
         str::FromStr,
     },
     walkdir::WalkDir,

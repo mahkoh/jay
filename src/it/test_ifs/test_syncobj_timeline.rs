@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{wp_linux_drm_syncobj_timeline_v1::*, WpLinuxDrmSyncobjTimelineV1Id},
+        wire::{WpLinuxDrmSyncobjTimelineV1Id, wp_linux_drm_syncobj_timeline_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

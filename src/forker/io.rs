@@ -1,6 +1,6 @@
 use {
     bincode::Options,
-    serde::{de::DeserializeOwned, Serialize},
+    serde::{Serialize, de::DeserializeOwned},
     std::{mem, rc::Rc},
 };
 

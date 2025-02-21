@@ -5,7 +5,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         tree::ToplevelOpt,
-        wire::{ext_image_capture_source_v1::*, ExtImageCaptureSourceV1Id},
+        wire::{ExtImageCaptureSourceV1Id, ext_image_capture_source_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

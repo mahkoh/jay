@@ -9,8 +9,8 @@ use {
     crate::{
         libinput::{
             consts::{
-                LogPriority, LIBINPUT_LOG_PRIORITY_DEBUG, LIBINPUT_LOG_PRIORITY_ERROR,
-                LIBINPUT_LOG_PRIORITY_INFO,
+                LIBINPUT_LOG_PRIORITY_DEBUG, LIBINPUT_LOG_PRIORITY_ERROR,
+                LIBINPUT_LOG_PRIORITY_INFO, LogPriority,
             },
             device::RegisteredDevice,
             event::LibInputEvent,
@@ -28,7 +28,7 @@ use {
     isnt::std_1::primitive::IsntConstPtrExt,
     std::{ffi::CStr, rc::Rc},
     thiserror::Error,
-    uapi::{c, Errno, IntoUstr, OwnedFd},
+    uapi::{Errno, IntoUstr, OwnedFd, c},
 };
 
 static INTERFACE: libinput_interface = libinput_interface {

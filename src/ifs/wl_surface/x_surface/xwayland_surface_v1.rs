@@ -1,11 +1,11 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::wl_surface::{x_surface::XSurface, WlSurfaceError},
+        ifs::wl_surface::{WlSurfaceError, x_surface::XSurface},
         leaks::Tracker,
         object::{Object, Version},
         utils::cell_ext::CellExt,
-        wire::{xwayland_surface_v1::*, XwaylandSurfaceV1Id},
+        wire::{XwaylandSurfaceV1Id, xwayland_surface_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

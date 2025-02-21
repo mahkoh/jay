@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_log_file::*, JayLogFileId},
+        wire::{JayLogFileId, jay_log_file::*},
     },
     bstr::BStr,
     std::rc::Rc,

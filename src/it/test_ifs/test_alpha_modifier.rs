@@ -8,7 +8,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wp_alpha_modifier_v1::*, WpAlphaModifierV1Id},
+        wire::{WpAlphaModifierV1Id, wp_alpha_modifier_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

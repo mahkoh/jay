@@ -1,9 +1,9 @@
 use {
     crate::gfx_apis::gl::{
-        egl::context::EglContext,
-        gl::sys::{GLenum, GLuint, GL_COMPILE_STATUS, GL_FALSE},
-        sys::GLint,
         RenderError,
+        egl::context::EglContext,
+        gl::sys::{GL_COMPILE_STATUS, GL_FALSE, GLenum, GLuint},
+        sys::GLint,
     },
     std::rc::Rc,
 };

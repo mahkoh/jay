@@ -736,8 +736,17 @@ fn parser_cursor_file<R: BufRead + Seek>(
     let mut images = AHashMap::new();
     for position in positions {
         r.seek(SeekFrom::Start(position as u64))?;
-        let [_chunk_header, _type_, _size, _version, width, height, xhot, yhot, delay] =
-            read_u32_n(r)?;
+        let [
+            _chunk_header,
+            _type_,
+            _size,
+            _version,
+            width,
+            height,
+            xhot,
+            yhot,
+            delay,
+        ] = read_u32_n(r)?;
         let [width, height, xhot, yhot] = u32_to_i32([width, height, xhot, yhot])?;
         let mut image = XCursorImage {
             width,
@@ -760,7 +769,9 @@ fn parser_cursor_file<R: BufRead + Seek>(
     }
     let mut num = targets[0].positions.len();
     if num > 1 && targets.iter().any(|t| t.positions.len() != num) {
-        log::warn!("Cursor file contains animated cursor but not all scales have the same number of images");
+        log::warn!(
+            "Cursor file contains animated cursor but not all scales have the same number of images"
+        );
         num = 1;
     }
     let mut res = vec![];

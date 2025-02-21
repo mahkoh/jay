@@ -21,11 +21,11 @@ use {
             xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
-        format::{ref_formats, Format},
+        format::{Format, ref_formats},
         portal,
     },
     ::log::Level,
-    clap::{builder::PossibleValue, Args, Parser, Subcommand, ValueEnum, ValueHint},
+    clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
     clap_complete::Shell,
 };
 

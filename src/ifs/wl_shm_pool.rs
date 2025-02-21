@@ -7,7 +7,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::clonecell::CloneCell,
-        wire::{wl_shm_pool::*, WlShmPoolId},
+        wire::{WlShmPoolId, wl_shm_pool::*},
     },
     std::rc::Rc,
     thiserror::Error,

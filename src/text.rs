@@ -7,11 +7,11 @@ use {
             GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
         },
         pango::{
+            CairoContext, CairoImageSurface, PangoCairoContext, PangoError, PangoFontDescription,
+            PangoLayout,
             consts::{
                 CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
             },
-            CairoContext, CairoImageSurface, PangoCairoContext, PangoError, PangoFontDescription,
-            PangoLayout,
         },
         rect::{Rect, Region},
         theme::Color,

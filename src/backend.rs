@@ -26,7 +26,7 @@ use {
         fmt::{Debug, Display, Formatter},
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 linear_ids!(ConnectorIds, ConnectorId);

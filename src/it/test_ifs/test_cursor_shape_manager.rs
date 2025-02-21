@@ -8,7 +8,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wp_cursor_shape_manager_v1::*, WpCursorShapeManagerV1Id},
+        wire::{WpCursorShapeManagerV1Id, wp_cursor_shape_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

@@ -4,7 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         video::drm::sync_obj::SyncObj,
-        wire::{wp_linux_drm_syncobj_timeline_v1::*, WpLinuxDrmSyncobjTimelineV1Id},
+        wire::{WpLinuxDrmSyncobjTimelineV1Id, wp_linux_drm_syncobj_timeline_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::AsyncEngine,
-        dbus::{auth::handle_auth, DbusError, DbusHolder, DbusSocket},
+        dbus::{DbusError, DbusHolder, DbusSocket, auth::handle_auth},
         io_uring::IoUring,
         utils::{bufio::BufIo, errorfmt::ErrorFmt, numcell::NumCell, run_toplevel::RunToplevel},
         wire_dbus::org,

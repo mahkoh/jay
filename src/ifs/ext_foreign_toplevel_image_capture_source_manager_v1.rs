@@ -6,8 +6,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            ext_foreign_toplevel_image_capture_source_manager_v1::*,
             ExtForeignToplevelImageCaptureSourceManagerV1Id,
+            ext_foreign_toplevel_image_capture_source_manager_v1::*,
         },
     },
     std::rc::Rc,

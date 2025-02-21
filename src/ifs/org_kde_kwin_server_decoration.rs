@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{org_kde_kwin_server_decoration::*, OrgKdeKwinServerDecorationId},
+        wire::{OrgKdeKwinServerDecorationId, org_kde_kwin_server_decoration::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

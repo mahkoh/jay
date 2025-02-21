@@ -22,10 +22,10 @@ use {
             wl_output::WlOutput,
             wl_region::WlRegion,
             wl_registry::WlRegistry,
-            wl_seat::{tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer, WlSeat},
+            wl_seat::{WlSeat, tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer},
             wl_surface::{
-                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
+                xdg_surface::{XdgSurface, xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             },
             workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,

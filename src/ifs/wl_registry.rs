@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName, GlobalsError},
         leaks::Tracker,
         object::{Interface, Object, Version},
-        wire::{wl_registry::*, WlRegistryId},
+        wire::{WlRegistryId, wl_registry::*},
     },
     std::rc::Rc,
     thiserror::Error,

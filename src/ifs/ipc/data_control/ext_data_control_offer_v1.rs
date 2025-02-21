@@ -3,13 +3,13 @@ use {
         ifs::ipc::data_control::{
             ext_data_control_device_v1::ExtDataControlIpc,
             private::{
-                logic::{self, DataControlError},
                 DataControlOffer, DataControlOfferData,
+                logic::{self, DataControlError},
             },
         },
         leaks::Tracker,
         object::Object,
-        wire::{ext_data_control_offer_v1::*, ExtDataControlOfferV1Id},
+        wire::{ExtDataControlOfferV1Id, ext_data_control_offer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -3,15 +3,16 @@
 use {
     crate::{
         allocator::{
-            Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer, BO_USE_CURSOR,
-            BO_USE_LINEAR, BO_USE_PROTECTED, BO_USE_RENDERING, BO_USE_SCANOUT, BO_USE_WRITE,
+            Allocator, AllocatorError, BO_USE_CURSOR, BO_USE_LINEAR, BO_USE_PROTECTED,
+            BO_USE_RENDERING, BO_USE_SCANOUT, BO_USE_WRITE, BufferObject, BufferUsage,
+            MappedBuffer,
         },
-        format::{formats, Format},
+        format::{Format, formats},
         utils::oserror::OsError,
         video::{
+            INVALID_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
-            Modifier, INVALID_MODIFIER,
         },
     },
     std::{
@@ -21,7 +22,7 @@ use {
         slice,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]

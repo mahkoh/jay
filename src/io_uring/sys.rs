@@ -3,7 +3,7 @@
 use {
     crate::utils::oserror::OsError,
     std::mem::MaybeUninit,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[repr(C)]

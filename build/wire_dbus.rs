@@ -1,12 +1,12 @@
 use {
     crate::{
         open,
-        tokens::{tokenize, Lined, Symbol, Token, TokenKind, TreeDelim},
+        tokens::{Lined, Symbol, Token, TokenKind, TreeDelim, tokenize},
     },
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result, bail},
     bstr::{BStr, BString, ByteSlice},
     std::{
-        collections::{hash_map::Entry, HashMap},
+        collections::{HashMap, hash_map::Entry},
         io::Write,
         os::unix::ffi::OsStrExt,
     },

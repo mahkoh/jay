@@ -2,10 +2,10 @@ use {
     crate::{
         object::Version,
         wire::{
-            wl_compositor::{CreateSurface, WlCompositorEventHandler},
             WlCompositorId,
+            wl_compositor::{CreateSurface, WlCompositorEventHandler},
         },
-        wl_usr::{usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject, UsrCon},
+        wl_usr::{UsrCon, usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

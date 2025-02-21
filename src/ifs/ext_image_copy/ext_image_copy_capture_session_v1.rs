@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        format::{Format, FORMATS},
+        format::{FORMATS, Format},
         gfx_api::{
             AcquireSync, BufferResv, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
             PendingShmTransfer, ReleaseSync,
@@ -19,7 +19,7 @@ use {
         tree::{LatchListener, OutputNode, PresentationListener},
         utils::{cell_ext::CellExt, clonecell::CloneCell, event_listener::EventListener},
         video::Modifier,
-        wire::{ext_image_copy_capture_session_v1::*, ExtImageCopyCaptureSessionV1Id},
+        wire::{ExtImageCopyCaptureSessionV1Id, ext_image_copy_capture_session_v1::*},
     },
     std::{
         cell::Cell,

@@ -34,6 +34,7 @@ use {
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_seat::{
+                Dnd, NodeSeatState, SeatId, WlSeatGlobal,
                 tablet::{
                     PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
                     TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
@@ -42,7 +43,6 @@ use {
                 text_input::TextInputConnection,
                 wl_pointer::PendingScroll,
                 zwp_pointer_constraints_v1::SeatConstraint,
-                Dnd, NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
@@ -57,12 +57,12 @@ use {
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
                 wp_viewport::WpViewport,
-                x_surface::{xwindow::Xwindow, XSurface},
-                xdg_surface::{xdg_toplevel::XdgToplevel, PendingXdgSurfaceData, XdgSurfaceError},
+                x_surface::{XSurface, xwindow::Xwindow},
+                xdg_surface::{PendingXdgSurfaceData, XdgSurfaceError, xdg_toplevel::XdgToplevel},
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
-            wp_presentation_feedback::{WpPresentationFeedback, VRR_REFRESH_SINCE},
+            wp_presentation_feedback::{VRR_REFRESH_SINCE, WpPresentationFeedback},
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUringError,
@@ -87,8 +87,8 @@ use {
             drm::sync_obj::{SyncObj, SyncObjPoint},
         },
         wire::{
-            wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
-            ZwpLinuxDmabufFeedbackV1Id,
+            WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id, ZwpLinuxDmabufFeedbackV1Id,
+            wl_surface::*,
         },
         xwayland::XWaylandEvent,
     },
@@ -847,7 +847,7 @@ impl WlSurface {
                     id: self.id,
                     old,
                     new,
-                })
+                });
             }
         }
         self.role.set(role);

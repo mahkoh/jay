@@ -3,11 +3,11 @@ use {
         client::{Client, ClientError},
         fixed::Fixed,
         ifs::wl_seat::tablet::{
-            zwp_tablet_seat_v2::ZwpTabletSeatV2, TabletPadRing, TabletRingEventSource,
+            TabletPadRing, TabletRingEventSource, zwp_tablet_seat_v2::ZwpTabletSeatV2,
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_pad_ring_v2::*, ZwpTabletPadRingV2Id},
+        wire::{ZwpTabletPadRingV2Id, zwp_tablet_pad_ring_v2::*},
     },
     std::rc::Rc,
     thiserror::Error,

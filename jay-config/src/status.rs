@@ -4,10 +4,10 @@ use {
     crate::{exec::Command, io::Async, tasks::spawn},
     bstr::ByteSlice,
     error_reporter::Report,
-    futures_util::{io::BufReader, AsyncBufReadExt},
+    futures_util::{AsyncBufReadExt, io::BufReader},
     serde::Deserialize,
     std::borrow::BorrowMut,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 /// Sets the status text.

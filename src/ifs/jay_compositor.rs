@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::CliLogLevel,
-        client::{Client, ClientCaps, ClientError, CAP_JAY_COMPOSITOR},
+        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
             jay_ei_session_builder::JayEiSessionBuilder,
@@ -24,7 +24,7 @@ use {
         object::{Object, Version},
         screenshoter::take_screenshot,
         utils::{errorfmt::ErrorFmt, toplevel_identifier::ToplevelIdentifier},
-        wire::{jay_compositor::*, JayCompositorId, JayScreenshotId},
+        wire::{JayCompositorId, JayScreenshotId, jay_compositor::*},
     },
     bstr::ByteSlice,
     log::Level,

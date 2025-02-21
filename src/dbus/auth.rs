@@ -1,6 +1,6 @@
 use {
     crate::{
-        dbus::{incoming::handle_incoming, outgoing::handle_outgoing, DbusError, DbusSocket},
+        dbus::{DbusError, DbusSocket, incoming::handle_incoming, outgoing::handle_outgoing},
         utils::{buf::Buf, errorfmt::ErrorFmt, hex},
     },
     std::{ops::Deref, rc::Rc},

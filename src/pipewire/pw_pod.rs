@@ -9,7 +9,7 @@ use {
         fmt::{Debug, Formatter},
         sync::atomic::{AtomicI32, AtomicU32},
     },
-    uapi::{c, Pod},
+    uapi::{Pod, c},
 };
 
 macro_rules! ty {

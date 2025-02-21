@@ -2,8 +2,8 @@ use {
     crate::{
         cli::{GlobalArgs, SeatTestArgs},
         fixed::Fixed,
-        ifs::wl_seat::wl_pointer::{PendingScroll, CONTINUOUS, FINGER, WHEEL},
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
+        ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, PendingScroll, WHEEL},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
             jay_seat_events::{

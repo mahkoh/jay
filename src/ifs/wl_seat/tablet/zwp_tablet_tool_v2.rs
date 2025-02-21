@@ -5,14 +5,14 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::tablet::{
-                zwp_tablet_seat_v2::ZwpTabletSeatV2, zwp_tablet_v2::ZwpTabletV2,
                 TabletToolCapability, TabletToolOpt, TabletToolType, ToolButtonState,
+                zwp_tablet_seat_v2::ZwpTabletSeatV2, zwp_tablet_v2::ZwpTabletV2,
             },
             wl_surface::{WlSurface, WlSurfaceError},
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_tablet_tool_v2::*, ZwpTabletToolV2Id},
+        wire::{ZwpTabletToolV2Id, zwp_tablet_tool_v2::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

@@ -5,8 +5,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            wp_commit_timer_v1::{Destroy, SetTimestamp, WpCommitTimerV1RequestHandler},
             WpCommitTimerV1Id,
+            wp_commit_timer_v1::{Destroy, SetTimestamp, WpCommitTimerV1RequestHandler},
         },
     },
     std::rc::Rc,

@@ -3,8 +3,8 @@ use {
         ifs::wl_seat::wl_pointer::PendingScroll,
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{wl_pointer::*, WlPointerId},
-        wl_usr::{usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject, UsrCon},
+        wire::{WlPointerId, wl_pointer::*},
+        wl_usr::{UsrCon, usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject},
     },
     std::{cell::Cell, convert::Infallible, rc::Rc},
 };

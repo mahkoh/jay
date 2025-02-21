@@ -2,9 +2,9 @@ use {
     crate::{
         format::Format,
         video::{
+            Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
             drm::Drm,
-            Modifier,
         },
     },
     std::{error::Error, rc::Rc},

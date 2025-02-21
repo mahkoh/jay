@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{zwlr_layer_surface_v1::*, ZwlrLayerSurfaceV1Id},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

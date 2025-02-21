@@ -6,8 +6,8 @@ use {
         },
         leaks::Tracker,
         wire_ei::{
-            ei_callback::{Done, EiCallbackRequestHandler},
             EiCallbackId,
+            ei_callback::{Done, EiCallbackRequestHandler},
         },
     },
     std::rc::Rc,

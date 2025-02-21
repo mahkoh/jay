@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::copyhashmap::CopyHashMap,
-        wire::{wp_drm_lease_request_v1::*, WpDrmLeaseConnectorV1Id, WpDrmLeaseRequestV1Id},
+        wire::{WpDrmLeaseConnectorV1Id, WpDrmLeaseRequestV1Id, wp_drm_lease_request_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

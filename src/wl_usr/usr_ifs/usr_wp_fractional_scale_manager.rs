@@ -1,13 +1,13 @@
 use {
     crate::{
         object::Version,
-        wire::{wp_fractional_scale_manager_v1::*, WpFractionalScaleManagerV1Id},
+        wire::{WpFractionalScaleManagerV1Id, wp_fractional_scale_manager_v1::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{
                 usr_wl_surface::UsrWlSurface, usr_wp_fractional_scale::UsrWpFractionalScale,
             },
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

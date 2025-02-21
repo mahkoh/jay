@@ -1,11 +1,11 @@
 use {
     crate::io_uring::{
-        pending_result::PendingResult,
-        sys::{io_uring_sqe, IORING_OP_CONNECT},
         IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
+        pending_result::PendingResult,
+        sys::{IORING_OP_CONNECT, io_uring_sqe},
     },
     std::{ptr, rc::Rc},
-    uapi::{c, OwnedFd, SockAddr},
+    uapi::{OwnedFd, SockAddr, c},
 };
 
 impl IoUring {

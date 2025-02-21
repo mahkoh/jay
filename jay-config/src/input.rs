@@ -5,10 +5,10 @@ pub mod capability;
 
 use {
     crate::{
-        input::{acceleration::AccelProfile, capability::Capability},
-        keyboard::{mods::Modifiers, Keymap},
+        _private::{DEFAULT_SEAT_NAME, ipc::WorkspaceSource},
         Axis, Direction, ModifiedKeySym, Workspace,
-        _private::{ipc::WorkspaceSource, DEFAULT_SEAT_NAME},
+        input::{acceleration::AccelProfile, capability::Capability},
+        keyboard::{Keymap, mods::Modifiers},
         video::Connector,
     },
     serde::{Deserialize, Serialize},

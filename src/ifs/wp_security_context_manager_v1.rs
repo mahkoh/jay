@@ -5,7 +5,7 @@ use {
         ifs::wp_security_context_v1::WpSecurityContextV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_security_context_manager_v1::*, WpSecurityContextManagerV1Id},
+        wire::{WpSecurityContextManagerV1Id, wp_security_context_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

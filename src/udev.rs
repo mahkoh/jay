@@ -4,7 +4,7 @@ use {
     crate::utils::oserror::OsError,
     std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{c, Errno, IntoUstr},
+    uapi::{Errno, IntoUstr, c},
 };
 
 #[repr(transparent)]
@@ -49,7 +49,7 @@ unsafe extern "C" {
     fn udev_list_entry_get_value(list_entry: *mut udev_list_entry) -> *const c::c_char;
 
     fn udev_device_new_from_syspath(udev: *mut udev, syspath: *const c::c_char)
-        -> *mut udev_device;
+    -> *mut udev_device;
     fn udev_device_ref(udev_device: *mut udev_device) -> *mut udev_device;
     fn udev_device_unref(udev_device: *mut udev_device) -> *mut udev_device;
     fn udev_device_get_sysname(udev_device: *mut udev_device) -> *const c::c_char;

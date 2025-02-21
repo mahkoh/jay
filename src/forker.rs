@@ -9,7 +9,7 @@ use {
         state::State,
         utils::{
             buffd::BufFdError,
-            clone3::{fork_with_pidfd, Forked},
+            clone3::{Forked, fork_with_pidfd},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
@@ -33,7 +33,7 @@ use {
         task::{Poll, Waker},
     },
     thiserror::Error,
-    uapi::{c, pipe2, Errno, Fd, IntoUstr, OwnedFd, UstrPtr},
+    uapi::{Errno, Fd, IntoUstr, OwnedFd, UstrPtr, c, pipe2},
 };
 
 pub struct ForkerProxy {

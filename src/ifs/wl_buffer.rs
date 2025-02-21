@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
-        format::{Format, ARGB8888},
+        format::{ARGB8888, Format},
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
@@ -11,7 +11,7 @@ use {
         theme::Color,
         utils::errorfmt::ErrorFmt,
         video::dmabuf::DmaBuf,
-        wire::{wl_buffer::*, WlBufferId},
+        wire::{WlBufferId, wl_buffer::*},
     },
     std::{
         cell::{Cell, RefCell},

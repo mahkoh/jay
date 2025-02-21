@@ -5,7 +5,7 @@ use {
         ifs::ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_data_device_manager::*, WlDataDeviceManagerId},
+        wire::{WlDataDeviceManagerId, wl_data_device_manager::*},
     },
     std::rc::Rc,
     thiserror::Error,

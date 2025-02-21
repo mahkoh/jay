@@ -3,7 +3,7 @@ use {
         backend::KeyState,
         ifs::wl_seat::wl_keyboard,
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
+        wire::{ZwpVirtualKeyboardV1Id, zwp_virtual_keyboard_v1::*},
     },
     std::{cell::Cell, io::Write, rc::Rc},
     uapi::c,

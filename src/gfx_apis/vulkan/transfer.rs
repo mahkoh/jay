@@ -1,23 +1,23 @@
 use {
     crate::{
         cpu_worker::{
+            CpuJob, CpuWork, CpuWorker,
             jobs::{
                 img_copy::ImgCopyWork,
                 read_write::{ReadWriteJobError, ReadWriteWork},
             },
-            CpuJob, CpuWork, CpuWorker,
         },
         gfx_api::{
             AsyncShmGfxTextureCallback, PendingShmTransfer, ShmMemory, ShmMemoryBacking, SyncFile,
         },
         gfx_apis::vulkan::{
+            VulkanError,
             command::VulkanCommandBuffer,
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::image_barrier,
             shm_image::VulkanShmImage,
             staging::{VulkanStagingBuffer, VulkanStagingShell},
-            VulkanError,
         },
         rect::{Rect, Region},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},

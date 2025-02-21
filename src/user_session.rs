@@ -1,6 +1,6 @@
 use {
     crate::{
-        dbus::{DbusError, DictEntry, BUS_DEST, BUS_PATH},
+        dbus::{BUS_DEST, BUS_PATH, DbusError, DictEntry},
         state::State,
         utils::errorfmt::ErrorFmt,
         wire_dbus::org,

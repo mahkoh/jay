@@ -1,7 +1,7 @@
 use {
     crate::dbus::{
-        types::{Bool, ObjectPath, Signature, Variant, FALSE, TRUE},
         DbusError, DbusType, DynamicType, Parser,
+        types::{Bool, FALSE, ObjectPath, Signature, TRUE, Variant},
     },
     bstr::ByteSlice,
     std::{borrow::Cow, rc::Rc},

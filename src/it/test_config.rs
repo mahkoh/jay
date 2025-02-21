@@ -10,14 +10,13 @@ use {
     isnt::std_1::primitive::IsntConstPtrExt,
     jay_config::{
         _private::{
-            bincode_ops,
+            ConfigEntry, VERSION, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage},
-            ConfigEntry, VERSION,
         },
+        Axis, Direction,
         input::{InputDevice, Seat},
         keyboard::{Keymap, ModifiedKeySym},
         video::{Connector, Transform},
-        Axis, Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
 };

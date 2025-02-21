@@ -32,7 +32,7 @@ use {
         ifs::{
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ipc::{
-                self,
+                self, DynDataSource, IpcError, IpcLocation,
                 data_control::{DataControlDeviceId, DynDataControlDevice},
                 offer_source_to_regular_client,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
@@ -42,7 +42,6 @@ use {
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-                DynDataSource, IpcError, IpcLocation,
             },
             wl_output::WlOutputGlobal,
             wl_seat::{
@@ -55,7 +54,7 @@ use {
                     zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
                 },
                 touch_owner::TouchOwnerHolder,
-                wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
+                wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardError},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{SeatConstraint, SeatConstraintStatus},
@@ -65,10 +64,10 @@ use {
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
             wl_surface::{
+                WlSurface,
                 dnd_icon::DndIcon,
                 tray::{DynTrayItem, TrayItemId},
                 xdg_surface::xdg_popup::XdgPopup,
-                WlSurface,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
@@ -79,8 +78,8 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            generic_node_visitor, ContainerNode, ContainerSplit, Direction, FoundNode, Node,
-            OutputNode, ToplevelNode, WorkspaceNode,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, OutputNode, ToplevelNode,
+            WorkspaceNode, generic_node_visitor,
         },
         utils::{
             asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
@@ -88,9 +87,9 @@ use {
             smallmap::SmallMap,
         },
         wire::{
-            wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, WlTouchId, XdgPopupId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
-            ZwpTextInputV3Id,
+            ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
+            WlTouchId, XdgPopupId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
+            ZwpTextInputV3Id, wl_seat::*,
         },
         wire_ei::EiSeatId,
     },

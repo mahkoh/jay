@@ -8,11 +8,11 @@ use {
         fixed::Fixed,
         leaks::Tracker,
         wire_ei::{
+            EiPointerAbsoluteId,
             ei_pointer_absolute::{
                 ClientMotionAbsolute, EiPointerAbsoluteRequestHandler, Release,
                 ServerMotionAbsolute,
             },
-            EiPointerAbsoluteId,
         },
     },
     std::rc::Rc,

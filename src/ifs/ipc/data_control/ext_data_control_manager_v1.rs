@@ -1,17 +1,17 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_DATA_CONTROL_MANAGER},
+        client::{CAP_DATA_CONTROL_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::ipc::{
-            data_control::{
-                ext_data_control_device_v1::ExtDataControlDeviceV1,
-                ext_data_control_source_v1::ExtDataControlSourceV1, DynDataControlDevice,
-            },
             IpcLocation,
+            data_control::{
+                DynDataControlDevice, ext_data_control_device_v1::ExtDataControlDeviceV1,
+                ext_data_control_source_v1::ExtDataControlSourceV1,
+            },
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_data_control_manager_v1::*, ExtDataControlManagerV1Id},
+        wire::{ExtDataControlManagerV1Id, ext_data_control_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

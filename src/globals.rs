@@ -25,6 +25,7 @@ use {
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
+                WlSeatGlobal,
                 ext_transient_seat_manager_v1::ExtTransientSeatManagerV1Global,
                 tablet::zwp_tablet_manager_v2::ZwpTabletManagerV2Global,
                 text_input::{
@@ -35,7 +36,6 @@ use {
                 zwp_pointer_gestures_v1::ZwpPointerGesturesV1Global,
                 zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global,
                 zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global,
-                WlSeatGlobal,
             },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,

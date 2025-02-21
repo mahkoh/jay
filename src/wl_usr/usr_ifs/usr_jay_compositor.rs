@@ -3,8 +3,9 @@ use {
         ifs::jay_compositor::Cap,
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_compositor::*, JayCompositorId},
+        wire::{JayCompositorId, jay_compositor::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{
                 usr_jay_ei_session_builder::UsrJayEiSessionBuilder, usr_jay_output::UsrJayOutput,
                 usr_jay_pointer::UsrJayPointer, usr_jay_render_ctx::UsrJayRenderCtx,
@@ -15,7 +16,6 @@ use {
                 usr_wl_seat::UsrWlSeat,
             },
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{cell::Cell, convert::Infallible, rc::Rc},

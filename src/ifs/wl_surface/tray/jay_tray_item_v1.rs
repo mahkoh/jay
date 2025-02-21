@@ -3,11 +3,11 @@ use {
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_surface::{
-                tray::{
-                    ack_configure, destroy, get_popup, install, DynTrayItem, FocusHint, Popup,
-                    TrayItem, TrayItemData, TrayItemError,
-                },
                 WlSurface,
+                tray::{
+                    DynTrayItem, FocusHint, Popup, TrayItem, TrayItemData, TrayItemError,
+                    ack_configure, destroy, get_popup, install,
+                },
             },
             xdg_positioner::{ANCHOR_BOTTOM_LEFT, ANCHOR_BOTTOM_RIGHT},
         },
@@ -15,7 +15,7 @@ use {
         object::{Object, Version},
         tree::NodeVisitor,
         utils::copyhashmap::CopyHashMap,
-        wire::{jay_tray_item_v1::*, JayTrayItemV1Id, XdgPopupId},
+        wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

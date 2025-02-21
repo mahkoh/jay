@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{wl_buffer::*, WlBufferId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{WlBufferId, wl_buffer::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wp_content_type_manager_v1::*, WpContentTypeManagerV1Id},
+        wire::{WpContentTypeManagerV1Id, wp_content_type_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

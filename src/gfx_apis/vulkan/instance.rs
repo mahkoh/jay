@@ -1,32 +1,32 @@
 use {
     crate::{
-        gfx_apis::vulkan::{VulkanError, VULKAN_VALIDATION},
+        gfx_apis::vulkan::{VULKAN_VALIDATION, VulkanError},
         utils::on_drop::OnDrop,
     },
     ahash::{AHashMap, AHashSet},
     ash::{
+        Entry, Instance, LoadingError,
         ext::{debug_utils, validation_features},
         vk::{
-            api_version_major, api_version_minor, api_version_patch, api_version_variant,
-            ApplicationInfo, Bool32, DebugUtilsMessageSeverityFlagsEXT,
+            API_VERSION_1_3, ApplicationInfo, Bool32, DebugUtilsMessageSeverityFlagsEXT,
             DebugUtilsMessageTypeFlagsEXT, DebugUtilsMessengerCallbackDataEXT,
-            DebugUtilsMessengerCreateInfoEXT, DebugUtilsMessengerEXT, ExtensionProperties,
-            InstanceCreateInfo, LayerProperties, ValidationFeaturesEXT, API_VERSION_1_3, FALSE,
+            DebugUtilsMessengerCreateInfoEXT, DebugUtilsMessengerEXT, ExtensionProperties, FALSE,
+            InstanceCreateInfo, LayerProperties, ValidationFeaturesEXT, api_version_major,
+            api_version_minor, api_version_patch, api_version_variant,
         },
-        Entry, Instance, LoadingError,
     },
     isnt::std_1::collections::IsntHashMap2Ext,
     log::Level,
     once_cell::sync::Lazy,
     std::{
-        ffi::{c_void, CStr, CString},
+        ffi::{CStr, CString, c_void},
         fmt::{Display, Formatter},
         iter::IntoIterator,
         rc::Rc,
         slice,
         sync::Arc,
     },
-    uapi::{ustr, Ustr},
+    uapi::{Ustr, ustr},
 };
 
 pub struct VulkanInstance {

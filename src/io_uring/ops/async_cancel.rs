@@ -1,8 +1,8 @@
 use {
     crate::{
         io_uring::{
-            sys::{io_uring_sqe, IORING_OP_ASYNC_CANCEL},
             IoUringData, IoUringTaskId, Task,
+            sys::{IORING_OP_ASYNC_CANCEL, io_uring_sqe},
         },
         utils::errorfmt::ErrorFmt,
     },

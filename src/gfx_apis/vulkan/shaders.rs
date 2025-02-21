@@ -1,5 +1,5 @@
 use {
-    crate::gfx_apis::vulkan::{device::VulkanDevice, VulkanError},
+    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
     ash::vk::{ShaderModule, ShaderModuleCreateInfo},
     std::rc::Rc,
     uapi::Packed,

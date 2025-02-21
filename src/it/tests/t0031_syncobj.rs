@@ -3,7 +3,7 @@ use {
         it::{test_error::TestResult, testrun::TestRun},
         theme::Color,
         utils::errorfmt::ErrorFmt,
-        video::drm::{sync_obj::SyncObjPoint, wait_for_sync_obj::SyncObjWaiter, DrmError},
+        video::drm::{DrmError, sync_obj::SyncObjPoint, wait_for_sync_obj::SyncObjWaiter},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -24,7 +24,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let eng = run.state.render_ctx.get().unwrap();
     let Some(ctx) = eng.sync_obj_ctx() else {
-        log::warn!("Cannot test explicit sync on this system: render context does not support sync objects");
+        log::warn!(
+            "Cannot test explicit sync on this system: render context does not support sync objects"
+        );
         return Ok(());
     };
     let syncobj = match ctx.create_sync_obj() {

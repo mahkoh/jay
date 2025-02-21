@@ -4,7 +4,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_tearing_control_v1::*, WlSurfaceId, WpTearingControlV1Id},
+        wire::{WlSurfaceId, WpTearingControlV1Id, wp_tearing_control_v1::*},
     },
     std::{fmt::Debug, rc::Rc},
     thiserror::Error,

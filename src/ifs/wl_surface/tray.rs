@@ -5,8 +5,8 @@ use {
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
             },
         },
         rect::Rect,

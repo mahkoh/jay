@@ -8,18 +8,18 @@ use {
             HardwareCursorUpdate, Mode, MonitorInfo,
         },
         backends::metal::{
-            present::{
-                DirectScanoutCache, PresentFb, DEFAULT_POST_COMMIT_MARGIN,
-                DEFAULT_PRE_COMMIT_MARGIN, POST_COMMIT_MARGIN_DELTA,
-            },
             MetalBackend, MetalError,
+            present::{
+                DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
+                POST_COMMIT_MARGIN_DELTA, PresentFb,
+            },
         },
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
-        format::{Format, ARGB8888, XRGB8888},
+        format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
-            needs_render_usage, AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
-            SyncFile,
+            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, SyncFile,
+            needs_render_usage,
         },
         ifs::{
             wl_output::OutputId,
@@ -35,22 +35,22 @@ use {
             numcell::NumCell, on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
         },
         video::{
+            INVALID_MODIFIER, Modifier,
             dmabuf::DmaBufId,
             drm::{
-                drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
-                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster,
-                DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
-                DrmPropertyType, DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-                DRM_MODE_ATOMIC_ALLOW_MODESET,
+                Change, ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC,
+                DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder,
+                DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster, DrmModeInfo, DrmObject,
+                DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, DrmVersion,
+                PropBlob, drm_mode_modeinfo,
             },
-            gbm::{GbmBo, GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
-            Modifier, INVALID_MODIFIER,
+            gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmDevice},
         },
     },
     ahash::{AHashMap, AHashSet},
     arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
-    indexmap::{indexset, IndexMap, IndexSet},
+    indexmap::{IndexMap, IndexSet, indexset},
     isnt::std_1::collections::IsntHashMap2Ext,
     jay_config::video::GfxApi,
     std::{
@@ -64,8 +64,8 @@ use {
         rc::Rc,
     },
     uapi::{
-        c::{self, dev_t},
         OwnedFd,
+        c::{self, dev_t},
     },
 };
 
@@ -213,7 +213,9 @@ impl BackendDrmDevice for MetalDrmDevice {
                         }
                     }
                     _ => {
-                        log::error!("Connector is logically available for leasing, has a lease ID, and has no entry in leases_to_break");
+                        log::error!(
+                            "Connector is logically available for leasing, has a lease ID, and has no entry in leases_to_break"
+                        );
                     }
                 }
             }
@@ -1477,7 +1479,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         _ => {
             return Err(DrmError::MissingProperty(
                 "type".to_string().into_boxed_str(),
-            ))
+            ));
         }
     };
     let default_properties = create_default_properties(
@@ -2292,14 +2294,18 @@ impl MetalBackend {
                 }
                 if let Some(plane) = c.primary_plane.get() {
                     if plane.crtc_id.value.get() != crtc.id {
-                        log::warn!("Cannot preserve connector whose primary plane is attached to a different crtc");
+                        log::warn!(
+                            "Cannot preserve connector whose primary plane is attached to a different crtc"
+                        );
                         fail!(c.id);
                     }
                 }
                 if let Some(plane) = c.cursor_plane.get() {
                     let crtc_id = plane.crtc_id.value.get();
                     if crtc_id.is_some() && crtc_id != crtc.id {
-                        log::warn!("Cannot preserve connector whose cursor plane is attached to a different crtc");
+                        log::warn!(
+                            "Cannot preserve connector whose cursor plane is attached to a different crtc"
+                        );
                         fail!(c.id);
                     }
                 }

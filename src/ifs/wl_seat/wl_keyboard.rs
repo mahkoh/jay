@@ -7,7 +7,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::{errorfmt::ErrorFmt, vecset::VecSet},
-        wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
+        wire::{WlKeyboardId, WlSurfaceId, wl_keyboard::*},
     },
     kbvm::Components,
     std::{

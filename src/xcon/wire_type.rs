@@ -1,5 +1,5 @@
 use {
-    crate::xcon::{formatter::Formatter, parser::Parser, XconError},
+    crate::xcon::{XconError, formatter::Formatter, parser::Parser},
     bstr::{BStr, ByteSlice},
     std::{borrow::Cow, fmt::Debug, rc::Rc},
     uapi::OwnedFd,

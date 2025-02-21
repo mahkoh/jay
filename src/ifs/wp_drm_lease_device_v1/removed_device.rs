@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::DrmDeviceId,
-        client::{Client, ClientCaps, ClientError, CAP_DRM_LEASE},
+        client::{CAP_DRM_LEASE, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName, RemovableWaylandGlobal},
         ifs::wp_drm_lease_device_v1::{WpDrmLeaseDeviceV1, WpDrmLeaseDeviceV1Global},
         object::Version,

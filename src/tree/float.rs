@@ -5,8 +5,8 @@ use {
         cursor_user::CursorUser,
         fixed::Fixed,
         ifs::wl_seat::{
+            BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal,
             tablet::{TabletTool, TabletToolChanges, TabletToolId},
-            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
         },
         rect::Rect,
         renderer::Renderer,
@@ -14,8 +14,8 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
-            FoundNode, Node, NodeId, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
+            StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,

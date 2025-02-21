@@ -3,15 +3,15 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::{IoUring, IoUringError},
         pipewire::{
-            pw_formatter::{format, PwFormatter},
+            pw_formatter::{PwFormatter, format},
             pw_ifs::{
                 pw_client::{PwClient, PwClientMethods},
                 pw_client_node::{
-                    PwClientNode, PW_CLIENT_NODE_FACTORY, PW_CLIENT_NODE_INTERFACE,
-                    PW_CLIENT_NODE_VERSION,
+                    PW_CLIENT_NODE_FACTORY, PW_CLIENT_NODE_INTERFACE, PW_CLIENT_NODE_VERSION,
+                    PwClientNode,
                 },
-                pw_core::{PwCore, PwCoreMethods, PW_CORE_VERSION},
-                pw_registry::{PwRegistry, PW_REGISTRY_VERSION},
+                pw_core::{PW_CORE_VERSION, PwCore, PwCoreMethods},
+                pw_registry::{PW_REGISTRY_VERSION, PwRegistry},
             },
             pw_mem::PwMemPool,
             pw_object::{PwObject, PwObjectData, PwObjectError, PwOpcode},
@@ -36,7 +36,7 @@ use {
         rc::{Rc, Weak},
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]

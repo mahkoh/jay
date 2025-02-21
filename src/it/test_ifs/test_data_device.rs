@@ -11,7 +11,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{wl_data_device::*, WlDataDeviceId, WlSurfaceId},
+        wire::{WlDataDeviceId, WlSurfaceId, wl_data_device::*},
     },
     std::{cell::Cell, rc::Rc},
 };

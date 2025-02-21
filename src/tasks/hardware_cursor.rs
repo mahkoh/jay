@@ -1,6 +1,6 @@
 use {
     crate::{state::State, utils::errorfmt::ErrorFmt},
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     std::rc::Rc,
 };
 

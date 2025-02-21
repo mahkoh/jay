@@ -1,13 +1,13 @@
 use {
     crate::{
         io_uring::{
-            sys::{io_uring_sqe, IORING_OP_POLL_ADD},
             IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
+            sys::{IORING_OP_POLL_ADD, io_uring_sqe},
         },
         utils::oserror::OsError,
     },
     std::{cell::Cell, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub trait PollCallback {

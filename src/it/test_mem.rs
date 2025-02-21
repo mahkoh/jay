@@ -4,7 +4,7 @@ use {
         utils::{oserror::OsError, ptr_ext::PtrExt},
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub struct TestMem {

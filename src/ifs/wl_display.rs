@@ -4,7 +4,7 @@ use {
         ifs::{wl_callback::WlCallback, wl_registry::WlRegistry},
         leaks::Tracker,
         object::{Object, ObjectId, Version, WL_DISPLAY_ID},
-        wire::{wl_display::*, WlDisplayId},
+        wire::{WlDisplayId, wl_display::*},
     },
     std::rc::Rc,
     thiserror::Error,

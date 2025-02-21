@@ -4,6 +4,7 @@ use {
         cursor_user::CursorUser,
         ifs::{
             wl_seat::{
+                WlSeatGlobal,
                 tablet::{
                     pad_owner::PadOwnerHolder, tablet_bindings::TabletBindings,
                     tool_owner::ToolOwnerHolder, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
@@ -12,7 +13,6 @@ use {
                     zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_seat_v2::ZwpTabletSeatV2,
                     zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2,
                 },
-                WlSeatGlobal,
             },
             wl_surface::WlSurface,
         },

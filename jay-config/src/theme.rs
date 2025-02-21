@@ -75,7 +75,10 @@ impl Color {
         if !validate_f32_all([r, g, b, a]) {
             Self::BLACK
         } else if r > a || g > a || b > a {
-            log::warn!("f32 values {:?} are not valid valid for a premultiplied color. Using solid black instead.", [r, g, b, a]);
+            log::warn!(
+                "f32 values {:?} are not valid valid for a premultiplied color. Using solid black instead.",
+                [r, g, b, a]
+            );
             Self::BLACK
         } else {
             Self { r, g, b, a }

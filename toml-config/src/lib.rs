@@ -5,20 +5,20 @@ mod toml;
 
 use {
     crate::config::{
-        parse_config, Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
-        ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
-        SimpleCommand, Status, Theme,
+        Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap, ConnectorMatch,
+        DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut, SimpleCommand,
+        Status, Theme, parse_config,
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
     jay_config::{
         config, config_dir,
-        exec::{set_env, unset_env, Command},
+        exec::{Command, set_env, unset_env},
         get_workspace,
         input::{
-            capability::CAP_SWITCH, get_seat, input_devices, on_input_device_removed,
-            on_new_input_device, set_libei_socket_enabled, FocusFollowsMouseMode, InputDevice,
-            Seat, SwitchEvent,
+            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, capability::CAP_SWITCH,
+            get_seat, input_devices, on_input_device_removed, on_new_input_device,
+            set_libei_socket_enabled,
         },
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
@@ -30,10 +30,10 @@ use {
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
         video::{
-            connectors, drm_devices, on_connector_connected, on_connector_disconnected,
-            on_graphics_initialized, on_new_connector, on_new_drm_device,
-            set_direct_scanout_enabled, set_gfx_api, set_tearing_mode, set_vrr_cursor_hz,
-            set_vrr_mode, Connector, DrmDevice,
+            Connector, DrmDevice, connectors, drm_devices, on_connector_connected,
+            on_connector_disconnected, on_graphics_initialized, on_new_connector,
+            on_new_drm_device, set_direct_scanout_enabled, set_gfx_api, set_tearing_mode,
+            set_vrr_cursor_hz, set_vrr_mode,
         },
         xwayland::set_x_scaling_mode,
     },

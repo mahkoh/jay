@@ -1,10 +1,10 @@
 use {
     crate::{
         config::{
-            context::Context,
-            extractor::{opt, val, Extractor, ExtractorError},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             Xwayland,
+            context::Context,
+            extractor::{Extractor, ExtractorError, opt, val},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
             toml_span::{Span, Spanned, SpannedExt},

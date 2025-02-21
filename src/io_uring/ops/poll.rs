@@ -1,12 +1,12 @@
 use {
     crate::io_uring::{
+        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
         ops::TaskResult,
         pending_result::PendingResult,
-        sys::{io_uring_sqe, IORING_OP_POLL_ADD},
-        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
+        sys::{IORING_OP_POLL_ADD, io_uring_sqe},
     },
     std::rc::Rc,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 impl IoUring {

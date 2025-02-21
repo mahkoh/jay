@@ -43,7 +43,9 @@ impl FdCloser {
                 self.cv.notify_all();
             }
             Err(_e) => {
-                log::warn!("Could not close file descriptor in separate thread. There are still references.");
+                log::warn!(
+                    "Could not close file descriptor in separate thread. There are still references."
+                );
             }
         }
     }

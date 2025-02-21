@@ -7,7 +7,7 @@ use {
         compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
         ifs::{
-            ipc::{x_data_offer::XDataOffer, DataOfferId, DataSourceId, IpcLocation},
+            ipc::{DataOfferId, DataSourceId, IpcLocation, x_data_offer::XDataOffer},
             wl_seat::SeatId,
             wl_surface::x_surface::xwindow::{Xwindow, XwindowData},
         },
@@ -25,7 +25,7 @@ use {
     bstr::ByteSlice,
     std::{num::ParseIntError, rc::Rc},
     thiserror::Error,
-    uapi::{c, pipe2, OwnedFd},
+    uapi::{OwnedFd, c, pipe2},
 };
 
 #[derive(Debug, Error)]

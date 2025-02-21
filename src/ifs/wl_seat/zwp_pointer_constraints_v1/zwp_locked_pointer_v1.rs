@@ -6,7 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_locked_pointer_v1::*, ZwpLockedPointerV1Id},
+        wire::{ZwpLockedPointerV1Id, zwp_locked_pointer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

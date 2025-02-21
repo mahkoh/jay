@@ -1,11 +1,11 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_LAYER_SHELL},
+        client::{CAP_LAYER_SHELL, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
+        wire::{ZwlrLayerShellV1Id, zwlr_layer_shell_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

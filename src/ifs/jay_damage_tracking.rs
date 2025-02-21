@@ -1,16 +1,16 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_JAY_COMPOSITOR},
+        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
         theme::Color,
         wire::{
+            JayCompositorId,
             jay_damage_tracking::{
                 Destroy, JayDamageTrackingRequestHandler, SetVisualizerColor, SetVisualizerDecay,
                 SetVisualizerEnabled,
             },
-            JayCompositorId,
         },
     },
     std::{rc::Rc, time::Duration},

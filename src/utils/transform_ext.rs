@@ -1,11 +1,11 @@
 use {
     crate::ifs::wl_output::{
-        TF_180, TF_270, TF_90, TF_FLIPPED, TF_FLIPPED_180, TF_FLIPPED_270, TF_FLIPPED_90, TF_NORMAL,
+        TF_90, TF_180, TF_270, TF_FLIPPED, TF_FLIPPED_90, TF_FLIPPED_180, TF_FLIPPED_270, TF_NORMAL,
     },
     jay_config::video::{
         Transform,
         Transform::{
-            Flip, FlipRotate180, FlipRotate270, FlipRotate90, None, Rotate180, Rotate270, Rotate90,
+            Flip, FlipRotate90, FlipRotate180, FlipRotate270, None, Rotate90, Rotate180, Rotate270,
         },
     },
 };

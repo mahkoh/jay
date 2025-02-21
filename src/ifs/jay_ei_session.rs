@@ -4,8 +4,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            jay_ei_session::{Created, Destroyed, Failed, JayEiSessionRequestHandler, Release},
             JayEiSessionId,
+            jay_ei_session::{Created, Destroyed, Failed, JayEiSessionRequestHandler, Release},
         },
     },
     std::rc::Rc,

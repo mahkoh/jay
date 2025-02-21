@@ -2,22 +2,23 @@ use {
     crate::{
         format::XRGB8888,
         gfx_apis::vulkan::{
+            VulkanError,
             format::VulkanFormat,
             instance::{
-                map_extension_properties, ApiVersionDisplay, Extensions, VulkanInstance,
-                API_VERSION,
+                API_VERSION, ApiVersionDisplay, Extensions, VulkanInstance,
+                map_extension_properties,
             },
-            VulkanError,
         },
         utils::on_drop::OnDrop,
         video::{
-            drm::{sync_obj::SyncObjCtx, Drm},
+            drm::{Drm, sync_obj::SyncObjCtx},
             gbm::GbmDevice,
         },
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
     ash::{
+        Device,
         ext::{
             descriptor_buffer, external_memory_dma_buf, image_drm_format_modifier,
             physical_device_drm, queue_family_foreign,
@@ -28,16 +29,16 @@ use {
         },
         vk::{
             DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, ExternalSemaphoreFeatureFlags,
-            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, MemoryPropertyFlags,
-            MemoryType, PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
-            PhysicalDeviceDescriptorBufferFeaturesEXT, PhysicalDeviceDescriptorBufferPropertiesEXT,
-            PhysicalDeviceDriverProperties, PhysicalDeviceDriverPropertiesKHR,
-            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
-            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, Queue, QueueFlags, MAX_MEMORY_TYPES,
+            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, MAX_MEMORY_TYPES,
+            MemoryPropertyFlags, MemoryType, PhysicalDevice,
+            PhysicalDeviceBufferDeviceAddressFeatures, PhysicalDeviceDescriptorBufferFeaturesEXT,
+            PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDriverProperties,
+            PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
+            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
+            PhysicalDeviceProperties, PhysicalDeviceProperties2,
+            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures, Queue,
+            QueueFlags,
         },
-        Device,
     },
     isnt::std_1::collections::IsntHashMap2Ext,
     std::{

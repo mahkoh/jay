@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{n64, opt, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, n64, opt, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{

@@ -4,7 +4,7 @@ use {
         time::Time,
         utils::{
             buf::Buf,
-            buffd::{BufFdError, BUF_SIZE},
+            buffd::{BUF_SIZE, BufFdError},
             oserror::OsError,
         },
     },
@@ -13,7 +13,7 @@ use {
         mem::{self},
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub(super) const OUT_BUF_SIZE: usize = 2 * BUF_SIZE;
@@ -151,7 +151,7 @@ impl BufFdOut {
             match res {
                 Ok(n) => read_pos += n,
                 Err(IoUringError::OsError(OsError(c::ECONNRESET))) => {
-                    return Err(BufFdError::Closed)
+                    return Err(BufFdError::Closed);
                 }
                 Err(e) => return Err(BufFdError::Io(e)),
             }

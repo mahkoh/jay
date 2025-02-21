@@ -6,7 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_confined_pointer_v1::*, ZwpConfinedPointerV1Id},
+        wire::{ZwpConfinedPointerV1Id, zwp_confined_pointer_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -21,16 +21,16 @@ use {
             vec_ext::VecExt,
         },
         wire_xcon::{
-            CreateGC, CreatePixmap, Extension, FreeGC, FreePixmap, GetInputFocus, GetProperty,
-            ListExtensions, PutImage, QueryExtension, RenderCreateCursor, RenderCreatePicture,
-            RenderQueryPictFormats, Setup, EXTENSIONS,
+            CreateGC, CreatePixmap, EXTENSIONS, Extension, FreeGC, FreePixmap, GetInputFocus,
+            GetProperty, ListExtensions, PutImage, QueryExtension, RenderCreateCursor,
+            RenderCreatePicture, RenderQueryPictFormats, Setup,
         },
         xcon::{
             consts::{IMAGE_FORMAT_Z_PIXMAP, RENDER_PICT_TYPE_DIRECT},
             incoming::handle_incoming,
             outgoing::handle_outgoing,
             wire_type::SendEvent,
-            xauthority::{XAuthority, LOCAL, MIT_MAGIC_COOKIE},
+            xauthority::{LOCAL, MIT_MAGIC_COOKIE, XAuthority},
         },
     },
     ahash::AHashMap,
@@ -50,7 +50,7 @@ use {
         task::{Context, Poll, Waker},
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub mod consts;

@@ -2,8 +2,8 @@ use {
     crate::{
         cursor::KnownCursor,
         object::Version,
-        wire::{jay_pointer::*, JayPointerId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{JayPointerId, jay_pointer::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

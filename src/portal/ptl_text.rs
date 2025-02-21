@@ -3,8 +3,8 @@ use {
         format::ARGB8888,
         gfx_api::{GfxContext, GfxTexture},
         pango::{
-            consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE},
             CairoContext, CairoImageSurface, PangoCairoContext, PangoFontDescription, PangoLayout,
+            consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE},
         },
         rect::Rect,
         theme::Color,

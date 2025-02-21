@@ -1,12 +1,12 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_IDLE_NOTIFIER},
+        client::{CAP_IDLE_NOTIFIER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
         leaks::Tracker,
         object::{Object, Version},
         utils::errorfmt::ErrorFmt,
-        wire::{ext_idle_notifier_v1::*, ExtIdleNotificationV1Id, ExtIdleNotifierV1Id, WlSeatId},
+        wire::{ExtIdleNotificationV1Id, ExtIdleNotifierV1Id, WlSeatId, ext_idle_notifier_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

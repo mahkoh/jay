@@ -10,7 +10,7 @@ use {
             test_transport::TestTransport,
         },
         video::drm::sync_obj::SyncObj,
-        wire::{wp_linux_drm_syncobj_manager_v1::*, WpLinuxDrmSyncobjManagerV1Id},
+        wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

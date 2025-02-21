@@ -3,7 +3,7 @@ use {
         client::Client,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_callback::*, WlCallbackId},
+        wire::{WlCallbackId, wl_callback::*},
     },
     std::{convert::Infallible, rc::Rc},
     thiserror::Error,

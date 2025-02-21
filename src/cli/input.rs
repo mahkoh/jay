@@ -6,20 +6,20 @@ use {
         libinput::consts::{
             LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
         },
-        tools::tool_client::{with_tool_client, Handle, ToolClient},
+        tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{errorfmt::ErrorFmt, string_ext::StringExt},
-        wire::{jay_compositor, jay_input, JayInputId},
+        wire::{JayInputId, jay_compositor, jay_input},
     },
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     isnt::std_1::vec::IsntVecExt,
     std::{
         cell::RefCell,
-        io::{stdin, stdout, Read, Write},
+        io::{Read, Write, stdin, stdout},
         mem,
         ops::DerefMut,
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Args, Debug)]

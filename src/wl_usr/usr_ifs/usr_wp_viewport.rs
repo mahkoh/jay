@@ -2,8 +2,8 @@ use {
     crate::{
         fixed::Fixed,
         object::Version,
-        wire::{wp_viewport::*, WpViewportId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{WpViewportId, wp_viewport::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{convert::Infallible, rc::Rc},
 };

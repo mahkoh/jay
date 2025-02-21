@@ -8,8 +8,8 @@ use {
         },
         leaks::Tracker,
         wire_ei::{
-            ei_button::{ClientButton, EiButtonRequestHandler, Release, ServerButton},
             EiButtonId,
+            ei_button::{ClientButton, EiButtonRequestHandler, Release, ServerButton},
         },
     },
     std::rc::Rc,

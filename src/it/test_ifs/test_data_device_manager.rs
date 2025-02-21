@@ -9,7 +9,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wl_data_device_manager::*, WlDataDeviceManagerId},
+        wire::{WlDataDeviceManagerId, wl_data_device_manager::*},
     },
     std::{cell::Cell, rc::Rc},
 };

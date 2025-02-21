@@ -17,7 +17,7 @@ use {
         ffi::CString,
         io::{BufRead, BufReader},
     },
-    uapi::{c, pod_zeroed, OwnedFd, Pod, Ustring},
+    uapi::{OwnedFd, Pod, Ustring, c, pod_zeroed},
 };
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {

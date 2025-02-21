@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            ext_output_image_capture_source_manager_v1::*, ExtOutputImageCaptureSourceManagerV1Id,
+            ExtOutputImageCaptureSourceManagerV1Id, ext_output_image_capture_source_manager_v1::*,
         },
     },
     std::rc::Rc,

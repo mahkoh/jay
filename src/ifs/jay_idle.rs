@@ -4,7 +4,7 @@ use {
         ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_idle::*, JayIdleId},
+        wire::{JayIdleId, jay_idle::*},
     },
     std::{rc::Rc, time::Duration},
     thiserror::Error,

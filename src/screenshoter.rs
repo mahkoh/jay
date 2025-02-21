@@ -1,8 +1,8 @@
 use {
     crate::{
-        allocator::{AllocatorError, BufferObject, BufferUsage, BO_USE_RENDERING},
+        allocator::{AllocatorError, BO_USE_RENDERING, BufferObject, BufferUsage},
         format::XRGB8888,
-        gfx_api::{needs_render_usage, AcquireSync, GfxError, ReleaseSync},
+        gfx_api::{AcquireSync, GfxError, ReleaseSync, needs_render_usage},
         scale::Scale,
         state::State,
         video::drm::DrmError,

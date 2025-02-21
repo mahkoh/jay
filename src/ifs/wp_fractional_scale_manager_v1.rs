@@ -5,7 +5,7 @@ use {
         ifs::wl_surface::wp_fractional_scale_v1::{WpFractionalScaleError, WpFractionalScaleV1},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_fractional_scale_manager_v1::*, WpFractionalScaleManagerV1Id},
+        wire::{WpFractionalScaleManagerV1Id, wp_fractional_scale_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

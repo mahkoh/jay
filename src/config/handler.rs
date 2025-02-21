@@ -16,8 +16,8 @@ use {
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized},
         tree::{
-            move_ws_to_output, ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase,
-            OutputNode, TearingMode, VrrMode, WsMoveConfig,
+            ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
+            TearingMode, VrrMode, WsMoveConfig, move_ws_to_output,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -33,19 +33,19 @@ use {
     bincode::Options,
     jay_config::{
         _private::{
-            bincode_ops,
+            PollableId, WireMode, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
-            PollableId, WireMode,
         },
+        Axis, Direction, Workspace,
         input::{
-            acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
-            capability::{
-                Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
-                CAP_TABLET_TOOL, CAP_TOUCH,
-            },
             FocusFollowsMouseMode, InputDevice, Seat,
+            acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
+            capability::{
+                CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
+                CAP_TABLET_TOOL, CAP_TOUCH, Capability,
+            },
         },
-        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
@@ -54,13 +54,12 @@ use {
             Transform, VrrMode as ConfigVrrMode,
         },
         xwayland::XScalingMode,
-        Axis, Direction, Workspace,
     },
     libloading::Library,
     log::Level,
     std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
-    uapi::{c, fcntl_dupfd_cloexec, OwnedFd},
+    uapi::{OwnedFd, c, fcntl_dupfd_cloexec},
 };
 
 pub(super) struct ConfigProxyHandler {

@@ -4,7 +4,7 @@ use {
         ifs::{wl_output::WlOutput, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_presentation_feedback::*, WpPresentationFeedbackId},
+        wire::{WpPresentationFeedbackId, wp_presentation_feedback::*},
     },
     std::{convert::Infallible, rc::Rc},
     thiserror::Error,

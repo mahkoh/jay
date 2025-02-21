@@ -2,7 +2,7 @@ use {
     crate::{
         gfx_apis::gl::egl::{
             display::EglDisplay,
-            sys::{EGLImageKHR, EGL_FALSE},
+            sys::{EGL_FALSE, EGLImageKHR},
         },
         video::dmabuf::DmaBuf,
     },

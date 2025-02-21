@@ -11,12 +11,12 @@ use {
         os::unix::{ffi::OsStringExt, fs::DirBuilderExt},
         ptr,
         sync::{
-            atomic::{AtomicI32, AtomicU32, Ordering::Relaxed},
             Arc,
+            atomic::{AtomicI32, AtomicU32, Ordering::Relaxed},
         },
         time::SystemTime,
     },
-    uapi::{c, format_ustr, Errno, Fd, OwnedFd, Ustring},
+    uapi::{Errno, Fd, OwnedFd, Ustring, c, format_ustr},
 };
 
 thread_local! {

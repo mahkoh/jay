@@ -11,7 +11,7 @@ use {
         renderer::Renderer,
         tree::{Node, ToplevelNode},
         utils::clonecell::CloneCell,
-        wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
+        wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::DrmDeviceId,
-        client::{Client, ClientCaps, ClientError, CAP_DRM_LEASE},
+        client::{CAP_DRM_LEASE, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
@@ -12,11 +12,11 @@ use {
         state::OutputData,
         utils::{bindings::Bindings, errorfmt::ErrorFmt, oserror::OsError},
         video::drm::{Drm, DrmError},
-        wire::{wp_drm_lease_device_v1::*, WpDrmLeaseDeviceV1Id},
+        wire::{WpDrmLeaseDeviceV1Id, wp_drm_lease_device_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 mod removed_device;

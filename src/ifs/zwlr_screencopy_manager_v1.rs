@@ -1,14 +1,14 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_SCREENCOPY_MANAGER},
+        client::{CAP_SCREENCOPY_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
         wire::{
-            zwlr_screencopy_manager_v1::*, WlOutputId, ZwlrScreencopyFrameV1Id,
-            ZwlrScreencopyManagerV1Id,
+            WlOutputId, ZwlrScreencopyFrameV1Id, ZwlrScreencopyManagerV1Id,
+            zwlr_screencopy_manager_v1::*,
         },
     },
     std::{cell::Cell, rc::Rc},

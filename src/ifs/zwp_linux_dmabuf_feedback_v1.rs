@@ -5,11 +5,11 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_linux_dmabuf_feedback_v1::*, ZwpLinuxDmabufFeedbackV1Id},
+        wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 pub const SCANOUT: u32 = 1;

@@ -1,8 +1,9 @@
 use {
     crate::{
         config::{
+            Action, Config, Libei, Theme, UiDrag,
             context::Context,
-            extractor::{arr, bol, opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, arr, bol, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -19,8 +20,8 @@ use {
                 output::OutputsParser,
                 repeat_rate::RepeatRateParser,
                 shortcuts::{
-                    parse_modified_keysym_str, ComplexShortcutsParser, ShortcutsParser,
-                    ShortcutsParserError,
+                    ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError,
+                    parse_modified_keysym_str,
                 },
                 status::StatusParser,
                 tearing::TearingParser,
@@ -30,7 +31,6 @@ use {
                 xwayland::XwaylandParser,
             },
             spanned::SpannedErrorExt,
-            Action, Config, Libei, Theme, UiDrag,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

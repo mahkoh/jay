@@ -11,22 +11,22 @@ use {
         async_engine::AsyncEngine,
         cli::GlobalArgs,
         dbus::{
-            Dbus, DbusSocket, BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE,
-            DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
+            BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
+            Dbus, DbusSocket,
         },
         forker::ForkerError,
         io_uring::IoUring,
         logger::Logger,
         pipewire::pw_con::{PwCon, PwConHolder, PwConOwner},
         portal::{
-            ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
+            ptl_display::{PortalDisplay, PortalDisplayId, watch_displays},
             ptl_remote_desktop::add_remote_desktop_dbus_members,
             ptl_render_ctx::PortalRenderCtx,
             ptl_screencast::add_screencast_dbus_members,
             ptl_session::PortalSession,
         },
         utils::{
-            clone3::{fork_with_pidfd, Forked},
+            clone3::{Forked, fork_with_pidfd},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             line_logger::log_lines,
@@ -49,7 +49,7 @@ use {
         sync::Arc,
     },
     thiserror::Error,
-    uapi::{c, getpid, OwnedFd},
+    uapi::{OwnedFd, c, getpid},
 };
 
 const PORTAL_SUCCESS: u32 = 0;

@@ -2,8 +2,8 @@ use {
     crate::{
         backend::AXIS_120,
         ifs::wl_seat::{
-            wl_pointer::{PendingScroll, VERTICAL_SCROLL},
             PX_PER_SCROLL,
+            wl_pointer::{PendingScroll, VERTICAL_SCROLL},
         },
     },
     std::cell::Cell,
@@ -38,10 +38,6 @@ impl Scroller {
             self.v120.set(0);
             self.px.set(0.0);
         }
-        if n != 0 {
-            Some(n)
-        } else {
-            None
-        }
+        if n != 0 { Some(n) } else { None }
     }
 }

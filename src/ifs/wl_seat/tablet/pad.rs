@@ -4,12 +4,12 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::{
+                WlSeatGlobal,
                 tablet::{
-                    normalizeu, zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_v2::ZwpTabletV2,
                     PadButtonState, TabletPad, TabletPadGroup, TabletPadId, TabletPadInit,
                     TabletPadRing, TabletPadStrip, TabletRingEventSource, TabletStripEventSource,
+                    normalizeu, zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_v2::ZwpTabletV2,
                 },
-                WlSeatGlobal,
             },
             wl_surface::WlSurface,
         },

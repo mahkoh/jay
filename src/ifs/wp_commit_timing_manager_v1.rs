@@ -6,10 +6,10 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
+            WpCommitTimingManagerV1Id,
             wp_commit_timing_manager_v1::{
                 Destroy, GetTimer, WpCommitTimingManagerV1RequestHandler,
             },
-            WpCommitTimingManagerV1Id,
         },
     },
     std::rc::Rc,

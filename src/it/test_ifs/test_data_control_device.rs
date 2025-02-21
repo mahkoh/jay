@@ -13,7 +13,7 @@ use {
         },
         utils::{buffd::MsgParser, copyhashmap::CopyHashMap},
         wire::{
-            zwlr_data_control_device_v1::*, ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id,
+            ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id, zwlr_data_control_device_v1::*,
         },
     },
     std::{cell::Cell, rc::Rc},

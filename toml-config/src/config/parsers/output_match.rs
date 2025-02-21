@@ -1,10 +1,10 @@
 use {
     crate::{
         config::{
-            context::Context,
-            extractor::{opt, str, Extractor, ExtractorError},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             OutputMatch,
+            context::Context,
+            extractor::{Extractor, ExtractorError, opt, str},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

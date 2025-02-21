@@ -1,19 +1,19 @@
 use {
     crate::{
+        _private::{PollableId, WireMode},
+        Axis, Direction, PciId, Workspace,
         input::{
-            acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
-            Seat, SwitchEvent,
+            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
+            capability::Capability,
         },
-        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{colors::Colorable, sized::Resizable, Color},
+        theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            connector_type::ConnectorType, Connector, DrmDevice, Format, GfxApi, TearingMode,
-            Transform, VrrMode,
+            Connector, DrmDevice, Format, GfxApi, TearingMode, Transform, VrrMode,
+            connector_type::ConnectorType,
         },
-        Axis, Direction, PciId, Workspace,
-        _private::{PollableId, WireMode},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},

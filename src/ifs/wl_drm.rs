@@ -7,10 +7,10 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             INVALID_MODIFIER,
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         },
-        wire::{wl_drm::*, WlDrmId},
+        wire::{WlDrmId, wl_drm::*},
     },
     bstr::ByteSlice,
     std::{ffi::CString, rc::Rc},

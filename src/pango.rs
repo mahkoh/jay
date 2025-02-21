@@ -7,7 +7,7 @@ use {
     },
     std::{cell::Cell, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{c, IntoUstr},
+    uapi::{IntoUstr, c},
 };
 
 pub mod consts;

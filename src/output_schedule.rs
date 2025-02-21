@@ -10,7 +10,7 @@ use {
             numcell::NumCell,
         },
     },
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     num_traits::ToPrimitive,
     std::{cell::Cell, rc::Rc},
 };

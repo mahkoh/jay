@@ -6,10 +6,10 @@ use {
         fixed::Fixed,
         gfx_api::GfxTexture,
         ifs::wl_seat::{
-            collect_kb_foci, collect_kb_foci2,
+            BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci,
+            collect_kb_foci2,
             tablet::{TabletTool, TabletToolChanges, TabletToolId},
             wl_pointer::PendingScroll,
-            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, BTN_RIGHT,
         },
         rect::Rect,
         renderer::Renderer,
@@ -17,9 +17,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            default_tile_drag_bounds, walker::NodeVisitor, ContainingNode, Direction,
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, TddType, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
+            TddType, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
+            WorkspaceNode, default_tile_drag_bounds, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,

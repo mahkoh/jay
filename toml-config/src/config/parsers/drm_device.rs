@@ -1,14 +1,14 @@
 use {
     crate::{
         config::{
+            ConfigDrmDevice,
             context::Context,
-            extractor::{bol, fltorint, opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
                 gfx_api::GfxApiParser,
             },
-            ConfigDrmDevice,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

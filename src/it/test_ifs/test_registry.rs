@@ -27,7 +27,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire::{wl_registry::*, WlRegistryId, WlSeat},
+        wire::{WlRegistryId, WlSeat, wl_registry::*},
     },
     std::rc::Rc,
 };

@@ -2,8 +2,8 @@ use {
     crate::{
         backend::{BackendEvent, ConnectorEvent},
         backends::metal::{
-            video::{FrontState, MetalDrmDeviceData, PendingDrmDevice},
             MetalBackend, MetalDevice, MetalError, MetalInputDevice,
+            video::{FrontState, MetalDrmDeviceData, PendingDrmDevice},
         },
         dbus::{DbusError, TRUE},
         udev::UdevDevice,
@@ -20,7 +20,7 @@ use {
     },
     bstr::ByteSlice,
     std::{cell::Cell, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 const DRM: &[u8] = b"drm";

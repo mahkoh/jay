@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_workspace::*, JayWorkspaceId},
-        wl_usr::{usr_object::UsrObject, UsrCon},
+        wire::{JayWorkspaceId, jay_workspace::*},
+        wl_usr::{UsrCon, usr_object::UsrObject},
     },
     std::{
         cell::{Cell, RefCell},

@@ -7,7 +7,7 @@ use {
         wheel::Wheel,
     },
     std::{any::Any, future::pending, rc::Rc, sync::Arc},
-    uapi::{c::EFD_CLOEXEC, OwnedFd},
+    uapi::{OwnedFd, c::EFD_CLOEXEC},
 };
 
 struct Job {

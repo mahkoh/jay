@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_surface::wl_subsurface::WlSubsurface,
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{wl_subsurface::*, WlSubsurfaceId, WlSurfaceId},
+        wire::{WlSubsurfaceId, WlSurfaceId, wl_subsurface::*},
     },
     std::{cell::Cell, rc::Rc},
 };

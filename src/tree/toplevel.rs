@@ -7,7 +7,7 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState},
+            wl_seat::{NodeSeatState, collect_kb_foci, collect_kb_foci2},
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -23,7 +23,7 @@ use {
             hash_map_ext::HashMapExt,
             numcell::NumCell,
             threshold_counter::ThresholdCounter,
-            toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
+            toplevel_identifier::{ToplevelIdentifier, toplevel_identifier},
         },
         wire::{
             ExtForeignToplevelHandleV1Id, ExtImageCopyCaptureSessionV1Id, JayScreencastId,
@@ -453,7 +453,9 @@ impl ToplevelData {
         ws: &Rc<WorkspaceNode>,
     ) {
         if ws.fullscreen.is_some() {
-            log::info!("Cannot fullscreen a node on a workspace that already has a fullscreen node attached");
+            log::info!(
+                "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
+            );
             return;
         }
         if node.node_is_placeholder() {
@@ -520,11 +522,15 @@ impl ToplevelData {
         self.is_fullscreen.set(false);
         match fd.workspace.fullscreen.get() {
             None => {
-                log::error!("Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node.");
+                log::error!(
+                    "Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node."
+                );
                 return;
             }
             Some(f) if f.tl_as_node().node_id() != node.tl_as_node().node_id() => {
-                log::error!("Node is supposed to be fullscreened on a workspace but the workspace has a different node attached.");
+                log::error!(
+                    "Node is supposed to be fullscreened on a workspace but the workspace has a different node attached."
+                );
                 return;
             }
             _ => {}

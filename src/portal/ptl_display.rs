@@ -1,14 +1,14 @@
 use {
     crate::{
-        gfx_api::{cross_intersect_formats, GfxFormat},
+        gfx_api::{GfxFormat, cross_intersect_formats},
         gfx_apis::create_gfx_context,
         ifs::wl_seat::POINTER,
         object::Version,
         portal::{
+            PortalState,
             ptl_render_ctx::{PortalRenderCtx, PortalServerRenderCtx},
             ptl_session::PortalSession,
             ptr_gui::WindowData,
-            PortalState,
         },
         utils::{
             bitflags::BitflagsExt,
@@ -16,15 +16,16 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
-            opaque::{opaque, Opaque},
+            opaque::{Opaque, opaque},
             oserror::OsError,
         },
         video::drm::Drm,
         wire::{
-            wl_pointer, JayCompositor, WlCompositor, WlOutput, WlSeat, WlSurfaceId,
-            WpFractionalScaleManagerV1, WpViewporter, ZwlrLayerShellV1, ZwpLinuxDmabufV1,
+            JayCompositor, WlCompositor, WlOutput, WlSeat, WlSurfaceId, WpFractionalScaleManagerV1,
+            WpViewporter, ZwlrLayerShellV1, ZwpLinuxDmabufV1, wl_pointer,
         },
         wl_usr::{
+            UsrCon, UsrConOwner,
             usr_ifs::{
                 usr_jay_compositor::UsrJayCompositor,
                 usr_jay_output::{UsrJayOutput, UsrJayOutputOwner},
@@ -42,7 +43,6 @@ use {
                 usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager,
                 usr_wp_viewporter::UsrWpViewporter,
             },
-            UsrCon, UsrConOwner,
         },
     },
     ahash::AHashMap,
@@ -54,7 +54,7 @@ use {
         rc::Rc,
         str::FromStr,
     },
-    uapi::{c, AsUstr, OwnedFd},
+    uapi::{AsUstr, OwnedFd, c},
 };
 
 struct PortalDisplayPrelude {

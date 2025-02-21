@@ -9,11 +9,11 @@ use {
         leaks::Tracker,
         utils::clonecell::UnsafeCellCloneSafe,
         wire_ei::{
+            EiTouchscreenId,
             ei_touchscreen::{
                 ClientCancel, ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler,
                 Release, ServerCancel, ServerDown, ServerMotion, ServerUp,
             },
-            EiTouchscreenId,
         },
     },
     std::{collections::hash_map::Entry, rc::Rc},

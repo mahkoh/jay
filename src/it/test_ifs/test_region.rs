@@ -3,7 +3,7 @@ use {
         ifs::wl_region::WlRegion,
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
         rect::{Rect, RegionBuilder},
-        wire::{wl_region::*, WlRegionId},
+        wire::{WlRegionId, wl_region::*},
     },
     std::{
         cell::{Cell, RefCell},

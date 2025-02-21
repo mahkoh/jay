@@ -2,8 +2,8 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_workspace_watcher::*, JayWorkspaceWatcherId},
-        wl_usr::{usr_ifs::usr_jay_workspace::UsrJayWorkspace, usr_object::UsrObject, UsrCon},
+        wire::{JayWorkspaceWatcherId, jay_workspace_watcher::*},
+        wl_usr::{UsrCon, usr_ifs::usr_jay_workspace::UsrJayWorkspace, usr_object::UsrObject},
     },
     std::{convert::Infallible, ops::Deref, rc::Rc},
 };

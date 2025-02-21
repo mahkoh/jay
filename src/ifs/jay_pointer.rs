@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{jay_pointer::*, JayPointerId},
+        wire::{JayPointerId, jay_pointer::*},
     },
     num_traits::FromPrimitive,
     std::rc::Rc,

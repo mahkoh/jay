@@ -80,8 +80,8 @@ use {
                 texture::Texture,
             },
             sys::{
-                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER,
-                GL_TRIANGLES, GL_TRIANGLE_STRIP,
+                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE_MIN_FILTER, GL_TEXTURE0,
+                GL_TRIANGLE_STRIP, GL_TRIANGLES,
             },
         },
         theme::Color,
@@ -339,7 +339,9 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
             true => match &ctx.tex_external {
                 Some(p) => p,
                 _ => {
-                    log::error!("Trying to render an external-only texture but context does not support the required extension");
+                    log::error!(
+                        "Trying to render an external-only texture but context does not support the required extension"
+                    );
                     return;
                 }
             },

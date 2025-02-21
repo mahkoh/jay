@@ -1,11 +1,11 @@
 use {
     crate::{
         config::{
+            Status,
             context::Context,
-            extractor::{opt, recover, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::exec::{ExecParser, ExecParserError},
-            Status,
         },
         toml::{
             toml_span::{Span, Spanned, SpannedExt},
@@ -55,7 +55,7 @@ impl Parser for StatusParser<'_> {
                 _ => {
                     return Err(
                         StatusParserError::UnknownFormat(f.value.to_string()).spanned(f.span)
-                    )
+                    );
                 }
             },
             _ => MessageFormat::Plain,

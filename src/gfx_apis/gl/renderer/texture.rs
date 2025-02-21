@@ -6,13 +6,13 @@ use {
             PendingShmTransfer, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::gl::{
+            RenderError,
             gl::texture::GlTexture,
             renderer::context::GlRenderContext,
             sys::{
-                GLint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
-                GL_UNPACK_ROW_LENGTH_EXT,
+                GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+                GL_UNPACK_ROW_LENGTH_EXT, GLint,
             },
-            RenderError,
         },
         rect::Region,
         video::dmabuf::DmaBuf,

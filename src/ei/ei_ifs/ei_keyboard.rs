@@ -9,10 +9,10 @@ use {
         keyboard::KeyboardState,
         leaks::Tracker,
         wire_ei::{
+            EiKeyboardId,
             ei_keyboard::{
                 ClientKey, EiKeyboardRequestHandler, Keymap, Modifiers, Release, ServerKey,
             },
-            EiKeyboardId,
         },
     },
     std::rc::Rc,

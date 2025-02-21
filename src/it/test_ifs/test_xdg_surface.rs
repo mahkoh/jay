@@ -9,7 +9,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{xdg_surface::*, XdgSurfaceId},
+        wire::{XdgSurfaceId, xdg_surface::*},
     },
     std::{cell::Cell, rc::Rc},
 };

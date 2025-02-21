@@ -10,7 +10,7 @@ use {
         fmt::{Display, Formatter},
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Default)]

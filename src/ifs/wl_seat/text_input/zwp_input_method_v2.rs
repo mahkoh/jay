@@ -3,11 +3,11 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_seat::{
-                text_input::{
-                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
-                    TextDisconnectReason, TextInputConnection, MAX_TEXT_SIZE,
-                },
                 WlSeatGlobal,
+                text_input::{
+                    MAX_TEXT_SIZE, TextDisconnectReason, TextInputConnection,
+                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
+                },
             },
             wl_surface::zwp_input_popup_surface_v2::{
                 ZwpInputPopupSurfaceV2, ZwpInputPopupSurfaceV2Error,
@@ -17,7 +17,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
-        wire::{zwp_input_method_v2::*, ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id},
+        wire::{ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id, zwp_input_method_v2::*},
     },
     std::{
         cell::{Cell, RefCell},

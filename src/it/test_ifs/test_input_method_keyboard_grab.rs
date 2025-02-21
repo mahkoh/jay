@@ -5,7 +5,7 @@ use {
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{zwp_input_method_keyboard_grab_v2::*, ZwpInputMethodKeyboardGrabV2Id},
+        wire::{ZwpInputMethodKeyboardGrabV2Id, zwp_input_method_keyboard_grab_v2::*},
     },
     std::{cell::Cell, rc::Rc},
 };

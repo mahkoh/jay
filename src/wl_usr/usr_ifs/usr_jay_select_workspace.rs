@@ -2,11 +2,11 @@ use {
     crate::{
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{jay_select_workspace::*, JaySelectWorkspaceId},
+        wire::{JaySelectWorkspaceId, jay_select_workspace::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

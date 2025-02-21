@@ -215,10 +215,10 @@ fn bound_target(
     cold();
 
     let SampleRect {
-        x1: ref mut t_x1,
-        x2: ref mut t_x2,
-        y1: ref mut t_y1,
-        y2: ref mut t_y2,
+        x1: t_x1,
+        x2: t_x2,
+        y1: t_y1,
+        y2: t_y2,
         ..
     } = texcoord;
 

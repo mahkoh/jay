@@ -21,12 +21,12 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
-        cpu_worker::{jobs::read_write::ReadWriteJobError, CpuWorker},
+        cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxImage, GfxInternalFramebuffer,
-            GfxStagingBuffer, ResetStatus, ShmGfxTexture, StagingBufferUsecase, STAGING_DOWNLOAD,
-            STAGING_UPLOAD,
+            GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture,
+            StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -36,12 +36,12 @@ use {
         utils::oserror::OsError,
         video::{
             dmabuf::DmaBuf,
-            drm::{sync_obj::SyncObjCtx, Drm, DrmError},
+            drm::{Drm, DrmError, sync_obj::SyncObjCtx},
             gbm::GbmError,
         },
     },
     ahash::AHashMap,
-    ash::{vk, LoadingError},
+    ash::{LoadingError, vk},
     gpu_alloc::{AllocationError, MapError},
     jay_config::video::GfxApi,
     log::Level,

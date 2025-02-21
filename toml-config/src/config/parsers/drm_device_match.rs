@@ -1,10 +1,10 @@
 use {
     crate::{
         config::{
-            context::Context,
-            extractor::{n32, opt, recover, str, Extractor, ExtractorError},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             DrmDeviceMatch,
+            context::Context,
+            extractor::{Extractor, ExtractorError, n32, opt, recover, str},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

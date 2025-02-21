@@ -7,8 +7,8 @@ use {
         object::{Object, Version},
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         wire::{
-            jay_ei_session_builder::{Commit, JayEiSessionBuilderRequestHandler, SetAppId},
             JayEiSessionBuilderId,
+            jay_ei_session_builder::{Commit, JayEiSessionBuilderRequestHandler, SetAppId},
         },
     },
     std::{cell::RefCell, rc::Rc},

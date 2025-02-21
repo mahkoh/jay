@@ -1,10 +1,10 @@
 use {
     crate::{
         gfx_apis::vulkan::{
+            VulkanError,
             allocator::{VulkanAllocation, VulkanAllocator},
             descriptor::VulkanDescriptorSetLayout,
             device::VulkanDevice,
-            VulkanError,
         },
         utils::on_drop::OnDrop,
     },

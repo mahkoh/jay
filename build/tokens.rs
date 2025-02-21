@@ -1,5 +1,5 @@
 use {
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result, bail},
     bstr::{BString, ByteSlice},
 };
 

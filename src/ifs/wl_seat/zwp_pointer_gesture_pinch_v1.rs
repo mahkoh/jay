@@ -5,7 +5,7 @@ use {
         ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_pointer_gesture_pinch_v1::*, ZwpPointerGesturePinchV1Id},
+        wire::{ZwpPointerGesturePinchV1Id, zwp_pointer_gesture_pinch_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

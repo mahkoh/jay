@@ -5,7 +5,7 @@ use {
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_single_pixel_buffer_manager_v1::*, WpSinglePixelBufferManagerV1Id},
+        wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

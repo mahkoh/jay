@@ -1,11 +1,11 @@
 use {
     crate::{
         config::{
+            Theme,
             context::Context,
-            extractor::{opt, recover, s32, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, opt, recover, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::color::ColorParser,
-            Theme,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

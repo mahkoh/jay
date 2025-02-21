@@ -1,11 +1,11 @@
 use {
     crate::{
         object::Version,
-        wire::{wp_viewporter::*, WpViewporterId},
+        wire::{WpViewporterId, wp_viewporter::*},
         wl_usr::{
+            UsrCon,
             usr_ifs::{usr_wl_surface::UsrWlSurface, usr_wp_viewport::UsrWpViewport},
             usr_object::UsrObject,
-            UsrCon,
         },
     },
     std::{convert::Infallible, rc::Rc},

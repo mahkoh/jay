@@ -5,7 +5,7 @@ use {
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{wl_callback::*, WlCallbackId},
+        wire::{WlCallbackId, wl_callback::*},
     },
     std::{cell::Cell, rc::Rc},
 };

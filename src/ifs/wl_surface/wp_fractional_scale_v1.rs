@@ -6,7 +6,7 @@ use {
         object::{Object, Version},
         scale::Scale,
         utils::cell_ext::CellExt,
-        wire::{wp_fractional_scale_v1::*, WpFractionalScaleV1Id},
+        wire::{WpFractionalScaleV1Id, wp_fractional_scale_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

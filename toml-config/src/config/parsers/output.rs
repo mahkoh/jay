@@ -1,8 +1,9 @@
 use {
     crate::{
         config::{
+            Output,
             context::Context,
-            extractor::{fltorint, opt, recover, s32, str, val, Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, fltorint, opt, recover, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 format::FormatParser,
@@ -11,7 +12,6 @@ use {
                 tearing::TearingParser,
                 vrr::VrrParser,
             },
-            Output,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},

@@ -1,14 +1,14 @@
 use {
     crate::utils::{
         copyhashmap::CopyHashMap,
-        mmap::{mmap, Mmapped},
+        mmap::{Mmapped, mmap},
         oserror::OsError,
         page_size::page_size,
         ptr_ext::{MutPtrExt, PtrExt},
     },
     std::{marker::PhantomData, ops::Range, rc::Rc},
     thiserror::Error,
-    uapi::{c, OwnedFd, Pod},
+    uapi::{OwnedFd, Pod, c},
 };
 
 #[derive(Default)]

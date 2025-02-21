@@ -6,8 +6,8 @@ use {
                 ext_data_control_offer_v1::ExtDataControlOfferV1,
                 ext_data_control_source_v1::ExtDataControlSourceV1,
                 private::{
-                    logic::{self, DataControlError},
                     DataControlDevice, DataControlDeviceData, DataControlIpc, DataControlOfferData,
+                    logic::{self, DataControlError},
                 },
             },
             wl_seat::WlSeatGlobal,
@@ -15,8 +15,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{
-            ext_data_control_device_v1::*, ExtDataControlDeviceV1Id, ExtDataControlOfferV1Id,
-            ExtDataControlSourceV1Id,
+            ExtDataControlDeviceV1Id, ExtDataControlOfferV1Id, ExtDataControlSourceV1Id,
+            ext_data_control_device_v1::*,
         },
     },
     std::rc::Rc,

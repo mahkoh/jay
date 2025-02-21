@@ -5,7 +5,7 @@ use {
             test_transport::TestTransport,
         },
         theme::Color,
-        wire::{wp_single_pixel_buffer_manager_v1::*, WpSinglePixelBufferManagerV1Id},
+        wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
 };

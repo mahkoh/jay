@@ -6,12 +6,12 @@ use {
         client::ClientError,
         ifs::{
             wl_surface::{
+                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 tray::TrayItemId,
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
-                    xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
+                    xdg_toplevel::{WM_CAPABILITIES_SINCE, XdgToplevel},
                 },
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
             },
             xdg_wm_base::XdgWmBase,
         },
@@ -28,7 +28,7 @@ use {
             option_ext::OptionExt,
             rc_eq::rc_eq,
         },
-        wire::{xdg_surface::*, WlSurfaceId, XdgPopupId, XdgSurfaceId},
+        wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
     },
     std::{
         cell::{Cell, RefCell, RefMut},
@@ -254,7 +254,7 @@ impl XdgSurface {
                     id: self.id,
                     old,
                     new,
-                })
+                });
             }
         }
         self.role.set(role);
@@ -551,7 +551,9 @@ impl SurfaceExt for XdgSurface {
 
 #[derive(Debug, Error)]
 pub enum XdgSurfaceError {
-    #[error("Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface")]
+    #[error(
+        "Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface"
+    )]
     AlreadyAttached(WlSurfaceId),
     #[error(transparent)]
     XdgPopupError(#[from] XdgPopupError),
@@ -565,7 +567,9 @@ pub enum XdgSurfaceError {
     ClientError(Box<ClientError>),
     #[error("Tried no set a non-positive width/height")]
     NonPositiveWidthHeight,
-    #[error("Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed")]
+    #[error(
+        "Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed"
+    )]
     RoleNotYetDestroyed(XdgSurfaceId),
     #[error("The surface still has popups attached")]
     PopupsNotYetDestroyed,

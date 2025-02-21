@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::HardwareCursorUpdate,
-        cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
+        cursor::{Cursor, DEFAULT_CURSOR_SIZE, KnownCursor},
         fixed::Fixed,
         gfx_api::{AcquireSync, ReleaseSync},
         rect::Rect,

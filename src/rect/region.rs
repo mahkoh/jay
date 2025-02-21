@@ -7,8 +7,8 @@ use {
         },
     },
     jay_algorithms::rect::{
-        region::{extents, rects_to_bands, subtract, union},
         RectRaw,
+        region::{extents, rects_to_bands, subtract, union},
     },
     smallvec::SmallVec,
     std::{

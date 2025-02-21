@@ -8,11 +8,11 @@ use {
         fixed::Fixed,
         leaks::Tracker,
         wire_ei::{
+            EiScrollId,
             ei_scroll::{
                 ClientScroll, ClientScrollDiscrete, ClientScrollStop, EiScrollRequestHandler,
                 Release, ServerScroll, ServerScrollDiscrete, ServerScrollStop,
             },
-            EiScrollId,
         },
     },
     std::rc::Rc,

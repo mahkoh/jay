@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::GlobalArgs,
-        tools::tool_client::{with_tool_client, ToolClient},
+        tools::tool_client::{ToolClient, with_tool_client},
         wire::jay_compositor::Quit,
     },
     std::rc::Rc,

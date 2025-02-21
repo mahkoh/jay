@@ -2,8 +2,8 @@ use {
     error_reporter::Report,
     indexmap::IndexMap,
     serde::{
-        de::{DeserializeOwned, Error},
         Deserialize, Deserializer,
+        de::{DeserializeOwned, Error},
     },
 };
 
@@ -119,7 +119,7 @@ impl<'de> Deserialize<'de> for TopLevelTypeSpec {
                     "spec must define either variants or a single variant. failures: {} ----- {}",
                     Report::new(e1),
                     Report::new(e2)
-                )))
+                )));
             }
         };
         Ok(res)
@@ -148,7 +148,7 @@ impl<'de> Deserialize<'de> for TableSpec {
                     "spec must define either types or fields. failures: {} ----- {}",
                     Report::new(e1),
                     Report::new(e2)
-                )))
+                )));
             }
         };
         Ok(res)
@@ -176,7 +176,7 @@ impl<'de, U: DeserializeOwned> Deserialize<'de> for RefOrSpec<U> {
                     "spec must define either a ref or a spec. failures: {} ----- {}",
                     Report::new(e1),
                     Report::new(e2)
-                )))
+                )));
             }
         };
         Ok(res)

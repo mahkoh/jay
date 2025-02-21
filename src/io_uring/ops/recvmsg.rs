@@ -1,14 +1,14 @@
 use {
     crate::{
         io_uring::{
-            pending_result::PendingResult,
-            sys::{io_uring_sqe, IORING_OP_RECVMSG},
             IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
+            pending_result::PendingResult,
+            sys::{IORING_OP_RECVMSG, io_uring_sqe},
         },
         utils::buf::Buf,
     },
     std::{cell::Cell, collections::VecDeque, mem::MaybeUninit, rc::Rc},
-    uapi::{c, OwnedFd},
+    uapi::{OwnedFd, c},
 };
 
 impl IoUring {

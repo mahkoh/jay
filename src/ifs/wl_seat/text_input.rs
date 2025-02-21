@@ -1,10 +1,10 @@
 use {
     crate::ifs::{
         wl_seat::{
+            WlSeatGlobal,
             text_input::{
                 zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
             },
-            WlSeatGlobal,
         },
         wl_surface::WlSurface,
     },

@@ -1,6 +1,6 @@
 use {
     crate::{
-        ifs::wl_seat::{ToplevelSelector, BTN_LEFT},
+        ifs::wl_seat::{BTN_LEFT, ToplevelSelector},
         it::{test_error::TestResult, testrun::TestRun},
         tree::{Node, ToplevelNode},
         utils::clonecell::CloneCell,

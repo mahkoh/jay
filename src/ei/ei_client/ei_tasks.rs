@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::Phase,
         ei::{
-            ei_client::{ei_error::EiClientError, EiClient},
+            ei_client::{EiClient, ei_error::EiClientError},
             ei_object::EiObjectId,
         },
         utils::{
@@ -11,7 +11,7 @@ use {
             vec_ext::VecExt,
         },
     },
-    futures_util::{select, FutureExt},
+    futures_util::{FutureExt, select},
     std::{collections::VecDeque, mem, rc::Rc, time::Duration},
 };
 

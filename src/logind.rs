@@ -1,6 +1,6 @@
 use {
     crate::{
-        dbus::{DbusError, DbusSocket, SignalHandler, FALSE},
+        dbus::{DbusError, DbusSocket, FALSE, SignalHandler},
         utils::errorfmt::ErrorFmt,
         wire_dbus::{
             org,
@@ -62,7 +62,7 @@ impl Session {
                 .get_async::<org::freedesktop::login1::session::Seat>(LOGIND_NAME, &session_path)
                 .await;
             match seat {
-                Ok(s) => s.get().1 .0.to_string(),
+                Ok(s) => s.get().1.0.to_string(),
                 Err(e) => return Err(LogindError::GetSeatName(e)),
             }
         };

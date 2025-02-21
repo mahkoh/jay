@@ -23,8 +23,8 @@ use {
         },
         wheel::{Wheel, WheelError},
         wire::{
-            wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId,
-            JayDamageTracking, JayDamageTrackingId, WlCallbackId, WlRegistryId,
+            JayCompositor, JayCompositorId, JayDamageTracking, JayDamageTrackingId, WlCallbackId,
+            WlRegistryId, wl_callback, wl_display, wl_registry,
         },
     },
     ahash::AHashMap,

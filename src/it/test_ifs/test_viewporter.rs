@@ -6,7 +6,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        wire::{wp_viewporter::*, WpViewporterId},
+        wire::{WpViewporterId, wp_viewporter::*},
     },
     std::rc::Rc,
 };

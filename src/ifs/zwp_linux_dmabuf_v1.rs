@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id},
+        wire::{ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id, zwp_linux_dmabuf_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

@@ -6,7 +6,7 @@ use {
         ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
+        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,

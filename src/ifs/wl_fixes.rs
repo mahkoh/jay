@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wl_fixes::*, WlFixesId},
+        wire::{WlFixesId, wl_fixes::*},
     },
     std::rc::Rc,
     thiserror::Error,

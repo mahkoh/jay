@@ -5,7 +5,7 @@ use {
         ifs::wp_content_type_v1::WpContentTypeV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_content_type_manager_v1::*, WpContentTypeManagerV1Id},
+        wire::{WpContentTypeManagerV1Id, wp_content_type_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

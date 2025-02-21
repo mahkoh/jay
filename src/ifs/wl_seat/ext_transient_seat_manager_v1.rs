@@ -1,11 +1,11 @@
 use {
     crate::{
-        client::{Client, ClientCaps, ClientError, CAP_SEAT_MANAGER},
+        client::{CAP_SEAT_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_seat::ext_transient_seat_v1::ExtTransientSeatV1,
         leaks::Tracker,
         object::{Object, Version},
-        wire::{ext_transient_seat_manager_v1::*, ExtTransientSeatManagerV1Id},
+        wire::{ExtTransientSeatManagerV1Id, ext_transient_seat_manager_v1::*},
     },
     std::rc::Rc,
     thiserror::Error,

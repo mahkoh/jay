@@ -2,14 +2,14 @@ mod remote_desktop_gui;
 
 use {
     crate::{
-        dbus::{prelude::Variant, DbusObject, PendingReply},
+        dbus::{DbusObject, PendingReply, prelude::Variant},
         ifs::jay_compositor::CREATE_EI_SESSION_SINCE,
         portal::{
+            PORTAL_SUCCESS, PortalState,
             ptl_display::{PortalDisplay, PortalDisplayId},
             ptl_remote_desktop::remote_desktop_gui::SelectionGui,
             ptl_screencast::ScreencastPhase,
             ptl_session::{PortalSession, PortalSessionReply},
-            PortalState, PORTAL_SUCCESS,
         },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},

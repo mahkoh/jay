@@ -1,5 +1,6 @@
 use {
     crate::libinput::{
+        LibInput,
         consts::{
             AccelProfile, ConfigDragLockState, ConfigDragState, ConfigTapState, DeviceCapability,
             LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
@@ -37,7 +38,6 @@ use {
             libinput_tablet_pad_mode_group_has_button, libinput_tablet_pad_mode_group_has_ring,
             libinput_tablet_pad_mode_group_has_strip,
         },
-        LibInput,
     },
     bstr::ByteSlice,
     std::{ffi::CStr, marker::PhantomData, rc::Rc},
@@ -80,11 +80,7 @@ impl<'a> LibInputDevice<'a> {
 
     pub fn slot(&self) -> Option<usize> {
         let res = unsafe { libinput_device_get_user_data(self.dev) as usize };
-        if res == 0 {
-            None
-        } else {
-            Some(res - 1)
-        }
+        if res == 0 { None } else { Some(res - 1) }
     }
 
     pub fn has_cap(&self, cap: DeviceCapability) -> bool {
