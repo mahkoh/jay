@@ -66,6 +66,7 @@ pub struct VulkanImage {
     pub(super) shader_read_only_optimal_descriptor: Box<[u8]>,
     pub(super) descriptor_buffer_version: Cell<u64>,
     pub(super) descriptor_buffer_offset: Cell<DeviceSize>,
+    pub(super) execution_version: Cell<u64>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -452,6 +453,7 @@ impl VulkanDmaBufImageTemplate {
                 .sampler_read_only_descriptor(texture_view),
             descriptor_buffer_version: Cell::new(0),
             descriptor_buffer_offset: Cell::new(0),
+            execution_version: Cell::new(0),
         }))
     }
 
@@ -531,7 +533,7 @@ impl GfxFramebuffer for VulkanImage {
     }
 
     fn render_with_region(
-        &self,
+        self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         ops: &[GfxApiOpt],
@@ -539,7 +541,7 @@ impl GfxFramebuffer for VulkanImage {
         region: &Region,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
-            .execute(self, acquire_sync, release_sync, ops, clear, region)
+            .execute(&self, acquire_sync, release_sync, ops, clear, region)
             .map_err(|e| e.into())
     }
 

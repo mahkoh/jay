@@ -50,7 +50,7 @@ use {
             SubmitInfo2, Viewport, WriteDescriptorSet,
         },
     },
-    isnt::std_1::collections::IsntHashMapExt,
+    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     linearize::{Linearize, StaticMap, static_map},
     std::{
         cell::{Cell, RefCell},
@@ -87,7 +87,6 @@ pub struct VulkanRenderer {
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
     pub(super) sampler: Rc<VulkanSampler>,
     pub(super) tex_sampler_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
-    pub(super) descriptor_buffer_version: NumCell<u64>,
     pub(super) tex_descriptor_buffer_writer: RefCell<VulkanDescriptorBufferWriter>,
 }
 
@@ -158,6 +157,7 @@ pub(super) struct PendingFrame {
     point: u64,
     renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
+    _fb: Rc<VulkanImage>,
     _textures: Vec<UsedTexture>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
@@ -253,7 +253,6 @@ impl VulkanDevice {
             shm_allocator,
             sampler,
             tex_sampler_descriptor_buffer_cache: tex_descriptor_buffer_cache,
-            descriptor_buffer_version: Default::default(),
             tex_descriptor_buffer_writer,
         });
         render.get_or_create_pipelines(XRGB8888.vk_format)?;
@@ -326,7 +325,7 @@ impl VulkanRenderer {
             return Ok(());
         };
         zone!("create_descriptor_buffer");
-        let version = self.descriptor_buffer_version.add_fetch(1);
+        let version = self.allocate_point();
         let memory = &mut *self.memory.borrow_mut();
         let writer = &mut *self.tex_descriptor_buffer_writer.borrow_mut();
         writer.clear();
@@ -367,10 +366,14 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         memory.dmabuf_sample.clear();
         memory.queue_transfer.clear();
+        let execution = self.allocate_point();
         for cmd in opts {
             if let GfxApiOpt::CopyTexture(c) = cmd {
                 let tex = c.tex.clone().into_vk(&self.device.device);
                 if tex.contents_are_undefined.get() {
+                    continue;
+                }
+                if tex.execution_version.replace(execution) == execution {
                     continue;
                 }
                 match tex.queue_state.get().acquire(QueueFamily::Gfx) {
@@ -519,7 +522,7 @@ impl VulkanRenderer {
         let rendering_attachment_info = {
             let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
-                .image_layout(ImageLayout::GENERAL)
+                .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .load_op(AttachmentLoadOp::LOAD)
                 .store_op(AttachmentStoreOp::STORE);
             if let Some(clear) = load_clear {
@@ -540,25 +543,27 @@ impl VulkanRenderer {
         unsafe {
             self.device.device.cmd_begin_rendering(buf, &rendering_info);
         }
-        if let Some(clear) = manual_clear {
-            let clear_attachment = ClearAttachment::default()
-                .color_attachment(0)
-                .clear_value(clear)
-                .aspect_mask(ImageAspectFlags::COLOR);
-            memory.clear_rects.clear();
-            for region in &memory.paint_regions {
-                memory.clear_rects.push(ClearRect {
-                    rect: region.rect,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                });
-            }
-            unsafe {
-                self.device.device.cmd_clear_attachments(
-                    buf,
-                    &[clear_attachment],
-                    &memory.clear_rects,
-                );
+        if memory.paint_regions.is_not_empty() {
+            if let Some(clear) = manual_clear {
+                let clear_attachment = ClearAttachment::default()
+                    .color_attachment(0)
+                    .clear_value(clear)
+                    .aspect_mask(ImageAspectFlags::COLOR);
+                memory.clear_rects.clear();
+                for region in &memory.paint_regions {
+                    memory.clear_rects.push(ClearRect {
+                        rect: region.rect,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    });
+                }
+                unsafe {
+                    self.device.device.cmd_clear_attachments(
+                        buf,
+                        &[clear_attachment],
+                        &memory.clear_rects,
+                    );
+                }
             }
         }
     }
@@ -1008,7 +1013,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>) {
+    fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>, fb: &Rc<VulkanImage>) {
         zone!("create_pending_frame");
         let point = self.allocate_point();
         let mut memory = self.memory.borrow_mut();
@@ -1016,6 +1021,7 @@ impl VulkanRenderer {
             point,
             renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
+            _fb: fb.clone(),
             _textures: mem::take(&mut memory.textures),
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
@@ -1037,7 +1043,7 @@ impl VulkanRenderer {
 
     pub fn execute(
         self: &Rc<Self>,
-        fb: &VulkanImage,
+        fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
@@ -1053,6 +1059,7 @@ impl VulkanRenderer {
             memory.queue_transfer.clear();
             memory.wait_semaphores.clear();
             memory.release_fence.take();
+            memory.descriptor_buffer.take();
             memory.release_sync_file.take()
         };
         res.map(|_| sync_file)
@@ -1102,7 +1109,7 @@ impl VulkanRenderer {
 
     fn try_execute(
         self: &Rc<Self>,
-        fb: &VulkanImage,
+        fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         opts: &[GfxApiOpt],
@@ -1127,7 +1134,7 @@ impl VulkanRenderer {
         self.submit(buf.buffer)?;
         self.import_release_semaphore(fb, fb_release_sync);
         self.store_layouts(fb);
-        self.create_pending_frame(buf);
+        self.create_pending_frame(buf, fb);
         Ok(())
     }
 
