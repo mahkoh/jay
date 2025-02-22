@@ -61,6 +61,7 @@ pub struct SeatConstraint {
     pub one_shot: bool,
     pub status: Cell<SeatConstraintStatus>,
     pub ty: ConstraintType,
+    pub cursor_hint: Cell<Option<(Fixed, Fixed)>>,
 }
 
 impl SeatConstraint {
@@ -75,6 +76,7 @@ impl SeatConstraint {
             } else {
                 self.status.set(SeatConstraintStatus::Inactive);
             }
+            self.clear_cursor_hint();
         }
     }
 
@@ -128,6 +130,14 @@ impl SeatConstraint {
         let region = get_region(&self.client, region)?;
         self.region.set(region);
         Ok(())
+    }
+
+    pub fn set_cursor_hint(&self, x: Fixed, y: Fixed) {
+        self.cursor_hint.set(Some((x, y)));
+    }
+
+    pub fn clear_cursor_hint(&self) {
+        self.cursor_hint.set(None);
     }
 }
 
@@ -221,6 +231,7 @@ impl ZwpPointerConstraintsV1 {
             one_shot,
             status: Cell::new(SeatConstraintStatus::Inactive),
             ty,
+            cursor_hint: Cell::new(None),
         }))
     }
 }
