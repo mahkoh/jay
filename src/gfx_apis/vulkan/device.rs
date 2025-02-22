@@ -3,7 +3,7 @@ use {
         format::XRGB8888,
         gfx_apis::vulkan::{
             VulkanError,
-            format::VulkanFormat,
+            format::{VulkanBlendBufferLimits, VulkanFormat},
             instance::{
                 API_VERSION, ApiVersionDisplay, Extensions, VulkanInstance,
                 map_extension_properties,
@@ -63,6 +63,7 @@ pub struct VulkanDevice {
     pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
     pub(super) descriptor_buffer: Option<descriptor_buffer::Device>,
     pub(super) formats: AHashMap<u32, VulkanFormat>,
+    pub(super) blend_limits: VulkanBlendBufferLimits,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,
     pub(super) graphics_queue_idx: u32,
@@ -71,6 +72,7 @@ pub struct VulkanDevice {
     pub(super) transfer_granularity_mask: (u32, u32),
     pub(super) descriptor_buffer_offset_mask: DeviceSize,
     pub(super) combined_image_sampler_descriptor_size: usize,
+    pub(super) sampled_image_descriptor_size: usize,
 }
 
 impl Drop for VulkanDevice {
@@ -337,6 +339,7 @@ impl VulkanInstance {
             Err(e) => return Err(VulkanError::CreateDevice(e)),
         };
         let destroy_device = OnDrop(|| unsafe { device.destroy_device(None) });
+        let blend_limits = self.load_blend_format_limits(phy_dev)?;
         let formats = self.load_formats(phy_dev)?;
         let supports_xrgb8888 = formats
             .get(&XRGB8888.drm)
@@ -364,6 +367,7 @@ impl VulkanInstance {
             .then(|| descriptor_buffer::Device::new(&self.instance, &device));
         let mut descriptor_buffer_offset_mask = 0;
         let mut combined_image_sampler_descriptor_size = 0;
+        let mut sampled_image_descriptor_size = 0;
         if supports_descriptor_buffer {
             let mut descriptor_buffer_props =
                 PhysicalDeviceDescriptorBufferPropertiesEXT::default();
@@ -380,6 +384,7 @@ impl VulkanInstance {
                 - 1;
             combined_image_sampler_descriptor_size =
                 descriptor_buffer_props.combined_image_sampler_descriptor_size;
+            sampled_image_descriptor_size = descriptor_buffer_props.sampled_image_descriptor_size;
         }
         let memory_properties =
             unsafe { self.instance.get_physical_device_memory_properties(phy_dev) };
@@ -418,6 +423,8 @@ impl VulkanInstance {
             transfer_granularity_mask,
             descriptor_buffer_offset_mask,
             combined_image_sampler_descriptor_size,
+            sampled_image_descriptor_size,
+            blend_limits,
         }))
     }
 }

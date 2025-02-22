@@ -39,6 +39,7 @@ pub(super) struct PipelineCreateInfo {
     pub(super) blend: bool,
     pub(super) src_has_alpha: bool,
     pub(super) has_alpha_mult: bool,
+    pub(super) with_linear_output: bool,
     pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
 }
 
@@ -76,8 +77,8 @@ impl VulkanDevice {
         };
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
-        let mut frag_spec_data = ArrayVec::<_, 8>::new();
-        let mut frag_spec_entries = ArrayVec::<_, 2>::new();
+        let mut frag_spec_data = ArrayVec::<_, { 3 * 4 }>::new();
+        let mut frag_spec_entries = ArrayVec::<_, 3>::new();
         let mut frag_spec_entry = |data: &[u8]| {
             let entry = SpecializationMapEntry::default()
                 .constant_id(frag_spec_entries.len() as _)
@@ -88,6 +89,7 @@ impl VulkanDevice {
         };
         frag_spec_entry(&(info.src_has_alpha as u32).to_ne_bytes());
         frag_spec_entry(&(info.has_alpha_mult as u32).to_ne_bytes());
+        frag_spec_entry(&(info.with_linear_output as u32).to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);

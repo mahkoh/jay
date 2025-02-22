@@ -1,4 +1,5 @@
 mod allocator;
+mod blend_buffer;
 mod bo_allocator;
 mod command;
 mod descriptor;
@@ -204,8 +205,8 @@ pub enum VulkanError {
     UndefinedContents,
     #[error("The framebuffer is being used by the transfer queue")]
     BusyInTransfer,
-    #[error("Vulkan does not support blend buffers")]
-    NoBlendBuffer,
+    #[error("Driver does not support descriptor buffers")]
+    NoDescriptorBuffer,
 }
 
 impl From<VulkanError> for GfxError {
@@ -272,6 +273,7 @@ impl GfxContext for Context {
             let old = old.into_texture().into_vk(&self.0.device.device);
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
+                VulkanImageMemory::Blend(_) => unreachable!(),
                 VulkanImageMemory::Internal(shm) => shm,
             };
             if old.width as i32 == width
@@ -355,10 +357,11 @@ impl GfxContext for Context {
 
     fn acquire_blend_buffer(
         &self,
-        _width: i32,
-        _height: i32,
+        width: i32,
+        height: i32,
     ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
-        Err(GfxError(Box::new(VulkanError::NoBlendBuffer)))
+        let buffer = self.0.acquire_blend_buffer(width, height)?;
+        Ok(buffer)
     }
 }
 

@@ -68,6 +68,33 @@ impl VulkanDevice {
         }))
     }
 
+    pub(super) fn create_out_descriptor_set_layout(
+        self: &Rc<Self>,
+        db: &descriptor_buffer::Device,
+    ) -> Result<Rc<VulkanDescriptorSetLayout>, VulkanError> {
+        let binding = DescriptorSetLayoutBinding::default()
+            .stage_flags(ShaderStageFlags::FRAGMENT)
+            .descriptor_count(1)
+            .descriptor_type(DescriptorType::SAMPLED_IMAGE);
+        let create_info = DescriptorSetLayoutCreateInfo::default()
+            .bindings(slice::from_ref(&binding))
+            .flags(DescriptorSetLayoutCreateFlags::DESCRIPTOR_BUFFER_EXT);
+        let layout = unsafe { self.device.create_descriptor_set_layout(&create_info, None) };
+        let layout = layout.map_err(VulkanError::CreateDescriptorSetLayout)?;
+        let size = self.get_descriptor_set_size(db, layout);
+        let mut offsets = ArrayVec::new();
+        unsafe {
+            offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 0));
+        }
+        Ok(Rc::new(VulkanDescriptorSetLayout {
+            device: self.clone(),
+            layout,
+            size,
+            offsets,
+            _sampler: None,
+        }))
+    }
+
     fn get_descriptor_set_size(
         &self,
         db: &descriptor_buffer::Device,
