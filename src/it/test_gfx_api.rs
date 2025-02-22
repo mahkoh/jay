@@ -441,11 +441,12 @@ impl GfxFramebuffer for TestGfxFb {
                 }
             };
             let fill_rect = |f: &FillRect, staging: &mut [Color]| {
+                let color = f.effective_color();
                 let (x1, y1, x2, y2) = fb_points(width, height, &f.rect);
                 for y in y1..y2 {
                     for x in x1..x2 {
                         let dst = &mut staging[(y * width + x) as usize];
-                        *dst = dst.and_then(&f.color);
+                        *dst = dst.and_then(&color);
                     }
                 }
             };

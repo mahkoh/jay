@@ -202,7 +202,7 @@ enum RenderError {
 #[derive(Default)]
 struct GfxGlState {
     triangles: RefCell<Vec<[f32; 2]>>,
-    fill_rect: VecStorage<&'static FillRect>,
+    fill_rect: VecStorage<FillRect>,
     copy_tex: VecStorage<&'static CopyTexture>,
 }
 
@@ -233,7 +233,11 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
                     }
                 }
                 GfxApiOpt::FillRect(f) => {
-                    fill_rect.push(f);
+                    fill_rect.push(FillRect {
+                        rect: f.rect,
+                        color: f.effective_color(),
+                        alpha: None,
+                    });
                     i += 1;
                 }
                 GfxApiOpt::CopyTexture(c) => {
@@ -249,7 +253,7 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
                 triangles.clear();
                 let mut color = None;
                 while i < fill_rect.len() {
-                    let fr = fill_rect[i];
+                    let fr = &fill_rect[i];
                     match color {
                         None => color = Some(fr.color),
                         Some(c) if c == fr.color => {}

@@ -64,19 +64,27 @@ impl RendererBase<'_> {
         rect
     }
 
-    pub fn fill_scaled_boxes(&mut self, boxes: &[Rect], color: &Color) {
-        self.fill_boxes3(boxes, color, 0, 0, true);
+    pub fn fill_scaled_boxes(&mut self, boxes: &[Rect], color: &Color, alpha: Option<f32>) {
+        self.fill_boxes3(boxes, color, alpha, 0, 0, true);
     }
 
     pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {
-        self.fill_boxes3(boxes, color, 0, 0, false);
+        self.fill_boxes3(boxes, color, None, 0, 0, false);
     }
 
     pub fn fill_boxes2(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
-        self.fill_boxes3(boxes, color, dx, dy, false);
+        self.fill_boxes3(boxes, color, None, dx, dy, false);
     }
 
-    pub fn fill_boxes3(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32, scaled: bool) {
+    pub fn fill_boxes3(
+        &mut self,
+        boxes: &[Rect],
+        color: &Color,
+        alpha: Option<f32>,
+        dx: i32,
+        dy: i32,
+        scaled: bool,
+    ) {
         if boxes.is_empty() || *color == Color::TRANSPARENT {
             return;
         }
@@ -97,6 +105,7 @@ impl RendererBase<'_> {
                     self.fb_height,
                 ),
                 color: *color,
+                alpha,
             }));
         }
     }
@@ -129,6 +138,7 @@ impl RendererBase<'_> {
                     self.fb_height,
                 ),
                 color: *color,
+                alpha: None,
             }));
         }
     }

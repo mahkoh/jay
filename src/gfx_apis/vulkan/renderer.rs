@@ -505,7 +505,7 @@ impl VulkanRenderer {
         let memory = &mut *self.memory.borrow_mut();
         let clear_value = clear.map(|clear| ClearValue {
             color: ClearColorValue {
-                float32: clear.to_array_srgb(),
+                float32: clear.to_array_srgb(None),
             },
         });
         let load_clear = memory.paint_regions.len() == 1 && {
@@ -620,7 +620,7 @@ impl VulkanRenderer {
                 GfxApiOpt::FillRect(r) => {
                     let push = FillPushConstants {
                         pos: r.rect.to_points(),
-                        color: r.color.to_array_srgb(),
+                        color: r.color.to_array_srgb(r.alpha),
                     };
                     for region in &memory.paint_regions {
                         let mut push = push;

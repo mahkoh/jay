@@ -116,7 +116,7 @@ impl SampleRect {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FramebufferRect {
     pub x1: f32,
     pub x2: f32,
@@ -171,6 +171,17 @@ impl FramebufferRect {
 pub struct FillRect {
     pub rect: FramebufferRect,
     pub color: Color,
+    pub alpha: Option<f32>,
+}
+
+impl FillRect {
+    pub fn effective_color(&self) -> Color {
+        let mut color = self.color;
+        if let Some(alpha) = self.alpha {
+            color = color * alpha;
+        }
+        color
+    }
 }
 
 pub struct CopyTexture {

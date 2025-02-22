@@ -89,7 +89,7 @@ impl Renderer<'_> {
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let c = theme.colors.bar_background.get();
                 self.base
-                    .fill_boxes3(slice::from_ref(&bar_bg), &c, x, y, true);
+                    .fill_boxes3(slice::from_ref(&bar_bg), &c, None, x, y, true);
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
                     let c = match aw.captured {
@@ -336,7 +336,8 @@ impl Renderer<'_> {
         };
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
-        self.base.fill_scaled_boxes(slice::from_ref(bounds), &color);
+        self.base
+            .fill_scaled_boxes(slice::from_ref(bounds), &color, None);
     }
 
     pub fn render_highlight(&mut self, rect: &Rect) {
@@ -440,11 +441,7 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     self.base.ops.push(GfxApiOpt::Sync);
-                    let mut color = *color;
-                    if let Some(alpha) = alpha {
-                        color = color * alpha;
-                    }
-                    self.base.fill_scaled_boxes(&[rect], &color);
+                    self.base.fill_scaled_boxes(&[rect], color, alpha);
                 }
             }
         } else {
