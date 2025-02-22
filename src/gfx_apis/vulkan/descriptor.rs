@@ -1,9 +1,12 @@
 use {
     crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice, sampler::VulkanSampler},
     arrayvec::ArrayVec,
-    ash::vk::{
-        DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
-        DescriptorSetLayoutCreateInfo, DescriptorType, DeviceSize, ShaderStageFlags,
+    ash::{
+        ext::descriptor_buffer,
+        vk::{
+            DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
+            DescriptorSetLayoutCreateInfo, DescriptorType, DeviceSize, ShaderStageFlags,
+        },
     },
     std::{rc::Rc, slice},
 };
@@ -14,7 +17,6 @@ pub(super) struct VulkanDescriptorSetLayout {
     pub(super) size: DeviceSize,
     pub(super) offsets: ArrayVec<DeviceSize, 1>,
     pub(super) _sampler: Option<Rc<VulkanSampler>>,
-    pub(super) has_sampler: bool,
 }
 
 impl Drop for VulkanDescriptorSetLayout {
@@ -28,7 +30,7 @@ impl Drop for VulkanDescriptorSetLayout {
 }
 
 impl VulkanDevice {
-    pub(super) fn create_descriptor_set_layout(
+    pub(super) fn create_tex_descriptor_set_layout(
         self: &Rc<Self>,
         sampler: &Rc<VulkanSampler>,
     ) -> Result<Rc<VulkanDescriptorSetLayout>, VulkanError> {
@@ -52,9 +54,7 @@ impl VulkanDevice {
         let mut size = 0;
         let mut offsets = ArrayVec::new();
         if let Some(db) = &self.descriptor_buffer {
-            size = unsafe { db.get_descriptor_set_layout_size(layout) };
-            size =
-                (size + self.descriptor_buffer_offset_mask) & !self.descriptor_buffer_offset_mask;
+            size = self.get_descriptor_set_size(db, layout);
             unsafe {
                 offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 0));
             }
@@ -65,7 +65,16 @@ impl VulkanDevice {
             size,
             offsets,
             _sampler: Some(sampler.clone()),
-            has_sampler: true,
         }))
+    }
+
+    fn get_descriptor_set_size(
+        &self,
+        db: &descriptor_buffer::Device,
+        layout: DescriptorSetLayout,
+    ) -> DeviceSize {
+        let mut size = unsafe { db.get_descriptor_set_layout_size(layout) };
+        size = (size + self.descriptor_buffer_offset_mask) & !self.descriptor_buffer_offset_mask;
+        size
     }
 }
