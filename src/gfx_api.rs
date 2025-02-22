@@ -281,6 +281,11 @@ pub trait GfxFramebuffer: Debug {
     ) -> Result<Option<SyncFile>, GfxError>;
 
     fn format(&self) -> &'static Format;
+
+    fn full_region(&self) -> Region {
+        let (width, height) = self.physical_size();
+        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
+    }
 }
 
 pub trait GfxInternalFramebuffer: GfxFramebuffer {
@@ -315,11 +320,6 @@ impl dyn GfxFramebuffer {
             &self.full_region(),
             blend_buffer,
         )
-    }
-
-    fn full_region(&self) -> Region {
-        let (width, height) = self.physical_size();
-        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
     }
 
     pub fn clear(

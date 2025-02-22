@@ -4,8 +4,8 @@ use {
         cpu_worker::PendingJob,
         format::XRGB8888,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxTexture,
-            GfxWriteModifier, ReleaseSync, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
+            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             VulkanError,
@@ -1075,6 +1075,12 @@ impl VulkanRenderer {
     }
 
     fn create_paint_regions(&self, fb: &VulkanImage, region: &Region) {
+        let mut region = region;
+        let region_owned;
+        if fb.contents_are_undefined.get() {
+            region_owned = fb.full_region();
+            region = &region_owned;
+        }
         let memory = &mut *self.memory.borrow_mut();
         memory.paint_regions.clear();
         for rect in region.rects() {
