@@ -36,8 +36,8 @@ pub struct VulkanDescriptorBufferUnused {
     pub address: DeviceAddress,
 }
 
+#[derive(Default)]
 pub struct VulkanDescriptorBufferWriter {
-    set_size: usize,
     buffer: Vec<u8>,
 }
 
@@ -49,13 +49,13 @@ impl VulkanDescriptorBufferCache {
     pub fn new(
         device: &Rc<VulkanDevice>,
         allocator: &Rc<VulkanAllocator>,
-        layout: &VulkanDescriptorSetLayout,
+        has_sampler: bool,
     ) -> Self {
         Self {
             device: device.clone(),
             allocator: allocator.clone(),
             buffers: Default::default(),
-            has_sampler: layout.has_sampler,
+            has_sampler,
         }
     }
 
@@ -164,13 +164,6 @@ impl Drop for VulkanDescriptorBufferUnused {
 }
 
 impl VulkanDescriptorBufferWriter {
-    pub fn new(layout: &VulkanDescriptorSetLayout) -> Self {
-        Self {
-            set_size: layout.size as usize,
-            buffer: Default::default(),
-        }
-    }
-
     pub fn clear(&mut self) {
         self.buffer.clear();
     }
@@ -179,10 +172,13 @@ impl VulkanDescriptorBufferWriter {
         self.buffer.len() as DeviceSize
     }
 
-    pub fn add_set(&mut self) -> VulkanDescriptorBufferSetWriter<'_> {
+    pub fn add_set(
+        &mut self,
+        layout: &VulkanDescriptorSetLayout,
+    ) -> VulkanDescriptorBufferSetWriter<'_> {
         let buffer = &mut self.buffer;
         let lo = buffer.len();
-        buffer.resize(lo + self.set_size, 0);
+        buffer.resize(lo + layout.size as usize, 0);
         VulkanDescriptorBufferSetWriter {
             set: &mut buffer[lo..],
         }
