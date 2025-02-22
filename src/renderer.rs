@@ -340,7 +340,8 @@ impl Renderer<'_> {
         };
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
-        self.base.fill_scaled_boxes(slice::from_ref(bounds), &color);
+        self.base
+            .fill_scaled_boxes(slice::from_ref(bounds), &color, None);
     }
 
     pub fn render_highlight(&mut self, rect: &Rect) {
@@ -444,11 +445,7 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     self.base.ops.push(GfxApiOpt::Sync);
-                    let mut color = *color;
-                    if let Some(alpha) = alpha {
-                        color = color * alpha;
-                    }
-                    self.base.fill_scaled_boxes(&[rect], &color);
+                    self.base.fill_scaled_boxes(&[rect], color, alpha);
                 }
             }
         } else {

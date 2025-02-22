@@ -115,8 +115,9 @@ impl Color {
         [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }
 
-    pub fn to_array_srgb(self) -> [f32; 4] {
-        [self.r, self.g, self.b, self.a]
+    pub fn to_array_srgb(self, alpha: Option<f32>) -> [f32; 4] {
+        let a = alpha.unwrap_or(1.0);
+        [self.r * a, self.g * a, self.b * a, self.a * a]
     }
 
     #[expect(dead_code)]
