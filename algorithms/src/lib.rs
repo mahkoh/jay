@@ -1,6 +1,7 @@
 #![allow(
     clippy::mem_replace_with_default,
     clippy::comparison_chain,
+    clippy::collapsible_else_if,
     clippy::needless_lifetimes
 )]
 

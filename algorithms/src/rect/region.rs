@@ -1,44 +1,64 @@
 use {
     crate::{
-        rect::{Container, RectRaw},
+        rect::{Container, NoTag, RectRaw, Tag},
         windows::WindowsExt,
     },
-    std::{cmp::Ordering, collections::BinaryHeap, mem, ops::Deref},
+    std::{cmp::Ordering, collections::BinaryHeap, marker::PhantomData, mem, ops::Deref},
 };
 
 pub fn union(left: &Container, right: &Container) -> Container {
-    op::<Union>(left, right)
+    op::<_, _, _, Union>(left, right)
 }
 
 pub fn subtract(left: &Container, right: &Container) -> Container {
-    op::<Subtract>(left, right)
+    op::<_, _, _, Subtract>(left, right)
 }
 
-struct Bands<'a> {
-    rects: &'a [RectRaw],
+pub fn intersect(left: &Container, right: &Container) -> Container {
+    op::<_, _, _, Intersect<NoTag>>(left, right)
+}
+
+pub fn intersect_tagged(left: &Container<u32>, right: &Container) -> Container<u32> {
+    op::<_, _, _, Intersect<u32>>(left, right)
+}
+
+struct Bands<'a, T>
+where
+    T: Tag,
+{
+    rects: &'a [RectRaw<T>],
 }
 
 #[derive(Copy, Clone)]
-struct Band<'a> {
-    rects: &'a [RectRaw],
+struct Band<'a, T>
+where
+    T: Tag,
+{
+    rects: &'a [RectRaw<T>],
     y1: i32,
     y2: i32,
 }
 
-impl<'a> Band<'a> {
-    fn can_merge_with(&self, next: &Band) -> bool {
+impl<'a, T> Band<'a, T>
+where
+    T: Tag,
+{
+    fn can_merge_with(&self, next: &Band<'_, T>) -> bool {
         next.rects.len() == self.rects.len()
             && next.y1 == self.y2
             && next
                 .rects
                 .iter()
                 .zip(self.rects.iter())
-                .all(|(a, b)| (a.x1, a.x2) == (b.x1, b.x2))
+                .all(|(a, b)| (a.x1, a.x2, a.tag) == (b.x1, b.x2, b.tag))
     }
 }
 
-impl<'a> Iterator for Bands<'a> {
-    type Item = Band<'a>;
+impl<'a, T> Iterator for Bands<'a, T>
+where
+    T: Tag,
+{
+    type Item = Band<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.rects.is_empty() {
@@ -62,7 +82,10 @@ impl<'a> Iterator for Bands<'a> {
 }
 
 #[inline]
-pub fn extents(a: &[RectRaw]) -> RectRaw {
+pub fn extents<T>(a: &[RectRaw<T>]) -> RectRaw
+where
+    T: Tag,
+{
     let mut a = a.iter();
     let mut res = match a.next() {
         Some(a) => *a,
@@ -74,10 +97,21 @@ pub fn extents(a: &[RectRaw]) -> RectRaw {
         res.x2 = res.x2.max(a.x2);
         res.y2 = res.y2.max(a.y2);
     }
-    res
+    RectRaw {
+        x1: res.x1,
+        y1: res.y1,
+        x2: res.x2,
+        y2: res.y2,
+        tag: NoTag,
+    }
 }
 
-fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
+fn op<T1, T2, T3, O: Op<T1, T2, T3>>(a: &[RectRaw<T2>], b: &[RectRaw<T3>]) -> Container<T1>
+where
+    T1: Tag,
+    T2: Tag,
+    T3: Tag,
+{
     let mut res = Container::new();
 
     let mut prev_band_y2 = 0;
@@ -100,7 +134,7 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
     }
 
     macro_rules! append_nonoverlapping {
-        ($append_opt:expr, $a:expr, $a_opt:expr, $a_bands:expr, $b:expr) => {{
+        ($append_opt:expr, $map:ident, $a:expr, $a_opt:expr, $a_bands:expr, $b:expr) => {{
             if $append_opt {
                 let y2 = $a.y2.min($b.y1);
                 cur_band_start = res.len();
@@ -111,6 +145,7 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
                         y1: $a.y1,
                         x2: rect.x2,
                         y2,
+                        tag: O::$map(rect.tag),
                     });
                 }
                 fixup_new_band!($a.y1, y2);
@@ -125,9 +160,9 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
 
     while let (Some(a), Some(b)) = (&mut a_opt, &mut b_opt) {
         if a.y1 < b.y1 {
-            append_nonoverlapping!(O::APPEND_NON_A, a, a_opt, a_bands, b);
+            append_nonoverlapping!(O::APPEND_NON_A, map_t2_to_t1, a, a_opt, a_bands, b);
         } else if b.y1 < a.y1 {
-            append_nonoverlapping!(O::APPEND_NON_B, b, b_opt, b_bands, a);
+            append_nonoverlapping!(O::APPEND_NON_B, map_t3_to_t1, b, b_opt, b_bands, a);
         } else {
             let y2 = a.y2.min(b.y2);
             cur_band_start = res.len();
@@ -149,7 +184,7 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
     }
 
     macro_rules! push_trailing {
-        ($a_opt:expr, $a_bands:expr) => {{
+        ($a_opt:expr, $a_bands:expr, $map:ident) => {{
             while let Some(a) = $a_opt {
                 cur_band_start = res.len();
                 res.reserve(a.rects.len());
@@ -159,6 +194,7 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
                         y1: a.y1,
                         x2: rect.x2,
                         y2: a.y2,
+                        tag: O::$map(rect.tag),
                     });
                 }
                 fixup_new_band!(a.y1, a.y2);
@@ -168,25 +204,28 @@ fn op<O: Op>(a: &[RectRaw], b: &[RectRaw]) -> Container {
     }
 
     if O::APPEND_NON_A {
-        push_trailing!(a_opt, a_bands);
+        push_trailing!(a_opt, a_bands, map_t2_to_t1);
     }
 
     if O::APPEND_NON_B {
-        push_trailing!(b_opt, b_bands);
+        push_trailing!(b_opt, b_bands, map_t3_to_t1);
     }
 
     res.shrink_to_fit();
     res
 }
 
-fn coalesce(new: &mut Container, a: usize, b: usize, y2: i32) -> bool {
+fn coalesce<T>(new: &mut Container<T>, a: usize, b: usize, y2: i32) -> bool
+where
+    T: Tag,
+{
     if new.len() - b != b - a {
         return false;
     }
     let slice_a = &new[a..b];
     let slice_b = &new[b..];
     for (a, b) in slice_a.iter().zip(slice_b.iter()) {
-        if (a.x1, a.x2) != (b.x1, b.x2) {
+        if (a.x1, a.x2, a.tag) != (b.x1, b.x2, b.tag) {
             return false;
         }
     }
@@ -197,16 +236,25 @@ fn coalesce(new: &mut Container, a: usize, b: usize, y2: i32) -> bool {
     true
 }
 
-trait Op {
+trait Op<T1, T2, T3>
+where
+    T1: Tag,
+    T2: Tag,
+    T3: Tag,
+{
     const APPEND_NON_A: bool;
     const APPEND_NON_B: bool;
 
-    fn handle_band(new: &mut Container, a: &[RectRaw], b: &[RectRaw], y1: i32, y2: i32);
+    fn handle_band(new: &mut Container<T1>, a: &[RectRaw<T2>], b: &[RectRaw<T3>], y1: i32, y2: i32);
+
+    fn map_t2_to_t1(tag: T2) -> T1;
+
+    fn map_t3_to_t1(tag: T3) -> T1;
 }
 
 struct Union;
 
-impl Op for Union {
+impl Op<NoTag, NoTag, NoTag> for Union {
     const APPEND_NON_A: bool = true;
     const APPEND_NON_B: bool = true;
 
@@ -216,7 +264,13 @@ impl Op for Union {
 
         macro_rules! push {
             () => {
-                new.push(RectRaw { x1, y1, x2, y2 });
+                new.push(RectRaw {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    tag: NoTag,
+                });
             };
         }
 
@@ -272,11 +326,21 @@ impl Op for Union {
 
         push!();
     }
+
+    #[inline(always)]
+    fn map_t2_to_t1(_tag: NoTag) -> NoTag {
+        NoTag
+    }
+
+    #[inline(always)]
+    fn map_t3_to_t1(_tag: NoTag) -> NoTag {
+        NoTag
+    }
 }
 
 struct Subtract;
 
-impl Op for Subtract {
+impl Op<NoTag, NoTag, NoTag> for Subtract {
     const APPEND_NON_A: bool = true;
     const APPEND_NON_B: bool = false;
 
@@ -291,6 +355,7 @@ impl Op for Subtract {
                     y1,
                     x2: $x2,
                     y2,
+                    tag: NoTag,
                 });
             };
         }
@@ -337,33 +402,145 @@ impl Op for Subtract {
             pull!();
         }
     }
+
+    #[inline(always)]
+    fn map_t2_to_t1(_tag: NoTag) -> NoTag {
+        NoTag
+    }
+
+    #[inline(always)]
+    fn map_t3_to_t1(_tag: NoTag) -> NoTag {
+        NoTag
+    }
+}
+
+struct Intersect<T>(PhantomData<T>);
+
+impl<T> Op<T, T, NoTag> for Intersect<T>
+where
+    T: Tag,
+{
+    const APPEND_NON_A: bool = false;
+    const APPEND_NON_B: bool = false;
+
+    fn handle_band(new: &mut Container<T>, a: &[RectRaw<T>], b: &[RectRaw], y1: i32, y2: i32) {
+        let mut x1;
+        let mut x2;
+        let mut tag;
+
+        macro_rules! push {
+            ($x2:expr) => {
+                new.push(RectRaw {
+                    x1,
+                    y1,
+                    x2: $x2,
+                    y2,
+                    tag,
+                });
+            };
+        }
+
+        let mut a_iter = a.iter();
+        let mut b_iter = b.iter();
+
+        macro_rules! pull {
+            () => {
+                match a_iter.next() {
+                    Some(n) => {
+                        x1 = n.x1;
+                        x2 = n.x2;
+                        tag = n.tag;
+                    }
+                    _ => return,
+                }
+            };
+        }
+
+        pull!();
+
+        let mut b_opt = b_iter.next();
+
+        while let Some(b) = b_opt {
+            if b.x2 <= x1 {
+                b_opt = b_iter.next();
+            } else if b.x1 >= x2 {
+                pull!();
+            } else {
+                x1 = x1.max(b.x1);
+                if x2 <= b.x2 {
+                    push!(x2);
+                    pull!();
+                } else {
+                    push!(b.x2);
+                    b_opt = b_iter.next();
+                }
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn map_t2_to_t1(_tag: T) -> T {
+        unreachable!()
+    }
+
+    #[inline(always)]
+    fn map_t3_to_t1(_tag: NoTag) -> T {
+        unreachable!()
+    }
 }
 
 pub fn rects_to_bands(rects_tmp: &[RectRaw]) -> Container {
+    rects_to_bands_(rects_tmp)
+}
+
+pub fn rects_to_bands_tagged(rects_tmp: &[RectRaw<u32>]) -> Container<u32> {
+    rects_to_bands_(rects_tmp)
+}
+
+#[inline(always)]
+fn rects_to_bands_<T>(rects_tmp: &[RectRaw<T>]) -> Container<T>
+where
+    T: Tag,
+{
     #[derive(Copy, Clone)]
-    struct W(RectRaw);
-    impl Eq for W {}
-    impl PartialEq<Self> for W {
+    struct W<T>(RectRaw<T>)
+    where
+        T: Tag;
+    impl<T> Eq for W<T> where T: Tag {}
+    impl<T> PartialEq<Self> for W<T>
+    where
+        T: Tag,
+    {
         fn eq(&self, other: &Self) -> bool {
             self.0 == other.0
         }
     }
-    impl PartialOrd<Self> for W {
+    impl<T> PartialOrd<Self> for W<T>
+    where
+        T: Tag,
+    {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             Some(self.cmp(other))
         }
     }
-    impl Ord for W {
+    impl<T> Ord for W<T>
+    where
+        T: Tag,
+    {
         fn cmp(&self, other: &Self) -> Ordering {
             self.0
                 .y1
                 .cmp(&other.0.y1)
                 .then_with(|| self.0.x1.cmp(&other.0.x1))
+                .then_with(|| self.0.tag.cmp(&other.0.tag))
                 .reverse()
         }
     }
-    impl Deref for W {
-        type Target = RectRaw;
+    impl<T> Deref for W<T>
+    where
+        T: Tag,
+    {
+        type Target = RectRaw<T>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }
@@ -411,17 +588,60 @@ pub fn rects_to_bands(rects_tmp: &[RectRaw]) -> Container {
                 check_rect!(rect);
                 let mut x1 = rect.x1;
                 let mut x2 = rect.x2;
+                let mut tag: T = rect.tag;
                 while let Some(mut rect) = rects.peek().copied() {
                     check_rect!(rect);
-                    if rect.x1 > x2 {
-                        res.push(RectRaw { x1, x2, y1, y2 });
+                    if rect.x1 > x2 || (rect.tag != tag && rect.x1 == x2) {
+                        res.push(RectRaw {
+                            x1,
+                            x2,
+                            y1,
+                            y2,
+                            tag: tag.constrain(),
+                        });
                         x1 = rect.x1;
                         x2 = rect.x2;
+                        tag = rect.tag;
                     } else {
-                        x2 = x2.max(rect.x2);
+                        if rect.tag == tag {
+                            x2 = x2.max(rect.x2);
+                        } else if rect.tag > tag {
+                            if rect.x2 > x2 {
+                                rect.0.x1 = x2;
+                                rect.0.y1 = y1;
+                                rect.0.y2 = y2;
+                                rects.push(rect);
+                            }
+                        } else {
+                            if x2 > rect.x2 {
+                                rects.push(W(RectRaw {
+                                    x1: rect.x2,
+                                    y1,
+                                    x2,
+                                    y2,
+                                    tag,
+                                }));
+                            }
+                            res.push(RectRaw {
+                                x1,
+                                y1,
+                                x2: rect.x1,
+                                y2,
+                                tag: tag.constrain(),
+                            });
+                            x1 = rect.x1;
+                            x2 = rect.x2;
+                            tag = rect.tag;
+                        }
                     }
                 }
-                res.push(RectRaw { x1, x2, y1, y2 });
+                res.push(RectRaw {
+                    x1,
+                    x2,
+                    y1,
+                    y2,
+                    tag: tag.constrain(),
+                });
             }
             break;
         }

@@ -5,20 +5,26 @@ mod tests;
 
 pub use region::{DamageQueue, RegionBuilder};
 use {
-    jay_algorithms::rect::RectRaw,
+    jay_algorithms::rect::{NoTag, RectRaw, Tag},
     smallvec::SmallVec,
     std::fmt::{Debug, Formatter},
 };
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 #[repr(transparent)]
-pub struct Rect {
-    raw: RectRaw,
+pub struct Rect<T = NoTag>
+where
+    T: Tag,
+{
+    raw: RectRaw<T>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
-pub struct Region {
-    rects: SmallVec<[RectRaw; 1]>,
+pub struct Region<T = NoTag>
+where
+    T: Tag,
+{
+    rects: SmallVec<[RectRaw<T>; 1]>,
     extents: Rect,
 }
 
@@ -50,6 +56,23 @@ impl RectOverflow {
     }
 }
 
+impl<T> Rect<T>
+where
+    T: Tag,
+{
+    pub fn untag(&self) -> Rect {
+        Rect {
+            raw: RectRaw {
+                x1: self.raw.x1,
+                y1: self.raw.y1,
+                x2: self.raw.x2,
+                y2: self.raw.y2,
+                tag: NoTag,
+            },
+        }
+    }
+}
+
 impl Rect {
     pub fn new_empty(x: i32, y: i32) -> Self {
         Self {
@@ -58,6 +81,7 @@ impl Rect {
                 y1: y,
                 x2: x,
                 y2: y,
+                tag: NoTag,
             },
         }
     }
@@ -67,7 +91,13 @@ impl Rect {
             return None;
         }
         Some(Self {
-            raw: RectRaw { x1, y1, x2, y2 },
+            raw: RectRaw {
+                x1,
+                y1,
+                x2,
+                y2,
+                tag: NoTag,
+            },
         })
     }
 
@@ -76,10 +106,16 @@ impl Rect {
         Self::new(x1, y1, x2, y2).unwrap()
     }
 
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     fn new_unchecked_danger(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self {
-            raw: RectRaw { x1, y1, x2, y2 },
+            raw: RectRaw {
+                x1,
+                y1,
+                x2,
+                y2,
+                tag: NoTag,
+            },
         }
     }
 
@@ -102,6 +138,58 @@ impl Rect {
                 y1: self.raw.y1.min(other.raw.y1),
                 x2: self.raw.x2.max(other.raw.x2),
                 y2: self.raw.y2.max(other.raw.y2),
+                tag: NoTag,
+            },
+        }
+    }
+
+    pub fn intersect(&self, other: Self) -> Self {
+        let x1 = self.raw.x1.max(other.raw.x1);
+        let y1 = self.raw.y1.max(other.raw.y1);
+        let x2 = self.raw.x2.min(other.raw.x2).max(x1);
+        let y2 = self.raw.y2.min(other.raw.y2).max(y1);
+        Self {
+            raw: RectRaw {
+                x1,
+                y1,
+                x2,
+                y2,
+                tag: NoTag,
+            },
+        }
+    }
+
+    pub fn with_size(&self, width: i32, height: i32) -> Option<Self> {
+        Self::new_sized(self.raw.x1, self.raw.y1, width, height)
+    }
+
+    #[expect(dead_code)]
+    pub fn with_tag(&self, tag: u32) -> Rect<u32> {
+        Rect {
+            raw: RectRaw {
+                x1: self.raw.x1,
+                y1: self.raw.y1,
+                x2: self.raw.x2,
+                y2: self.raw.y2,
+                tag,
+            },
+        }
+    }
+}
+
+impl<T> Rect<T>
+where
+    T: Tag,
+{
+    #[cfg_attr(not(test), expect(dead_code))]
+    fn new_unchecked_danger_tagged(x1: i32, y1: i32, x2: i32, y2: i32, tag: T) -> Self {
+        Self {
+            raw: RectRaw {
+                x1,
+                y1,
+                x2,
+                y2,
+                tag,
             },
         }
     }
@@ -111,16 +199,6 @@ impl Rect {
             && other.raw.x1 < self.raw.x2
             && self.raw.y1 < other.raw.y2
             && other.raw.y1 < self.raw.y2
-    }
-
-    pub fn intersect(&self, other: Self) -> Self {
-        let x1 = self.raw.x1.max(other.raw.x1);
-        let y1 = self.raw.y1.max(other.raw.y1);
-        let x2 = self.raw.x2.min(other.raw.x2).max(x1);
-        let y2 = self.raw.y2.min(other.raw.y2).max(y1);
-        Self {
-            raw: RectRaw { x1, y1, x2, y2 },
-        }
     }
 
     pub fn contains(&self, x: i32, y: i32) -> bool {
@@ -144,14 +222,20 @@ impl Rect {
     }
 
     #[expect(dead_code)]
-    pub fn contains_rect(&self, rect: &Self) -> bool {
+    pub fn contains_rect<U>(&self, rect: &Rect<U>) -> bool
+    where
+        U: Tag,
+    {
         self.raw.x1 <= rect.raw.x1
             && self.raw.y1 <= rect.raw.x1
             && rect.raw.x2 <= self.raw.x2
             && rect.raw.y2 <= self.raw.y2
     }
 
-    pub fn get_overflow(&self, child: &Self) -> RectOverflow {
+    pub fn get_overflow<U>(&self, child: &Rect<U>) -> RectOverflow
+    where
+        U: Tag,
+    {
         RectOverflow {
             left: self.raw.x1 - child.raw.x1,
             right: child.raw.x2 - self.raw.x2,
@@ -177,6 +261,7 @@ impl Rect {
                 y1: 0,
                 x2: self.raw.x2 - self.raw.x1,
                 y2: self.raw.y2 - self.raw.y1,
+                tag: self.raw.tag,
             },
         }
     }
@@ -188,6 +273,7 @@ impl Rect {
                 y1: self.raw.y1.saturating_add(dy),
                 x2: self.raw.x2.saturating_add(dx),
                 y2: self.raw.y2.saturating_add(dy),
+                tag: self.raw.tag,
             },
         }
     }
@@ -199,12 +285,9 @@ impl Rect {
                 y1,
                 x2: x1 + self.raw.x2 - self.raw.x1,
                 y2: y1 + self.raw.y2 - self.raw.y1,
+                tag: self.raw.tag,
             },
         }
-    }
-
-    pub fn with_size(&self, width: i32, height: i32) -> Option<Self> {
-        Self::new_sized(self.raw.x1, self.raw.y1, width, height)
     }
 
     pub fn translate(&self, x: i32, y: i32) -> (i32, i32) {
@@ -252,5 +335,10 @@ impl Rect {
             self.raw.x1 + self.width() / 2,
             self.raw.y1 + self.height() / 2,
         )
+    }
+
+    #[expect(dead_code)]
+    pub fn tag(&self) -> T {
+        self.raw.tag
     }
 }
