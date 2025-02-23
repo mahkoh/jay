@@ -163,7 +163,6 @@ impl Rect {
         Self::new_sized(self.raw.x1, self.raw.y1, width, height)
     }
 
-    #[expect(dead_code)]
     pub fn with_tag(&self, tag: u32) -> Rect<u32> {
         Rect {
             raw: RectRaw {
@@ -337,7 +336,6 @@ where
         )
     }
 
-    #[expect(dead_code)]
     pub fn tag(&self) -> T {
         self.raw.tag
     }

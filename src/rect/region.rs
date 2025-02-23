@@ -15,6 +15,7 @@ use {
     },
     smallvec::SmallVec,
     std::{
+        borrow::Cow,
         cell::UnsafeCell,
         fmt::{Debug, Formatter},
         mem,
@@ -86,7 +87,19 @@ impl Region {
         })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn subtract_cow<'a>(&'a self, other: &Self) -> Cow<'a, Self> {
+        if self.extents.is_empty() || other.extents.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let rects = subtract(&self.rects, &other.rects);
+        Cow::Owned(Self {
+            extents: Rect {
+                raw: extents(&rects),
+            },
+            rects,
+        })
+    }
+
     pub fn intersect(&self, other: &Region) -> Self {
         if self.is_empty() || other.is_empty() {
             return Self::default();
@@ -102,7 +115,6 @@ impl Region {
 }
 
 impl Region<u32> {
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn from_rects_tagged(rects: &[Rect<u32>]) -> Self {
         if rects.is_empty() {
             return Self::default();
@@ -123,7 +135,6 @@ impl Region<u32> {
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn intersect_tagged(&self, other: &Region) -> Self {
         if self.is_empty() || other.is_empty() {
             return Self::default();

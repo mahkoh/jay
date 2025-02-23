@@ -165,6 +165,28 @@ impl FramebufferRect {
     pub fn is_covering(&self) -> bool {
         self.x1 == -1.0 && self.y1 == -1.0 && self.x2 == 1.0 && self.y2 == 1.0
     }
+
+    pub fn to_rect(&self, width: f32, height: f32) -> Rect {
+        let mut x1 = self.x1;
+        let mut x2 = self.x2;
+        let mut y1 = self.y1;
+        let mut y2 = self.y2;
+        (x1, y1, x2, y2) = match self.output_transform {
+            Transform::None => (x1, y1, x2, y2),
+            Transform::Rotate90 => (y1, -x2, y2, -x1),
+            Transform::Rotate180 => (-x2, -y2, -x1, -y1),
+            Transform::Rotate270 => (-y2, x1, -y1, x2),
+            Transform::Flip => (-x2, y1, -x1, y2),
+            Transform::FlipRotate90 => (y1, x1, y2, x2),
+            Transform::FlipRotate180 => (x1, -y2, x2, -y1),
+            Transform::FlipRotate270 => (-y2, -x2, -y1, -x1),
+        };
+        let x1 = ((x1 + 1.0) / 2.0 * width).round() as i32;
+        let x2 = ((x2 + 1.0) / 2.0 * width).round() as i32;
+        let y1 = ((y1 + 1.0) / 2.0 * height).round() as i32;
+        let y2 = ((y2 + 1.0) / 2.0 * height).round() as i32;
+        Rect::new(x1, y1, x2, y2).unwrap_or_default()
+    }
 }
 
 #[derive(Debug)]
@@ -192,7 +214,6 @@ pub struct CopyTexture {
     pub acquire_sync: AcquireSync,
     pub release_sync: ReleaseSync,
     pub alpha: Option<f32>,
-    #[expect(dead_code)]
     pub opaque: bool,
 }
 
