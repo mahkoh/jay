@@ -225,6 +225,7 @@ impl GuiElement for Button {
                 None,
                 AcquireSync::None,
                 ReleaseSync::None,
+                false,
             );
         }
     }
@@ -325,6 +326,7 @@ impl GuiElement for Label {
                 None,
                 AcquireSync::None,
                 ReleaseSync::None,
+                false,
             );
         }
     }

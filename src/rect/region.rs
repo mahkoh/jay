@@ -175,6 +175,26 @@ where
         }
         false
     }
+
+    pub fn contains_rect(&self, rect: &Rect) -> bool {
+        if rect.is_empty() {
+            return true;
+        }
+        let mut y1 = rect.y1();
+        for r in self.rects() {
+            if r.y2() <= y1 || r.x2() <= rect.x1() {
+                continue;
+            }
+            if r.y1() > y1 || r.x1() > rect.x1() || r.x2() < rect.x2() {
+                return false;
+            }
+            y1 = r.y2();
+            if y1 >= rect.y2() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl<T> Deref for Region<T>

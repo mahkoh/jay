@@ -391,6 +391,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             None,
             AcquireSync::None,
             ReleaseSync::None,
+            false,
         );
     }
 }
@@ -414,6 +415,7 @@ impl Cursor for StaticCursor {
                 None,
                 AcquireSync::None,
                 ReleaseSync::None,
+                false,
             );
         }
     }
@@ -455,6 +457,7 @@ impl Cursor for AnimatedCursor {
                 None,
                 AcquireSync::None,
                 ReleaseSync::None,
+                false,
             );
         }
     }

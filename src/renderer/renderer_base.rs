@@ -156,6 +156,7 @@ impl RendererBase<'_> {
         buffer_resv: Option<Rc<dyn BufferResv>>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        opaque: bool,
     ) {
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
@@ -198,6 +199,7 @@ impl RendererBase<'_> {
             buffer_resv,
             acquire_sync,
             release_sync,
+            opaque,
         }));
     }
 }

@@ -278,7 +278,7 @@ pub struct WlSurface {
     role: Cell<SurfaceRole>,
     pending: RefCell<Box<PendingState>>,
     input_region: CloneCell<Option<Rc<Region>>>,
-    opaque_region: Cell<Option<Rc<Region>>>,
+    opaque_region: CloneCell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
     pub buffer_points_norm: RefCell<SampleRect>,
     damage_matrix: Cell<DamageMatrix>,
@@ -331,6 +331,7 @@ pub struct WlSurface {
     clear_fifo_on_vblank: Cell<bool>,
     commit_timer: CloneCell<Option<Rc<WpCommitTimerV1>>>,
     before_latch_listener: EventListener<dyn BeforeLatchListener>,
+    is_opaque: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -668,6 +669,7 @@ impl WlSurface {
             clear_fifo_on_vblank: Default::default(),
             commit_timer: Default::default(),
             before_latch_listener: EventListener::new(slf.clone()),
+            is_opaque: Cell::new(false),
         }
     }
 
@@ -1195,6 +1197,7 @@ impl WlSurface {
             }
         }
         let transform_changed = viewport_changed || scale_changed || buffer_transform_changed;
+        let mut buffer_abs_pos_size_changed = false;
         if buffer_changed || transform_changed {
             let mut buffer_points = self.buffer_points.borrow_mut();
             let mut buffer_points_norm = self.buffer_points_norm.borrow_mut();
@@ -1288,6 +1291,7 @@ impl WlSurface {
                     .set(buffer_abs_pos.with_size(width, height).unwrap());
                 max_surface_size = (width.max(old_width), height.max(old_height));
                 damage_full = true;
+                buffer_abs_pos_size_changed = true;
             }
         }
         let has_new_frame_requests = pending.frame_request.is_not_empty();
@@ -1304,14 +1308,24 @@ impl WlSurface {
             mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
             fbs.is_not_empty()
         };
+        let mut opaque_region_changed = false;
         {
             if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
                 self.client.state.tree_changed();
             }
             if let Some(region) = pending.opaque_region.take() {
+                opaque_region_changed = true;
                 self.opaque_region.set(region);
             }
+        }
+        if opaque_region_changed || buffer_abs_pos_size_changed {
+            let pos = self.buffer_abs_pos.get().at_point(0, 0);
+            let is_opaque = match self.opaque_region.get() {
+                None => false,
+                Some(o) => o.contains_rect(&pos),
+            };
+            self.is_opaque.set(is_opaque);
         }
         let mut tearing_changed = false;
         if let Some(tearing) = pending.tearing.take() {
@@ -1635,6 +1649,10 @@ impl WlSurface {
 
     pub fn alpha(&self) -> Option<f32> {
         self.alpha.get()
+    }
+
+    pub fn opaque(&self) -> bool {
+        self.is_opaque.get()
     }
 }
 

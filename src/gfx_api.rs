@@ -192,6 +192,8 @@ pub struct CopyTexture {
     pub acquire_sync: AcquireSync,
     pub release_sync: ReleaseSync,
     pub alpha: Option<f32>,
+    #[expect(dead_code)]
+    pub opaque: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -371,6 +373,7 @@ impl dyn GfxFramebuffer {
             resv.cloned(),
             acquire_sync,
             release_sync,
+            false,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(fb_acquire_sync, fb_release_sync, &ops, clear)

@@ -1046,6 +1046,7 @@ impl State {
             resv.cloned(),
             acquire_sync.clone(),
             release_sync,
+            false,
         );
         if render_hardware_cursors {
             if let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get() {

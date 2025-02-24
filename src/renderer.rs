@@ -124,6 +124,7 @@ impl Renderer<'_> {
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
+                        false,
                     );
                 }
                 if let Some(status) = &rd.status {
@@ -141,6 +142,7 @@ impl Renderer<'_> {
                             None,
                             AcquireSync::None,
                             ReleaseSync::None,
+                            false,
                         );
                     }
                 }
@@ -219,6 +221,7 @@ impl Renderer<'_> {
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,
+                    false,
                 );
             }
         }
@@ -264,6 +267,7 @@ impl Renderer<'_> {
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
+                        false,
                     );
                 }
             }
@@ -379,7 +383,6 @@ impl Renderer<'_> {
         } else {
             size = self.base.scale_point(size.0, size.1);
         }
-        let alpha = surface.alpha();
         if let Some(children) = children.deref() {
             macro_rules! render {
                 ($children:expr) => {
@@ -401,10 +404,10 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
         }
     }
 
@@ -412,13 +415,13 @@ impl Renderer<'_> {
         &mut self,
         surface: &WlSurface,
         buffer: &Rc<SurfaceBuffer>,
-        alpha: Option<f32>,
         x: i32,
         y: i32,
         tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
+        let alpha = surface.alpha();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
             self.base.render_texture(
                 &tex,
@@ -432,6 +435,7 @@ impl Renderer<'_> {
                 Some(buffer.clone()),
                 AcquireSync::Unnecessary,
                 buffer.release_sync,
+                surface.opaque(),
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -496,6 +500,7 @@ impl Renderer<'_> {
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,
+                    false,
                 );
             }
         }
