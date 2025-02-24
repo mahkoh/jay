@@ -8,14 +8,10 @@ use {
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
-        tree::{OutputNode, OutputRenderData, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, WsMoveConfig, move_ws_to_output},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        rc::Rc,
-    },
+    std::{cell::Cell, collections::VecDeque, rc::Rc},
 };
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
@@ -166,15 +162,7 @@ impl ConnectorHandler {
             workspace_rect: Default::default(),
             non_exclusive_rect: Default::default(),
             non_exclusive_rect_rel: Default::default(),
-            render_data: RefCell::new(OutputRenderData {
-                active_workspace: None,
-                underline: Default::default(),
-                inactive_workspaces: Default::default(),
-                attention_requested_workspaces: Default::default(),
-                captured_inactive_workspaces: Default::default(),
-                titles: Default::default(),
-                status: None,
-            }),
+            render_data: Default::default(),
             state: self.state.clone(),
             is_dummy: false,
             status: self.state.status.clone(),

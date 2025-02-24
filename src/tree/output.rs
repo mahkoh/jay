@@ -594,15 +594,16 @@ impl OutputNode {
                 status.tex_x = pos;
             }
         }
+        let old_full_area = rd.full_area;
+        rd.full_area = Rect::new_sized(
+            non_exclusive_rect.x1(),
+            non_exclusive_rect.y1(),
+            non_exclusive_rect.width(),
+            th + 1,
+        )
+        .unwrap();
         if self.title_visible.get() {
-            let title_rect = Rect::new_sized(
-                non_exclusive_rect.x1(),
-                non_exclusive_rect.y1(),
-                non_exclusive_rect.width(),
-                th,
-            )
-            .unwrap();
-            self.state.damage(title_rect);
+            self.state.damage(rd.full_area.union(old_full_area));
         }
     }
 
@@ -1246,6 +1247,7 @@ pub struct OutputWorkspaceRenderData {
 
 #[derive(Default)]
 pub struct OutputRenderData {
+    pub full_area: Rect,
     pub active_workspace: Option<OutputWorkspaceRenderData>,
     pub underline: Rect,
     pub inactive_workspaces: Vec<Rect>,

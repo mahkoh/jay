@@ -85,15 +85,11 @@ impl Renderer<'_> {
             let non_exclusive_rect = output.non_exclusive_rect_rel.get();
             let (x, y) = non_exclusive_rect.translate_inv(x, y);
             {
+                let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap();
+                let bar_bg = self.base.scale_rect(bar_bg);
                 let c = theme.colors.bar_background.get();
-                self.base.fill_boxes2(
-                    slice::from_ref(
-                        &Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap(),
-                    ),
-                    &c,
-                    x,
-                    y,
-                );
+                self.base
+                    .fill_boxes3(slice::from_ref(&bar_bg), &c, x, y, true);
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
                     let c = match aw.captured {
@@ -124,7 +120,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         scale,
-                        None,
+                        Some(&bar_bg),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
@@ -141,7 +137,7 @@ impl Renderer<'_> {
                             None,
                             None,
                             scale,
-                            None,
+                            Some(&bar_bg),
                             None,
                             AcquireSync::None,
                             ReleaseSync::None,
@@ -219,7 +215,7 @@ impl Renderer<'_> {
                     None,
                     None,
                     self.base.scale,
-                    None,
+                    bounds,
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,
