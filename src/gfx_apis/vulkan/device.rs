@@ -272,6 +272,9 @@ impl VulkanInstance {
             }
         }
         let supports_descriptor_buffer = extensions.contains_key(descriptor_buffer::NAME);
+        if !supports_descriptor_buffer {
+            log::warn!("Vulkan device does not support descriptor buffers");
+        }
         let (graphics_queue_family_idx, transfer_queue_family) = self.find_queues(phy_dev)?;
         let mut distinct_transfer_queue_family_idx = None;
         let mut transfer_granularity_mask = (0, 0);
