@@ -80,8 +80,13 @@ impl SeatConstraint {
             if was_locked {
                 if let Some((hint_x, hint_y)) = self.cursor_hint.get() {
                     let surface_pos = self.surface.buffer_abs_pos.get();
+                    let surface_rect = self.surface.extents.get();
                     let (x, y) = (hint_x + surface_pos.x1(), hint_y + surface_pos.y1());
-                    let _ = self.seat.set_pointer_cursor_position(x, y);
+                    if surface_rect.contains(hint_x.round_down(), hint_y.round_down()) {
+                        if self.seat.cursor_user_group.active().unwrap().get().is_none() {
+                            let _ = self.seat.set_pointer_cursor_position(x, y);
+                        }
+                    }
                 }
             }
             self.clear_cursor_hint();
