@@ -67,6 +67,7 @@ pub struct SeatConstraint {
 impl SeatConstraint {
     pub fn deactivate(&self) {
         if self.status.get() == SeatConstraintStatus::Active {
+            let was_locked = self.ty == ConstraintType::Lock;
             self.seat.constraint.take();
             if let Some(owner) = self.owner.get() {
                 owner.send_disabled();
@@ -75,6 +76,13 @@ impl SeatConstraint {
                 self.status.set(SeatConstraintStatus::TerminallyDisabled);
             } else {
                 self.status.set(SeatConstraintStatus::Inactive);
+            }
+            if was_locked {
+                if let Some((hint_x, hint_y)) = self.cursor_hint.get() {
+                    let surface_pos = self.surface.buffer_abs_pos.get();
+                    let (x, y) = (hint_x + surface_pos.x1(), hint_y + surface_pos.y1());
+                    let _ = self.seat.set_pointer_cursor_position(x, y);
+                }
             }
             self.clear_cursor_hint();
         }

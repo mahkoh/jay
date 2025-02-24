@@ -475,7 +475,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+    pub fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
         let dnd_icon = self.pointer_owner.dnd_icon();
         if let Some(dnd_icon) = &dnd_icon {
             let (x_old, y_old) = self.pointer_cursor.position_int();
@@ -514,15 +514,9 @@ impl WlSeatGlobal {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
-        let (mut x, mut y) = (x, y);
+        let (x, y) = (x, y);
         if let Some(c) = self.constraint.get() {
-            if c.ty == ConstraintType::Lock {
-                if let Some((hint_x, hint_y)) = c.cursor_hint.get() {
-                    let surface_pos = c.surface.buffer_abs_pos.get();
-                    (x, y) = (hint_x + surface_pos.x1(), hint_y + surface_pos.y1());
-                }
-                c.deactivate();
-            } else if !c.contains(x.round_down(), y.round_down()) {
+            if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
             }
         }
@@ -558,14 +552,7 @@ impl WlSeatGlobal {
             _ => false,
         };
         let (mut x, mut y) = self.pointer_cursor.position();
-        if locked {
-            if let Some(c) = &constraint {
-                if let Some((hint_x, hint_y)) = c.cursor_hint.get() {
-                    let surface_pos = c.surface.buffer_abs_pos.get();
-                    (x, y) = (hint_x + surface_pos.x1(), hint_y + surface_pos.y1());
-                }
-            }
-        } else {
+        if !locked {
             x += dx;
             y += dy;
             if let Some(c) = &constraint {
