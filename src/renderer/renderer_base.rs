@@ -76,7 +76,7 @@ impl RendererBase<'_> {
         self.fill_boxes3(boxes, color, dx, dy, false);
     }
 
-    fn fill_boxes3(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32, scaled: bool) {
+    pub fn fill_boxes3(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32, scaled: bool) {
         if boxes.is_empty() || *color == Color::TRANSPARENT {
             return;
         }
