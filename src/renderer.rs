@@ -423,6 +423,10 @@ impl Renderer<'_> {
     ) {
         let alpha = surface.alpha();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
+            let mut opaque = surface.opaque();
+            if !opaque && tex.format().has_alpha {
+                opaque = self.bounds_are_opaque(x, y, bounds, surface);
+            }
             self.base.render_texture(
                 &tex,
                 alpha,
@@ -435,7 +439,7 @@ impl Renderer<'_> {
                 Some(buffer.clone()),
                 AcquireSync::Unnecessary,
                 buffer.release_sync,
-                surface.opaque(),
+                opaque,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -518,5 +522,24 @@ impl Renderer<'_> {
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
         let (dx, dy) = surface.surface.extents.get().position();
         self.render_surface(&surface.surface, x - dx, y - dy, None);
+    }
+
+    fn bounds_are_opaque(
+        &self,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+        surface: &WlSurface,
+    ) -> bool {
+        let Some(bounds) = bounds else {
+            return false;
+        };
+        let Some(region) = surface.opaque_region() else {
+            return false;
+        };
+        let surface_size = surface.buffer_abs_pos.get().at_point(0, 0);
+        let surface_size = self.base.scale_rect(surface_size);
+        let bounds = bounds.move_(-x, -y).intersect(surface_size);
+        region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
     }
 }

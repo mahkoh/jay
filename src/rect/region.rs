@@ -177,11 +177,16 @@ where
     }
 
     pub fn contains_rect(&self, rect: &Rect) -> bool {
+        self.contains_rect2(rect, |r| *r)
+    }
+
+    pub fn contains_rect2(&self, rect: &Rect, map: impl Fn(&Rect<T>) -> Rect<T>) -> bool {
         if rect.is_empty() {
             return true;
         }
         let mut y1 = rect.y1();
         for r in self.rects() {
+            let r = map(r);
             if r.y2() <= y1 || r.x2() <= rect.x1() {
                 continue;
             }

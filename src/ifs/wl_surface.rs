@@ -1654,6 +1654,10 @@ impl WlSurface {
     pub fn opaque(&self) -> bool {
         self.is_opaque.get()
     }
+
+    pub fn opaque_region(&self) -> Option<Rc<Region>> {
+        self.opaque_region.get()
+    }
 }
 
 object_base! {
