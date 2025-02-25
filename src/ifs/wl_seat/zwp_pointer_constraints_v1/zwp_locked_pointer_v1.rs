@@ -39,7 +39,7 @@ impl ZwpLockedPointerV1RequestHandler for ZwpLockedPointerV1 {
         let mut x = req.surface_x;
         let mut y = req.surface_y;
         client_wire_scale_to_logical!(self.constraint.client, x, y);
-        self.constraint.set_cursor_hint(x, y);
+        self.constraint.set_cursor_hint(x, y, true);
         Ok(())
     }
 

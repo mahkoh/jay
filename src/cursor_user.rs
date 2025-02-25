@@ -529,4 +529,12 @@ impl CursorUser {
             self.set_known(kc);
         }
     }
+
+    pub fn is_visible(&self) -> bool {
+        self.is_active() && self.cursor.get().is_some()
+    }
+
+    pub fn is_invisible(&self) -> bool {
+        !self.is_visible()
+    }
 }
