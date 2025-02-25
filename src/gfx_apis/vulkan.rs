@@ -1,4 +1,5 @@
 mod allocator;
+mod blend_buffer;
 mod bo_allocator;
 mod command;
 mod descriptor;
@@ -24,9 +25,9 @@ use {
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxContext, GfxError, GfxFormat, GfxImage, GfxInternalFramebuffer,
-            GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture,
-            StagingBufferUsecase,
+            AsyncShmGfxTexture, GfxBlendBuffer, GfxContext, GfxError, GfxFormat, GfxImage,
+            GfxInternalFramebuffer, GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD,
+            STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -204,6 +205,8 @@ pub enum VulkanError {
     UndefinedContents,
     #[error("The framebuffer is being used by the transfer queue")]
     BusyInTransfer,
+    #[error("Driver does not support descriptor buffers")]
+    NoDescriptorBuffer,
 }
 
 impl From<VulkanError> for GfxError {
@@ -270,6 +273,7 @@ impl GfxContext for Context {
             let old = old.into_texture().into_vk(&self.0.device.device);
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
+                VulkanImageMemory::Blend(_) => unreachable!(),
                 VulkanImageMemory::Internal(shm) => shm,
             };
             if old.width as i32 == width
@@ -349,6 +353,15 @@ impl GfxContext for Context {
         self.0
             .device
             .create_staging_shell(size as u64, upload, download)
+    }
+
+    fn acquire_blend_buffer(
+        &self,
+        width: i32,
+        height: i32,
+    ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
+        let buffer = self.0.acquire_blend_buffer(width, height)?;
+        Ok(buffer)
     }
 }
 

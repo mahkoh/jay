@@ -89,7 +89,7 @@ impl Renderer<'_> {
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let c = theme.colors.bar_background.get();
                 self.base
-                    .fill_boxes3(slice::from_ref(&bar_bg), &c, x, y, true);
+                    .fill_boxes3(slice::from_ref(&bar_bg), &c, None, x, y, true);
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
                     let c = match aw.captured {
@@ -124,6 +124,7 @@ impl Renderer<'_> {
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
+                        false,
                     );
                 }
                 if let Some(status) = &rd.status {
@@ -141,6 +142,7 @@ impl Renderer<'_> {
                             None,
                             AcquireSync::None,
                             ReleaseSync::None,
+                            false,
                         );
                     }
                 }
@@ -219,6 +221,7 @@ impl Renderer<'_> {
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,
+                    false,
                 );
             }
         }
@@ -264,6 +267,7 @@ impl Renderer<'_> {
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
+                        false,
                     );
                 }
             }
@@ -336,7 +340,8 @@ impl Renderer<'_> {
         };
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
-        self.base.fill_scaled_boxes(slice::from_ref(bounds), &color);
+        self.base
+            .fill_scaled_boxes(slice::from_ref(bounds), &color, None);
     }
 
     pub fn render_highlight(&mut self, rect: &Rect) {
@@ -378,7 +383,6 @@ impl Renderer<'_> {
         } else {
             size = self.base.scale_point(size.0, size.1);
         }
-        let alpha = surface.alpha();
         if let Some(children) = children.deref() {
             macro_rules! render {
                 ($children:expr) => {
@@ -400,10 +404,10 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
         }
     }
 
@@ -411,14 +415,18 @@ impl Renderer<'_> {
         &mut self,
         surface: &WlSurface,
         buffer: &Rc<SurfaceBuffer>,
-        alpha: Option<f32>,
         x: i32,
         y: i32,
         tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
+        let alpha = surface.alpha();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
+            let mut opaque = surface.opaque();
+            if !opaque && tex.format().has_alpha {
+                opaque = self.bounds_are_opaque(x, y, bounds, surface);
+            }
             self.base.render_texture(
                 &tex,
                 alpha,
@@ -431,6 +439,7 @@ impl Renderer<'_> {
                 Some(buffer.clone()),
                 AcquireSync::Unnecessary,
                 buffer.release_sync,
+                opaque,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -440,11 +449,7 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     self.base.ops.push(GfxApiOpt::Sync);
-                    let mut color = *color;
-                    if let Some(alpha) = alpha {
-                        color = color * alpha;
-                    }
-                    self.base.fill_scaled_boxes(&[rect], &color);
+                    self.base.fill_scaled_boxes(&[rect], color, alpha);
                 }
             }
         } else {
@@ -499,6 +504,7 @@ impl Renderer<'_> {
                     None,
                     AcquireSync::None,
                     ReleaseSync::None,
+                    false,
                 );
             }
         }
@@ -516,5 +522,24 @@ impl Renderer<'_> {
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
         let (dx, dy) = surface.surface.extents.get().position();
         self.render_surface(&surface.surface, x - dx, y - dy, None);
+    }
+
+    fn bounds_are_opaque(
+        &self,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+        surface: &WlSurface,
+    ) -> bool {
+        let Some(bounds) = bounds else {
+            return false;
+        };
+        let Some(region) = surface.opaque_region() else {
+            return false;
+        };
+        let surface_size = surface.buffer_abs_pos.get().at_point(0, 0);
+        let surface_size = self.base.scale_rect(surface_size);
+        let bounds = bounds.move_(-x, -y).intersect(surface_size);
+        region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
     }
 }

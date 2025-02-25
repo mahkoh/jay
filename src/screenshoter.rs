@@ -88,6 +88,7 @@ pub fn take_screenshot(
         false,
         false,
         Transform::None,
+        None,
     )?;
     let drm = match allocator.drm() {
         Some(drm) => Some(drm.dup_render()?.fd().clone()),

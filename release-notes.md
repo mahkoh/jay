@@ -1,6 +1,14 @@
 # Unreleased
 
 - Various bugfixes.
+- The vulkan renderer now only renders in damaged areas. This has exposed several places
+  where the damage tracking was incorrect. There might be additional damage tracking bugs.
+  Such bugs manifest through flickering or through areas getting stuck with an old image.
+  If you encounter such an issue, please open a bug.
+- The vulkan renderer now performs blending in linear space. A green window with 50%
+  opacity on top of a red window will produce a perfectly yellow image instead of a muddy
+  yellow. The blend buffer is only used for those areas of the screen where blending is
+  observable. This should have no impact on performance in the common case.
 
 # 1.9.1 (2025-02-13)
 

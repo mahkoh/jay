@@ -570,7 +570,7 @@ impl MetalConnector {
                 match opt {
                     GfxApiOpt::Sync => {}
                     GfxApiOpt::FillRect(fr) => {
-                        if fr.color == Color::SOLID_BLACK {
+                        if fr.effective_color() == Color::SOLID_BLACK {
                             // Black fills can be ignored because this is the CRTC background color.
                             if fr.rect.is_covering() {
                                 // If fill covers the entire screen, we don't have to look further.
@@ -749,6 +749,7 @@ impl MetalConnector {
                         ReleaseSync::Explicit,
                         &latched.pass,
                         &latched.damage,
+                        buffer.blend_buffer.as_ref(),
                     )
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;

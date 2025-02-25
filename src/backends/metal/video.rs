@@ -18,8 +18,8 @@ use {
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
-            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, SyncFile,
-            needs_render_usage,
+            AcquireSync, GfxBlendBuffer, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
+            SyncFile, needs_render_usage,
         },
         ifs::{
             wl_output::OutputId,
@@ -2607,6 +2607,15 @@ impl MetalBackend {
         ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<[RenderBuffer; N], MetalError> {
+        let mut blend_buffer = None;
+        if !cursor {
+            match ctx.gfx.acquire_blend_buffer(width, height) {
+                Ok(bb) => blend_buffer = Some(bb),
+                Err(e) => {
+                    log::warn!("Could not create blend buffer: {}", ErrorFmt(e));
+                }
+            }
+        }
         let mut damage_queue = ArrayVec::from(DamageQueue::new::<N>());
         let mut create = || {
             self.create_scanout_buffer(
@@ -2618,6 +2627,7 @@ impl MetalBackend {
                 ctx,
                 cursor,
                 damage_queue.pop().unwrap(),
+                blend_buffer.clone(),
             )
         };
         let mut array = ArrayVec::<_, N>::new();
@@ -2640,6 +2650,7 @@ impl MetalBackend {
         render_ctx: &MetalRenderContext,
         cursor: bool,
         damage_queue: DamageQueue,
+        blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
     ) -> Result<RenderBuffer, MetalError> {
         let ctx = dev.ctx.get();
         let dev_gfx_formats = ctx.gfx.formats();
@@ -2771,6 +2782,7 @@ impl MetalBackend {
             damage_queue,
             dev_bo,
             _render_bo: render_bo,
+            blend_buffer,
             dev_fb,
             dev_tex,
             render_tex,
@@ -2996,6 +3008,7 @@ pub struct RenderBuffer {
     pub damage_queue: DamageQueue,
     pub dev_bo: GbmBo,
     pub _render_bo: Option<GbmBo>,
+    pub blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
     // ctx = dev
     // buffer location = dev
     pub dev_fb: Rc<dyn GfxFramebuffer>,

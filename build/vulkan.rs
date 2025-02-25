@@ -13,6 +13,8 @@ pub fn main() -> anyhow::Result<()> {
     compile_simple("fill.vert")?;
     compile_simple("tex.vert")?;
     compile_simple("tex.frag")?;
+    compile_simple("out.vert")?;
+    compile_simple("out.frag")?;
     Ok(())
 }
 

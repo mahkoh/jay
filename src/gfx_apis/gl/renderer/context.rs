@@ -4,8 +4,8 @@ use {
         cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
-            AsyncShmGfxTexture, BufferResvUser, GfxContext, GfxError, GfxFormat, GfxFramebuffer,
-            GfxImage, GfxInternalFramebuffer, ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, BufferResvUser, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
+            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, ResetStatus, ShmGfxTexture,
         },
         gfx_apis::gl::{
             GfxGlState, RenderError, Texture,
@@ -338,5 +338,13 @@ impl GfxContext for GlRenderContext {
 
     fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
         Some(&self.sync_ctx)
+    }
+
+    fn acquire_blend_buffer(
+        &self,
+        _width: i32,
+        _height: i32,
+    ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
+        Err(GfxError(Box::new(RenderError::NoBlendBuffer)))
     }
 }

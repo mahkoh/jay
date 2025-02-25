@@ -7,11 +7,15 @@ use {
         },
     },
     jay_algorithms::rect::{
-        RectRaw,
-        region::{extents, rects_to_bands, subtract, union},
+        RectRaw, Tag,
+        region::{
+            extents, intersect, intersect_tagged, rects_to_bands, rects_to_bands_tagged, subtract,
+            union,
+        },
     },
     smallvec::SmallVec,
     std::{
+        borrow::Cow,
         cell::UnsafeCell,
         fmt::{Debug, Formatter},
         mem,
@@ -29,19 +33,6 @@ thread_local! {
 }
 
 impl Region {
-    pub fn new(rect: Rect) -> Rc<Self> {
-        Rc::new(Self::new2(rect))
-    }
-
-    pub fn new2(rect: Rect) -> Self {
-        let mut rects = SmallVec::new();
-        rects.push(rect.raw);
-        Self {
-            rects,
-            extents: rect,
-        }
-    }
-
     pub fn empty() -> Rc<Self> {
         EMPTY.with(|e| e.clone())
     }
@@ -96,13 +87,92 @@ impl Region {
         })
     }
 
+    pub fn subtract_cow<'a>(&'a self, other: &Self) -> Cow<'a, Self> {
+        if self.extents.is_empty() || other.extents.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let rects = subtract(&self.rects, &other.rects);
+        Cow::Owned(Self {
+            extents: Rect {
+                raw: extents(&rects),
+            },
+            rects,
+        })
+    }
+
+    pub fn intersect(&self, other: &Region) -> Self {
+        if self.is_empty() || other.is_empty() {
+            return Self::default();
+        }
+        let rects = intersect(&self.rects, &other.rects);
+        Self {
+            extents: Rect {
+                raw: extents(&rects),
+            },
+            rects,
+        }
+    }
+}
+
+impl Region<u32> {
+    pub fn from_rects_tagged(rects: &[Rect<u32>]) -> Self {
+        if rects.is_empty() {
+            return Self::default();
+        }
+        if rects.len() == 1 {
+            let mut rect = rects[0];
+            rect.raw.tag = rect.raw.tag.constrain();
+            return Self::new2(rect);
+        }
+        let rects = rects_to_bands_tagged(unsafe {
+            mem::transmute::<&[Rect<u32>], &[RectRaw<u32>]>(rects)
+        });
+        Self {
+            extents: Rect {
+                raw: extents(&rects),
+            },
+            rects,
+        }
+    }
+
+    pub fn intersect_tagged(&self, other: &Region) -> Self {
+        if self.is_empty() || other.is_empty() {
+            return Self::default();
+        }
+        let rects = intersect_tagged(&self.rects, &other.rects);
+        Self {
+            extents: Rect {
+                raw: extents(&rects),
+            },
+            rects,
+        }
+    }
+}
+
+impl<T> Region<T>
+where
+    T: Tag,
+{
+    pub fn new(rect: Rect<T>) -> Rc<Self> {
+        Rc::new(Self::new2(rect))
+    }
+
+    pub fn new2(rect: Rect<T>) -> Self {
+        let mut rects = SmallVec::new();
+        rects.push(rect.raw);
+        Self {
+            rects,
+            extents: rect.untag(),
+        }
+    }
+
     #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn extents(&self) -> Rect {
         self.extents
     }
 
-    pub fn rects(&self) -> &[Rect] {
-        unsafe { mem::transmute::<&[RectRaw], &[Rect]>(&self.rects[..]) }
+    pub fn rects(&self) -> &[Rect<T>] {
+        unsafe { mem::transmute::<&[RectRaw<T>], &[Rect<T>]>(&self.rects[..]) }
     }
 
     pub fn contains(&self, x: i32, y: i32) -> bool {
@@ -116,13 +186,41 @@ impl Region {
         }
         false
     }
+
+    pub fn contains_rect(&self, rect: &Rect) -> bool {
+        self.contains_rect2(rect, |r| *r)
+    }
+
+    pub fn contains_rect2(&self, rect: &Rect, map: impl Fn(&Rect<T>) -> Rect<T>) -> bool {
+        if rect.is_empty() {
+            return true;
+        }
+        let mut y1 = rect.y1();
+        for r in self.rects() {
+            let r = map(r);
+            if r.y2() <= y1 || r.x2() <= rect.x1() {
+                continue;
+            }
+            if r.y1() > y1 || r.x1() > rect.x1() || r.x2() < rect.x2() {
+                return false;
+            }
+            y1 = r.y2();
+            if y1 >= rect.y2() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
-impl Deref for Region {
-    type Target = [Rect];
+impl<T> Deref for Region<T>
+where
+    T: Tag,
+{
+    type Target = [Rect<T>];
 
     fn deref(&self) -> &Self::Target {
-        unsafe { mem::transmute::<&[RectRaw], _>(&self.rects) }
+        unsafe { mem::transmute::<&[RectRaw<T>], _>(&self.rects) }
     }
 }
 

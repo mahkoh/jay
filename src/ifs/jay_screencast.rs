@@ -202,6 +202,7 @@ impl JayScreencast {
                     false,
                     false,
                     Transform::None,
+                    None,
                 );
                 match res {
                     Ok(_) => {

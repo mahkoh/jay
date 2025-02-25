@@ -3,9 +3,9 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxError, GfxFramebuffer, GfxImage,
-            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, PendingShmTransfer, ReleaseSync,
-            ShmGfxTexture, ShmMemory, SyncFile,
+            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxBlendBuffer, GfxError,
+            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory, SyncFile,
         },
         gfx_apis::vulkan::{
             VulkanError, allocator::VulkanAllocation, device::VulkanDevice,
@@ -64,6 +64,7 @@ pub struct VulkanImage {
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
     pub(super) shader_read_only_optimal_descriptor: Box<[u8]>,
+    pub(super) sampled_image_descriptor: Box<[u8]>,
     pub(super) descriptor_buffer_version: Cell<u64>,
     pub(super) descriptor_buffer_offset: Cell<DeviceSize>,
     pub(super) execution_version: Cell<u64>,
@@ -102,6 +103,7 @@ pub enum QueueTransfer {
 pub enum VulkanImageMemory {
     DmaBuf(VulkanDmaBufImage),
     Internal(VulkanShmImage),
+    Blend(#[expect(dead_code)] VulkanAllocation),
 }
 
 pub struct VulkanDmaBufImage {
@@ -451,6 +453,7 @@ impl VulkanDmaBufImageTemplate {
             shader_read_only_optimal_descriptor: self
                 .renderer
                 .sampler_read_only_descriptor(texture_view),
+            sampled_image_descriptor: Box::new([]),
             descriptor_buffer_version: Cell::new(0),
             descriptor_buffer_offset: Cell::new(0),
             execution_version: Cell::new(0),
@@ -539,9 +542,30 @@ impl GfxFramebuffer for VulkanImage {
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         region: &Region,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
+        let mut blend_buffer =
+            blend_buffer.map(|b| b.clone().into_vk(&self.renderer.device.device));
+        if let Some(bb) = &blend_buffer {
+            if bb.size() != self.size() {
+                log::error!(
+                    "Blend buffer has invalid size: {:?} != {:?}",
+                    bb.size(),
+                    self.size()
+                );
+                blend_buffer = None;
+            }
+        }
         self.renderer
-            .execute(&self, acquire_sync, release_sync, ops, clear, region)
+            .execute(
+                &self,
+                acquire_sync,
+                release_sync,
+                ops,
+                clear,
+                region,
+                blend_buffer,
+            )
             .map_err(|e| e.into())
     }
 
@@ -609,6 +633,7 @@ impl GfxTexture for VulkanImage {
         match &self.ty {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
             VulkanImageMemory::Internal(_) => None,
+            VulkanImageMemory::Blend(_) => None,
         }
     }
 

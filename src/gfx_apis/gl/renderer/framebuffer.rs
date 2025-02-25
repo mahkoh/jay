@@ -2,9 +2,9 @@ use {
     crate::{
         format::Format,
         gfx_api::{
-            AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxError, GfxFramebuffer,
-            GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer, ReleaseSync, ShmMemory,
-            SyncFile,
+            AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxBlendBuffer, GfxError,
+            GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer,
+            ReleaseSync, ShmMemory, SyncFile,
         },
         gfx_apis::gl::{
             RenderError,
@@ -106,6 +106,7 @@ impl GfxFramebuffer for Framebuffer {
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
         _region: &Region,
+        _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
     ) -> Result<Option<SyncFile>, GfxError> {
         (*self)
             .render(acquire_sync, ops, clear)
