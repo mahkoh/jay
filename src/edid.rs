@@ -1035,9 +1035,59 @@ impl<'a> EdidParser<'a> {
         }
     }
 
+    fn parse_cta_colorimetry_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
+        let [lo, hi] = *self.read_n::<2>()?;
+        Ok(CtaDataBlock::Colorimetry(CtaColorimetryDataBlock {
+            bt2020_rgb: lo.contains(0x80),
+            bt2020_ycc: lo.contains(0x40),
+            bt2020_cycc: lo.contains(0x20),
+            op_rgb: lo.contains(0x10),
+            op_ycc_601601: lo.contains(0x08),
+            s_ycc_601: lo.contains(0x04),
+            xv_ycc_709: lo.contains(0x02),
+            xv_ycc_601: lo.contains(0x01),
+            dci_p3: hi.contains(0x80),
+        }))
+    }
+
+    fn parse_cta_hdr_static_metadata_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
+        let et = self.read_u8()?;
+        let _ = self.read_u8()?;
+        let mut read_luminance = |min: bool| {
+            let v = self.read_u8().unwrap_or_default();
+            if v == 0 {
+                None
+            } else if min {
+                Some((v as f64 / 255.0).powi(2) / 100.0)
+            } else {
+                Some(50.0 * 2.0f64.powf(v as f64 / 32.0))
+            }
+        };
+        Ok(CtaDataBlock::StaticHdrMetadata(
+            CtaStaticHdrMetadataDataBlock {
+                traditional_gamma_sdr_luminance: et.contains(0x01),
+                traditional_gamma_hdr_luminance: et.contains(0x02),
+                smpte_st_2084: et.contains(0x04),
+                hlg: et.contains(0x08),
+                max_luminance: read_luminance(false),
+                max_frame_average_luminance: read_luminance(false),
+                min_luminance: read_luminance(true),
+            },
+        ))
+    }
+
+    fn parse_cta_extended_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
+        match self.read_u8()? {
+            0x5 => self.parse_cta_colorimetry_data_block(),
+            0x6 => self.parse_cta_hdr_static_metadata_data_block(),
+            _ => Ok(CtaDataBlock::Unknown),
+        }
+    }
+
     fn parse_cta_data_block(&mut self, tag: u8) -> Result<CtaDataBlock, EdidError> {
         match tag {
             0x3 => self.parse_cta_vendor_data_block(),
+            0x7 => self.parse_cta_extended_data_block(),
             _ => Ok(CtaDataBlock::Unknown),
         }
     }
@@ -1173,6 +1223,8 @@ pub struct CtaExtensionV3 {
 pub enum CtaDataBlock {
     Unknown,
     VendorAmd(CtaAmdVendorDataBlock),
+    Colorimetry(#[expect(dead_code)] CtaColorimetryDataBlock),
+    StaticHdrMetadata(#[expect(dead_code)] CtaStaticHdrMetadataDataBlock),
 }
 
 #[derive(Debug)]
@@ -1180,6 +1232,32 @@ pub struct CtaAmdVendorDataBlock {
     pub minimum_refresh_hz: u8,
     #[expect(dead_code)]
     pub maximum_refresh_hz: u8,
+}
+
+#[derive(Copy, Clone, Debug)]
+#[expect(dead_code)]
+pub struct CtaColorimetryDataBlock {
+    pub bt2020_rgb: bool,
+    pub bt2020_ycc: bool,
+    pub bt2020_cycc: bool,
+    pub op_rgb: bool,
+    pub op_ycc_601601: bool,
+    pub s_ycc_601: bool,
+    pub xv_ycc_709: bool,
+    pub xv_ycc_601: bool,
+    pub dci_p3: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+#[expect(dead_code)]
+pub struct CtaStaticHdrMetadataDataBlock {
+    pub traditional_gamma_sdr_luminance: bool,
+    pub traditional_gamma_hdr_luminance: bool,
+    pub smpte_st_2084: bool,
+    pub hlg: bool,
+    pub max_luminance: Option<f64>,
+    pub max_frame_average_luminance: Option<f64>,
+    pub min_luminance: Option<f64>,
 }
 
 #[derive(Debug)]
