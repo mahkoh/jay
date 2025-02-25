@@ -514,13 +514,12 @@ impl WlSeatGlobal {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
-        let (x, y) = (x, y);
+        let (x, y) = self.set_pointer_cursor_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
             }
         }
-        let (x, y) = self.set_pointer_cursor_position(x, y);
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
