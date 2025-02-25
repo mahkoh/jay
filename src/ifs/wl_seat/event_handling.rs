@@ -475,7 +475,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+    pub fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
         let dnd_icon = self.pointer_owner.dnd_icon();
         if let Some(dnd_icon) = &dnd_icon {
             let (x_old, y_old) = self.pointer_cursor.position_int();
@@ -514,12 +514,13 @@ impl WlSeatGlobal {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
-        let (x, y) = self.set_pointer_cursor_position(x, y);
+        let (x, y) = (x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
             }
         }
+        let (x, y) = self.set_pointer_cursor_position(x, y);
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
