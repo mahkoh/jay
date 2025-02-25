@@ -26,6 +26,7 @@ use {
                 LEGACY_TEX_FRAG, LEGACY_TEX_VERT, OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG,
                 TEX_VERT, TexPushConstants, VulkanShader,
             },
+            transfer_functions::{TF_LINEAR, TF_SRGB},
         },
         io_uring::IoUring,
         rect::{Rect, Region},
@@ -305,7 +306,10 @@ impl VulkanRenderer {
         format: vk::Format,
         pass: RenderPass,
     ) -> Result<Rc<VulkanFormatPipelines>, VulkanError> {
-        let with_linear_output = pass == RenderPass::BlendBuffer;
+        let (eotf, oetf) = match pass {
+            RenderPass::BlendBuffer => (TF_SRGB, TF_LINEAR),
+            RenderPass::FrameBuffer => (TF_SRGB, TF_SRGB),
+        };
         let pipelines = &self.pipelines[pass];
         if let Some(pl) = pipelines.get(&format) {
             return Ok(pl);
@@ -319,7 +323,8 @@ impl VulkanRenderer {
                     blend: src_has_alpha,
                     src_has_alpha,
                     has_alpha_mult: false,
-                    with_linear_output,
+                    eotf,
+                    oetf,
                     frag_descriptor_set_layout: None,
                 })
         };
@@ -334,7 +339,8 @@ impl VulkanRenderer {
                     blend: src_has_alpha || has_alpha_mult,
                     src_has_alpha,
                     has_alpha_mult,
-                    with_linear_output,
+                    eotf,
+                    oetf,
                     frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
                 })
         };
@@ -847,7 +853,8 @@ impl VulkanRenderer {
                         blend: false,
                         src_has_alpha: true,
                         has_alpha_mult: false,
-                        with_linear_output: true,
+                        eotf: TF_LINEAR,
+                        oetf: TF_SRGB,
                         frag_descriptor_set_layout: Some(layout.clone()),
                     })?;
                 e.insert(out.clone());

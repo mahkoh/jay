@@ -17,6 +17,7 @@ mod shaders;
 mod shm_image;
 mod staging;
 mod transfer;
+mod transfer_functions;
 
 use {
     crate::{

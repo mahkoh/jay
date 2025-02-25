@@ -10,11 +10,12 @@ layout(location = 0) out vec4 out_color;
 
 void main() {
 	vec4 c = textureLod(tex, tex_pos, 0);
-	if (color_management) {
+	if (eotf != oetf) {
 		if (src_has_alpha) {
 			c.rgb /= mix(c.a, 1.0, c.a == 0.0);
 		}
-		c.rgb = eotf_srgb(c.rgb);
+		c.rgb = apply_eotf(c.rgb);
+		c.rgb = apply_oetf(c.rgb);
 		if (src_has_alpha) {
 			c.rgb *= c.a;
 		}
