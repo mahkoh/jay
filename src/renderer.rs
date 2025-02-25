@@ -11,7 +11,7 @@ use {
         renderer::renderer_base::RendererBase,
         scale::Scale,
         state::State,
-        theme::Color,
+        theme::{Color, TransferFunction},
         tree::{
             ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
             ToplevelNodeBase, WorkspaceNode,
@@ -202,7 +202,7 @@ impl Renderer<'_> {
         let pos = placeholder.tl_data().pos.get();
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
-            &Color::from_rgba_straight(20, 20, 20, 255),
+            &Color::from_srgba_straight(20, 20, 20, 255),
         );
         if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale) {
             if let Some(texture) = tex.texture() {
@@ -448,8 +448,15 @@ impl Renderer<'_> {
                     Some(bounds) => rect.intersect(*bounds),
                 };
                 if !rect.is_empty() {
+                    let color = Color::from_u32_premultiplied(
+                        TransferFunction::Srgb,
+                        color[0],
+                        color[1],
+                        color[2],
+                        color[3],
+                    );
                     self.base.ops.push(GfxApiOpt::Sync);
-                    self.base.fill_scaled_boxes(&[rect], color, alpha);
+                    self.base.fill_scaled_boxes(&[rect], &color, alpha);
                 }
             }
         } else {

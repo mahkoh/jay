@@ -8,7 +8,6 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
-        theme::Color,
         utils::errorfmt::ErrorFmt,
         video::dmabuf::DmaBuf,
         wire::{WlBufferId, wl_buffer::*},
@@ -42,7 +41,7 @@ pub struct WlBuffer {
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     shm: bool,
-    pub color: Option<Color>,
+    pub color: Option<[u32; 4]>,
     width: i32,
     height: i32,
     pub tracker: Tracker<Self>,
@@ -149,7 +148,7 @@ impl WlBuffer {
             width: 1,
             height: 1,
             tracker: Default::default(),
-            color: Some(Color::from_u32_rgba_premultiplied(r, g, b, a)),
+            color: Some([r, g, b, a]),
         }
     }
 

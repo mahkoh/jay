@@ -34,7 +34,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
 
     let buffer = client
         .spbm
-        .create_buffer(Color::from_rgba_straight(255, 255, 255, 255))?;
+        .create_buffer(Color::from_srgba_straight(255, 255, 255, 255))?;
 
     child.attach(buffer.id)?;
     child_viewport.set_source(0, 0, 1, 1)?;

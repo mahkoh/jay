@@ -36,11 +36,11 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         }};
     }
 
-    let buf1 = client.spbm.create_buffer(Color::from_rgb(0, 255, 0))?;
+    let buf1 = client.spbm.create_buffer(Color::from_srgb(0, 255, 0))?;
     let (ss1, alpha1) = create_surface!(&buf1, 0, 0);
 
     let buf2 = client.shm.create_buffer(1, 1)?;
-    buf2.fill(Color::from_rgb(0, 255, 0));
+    buf2.fill(Color::from_srgb(0, 255, 0));
     let (ss2, alpha2) = create_surface!(&buf2.buffer, 100, 0);
 
     client.compare_screenshot("1", false).await?;

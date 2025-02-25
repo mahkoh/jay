@@ -7,7 +7,7 @@ use {
             consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE},
         },
         rect::Rect,
-        theme::Color,
+        theme::{Color, TransferFunction},
     },
     std::{ops::Neg, rc::Rc, sync::Arc},
 };
@@ -78,9 +78,9 @@ pub fn render(
     let data = create_data(font, width, height, scale)?;
     data.layout.set_text(text);
     let font_height = data.layout.pixel_size().1;
+    let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
     data.cctx.set_operator(CAIRO_OPERATOR_SOURCE);
-    data.cctx
-        .set_source_rgba(color.r as _, color.g as _, color.b as _, color.a as _);
+    data.cctx.set_source_rgba(r as _, g as _, b as _, a as _);
     let y = y.unwrap_or((height - font_height) / 2);
     data.cctx.move_to(x as f64, y as f64);
     data.layout.show_layout();

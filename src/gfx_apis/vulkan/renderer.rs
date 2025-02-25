@@ -30,7 +30,7 @@ use {
         },
         io_uring::IoUring,
         rect::{Rect, Region},
-        theme::Color,
+        theme::{Color, TransferFunction},
         utils::{
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, once::Once,
             stack::Stack,
@@ -589,8 +589,8 @@ impl VulkanRenderer {
                 let clear_value = ClearValue {
                     color: ClearColorValue {
                         float32: match pass {
-                            RenderPass::BlendBuffer => clear.to_array_linear(None),
-                            RenderPass::FrameBuffer => clear.to_array_srgb(None),
+                            RenderPass::BlendBuffer => clear.to_array(TransferFunction::Linear),
+                            RenderPass::FrameBuffer => clear.to_array(TransferFunction::Srgb),
                         },
                     },
                 };
@@ -704,8 +704,12 @@ impl VulkanRenderer {
                     let push = FillPushConstants {
                         pos: r.rect.to_points(),
                         color: match pass {
-                            RenderPass::BlendBuffer => r.color.to_array_linear(r.alpha),
-                            RenderPass::FrameBuffer => r.color.to_array_srgb(r.alpha),
+                            RenderPass::BlendBuffer => {
+                                r.color.to_array2(TransferFunction::Linear, r.alpha)
+                            }
+                            RenderPass::FrameBuffer => {
+                                r.color.to_array2(TransferFunction::Srgb, r.alpha)
+                            }
                         },
                     };
                     let source_type = match push.color[3] < 1.0 {
@@ -1309,7 +1313,7 @@ impl VulkanRenderer {
         for opt in opts.iter().rev() {
             let (opaque, fb_rect) = match opt {
                 GfxApiOpt::Sync => continue,
-                GfxApiOpt::FillRect(f) => (f.effective_color().a >= 1.0, f.rect),
+                GfxApiOpt::FillRect(f) => (f.effective_color().is_opaque(), f.rect),
                 GfxApiOpt::CopyTexture(c) => {
                     let opaque = 'opaque: {
                         if let Some(a) = c.alpha {

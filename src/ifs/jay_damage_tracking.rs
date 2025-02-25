@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
-        theme::Color,
+        theme::{Color, TransferFunction},
         wire::{
             JayCompositorId,
             jay_damage_tracking::{
@@ -96,12 +96,8 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         req: SetVisualizerColor,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.client.state.damage_visualizer.set_color(Color {
-            r: req.r,
-            g: req.g,
-            b: req.b,
-            a: req.a,
-        });
+        let color = Color::new(TransferFunction::Srgb, req.r, req.g, req.b) * req.a;
+        self.client.state.damage_visualizer.set_color(color);
         Ok(())
     }
 

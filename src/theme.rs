@@ -3,12 +3,18 @@ use {
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TransferFunction {
+    Srgb,
+    Linear,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
 }
 
 impl Eq for Color {}
@@ -65,77 +71,155 @@ impl Color {
         a: 1.0,
     };
 
-    pub fn from_gray(g: u8) -> Self {
-        Self::from_rgb(g, g, g)
+    pub fn new(transfer_function: TransferFunction, mut r: f32, mut g: f32, mut b: f32) -> Self {
+        fn srgb(c: f32) -> f32 {
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        #[inline(always)]
+        fn linear(c: f32) -> f32 {
+            c
+        }
+        macro_rules! convert {
+            ($tf:ident) => {{
+                r = $tf(r);
+                g = $tf(g);
+                b = $tf(b);
+            }};
+        }
+        match transfer_function {
+            TransferFunction::Srgb => convert!(srgb),
+            TransferFunction::Linear => convert!(linear),
+        }
+        Self { r, g, b, a: 1.0 }
     }
 
-    pub fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self {
-            r: to_f32(r),
-            g: to_f32(g),
-            b: to_f32(b),
-            a: 1.0,
+    pub fn new_premultiplied(
+        transfer_function: TransferFunction,
+        mut r: f32,
+        mut g: f32,
+        mut b: f32,
+        a: f32,
+    ) -> Self {
+        if transfer_function == TransferFunction::Linear {
+            return Self { r, g, b, a };
         }
+        if a < 1.0 && a > 0.0 {
+            for c in [&mut r, &mut g, &mut b] {
+                *c /= a;
+            }
+        }
+        let mut c = Self::new(transfer_function, r, g, b);
+        if a < 1.0 {
+            c = c * a;
+        }
+        c
+    }
+
+    pub fn is_opaque(&self) -> bool {
+        self.a >= 1.0
+    }
+
+    pub fn from_gray_srgb(g: u8) -> Self {
+        Self::from_srgb(g, g, g)
+    }
+
+    pub fn from_srgb(r: u8, g: u8, b: u8) -> Self {
+        Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b))
     }
 
     #[cfg_attr(not(feature = "it"), expect(dead_code))]
-    pub fn from_rgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self {
-            r: to_f32(r),
-            g: to_f32(g),
-            b: to_f32(b),
-            a: to_f32(a),
-        }
+    pub fn from_srgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self::new_premultiplied(
+            TransferFunction::Srgb,
+            to_f32(r),
+            to_f32(g),
+            to_f32(b),
+            to_f32(a),
+        )
     }
 
-    pub fn from_u32_rgba_premultiplied(r: u32, g: u32, b: u32, a: u32) -> Self {
+    pub fn from_u32_premultiplied(
+        transfer_function: TransferFunction,
+        r: u32,
+        g: u32,
+        b: u32,
+        a: u32,
+    ) -> Self {
         fn to_f32(c: u32) -> f32 {
             ((c as f64) / (u32::MAX as f64)) as f32
         }
-        Self {
-            r: to_f32(r),
-            g: to_f32(g),
-            b: to_f32(b),
-            a: to_f32(a),
-        }
+        Self::new_premultiplied(
+            transfer_function,
+            to_f32(r),
+            to_f32(g),
+            to_f32(b),
+            to_f32(a),
+        )
     }
 
-    pub fn from_rgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
-        let alpha = to_f32(a);
-        Self {
-            r: to_f32(r) * alpha,
-            g: to_f32(g) * alpha,
-            b: to_f32(b) * alpha,
-            a: alpha,
+    pub fn from_srgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
+        let mut c = Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b));
+        if a < 255 {
+            c = c * to_f32(a);
         }
+        c
     }
 
     #[cfg_attr(not(feature = "it"), expect(dead_code))]
-    pub fn to_rgba_premultiplied(self) -> [u8; 4] {
-        [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
+    pub fn to_srgba_premultiplied(self) -> [u8; 4] {
+        let [r, g, b, a] = self.to_array(TransferFunction::Srgb);
+        [to_u8(r), to_u8(g), to_u8(b), to_u8(a)]
     }
 
-    pub fn to_array_srgb(self, alpha: Option<f32>) -> [f32; 4] {
-        let a = alpha.unwrap_or(1.0);
-        [self.r * a, self.g * a, self.b * a, self.a * a]
+    pub fn to_array(self, transfer_function: TransferFunction) -> [f32; 4] {
+        self.to_array2(transfer_function, None)
     }
 
-    pub fn to_array_linear(self, alpha: Option<f32>) -> [f32; 4] {
-        fn to_linear(srgb: f32) -> f32 {
-            if srgb <= 0.04045 {
-                srgb / 12.92
+    pub fn to_array2(self, transfer_function: TransferFunction, alpha: Option<f32>) -> [f32; 4] {
+        let mut res = [self.r, self.g, self.b, self.a];
+        fn srgb(c: f32) -> f32 {
+            if c <= 0.0031308 {
+                c * 12.92
             } else {
-                ((srgb + 0.055) / 1.055).powf(2.4)
+                1.055 * c.powf(1.0 / 2.4) - 0.055
             }
         }
-        let a1 = if self.a == 0.0 { 1.0 } else { self.a };
-        let a2 = self.a * alpha.unwrap_or(1.0);
-        [
-            to_linear(self.r / a1) * a2,
-            to_linear(self.g / a1) * a2,
-            to_linear(self.b / a1) * a2,
-            a2,
-        ]
+        fn linear(c: f32) -> f32 {
+            c
+        }
+        macro_rules! convert {
+            ($tf:ident) => {{
+                for c in &mut res[..3] {
+                    *c = $tf(*c);
+                }
+            }};
+        }
+        if transfer_function != TransferFunction::Linear {
+            if self.a < 1.0 && self.a > 0.0 {
+                for c in &mut res[..3] {
+                    *c /= self.a;
+                }
+            }
+            match transfer_function {
+                TransferFunction::Srgb => convert!(srgb),
+                TransferFunction::Linear => convert!(linear),
+            }
+            if self.a < 1.0 {
+                for c in &mut res[..3] {
+                    *c *= self.a;
+                }
+            }
+        }
+        if let Some(a) = alpha {
+            for c in &mut res {
+                *c *= a;
+            }
+        }
+        res
     }
 
     #[cfg_attr(not(feature = "it"), expect(dead_code))]
@@ -152,7 +236,7 @@ impl Color {
 impl From<jay_config::theme::Color> for Color {
     fn from(f: jay_config::theme::Color) -> Self {
         let [r, g, b, a] = f.to_f32_premultiplied();
-        Self { r, g, b, a }
+        Self::new_premultiplied(TransferFunction::Srgb, r, g, b, a)
     }
 }
 
@@ -184,10 +268,10 @@ macro_rules! colors {
         }
     };
     (@colors ($r:expr, $g:expr, $b:expr)) => {
-        Color::from_rgb($r, $g, $b)
+        Color::from_srgb($r, $g, $b)
     };
     (@colors ($r:expr, $g:expr, $b:expr, $a:expr)) => {
-        Color::from_rgba_straight($r, $g, $b, $a)
+        Color::from_srgba_straight($r, $g, $b, $a)
     };
 }
 

@@ -435,7 +435,7 @@ impl GfxFramebuffer for TestGfxFb {
                                 a = 255;
                             }
                             staging[(y * width + x) as usize] =
-                                Color::from_rgba_premultiplied(r, g, b, a);
+                                Color::from_srgba_premultiplied(r, g, b, a);
                         }
                         data = data.add(stride as usize);
                     }
@@ -446,7 +446,7 @@ impl GfxFramebuffer for TestGfxFb {
                 for y in 0..height {
                     for x in 0..width {
                         let [r, g, b, a] =
-                            staging[(y * width + x) as usize].to_rgba_premultiplied();
+                            staging[(y * width + x) as usize].to_srgba_premultiplied();
                         *data.add((x * 4) as usize).cast::<[u8; 4]>() = [b, g, r, a];
                     }
                     data = data.add(stride as usize);
@@ -499,7 +499,7 @@ impl GfxFramebuffer for TestGfxFb {
                             if !t_format.has_alpha {
                                 a = 255;
                             }
-                            let mut color = Color::from_rgba_premultiplied(r, g, b, a);
+                            let mut color = Color::from_srgba_premultiplied(r, g, b, a);
                             if let Some(alpha) = c.alpha {
                                 color = color * alpha;
                             }

@@ -4,7 +4,7 @@ use {
             test_error::TestResult, test_ifs::test_buffer::TestBuffer, test_object::TestObject,
             test_transport::TestTransport,
         },
-        theme::Color,
+        theme::{Color, TransferFunction},
         wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -31,13 +31,14 @@ impl TestSinglePixelBufferManager {
             destroyed: Cell::new(false),
         });
         let map = |c: f32| (c as f64 * u32::MAX as f64) as u32;
+        let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
         self.tran.send(CreateU32RgbaBuffer {
             self_id: self.id,
             id: obj.id,
-            r: map(color.r),
-            g: map(color.g),
-            b: map(color.b),
-            a: map(color.a),
+            r: map(r),
+            g: map(g),
+            b: map(b),
+            a: map(a),
         })?;
         self.tran.add_obj(obj.clone())?;
         Ok(obj)

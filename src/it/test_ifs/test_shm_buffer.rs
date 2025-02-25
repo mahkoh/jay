@@ -19,7 +19,7 @@ pub struct TestShmBuffer {
 
 impl TestShmBuffer {
     pub fn fill(&self, color: Color) {
-        let [cr, cg, cb, ca] = color.to_rgba_premultiplied();
+        let [cr, cg, cb, ca] = color.to_srgba_premultiplied();
         for [b, g, r, a] in self.deref().array_chunks_ext::<4>() {
             r.set(cr);
             g.set(cg);

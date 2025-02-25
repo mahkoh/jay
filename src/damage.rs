@@ -93,7 +93,7 @@ impl DamageVisualizer {
             entry_added: Default::default(),
             enabled: Default::default(),
             decay: Cell::new(Duration::from_secs(2)),
-            color: Cell::new(Color::from_rgba_straight(255, 0, 0, 128)),
+            color: Cell::new(Color::from_srgba_straight(255, 0, 0, 128)),
         }
     }
 

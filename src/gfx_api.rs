@@ -352,25 +352,16 @@ impl dyn GfxFramebuffer {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.clear_with(acquire_sync, release_sync, 0.0, 0.0, 0.0, 0.0)
+        self.clear_with(acquire_sync, release_sync, &Color::TRANSPARENT)
     }
 
     pub fn clear_with(
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
-        r: f32,
-        g: f32,
-        b: f32,
-        a: f32,
+        color: &Color,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(
-            acquire_sync,
-            release_sync,
-            &[],
-            Some(&Color { r, g, b, a }),
-            None,
-        )
+        self.render(acquire_sync, release_sync, &[], Some(color), None)
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
