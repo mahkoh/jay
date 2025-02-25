@@ -82,8 +82,10 @@ impl SeatConstraint {
     pub fn set_cursor_hint(&self, x: Fixed, y: Fixed, apply: bool) {
         self.cursor_hint.set(Some((x, y)));
 
-        if apply && self.status.get() == SeatConstraintStatus::Active &&
-           self.ty == ConstraintType::Lock {
+        if apply
+            && self.status.get() == SeatConstraintStatus::Active
+            && self.ty == ConstraintType::Lock
+        {
             self.apply_cursor_hint(x, y);
         }
     }
