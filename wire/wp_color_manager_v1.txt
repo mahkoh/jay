@@ -1,0 +1,48 @@
+request destroy {
+}
+
+request get_output {
+    id: id(wp_color_management_output_v1),
+    output: id(wl_output),
+}
+
+request get_surface {
+    id: id(wp_color_management_surface_v1),
+    surface: id(wl_surface),
+}
+
+request get_surface_feedback {
+    id: id(wp_color_management_surface_feedback_v1),
+    surface: id(wl_surface),
+}
+
+request create_icc_creator {
+    obj: id(wp_image_description_creator_icc_v1),
+}
+
+request create_parametric_creator {
+    obj: id(wp_image_description_creator_params_v1),
+}
+
+request create_windows_scrgb {
+    image_description: id(wp_image_description_v1),
+}
+
+event supported_intent {
+    render_intent: u32,
+}
+
+event supported_feature {
+    feature: u32,
+}
+
+event supported_tf_named {
+    tf: u32,
+}
+
+event supported_primaries_named {
+    primaries: u32,
+}
+
+event done {
+}

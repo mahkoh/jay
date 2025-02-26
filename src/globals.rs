@@ -3,6 +3,7 @@ use {
         backend::Backend,
         client::{Client, ClientCaps},
         ifs::{
+            color_management::wp_color_manager_v1::WpColorManagerV1Global,
             ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
@@ -134,6 +135,10 @@ pub trait Global: GlobalBase {
     fn xwayland_only(&self) -> bool {
         false
     }
+    fn exposed(&self, state: &State) -> bool {
+        let _ = state;
+        true
+    }
 }
 
 pub struct Globals {
@@ -215,6 +220,7 @@ impl Globals {
         add_singleton!(ExtDataControlManagerV1Global);
         add_singleton!(WlFixesGlobal);
         add_singleton!(ExtWorkspaceManagerV1Global);
+        add_singleton!(WpColorManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
@@ -295,7 +301,8 @@ impl Globals {
             ($singleton:expr) => {
                 for global in globals.values() {
                     if global.singleton() == $singleton {
-                        if caps.contains(global.required_caps())
+                        if global.exposed(&registry.client.state)
+                            && caps.contains(global.required_caps())
                             && (xwayland || !global.xwayland_only())
                         {
                             registry.send_global(global);

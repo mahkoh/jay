@@ -763,6 +763,10 @@ impl Client {
         self.send(&ClientMessage::SetUiDragThreshold { threshold });
     }
 
+    pub fn set_color_management_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetColorManagementEnabled { enabled });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

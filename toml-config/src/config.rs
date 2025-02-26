@@ -11,7 +11,10 @@ use {
     crate::{
         config::{
             context::Context,
-            parsers::config::{ConfigParser, ConfigParserError},
+            parsers::{
+                color_management::ColorManagement,
+                config::{ConfigParser, ConfigParserError},
+            },
         },
         toml::{self},
     },
@@ -358,6 +361,7 @@ pub struct Config {
     pub libei: Libei,
     pub ui_drag: UiDrag,
     pub xwayland: Option<Xwayland>,
+    pub color_management: Option<ColorManagement>,
 }
 
 #[derive(Debug, Error)]

@@ -23,9 +23,9 @@ use {
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
-        on_devices_enumerated, on_idle, quit, reload, set_default_workspace_capture,
-        set_explicit_sync_enabled, set_idle, set_idle_grace_period, set_ui_drag_enabled,
-        set_ui_drag_threshold,
+        on_devices_enumerated, on_idle, quit, reload, set_color_management_enabled,
+        set_default_workspace_capture, set_explicit_sync_enabled, set_idle, set_idle_grace_period,
+        set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
@@ -1076,6 +1076,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     if let Some(xwayland) = config.xwayland {
         if let Some(mode) = xwayland.scaling_mode {
             set_x_scaling_mode(mode);
+        }
+    }
+    if let Some(cm) = config.color_management {
+        if let Some(enabled) = cm.enabled {
+            set_color_management_enabled(enabled);
         }
     }
 }

@@ -1,0 +1,14 @@
+request destroy {
+}
+
+event preferred_changed {
+    identity: u32,
+}
+
+request get_preferred {
+    image_description: id(wp_image_description_v1),
+}
+
+request get_preferred_parametric {
+    image_description: id(wp_image_description_v1),
+}

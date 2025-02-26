@@ -926,6 +926,10 @@ impl ConfigProxyHandler {
         self.state.explicit_sync_enabled.set(enabled);
     }
 
+    fn handle_set_color_management_enabled(&self, enabled: bool) {
+        self.state.color_management_enabled.set(enabled);
+    }
+
     fn handle_get_socket_path(&self) {
         match self.state.acceptor.get() {
             Some(a) => {
@@ -1985,6 +1989,9 @@ impl ConfigProxyHandler {
                 .wrn("set_x_scaling_mode")?,
             ClientMessage::SetIdleGracePeriod { period } => {
                 self.handle_set_idle_grace_period(period)
+            }
+            ClientMessage::SetColorManagementEnabled { enabled } => {
+                self.handle_set_color_management_enabled(enabled)
             }
         }
         Ok(())

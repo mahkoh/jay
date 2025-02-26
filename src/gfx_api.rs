@@ -742,6 +742,10 @@ pub trait GfxContext: Debug {
         width: i32,
         height: i32,
     ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError>;
+
+    fn supports_color_management(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug)]

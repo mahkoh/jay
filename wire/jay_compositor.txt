@@ -101,6 +101,10 @@ request get_toplevel (since = 12) {
     toplevel_id: str,
 }
 
+request get_color_management (since = 14) {
+    id: id(jay_color_management),
+}
+
 # events
 
 event client_id {

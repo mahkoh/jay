@@ -1,0 +1,10 @@
+request destroy {
+}
+
+request set_image_description {
+    image_description: id(wp_image_description_v1),
+    render_intent: u32,
+}
+
+request unset_image_description {
+}

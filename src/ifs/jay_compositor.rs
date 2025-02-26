@@ -4,6 +4,7 @@ use {
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::{
+            jay_color_management::JayColorManagement,
             jay_ei_session_builder::JayEiSessionBuilder,
             jay_idle::JayIdle,
             jay_input::JayInput,
@@ -72,7 +73,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        13
+        14
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -437,6 +438,22 @@ impl JayCompositorRequestHandler for JayCompositor {
             }
         };
         obj.done(tl);
+        Ok(())
+    }
+
+    fn get_color_management(
+        &self,
+        req: GetColorManagement,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayColorManagement {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
         Ok(())
     }
 }

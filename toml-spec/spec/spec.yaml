@@ -2286,6 +2286,18 @@ Config:
           ```toml
           xwayland = { scaling-mode = "downscaled" }
           ```
+    color-management:
+      ref: ColorManagement
+      required: false
+      description: |
+        Configures the color-management settings.
+
+        - Example:
+        
+          ```toml
+          [color-management]
+          enabled = true
+          ```
 
 
 Idle:
@@ -2727,3 +2739,26 @@ XScalingMode:
         Additionally, this mode requires the X window to scale its contents itself. In the
         example above, you might achieve this by setting the environment variable
         `GDK_SCALE=2`.
+
+
+ColorManagement:
+  kind: table
+  description: |
+    Describes color-management settings.
+    
+    - Example:
+    
+      ```toml
+      [color-management]
+      enabled = true
+      ```
+  fields:
+    enabled:
+      description: |
+        Whether the color management protocol is enabled.
+        
+        This has no effect on running applications.
+        
+        The default is `false`.
+      kind: boolean
+      required: false
