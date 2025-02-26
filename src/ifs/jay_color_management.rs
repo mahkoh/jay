@@ -23,6 +23,13 @@ impl JayColorManagement {
             enabled: self.client.state.color_management_enabled.get() as u32,
         });
     }
+
+    fn send_available(&self) {
+        self.client.event(Available {
+            self_id: self.id,
+            available: self.client.state.color_management_available() as u32,
+        });
+    }
 }
 
 impl JayColorManagementRequestHandler for JayColorManagement {
@@ -35,6 +42,7 @@ impl JayColorManagementRequestHandler for JayColorManagement {
 
     fn get(&self, _req: Get, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_enabled();
+        self.send_available();
         Ok(())
     }
 

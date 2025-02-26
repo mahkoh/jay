@@ -201,7 +201,7 @@ impl Global for WpColorManagerV1Global {
     }
 
     fn exposed(&self, state: &State) -> bool {
-        state.color_management_enabled.get()
+        state.color_management_available()
     }
 }
 

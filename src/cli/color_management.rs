@@ -56,9 +56,17 @@ impl ColorManagement {
         jay_color_management::Enabled::handle(tc, id, enabled.clone(), |iv, msg| {
             iv.set(msg.enabled != 0);
         });
+        let available = Rc::new(Cell::new(false));
+        jay_color_management::Available::handle(tc, id, available.clone(), |iv, msg| {
+            iv.set(msg.available != 0);
+        });
         tc.round_trip().await;
         if enabled.get() {
-            println!("Enabled");
+            print!("Enabled");
+            if !available.get() {
+                print!(" (Unavailable)");
+            }
+            println!();
         } else {
             println!("Disabled");
         }

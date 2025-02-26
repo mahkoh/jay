@@ -1315,6 +1315,16 @@ impl State {
     pub fn tray_icon_size(&self) -> i32 {
         (self.theme.sizes.title_height.get() - 2).max(0)
     }
+
+    pub fn color_management_available(&self) -> bool {
+        if !self.color_management_enabled.get() {
+            return false;
+        }
+        let Some(ctx) = self.render_ctx.get() else {
+            return false;
+        };
+        ctx.supports_color_management()
+    }
 }
 
 #[derive(Debug, Error)]

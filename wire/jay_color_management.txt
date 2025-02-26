@@ -13,3 +13,7 @@ request set_enabled {
 event enabled {
     enabled: u32,
 }
+
+event available {
+    available: u32,
+}

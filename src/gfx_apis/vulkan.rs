@@ -363,6 +363,10 @@ impl GfxContext for Context {
         let buffer = self.0.acquire_blend_buffer(width, height)?;
         Ok(buffer)
     }
+
+    fn supports_color_management(&self) -> bool {
+        self.0.device.descriptor_buffer.is_some()
+    }
 }
 
 impl Drop for Context {
