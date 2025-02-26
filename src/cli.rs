@@ -1,4 +1,5 @@
 mod color;
+mod color_management;
 mod damage_tracking;
 mod duration;
 mod generate;
@@ -17,8 +18,8 @@ mod xwayland;
 use {
     crate::{
         cli::{
-            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
-            xwayland::XwaylandArgs,
+            color_management::ColorManagementArgs, damage_tracking::DamageTrackingArgs,
+            idle::IdleCmd, input::InputArgs, randr::RandrArgs, xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
         format::{Format, ref_formats},
@@ -78,6 +79,8 @@ pub enum Cmd {
     DamageTracking(DamageTrackingArgs),
     /// Inspect/modify xwayland settings.
     Xwayland(XwaylandArgs),
+    /// Inspect/modify the color-management settings.
+    ColorManagement(ColorManagementArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -235,6 +238,7 @@ pub fn main() {
         Cmd::Input(a) => input::main(cli.global, a),
         Cmd::DamageTracking(a) => damage_tracking::main(cli.global, a),
         Cmd::Xwayland(a) => xwayland::main(cli.global, a),
+        Cmd::ColorManagement(a) => color_management::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

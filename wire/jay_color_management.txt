@@ -1,0 +1,15 @@
+request destroy {
+
+}
+
+request get {
+
+}
+
+request set_enabled {
+    enabled: u32,
+}
+
+event enabled {
+    enabled: u32,
+}

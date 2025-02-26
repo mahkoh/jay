@@ -283,6 +283,7 @@ fn start_compositor2(
         tray_item_ids: Default::default(),
         data_control_device_ids: Default::default(),
         workspace_managers: Default::default(),
+        color_management_enabled: Cell::new(false),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

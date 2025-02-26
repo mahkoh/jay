@@ -530,6 +530,9 @@ pub enum ClientMessage<'a> {
     SetIdleGracePeriod {
         period: Duration,
     },
+    SetColorManagementEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

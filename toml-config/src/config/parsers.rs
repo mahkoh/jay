@@ -8,6 +8,7 @@ use {
 
 pub mod action;
 mod color;
+pub mod color_management;
 pub mod config;
 mod connector;
 mod connector_match;

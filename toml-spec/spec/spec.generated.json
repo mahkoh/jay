@@ -427,6 +427,17 @@
       "type": "string",
       "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
     },
+    "ColorManagement": {
+      "description": "Describes color-management settings.\n\n- Example:\n\n  ```toml\n  [color-management]\n  enabled = true\n  ```\n",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the color management protocol is enabled.\n\nThis has no effect on running applications.\n\nThe default is `false`.\n"
+        }
+      },
+      "required": []
+    },
     "ComplexShortcut": {
       "description": "Describes a complex shortcut.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n",
       "type": "object",
@@ -597,6 +608,10 @@
         "xwayland": {
           "description": "Configures the Xwayland settings.\n\n- Example:\n\n  ```toml\n  xwayland = { scaling-mode = \"downscaled\" }\n  ```\n",
           "$ref": "#/$defs/Xwayland"
+        },
+        "color-management": {
+          "description": "Configures the color-management settings.\n\n- Example:\n\n  ```toml\n  [color-management]\n  enabled = true\n  ```\n",
+          "$ref": "#/$defs/ColorManagement"
         }
       },
       "required": []

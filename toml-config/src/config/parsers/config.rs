@@ -7,6 +7,7 @@ use {
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
+                color_management::ColorManagementParser,
                 connector::ConnectorsParser,
                 drm_device::DrmDevicesParser,
                 drm_device_match::DrmDeviceMatchParser,
@@ -117,6 +118,7 @@ impl Parser for ConfigParser<'_> {
                 ui_drag_val,
                 xwayland_val,
             ),
+            (color_management_val,),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -154,6 +156,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("ui-drag")),
                 opt(val("xwayland")),
             ),
+            (opt(val("color-management")),),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -366,6 +369,18 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut color_management = None;
+        if let Some(value) = color_management_val {
+            match value.parse(&mut ColorManagementParser(self.0)) {
+                Ok(v) => color_management = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the color-management settings: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -396,6 +411,7 @@ impl Parser for ConfigParser<'_> {
             libei,
             ui_drag,
             xwayland,
+            color_management,
         })
     }
 }

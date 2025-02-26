@@ -264,3 +264,12 @@ pub fn set_ui_drag_enabled(enabled: bool) {
 pub fn set_ui_drag_threshold(threshold: i32) {
     get!().set_ui_drag_threshold(threshold);
 }
+
+/// Enables or disables the color-management protocol.
+///
+/// The default is `false`.
+///
+/// Affected applications must be restarted for this to take effect.
+pub fn set_color_management_enabled(enabled: bool) {
+    get!().set_color_management_enabled(enabled);
+}

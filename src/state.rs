@@ -233,6 +233,7 @@ pub struct State {
     pub tray_item_ids: TrayItemIds,
     pub data_control_device_ids: DataControlDeviceIds,
     pub workspace_managers: WorkspaceManagerState,
+    pub color_management_enabled: Cell<bool>,
 }
 
 // impl Drop for State {

@@ -14,6 +14,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
         wire::{
             WpColorManagerV1Id,
             wp_color_manager_v1::{SupportedIntent, *},
@@ -197,6 +198,10 @@ impl Global for WpColorManagerV1Global {
 
     fn version(&self) -> u32 {
         1
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        state.color_management_enabled.get()
     }
 }
 

@@ -135,6 +135,10 @@ pub trait Global: GlobalBase {
     fn xwayland_only(&self) -> bool {
         false
     }
+    fn exposed(&self, state: &State) -> bool {
+        let _ = state;
+        true
+    }
 }
 
 pub struct Globals {
@@ -297,7 +301,8 @@ impl Globals {
             ($singleton:expr) => {
                 for global in globals.values() {
                     if global.singleton() == $singleton {
-                        if caps.contains(global.required_caps())
+                        if global.exposed(&registry.client.state)
+                            && caps.contains(global.required_caps())
                             && (xwayland || !global.xwayland_only())
                         {
                             registry.send_global(global);

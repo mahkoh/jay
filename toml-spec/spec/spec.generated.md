@@ -590,6 +590,33 @@ The format should be one of the following:
 Values of this type should be strings.
 
 
+<a name="types-ColorManagement"></a>
+### `ColorManagement`
+
+Describes color-management settings.
+
+- Example:
+
+  ```toml
+  [color-management]
+  enabled = true
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `enabled` (optional):
+
+  Whether the color management protocol is enabled.
+  
+  This has no effect on running applications.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
+
 <a name="types-ComplexShortcut"></a>
 ### `ComplexShortcut`
 
@@ -1177,6 +1204,19 @@ The table has the following fields:
     ```
 
   The value of this field should be a [Xwayland](#types-Xwayland).
+
+- `color-management` (optional):
+
+  Configures the color-management settings.
+  
+  - Example:
+  
+    ```toml
+    [color-management]
+    enabled = true
+    ```
+
+  The value of this field should be a [ColorManagement](#types-ColorManagement).
 
 
 <a name="types-Connector"></a>
