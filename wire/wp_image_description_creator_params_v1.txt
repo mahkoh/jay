@@ -1,0 +1,56 @@
+request create {
+    image_description: id(wp_image_description_v1),
+}
+
+request set_tf_named {
+    tf: u32,
+}
+
+request set_tf_power {
+    eexp: u32,
+}
+
+request set_primaries_named {
+    primaries: u32,
+}
+
+request set_primaries {
+    r_x: i32,
+    r_y: i32,
+    g_x: i32,
+    g_y: i32,
+    b_x: i32,
+    b_y: i32,
+    w_x: i32,
+    w_y: i32,
+}
+
+request set_luminances {
+    min_lum: u32,
+    max_lum: u32,
+    reference_lum: u32,
+}
+
+request set_mastering_display_primaries {
+    r_x: i32,
+    r_y: i32,
+    g_x: i32,
+    g_y: i32,
+    b_x: i32,
+    b_y: i32,
+    w_x: i32,
+    w_y: i32,
+}
+
+request set_mastering_luminance {
+    min_lum: u32,
+    max_lum: u32,
+}
+
+request set_max_cll {
+    max_cll: u32,
+}
+
+request set_max_fall {
+    max_fall: u32,
+}

@@ -1,0 +1,15 @@
+request destroy {
+}
+
+event failed {
+    cause: u32,
+    msg: str,
+}
+
+event ready {
+    identity: u32,
+}
+
+request get_information {
+    information: id(wp_image_description_info_v1),
+}

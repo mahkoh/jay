@@ -1,0 +1,9 @@
+request destroy {
+}
+
+event image_description_changed {
+}
+
+request get_image_description {
+    image_description: id(wp_image_description_v1),
+}

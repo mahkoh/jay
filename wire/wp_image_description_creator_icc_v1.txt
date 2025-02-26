@@ -1,0 +1,9 @@
+request create {
+    image_description: id(wp_image_description_v1),
+}
+
+request set_icc_file {
+    icc_profile: fd,
+    offset: u32,
+    length: u32,
+}

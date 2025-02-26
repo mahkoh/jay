@@ -3,6 +3,7 @@ use {
         backend::Backend,
         client::{Client, ClientCaps},
         ifs::{
+            color_management::wp_color_manager_v1::WpColorManagerV1Global,
             ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
@@ -215,6 +216,7 @@ impl Globals {
         add_singleton!(ExtDataControlManagerV1Global);
         add_singleton!(WlFixesGlobal);
         add_singleton!(ExtWorkspaceManagerV1Global);
+        add_singleton!(WpColorManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

@@ -2,6 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::{
+            color_management::wp_image_description_v1::WpImageDescriptionV1,
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_image_capture_source_v1::ExtImageCaptureSourceV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
@@ -43,9 +44,9 @@ use {
             ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
             JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
             WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
-            WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId,
-            XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
-            ZwpTabletToolV2Id,
+            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
+            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
+            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -85,6 +86,7 @@ pub struct Objects {
     pub ext_data_sources: CopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
     pub ext_workspace_groups:
         CopyHashMap<ExtWorkspaceGroupHandleV1Id, Rc<ExtWorkspaceGroupHandleV1>>,
+    pub wp_image_description: CopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -123,6 +125,7 @@ impl Objects {
             ext_copy_sessions: Default::default(),
             ext_data_sources: Default::default(),
             ext_workspace_groups: Default::default(),
+            wp_image_description: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }

@@ -9,6 +9,7 @@
   opacity on top of a red window will produce a perfectly yellow image instead of a muddy
   yellow. The blend buffer is only used for those areas of the screen where blending is
   observable. This should have no impact on performance in the common case.
+- Implement color-management-v1.
 
 # 1.9.1 (2025-02-13)
 

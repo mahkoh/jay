@@ -1,3 +1,4 @@
+pub mod color_management;
 pub mod ext_foreign_toplevel_handle_v1;
 pub mod ext_foreign_toplevel_image_capture_source_manager_v1;
 pub mod ext_foreign_toplevel_list_v1;
