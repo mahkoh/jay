@@ -164,6 +164,7 @@ pub(super) struct Memory {
     fill_targets: Vec<Point>,
     tex_targets: Vec<[Point; 2]>,
     data_buffer: Vec<u8>,
+    out_address: DeviceAddress,
 }
 
 type Point = [[f32; 2]; 4];
@@ -644,6 +645,17 @@ impl VulkanRenderer {
         zone!("create_data_buffer");
         let memory = &mut *self.memory.borrow_mut();
         let buf = &mut memory.data_buffer;
+        {
+            memory.out_address = buf.len() as _;
+            for region in &memory.paint_regions[RenderPass::BlendBuffer] {
+                buf.extend_from_slice(uapi::as_bytes(&[
+                    [region.x2, region.y1],
+                    [region.x1, region.y1],
+                    [region.x2, region.y2],
+                    [region.x1, region.y2],
+                ]));
+            }
+        }
         if buf.is_empty() {
             return Ok(());
         }
@@ -661,6 +673,7 @@ impl VulkanRenderer {
                 }
             }
         }
+        memory.out_address += buffer.buffer.address;
         memory.used_buffers.push(buffer);
         Ok(())
     }
@@ -1075,6 +1088,10 @@ impl VulkanRenderer {
                 out
             }
         };
+        let push = OutPushConstants {
+            vertices: memory.out_address,
+        };
+        let instances = memory.paint_regions[RenderPass::BlendBuffer].len() as u32;
         let dev = &self.device.device;
         unsafe {
             dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
@@ -1086,26 +1103,14 @@ impl VulkanRenderer {
                 &[1],
                 &[bb.descriptor_buffer_offset.get()],
             );
-        }
-        for region in &memory.paint_regions[RenderPass::BlendBuffer] {
-            let push = OutPushConstants {
-                pos: [
-                    [region.x2, region.y1],
-                    [region.x1, region.y1],
-                    [region.x2, region.y2],
-                    [region.x1, region.y2],
-                ],
-            };
-            unsafe {
-                dev.cmd_push_constants(
-                    buf,
-                    pipeline.pipeline_layout,
-                    ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                    0,
-                    uapi::as_bytes(&push),
-                );
-                dev.cmd_draw(buf, 4, 1, 0, 0);
-            }
+            dev.cmd_push_constants(
+                buf,
+                pipeline.pipeline_layout,
+                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                0,
+                uapi::as_bytes(&push),
+            );
+            dev.cmd_draw(buf, 4, instances, 0, 0);
         }
         Ok(())
     }

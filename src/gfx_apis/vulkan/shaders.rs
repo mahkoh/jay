@@ -56,7 +56,7 @@ unsafe impl Packed for TexPushConstants {}
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct OutPushConstants {
-    pub pos: [[f32; 2]; 4],
+    pub vertices: DeviceAddress,
 }
 
 unsafe impl Packed for OutPushConstants {}
