@@ -11,6 +11,12 @@ pub const TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.vert.s
 pub const TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.spv"));
 pub const OUT_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/out.vert.spv"));
 pub const OUT_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/out.frag.spv"));
+pub const LEGACY_FILL_VERT: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/legacy_fill.vert.spv"));
+pub const LEGACY_FILL_FRAG: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/legacy_fill.frag.spv"));
+pub const LEGACY_TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/legacy_tex.vert.spv"));
+pub const LEGACY_TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/legacy_tex.frag.spv"));
 
 pub struct VulkanShader {
     pub(super) device: Rc<VulkanDevice>,

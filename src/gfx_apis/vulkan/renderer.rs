@@ -22,8 +22,9 @@ use {
             sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
-                FILL_FRAG, FILL_VERT, FillPushConstants, OUT_FRAG, OUT_VERT, OutPushConstants,
-                TEX_FRAG, TEX_VERT, TexPushConstants, VulkanShader,
+                FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
+                LEGACY_TEX_FRAG, LEGACY_TEX_VERT, OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG,
+                TEX_VERT, TexPushConstants, VulkanShader,
             },
         },
         io_uring::IoUring,
@@ -195,8 +196,21 @@ impl VulkanDevice {
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
     ) -> Result<Rc<VulkanRenderer>, VulkanError> {
-        let fill_vert_shader = self.create_shader(FILL_VERT)?;
-        let fill_frag_shader = self.create_shader(FILL_FRAG)?;
+        let fill_vert_shader;
+        let fill_frag_shader;
+        let tex_vert_shader;
+        let tex_frag_shader;
+        if self.descriptor_buffer.is_some() {
+            tex_vert_shader = self.create_shader(TEX_VERT)?;
+            tex_frag_shader = self.create_shader(TEX_FRAG)?;
+            fill_vert_shader = self.create_shader(FILL_VERT)?;
+            fill_frag_shader = self.create_shader(FILL_FRAG)?;
+        } else {
+            tex_vert_shader = self.create_shader(LEGACY_TEX_VERT)?;
+            tex_frag_shader = self.create_shader(LEGACY_TEX_FRAG)?;
+            fill_vert_shader = self.create_shader(LEGACY_FILL_VERT)?;
+            fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
+        }
         let sampler = self.create_sampler()?;
         let tex_descriptor_set_layout = self.create_tex_descriptor_set_layout(&sampler)?;
         let out_descriptor_set_layout = self
@@ -206,8 +220,6 @@ impl VulkanDevice {
             .transpose()?;
         let out_vert_shader = self.create_shader(OUT_VERT)?;
         let out_frag_shader = self.create_shader(OUT_FRAG)?;
-        let tex_vert_shader = self.create_shader(TEX_VERT)?;
-        let tex_frag_shader = self.create_shader(TEX_FRAG)?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
         let transfer_command_buffers = self
             .distinct_transfer_queue_family_idx
