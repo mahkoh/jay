@@ -10,11 +10,10 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
+            buffer_cache::{VulkanBuffer, VulkanBufferCache},
             command::{VulkanCommandBuffer, VulkanCommandPool},
             descriptor::VulkanDescriptorSetLayout,
-            descriptor_buffer::{
-                VulkanDescriptorBuffer, VulkanDescriptorBufferCache, VulkanDescriptorBufferWriter,
-            },
+            descriptor_buffer::VulkanDescriptorBufferWriter,
             device::VulkanDevice,
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
@@ -95,8 +94,8 @@ pub struct VulkanRenderer {
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
     pub(super) sampler: Rc<VulkanSampler>,
-    pub(super) sampler_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
-    pub(super) resource_descriptor_buffer_cache: Rc<VulkanDescriptorBufferCache>,
+    pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
+    pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
 }
 
@@ -149,7 +148,7 @@ pub(super) struct Memory {
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
-    descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 2>,
+    descriptor_buffers: ArrayVec<VulkanBuffer, 2>,
     paint_bounds: StaticMap<RenderPass, Option<PaintRegion>>,
     paint_regions: StaticMap<RenderPass, Vec<PaintRegion>>,
     clear_rects: StaticMap<RenderPass, Vec<ClearRect>>,
@@ -212,7 +211,7 @@ pub(super) struct PendingFrame {
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
     _release_fence: Option<Rc<VulkanFence>>,
-    _descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 2>,
+    _descriptor_buffers: ArrayVec<VulkanBuffer, 2>,
 }
 
 pub(super) struct VulkanFormatPipelines {
@@ -289,9 +288,9 @@ impl VulkanDevice {
         let allocator = self.create_allocator()?;
         let shm_allocator = self.create_threaded_allocator()?;
         let sampler_descriptor_buffer_cache =
-            Rc::new(VulkanDescriptorBufferCache::new(self, &allocator, true));
+            VulkanBufferCache::for_descriptor_buffer(self, &allocator, true);
         let resource_descriptor_buffer_cache =
-            Rc::new(VulkanDescriptorBufferCache::new(self, &allocator, false));
+            VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),

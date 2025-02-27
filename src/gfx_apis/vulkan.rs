@@ -1,6 +1,7 @@
 mod allocator;
 mod blend_buffer;
 mod bo_allocator;
+mod buffer_cache;
 mod command;
 mod descriptor;
 mod descriptor_buffer;
