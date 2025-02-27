@@ -31,10 +31,7 @@ use {
         io_uring::IoUring,
         rect::{Rect, Region},
         theme::{Color, TransferFunction},
-        utils::{
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, once::Once,
-            stack::Stack,
-        },
+        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
     },
     ahash::AHashMap,
@@ -55,13 +52,15 @@ use {
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_algorithms::rect::Tag,
-    linearize::{Linearize, StaticMap, static_map},
+    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
     std::{
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
         fmt::{Debug, Formatter},
-        mem, ptr,
+        mem,
+        ops::Range,
+        ptr,
         rc::{Rc, Weak},
         slice,
     },
@@ -128,13 +127,13 @@ pub(super) struct UsedTexture {
     release_sync: ReleaseSync,
 }
 
-#[derive(Linearize)]
+#[derive(Copy, Clone, Linearize)]
 pub(super) enum TexCopyType {
     Identity,
     Multiply,
 }
 
-#[derive(Linearize)]
+#[derive(Copy, Clone, Linearize)]
 pub(super) enum TexSourceType {
     Opaque,
     HasAlpha,
@@ -158,6 +157,33 @@ pub(super) struct Memory {
     resource_descriptor_buffer_writer: VulkanDescriptorBufferWriter,
     regions_1: Vec<Rect>,
     regions_2: Vec<Rect<u32>>,
+    ops: StaticMap<RenderPass, Vec<VulkanOp>>,
+    fill_targets: Vec<Point>,
+    tex_targets: Vec<[Point; 2]>,
+}
+
+type Point = [[f32; 2]; 4];
+
+enum VulkanOp {
+    Fill(VulkanFillOp),
+    Tex(VulkanTexOp),
+}
+
+struct VulkanTexOp {
+    tex: Rc<VulkanImage>,
+    range: Range<usize>,
+    buffer_resv: Option<Rc<dyn BufferResv>>,
+    acquire_sync: AcquireSync,
+    release_sync: ReleaseSync,
+    alpha: f32,
+    source_type: TexSourceType,
+    copy_type: TexCopyType,
+}
+
+struct VulkanFillOp {
+    range: Range<usize>,
+    color: [f32; 4],
+    source_type: TexSourceType,
 }
 
 #[derive(Copy, Clone, Debug, Linearize, Eq, PartialEq)]
@@ -375,7 +401,6 @@ impl VulkanRenderer {
     fn create_descriptor_buffers(
         &self,
         buf: CommandBuffer,
-        opts: &[GfxApiOpt],
         bb: Option<&VulkanImage>,
     ) -> Result<(), VulkanError> {
         let Some(db) = &self.device.descriptor_buffer else {
@@ -396,21 +421,23 @@ impl VulkanRenderer {
             let mut writer = resource_writer.add_set(layout);
             writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
         }
-        for cmd in opts {
-            let GfxApiOpt::CopyTexture(c) = cmd else {
-                continue;
-            };
-            let tex = c.tex.clone().into_vk(&self.device.device);
-            if tex.descriptor_buffer_version.replace(version) == version {
-                continue;
+        for pass in RenderPass::variants() {
+            for cmd in &memory.ops[pass] {
+                let VulkanOp::Tex(c) = cmd else {
+                    continue;
+                };
+                let tex = &c.tex;
+                if tex.descriptor_buffer_version.replace(version) == version {
+                    continue;
+                }
+                let offset = sampler_writer.next_offset();
+                tex.descriptor_buffer_offset.set(offset);
+                let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layout);
+                writer.write(
+                    self.tex_descriptor_set_layout.offsets[0],
+                    &tex.shader_read_only_optimal_descriptor,
+                );
             }
-            let offset = sampler_writer.next_offset();
-            tex.descriptor_buffer_offset.set(offset);
-            let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layout);
-            writer.write(
-                self.tex_descriptor_set_layout.offsets[0],
-                &tex.shader_read_only_optimal_descriptor,
-            );
         }
         let mut infos = ArrayVec::<_, 2>::new();
         for (writer, cache) in [
@@ -433,35 +460,131 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn collect_memory(&self, opts: &[GfxApiOpt]) {
+    fn convert_ops(&self, opts: &[GfxApiOpt]) {
+        zone!("convert_ops");
+        let memory = &mut *self.memory.borrow_mut();
+        for ops in memory.ops.values_mut() {
+            ops.clear();
+        }
+        memory.tex_targets.clear();
+        memory.fill_targets.clear();
+        for op in opts {
+            match op {
+                GfxApiOpt::Sync => {
+                    // nothing
+                }
+                GfxApiOpt::FillRect(fr) => {
+                    let target = fr.rect.to_points();
+                    for pass in RenderPass::variants() {
+                        let tf = match pass {
+                            RenderPass::BlendBuffer => TransferFunction::Linear,
+                            RenderPass::FrameBuffer => TransferFunction::Srgb,
+                        };
+                        let ops = &mut memory.ops[pass];
+                        let lo = memory.fill_targets.len();
+                        for region in &memory.paint_regions[pass] {
+                            let mut target = target;
+                            if !region.constrain(&mut target, None) {
+                                continue;
+                            }
+                            memory.fill_targets.push(target);
+                        }
+                        let hi = memory.fill_targets.len();
+                        if lo == hi {
+                            continue;
+                        }
+                        let color = fr.color.to_array2(tf, fr.alpha);
+                        let source_type = match color[3] < 1.0 {
+                            false => TexSourceType::Opaque,
+                            true => TexSourceType::HasAlpha,
+                        };
+                        ops.push(VulkanOp::Fill(VulkanFillOp {
+                            range: lo..hi,
+                            color,
+                            source_type,
+                        }));
+                    }
+                }
+                GfxApiOpt::CopyTexture(ct) => {
+                    let tex = ct.tex.clone().into_vk(&self.device.device);
+                    if tex.contents_are_undefined.get() {
+                        log::warn!("Ignoring undefined texture");
+                        continue;
+                    }
+                    if tex.queue_state.get().acquire(QueueFamily::Gfx) == QueueTransfer::Impossible
+                    {
+                        log::warn!("Ignoring texture owned by different queue");
+                        continue;
+                    }
+                    let target = ct.target.to_points();
+                    let source = ct.source.to_points();
+                    for pass in RenderPass::variants() {
+                        let ops = &mut memory.ops[pass];
+                        let lo = memory.tex_targets.len();
+                        for region in &memory.paint_regions[pass] {
+                            let mut target = target;
+                            let mut source = source;
+                            if !region.constrain(&mut target, Some(&mut source)) {
+                                continue;
+                            }
+                            memory.tex_targets.push([target, source]);
+                        }
+                        let hi = memory.tex_targets.len();
+                        if lo == hi {
+                            continue;
+                        }
+                        let copy_type = match ct.alpha.is_some() {
+                            true => TexCopyType::Multiply,
+                            false => TexCopyType::Identity,
+                        };
+                        let source_type = match tex.format.has_alpha && !ct.opaque {
+                            true => TexSourceType::HasAlpha,
+                            false => TexSourceType::Opaque,
+                        };
+                        ops.push(VulkanOp::Tex(VulkanTexOp {
+                            tex: tex.clone(),
+                            range: lo..hi,
+                            buffer_resv: ct.buffer_resv.clone(),
+                            acquire_sync: ct.acquire_sync.clone(),
+                            release_sync: ct.release_sync,
+                            alpha: ct.alpha.unwrap_or_default(),
+                            source_type,
+                            copy_type,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect_memory(&self) {
         zone!("collect_memory");
-        let mut memory = self.memory.borrow_mut();
+        let memory = &mut *self.memory.borrow_mut();
         memory.dmabuf_sample.clear();
         memory.queue_transfer.clear();
         let execution = self.allocate_point();
-        for cmd in opts {
-            if let GfxApiOpt::CopyTexture(c) = cmd {
-                let tex = c.tex.clone().into_vk(&self.device.device);
-                if tex.contents_are_undefined.get() {
-                    continue;
+        for pass in RenderPass::variants() {
+            for cmd in &memory.ops[pass] {
+                if let VulkanOp::Tex(c) = cmd {
+                    let tex = &c.tex;
+                    if tex.execution_version.replace(execution) == execution {
+                        continue;
+                    }
+                    match tex.queue_state.get().acquire(QueueFamily::Gfx) {
+                        QueueTransfer::Unnecessary => {}
+                        QueueTransfer::Possible => memory.queue_transfer.push(tex.clone()),
+                        QueueTransfer::Impossible => continue,
+                    }
+                    if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
+                        memory.dmabuf_sample.push(tex.clone())
+                    }
+                    memory.textures.push(UsedTexture {
+                        tex: tex.clone(),
+                        resv: c.buffer_resv.clone(),
+                        acquire_sync: c.acquire_sync.clone(),
+                        release_sync: c.release_sync,
+                    });
                 }
-                if tex.execution_version.replace(execution) == execution {
-                    continue;
-                }
-                match tex.queue_state.get().acquire(QueueFamily::Gfx) {
-                    QueueTransfer::Unnecessary => {}
-                    QueueTransfer::Possible => memory.queue_transfer.push(tex.clone()),
-                    QueueTransfer::Impossible => continue,
-                }
-                if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
-                    memory.dmabuf_sample.push(tex.clone())
-                }
-                memory.textures.push(UsedTexture {
-                    tex,
-                    resv: c.buffer_resv.clone(),
-                    acquire_sync: c.acquire_sync.clone(),
-                    release_sync: c.release_sync,
-                });
             }
         }
     }
@@ -680,12 +803,10 @@ impl VulkanRenderer {
         &self,
         buf: CommandBuffer,
         target: &VulkanImage,
-        opts: &[GfxApiOpt],
         pass: RenderPass,
     ) -> Result<(), VulkanError> {
         zone!("record_draws");
         let memory = &*self.memory.borrow();
-        let paint_regions = &memory.paint_regions[pass];
         let pipelines = self.get_or_create_pipelines(target.format.vk_format, pass)?;
         let dev = &self.device.device;
         let mut current_pipeline = None;
@@ -697,33 +818,16 @@ impl VulkanRenderer {
                 }
             }
         };
-        for opt in opts {
+        for opt in &memory.ops[pass] {
             match opt {
-                GfxApiOpt::Sync => {}
-                GfxApiOpt::FillRect(r) => {
-                    let push = FillPushConstants {
-                        pos: r.rect.to_points(),
-                        color: match pass {
-                            RenderPass::BlendBuffer => {
-                                r.color.to_array2(TransferFunction::Linear, r.alpha)
-                            }
-                            RenderPass::FrameBuffer => {
-                                r.color.to_array2(TransferFunction::Srgb, r.alpha)
-                            }
-                        },
-                    };
-                    let source_type = match push.color[3] < 1.0 {
-                        true => TexSourceType::HasAlpha,
-                        false => TexSourceType::Opaque,
-                    };
-                    let pipeline = &pipelines.fill[source_type];
-                    for region in paint_regions {
-                        let mut push = push;
-                        let draw = region.constrain(&mut push.pos, None);
-                        if !draw {
-                            continue;
-                        }
-                        bind(pipeline);
+                VulkanOp::Fill(r) => {
+                    let pipeline = &pipelines.fill[r.source_type];
+                    bind(pipeline);
+                    for &pos in &memory.fill_targets[r.range.clone()] {
+                        let push = FillPushConstants {
+                            pos,
+                            color: r.color,
+                        };
                         unsafe {
                             dev.cmd_push_constants(
                                 buf,
@@ -736,65 +840,44 @@ impl VulkanRenderer {
                         }
                     }
                 }
-                GfxApiOpt::CopyTexture(c) => {
-                    let tex = c.tex.as_vk(&self.device.device);
-                    if tex.contents_are_undefined.get() {
-                        log::warn!("Ignoring undefined texture");
-                        continue;
-                    }
-                    if tex.queue_state.get().acquire(QueueFamily::Gfx) == QueueTransfer::Impossible
-                    {
-                        log::warn!("Ignoring texture owned by different queue");
-                        continue;
-                    }
-                    let copy_type = match c.alpha.is_some() {
-                        true => TexCopyType::Multiply,
-                        false => TexCopyType::Identity,
-                    };
-                    let source_type = match tex.format.has_alpha && !c.opaque {
-                        true => TexSourceType::HasAlpha,
-                        false => TexSourceType::Opaque,
-                    };
-                    let pipeline = &pipelines.tex[copy_type][source_type];
-                    let push = TexPushConstants {
-                        pos: c.target.to_points(),
-                        tex_pos: c.source.to_points(),
-                        alpha: c.alpha.unwrap_or_default(),
-                    };
+                VulkanOp::Tex(c) => {
+                    let tex = &c.tex;
+                    let pipeline = &pipelines.tex[c.copy_type][c.source_type];
+                    bind(pipeline);
                     let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-                    let init = Once::default();
-                    for region in paint_regions {
-                        let mut push = push;
-                        let draw = region.constrain(&mut push.pos, Some(&mut push.tex_pos));
-                        if !draw {
-                            continue;
+                    if let Some(db) = &self.device.descriptor_buffer {
+                        unsafe {
+                            db.cmd_set_descriptor_buffer_offsets(
+                                buf,
+                                PipelineBindPoint::GRAPHICS,
+                                pipeline.pipeline_layout,
+                                0,
+                                &[0],
+                                &[tex.descriptor_buffer_offset.get()],
+                            );
                         }
-                        init.exec(|| unsafe {
-                            bind(pipeline);
-                            if let Some(db) = &self.device.descriptor_buffer {
-                                db.cmd_set_descriptor_buffer_offsets(
-                                    buf,
-                                    PipelineBindPoint::GRAPHICS,
-                                    pipeline.pipeline_layout,
-                                    0,
-                                    &[0],
-                                    &[tex.descriptor_buffer_offset.get()],
-                                );
-                            } else {
-                                let write_descriptor_set = WriteDescriptorSet::default()
-                                    .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
-                                    .image_info(slice::from_ref(&image_info));
-                                self.device.push_descriptor.cmd_push_descriptor_set(
-                                    buf,
-                                    PipelineBindPoint::GRAPHICS,
-                                    pipeline.pipeline_layout,
-                                    0,
-                                    slice::from_ref(&write_descriptor_set),
-                                );
-                            }
-                        });
+                    } else {
+                        let write_descriptor_set = WriteDescriptorSet::default()
+                            .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
+                            .image_info(slice::from_ref(&image_info));
+                        unsafe {
+                            self.device.push_descriptor.cmd_push_descriptor_set(
+                                buf,
+                                PipelineBindPoint::GRAPHICS,
+                                pipeline.pipeline_layout,
+                                0,
+                                slice::from_ref(&write_descriptor_set),
+                            );
+                        }
+                    }
+                    for &[pos, tex_pos] in &memory.tex_targets[c.range.clone()] {
+                        let push = TexPushConstants {
+                            pos,
+                            tex_pos,
+                            alpha: c.alpha,
+                        };
                         unsafe {
                             dev.cmd_push_constants(
                                 buf,
@@ -1430,23 +1513,24 @@ impl VulkanRenderer {
         self.elide_blend_buffer(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
-        self.collect_memory(opts);
+        self.convert_ops(opts);
+        self.collect_memory();
         self.begin_command_buffer(buf.buffer)?;
-        self.create_descriptor_buffers(buf.buffer, opts, bb)?;
+        self.create_descriptor_buffers(buf.buffer, bb)?;
         self.initial_barriers(buf.buffer, fb)?;
         self.set_viewport(buf.buffer, fb);
         if let Some(bb) = bb {
             zone!("blend buffer pass");
             self.blend_buffer_initial_barrier(buf.buffer, bb);
             self.begin_rendering(buf.buffer, bb, clear, RenderPass::BlendBuffer);
-            self.record_draws(buf.buffer, bb, opts, RenderPass::BlendBuffer)?;
+            self.record_draws(buf.buffer, bb, RenderPass::BlendBuffer)?;
             self.end_rendering(buf.buffer);
             self.blend_buffer_final_barrier(buf.buffer, bb);
         }
         {
             zone!("frame buffer pass");
             self.begin_rendering(buf.buffer, fb, clear, RenderPass::FrameBuffer);
-            self.record_draws(buf.buffer, fb, opts, RenderPass::FrameBuffer)?;
+            self.record_draws(buf.buffer, fb, RenderPass::FrameBuffer)?;
             if let Some(bb) = bb {
                 self.blend_buffer_copy(buf.buffer, fb, bb)?;
             }
@@ -1581,7 +1665,7 @@ async fn await_release(
 }
 
 impl PaintRegion {
-    fn constrain(&self, pos: &mut [[f32; 2]; 4], tex_pos: Option<&mut [[f32; 2]; 4]>) -> bool {
+    fn constrain(&self, pos: &mut Point, tex_pos: Option<&mut Point>) -> bool {
         zone!("constrain");
         let mut npos = *pos;
         for [x, y] in &mut npos {
