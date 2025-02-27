@@ -45,13 +45,31 @@ unsafe impl Packed for LegacyFillPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
+pub struct TexVertex {
+    pub pos: [[f32; 2]; 4],
+    pub tex_pos: [[f32; 2]; 4],
+}
+
+unsafe impl Packed for TexVertex {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct TexPushConstants {
+    pub vertices: DeviceAddress,
+    pub alpha: f32,
+}
+
+unsafe impl Packed for TexPushConstants {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct LegacyTexPushConstants {
     pub pos: [[f32; 2]; 4],
     pub tex_pos: [[f32; 2]; 4],
     pub alpha: f32,
 }
 
-unsafe impl Packed for TexPushConstants {}
+unsafe impl Packed for LegacyTexPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]

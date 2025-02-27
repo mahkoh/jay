@@ -22,8 +22,9 @@ use {
             semaphore::VulkanSemaphore,
             shaders::{
                 FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
-                LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, OUT_FRAG, OUT_VERT,
-                OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants, VulkanShader,
+                LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, LegacyTexPushConstants,
+                OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants,
+                TexVertex, VulkanShader,
             },
             transfer_functions::{TF_LINEAR, TF_SRGB},
         },
@@ -183,6 +184,8 @@ struct VulkanTexOp {
     alpha: f32,
     source_type: TexSourceType,
     copy_type: TexCopyType,
+    range_address: DeviceAddress,
+    instances: u32,
 }
 
 struct VulkanFillOp {
@@ -376,18 +379,23 @@ impl VulkanRenderer {
         let fill_opaque = create_fill_pipeline(false)?;
         let fill_alpha = create_fill_pipeline(true)?;
         let create_tex_pipeline = |src_has_alpha, has_alpha_mult| {
-            self.device
-                .create_pipeline::<TexPushConstants>(PipelineCreateInfo {
-                    format,
-                    vert: self.tex_vert_shader.clone(),
-                    frag: self.tex_frag_shader.clone(),
-                    blend: src_has_alpha || has_alpha_mult,
-                    src_has_alpha,
-                    has_alpha_mult,
-                    eotf,
-                    oetf,
-                    frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
-                })
+            let push_size = if self.device.descriptor_buffer.is_some() {
+                size_of::<TexPushConstants>()
+            } else {
+                size_of::<LegacyTexPushConstants>()
+            };
+            let info = PipelineCreateInfo {
+                format,
+                vert: self.tex_vert_shader.clone(),
+                frag: self.tex_frag_shader.clone(),
+                blend: src_has_alpha || has_alpha_mult,
+                src_has_alpha,
+                has_alpha_mult,
+                eotf,
+                oetf,
+                frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
+            };
+            self.device.create_pipeline2(info, push_size)
         };
         let tex_opaque = create_tex_pipeline(false, false)?;
         let tex_alpha = create_tex_pipeline(true, false)?;
@@ -527,8 +535,16 @@ impl VulkanRenderer {
                             }
                             mops.push(VulkanOp::Fill(f));
                         }
-                        VulkanOp::Tex(_) => {
-                            mops.push(op);
+                        VulkanOp::Tex(mut c) => {
+                            c.range_address = memory.data_buffer.len() as DeviceAddress;
+                            c.instances = c.range.len() as u32;
+                            for &[pos, tex_pos] in &memory.tex_targets[c.range.clone()] {
+                                let vertex = TexVertex { pos, tex_pos };
+                                memory
+                                    .data_buffer
+                                    .extend_from_slice(uapi::as_bytes(&vertex));
+                            }
+                            mops.push(VulkanOp::Tex(c));
                         }
                     }
                 }
@@ -630,6 +646,8 @@ impl VulkanRenderer {
                             alpha: ct.alpha.unwrap_or_default(),
                             source_type,
                             copy_type,
+                            range_address: 0,
+                            instances: 0,
                         }));
                     }
                 }
@@ -669,7 +687,9 @@ impl VulkanRenderer {
                     VulkanOp::Fill(f) => {
                         f.range_address += buffer.buffer.address;
                     }
-                    VulkanOp::Tex(_) => {}
+                    VulkanOp::Tex(c) => {
+                        c.range_address += buffer.buffer.address;
+                    }
                 }
             }
         }
@@ -988,6 +1008,10 @@ impl VulkanRenderer {
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                     if let Some(db) = &self.device.descriptor_buffer {
+                        let push = TexPushConstants {
+                            vertices: c.range_address,
+                            alpha: c.alpha,
+                        };
                         unsafe {
                             db.cmd_set_descriptor_buffer_offsets(
                                 buf,
@@ -997,6 +1021,14 @@ impl VulkanRenderer {
                                 &[0],
                                 &[tex.descriptor_buffer_offset.get()],
                             );
+                            dev.cmd_push_constants(
+                                buf,
+                                pipeline.pipeline_layout,
+                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                                0,
+                                uapi::as_bytes(&push),
+                            );
+                            dev.cmd_draw(buf, 4, c.instances, 0, 0);
                         }
                     } else {
                         let write_descriptor_set = WriteDescriptorSet::default()
@@ -1011,22 +1043,22 @@ impl VulkanRenderer {
                                 slice::from_ref(&write_descriptor_set),
                             );
                         }
-                    }
-                    for &[pos, tex_pos] in &memory.tex_targets[c.range.clone()] {
-                        let push = TexPushConstants {
-                            pos,
-                            tex_pos,
-                            alpha: c.alpha,
-                        };
-                        unsafe {
-                            dev.cmd_push_constants(
-                                buf,
-                                pipeline.pipeline_layout,
-                                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                                0,
-                                uapi::as_bytes(&push),
-                            );
-                            dev.cmd_draw(buf, 4, 1, 0, 0);
+                        for &[pos, tex_pos] in &memory.tex_targets[c.range.clone()] {
+                            let push = LegacyTexPushConstants {
+                                pos,
+                                tex_pos,
+                                alpha: c.alpha,
+                            };
+                            unsafe {
+                                dev.cmd_push_constants(
+                                    buf,
+                                    pipeline.pipeline_layout,
+                                    ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                                    0,
+                                    uapi::as_bytes(&push),
+                                );
+                                dev.cmd_draw(buf, 4, 1, 0, 0);
+                            }
                         }
                     }
                 }
