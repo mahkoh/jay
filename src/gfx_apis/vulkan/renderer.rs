@@ -158,6 +158,7 @@ pub(super) struct Memory {
     regions_1: Vec<Rect>,
     regions_2: Vec<Rect<u32>>,
     ops: StaticMap<RenderPass, Vec<VulkanOp>>,
+    ops_tmp: StaticMap<RenderPass, Vec<VulkanOp>>,
     fill_targets: Vec<Point>,
     tex_targets: Vec<[Point; 2]>,
 }
@@ -466,12 +467,34 @@ impl VulkanRenderer {
         for ops in memory.ops.values_mut() {
             ops.clear();
         }
+        for ops in memory.ops_tmp.values_mut() {
+            ops.clear();
+        }
         memory.tex_targets.clear();
         memory.fill_targets.clear();
+        let sync = |memory: &mut Memory| {
+            for pass in RenderPass::variants() {
+                let ops = &mut memory.ops_tmp[pass];
+                ops.sort_unstable_by_key(|o| {
+                    #[derive(Eq, PartialEq, PartialOrd, Ord)]
+                    enum Key {
+                        Fill { color: [u32; 4] },
+                        Tex,
+                    }
+                    match o {
+                        VulkanOp::Fill(f) => Key::Fill {
+                            color: f.color.map(|c| c.to_bits()),
+                        },
+                        VulkanOp::Tex(_) => Key::Tex,
+                    }
+                });
+                memory.ops[pass].append(ops);
+            }
+        };
         for op in opts {
             match op {
                 GfxApiOpt::Sync => {
-                    // nothing
+                    sync(memory);
                 }
                 GfxApiOpt::FillRect(fr) => {
                     let target = fr.rect.to_points();
@@ -480,7 +503,7 @@ impl VulkanRenderer {
                             RenderPass::BlendBuffer => TransferFunction::Linear,
                             RenderPass::FrameBuffer => TransferFunction::Srgb,
                         };
-                        let ops = &mut memory.ops[pass];
+                        let ops = &mut memory.ops_tmp[pass];
                         let lo = memory.fill_targets.len();
                         for region in &memory.paint_regions[pass] {
                             let mut target = target;
@@ -519,7 +542,7 @@ impl VulkanRenderer {
                     let target = ct.target.to_points();
                     let source = ct.source.to_points();
                     for pass in RenderPass::variants() {
-                        let ops = &mut memory.ops[pass];
+                        let ops = &mut memory.ops_tmp[pass];
                         let lo = memory.tex_targets.len();
                         for region in &memory.paint_regions[pass] {
                             let mut target = target;
@@ -555,6 +578,7 @@ impl VulkanRenderer {
                 }
             }
         }
+        sync(memory);
     }
 
     fn collect_memory(&self) {
