@@ -49,13 +49,13 @@ impl VulkanDevice {
         &self,
         info: PipelineCreateInfo,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
-        self.create_pipeline_(info, size_of::<P>() as _)
+        self.create_pipeline2(info, size_of::<P>())
     }
 
-    fn create_pipeline_(
+    pub(super) fn create_pipeline2(
         &self,
         info: PipelineCreateInfo,
-        push_size: u32,
+        push_size: usize,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let pipeline_layout = {
             let mut push_constant_ranges = ArrayVec::<_, 1>::new();
@@ -64,7 +64,7 @@ impl VulkanDevice {
                     PushConstantRange::default()
                         .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
                         .offset(0)
-                        .size(push_size),
+                        .size(push_size as u32),
                 );
             }
             let mut descriptor_set_layouts = ArrayVec::<_, 1>::new();

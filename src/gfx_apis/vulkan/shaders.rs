@@ -1,6 +1,6 @@
 use {
     crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
-    ash::vk::{ShaderModule, ShaderModuleCreateInfo},
+    ash::vk::{DeviceAddress, ShaderModule, ShaderModuleCreateInfo},
     std::rc::Rc,
     uapi::Packed,
 };
@@ -26,11 +26,22 @@ pub struct VulkanShader {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct FillPushConstants {
+    pub color: [f32; 4],
+    pub vertices: DeviceAddress,
+    pub _padding1: u32,
+    pub _padding2: u32,
+}
+
+unsafe impl Packed for FillPushConstants {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct LegacyFillPushConstants {
     pub pos: [[f32; 2]; 4],
     pub color: [f32; 4],
 }
 
-unsafe impl Packed for FillPushConstants {}
+unsafe impl Packed for LegacyFillPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]

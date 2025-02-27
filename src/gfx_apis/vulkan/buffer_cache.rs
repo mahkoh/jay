@@ -66,7 +66,11 @@ impl VulkanBufferCache {
         self.usage
     }
 
-    pub fn allocate(self: &Rc<Self>, capacity: DeviceSize) -> Result<VulkanBuffer, VulkanError> {
+    pub fn allocate(
+        self: &Rc<Self>,
+        capacity: DeviceSize,
+        align: DeviceSize,
+    ) -> Result<VulkanBuffer, VulkanError> {
         const MIN_ALLOCATION: DeviceSize = 1024;
         let capacity = capacity.max(MIN_ALLOCATION);
         let mut smallest = None;
@@ -109,8 +113,9 @@ impl VulkanBufferCache {
             }
         };
         let destroy_buffer = OnDrop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
-        let memory_requirements =
+        let mut memory_requirements =
             unsafe { self.device.device.get_buffer_memory_requirements(buffer) };
+        memory_requirements.alignment = memory_requirements.alignment.max(align);
         let allocation = {
             let flags = UsageFlags::UPLOAD
                 | UsageFlags::FAST_DEVICE_ACCESS
