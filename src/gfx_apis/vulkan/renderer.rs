@@ -150,6 +150,7 @@ pub(super) struct Memory {
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
     descriptor_buffers: ArrayVec<VulkanDescriptorBuffer, 2>,
+    paint_bounds: StaticMap<RenderPass, Option<PaintRegion>>,
     paint_regions: StaticMap<RenderPass, Vec<PaintRegion>>,
     clear_rects: StaticMap<RenderPass, Vec<ClearRect>>,
     image_copy_regions: Vec<ImageCopy2<'static>>,
@@ -193,6 +194,7 @@ pub(super) enum RenderPass {
     FrameBuffer,
 }
 
+#[derive(Copy, Clone)]
 struct PaintRegion {
     x1: f32,
     y1: f32,
@@ -499,6 +501,12 @@ impl VulkanRenderer {
                 GfxApiOpt::FillRect(fr) => {
                     let target = fr.rect.to_points();
                     for pass in RenderPass::variants() {
+                        let Some(bounds) = memory.paint_bounds[pass] else {
+                            continue;
+                        };
+                        if !bounds.intersects(&target) {
+                            continue;
+                        }
                         let tf = match pass {
                             RenderPass::BlendBuffer => TransferFunction::Linear,
                             RenderPass::FrameBuffer => TransferFunction::Srgb,
@@ -542,6 +550,12 @@ impl VulkanRenderer {
                     let target = ct.target.to_points();
                     let source = ct.source.to_points();
                     for pass in RenderPass::variants() {
+                        let Some(bounds) = memory.paint_bounds[pass] else {
+                            continue;
+                        };
+                        if !bounds.intersects(&target) {
+                            continue;
+                        }
                         let ops = &mut memory.ops_tmp[pass];
                         let lo = memory.tex_targets.len();
                         for region in &memory.paint_regions[pass] {
@@ -1479,6 +1493,18 @@ impl VulkanRenderer {
                 y2: to_fb(y2, fb.height),
             });
         }
+        for pass in RenderPass::variants() {
+            let regions = &memory.paint_regions[pass];
+            if regions.is_empty() {
+                memory.paint_bounds[pass] = None;
+            } else {
+                let mut union = regions[0];
+                for region in &regions[1..] {
+                    union = union.union(region);
+                }
+                memory.paint_bounds[pass] = Some(union);
+            }
+        }
         let blend_clear = clear_region.intersect(&Region::from_rects2(&memory.regions_1));
         let opaque_clear = clear_region.subtract_cow(&blend_clear);
         // if bb.is_none() {
@@ -1689,6 +1715,30 @@ async fn await_release(
 }
 
 impl PaintRegion {
+    fn intersects(&self, pos: &Point) -> bool {
+        let mut p = *pos;
+        for [x, y] in &mut p {
+            *x = x.clamp(self.x1, self.x2);
+            *y = y.clamp(self.y1, self.y2);
+        }
+        if p[0] == p[1] && p[2] == p[3] {
+            return false;
+        }
+        if p[0] == p[2] && p[1] == p[3] {
+            return false;
+        }
+        true
+    }
+
+    fn union(&self, other: &Self) -> Self {
+        Self {
+            x1: self.x1.min(other.x1),
+            y1: self.y1.min(other.y1),
+            x2: self.x2.max(other.x2),
+            y2: self.y2.max(other.y2),
+        }
+    }
+
     fn constrain(&self, pos: &mut Point, tex_pos: Option<&mut Point>) -> bool {
         zone!("constrain");
         let mut npos = *pos;
