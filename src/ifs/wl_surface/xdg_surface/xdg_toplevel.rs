@@ -376,6 +376,13 @@ impl XdgToplevel {
 
     fn map_tiled(self: &Rc<Self>) {
         self.state.map_tiled(self.clone());
+        let fullscreen = self.states.borrow().contains(&STATE_FULLSCREEN);
+        if fullscreen {
+            if let Some(ws) = self.xdg.workspace.get() {
+                self.toplevel_data
+                    .set_fullscreen2(&self.state, self.clone(), &ws);
+            }
+        }
     }
 
     pub fn prepare_toplevel_drag(&self) {
