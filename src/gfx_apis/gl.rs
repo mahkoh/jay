@@ -84,7 +84,7 @@ use {
                 GL_TRIANGLE_STRIP, GL_TRIANGLES,
             },
         },
-        theme::Color,
+        theme::{Color, TransferFunction},
         utils::{errorfmt::ErrorFmt, rc_eq::rc_eq, vecstorage::VecStorage},
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -305,10 +305,11 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
 }
 
 fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
+    let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
     let gles = ctx.ctx.dpy.gles;
     unsafe {
         (gles.glUseProgram)(ctx.fill_prog.prog);
-        (gles.glUniform4f)(ctx.fill_prog_color, color.r, color.g, color.b, color.a);
+        (gles.glUniform4f)(ctx.fill_prog_color, r, g, b, a);
         (gles.glVertexAttribPointer)(
             ctx.fill_prog_pos as _,
             2,

@@ -2,6 +2,7 @@ use {
     crate::{
         async_engine::AsyncEngine,
         fixed::Fixed,
+        gfx_api::GfxApiOpt,
         ifs::wl_output::WlOutputGlobal,
         rect::{Rect, Region},
         renderer::renderer_base::RendererBase,
@@ -93,7 +94,7 @@ impl DamageVisualizer {
             entry_added: Default::default(),
             enabled: Default::default(),
             decay: Cell::new(Duration::from_secs(2)),
-            color: Cell::new(Color::from_rgba_straight(255, 0, 0, 128)),
+            color: Cell::new(Color::from_srgba_straight(255, 0, 0, 128)),
         }
     }
 
@@ -160,6 +161,7 @@ impl DamageVisualizer {
         let dx = -cursor_rect.x1();
         let dy = -cursor_rect.y1();
         let decay_millis = decay.as_millis() as u64 as f32;
+        renderer.ops.push(GfxApiOpt::Sync);
         for entry in entries.iter().rev() {
             let region = Region::new(entry.rect);
             let region = region.subtract(&used);

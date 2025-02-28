@@ -18,7 +18,7 @@ use {
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
         },
         rect::Region,
-        theme::Color,
+        theme::{Color, TransferFunction},
     },
     std::{
         cell::Cell,
@@ -78,7 +78,8 @@ impl Framebuffer {
                 (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
                 (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
                 if let Some(c) = clear {
-                    (gles.glClearColor)(c.r, c.g, c.b, c.a);
+                    let [r, g, b, a] = c.to_array(TransferFunction::Srgb);
+                    (gles.glClearColor)(r, g, b, a);
                     (gles.glClear)(GL_COLOR_BUFFER_BIT);
                 }
                 (gles.glBlendFunc)(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

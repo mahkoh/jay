@@ -1,6 +1,7 @@
 mod allocator;
 mod blend_buffer;
 mod bo_allocator;
+mod buffer_cache;
 mod command;
 mod descriptor;
 mod descriptor_buffer;
@@ -17,6 +18,7 @@ mod shaders;
 mod shm_image;
 mod staging;
 mod transfer;
+mod transfer_functions;
 
 use {
     crate::{

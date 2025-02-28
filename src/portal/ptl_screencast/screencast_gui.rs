@@ -87,22 +87,22 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>, for_restore: bool) -> Rc
         &window_button,
         &reject_button,
     ] {
-        button.border_color.set(Color::from_gray(100));
+        button.border_color.set(Color::from_gray_srgb(100));
         button.border.set(2.0);
         button.padding.set(5.0);
     }
-    restore_button.bg_color.set(Color::from_rgb(170, 170, 200));
+    restore_button.bg_color.set(Color::from_srgb(170, 170, 200));
     restore_button
         .bg_hover_color
-        .set(Color::from_rgb(170, 170, 255));
+        .set(Color::from_srgb(170, 170, 255));
     for button in [&accept_button, &workspace_button, &window_button] {
-        button.bg_color.set(Color::from_rgb(170, 200, 170));
-        button.bg_hover_color.set(Color::from_rgb(170, 255, 170));
+        button.bg_color.set(Color::from_srgb(170, 200, 170));
+        button.bg_hover_color.set(Color::from_srgb(170, 255, 170));
     }
-    reject_button.bg_color.set(Color::from_rgb(200, 170, 170));
+    reject_button.bg_color.set(Color::from_srgb(200, 170, 170));
     reject_button
         .bg_hover_color
-        .set(Color::from_rgb(255, 170, 170));
+        .set(Color::from_srgb(255, 170, 170));
     let flow = Rc::new(Flow::default());
     flow.orientation.set(Orientation::Vertical);
     flow.cross_align.set(Align::Center);

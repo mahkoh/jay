@@ -77,6 +77,9 @@ impl VulkanShmImage {
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
         tt: TransferType,
     ) -> Result<Option<PendingShmTransfer>, VulkanError> {
+        if damage.is_empty() {
+            return Ok(None);
+        }
         let data = self.async_data.as_ref().unwrap();
         let res = self.try_async_transfer(img, staging, data, client_mem, damage, tt);
         match res {

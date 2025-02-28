@@ -25,7 +25,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let win1 = client.create_window().await?;
     win1.map2().await?;
 
-    let buffer = client.spbm.create_buffer(Color::from_rgb(255, 0, 0))?;
+    let buffer = client.spbm.create_buffer(Color::from_srgb(255, 0, 0))?;
     let surface = client.comp.create_surface().await?;
     let vp = client.viewporter.get_viewport(&surface)?;
     vp.set_destination(100, 100)?;

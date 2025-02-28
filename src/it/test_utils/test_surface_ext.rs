@@ -39,6 +39,6 @@ impl TestSurfaceExt {
     }
 
     pub fn set_color(&self, r: u8, g: u8, b: u8, a: u8) {
-        self.color.set(Color::from_rgba_straight(r, g, b, a));
+        self.color.set(Color::from_srgba_straight(r, g, b, a));
     }
 }

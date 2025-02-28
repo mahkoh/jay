@@ -139,9 +139,9 @@ impl Default for Button {
             hover: Default::default(),
             padding: Default::default(),
             border: Default::default(),
-            border_color: Cell::new(Color::from_gray(0)),
-            bg_color: Cell::new(Color::from_gray(255)),
-            bg_hover_color: Cell::new(Color::from_gray(255)),
+            border_color: Cell::new(Color::from_gray_srgb(0)),
+            bg_color: Cell::new(Color::from_gray_srgb(255)),
+            bg_hover_color: Cell::new(Color::from_gray_srgb(255)),
             text: Default::default(),
             font: Arc::new(DEFAULT_FONT.to_string()),
             tex: Default::default(),
@@ -172,7 +172,7 @@ impl GuiElement for Button {
             None,
             &self.font,
             &text,
-            Color::from_gray(0),
+            Color::from_gray_srgb(0),
             Some(scale as _),
             true,
         );
@@ -296,7 +296,7 @@ impl GuiElement for Label {
             None,
             &self.font,
             &text,
-            Color::from_gray(255),
+            Color::from_gray_srgb(255),
             Some(scale as _),
             false,
         );
@@ -635,7 +635,7 @@ impl WindowData {
             AcquireSync::Implicit,
             ReleaseSync::Implicit,
             self.scale.get(),
-            Some(&Color::from_gray(0)),
+            Some(&Color::from_gray_srgb(0)),
             None,
             &mut |r| {
                 if let Some(content) = self.content.get() {

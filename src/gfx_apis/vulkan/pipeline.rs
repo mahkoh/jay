@@ -39,7 +39,8 @@ pub(super) struct PipelineCreateInfo {
     pub(super) blend: bool,
     pub(super) src_has_alpha: bool,
     pub(super) has_alpha_mult: bool,
-    pub(super) with_linear_output: bool,
+    pub(super) eotf: u32,
+    pub(super) oetf: u32,
     pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
 }
 
@@ -48,13 +49,13 @@ impl VulkanDevice {
         &self,
         info: PipelineCreateInfo,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
-        self.create_pipeline_(info, size_of::<P>() as _)
+        self.create_pipeline2(info, size_of::<P>())
     }
 
-    fn create_pipeline_(
+    pub(super) fn create_pipeline2(
         &self,
         info: PipelineCreateInfo,
-        push_size: u32,
+        push_size: usize,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let pipeline_layout = {
             let mut push_constant_ranges = ArrayVec::<_, 1>::new();
@@ -63,7 +64,7 @@ impl VulkanDevice {
                     PushConstantRange::default()
                         .stage_flags(ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT)
                         .offset(0)
-                        .size(push_size),
+                        .size(push_size as u32),
                 );
             }
             let mut descriptor_set_layouts = ArrayVec::<_, 1>::new();
@@ -77,8 +78,8 @@ impl VulkanDevice {
         };
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
-        let mut frag_spec_data = ArrayVec::<_, { 3 * 4 }>::new();
-        let mut frag_spec_entries = ArrayVec::<_, 3>::new();
+        let mut frag_spec_data = ArrayVec::<_, { 4 * 4 }>::new();
+        let mut frag_spec_entries = ArrayVec::<_, 4>::new();
         let mut frag_spec_entry = |data: &[u8]| {
             let entry = SpecializationMapEntry::default()
                 .constant_id(frag_spec_entries.len() as _)
@@ -89,7 +90,8 @@ impl VulkanDevice {
         };
         frag_spec_entry(&(info.src_has_alpha as u32).to_ne_bytes());
         frag_spec_entry(&(info.has_alpha_mult as u32).to_ne_bytes());
-        frag_spec_entry(&(info.with_linear_output as u32).to_ne_bytes());
+        frag_spec_entry(&info.eotf.to_ne_bytes());
+        frag_spec_entry(&info.oetf.to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);

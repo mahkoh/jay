@@ -14,7 +14,7 @@ use {
         output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
-        theme::{Color, ThemeSized},
+        theme::{Color, ThemeSized, TransferFunction},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
             TearingMode, VrrMode, WsMoveConfig, move_ws_to_output,
@@ -1599,8 +1599,8 @@ impl ConfigProxyHandler {
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
         let color = self.get_color(colorable)?.get();
-        let color =
-            jay_config::theme::Color::new_f32_premultiplied(color.r, color.g, color.b, color.a);
+        let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+        let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
         Ok(())
     }

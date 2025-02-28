@@ -15,16 +15,22 @@ pub fn main() -> anyhow::Result<()> {
     compile_simple("tex.frag")?;
     compile_simple("out.vert")?;
     compile_simple("out.frag")?;
+    compile_simple("legacy/fill.frag")?;
+    compile_simple("legacy/fill.vert")?;
+    compile_simple("legacy/tex.vert")?;
+    compile_simple("legacy/tex.frag")?;
     Ok(())
 }
 
 fn compile_simple(name: &str) -> anyhow::Result<()> {
-    compile_shader(name, &format!("{name}.spv"), None).with_context(|| name.to_string())
+    let out = format!("{name}.spv").replace("/", "_");
+    compile_shader(name, &out).with_context(|| name.to_string())
 }
 
-fn compile_shader(name: &str, out: &str, options: Option<CompileOptions>) -> anyhow::Result<()> {
-    let read = |path: &str| std::fs::read_to_string(format!("{}/{}", ROOT, path));
-    let mut options = options.unwrap_or_else(|| CompileOptions::new().unwrap());
+fn compile_shader(name: &str, out: &str) -> anyhow::Result<()> {
+    let root = Path::new(ROOT).join(Path::new(name).parent().unwrap());
+    let read = |path: &str| std::fs::read_to_string(root.join(path));
+    let mut options = CompileOptions::new().unwrap();
     options.set_include_callback(|name, _, _, _| {
         Ok(ResolvedInclude {
             resolved_name: name.to_string(),
@@ -40,7 +46,7 @@ fn compile_shader(name: &str, out: &str, options: Option<CompileOptions>) -> any
         "vert" => shaderc::ShaderKind::Vertex,
         n => bail!("Unknown shader stage {}", n),
     };
-    let src = read(name)?;
+    let src = std::fs::read_to_string(format!("{}/{}", ROOT, name))?;
     let compiler = shaderc::Compiler::new().unwrap();
     let binary = compiler
         .compile_into_spirv(&src, stage, name, "main", Some(&options))
