@@ -128,6 +128,9 @@ impl PlaceholderNode {
                 log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
             }
         }
+        if self.node_visible() {
+            self.state.damage(self.node_absolute_position());
+        }
     }
 }
 
