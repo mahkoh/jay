@@ -44,11 +44,9 @@ pub struct LinearColorDescription {
 #[derive(Debug)]
 pub struct ColorDescription {
     pub id: ColorDescriptionId,
-    #[expect(dead_code)]
     pub linear: Rc<LinearColorDescription>,
     #[expect(dead_code)]
     pub named_primaries: Option<NamedPrimaries>,
-    #[expect(dead_code)]
     pub transfer_function: TransferFunction,
     pub(super) shared: Rc<Shared>,
 }

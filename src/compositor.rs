@@ -153,6 +153,7 @@ fn start_compositor2(
     let scales = RefCounted::default();
     scales.add(Scale::from_int(1));
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
+    let color_manager = ColorManager::new();
     let state = Rc::new(State {
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -267,7 +268,7 @@ fn start_compositor2(
         tablet_ids: Default::default(),
         tablet_tool_ids: Default::default(),
         tablet_pad_ids: Default::default(),
-        damage_visualizer: DamageVisualizer::new(&engine),
+        damage_visualizer: DamageVisualizer::new(&engine, &color_manager),
         default_vrr_mode: Cell::new(VrrMode::NEVER),
         default_vrr_cursor_hz: Cell::new(None),
         default_tearing_mode: Cell::new(TearingMode::VARIANT_3),
@@ -285,7 +286,7 @@ fn start_compositor2(
         data_control_device_ids: Default::default(),
         workspace_managers: Default::default(),
         color_management_enabled: Cell::new(false),
-        color_manager: ColorManager::new(),
+        color_manager,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

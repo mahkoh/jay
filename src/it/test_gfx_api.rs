@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
+        cmm::cmm_description::{ColorDescription, LinearColorDescription},
         cpu_worker::CpuWorker,
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
@@ -391,10 +392,13 @@ impl GfxFramebuffer for TestGfxFb {
         self: Rc<Self>,
         _acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
+        _cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        _clear_cd: &Rc<LinearColorDescription>,
         _region: &Region,
         _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        _blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {
             let points = rect.to_points();

@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::AsyncEngine,
+        cmm::cmm_manager::ColorManager,
         fixed::Fixed,
         gfx_api::GfxApiOpt,
         ifs::wl_output::WlOutputGlobal,
@@ -77,6 +78,7 @@ pub struct DamageVisualizer {
     enabled: Cell<bool>,
     decay: Cell<Duration>,
     color: Cell<Color>,
+    color_manager: Rc<ColorManager>,
 }
 
 const MAX_RECTS: usize = 100_000;
@@ -87,7 +89,7 @@ struct Damage {
 }
 
 impl DamageVisualizer {
-    pub fn new(eng: &Rc<AsyncEngine>) -> Self {
+    pub fn new(eng: &Rc<AsyncEngine>, color_manager: &Rc<ColorManager>) -> Self {
         Self {
             eng: eng.clone(),
             entries: Default::default(),
@@ -95,6 +97,7 @@ impl DamageVisualizer {
             enabled: Default::default(),
             decay: Cell::new(Duration::from_secs(2)),
             color: Cell::new(Color::from_srgba_straight(255, 0, 0, 128)),
+            color_manager: color_manager.clone(),
         }
     }
 
@@ -162,13 +165,14 @@ impl DamageVisualizer {
         let dy = -cursor_rect.y1();
         let decay_millis = decay.as_millis() as u64 as f32;
         renderer.ops.push(GfxApiOpt::Sync);
+        let srgb = &self.color_manager.srgb_srgb().linear;
         for entry in entries.iter().rev() {
             let region = Region::new(entry.rect);
             let region = region.subtract(&used);
             if region.is_not_empty() {
                 let age = (now - entry.time).as_millis() as u64 as f32 / decay_millis;
                 let color = base_color * (1.0 - age);
-                renderer.fill_boxes2(region.rects(), &color, dx, dy);
+                renderer.fill_boxes2(region.rects(), &color, srgb, dx, dy);
                 used = used.union(&region);
             }
         }

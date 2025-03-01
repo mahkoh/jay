@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_description::{ColorDescription, LinearColorDescription},
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
@@ -552,10 +553,13 @@ impl GfxFramebuffer for VulkanImage {
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        _cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        _clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        _blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut blend_buffer =
             blend_buffer.map(|b| b.clone().into_vk(&self.renderer.device.device));

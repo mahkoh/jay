@@ -92,12 +92,10 @@ impl ColorManager {
         })
     }
 
-    #[expect(dead_code)]
     pub fn srgb_srgb(&self) -> &Rc<ColorDescription> {
         &self.srgb_srgb
     }
 
-    #[expect(dead_code)]
     pub fn srgb_linear(&self) -> &Rc<ColorDescription> {
         &self.srgb_linear
     }

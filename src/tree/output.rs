@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{HardwareCursor, KeyState, Mode},
         client::ClientId,
+        cmm::cmm_description::ColorDescription,
         cursor::KnownCursor,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
@@ -252,6 +253,7 @@ impl OutputNode {
     pub fn perform_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
+        cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
@@ -267,6 +269,7 @@ impl OutputNode {
         }
         self.perform_wlr_screencopies(
             tex,
+            cd,
             resv,
             acquire_sync,
             release_sync,
@@ -279,6 +282,7 @@ impl OutputNode {
             sc.copy_texture(
                 self,
                 tex,
+                cd,
                 resv,
                 acquire_sync,
                 release_sync,
@@ -292,6 +296,7 @@ impl OutputNode {
             sc.copy_texture(
                 self,
                 tex,
+                cd,
                 resv,
                 acquire_sync,
                 release_sync,
@@ -306,6 +311,7 @@ impl OutputNode {
     pub fn perform_wlr_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
+        cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
@@ -337,6 +343,7 @@ impl OutputNode {
                     WlBufferStorage::Shm { mem, stride } => {
                         let res = self.state.perform_shm_screencopy(
                             tex,
+                            cd,
                             acquire_sync,
                             self.global.pos.get(),
                             x_off,
@@ -375,10 +382,12 @@ impl OutputNode {
                             resv,
                             acquire_sync,
                             release_sync,
+                            cd,
                             &fb,
                             AcquireSync::Implicit,
                             ReleaseSync::Implicit,
                             self.global.persistent.transform.get(),
+                            self.state.color_manager.srgb_srgb(),
                             self.global.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),

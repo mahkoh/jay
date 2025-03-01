@@ -1,6 +1,5 @@
 use {
     crate::{
-        cmm::cmm_transfer_function::TransferFunction,
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
@@ -78,6 +77,8 @@ impl Renderer<'_> {
         }
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let srgb_srgb = self.state.color_manager.srgb_srgb();
+        let srgb = &srgb_srgb.linear;
         if let Some(fs) = fullscreen {
             fs.tl_as_node().node_render(self, x, y, None);
         } else {
@@ -90,26 +91,28 @@ impl Renderer<'_> {
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let c = theme.colors.bar_background.get();
                 self.base
-                    .fill_boxes3(slice::from_ref(&bar_bg), &c, None, x, y, true);
+                    .fill_boxes3(slice::from_ref(&bar_bg), &c, None, srgb, x, y, true);
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
                     let c = match aw.captured {
                         true => theme.colors.captured_focused_title_background.get(),
                         false => theme.colors.focused_title_background.get(),
                     };
-                    self.base.fill_boxes2(slice::from_ref(&aw.rect), &c, x, y);
+                    self.base
+                        .fill_boxes2(slice::from_ref(&aw.rect), &c, srgb, x, y);
                 }
                 let c = theme.colors.separator.get();
                 self.base
-                    .fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
+                    .fill_boxes2(slice::from_ref(&rd.underline), &c, srgb, x, y);
                 let c = theme.colors.unfocused_title_background.get();
-                self.base.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
+                self.base
+                    .fill_boxes2(&rd.inactive_workspaces, &c, srgb, x, y);
                 let c = theme.colors.captured_unfocused_title_background.get();
                 self.base
-                    .fill_boxes2(&rd.captured_inactive_workspaces, &c, x, y);
+                    .fill_boxes2(&rd.captured_inactive_workspaces, &c, srgb, x, y);
                 let c = theme.colors.attention_requested_background.get();
                 self.base
-                    .fill_boxes2(&rd.attention_requested_workspaces, &c, x, y);
+                    .fill_boxes2(&rd.attention_requested_workspaces, &c, srgb, x, y);
                 let scale = output.global.persistent.scale.get();
                 for title in &rd.titles {
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -126,6 +129,7 @@ impl Renderer<'_> {
                         AcquireSync::None,
                         ReleaseSync::None,
                         false,
+                        self.state.color_manager.srgb_srgb(),
                     );
                 }
                 if let Some(status) = &rd.status {
@@ -144,6 +148,7 @@ impl Renderer<'_> {
                             AcquireSync::None,
                             ReleaseSync::None,
                             false,
+                            srgb_srgb,
                         );
                     }
                 }
@@ -182,7 +187,7 @@ impl Renderer<'_> {
             if ws.render_highlight.get() > 0 {
                 let color = self.state.theme.colors.highlight.get();
                 let bounds = ws.position.get().at_point(x, y + th + 1);
-                self.base.fill_boxes(&[bounds], &color);
+                self.base.fill_boxes(&[bounds], &color, srgb);
             }
         }
     }
@@ -204,6 +209,7 @@ impl Renderer<'_> {
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
+            &self.state.color_manager.srgb_srgb().linear,
         );
         if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale) {
             if let Some(texture) = tex.texture() {
@@ -223,6 +229,7 @@ impl Renderer<'_> {
                     AcquireSync::None,
                     ReleaseSync::None,
                     false,
+                    self.state.color_manager.srgb_srgb(),
                 );
             }
         }
@@ -231,17 +238,21 @@ impl Renderer<'_> {
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
         {
+            let srgb_srgb = self.state.color_manager.srgb_srgb();
+            let srgb = &srgb_srgb.linear;
             let rd = container.render_data.borrow_mut();
             let c = self.state.theme.colors.unfocused_title_background.get();
-            self.base.fill_boxes2(&rd.title_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.title_rects, &c, srgb, x, y);
             let c = self.state.theme.colors.focused_title_background.get();
-            self.base.fill_boxes2(&rd.active_title_rects, &c, x, y);
+            self.base
+                .fill_boxes2(&rd.active_title_rects, &c, srgb, x, y);
             let c = self.state.theme.colors.attention_requested_background.get();
-            self.base.fill_boxes2(&rd.attention_title_rects, &c, x, y);
+            self.base
+                .fill_boxes2(&rd.attention_title_rects, &c, srgb, x, y);
             let c = self.state.theme.colors.separator.get();
-            self.base.fill_boxes2(&rd.underline_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.underline_rects, &c, srgb, x, y);
             let c = self.state.theme.colors.border.get();
-            self.base.fill_boxes2(&rd.border_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.border_rects, &c, srgb, x, y);
             if let Some(lar) = &rd.last_active_rect {
                 let c = self
                     .state
@@ -249,7 +260,8 @@ impl Renderer<'_> {
                     .colors
                     .focused_inactive_title_background
                     .get();
-                self.base.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
+                self.base
+                    .fill_boxes2(std::slice::from_ref(lar), &c, srgb, x, y);
             }
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
@@ -269,6 +281,7 @@ impl Renderer<'_> {
                         AcquireSync::None,
                         ReleaseSync::None,
                         false,
+                        srgb_srgb,
                     );
                 }
             }
@@ -341,14 +354,22 @@ impl Renderer<'_> {
         };
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
-        self.base
-            .fill_scaled_boxes(slice::from_ref(bounds), &color, None);
+        self.base.fill_scaled_boxes(
+            slice::from_ref(bounds),
+            &color,
+            None,
+            &self.state.color_manager.srgb_srgb().linear,
+        );
     }
 
     pub fn render_highlight(&mut self, rect: &Rect) {
         let color = self.state.theme.colors.highlight.get();
         self.base.ops.push(GfxApiOpt::Sync);
-        self.base.fill_boxes(slice::from_ref(rect), &color);
+        self.base.fill_boxes(
+            slice::from_ref(rect),
+            &color,
+            &self.state.color_manager.srgb_srgb().linear,
+        );
     }
 
     pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32, bounds: Option<&Rect>) {
@@ -423,6 +444,7 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         let alpha = surface.alpha();
+        let cd = self.state.color_manager.srgb_srgb();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
@@ -441,6 +463,7 @@ impl Renderer<'_> {
                 AcquireSync::Unnecessary,
                 buffer.release_sync,
                 opaque,
+                cd,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -450,14 +473,15 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     let color = Color::from_u32_premultiplied(
-                        TransferFunction::Srgb,
+                        cd.transfer_function,
                         color[0],
                         color[1],
                         color[2],
                         color[3],
                     );
                     self.base.ops.push(GfxApiOpt::Sync);
-                    self.base.fill_scaled_boxes(&[rect], &color, alpha);
+                    self.base
+                        .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear);
                 }
             }
         } else {
@@ -489,12 +513,14 @@ impl Renderer<'_> {
             Rect::new_sized(x + pos.width() - bw, y + bw, bw, pos.height() - bw).unwrap(),
             Rect::new_sized(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw).unwrap(),
         ];
-        self.base.fill_boxes(&borders, &bc);
+        let srgb_srgb = self.state.color_manager.srgb_srgb();
+        let srgb = &srgb_srgb.linear;
+        self.base.fill_boxes(&borders, &bc, srgb);
         let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
-        self.base.fill_boxes(&title, &tc);
+        self.base.fill_boxes(&title, &tc, srgb);
         let title_underline =
             [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
-        self.base.fill_boxes(&title_underline, &uc);
+        self.base.fill_boxes(&title_underline, &uc, srgb);
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale) {
             if let Some(texture) = title.texture() {
                 let rect = floating.title_rect.get().move_(x, y);
@@ -513,6 +539,7 @@ impl Renderer<'_> {
                     AcquireSync::None,
                     ReleaseSync::None,
                     false,
+                    srgb_srgb,
                 );
             }
         }

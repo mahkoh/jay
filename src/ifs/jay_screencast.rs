@@ -2,6 +2,7 @@ use {
     crate::{
         allocator::{AllocatorError, BO_USE_LINEAR, BO_USE_RENDERING, BufferObject},
         client::{Client, ClientError},
+        cmm::cmm_description::ColorDescription,
         format::XRGB8888,
         gfx_api::{
             AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
@@ -193,6 +194,7 @@ impl JayScreencast {
                 let res = buffer.fb.render_node(
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
+                    self.client.state.color_manager.srgb_srgb(),
                     tl.tl_as_node(),
                     &self.client.state,
                     Some(tl.node_absolute_position()),
@@ -203,6 +205,7 @@ impl JayScreencast {
                     false,
                     Transform::None,
                     None,
+                    self.client.state.color_manager.srgb_linear(),
                 );
                 match res {
                     Ok(_) => {
@@ -304,6 +307,7 @@ impl JayScreencast {
         &self,
         on: &OutputNode,
         texture: &Rc<dyn GfxTexture>,
+        cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
@@ -332,10 +336,12 @@ impl JayScreencast {
                     resv,
                     acquire_sync,
                     release_sync,
+                    cd,
                     &buffer.fb,
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
                     Transform::None,
+                    self.client.state.color_manager.srgb_srgb(),
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,

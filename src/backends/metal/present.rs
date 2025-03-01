@@ -451,7 +451,9 @@ impl MetalConnector {
         };
         self.state.present_hardware_cursor(node, &mut c);
         if c.cursor_swap_buffer {
-            c.sync_file = c.cursor_buffer.copy_to_dev(c.sync_file)?;
+            c.sync_file = c
+                .cursor_buffer
+                .copy_to_dev(&self.state.color_manager, c.sync_file)?;
         }
         self.cursor_swap_buffer.set(c.cursor_swap_buffer);
         if c.sync_file.is_some() {
@@ -747,12 +749,14 @@ impl MetalConnector {
                     .perform_render_pass(
                         AcquireSync::Unnecessary,
                         ReleaseSync::Explicit,
+                        self.state.color_manager.srgb_srgb(),
                         &latched.pass,
                         &latched.damage,
                         buffer.blend_buffer.as_ref(),
+                        self.state.color_manager.srgb_linear(),
                     )
                     .map_err(MetalError::RenderFrame)?;
-                sync_file = buffer.copy_to_dev(sf)?;
+                sync_file = buffer.copy_to_dev(&self.state.color_manager, sf)?;
                 fb = buffer.drm.clone();
                 tex = buffer.render_tex.clone();
             }
@@ -792,6 +796,7 @@ impl MetalConnector {
             None => {
                 output.perform_screencopies(
                     &fb.tex,
+                    self.state.color_manager.srgb_srgb(),
                     None,
                     &AcquireSync::Unnecessary,
                     ReleaseSync::None,
@@ -804,6 +809,7 @@ impl MetalConnector {
             Some(dsd) => {
                 output.perform_screencopies(
                     &dsd.tex,
+                    self.state.color_manager.srgb_srgb(),
                     dsd.resv.as_ref(),
                     &dsd.acquire_sync,
                     dsd.release_sync,

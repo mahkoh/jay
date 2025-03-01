@@ -10,6 +10,7 @@ use {
     crate::{
         async_engine::AsyncEngine,
         cli::GlobalArgs,
+        cmm::cmm_manager::ColorManager,
         dbus::{
             BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
             Dbus, DbusSocket,
@@ -207,6 +208,7 @@ async fn run_async(
         render_ctxs: Default::default(),
         dma_buf_ids: Default::default(),
         pw_con: pw_con.as_ref().map(|c| c.con.clone()),
+        color_manager: ColorManager::new(),
     });
     if let Some(pw_con) = &pw_con {
         pw_con.con.owner.set(Some(state.clone()));
@@ -302,6 +304,7 @@ struct PortalState {
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
     dma_buf_ids: Rc<DmaBufIds>,
     pw_con: Option<Rc<PwCon>>,
+    color_manager: Rc<ColorManager>,
 }
 
 impl PortalState {

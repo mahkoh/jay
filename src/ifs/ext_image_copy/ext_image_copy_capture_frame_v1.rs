@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, BufferResv, GfxError, GfxFramebuffer,
             GfxTexture, ReleaseSync, STAGING_DOWNLOAD, SyncFile,
@@ -199,6 +200,7 @@ impl ExtImageCopyCaptureFrameV1 {
         self: &Rc<Self>,
         on: &OutputNode,
         texture: &Rc<dyn GfxTexture>,
+        cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
@@ -215,10 +217,12 @@ impl ExtImageCopyCaptureFrameV1 {
                 resv,
                 acquire_sync,
                 release_sync,
+                cd,
                 &fb,
                 aq,
                 re,
                 jay_config::video::Transform::None,
+                self.client.state.color_manager.srgb_srgb(),
                 on.global.pos.get(),
                 render_hardware_cursors,
                 x_off,
@@ -236,6 +240,7 @@ impl ExtImageCopyCaptureFrameV1 {
             fb.render_node(
                 aq,
                 re,
+                self.client.state.color_manager.srgb_srgb(),
                 node,
                 &self.client.state,
                 Some(node.node_absolute_position()),
@@ -246,6 +251,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 false,
                 jay_config::video::Transform::None,
                 None,
+                self.client.state.color_manager.srgb_linear(),
             )
         });
     }
