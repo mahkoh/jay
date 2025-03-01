@@ -1,5 +1,8 @@
+#![expect(clippy::excessive_precision)]
+
 use {
     crate::{cmm::cmm_transfer_function::TransferFunction, utils::clonecell::CloneCell},
+    num_traits::Float,
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
 
@@ -77,6 +80,51 @@ impl Color {
         fn linear(c: f32) -> f32 {
             c
         }
+        fn st2084_pq(c: f32) -> f32 {
+            let cp = c.powf(1.0 / 78.84375);
+            let num = (cp - 0.8359375).max(0.0);
+            let den = 18.8515625 - 18.6875 * cp;
+            (num / den).powf(1.0 / 0.1593017578125)
+        }
+        fn ext_srgb(c: f32) -> f32 {
+            let c = c.clamp(-0.6038, 7.5913);
+            if c <= -0.0031308 {
+                -1.055 * (-c).powf(1.0 / 2.4) + 0.055
+            } else if c <= 0.0031308 {
+                c * 12.92
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            }
+        }
+        fn bt1886(c: f32) -> f32 {
+            if c < 0.081 {
+                c / 4.5
+            } else {
+                ((c + 0.099) / 1.099).powf(1.0 / 0.45)
+            }
+        }
+        fn st240(c: f32) -> f32 {
+            if c < 0.0913 {
+                c / 4.0
+            } else {
+                ((c + 0.1115) / 1.1115).powf(1.0 / 0.45)
+            }
+        }
+        fn log100(c: f32) -> f32 {
+            10.0.powf(2.0 * (c - 1.0))
+        }
+        fn log316(c: f32) -> f32 {
+            10.0.powf(2.5 * (c - 1.0))
+        }
+        fn st428(c: f32) -> f32 {
+            c.powf(2.6) * 52.37 / 48.0
+        }
+        fn gamma22(c: f32) -> f32 {
+            c.powf(2.2)
+        }
+        fn gamma28(c: f32) -> f32 {
+            c.powf(2.8)
+        }
         macro_rules! convert {
             ($tf:ident) => {{
                 r = $tf(r);
@@ -87,6 +135,15 @@ impl Color {
         match transfer_function {
             TransferFunction::Srgb => convert!(srgb),
             TransferFunction::Linear => convert!(linear),
+            TransferFunction::St2084Pq => convert!(st2084_pq),
+            TransferFunction::Bt1886 => convert!(bt1886),
+            TransferFunction::Gamma22 => convert!(gamma22),
+            TransferFunction::Gamma28 => convert!(gamma28),
+            TransferFunction::St240 => convert!(st240),
+            TransferFunction::ExtSrgb => convert!(ext_srgb),
+            TransferFunction::Log100 => convert!(log100),
+            TransferFunction::Log316 => convert!(log316),
+            TransferFunction::St428 => convert!(st428),
         }
         Self { r, g, b, a: 1.0 }
     }
@@ -185,6 +242,56 @@ impl Color {
         fn linear(c: f32) -> f32 {
             c
         }
+        fn st2084_pq(c: f32) -> f32 {
+            let c = c.clamp(0.0, 1.0);
+            let num = 0.8359375 + 18.8515625 * c.powf(0.1593017578125);
+            let den = 1.0 + 18.6875 * c.powf(0.1593017578125);
+            (num / den).powf(78.84375)
+        }
+        fn ext_srgb(c: f32) -> f32 {
+            if c < -0.04045 {
+                -((c - 0.055) / -1.055).powf(2.4)
+            } else if c < 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        fn bt1886(c: f32) -> f32 {
+            if c < 0.018 {
+                4.5 * c
+            } else {
+                1.099 * c.powf(0.45) - 0.099
+            }
+        }
+        fn st240(c: f32) -> f32 {
+            if c < 0.0228 {
+                4.0 * c
+            } else {
+                1.1115 * c.powf(0.45) - 0.1115
+            }
+        }
+        fn log100(c: f32) -> f32 {
+            let c = c.clamp(0.0, 1.0);
+            if c < 0.01 { 0.0 } else { 1.0 + c.log10() / 2.0 }
+        }
+        fn log316(c: f32) -> f32 {
+            let c = c.clamp(0.0, 1.0);
+            if c < 10.0.sqrt() / 1000.0 {
+                0.0
+            } else {
+                1.0 + c.log10() / 2.5
+            }
+        }
+        fn st428(c: f32) -> f32 {
+            (48.0 * c / 52.37).powf(1.0 / 2.6)
+        }
+        fn gamma22(c: f32) -> f32 {
+            c.powf(1.0 / 2.2)
+        }
+        fn gamma28(c: f32) -> f32 {
+            c.powf(1.0 / 2.8)
+        }
         macro_rules! convert {
             ($tf:ident) => {{
                 for c in &mut res[..3] {
@@ -201,6 +308,15 @@ impl Color {
             match transfer_function {
                 TransferFunction::Srgb => convert!(srgb),
                 TransferFunction::Linear => convert!(linear),
+                TransferFunction::St2084Pq => convert!(st2084_pq),
+                TransferFunction::Bt1886 => convert!(bt1886),
+                TransferFunction::Gamma22 => convert!(gamma22),
+                TransferFunction::Gamma28 => convert!(gamma28),
+                TransferFunction::St240 => convert!(st240),
+                TransferFunction::ExtSrgb => convert!(ext_srgb),
+                TransferFunction::Log100 => convert!(log100),
+                TransferFunction::Log316 => convert!(log316),
+                TransferFunction::St428 => convert!(st428),
             }
             if self.a < 1.0 {
                 for c in &mut res[..3] {
