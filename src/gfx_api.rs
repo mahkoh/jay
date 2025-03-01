@@ -219,7 +219,6 @@ pub struct CopyTexture {
     pub release_sync: ReleaseSync,
     pub alpha: Option<f32>,
     pub opaque: bool,
-    #[expect(dead_code)]
     pub cd: Rc<ColorDescription>,
 }
 
