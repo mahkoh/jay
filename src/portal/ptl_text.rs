@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         format::ARGB8888,
         gfx_api::{GfxContext, GfxTexture},
         pango::{
@@ -7,7 +8,7 @@ use {
             consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE},
         },
         rect::Rect,
-        theme::{Color, TransferFunction},
+        theme::Color,
     },
     std::{ops::Neg, rc::Rc, sync::Arc},
 };

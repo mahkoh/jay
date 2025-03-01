@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        cmm::cmm_transfer_function::TransferFunction,
         cpu_worker::PendingJob,
         format::XRGB8888,
         gfx_api::{
@@ -30,7 +31,7 @@ use {
         },
         io_uring::IoUring,
         rect::{Rect, Region},
-        theme::{Color, TransferFunction},
+        theme::Color,
         utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
     },

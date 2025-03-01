@@ -35,7 +35,8 @@
     clippy::manual_is_ascii_check,
     clippy::needless_borrow,
     clippy::unnecessary_cast,
-    clippy::manual_flatten
+    clippy::manual_flatten,
+    clippy::manual_bits
 )]
 #![warn(clippy::allow_attributes, unsafe_op_in_unsafe_fn)]
 
@@ -54,6 +55,7 @@ mod bugs;
 mod cli;
 mod client;
 mod clientmem;
+mod cmm;
 mod compositor;
 mod config;
 mod cpu_worker;

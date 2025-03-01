@@ -185,10 +185,10 @@ macro_rules! shared_ids {
 }
 
 macro_rules! linear_ids {
-    ($ids:ident, $id:ident) => {
+    ($ids:ident, $id:ident $(,)?) => {
         linear_ids!($ids, $id, u32);
     };
-    ($ids:ident, $id:ident, $ty:ty) => {
+    ($ids:ident, $id:ident, $ty:ty $(,)?) => {
         pub struct $ids {
             next: crate::utils::numcell::NumCell<$ty>,
         }

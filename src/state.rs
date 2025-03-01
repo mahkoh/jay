@@ -11,6 +11,7 @@ use {
         cli::RunArgs,
         client::{Client, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
+        cmm::cmm_manager::ColorManager,
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         cpu_worker::CpuWorker,
@@ -234,6 +235,8 @@ pub struct State {
     pub data_control_device_ids: DataControlDeviceIds,
     pub workspace_managers: WorkspaceManagerState,
     pub color_management_enabled: Cell<bool>,
+    #[expect(dead_code)]
+    pub color_manager: Rc<ColorManager>,
 }
 
 // impl Drop for State {

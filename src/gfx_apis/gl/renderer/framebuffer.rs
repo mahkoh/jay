@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxBlendBuffer, GfxError,
@@ -18,7 +19,7 @@ use {
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
         },
         rect::Region,
-        theme::{Color, TransferFunction},
+        theme::Color,
     },
     std::{
         cell::Cell,

@@ -1,10 +1,11 @@
 use {
     crate::{
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
+        cmm::cmm_transfer_function::TransferFunction,
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
-        theme::{Color, TransferFunction},
+        theme::Color,
         wire::{
             JayCompositorId,
             jay_damage_tracking::{

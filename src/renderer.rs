@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
@@ -11,7 +12,7 @@ use {
         renderer::renderer_base::RendererBase,
         scale::Scale,
         state::State,
-        theme::{Color, TransferFunction},
+        theme::Color,
         tree::{
             ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
             ToplevelNodeBase, WorkspaceNode,

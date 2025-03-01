@@ -5,6 +5,7 @@ use {
             self, ConnectorId, DrmDeviceId, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceId,
         },
+        cmm::cmm_transfer_function::TransferFunction,
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
         format::config_formats,
@@ -14,7 +15,7 @@ use {
         output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
-        theme::{Color, ThemeSized, TransferFunction},
+        theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
             TearingMode, VrrMode, WsMoveConfig, move_ws_to_output,

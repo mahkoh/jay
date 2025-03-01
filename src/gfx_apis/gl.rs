@@ -67,6 +67,7 @@ macro_rules! dynload {
 
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         gfx_api::{
             AcquireSync, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
             ReleaseSync, SyncFile,
@@ -84,7 +85,7 @@ use {
                 GL_TRIANGLE_STRIP, GL_TRIANGLES,
             },
         },
-        theme::{Color, TransferFunction},
+        theme::Color,
         utils::{errorfmt::ErrorFmt, rc_eq::rc_eq, vecstorage::VecStorage},
         video::{
             dmabuf::DMA_BUF_SYNC_READ,

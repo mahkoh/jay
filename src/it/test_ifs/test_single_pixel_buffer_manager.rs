@@ -1,10 +1,11 @@
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         it::{
             test_error::TestResult, test_ifs::test_buffer::TestBuffer, test_object::TestObject,
             test_transport::TestTransport,
         },
-        theme::{Color, TransferFunction},
+        theme::Color,
         wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},

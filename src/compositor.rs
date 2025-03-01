@@ -12,6 +12,7 @@ use {
         cli::{CliBackend, GlobalArgs, RunArgs},
         client::{ClientId, Clients},
         clientmem::{self, ClientMemError},
+        cmm::cmm_manager::ColorManager,
         config::ConfigProxy,
         cpu_worker::{CpuWorker, CpuWorkerError},
         damage::{DamageVisualizer, visualize_damage},
@@ -284,6 +285,7 @@ fn start_compositor2(
         data_control_device_ids: Default::default(),
         workspace_managers: Default::default(),
         color_management_enabled: Cell::new(false),
+        color_manager: ColorManager::new(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

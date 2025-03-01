@@ -1,13 +1,7 @@
 use {
-    crate::utils::clonecell::CloneCell,
+    crate::{cmm::cmm_transfer_function::TransferFunction, utils::clonecell::CloneCell},
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum TransferFunction {
-    Srgb,
-    Linear,
-}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
