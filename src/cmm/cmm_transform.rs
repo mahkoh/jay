@@ -157,7 +157,6 @@ impl<T, U> ColorMatrix<T, U> {
         Self(m, PhantomData)
     }
 
-    #[expect(dead_code)]
     pub const fn to_f32(&self) -> [[f32; 4]; 4] {
         let m = &self.0;
         macro_rules! map {

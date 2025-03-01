@@ -460,8 +460,6 @@ impl VulkanRenderer {
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
             sampled_image_descriptor: self.sampled_image_descriptor(view),
-            descriptor_buffer_version: Cell::new(0),
-            descriptor_buffer_offset: Cell::new(0),
             execution_version: Cell::new(0),
         });
         let shm = match &img.ty {

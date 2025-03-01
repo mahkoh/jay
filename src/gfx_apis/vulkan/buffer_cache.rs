@@ -12,7 +12,8 @@ use {
         DeviceSize,
     },
     gpu_alloc::UsageFlags,
-    std::{cell::RefCell, mem::ManuallyDrop, rc::Rc},
+    std::{cell::RefCell, mem::ManuallyDrop, ops::Deref, rc::Rc},
+    uapi::Packed,
 };
 
 pub struct VulkanBufferCache {
@@ -20,6 +21,7 @@ pub struct VulkanBufferCache {
     allocator: Rc<VulkanAllocator>,
     buffers: RefCell<Vec<VulkanBufferUnused>>,
     usage: BufferUsageFlags,
+    min_alignment: DeviceSize,
 }
 
 pub struct VulkanBuffer {
@@ -40,12 +42,14 @@ impl VulkanBufferCache {
         device: &Rc<VulkanDevice>,
         allocator: &Rc<VulkanAllocator>,
         usage: BufferUsageFlags,
+        min_alignment: DeviceSize,
     ) -> Rc<Self> {
         Rc::new(Self {
             device: device.clone(),
             allocator: allocator.clone(),
             buffers: Default::default(),
             usage,
+            min_alignment,
         })
     }
 
@@ -55,25 +59,27 @@ impl VulkanBufferCache {
         for_sampler: bool,
     ) -> Rc<Self> {
         let mut usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS;
+        let mut min_alignment = 1;
         if for_sampler {
             usage |= BufferUsageFlags::SAMPLER_DESCRIPTOR_BUFFER_EXT;
         } else {
             usage |= BufferUsageFlags::RESOURCE_DESCRIPTOR_BUFFER_EXT;
+            if device.is_anv {
+                // https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/33903
+                min_alignment = 4096;
+            }
         }
-        Self::new(device, allocator, usage)
+        Self::new(device, allocator, usage, min_alignment)
     }
 
     pub fn usage(&self) -> BufferUsageFlags {
         self.usage
     }
 
-    pub fn allocate(
-        self: &Rc<Self>,
-        capacity: DeviceSize,
-        align: DeviceSize,
-    ) -> Result<VulkanBuffer, VulkanError> {
+    pub fn allocate(self: &Rc<Self>, capacity: DeviceSize) -> Result<VulkanBuffer, VulkanError> {
         const MIN_ALLOCATION: DeviceSize = 1024;
-        let capacity = (capacity.max(MIN_ALLOCATION) + align - 1) & !(align - 1);
+        let align_mask = self.min_alignment - 1;
+        let capacity = (capacity.max(MIN_ALLOCATION) + align_mask) & !align_mask;
         let mut smallest = None;
         let mut smallest_size = DeviceSize::MAX;
         let mut fitting = None;
@@ -116,7 +122,7 @@ impl VulkanBufferCache {
         let destroy_buffer = OnDrop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
         let mut memory_requirements =
             unsafe { self.device.device.get_buffer_memory_requirements(buffer) };
-        memory_requirements.alignment = memory_requirements.alignment.max(align);
+        memory_requirements.alignment = memory_requirements.alignment.max(self.min_alignment);
         let allocation = {
             let flags = UsageFlags::UPLOAD
                 | UsageFlags::FAST_DEVICE_ACCESS
@@ -160,5 +166,33 @@ impl Drop for VulkanBufferUnused {
         unsafe {
             self.device.device.destroy_buffer(self.buffer, None);
         }
+    }
+}
+
+#[derive(Default)]
+pub struct GenericBufferWriter {
+    buf: Vec<u8>,
+}
+
+impl GenericBufferWriter {
+    pub fn clear(&mut self) {
+        self.buf.clear();
+    }
+
+    pub fn write(&mut self, offset_mask: DeviceSize, data: &(impl Packed + ?Sized)) -> DeviceSize {
+        let mut offset = self.buf.len() as DeviceSize;
+        let mask = offset_mask | (align_of_val(data) as DeviceSize - 1);
+        offset = (offset + mask) & !mask;
+        self.buf.resize(offset as usize, 0);
+        self.buf.extend_from_slice(uapi::as_bytes(data));
+        offset
+    }
+}
+
+impl Deref for GenericBufferWriter {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.buf
     }
 }

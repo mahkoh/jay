@@ -37,8 +37,9 @@ use {
             PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
             PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceVulkan12Properties, Queue,
-            QueueFlags,
+            PhysicalDeviceTimelineSemaphoreFeatures,
+            PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
+            Queue, QueueFlags,
         },
     },
     isnt::std_1::collections::IsntHashMap2Ext,
@@ -75,6 +76,8 @@ pub struct VulkanDevice {
     pub(super) sampler_descriptor_size: usize,
     pub(super) sampled_image_descriptor_size: usize,
     pub(super) is_anv: bool,
+    pub(super) uniform_buffer_offset_mask: DeviceSize,
+    pub(super) uniform_buffer_descriptor_size: usize,
 }
 
 impl Drop for VulkanDevice {
@@ -308,6 +311,9 @@ impl VulkanInstance {
             PhysicalDeviceDescriptorBufferFeaturesEXT::default().descriptor_buffer(true);
         let mut buffer_device_address_features =
             PhysicalDeviceBufferDeviceAddressFeatures::default().buffer_device_address(true);
+        let mut uniform_buffer_standard_layout_features =
+            PhysicalDeviceUniformBufferStandardLayoutFeatures::default()
+                .uniform_buffer_standard_layout(true);
         let mut queue_create_infos = ArrayVec::<_, 2>::new();
         queue_create_infos.push(
             DeviceQueueCreateInfo::default()
@@ -325,6 +331,7 @@ impl VulkanInstance {
             .push_next(&mut semaphore_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
+            .push_next(&mut uniform_buffer_standard_layout_features)
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&enabled_extensions);
         if supports_descriptor_buffer {
@@ -382,6 +389,14 @@ impl VulkanInstance {
         let mut descriptor_buffer_offset_mask = 0;
         let mut sampler_descriptor_size = 0;
         let mut sampled_image_descriptor_size = 0;
+        let mut uniform_buffer_descriptor_size = 0;
+        let uniform_buffer_offset_mask = physical_device_properties2
+            .properties
+            .limits
+            .min_uniform_buffer_offset_alignment
+            .checked_next_power_of_two()
+            .unwrap()
+            - 1;
         if supports_descriptor_buffer {
             descriptor_buffer_offset_mask = descriptor_buffer_props
                 .descriptor_buffer_offset_alignment
@@ -390,6 +405,7 @@ impl VulkanInstance {
                 - 1;
             sampler_descriptor_size = descriptor_buffer_props.sampler_descriptor_size;
             sampled_image_descriptor_size = descriptor_buffer_props.sampled_image_descriptor_size;
+            uniform_buffer_descriptor_size = descriptor_buffer_props.uniform_buffer_descriptor_size;
         }
         let memory_properties =
             unsafe { self.instance.get_physical_device_memory_properties(phy_dev) };
@@ -432,6 +448,8 @@ impl VulkanInstance {
             blend_limits,
             is_anv: physical_device_vulkan12_properties.driver_id
                 == DriverId::INTEL_OPEN_SOURCE_MESA,
+            uniform_buffer_offset_mask,
+            uniform_buffer_descriptor_size,
         }))
     }
 }
