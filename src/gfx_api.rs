@@ -196,7 +196,6 @@ pub struct FillRect {
     pub rect: FramebufferRect,
     pub color: Color,
     pub alpha: Option<f32>,
-    #[expect(dead_code)]
     pub cd: Rc<LinearColorDescription>,
 }
 

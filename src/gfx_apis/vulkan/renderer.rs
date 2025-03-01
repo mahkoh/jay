@@ -1,7 +1,11 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        cmm::{cmm_description::ColorDescription, cmm_transfer_function::TransferFunction},
+        cmm::{
+            cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
+            cmm_transfer_function::TransferFunction,
+            cmm_transform::ColorMatrix,
+        },
         cpu_worker::PendingJob,
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer, GfxFormat,
@@ -57,6 +61,7 @@ use {
     std::{
         borrow::Cow,
         cell::{Cell, RefCell},
+        collections::hash_map::Entry,
         fmt::{Debug, Formatter},
         mem,
         ops::Range,
@@ -169,6 +174,7 @@ pub(super) struct Memory {
     tex_targets: Vec<[Point; 2]>,
     data_buffer: Vec<u8>,
     out_address: DeviceAddress,
+    color_transforms: ColorTransforms,
 }
 
 type Point = [[f32; 2]; 4];
@@ -601,6 +607,7 @@ impl VulkanRenderer {
         memory.tex_targets.clear();
         memory.fill_targets.clear();
         memory.data_buffer.clear();
+        memory.color_transforms.map.clear();
         let sync = |memory: &mut Memory| {
             for pass in RenderPass::variants() {
                 let ops = &mut memory.ops_tmp[pass];
@@ -667,10 +674,6 @@ impl VulkanRenderer {
                         if !bounds.intersects(&target) {
                             continue;
                         }
-                        let tf = match pass {
-                            RenderPass::BlendBuffer => blend_cd.transfer_function,
-                            RenderPass::FrameBuffer => fb_cd.transfer_function,
-                        };
                         let ops = &mut memory.ops_tmp[pass];
                         let lo = memory.fill_targets.len();
                         for region in &memory.paint_regions[pass] {
@@ -684,7 +687,15 @@ impl VulkanRenderer {
                         if lo == hi {
                             continue;
                         }
-                        let color = fr.color.to_array2(tf, fr.alpha);
+                        let target_cd = match pass {
+                            RenderPass::BlendBuffer => blend_cd,
+                            RenderPass::FrameBuffer => fb_cd,
+                        };
+                        let tf = target_cd.transfer_function;
+                        let color = memory
+                            .color_transforms
+                            .apply_to_color(&fr.cd, target_cd, fr.color);
+                        let color = color.to_array2(tf, fr.alpha);
                         let source_type = match color[3] < 1.0 {
                             false => TexSourceType::Opaque,
                             true => TexSourceType::HasAlpha,
@@ -945,6 +956,7 @@ impl VulkanRenderer {
         buf: CommandBuffer,
         target: &VulkanImage,
         clear: Option<&Color>,
+        clear_cd: &LinearColorDescription,
         pass: RenderPass,
         target_cd: &ColorDescription,
     ) {
@@ -955,9 +967,12 @@ impl VulkanRenderer {
         let clear_rects = &memory.clear_rects[pass];
         if let Some(clear) = clear {
             if clear_rects.is_not_empty() {
+                let color = memory
+                    .color_transforms
+                    .apply_to_color(clear_cd, target_cd, *clear);
                 let clear_value = ClearValue {
                     color: ClearColorValue {
-                        float32: clear.to_array(target_cd.transfer_function),
+                        float32: color.to_array(target_cd.transfer_function),
                     },
                 };
                 let use_load_clear = clear_rects.len() == 1 && {
@@ -1599,6 +1614,7 @@ impl VulkanRenderer {
         fb_cd: &Rc<ColorDescription>,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<Rc<VulkanImage>>,
         blend_cd: &Rc<ColorDescription>,
@@ -1611,6 +1627,7 @@ impl VulkanRenderer {
             fb_cd,
             opts,
             clear,
+            clear_cd,
             region,
             blend_buffer,
             blend_cd,
@@ -1779,6 +1796,7 @@ impl VulkanRenderer {
         fb_cd: &Rc<ColorDescription>,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         mut blend_buffer: Option<Rc<VulkanImage>>,
         bb_cd: &Rc<ColorDescription>,
@@ -1799,15 +1817,16 @@ impl VulkanRenderer {
             zone!("blend buffer pass");
             let rp = RenderPass::BlendBuffer;
             self.blend_buffer_initial_barrier(buf.buffer, bb);
-            self.begin_rendering(buf.buffer, bb, clear, rp, bb_cd);
+            self.begin_rendering(buf.buffer, bb, clear, clear_cd, rp, bb_cd);
             self.record_draws(buf.buffer, bb, rp, bb_cd)?;
             self.end_rendering(buf.buffer);
             self.blend_buffer_final_barrier(buf.buffer, bb);
         }
         {
             zone!("frame buffer pass");
-            self.begin_rendering(buf.buffer, fb, clear, RenderPass::FrameBuffer, fb_cd);
-            self.record_draws(buf.buffer, fb, RenderPass::FrameBuffer, fb_cd)?;
+            let rp = RenderPass::FrameBuffer;
+            self.begin_rendering(buf.buffer, fb, clear, clear_cd, rp, fb_cd);
+            self.record_draws(buf.buffer, fb, rp, fb_cd)?;
             if let Some(bb) = bb {
                 self.blend_buffer_copy(buf.buffer, fb, fb_cd, bb, bb_cd)?;
             }
@@ -2027,4 +2046,46 @@ where
     let x2 = x2.min(fb.width as i32);
     let y2 = y2.min(fb.height as i32);
     Some([x1, y1, x2, y2])
+}
+
+#[derive(Default)]
+struct ColorTransforms {
+    map: AHashMap<[LinearColorDescriptionId; 2], ColorTransform>,
+}
+
+struct ColorTransform {
+    matrix: ColorMatrix,
+}
+
+impl ColorTransforms {
+    fn get_or_create(
+        &mut self,
+        src: &LinearColorDescription,
+        dst: &ColorDescription,
+    ) -> Option<&mut ColorTransform> {
+        if src.id == dst.linear.id {
+            return None;
+        }
+        let ct = match self.map.entry([src.id, dst.linear.id]) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(e) => {
+                let matrix = src.color_transform(&dst.linear);
+                let ct = ColorTransform { matrix };
+                e.insert(ct)
+            }
+        };
+        Some(ct)
+    }
+
+    fn apply_to_color(
+        &mut self,
+        src: &LinearColorDescription,
+        dst: &ColorDescription,
+        mut color: Color,
+    ) -> Color {
+        if let Some(ct) = self.get_or_create(src, dst) {
+            color = ct.matrix * color;
+        };
+        color
+    }
 }

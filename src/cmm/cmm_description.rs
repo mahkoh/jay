@@ -52,7 +52,6 @@ pub struct ColorDescription {
 }
 
 impl LinearColorDescription {
-    #[expect(dead_code)]
     pub fn color_transform(&self, target: &Self) -> ColorMatrix {
         let mut mat = target.local_from_xyz;
         if self.luminance != target.luminance {
