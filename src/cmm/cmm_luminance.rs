@@ -17,7 +17,6 @@ impl Luminance {
         white: F64(80.0),
     };
 
-    #[expect(dead_code)]
     pub const BT1886: Self = Self {
         min: F64(0.01),
         max: F64(100.0),

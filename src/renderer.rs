@@ -444,7 +444,7 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         let alpha = surface.alpha();
-        let cd = self.state.color_manager.srgb_srgb();
+        let cd = surface.color_description();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
@@ -463,7 +463,7 @@ impl Renderer<'_> {
                 AcquireSync::Unnecessary,
                 buffer.release_sync,
                 opaque,
-                cd,
+                &cd,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {

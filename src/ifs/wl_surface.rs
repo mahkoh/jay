@@ -5,6 +5,7 @@ pub mod ext_session_lock_surface_v1;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
+pub mod wp_color_management_surface_v1;
 pub mod wp_commit_timer_v1;
 pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
@@ -22,6 +23,7 @@ use {
     crate::{
         backend::KeyState,
         client::{Client, ClientError},
+        cmm::cmm_description::ColorDescription,
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         drm_feedback::DrmFeedback,
@@ -104,6 +106,7 @@ use {
         rc::{Rc, Weak},
     },
     thiserror::Error,
+    wp_color_management_surface_v1::WpColorManagementSurfaceV1,
     zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
 
@@ -332,6 +335,8 @@ pub struct WlSurface {
     commit_timer: CloneCell<Option<Rc<WpCommitTimerV1>>>,
     before_latch_listener: EventListener<dyn BeforeLatchListener>,
     is_opaque: Cell<bool>,
+    color_management_surface: CloneCell<Option<Rc<WpColorManagementSurfaceV1>>>,
+    color_description: CloneCell<Option<Rc<ColorDescription>>>,
 }
 
 impl Debug for WlSurface {
@@ -461,6 +466,7 @@ struct PendingState {
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
     tray_item_ack_serial: Option<u32>,
+    color_description: Option<Option<Rc<ColorDescription>>>,
 }
 
 struct AttachedSubsurfaceState {
@@ -513,6 +519,7 @@ impl PendingState {
         opt!(alpha_multiplier);
         opt!(commit_time);
         opt!(tray_item_ack_serial);
+        opt!(color_description);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -670,6 +677,8 @@ impl WlSurface {
             commit_timer: Default::default(),
             before_latch_listener: EventListener::new(slf.clone()),
             is_opaque: Cell::new(false),
+            color_management_surface: Default::default(),
+            color_description: Default::default(),
         }
     }
 
@@ -1137,6 +1146,11 @@ impl WlSurface {
                 }
             }
         }
+        let mut color_description_changed = false;
+        if let Some(desc) = pending.color_description.take() {
+            color_description_changed = true;
+            self.color_description.set(desc);
+        }
         let mut alpha_changed = false;
         if let Some(alpha) = pending.alpha_multiplier.take() {
             alpha_changed = true;
@@ -1144,8 +1158,11 @@ impl WlSurface {
         }
         let buffer_abs_pos = self.buffer_abs_pos.get();
         let mut max_surface_size = buffer_abs_pos.size();
-        let mut damage_full =
-            scale_changed || buffer_transform_changed || viewport_changed || alpha_changed;
+        let mut damage_full = scale_changed
+            || buffer_transform_changed
+            || viewport_changed
+            || alpha_changed
+            || color_description_changed;
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (mut dx, mut dy) = mem::take(&mut pending.offset);
@@ -1658,6 +1675,13 @@ impl WlSurface {
     pub fn opaque_region(&self) -> Option<Rc<Region>> {
         self.opaque_region.get()
     }
+
+    pub fn color_description(&self) -> Rc<ColorDescription> {
+        match self.color_description.get() {
+            Some(cd) => cd,
+            None => self.client.state.color_manager.srgb_srgb().clone(),
+        }
+    }
 }
 
 object_base! {
@@ -1689,6 +1713,7 @@ impl Object for WlSurface {
         self.text_input_connections.clear();
         self.fifo.take();
         self.commit_timer.take();
+        self.color_management_surface.take();
     }
 }
 

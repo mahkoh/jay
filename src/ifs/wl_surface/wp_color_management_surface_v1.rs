@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::color_management::consts::RENDER_INTENT_PERCEPTUAL,
+        ifs::{color_management, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
         wire::{
@@ -21,12 +21,26 @@ pub struct WpColorManagementSurfaceV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
+    pub surface: Rc<WlSurface>,
+}
+
+impl WpColorManagementSurfaceV1 {
+    pub fn install(self: &Rc<Self>) -> Result<(), WpColorManagementSurfaceV1Error> {
+        if self.surface.color_management_surface.is_some() {
+            return Err(WpColorManagementSurfaceV1Error::HasSurface);
+        }
+        self.surface
+            .color_management_surface
+            .set(Some(self.clone()));
+        Ok(())
+    }
 }
 
 impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
     type Error = WpColorManagementSurfaceV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.surface.color_management_surface.take();
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -36,12 +50,13 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
         req: SetImageDescription,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.image_description)?;
-        if req.render_intent != RENDER_INTENT_PERCEPTUAL {
+        if req.render_intent != color_management::RENDER_INTENT_PERCEPTUAL {
             return Err(WpColorManagementSurfaceV1Error::UnsupportedRenderIntent(
                 req.render_intent,
             ));
         }
+        let desc = self.client.lookup(req.image_description)?;
+        self.surface.pending.borrow_mut().color_description = Some(Some(desc.description.clone()));
         Ok(())
     }
 
@@ -50,6 +65,7 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
         _req: UnsetImageDescription,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        self.surface.pending.borrow_mut().color_description = Some(None);
         Ok(())
     }
 }
@@ -69,5 +85,7 @@ pub enum WpColorManagementSurfaceV1Error {
     ClientError(Box<ClientError>),
     #[error("{} is not a supported render intent", .0)]
     UnsupportedRenderIntent(u32),
+    #[error("wl_surface already has a color-management extension")]
+    HasSurface,
 }
 efrom!(WpColorManagementSurfaceV1Error, ClientError);

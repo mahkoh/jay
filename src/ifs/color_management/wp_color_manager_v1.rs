@@ -2,15 +2,27 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::color_management::{
-            consts::{
-                FEATURE_PARAMETRIC, PRIMARIES_SRGB, RENDER_INTENT_PERCEPTUAL,
-                TRANSFER_FUNCTION_SRGB,
+        ifs::{
+            color_management::{
+                consts::{
+                    FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
+                    FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
+                    PRIMARIES_CIE1931_XYZ, PRIMARIES_DCI_P3, PRIMARIES_DISPLAY_P3,
+                    PRIMARIES_GENERIC_FILM, PRIMARIES_NTSC, PRIMARIES_PAL, PRIMARIES_PAL_M,
+                    PRIMARIES_SRGB, RENDER_INTENT_PERCEPTUAL, TRANSFER_FUNCTION_BT1886,
+                    TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_EXT_SRGB,
+                    TRANSFER_FUNCTION_GAMMA22, TRANSFER_FUNCTION_GAMMA28,
+                    TRANSFER_FUNCTION_LOG_100, TRANSFER_FUNCTION_LOG_316, TRANSFER_FUNCTION_SRGB,
+                    TRANSFER_FUNCTION_ST240, TRANSFER_FUNCTION_ST428, TRANSFER_FUNCTION_ST2084_PQ,
+                },
+                wp_color_management_output_v1::WpColorManagementOutputV1,
+                wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
+                wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1,
+                wp_image_description_v1::WpImageDescriptionV1,
             },
-            wp_color_management_output_v1::WpColorManagementOutputV1,
-            wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
-            wp_color_management_surface_v1::WpColorManagementSurfaceV1,
-            wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1,
+            wl_surface::wp_color_management_surface_v1::{
+                WpColorManagementSurfaceV1, WpColorManagementSurfaceV1Error,
+            },
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -63,8 +75,30 @@ impl WpColorManagerV1 {
     fn send_capabilities(&self) {
         self.send_supported_intent(RENDER_INTENT_PERCEPTUAL);
         self.send_supported_feature(FEATURE_PARAMETRIC);
+        self.send_supported_feature(FEATURE_SET_PRIMARIES);
+        self.send_supported_feature(FEATURE_SET_LUMINANCES);
+        self.send_supported_feature(FEATURE_WINDOWS_SCRGB);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_BT1886);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA22);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA28);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_ST240);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_EXT_LINEAR);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_LOG_100);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_LOG_316);
         self.send_supported_tf_named(TRANSFER_FUNCTION_SRGB);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_EXT_SRGB);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_ST2084_PQ);
+        self.send_supported_tf_named(TRANSFER_FUNCTION_ST428);
         self.send_supported_primaries_named(PRIMARIES_SRGB);
+        self.send_supported_primaries_named(PRIMARIES_PAL_M);
+        self.send_supported_primaries_named(PRIMARIES_PAL);
+        self.send_supported_primaries_named(PRIMARIES_NTSC);
+        self.send_supported_primaries_named(PRIMARIES_GENERIC_FILM);
+        self.send_supported_primaries_named(PRIMARIES_BT2020);
+        self.send_supported_primaries_named(PRIMARIES_CIE1931_XYZ);
+        self.send_supported_primaries_named(PRIMARIES_DCI_P3);
+        self.send_supported_primaries_named(PRIMARIES_DISPLAY_P3);
+        self.send_supported_primaries_named(PRIMARIES_ADOBE_RGB);
         self.send_done();
     }
 
@@ -123,15 +157,17 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 
     fn get_surface(&self, req: GetSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.surface)?;
+        let surface = self.client.lookup(req.surface)?;
         let obj = Rc::new(WpColorManagementSurfaceV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            surface: surface.clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        obj.install()?;
         Ok(())
     }
 
@@ -170,6 +206,9 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            tf: Default::default(),
+            primaries: Default::default(),
+            luminance: Default::default(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
@@ -178,10 +217,20 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
 
     fn create_windows_scrgb(
         &self,
-        _req: CreateWindowsScrgb,
+        req: CreateWindowsScrgb,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        Err(WpColorManagerV1Error::CreateWindowsScrgbNotSupported)
+        let obj = Rc::new(WpImageDescriptionV1 {
+            id: req.image_description,
+            client: self.client.clone(),
+            version: self.version,
+            tracker: Default::default(),
+            description: self.client.state.color_manager.windows_scrgb().clone(),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        obj.send_ready();
+        Ok(())
     }
 }
 
@@ -222,7 +271,7 @@ pub enum WpColorManagerV1Error {
     ClientError(Box<ClientError>),
     #[error("create_icc_creator is not supported")]
     CreateIccCreatorNotSupported,
-    #[error("create_windows_scrgb is not supported")]
-    CreateWindowsScrgbNotSupported,
+    #[error(transparent)]
+    Surface(#[from] WpColorManagementSurfaceV1Error),
 }
 efrom!(WpColorManagerV1Error, ClientError);

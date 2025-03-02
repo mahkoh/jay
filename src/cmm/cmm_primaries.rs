@@ -3,23 +3,14 @@ use {crate::utils::ordered_float::F64, std::hash::Hash};
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum NamedPrimaries {
     Srgb,
-    #[expect(dead_code)]
     PalM,
-    #[expect(dead_code)]
     Pal,
-    #[expect(dead_code)]
     Ntsc,
-    #[expect(dead_code)]
     GenericFilm,
-    #[expect(dead_code)]
     Bt2020,
-    #[expect(dead_code)]
     Cie1931Xyz,
-    #[expect(dead_code)]
     DciP3,
-    #[expect(dead_code)]
     DisplayP3,
-    #[expect(dead_code)]
     AdobeRgb,
 }
 
@@ -103,7 +94,6 @@ impl Primaries {
     };
 }
 impl NamedPrimaries {
-    #[expect(dead_code)]
     pub const fn primaries(self) -> Primaries {
         match self {
             NamedPrimaries::Srgb => Primaries::SRGB,

@@ -100,12 +100,10 @@ impl ColorManager {
         &self.srgb_linear
     }
 
-    #[expect(dead_code)]
     pub fn windows_scrgb(&self) -> &Rc<ColorDescription> {
         &self.windows_scrgb
     }
 
-    #[expect(dead_code)]
     pub fn get_description(
         self: &Rc<Self>,
         named_primaries: Option<NamedPrimaries>,

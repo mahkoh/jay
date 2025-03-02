@@ -560,6 +560,10 @@ impl MetalConnector {
                 }
                 return None;
             };
+            if ct.cd.id != self.state.color_manager.srgb_srgb().id {
+                // Direct scanout requires identical color descriptions.
+                return None;
+            }
             if ct.alpha.is_some() {
                 // Direct scanout with alpha factor is not supported.
                 return None;
