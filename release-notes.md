@@ -10,6 +10,7 @@
   yellow. The blend buffer is only used for those areas of the screen where blending is
   observable. This should have no impact on performance in the common case.
 - Implement color-management-v1.
+- Implement cursor-shape-v1 version 2.
 
 # 1.9.1 (2025-02-13)
 
