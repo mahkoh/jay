@@ -10,9 +10,8 @@ use {
         utils::on_drop::OnDrop,
     },
     ash::vk::{
-        DescriptorDataEXT, DescriptorGetInfoEXT, DescriptorImageInfo, DescriptorType, Extent3D,
-        ImageAspectFlags, ImageCreateInfo, ImageLayout, ImageSubresourceRange, ImageTiling,
-        ImageType, ImageViewCreateInfo, ImageViewType, SampleCountFlags, SharingMode,
+        Extent3D, ImageAspectFlags, ImageCreateInfo, ImageLayout, ImageSubresourceRange,
+        ImageTiling, ImageType, ImageViewCreateInfo, ImageViewType, SampleCountFlags, SharingMode,
     },
     gpu_alloc::UsageFlags,
     std::{any::Any, cell::Cell, collections::hash_map::Entry, rc::Rc},
@@ -24,9 +23,9 @@ impl VulkanRenderer {
         width: i32,
         height: i32,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
-        let Some(db) = &self.device.descriptor_buffer else {
+        if self.device.descriptor_buffer.is_none() {
             return Err(VulkanError::NoDescriptorBuffer);
-        };
+        }
         if width <= 0 || height <= 0 {
             return Err(VulkanError::NonPositiveImageSize);
         }
@@ -90,21 +89,6 @@ impl VulkanRenderer {
         };
         let view = view.map_err(VulkanError::CreateImageView)?;
         destroy_image.forget();
-        let sampled_image_descriptor = {
-            let mut buf = vec![0; self.device.sampled_image_descriptor_size].into_boxed_slice();
-            let image_info = DescriptorImageInfo::default()
-                .image_view(view)
-                .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-            let info = DescriptorGetInfoEXT::default()
-                .ty(DescriptorType::SAMPLED_IMAGE)
-                .data(DescriptorDataEXT {
-                    p_sampled_image: &image_info,
-                });
-            unsafe {
-                db.get_descriptor(&info, &mut buf);
-            }
-            buf
-        };
         let img = Rc::new(VulkanImage {
             renderer: self.clone(),
             format: BLEND_FORMAT,
@@ -121,8 +105,7 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Blend(allocation),
             bridge: None,
-            shader_read_only_optimal_descriptor: Box::new([]),
-            sampled_image_descriptor,
+            sampled_image_descriptor: self.sampled_image_descriptor(view),
             descriptor_buffer_version: Default::default(),
             descriptor_buffer_offset: Default::default(),
             execution_version: Default::default(),

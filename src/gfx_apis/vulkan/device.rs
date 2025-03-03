@@ -71,7 +71,7 @@ pub struct VulkanDevice {
     pub(super) distinct_transfer_queue_family_idx: Option<u32>,
     pub(super) transfer_granularity_mask: (u32, u32),
     pub(super) descriptor_buffer_offset_mask: DeviceSize,
-    pub(super) combined_image_sampler_descriptor_size: usize,
+    pub(super) sampler_descriptor_size: usize,
     pub(super) sampled_image_descriptor_size: usize,
 }
 
@@ -366,7 +366,7 @@ impl VulkanInstance {
         let descriptor_buffer = supports_descriptor_buffer
             .then(|| descriptor_buffer::Device::new(&self.instance, &device));
         let mut descriptor_buffer_offset_mask = 0;
-        let mut combined_image_sampler_descriptor_size = 0;
+        let mut sampler_descriptor_size = 0;
         let mut sampled_image_descriptor_size = 0;
         if supports_descriptor_buffer {
             let mut descriptor_buffer_props =
@@ -382,8 +382,7 @@ impl VulkanInstance {
                 .checked_next_power_of_two()
                 .unwrap()
                 - 1;
-            combined_image_sampler_descriptor_size =
-                descriptor_buffer_props.combined_image_sampler_descriptor_size;
+            sampler_descriptor_size = descriptor_buffer_props.sampler_descriptor_size;
             sampled_image_descriptor_size = descriptor_buffer_props.sampled_image_descriptor_size;
         }
         let memory_properties =
@@ -422,7 +421,7 @@ impl VulkanInstance {
             distinct_transfer_queue_family_idx,
             transfer_granularity_mask,
             descriptor_buffer_offset_mask,
-            combined_image_sampler_descriptor_size,
+            sampler_descriptor_size,
             sampled_image_descriptor_size,
             blend_limits,
         }))

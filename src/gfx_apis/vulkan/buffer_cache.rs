@@ -52,12 +52,13 @@ impl VulkanBufferCache {
     pub fn for_descriptor_buffer(
         device: &Rc<VulkanDevice>,
         allocator: &Rc<VulkanAllocator>,
-        has_sampler: bool,
+        for_sampler: bool,
     ) -> Rc<Self> {
-        let mut usage = BufferUsageFlags::RESOURCE_DESCRIPTOR_BUFFER_EXT
-            | BufferUsageFlags::SHADER_DEVICE_ADDRESS;
-        if has_sampler {
+        let mut usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS;
+        if for_sampler {
             usage |= BufferUsageFlags::SAMPLER_DESCRIPTOR_BUFFER_EXT;
+        } else {
+            usage |= BufferUsageFlags::RESOURCE_DESCRIPTOR_BUFFER_EXT;
         }
         Self::new(device, allocator, usage)
     }
