@@ -75,10 +75,10 @@ impl VulkanInstance {
             .message_type(types)
             .pfn_user_callback(Some(debug_callback));
         let validation_features = [
-            // ash::vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
-            // ash::vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
-            // ash::vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
-            // ash::vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
+            ash::vk::ValidationFeatureEnableEXT::DEBUG_PRINTF,
+            ash::vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
+            ash::vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
+            ash::vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
         ];
         let mut validation_info =
             ValidationFeaturesEXT::default().enabled_validation_features(&validation_features);

@@ -20,7 +20,7 @@ use {
     ash::{
         ext::{
             descriptor_buffer, external_memory_dma_buf, image_drm_format_modifier,
-            physical_device_drm, queue_family_foreign,
+            physical_device_drm, queue_family_foreign, robustness2,
         },
         khr::{
             driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
@@ -34,8 +34,9 @@ use {
             PhysicalDeviceDriverProperties, PhysicalDeviceDriverPropertiesKHR,
             PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
             PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, Queue, QueueFlags, MAX_MEMORY_TYPES,
+            PhysicalDeviceProperties2, PhysicalDeviceRobustness2FeaturesEXT,
+            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures, Queue,
+            QueueFlags, MAX_MEMORY_TYPES,
         },
         Device,
     },
@@ -300,6 +301,11 @@ impl VulkanInstance {
             PhysicalDeviceDescriptorBufferFeaturesEXT::default().descriptor_buffer(true);
         let mut buffer_device_address_features =
             PhysicalDeviceBufferDeviceAddressFeatures::default().buffer_device_address(true);
+        let mut physical_device_robustness2_features =
+            PhysicalDeviceRobustness2FeaturesEXT::default()
+                .robust_buffer_access2(true)
+                .robust_image_access2(true)
+                .null_descriptor(true);
         let mut queue_create_infos = ArrayVec::<_, 2>::new();
         queue_create_infos.push(
             DeviceQueueCreateInfo::default()
@@ -317,6 +323,7 @@ impl VulkanInstance {
             .push_next(&mut semaphore_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
+            .push_next(&mut physical_device_robustness2_features)
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&enabled_extensions);
         if supports_descriptor_buffer {
@@ -426,6 +433,7 @@ const REQUIRED_DEVICE_EXTENSIONS: &[&CStr] = &[
     queue_family_foreign::NAME,
     image_drm_format_modifier::NAME,
     push_descriptor::NAME,
+    robustness2::NAME,
 ];
 
 fn log_device(

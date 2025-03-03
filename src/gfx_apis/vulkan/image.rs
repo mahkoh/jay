@@ -241,7 +241,7 @@ impl VulkanRenderer {
             vec![0; self.device.combined_image_sampler_descriptor_size].into_boxed_slice();
         let image_info = DescriptorImageInfo::default()
             .sampler(self.sampler.sampler)
-            .image_view(view)
+            .image_view(ImageView::null())
             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         let info = DescriptorGetInfoEXT::default()
             .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
