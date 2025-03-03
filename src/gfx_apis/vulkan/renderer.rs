@@ -90,12 +90,13 @@ pub struct VulkanRenderer {
     pub(super) tex_frag_shader: Rc<VulkanShader>,
     pub(super) out_vert_shader: Rc<VulkanShader>,
     pub(super) out_frag_shader: Rc<VulkanShader>,
-    pub(super) tex_descriptor_set_layout: Rc<VulkanDescriptorSetLayout>,
+    pub(super) tex_descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
     pub(super) out_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
-    pub(super) sampler: Rc<VulkanSampler>,
+    pub(super) _sampler: Rc<VulkanSampler>,
+    pub(super) sampler_descriptor: Box<[u8]>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
@@ -234,23 +235,28 @@ impl VulkanDevice {
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
     ) -> Result<Rc<VulkanRenderer>, VulkanError> {
+        let sampler = self.create_sampler()?;
         let fill_vert_shader;
         let fill_frag_shader;
         let tex_vert_shader;
         let tex_frag_shader;
+        let mut tex_descriptor_set_layouts = ArrayVec::new();
         if self.descriptor_buffer.is_some() {
             tex_vert_shader = self.create_shader(TEX_VERT)?;
             tex_frag_shader = self.create_shader(TEX_FRAG)?;
             fill_vert_shader = self.create_shader(FILL_VERT)?;
             fill_frag_shader = self.create_shader(FILL_FRAG)?;
+            tex_descriptor_set_layouts
+                .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
+            tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
         } else {
             tex_vert_shader = self.create_shader(LEGACY_TEX_VERT)?;
             tex_frag_shader = self.create_shader(LEGACY_TEX_FRAG)?;
             fill_vert_shader = self.create_shader(LEGACY_FILL_VERT)?;
             fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
+            tex_descriptor_set_layouts
+                .push(self.create_tex_legacy_descriptor_set_layout(&sampler)?);
         }
-        let sampler = self.create_sampler()?;
-        let tex_descriptor_set_layout = self.create_tex_descriptor_set_layout(&sampler)?;
         let out_descriptor_set_layout = self
             .descriptor_buffer
             .as_ref()
@@ -327,12 +333,13 @@ impl VulkanDevice {
             tex_frag_shader,
             out_vert_shader,
             out_frag_shader,
-            tex_descriptor_set_layout,
+            tex_descriptor_set_layouts,
             out_descriptor_set_layout,
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
-            sampler,
+            sampler_descriptor: self.create_sampler_descriptor(sampler.sampler),
+            _sampler: sampler,
             sampler_descriptor_buffer_cache,
             resource_descriptor_buffer_cache,
             blend_buffers: Default::default(),
@@ -372,7 +379,7 @@ impl VulkanRenderer {
                 has_alpha_mult: false,
                 eotf,
                 oetf,
-                frag_descriptor_set_layout: None,
+                descriptor_set_layouts: Default::default(),
             };
             self.device.create_pipeline2(info, push_size)
         };
@@ -393,7 +400,7 @@ impl VulkanRenderer {
                 has_alpha_mult,
                 eotf,
                 oetf,
-                frag_descriptor_set_layout: Some(self.tex_descriptor_set_layout.clone()),
+                descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
             };
             self.device.create_pipeline2(info, push_size)
         };
@@ -438,6 +445,13 @@ impl VulkanRenderer {
         let memory = &mut *self.memory.borrow_mut();
         let sampler_writer = &mut memory.sampler_descriptor_buffer_writer;
         sampler_writer.clear();
+        {
+            let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
+            writer.write(
+                self.tex_descriptor_set_layouts[0].offsets[0],
+                &self.sampler_descriptor,
+            );
+        }
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
         if let Some(bb) = bb {
@@ -447,6 +461,7 @@ impl VulkanRenderer {
             let mut writer = resource_writer.add_set(layout);
             writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
         }
+        let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
         for pass in RenderPass::variants() {
             for cmd in &memory.ops[pass] {
                 let VulkanOp::Tex(c) = cmd else {
@@ -456,12 +471,12 @@ impl VulkanRenderer {
                 if tex.descriptor_buffer_version.replace(version) == version {
                     continue;
                 }
-                let offset = sampler_writer.next_offset();
+                let offset = resource_writer.next_offset();
                 tex.descriptor_buffer_offset.set(offset);
-                let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layout);
+                let mut writer = resource_writer.add_set(tex_descriptor_set_layout);
                 writer.write(
-                    self.tex_descriptor_set_layout.offsets[0],
-                    &tex.shader_read_only_optimal_descriptor,
+                    tex_descriptor_set_layout.offsets[0],
+                    &tex.sampled_image_descriptor,
                 );
             }
         }
@@ -1018,8 +1033,8 @@ impl VulkanRenderer {
                                 PipelineBindPoint::GRAPHICS,
                                 pipeline.pipeline_layout,
                                 0,
-                                &[0],
-                                &[tex.descriptor_buffer_offset.get()],
+                                &[0, 1],
+                                &[0, tex.descriptor_buffer_offset.get()],
                             );
                             dev.cmd_push_constants(
                                 buf,
@@ -1102,7 +1117,8 @@ impl VulkanRenderer {
         let pipeline = match self.out_pipelines.borrow_mut().entry(fb.format.vk_format) {
             Entry::Occupied(pipeline) => pipeline.get().clone(),
             Entry::Vacant(e) => {
-                let layout = self.out_descriptor_set_layout.as_ref().unwrap();
+                let mut descriptor_set_layouts = ArrayVec::new();
+                descriptor_set_layouts.push(self.out_descriptor_set_layout.clone().unwrap());
                 let out = self
                     .device
                     .create_pipeline::<OutPushConstants>(PipelineCreateInfo {
@@ -1114,7 +1130,7 @@ impl VulkanRenderer {
                         has_alpha_mult: false,
                         eotf: TF_LINEAR,
                         oetf: TF_SRGB,
-                        frag_descriptor_set_layout: Some(layout.clone()),
+                        descriptor_set_layouts,
                     })?;
                 e.insert(out.clone());
                 out

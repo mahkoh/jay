@@ -4,12 +4,13 @@
 #include "transfer_functions.glsl"
 #include "tex.common.glsl"
 
-layout(set = 0, binding = 0) uniform sampler2D tex;
+layout(set = 0, binding = 0) uniform sampler sam;
+layout(set = 1, binding = 0) uniform texture2D tex;
 layout(location = 0) in vec2 tex_pos;
 layout(location = 0) out vec4 out_color;
 
 void main() {
-	vec4 c = textureLod(tex, tex_pos, 0);
+	vec4 c = textureLod(sampler2D(tex, sam), tex_pos, 0);
 	if (eotf != oetf) {
 		if (src_has_alpha) {
 			c.rgb /= mix(c.a, 1.0, c.a == 0.0);

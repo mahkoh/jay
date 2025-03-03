@@ -29,7 +29,7 @@ pub(super) struct VulkanPipeline {
     pub(super) _frag: Rc<VulkanShader>,
     pub(super) pipeline_layout: PipelineLayout,
     pub(super) pipeline: Pipeline,
-    pub(super) _frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
+    pub(super) _descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
 }
 
 pub(super) struct PipelineCreateInfo {
@@ -41,7 +41,7 @@ pub(super) struct PipelineCreateInfo {
     pub(super) has_alpha_mult: bool,
     pub(super) eotf: u32,
     pub(super) oetf: u32,
-    pub(super) frag_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
+    pub(super) descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
 }
 
 impl VulkanDevice {
@@ -67,9 +67,8 @@ impl VulkanDevice {
                         .size(push_size as u32),
                 );
             }
-            let mut descriptor_set_layouts = ArrayVec::<_, 1>::new();
-            descriptor_set_layouts
-                .extend(info.frag_descriptor_set_layout.as_ref().map(|l| l.layout));
+            let mut descriptor_set_layouts = ArrayVec::<_, 2>::new();
+            descriptor_set_layouts.extend(info.descriptor_set_layouts.iter().map(|l| l.layout));
             let create_info = PipelineLayoutCreateInfo::default()
                 .push_constant_ranges(&push_constant_ranges)
                 .set_layouts(&descriptor_set_layouts);
@@ -175,7 +174,7 @@ impl VulkanDevice {
             _frag: info.frag,
             pipeline_layout,
             pipeline,
-            _frag_descriptor_set_layout: info.frag_descriptor_set_layout,
+            _descriptor_set_layouts: info.descriptor_set_layouts,
         }))
     }
 }

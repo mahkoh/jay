@@ -26,7 +26,8 @@ use {
         ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange, ImageTiling, ImageType,
         ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR,
         MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR,
-        MemoryPropertyFlags, MemoryRequirements2, SampleCountFlags, SharingMode, SubresourceLayout,
+        MemoryPropertyFlags, MemoryRequirements2, SampleCountFlags, Sampler, SharingMode,
+        SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
     std::{
@@ -63,7 +64,6 @@ pub struct VulkanImage {
     pub(super) queue_state: Cell<QueueState>,
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
-    pub(super) shader_read_only_optimal_descriptor: Box<[u8]>,
     pub(super) sampled_image_descriptor: Box<[u8]>,
     pub(super) descriptor_buffer_version: Cell<u64>,
     pub(super) descriptor_buffer_offset: Cell<DeviceSize>,
@@ -235,21 +235,37 @@ impl VulkanDevice {
     }
 }
 
+impl VulkanDevice {
+    pub(super) fn create_sampler_descriptor(&self, sampler: Sampler) -> Box<[u8]> {
+        let Some(db) = &self.descriptor_buffer else {
+            return Box::new([]);
+        };
+        let mut buf = vec![0; self.sampler_descriptor_size].into_boxed_slice();
+        let info = DescriptorGetInfoEXT::default()
+            .ty(DescriptorType::SAMPLER)
+            .data(DescriptorDataEXT {
+                p_sampler: &sampler,
+            });
+        unsafe {
+            db.get_descriptor(&info, &mut buf);
+        }
+        buf
+    }
+}
+
 impl VulkanRenderer {
-    pub(super) fn sampler_read_only_descriptor(&self, view: ImageView) -> Box<[u8]> {
+    pub(super) fn sampled_image_descriptor(&self, view: ImageView) -> Box<[u8]> {
         let Some(db) = &self.device.descriptor_buffer else {
             return Box::new([]);
         };
-        let mut buf =
-            vec![0; self.device.combined_image_sampler_descriptor_size].into_boxed_slice();
+        let mut buf = vec![0; self.device.sampled_image_descriptor_size].into_boxed_slice();
         let image_info = DescriptorImageInfo::default()
-            .sampler(self.sampler.sampler)
             .image_view(view)
             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         let info = DescriptorGetInfoEXT::default()
-            .ty(DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .ty(DescriptorType::SAMPLED_IMAGE)
             .data(DescriptorDataEXT {
-                p_combined_image_sampler: &image_info,
+                p_sampled_image: &image_info,
             });
         unsafe {
             db.get_descriptor(&info, &mut buf);
@@ -450,10 +466,7 @@ impl VulkanDmaBufImageTemplate {
                 family: QueueFamily::Gfx,
             }),
             bridge,
-            shader_read_only_optimal_descriptor: self
-                .renderer
-                .sampler_read_only_descriptor(texture_view),
-            sampled_image_descriptor: Box::new([]),
+            sampled_image_descriptor: self.renderer.sampled_image_descriptor(texture_view),
             descriptor_buffer_version: Cell::new(0),
             descriptor_buffer_offset: Cell::new(0),
             execution_version: Cell::new(0),
