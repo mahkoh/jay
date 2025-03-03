@@ -942,6 +942,7 @@ impl VulkanRenderer {
                 None
             }
         };
+        self.block();
         memory.release_fence = Some(release_fence);
         memory.release_sync_file = release_sync_file;
         Ok(())
