@@ -35,9 +35,9 @@ use {
     ash::{
         vk,
         vk::{
-            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, ClearColorValue, ClearValue,
-            CommandBuffer, CommandBufferBeginInfo, CommandBufferSubmitInfo,
-            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR,
+            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferMemoryBarrier2,
+            ClearColorValue, ClearValue, CommandBuffer, CommandBufferBeginInfo,
+            CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR,
             DescriptorBufferBindingInfoEXT, DescriptorImageInfo, DescriptorType, DeviceSize,
             Extent2D, Extent3D, ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2,
             ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2,
@@ -138,6 +138,8 @@ pub(super) struct Memory {
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
     descriptor_buffer: Option<VulkanDescriptorBuffer>,
+    initial_buffer_memory_barriers: Vec<BufferMemoryBarrier2<'static>>,
+    final_buffer_memory_barriers: Vec<BufferMemoryBarrier2<'static>>,
 }
 
 pub(super) struct PendingFrame {
@@ -332,9 +334,8 @@ impl VulkanRenderer {
                 &tex.shader_read_only_optimal_descriptor,
             );
         }
-        let buffer = self
-            .tex_sampler_descriptor_buffer_cache
-            .allocate(writer.len() as DeviceSize)?;
+        let size = writer.len() as DeviceSize;
+        let buffer = self.tex_sampler_descriptor_buffer_cache.allocate(size)?;
         buffer.buffer.allocation.upload(|ptr, _| unsafe {
             ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
         })?;
@@ -343,6 +344,31 @@ impl VulkanRenderer {
             .address(buffer.buffer.address);
         unsafe {
             db.cmd_bind_descriptor_buffers(buf, slice::from_ref(&info));
+        }
+        let gpu_stages = PipelineStageFlags2::VERTEX_SHADER | PipelineStageFlags2::FRAGMENT_SHADER;
+        memory.initial_buffer_memory_barriers.clear();
+        if size > 0 {
+            memory.initial_buffer_memory_barriers.push(
+                BufferMemoryBarrier2::default()
+                    .buffer(buffer.buffer.buffer)
+                    .size(size)
+                    .src_stage_mask(PipelineStageFlags2::HOST)
+                    .src_access_mask(AccessFlags2::HOST_WRITE)
+                    .dst_stage_mask(gpu_stages)
+                    .dst_access_mask(AccessFlags2::DESCRIPTOR_BUFFER_READ_EXT),
+            );
+        }
+        memory.final_buffer_memory_barriers.clear();
+        if size > 0 {
+            memory.final_buffer_memory_barriers.push(
+                BufferMemoryBarrier2::default()
+                    .buffer(buffer.buffer.buffer)
+                    .size(size)
+                    .src_stage_mask(gpu_stages)
+                    .src_access_mask(AccessFlags2::DESCRIPTOR_BUFFER_READ_EXT)
+                    .dst_stage_mask(PipelineStageFlags2::HOST)
+                    .dst_access_mask(AccessFlags2::HOST_WRITE),
+            );
         }
         memory.descriptor_buffer = Some(buffer);
         Ok(())
@@ -476,7 +502,9 @@ impl VulkanRenderer {
                 memory.image_barriers.push(image_memory_barrier);
             }
         }
-        let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
+        let dep_info = DependencyInfoKHR::default()
+            .image_memory_barriers(&memory.image_barriers)
+            .buffer_memory_barriers(&memory.initial_buffer_memory_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
@@ -753,7 +781,9 @@ impl VulkanRenderer {
                 .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
             memory.image_barriers.push(image_memory_barrier);
         }
-        let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
+        let dep_info = DependencyInfoKHR::default()
+            .image_memory_barriers(&memory.image_barriers)
+            .buffer_memory_barriers(&memory.final_buffer_memory_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
