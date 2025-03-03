@@ -88,8 +88,8 @@ pub struct VulkanRenderer {
     pub(super) fill_frag_shader: Rc<VulkanShader>,
     pub(super) tex_vert_shader: Rc<VulkanShader>,
     pub(super) tex_frag_shader: Rc<VulkanShader>,
-    pub(super) out_vert_shader: Rc<VulkanShader>,
-    pub(super) out_frag_shader: Rc<VulkanShader>,
+    pub(super) out_vert_shader: Option<Rc<VulkanShader>>,
+    pub(super) out_frag_shader: Option<Rc<VulkanShader>>,
     pub(super) tex_descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
     pub(super) out_descriptor_set_layout: Option<Rc<VulkanDescriptorSetLayout>>,
     pub(super) defunct: Cell<bool>,
@@ -240,12 +240,16 @@ impl VulkanDevice {
         let fill_frag_shader;
         let tex_vert_shader;
         let tex_frag_shader;
+        let out_vert_shader;
+        let out_frag_shader;
         let mut tex_descriptor_set_layouts = ArrayVec::new();
         if self.descriptor_buffer.is_some() {
             tex_vert_shader = self.create_shader(TEX_VERT)?;
             tex_frag_shader = self.create_shader(TEX_FRAG)?;
             fill_vert_shader = self.create_shader(FILL_VERT)?;
             fill_frag_shader = self.create_shader(FILL_FRAG)?;
+            out_vert_shader = Some(self.create_shader(OUT_VERT)?);
+            out_frag_shader = Some(self.create_shader(OUT_FRAG)?);
             tex_descriptor_set_layouts
                 .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
             tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
@@ -254,6 +258,8 @@ impl VulkanDevice {
             tex_frag_shader = self.create_shader(LEGACY_TEX_FRAG)?;
             fill_vert_shader = self.create_shader(LEGACY_FILL_VERT)?;
             fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
+            out_vert_shader = None;
+            out_frag_shader = None;
             tex_descriptor_set_layouts
                 .push(self.create_tex_legacy_descriptor_set_layout(&sampler)?);
         }
@@ -262,8 +268,6 @@ impl VulkanDevice {
             .as_ref()
             .map(|db| self.create_out_descriptor_set_layout(db))
             .transpose()?;
-        let out_vert_shader = self.create_shader(OUT_VERT)?;
-        let out_frag_shader = self.create_shader(OUT_FRAG)?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
         let transfer_command_buffers = self
             .distinct_transfer_queue_family_idx
@@ -1123,8 +1127,8 @@ impl VulkanRenderer {
                     .device
                     .create_pipeline::<OutPushConstants>(PipelineCreateInfo {
                         format: fb.format.vk_format,
-                        vert: self.out_vert_shader.clone(),
-                        frag: self.out_frag_shader.clone(),
+                        vert: self.out_vert_shader.clone().unwrap(),
+                        frag: self.out_frag_shader.clone().unwrap(),
                         blend: false,
                         src_has_alpha: true,
                         has_alpha_mult: false,
