@@ -497,7 +497,8 @@ impl VulkanRenderer {
                 .usage(cache.usage())
                 .address(buffer.buffer.address);
             infos.push(info);
-            memory.used_buffers.push(buffer);
+            mem::forget(buffer);
+            // memory.used_buffers.push(buffer);
         }
         unsafe {
             db.cmd_bind_descriptor_buffers(buf, &infos);
@@ -713,7 +714,8 @@ impl VulkanRenderer {
             }
         }
         memory.out_address += buffer.buffer.address;
-        memory.used_buffers.push(buffer);
+        mem::forget(buffer);
+        // memory.used_buffers.push(buffer);
         Ok(())
     }
 
