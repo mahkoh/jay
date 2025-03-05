@@ -73,7 +73,7 @@ impl VulkanBufferCache {
         align: DeviceSize,
     ) -> Result<VulkanBuffer, VulkanError> {
         const MIN_ALLOCATION: DeviceSize = 1024;
-        let capacity = capacity.max(MIN_ALLOCATION);
+        let capacity = (capacity.max(MIN_ALLOCATION) + align - 1) & !(align - 1);
         let mut smallest = None;
         let mut smallest_size = DeviceSize::MAX;
         let mut fitting = None;

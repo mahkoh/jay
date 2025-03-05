@@ -489,7 +489,12 @@ impl VulkanRenderer {
             (&sampler_writer, &self.sampler_descriptor_buffer_cache),
             (&resource_writer, &self.resource_descriptor_buffer_cache),
         ] {
-            let buffer = cache.allocate(writer.len() as DeviceSize, 1)?;
+            let mut min_alignment = 1;
+            if self.device.is_anv {
+                // https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/33903
+                min_alignment = 4096;
+            }
+            let buffer = cache.allocate(writer.len() as DeviceSize, min_alignment)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
                 ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
             })?;
