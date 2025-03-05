@@ -63,7 +63,7 @@ impl VulkanDescriptorBufferCache {
         self: &Rc<Self>,
         capacity: DeviceSize,
     ) -> Result<VulkanDescriptorBuffer, VulkanError> {
-        const MIN_ALLOCATION: DeviceSize = 1024;
+        const MIN_ALLOCATION: DeviceSize = 2048;
         let capacity = capacity.max(MIN_ALLOCATION);
         let mut smallest = None;
         let mut smallest_size = DeviceSize::MAX;
@@ -115,6 +115,8 @@ impl VulkanDescriptorBufferCache {
                 | UsageFlags::DEVICE_ADDRESS;
             self.allocator.alloc(&memory_requirements, flags, true)?
         };
+        log::info!("memory_requirements: {:?}", memory_requirements);
+        log::info!("block: {}", allocation.block_debug);
         unsafe {
             self.device
                 .device

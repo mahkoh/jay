@@ -56,6 +56,7 @@ pub struct VulkanAllocation {
     pub(super) size: DeviceSize,
     pub(super) coherency_mask: Option<u64>,
     block: Cell<Option<MemoryBlock<DeviceMemory>>>,
+    pub block_debug: String,
 }
 
 impl VulkanAllocation {
@@ -216,6 +217,7 @@ impl<T> VulkanAllocatorType<T> {
                 true => None,
                 false => Some(self.non_coherent_atom_mask),
             },
+            block_debug: format!("{:?}", block),
             block: Cell::new(Some(block)),
         }
     }
