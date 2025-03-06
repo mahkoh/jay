@@ -5,7 +5,7 @@ struct Vertex {
 	vec2 tex_pos[4];
 };
 
-layout(buffer_reference, buffer_reference_align = 8, std430) buffer Vertices {
+layout(buffer_reference, buffer_reference_align = 8, std430) readonly buffer Vertices {
 	Vertex vertices[];
 };
 
