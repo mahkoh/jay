@@ -28,15 +28,16 @@ use {
             push_descriptor,
         },
         vk::{
-            DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, ExternalSemaphoreFeatureFlags,
-            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, MAX_MEMORY_TYPES,
-            MemoryPropertyFlags, MemoryType, PhysicalDevice,
-            PhysicalDeviceBufferDeviceAddressFeatures, PhysicalDeviceDescriptorBufferFeaturesEXT,
-            PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDriverProperties,
-            PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceProperties, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures, Queue,
+            DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, DriverId,
+            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
+            ExternalSemaphoreProperties, MAX_MEMORY_TYPES, MemoryPropertyFlags, MemoryType,
+            PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
+            PhysicalDeviceDescriptorBufferFeaturesEXT, PhysicalDeviceDescriptorBufferPropertiesEXT,
+            PhysicalDeviceDriverProperties, PhysicalDeviceDriverPropertiesKHR,
+            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
+            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
+            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceVulkan12Properties, Queue,
             QueueFlags,
         },
     },
@@ -73,6 +74,7 @@ pub struct VulkanDevice {
     pub(super) descriptor_buffer_offset_mask: DeviceSize,
     pub(super) sampler_descriptor_size: usize,
     pub(super) sampled_image_descriptor_size: usize,
+    pub(super) is_anv: bool,
 }
 
 impl Drop for VulkanDevice {
@@ -365,18 +367,22 @@ impl VulkanInstance {
             image_drm_format_modifier::Device::new(&self.instance, &device);
         let descriptor_buffer = supports_descriptor_buffer
             .then(|| descriptor_buffer::Device::new(&self.instance, &device));
+        let mut descriptor_buffer_props = PhysicalDeviceDescriptorBufferPropertiesEXT::default();
+        let mut physical_device_vulkan12_properties = PhysicalDeviceVulkan12Properties::default();
+        let mut physical_device_properties2 = PhysicalDeviceProperties2::default()
+            .push_next(&mut physical_device_vulkan12_properties);
+        if supports_descriptor_buffer {
+            physical_device_properties2 =
+                physical_device_properties2.push_next(&mut descriptor_buffer_props);
+        }
+        unsafe {
+            self.instance
+                .get_physical_device_properties2(phy_dev, &mut physical_device_properties2);
+        }
         let mut descriptor_buffer_offset_mask = 0;
         let mut sampler_descriptor_size = 0;
         let mut sampled_image_descriptor_size = 0;
         if supports_descriptor_buffer {
-            let mut descriptor_buffer_props =
-                PhysicalDeviceDescriptorBufferPropertiesEXT::default();
-            let mut props =
-                PhysicalDeviceProperties2::default().push_next(&mut descriptor_buffer_props);
-            unsafe {
-                self.instance
-                    .get_physical_device_properties2(phy_dev, &mut props);
-            }
             descriptor_buffer_offset_mask = descriptor_buffer_props
                 .descriptor_buffer_offset_alignment
                 .checked_next_power_of_two()
@@ -424,6 +430,8 @@ impl VulkanInstance {
             sampler_descriptor_size,
             sampled_image_descriptor_size,
             blend_limits,
+            is_anv: physical_device_vulkan12_properties.driver_id
+                == DriverId::INTEL_OPEN_SOURCE_MESA,
         }))
     }
 }
