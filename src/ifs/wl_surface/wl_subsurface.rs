@@ -131,9 +131,12 @@ impl WlSubsurface {
         if let Some(state) = &mut pending.state.take() {
             self.surface.apply_state(state)?;
         }
+        let mut stacking_changed = false;
+        let mut position_changed = false;
         if let Some(v) = pending.node.take() {
             v.pending.set(false);
             self.node.borrow_mut().replace(v);
+            stacking_changed = true;
         }
         if let Some((mut x, mut y)) = pending.position.take() {
             client_wire_scale_to_logical!(self.surface.client, x, y);
@@ -142,6 +145,12 @@ impl WlSubsurface {
             self.surface
                 .set_absolute_position(parent_x + x, parent_y + y);
             self.parent.need_extents_update.set(true);
+            position_changed = true;
+        }
+        if (position_changed && self.surface.toplevel.is_some())
+            || (!position_changed && stacking_changed)
+        {
+            self.damage();
         }
         Ok(())
     }
@@ -303,6 +312,9 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
             }
         }
         self.surface.client.remove_obj(self)?;
+        if self.surface.toplevel.is_some() {
+            self.damage();
+        }
         self.surface.destroy_node();
         Ok(())
     }
