@@ -165,7 +165,7 @@ impl WlSubsurface {
             let mut data = self.parent.children.borrow_mut();
             let data = data.get_or_insert_with(Default::default);
             data.subsurfaces.insert(self.surface.id, self.clone());
-            data.above.add_first(StackElement {
+            data.above.add_last(StackElement {
                 pending: Cell::new(true),
                 sub_surface: self.clone(),
             })
