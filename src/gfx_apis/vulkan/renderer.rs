@@ -180,7 +180,7 @@ struct VulkanTexOp {
     tex: Rc<VulkanImage>,
     range: Range<usize>,
     buffer_resv: Option<Rc<dyn BufferResv>>,
-    acquire_sync: AcquireSync,
+    acquire_sync: Option<AcquireSync>,
     release_sync: ReleaseSync,
     alpha: f32,
     source_type: TexSourceType,
@@ -665,7 +665,7 @@ impl VulkanRenderer {
                             tex: tex.clone(),
                             range: lo..hi,
                             buffer_resv: ct.buffer_resv.clone(),
-                            acquire_sync: ct.acquire_sync.clone(),
+                            acquire_sync: Some(ct.acquire_sync.clone()),
                             release_sync: ct.release_sync,
                             alpha: ct.alpha.unwrap_or_default(),
                             source_type,
@@ -729,7 +729,7 @@ impl VulkanRenderer {
         memory.queue_transfer.clear();
         let execution = self.allocate_point();
         for pass in RenderPass::variants() {
-            for cmd in &memory.ops[pass] {
+            for cmd in &mut memory.ops[pass] {
                 if let VulkanOp::Tex(c) = cmd {
                     let tex = &c.tex;
                     if tex.execution_version.replace(execution) == execution {
@@ -745,8 +745,8 @@ impl VulkanRenderer {
                     }
                     memory.textures.push(UsedTexture {
                         tex: tex.clone(),
-                        resv: c.buffer_resv.clone(),
-                        acquire_sync: c.acquire_sync.clone(),
+                        resv: c.buffer_resv.take(),
+                        acquire_sync: c.acquire_sync.take().unwrap(),
                         release_sync: c.release_sync,
                     });
                 }
@@ -1553,6 +1553,8 @@ impl VulkanRenderer {
             memory.wait_semaphores.clear();
             memory.release_fence.take();
             memory.used_buffers.clear();
+            memory.ops.clear();
+            memory.ops_tmp.clear();
             memory.release_sync_file.take()
         };
         res.map(|_| sync_file)
