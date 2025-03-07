@@ -386,7 +386,7 @@ impl Renderer<'_> {
         if let Some(children) = children.deref() {
             macro_rules! render {
                 ($children:expr) => {
-                    for child in $children.rev_iter() {
+                    for child in $children.iter() {
                         if child.pending.get() {
                             continue;
                         }
