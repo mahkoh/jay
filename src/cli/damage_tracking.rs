@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, color::parse_color, duration::parse_duration},
-        theme::TransferFunction,
+        cmm::cmm_transfer_function::TransferFunction,
         tools::tool_client::{ToolClient, with_tool_client},
         wire::jay_damage_tracking::{SetVisualizerColor, SetVisualizerDecay, SetVisualizerEnabled},
     },

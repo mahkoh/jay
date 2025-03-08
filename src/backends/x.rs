@@ -751,11 +751,13 @@ impl XBackend {
             let res = self.state.present_output(
                 &node,
                 &image.fb.get(),
+                self.state.color_manager.srgb_srgb(),
                 AcquireSync::Implicit,
                 ReleaseSync::Implicit,
                 &image.tex.get(),
                 true,
                 None,
+                self.state.color_manager.srgb_linear(),
             );
             if let Err(e) = res {
                 log::error!("Could not render screen: {}", ErrorFmt(e));

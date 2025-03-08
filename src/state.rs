@@ -11,6 +11,7 @@ use {
         cli::RunArgs,
         client::{Client, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
+        cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         cpu_worker::CpuWorker,
@@ -234,6 +235,7 @@ pub struct State {
     pub data_control_device_ids: DataControlDeviceIds,
     pub workspace_managers: WorkspaceManagerState,
     pub color_management_enabled: Cell<bool>,
+    pub color_manager: Rc<ColorManager>,
 }
 
 // impl Drop for State {
@@ -976,15 +978,18 @@ impl State {
         &self,
         output: &OutputNode,
         fb: &Rc<dyn GfxFramebuffer>,
+        cd: &Rc<ColorDescription>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         tex: &Rc<dyn GfxTexture>,
         render_hw_cursor: bool,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let sync_file = fb.render_output(
             acquire_sync,
             release_sync,
+            cd,
             output,
             self,
             Some(output.global.pos.get()),
@@ -992,10 +997,12 @@ impl State {
             render_hw_cursor,
             true,
             blend_buffer,
+            blend_cd,
         )?;
         output.latched(false);
         output.perform_screencopies(
             tex,
+            cd,
             None,
             &AcquireSync::Unnecessary,
             ReleaseSync::None,
@@ -1013,10 +1020,12 @@ impl State {
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
+        src_cd: &Rc<ColorDescription>,
         target: &Rc<dyn GfxFramebuffer>,
         target_acquire_sync: AcquireSync,
         target_release_sync: ReleaseSync,
         target_transform: Transform,
+        target_cd: &Rc<ColorDescription>,
         position: Rect,
         render_hardware_cursors: bool,
         x_off: i32,
@@ -1050,6 +1059,7 @@ impl State {
             acquire_sync.clone(),
             release_sync,
             false,
+            src_cd,
         );
         if render_hardware_cursors {
             if let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get() {
@@ -1066,15 +1076,19 @@ impl State {
         target.render(
             target_acquire_sync,
             target_release_sync,
+            target_cd,
             &ops,
             Some(&Color::SOLID_BLACK),
+            &target_cd.linear,
             None,
+            target_cd,
         )
     }
 
     pub fn perform_shm_screencopy(
         &self,
         src: &Rc<dyn GfxTexture>,
+        src_cd: &Rc<ColorDescription>,
         acquire_sync: &AcquireSync,
         position: Rect,
         x_off: i32,
@@ -1105,10 +1119,12 @@ impl State {
             None,
             acquire_sync,
             ReleaseSync::None,
+            src_cd,
             &fb.clone().into_fb(),
             AcquireSync::Unnecessary,
             ReleaseSync::None,
             transform,
+            self.color_manager.srgb_srgb(),
             position,
             true,
             x_off - capture.rect.x1(),

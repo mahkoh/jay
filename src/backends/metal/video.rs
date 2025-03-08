@@ -14,6 +14,7 @@ use {
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
         },
+        cmm::cmm_manager::ColorManager,
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{ARGB8888, Format, XRGB8888},
@@ -2704,7 +2705,11 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
         dev_fb
-            .clear(AcquireSync::Unnecessary, ReleaseSync::None)
+            .clear(
+                AcquireSync::Unnecessary,
+                ReleaseSync::None,
+                self.state.color_manager.srgb_srgb(),
+            )
             .map_err(MetalError::Clear)?;
         let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
             let render_tex = match dev_img.to_texture() {
@@ -2758,7 +2763,11 @@ impl MetalBackend {
                 Err(e) => return Err(MetalError::ImportFb(e)),
             };
             render_fb
-                .clear(AcquireSync::Unnecessary, ReleaseSync::None)
+                .clear(
+                    AcquireSync::Unnecessary,
+                    ReleaseSync::None,
+                    self.state.color_manager.srgb_srgb(),
+                )
                 .map_err(MetalError::Clear)?;
             let render_tex = match render_img.to_texture() {
                 Ok(fb) => fb,
@@ -3030,7 +3039,11 @@ impl RenderBuffer {
             .unwrap_or_else(|| self.dev_fb.clone())
     }
 
-    pub fn copy_to_dev(&self, sync_file: Option<SyncFile>) -> Result<Option<SyncFile>, MetalError> {
+    pub fn copy_to_dev(
+        &self,
+        cm: &ColorManager,
+        sync_file: Option<SyncFile>,
+    ) -> Result<Option<SyncFile>, MetalError> {
         let Some(tex) = &self.dev_tex else {
             return Ok(sync_file);
         };
@@ -3038,7 +3051,9 @@ impl RenderBuffer {
             .copy_texture(
                 AcquireSync::Unnecessary,
                 ReleaseSync::Explicit,
+                cm.srgb_srgb(),
                 tex,
+                cm.srgb_srgb(),
                 None,
                 AcquireSync::from_sync_file(sync_file),
                 ReleaseSync::None,

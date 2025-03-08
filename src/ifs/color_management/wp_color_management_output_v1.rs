@@ -43,10 +43,11 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            description: self.client.state.color_manager.srgb_srgb().clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
-        obj.send_ready(0);
+        obj.send_ready();
         Ok(())
     }
 }

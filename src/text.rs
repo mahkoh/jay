@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
         format::ARGB8888,
         gfx_api::{
@@ -14,7 +15,7 @@ use {
             },
         },
         rect::{Rect, Region},
-        theme::{Color, TransferFunction},
+        theme::Color,
         utils::{
             clonecell::CloneCell, double_buffered::DoubleBuffered, on_drop_event::OnDropEvent,
         },

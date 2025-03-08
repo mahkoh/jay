@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_description::{ColorDescription, LinearColorDescription},
         gfx_api::{
             AcquireSync, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture,
             ReleaseSync, SampleRect,
@@ -64,16 +65,29 @@ impl RendererBase<'_> {
         rect
     }
 
-    pub fn fill_scaled_boxes(&mut self, boxes: &[Rect], color: &Color, alpha: Option<f32>) {
-        self.fill_boxes3(boxes, color, alpha, 0, 0, true);
+    pub fn fill_scaled_boxes(
+        &mut self,
+        boxes: &[Rect],
+        color: &Color,
+        alpha: Option<f32>,
+        cd: &Rc<LinearColorDescription>,
+    ) {
+        self.fill_boxes3(boxes, color, alpha, cd, 0, 0, true);
     }
 
-    pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {
-        self.fill_boxes3(boxes, color, None, 0, 0, false);
+    pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color, cd: &Rc<LinearColorDescription>) {
+        self.fill_boxes3(boxes, color, None, cd, 0, 0, false);
     }
 
-    pub fn fill_boxes2(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
-        self.fill_boxes3(boxes, color, None, dx, dy, false);
+    pub fn fill_boxes2(
+        &mut self,
+        boxes: &[Rect],
+        color: &Color,
+        cd: &Rc<LinearColorDescription>,
+        dx: i32,
+        dy: i32,
+    ) {
+        self.fill_boxes3(boxes, color, None, cd, dx, dy, false);
     }
 
     pub fn fill_boxes3(
@@ -81,6 +95,7 @@ impl RendererBase<'_> {
         boxes: &[Rect],
         color: &Color,
         alpha: Option<f32>,
+        cd: &Rc<LinearColorDescription>,
         dx: i32,
         dy: i32,
         scaled: bool,
@@ -106,18 +121,25 @@ impl RendererBase<'_> {
                 ),
                 color: *color,
                 alpha,
+                cd: cd.clone(),
             }));
         }
     }
 
-    pub fn fill_boxes_f(&mut self, boxes: &[(f32, f32, f32, f32)], color: &Color) {
-        self.fill_boxes2_f(boxes, color, 0.0, 0.0);
+    pub fn fill_boxes_f(
+        &mut self,
+        boxes: &[(f32, f32, f32, f32)],
+        color: &Color,
+        cd: &Rc<LinearColorDescription>,
+    ) {
+        self.fill_boxes2_f(boxes, color, cd, 0.0, 0.0);
     }
 
     pub fn fill_boxes2_f(
         &mut self,
         boxes: &[(f32, f32, f32, f32)],
         color: &Color,
+        cd: &Rc<LinearColorDescription>,
         dx: f32,
         dy: f32,
     ) {
@@ -139,6 +161,7 @@ impl RendererBase<'_> {
                 ),
                 color: *color,
                 alpha: None,
+                cd: cd.clone(),
             }));
         }
     }
@@ -157,6 +180,7 @@ impl RendererBase<'_> {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         opaque: bool,
+        cd: &Rc<ColorDescription>,
     ) {
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
@@ -200,6 +224,7 @@ impl RendererBase<'_> {
             acquire_sync,
             release_sync,
             opaque,
+            cd: cd.clone(),
         }));
     }
 }

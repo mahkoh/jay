@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        cmm::cmm_description::ColorDescription,
         format::{FORMATS, Format},
         gfx_api::{
             AcquireSync, BufferResv, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
@@ -213,6 +214,7 @@ impl ExtImageCopyCaptureSessionV1 {
         self: &Rc<Self>,
         on: &OutputNode,
         texture: &Rc<dyn GfxTexture>,
+        cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
@@ -226,6 +228,7 @@ impl ExtImageCopyCaptureSessionV1 {
                 frame.copy_texture(
                     on,
                     texture,
+                    cd,
                     resv,
                     acquire_sync,
                     release_sync,

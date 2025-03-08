@@ -1,8 +1,12 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        cmm::{
+            cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
+            cmm_transfer_function::TransferFunction,
+            cmm_transform::ColorMatrix,
+        },
         cpu_worker::PendingJob,
-        format::XRGB8888,
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer, GfxFormat,
             GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
@@ -10,7 +14,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
-            buffer_cache::{VulkanBuffer, VulkanBufferCache},
+            buffer_cache::{GenericBufferWriter, VulkanBuffer, VulkanBufferCache},
             command::{VulkanCommandBuffer, VulkanCommandPool},
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
@@ -23,14 +27,14 @@ use {
             shaders::{
                 FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
                 LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, LegacyTexPushConstants,
-                OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants,
-                TexVertex, VulkanShader,
+                OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT, TexColorManagementData,
+                TexPushConstants, TexVertex, VulkanShader,
             },
-            transfer_functions::{TF_LINEAR, TF_SRGB},
+            transfer_functions::{TF_LINEAR, TransferFunctionExt},
         },
         io_uring::IoUring,
         rect::{Rect, Region},
-        theme::{Color, TransferFunction},
+        theme::Color,
         utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
     },
@@ -42,9 +46,10 @@ use {
             self, AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferUsageFlags,
             ClearAttachment, ClearColorValue, ClearRect, ClearValue, CommandBuffer,
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
-            CopyImageInfo2, DependencyInfoKHR, DescriptorBufferBindingInfoEXT, DescriptorImageInfo,
-            DescriptorType, DeviceAddress, DeviceSize, Extent2D, Extent3D, ImageAspectFlags,
-            ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers,
+            CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
+            DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
+            DescriptorImageInfo, DescriptorType, DeviceAddress, DeviceSize, Extent2D, Extent3D,
+            ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers,
             ImageSubresourceRange, Offset2D, Offset3D, PipelineBindPoint, PipelineStageFlags2,
             QUEUE_FAMILY_FOREIGN_EXT, Rect2D, RenderingAttachmentInfo, RenderingInfo,
             SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
@@ -71,8 +76,11 @@ use {
 pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
-    pub(super) pipelines: StaticMap<RenderPass, CopyHashMap<vk::Format, Rc<VulkanFormatPipelines>>>,
-    pub(super) out_pipelines: RefCell<AHashMap<vk::Format, Rc<VulkanPipeline>>>,
+    pub(super) fill_pipelines: CopyHashMap<vk::Format, FillPipelines>,
+    pub(super) tex_pipelines:
+        StaticMap<TransferFunction, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
+    pub(super) out_pipelines:
+        StaticMap<TransferFunction, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
     pub(super) gfx_command_buffers: CachedCommandBuffers,
     pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -101,6 +109,7 @@ pub struct VulkanRenderer {
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
+    pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
 }
 
 pub(super) struct CachedCommandBuffers {
@@ -130,13 +139,13 @@ pub(super) struct UsedTexture {
     release_sync: ReleaseSync,
 }
 
-#[derive(Copy, Clone, Linearize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Linearize)]
 pub(super) enum TexCopyType {
     Identity,
     Multiply,
 }
 
-#[derive(Copy, Clone, Linearize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Linearize)]
 pub(super) enum TexSourceType {
     Opaque,
     HasAlpha,
@@ -152,7 +161,7 @@ pub(super) struct Memory {
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
-    used_buffers: ArrayVec<VulkanBuffer, 3>,
+    used_buffers: ArrayVec<VulkanBuffer, 4>,
     paint_bounds: StaticMap<RenderPass, Option<PaintRegion>>,
     paint_regions: StaticMap<RenderPass, Vec<PaintRegion>>,
     clear_rects: StaticMap<RenderPass, Vec<ClearRect>>,
@@ -167,6 +176,10 @@ pub(super) struct Memory {
     tex_targets: Vec<[Point; 2]>,
     data_buffer: Vec<u8>,
     out_address: DeviceAddress,
+    color_transforms: ColorTransforms,
+    uniform_buffer_writer: GenericBufferWriter,
+    uniform_buffer_descriptor_cache: Option<Box<[u8]>>,
+    blend_buffer_descriptor_buffer_offset: DeviceAddress,
 }
 
 type Point = [[f32; 2]; 4];
@@ -187,6 +200,9 @@ struct VulkanTexOp {
     copy_type: TexCopyType,
     range_address: DeviceAddress,
     instances: u32,
+    tex_cd: Rc<ColorDescription>,
+    color_management_data_address: Option<DeviceAddress>,
+    resource_descriptor_buffer_offset: DeviceAddress,
 }
 
 struct VulkanFillOp {
@@ -221,12 +237,29 @@ pub(super) struct PendingFrame {
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
     _release_fence: Option<Rc<VulkanFence>>,
-    _used_buffers: ArrayVec<VulkanBuffer, 3>,
+    _used_buffers: ArrayVec<VulkanBuffer, 4>,
 }
 
-pub(super) struct VulkanFormatPipelines {
-    pub(super) fill: StaticMap<TexSourceType, Rc<VulkanPipeline>>,
-    pub(super) tex: StaticMap<TexCopyType, StaticMap<TexSourceType, Rc<VulkanPipeline>>>,
+type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+struct TexPipelineKey {
+    tex_copy_type: TexCopyType,
+    tex_source_type: TexSourceType,
+    eotf: TransferFunction,
+    has_color_management_data: bool,
+}
+
+pub(super) struct TexPipelines {
+    format: vk::Format,
+    oetf: TransferFunction,
+    pipelines: CopyHashMap<TexPipelineKey, Rc<VulkanPipeline>>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub(super) struct OutPipelineKey {
+    format: vk::Format,
+    eotf: TransferFunction,
 }
 
 impl VulkanDevice {
@@ -313,12 +346,19 @@ impl VulkanDevice {
         let shader_buffer_cache = {
             // TODO: https://github.com/KhronosGroup/Vulkan-Samples/issues/1286
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::STORAGE_BUFFER;
-            VulkanBufferCache::new(self, &allocator, usage)
+            let align = 8;
+            VulkanBufferCache::new(self, &allocator, usage, align)
+        };
+        let uniform_buffer_cache = {
+            let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::UNIFORM_BUFFER;
+            let align = align_of::<TexColorManagementData>() as DeviceSize;
+            VulkanBufferCache::new(self, &allocator, usage, align)
         };
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
-            pipelines: Default::default(),
+            fill_pipelines: Default::default(),
+            tex_pipelines: Default::default(),
             out_pipelines: Default::default(),
             gfx_command_buffers,
             transfer_command_buffers,
@@ -348,24 +388,18 @@ impl VulkanDevice {
             resource_descriptor_buffer_cache,
             blend_buffers: Default::default(),
             shader_buffer_cache,
+            uniform_buffer_cache,
         });
-        render.get_or_create_pipelines(XRGB8888.vk_format, RenderPass::FrameBuffer)?;
         Ok(render)
     }
 }
 
 impl VulkanRenderer {
-    fn get_or_create_pipelines(
+    fn get_or_create_fill_pipelines(
         &self,
         format: vk::Format,
-        pass: RenderPass,
-    ) -> Result<Rc<VulkanFormatPipelines>, VulkanError> {
-        let (eotf, oetf) = match pass {
-            RenderPass::BlendBuffer => (TF_SRGB, TF_LINEAR),
-            RenderPass::FrameBuffer => (TF_SRGB, TF_SRGB),
-        };
-        let pipelines = &self.pipelines[pass];
-        if let Some(pl) = pipelines.get(&format) {
+    ) -> Result<FillPipelines, VulkanError> {
+        if let Some(pl) = self.fill_pipelines.get(&format) {
             return Ok(pl);
         }
         let create_fill_pipeline = |src_has_alpha| {
@@ -381,55 +415,121 @@ impl VulkanRenderer {
                 blend: src_has_alpha,
                 src_has_alpha,
                 has_alpha_mult: false,
-                eotf,
-                oetf,
+                // all transformations are applied in the compositor
+                eotf: TF_LINEAR,
+                oetf: TF_LINEAR,
                 descriptor_set_layouts: Default::default(),
+                has_color_management_data: false,
             };
             self.device.create_pipeline2(info, push_size)
         };
-        let fill_opaque = create_fill_pipeline(false)?;
-        let fill_alpha = create_fill_pipeline(true)?;
-        let create_tex_pipeline = |src_has_alpha, has_alpha_mult| {
-            let push_size = if self.device.descriptor_buffer.is_some() {
-                size_of::<TexPushConstants>()
-            } else {
-                size_of::<LegacyTexPushConstants>()
-            };
-            let info = PipelineCreateInfo {
-                format,
-                vert: self.tex_vert_shader.clone(),
-                frag: self.tex_frag_shader.clone(),
-                blend: src_has_alpha || has_alpha_mult,
-                src_has_alpha,
-                has_alpha_mult,
-                eotf,
-                oetf,
-                descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
-            };
-            self.device.create_pipeline2(info, push_size)
-        };
-        let tex_opaque = create_tex_pipeline(false, false)?;
-        let tex_alpha = create_tex_pipeline(true, false)?;
-        let tex_mult_opaque = create_tex_pipeline(false, true)?;
-        let tex_mult_alpha = create_tex_pipeline(true, true)?;
-        let format_pipelines = Rc::new(VulkanFormatPipelines {
-            fill: static_map! {
-                TexSourceType::HasAlpha => fill_alpha.clone(),
-                TexSourceType::Opaque => fill_opaque.clone(),
-            },
-            tex: static_map! {
-                TexCopyType::Identity => static_map! {
-                    TexSourceType::HasAlpha => tex_alpha.clone(),
-                    TexSourceType::Opaque => tex_opaque.clone(),
-                },
-                TexCopyType::Multiply => static_map! {
-                    TexSourceType::HasAlpha => tex_mult_alpha.clone(),
-                    TexSourceType::Opaque => tex_mult_opaque.clone(),
-                },
-            },
+        let fill_pipelines = Rc::new(static_map! {
+            TexSourceType::HasAlpha => create_fill_pipeline(true)?,
+            TexSourceType::Opaque => create_fill_pipeline(false)?,
         });
-        pipelines.set(format, format_pipelines.clone());
-        Ok(format_pipelines)
+        self.fill_pipelines.set(format, fill_pipelines.clone());
+        Ok(fill_pipelines)
+    }
+
+    fn get_or_create_tex_pipelines(
+        &self,
+        format: vk::Format,
+        target_cd: &ColorDescription,
+    ) -> Rc<TexPipelines> {
+        let pipelines = &self.tex_pipelines[target_cd.transfer_function];
+        match pipelines.get(&format) {
+            Some(pl) => pl,
+            _ => {
+                let pl = Rc::new(TexPipelines {
+                    format,
+                    oetf: target_cd.transfer_function,
+                    pipelines: Default::default(),
+                });
+                pipelines.set(format, pl.clone());
+                pl
+            }
+        }
+    }
+
+    fn get_or_create_tex_pipeline(
+        &self,
+        pipelines: &TexPipelines,
+        tex_cd: &ColorDescription,
+        tex_copy_type: TexCopyType,
+        tex_source_type: TexSourceType,
+        has_color_management_data: bool,
+    ) -> Result<Rc<VulkanPipeline>, VulkanError> {
+        let key = TexPipelineKey {
+            tex_copy_type,
+            tex_source_type,
+            eotf: tex_cd.transfer_function,
+            has_color_management_data,
+        };
+        if let Some(pl) = pipelines.pipelines.get(&key) {
+            return Ok(pl);
+        }
+        let src_has_alpha = match tex_source_type {
+            TexSourceType::Opaque => false,
+            TexSourceType::HasAlpha => true,
+        };
+        let has_alpha_mult = match tex_copy_type {
+            TexCopyType::Identity => false,
+            TexCopyType::Multiply => true,
+        };
+        let push_size = if self.device.descriptor_buffer.is_some() {
+            size_of::<TexPushConstants>()
+        } else {
+            size_of::<LegacyTexPushConstants>()
+        };
+        let info = PipelineCreateInfo {
+            format: pipelines.format,
+            vert: self.tex_vert_shader.clone(),
+            frag: self.tex_frag_shader.clone(),
+            blend: src_has_alpha || has_alpha_mult,
+            src_has_alpha,
+            has_alpha_mult,
+            eotf: key.eotf.to_vulkan(),
+            oetf: pipelines.oetf.to_vulkan(),
+            descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
+            has_color_management_data,
+        };
+        let pl = self.device.create_pipeline2(info, push_size)?;
+        pipelines.pipelines.set(key, pl.clone());
+        Ok(pl)
+    }
+
+    fn get_or_create_out_pipeline(
+        &self,
+        format: vk::Format,
+        bb_cd: &ColorDescription,
+        fb_cd: &ColorDescription,
+    ) -> Result<Rc<VulkanPipeline>, VulkanError> {
+        let key = OutPipelineKey {
+            format,
+            eotf: bb_cd.transfer_function,
+        };
+        let pipelines = &self.out_pipelines[fb_cd.transfer_function];
+        if let Some(pl) = pipelines.get(&key) {
+            return Ok(pl);
+        }
+        let mut descriptor_set_layouts = ArrayVec::new();
+        descriptor_set_layouts.push(self.out_descriptor_set_layout.clone().unwrap());
+        let out = self
+            .device
+            .create_pipeline::<OutPushConstants>(PipelineCreateInfo {
+                format: key.format,
+                vert: self.out_vert_shader.clone().unwrap(),
+                frag: self.out_frag_shader.clone().unwrap(),
+                blend: false,
+                src_has_alpha: true,
+                has_alpha_mult: false,
+                eotf: key.eotf.to_vulkan(),
+                oetf: fb_cd.transfer_function.to_vulkan(),
+                descriptor_set_layouts,
+                has_color_management_data: false,
+            })?;
+        pipelines.set(key, out.clone());
+        Ok(out)
     }
 
     pub(super) fn allocate_point(&self) -> u64 {
@@ -445,7 +545,6 @@ impl VulkanRenderer {
             return Ok(());
         };
         zone!("create_descriptor_buffers");
-        let version = self.allocate_point();
         let memory = &mut *self.memory.borrow_mut();
         let sampler_writer = &mut memory.sampler_descriptor_buffer_writer;
         sampler_writer.clear();
@@ -458,30 +557,47 @@ impl VulkanRenderer {
         }
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
+        let uniform_buffer_descriptor_cache = memory
+            .uniform_buffer_descriptor_cache
+            .get_or_insert_with(|| {
+                vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
+            });
         if let Some(bb) = bb {
             let layout = self.out_descriptor_set_layout.as_ref().unwrap();
-            let offset = resource_writer.next_offset();
-            bb.descriptor_buffer_offset.set(offset);
+            memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
             let mut writer = resource_writer.add_set(layout);
             writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
         }
         let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
         for pass in RenderPass::variants() {
-            for cmd in &memory.ops[pass] {
+            for cmd in &mut memory.ops[pass] {
                 let VulkanOp::Tex(c) = cmd else {
                     continue;
                 };
                 let tex = &c.tex;
-                if tex.descriptor_buffer_version.replace(version) == version {
-                    continue;
-                }
-                let offset = resource_writer.next_offset();
-                tex.descriptor_buffer_offset.set(offset);
+                c.resource_descriptor_buffer_offset = resource_writer.next_offset();
                 let mut writer = resource_writer.add_set(tex_descriptor_set_layout);
                 writer.write(
                     tex_descriptor_set_layout.offsets[0],
                     &tex.sampled_image_descriptor,
                 );
+                if let Some(addr) = c.color_management_data_address {
+                    let uniform_buffer = DescriptorAddressInfoEXT::default()
+                        .address(addr)
+                        .range(size_of::<TexColorManagementData>() as _);
+                    let info = DescriptorGetInfoEXT::default()
+                        .ty(DescriptorType::UNIFORM_BUFFER)
+                        .data(DescriptorDataEXT {
+                            p_uniform_buffer: &uniform_buffer,
+                        });
+                    unsafe {
+                        db.get_descriptor(&info, uniform_buffer_descriptor_cache);
+                    }
+                    writer.write(
+                        tex_descriptor_set_layout.offsets[1],
+                        uniform_buffer_descriptor_cache,
+                    );
+                }
             }
         }
         let mut infos = ArrayVec::<_, 2>::new();
@@ -489,12 +605,7 @@ impl VulkanRenderer {
             (&sampler_writer, &self.sampler_descriptor_buffer_cache),
             (&resource_writer, &self.resource_descriptor_buffer_cache),
         ] {
-            let mut min_alignment = 1;
-            if self.device.is_anv {
-                // https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/33903
-                min_alignment = 4096;
-            }
-            let buffer = cache.allocate(writer.len() as DeviceSize, min_alignment)?;
+            let buffer = cache.allocate(writer.len() as DeviceSize)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
                 ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
             })?;
@@ -510,7 +621,12 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn convert_ops(&self, opts: &[GfxApiOpt]) {
+    fn convert_ops(
+        &self,
+        opts: &[GfxApiOpt],
+        blend_cd: &ColorDescription,
+        fb_cd: &ColorDescription,
+    ) {
         zone!("convert_ops");
         let memory = &mut *self.memory.borrow_mut();
         for ops in memory.ops.values_mut() {
@@ -522,6 +638,8 @@ impl VulkanRenderer {
         memory.tex_targets.clear();
         memory.fill_targets.clear();
         memory.data_buffer.clear();
+        memory.uniform_buffer_writer.clear();
+        memory.color_transforms.map.clear();
         let sync = |memory: &mut Memory| {
             for pass in RenderPass::variants() {
                 let ops = &mut memory.ops_tmp[pass];
@@ -588,10 +706,6 @@ impl VulkanRenderer {
                         if !bounds.intersects(&target) {
                             continue;
                         }
-                        let tf = match pass {
-                            RenderPass::BlendBuffer => TransferFunction::Linear,
-                            RenderPass::FrameBuffer => TransferFunction::Srgb,
-                        };
                         let ops = &mut memory.ops_tmp[pass];
                         let lo = memory.fill_targets.len();
                         for region in &memory.paint_regions[pass] {
@@ -605,7 +719,15 @@ impl VulkanRenderer {
                         if lo == hi {
                             continue;
                         }
-                        let color = fr.color.to_array2(tf, fr.alpha);
+                        let target_cd = match pass {
+                            RenderPass::BlendBuffer => blend_cd,
+                            RenderPass::FrameBuffer => fb_cd,
+                        };
+                        let tf = target_cd.transfer_function;
+                        let color = memory
+                            .color_transforms
+                            .apply_to_color(&fr.cd, target_cd, fr.color);
+                        let color = color.to_array2(tf, fr.alpha);
                         let source_type = match color[3] < 1.0 {
                             false => TexSourceType::Opaque,
                             true => TexSourceType::HasAlpha,
@@ -661,6 +783,16 @@ impl VulkanRenderer {
                             true => TexSourceType::HasAlpha,
                             false => TexSourceType::Opaque,
                         };
+                        let target_cd = match pass {
+                            RenderPass::BlendBuffer => blend_cd,
+                            RenderPass::FrameBuffer => fb_cd,
+                        };
+                        let color_management_data_address = memory.color_transforms.get_offset(
+                            &ct.cd.linear,
+                            target_cd,
+                            self.device.uniform_buffer_offset_mask,
+                            &mut memory.uniform_buffer_writer,
+                        );
                         ops.push(VulkanOp::Tex(VulkanTexOp {
                             tex: tex.clone(),
                             range: lo..hi,
@@ -672,6 +804,9 @@ impl VulkanRenderer {
                             copy_type,
                             range_address: 0,
                             instances: 0,
+                            tex_cd: ct.cd.clone(),
+                            color_management_data_address,
+                            resource_descriptor_buffer_offset: 0,
                         }));
                     }
                 }
@@ -701,7 +836,7 @@ impl VulkanRenderer {
         if buf.is_empty() {
             return Ok(());
         }
-        let buffer = self.shader_buffer_cache.allocate(buf.len() as _, 8)?;
+        let buffer = self.shader_buffer_cache.allocate(buf.len() as _)?;
         buffer.buffer.allocation.upload(|ptr, _| unsafe {
             ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
         })?;
@@ -718,6 +853,33 @@ impl VulkanRenderer {
             }
         }
         memory.out_address += buffer.buffer.address;
+        memory.used_buffers.push(buffer);
+        Ok(())
+    }
+
+    fn create_uniform_buffer(&self) -> Result<(), VulkanError> {
+        if self.device.descriptor_buffer.is_none() {
+            return Ok(());
+        }
+        zone!("create_uniform_buffer");
+        let memory = &mut *self.memory.borrow_mut();
+        let buf = &memory.uniform_buffer_writer;
+        if buf.is_empty() {
+            return Ok(());
+        }
+        let buffer = self.uniform_buffer_cache.allocate(buf.len() as _)?;
+        buffer.buffer.allocation.upload(|ptr, _| unsafe {
+            ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
+        })?;
+        for ops in memory.ops.values_mut() {
+            for op in ops {
+                if let VulkanOp::Tex(c) = op {
+                    if let Some(addr) = &mut c.color_management_data_address {
+                        *addr += buffer.buffer.address;
+                    }
+                }
+            }
+        }
         memory.used_buffers.push(buffer);
         Ok(())
     }
@@ -865,7 +1027,9 @@ impl VulkanRenderer {
         buf: CommandBuffer,
         target: &VulkanImage,
         clear: Option<&Color>,
+        clear_cd: &LinearColorDescription,
         pass: RenderPass,
+        target_cd: &ColorDescription,
     ) {
         zone!("begin_rendering");
         let memory = &mut *self.memory.borrow_mut();
@@ -874,12 +1038,12 @@ impl VulkanRenderer {
         let clear_rects = &memory.clear_rects[pass];
         if let Some(clear) = clear {
             if clear_rects.is_not_empty() {
+                let color = memory
+                    .color_transforms
+                    .apply_to_color(clear_cd, target_cd, *clear);
                 let clear_value = ClearValue {
                     color: ClearColorValue {
-                        float32: match pass {
-                            RenderPass::BlendBuffer => clear.to_array(TransferFunction::Linear),
-                            RenderPass::FrameBuffer => clear.to_array(TransferFunction::Srgb),
-                        },
+                        float32: color.to_array(target_cd.transfer_function),
                     },
                 };
                 let use_load_clear = clear_rects.len() == 1 && {
@@ -969,10 +1133,12 @@ impl VulkanRenderer {
         buf: CommandBuffer,
         target: &VulkanImage,
         pass: RenderPass,
+        target_cd: &ColorDescription,
     ) -> Result<(), VulkanError> {
         zone!("record_draws");
         let memory = &*self.memory.borrow();
-        let pipelines = self.get_or_create_pipelines(target.format.vk_format, pass)?;
+        let fill_pl = self.get_or_create_fill_pipelines(target.format.vk_format)?;
+        let tex_pl = self.get_or_create_tex_pipelines(target.format.vk_format, target_cd);
         let dev = &self.device.device;
         let mut current_pipeline = None;
         let mut bind = |pipeline: &VulkanPipeline| {
@@ -986,7 +1152,7 @@ impl VulkanRenderer {
         for opt in &memory.ops[pass] {
             match opt {
                 VulkanOp::Fill(r) => {
-                    let pipeline = &pipelines.fill[r.source_type];
+                    let pipeline = &fill_pl[r.source_type];
                     bind(pipeline);
                     if self.device.descriptor_buffer.is_some() {
                         let push = FillPushConstants {
@@ -1026,8 +1192,14 @@ impl VulkanRenderer {
                 }
                 VulkanOp::Tex(c) => {
                     let tex = &c.tex;
-                    let pipeline = &pipelines.tex[c.copy_type][c.source_type];
-                    bind(pipeline);
+                    let pipeline = self.get_or_create_tex_pipeline(
+                        &tex_pl,
+                        &c.tex_cd,
+                        c.copy_type,
+                        c.source_type,
+                        c.color_management_data_address.is_some(),
+                    )?;
+                    bind(&pipeline);
                     let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
@@ -1043,7 +1215,7 @@ impl VulkanRenderer {
                                 pipeline.pipeline_layout,
                                 0,
                                 &[0, 1],
-                                &[0, tex.descriptor_buffer_offset.get()],
+                                &[0, c.resource_descriptor_buffer_offset],
                             );
                             dev.cmd_push_constants(
                                 buf,
@@ -1118,33 +1290,13 @@ impl VulkanRenderer {
         &self,
         buf: CommandBuffer,
         fb: &VulkanImage,
-        bb: &VulkanImage,
+        fb_cd: &ColorDescription,
+        bb_cd: &ColorDescription,
     ) -> Result<(), VulkanError> {
         zone!("blend_buffer_copy");
         let memory = &*self.memory.borrow();
         let db = self.device.descriptor_buffer.as_ref().unwrap();
-        let pipeline = match self.out_pipelines.borrow_mut().entry(fb.format.vk_format) {
-            Entry::Occupied(pipeline) => pipeline.get().clone(),
-            Entry::Vacant(e) => {
-                let mut descriptor_set_layouts = ArrayVec::new();
-                descriptor_set_layouts.push(self.out_descriptor_set_layout.clone().unwrap());
-                let out = self
-                    .device
-                    .create_pipeline::<OutPushConstants>(PipelineCreateInfo {
-                        format: fb.format.vk_format,
-                        vert: self.out_vert_shader.clone().unwrap(),
-                        frag: self.out_frag_shader.clone().unwrap(),
-                        blend: false,
-                        src_has_alpha: true,
-                        has_alpha_mult: false,
-                        eotf: TF_LINEAR,
-                        oetf: TF_SRGB,
-                        descriptor_set_layouts,
-                    })?;
-                e.insert(out.clone());
-                out
-            }
-        };
+        let pipeline = self.get_or_create_out_pipeline(fb.format.vk_format, bb_cd, fb_cd)?;
         let push = OutPushConstants {
             vertices: memory.out_address,
         };
@@ -1158,7 +1310,7 @@ impl VulkanRenderer {
                 pipeline.pipeline_layout,
                 0,
                 &[1],
-                &[bb.descriptor_buffer_offset.get()],
+                &[memory.blend_buffer_descriptor_buffer_offset],
             );
             dev.cmd_push_constants(
                 buf,
@@ -1530,20 +1682,26 @@ impl VulkanRenderer {
         fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
+        fb_cd: &Rc<ColorDescription>,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<Rc<VulkanImage>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, VulkanError> {
         zone!("execute");
         let res = self.try_execute(
             fb,
             fb_acquire_sync,
             fb_release_sync,
+            fb_cd,
             opts,
             clear,
+            clear_cd,
             region,
             blend_buffer,
+            blend_cd,
         );
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
@@ -1706,18 +1864,22 @@ impl VulkanRenderer {
         fb: &Rc<VulkanImage>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
+        fb_cd: &Rc<ColorDescription>,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         mut blend_buffer: Option<Rc<VulkanImage>>,
+        bb_cd: &Rc<ColorDescription>,
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
         self.create_regions(fb, opts, clear, region, blend_buffer.as_deref());
         self.elide_blend_buffer(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
-        self.convert_ops(opts);
+        self.convert_ops(opts, bb_cd, fb_cd);
         self.create_data_buffer()?;
+        self.create_uniform_buffer()?;
         self.collect_memory();
         self.begin_command_buffer(buf.buffer)?;
         self.create_descriptor_buffers(buf.buffer, bb)?;
@@ -1725,18 +1887,20 @@ impl VulkanRenderer {
         self.set_viewport(buf.buffer, fb);
         if let Some(bb) = bb {
             zone!("blend buffer pass");
+            let rp = RenderPass::BlendBuffer;
             self.blend_buffer_initial_barrier(buf.buffer, bb);
-            self.begin_rendering(buf.buffer, bb, clear, RenderPass::BlendBuffer);
-            self.record_draws(buf.buffer, bb, RenderPass::BlendBuffer)?;
+            self.begin_rendering(buf.buffer, bb, clear, clear_cd, rp, bb_cd);
+            self.record_draws(buf.buffer, bb, rp, bb_cd)?;
             self.end_rendering(buf.buffer);
             self.blend_buffer_final_barrier(buf.buffer, bb);
         }
         {
             zone!("frame buffer pass");
-            self.begin_rendering(buf.buffer, fb, clear, RenderPass::FrameBuffer);
-            self.record_draws(buf.buffer, fb, RenderPass::FrameBuffer)?;
-            if let Some(bb) = bb {
-                self.blend_buffer_copy(buf.buffer, fb, bb)?;
+            let rp = RenderPass::FrameBuffer;
+            self.begin_rendering(buf.buffer, fb, clear, clear_cd, rp, fb_cd);
+            self.record_draws(buf.buffer, fb, rp, fb_cd)?;
+            if bb.is_some() {
+                self.blend_buffer_copy(buf.buffer, fb, fb_cd, bb_cd)?;
             }
             self.end_rendering(buf.buffer);
         }
@@ -1954,4 +2118,68 @@ where
     let x2 = x2.min(fb.width as i32);
     let y2 = y2.min(fb.height as i32);
     Some([x1, y1, x2, y2])
+}
+
+#[derive(Default)]
+struct ColorTransforms {
+    map: AHashMap<[LinearColorDescriptionId; 2], ColorTransform>,
+}
+
+struct ColorTransform {
+    matrix: ColorMatrix,
+    offset: Option<DeviceSize>,
+}
+
+impl ColorTransforms {
+    fn get_or_create(
+        &mut self,
+        src: &LinearColorDescription,
+        dst: &ColorDescription,
+    ) -> Option<&mut ColorTransform> {
+        if src.id == dst.linear.id {
+            return None;
+        }
+        let ct = match self.map.entry([src.id, dst.linear.id]) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(e) => {
+                let matrix = src.color_transform(&dst.linear);
+                let ct = ColorTransform {
+                    matrix,
+                    offset: None,
+                };
+                e.insert(ct)
+            }
+        };
+        Some(ct)
+    }
+
+    fn apply_to_color(
+        &mut self,
+        src: &LinearColorDescription,
+        dst: &ColorDescription,
+        mut color: Color,
+    ) -> Color {
+        if let Some(ct) = self.get_or_create(src, dst) {
+            color = ct.matrix * color;
+        };
+        color
+    }
+
+    fn get_offset(
+        &mut self,
+        src: &LinearColorDescription,
+        dst: &ColorDescription,
+        uniform_buffer_offset_mask: DeviceSize,
+        writer: &mut GenericBufferWriter,
+    ) -> Option<DeviceSize> {
+        let ct = self.get_or_create(src, dst)?;
+        if ct.offset.is_none() {
+            let data = TexColorManagementData {
+                matrix: ct.matrix.to_f32(),
+            };
+            let offset = writer.write(uniform_buffer_offset_mask, &data);
+            ct.offset = Some(offset);
+        }
+        ct.offset
+    }
 }

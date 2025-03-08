@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        cmm::cmm_description::ColorDescription,
         ifs::color_management::wp_image_description_info_v1::WpImageDescriptionInfoV1,
         leaks::Tracker,
         object::{Object, Version},
@@ -15,6 +16,7 @@ pub struct WpImageDescriptionV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
+    pub description: Rc<ColorDescription>,
 }
 
 impl WpImageDescriptionV1 {
@@ -27,10 +29,10 @@ impl WpImageDescriptionV1 {
         });
     }
 
-    pub fn send_ready(&self, identity: u32) {
+    pub fn send_ready(&self) {
         self.client.event(Ready {
             self_id: self.id,
-            identity,
+            identity: self.description.id.into(),
         });
     }
 }

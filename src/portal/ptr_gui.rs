@@ -2,6 +2,7 @@ use {
     crate::{
         allocator::{BO_USE_RENDERING, BufferObject, BufferUsage},
         async_engine::{Phase, SpawnedFuture},
+        cmm::cmm_manager::ColorManager,
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
@@ -59,7 +60,7 @@ pub trait GuiElement {
         max_width: f32,
         max_height: f32,
     ) -> (f32, f32);
-    fn render_at(&self, r: &mut RendererBase, x: f32, y: f32);
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32);
     fn child_at(&self, x: f32, y: f32) -> Option<Rc<dyn GuiElement>>;
 
     fn hover_cursor(&self) -> KnownCursor {
@@ -190,7 +191,9 @@ impl GuiElement for Button {
         (extents.width, extents.height)
     }
 
-    fn render_at(&self, r: &mut RendererBase, x1: f32, y1: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x1: f32, y1: f32) {
+        let srgb_srgb = color_manager.srgb_srgb();
+        let srgb = &srgb_srgb.linear;
         let x2 = x1 + self.data.width.get();
         let y2 = y1 + self.data.height.get();
         let border = self.border.get();
@@ -201,7 +204,7 @@ impl GuiElement for Button {
                 (x1, y1 + border, x1 + border, y2 - border),
                 (x2 - border, y1 + border, x2, y2 - border),
             ];
-            r.fill_boxes_f(&rects, &self.border_color.get());
+            r.fill_boxes_f(&rects, &self.border_color.get(), srgb);
         }
         {
             let rects = [(x1 + border, y1 + border, x2 - border, y2 - border)];
@@ -209,7 +212,7 @@ impl GuiElement for Button {
                 true => self.bg_color.get(),
                 false => self.bg_hover_color.get(),
             };
-            r.fill_boxes_f(&rects, &color);
+            r.fill_boxes_f(&rects, &color, srgb);
         }
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
@@ -226,6 +229,7 @@ impl GuiElement for Button {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
+                srgb_srgb,
             );
         }
     }
@@ -311,7 +315,7 @@ impl GuiElement for Label {
         (width as f32 / scale, height as f32 / scale)
     }
 
-    fn render_at(&self, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
@@ -327,6 +331,7 @@ impl GuiElement for Label {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
+                color_manager.srgb_srgb(),
             );
         }
     }
@@ -439,9 +444,14 @@ impl GuiElement for Flow {
         (w.min(max_width), h.min(max_height))
     }
 
-    fn render_at(&self, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
         for element in self.elements.borrow_mut().deref() {
-            element.render_at(r, x + element.data().x.get(), y + element.data().y.get());
+            element.render_at(
+                color_manager,
+                r,
+                x + element.data().x.get(),
+                y + element.data().y.get(),
+            );
         }
     }
 
@@ -634,12 +644,15 @@ impl WindowData {
         let res = buf.fb.render_custom(
             AcquireSync::Implicit,
             ReleaseSync::Implicit,
+            self.dpy.state.color_manager.srgb_srgb(),
             self.scale.get(),
             Some(&Color::from_gray_srgb(0)),
+            &self.dpy.state.color_manager.srgb_srgb().linear,
             None,
+            self.dpy.state.color_manager.srgb_linear(),
             &mut |r| {
                 if let Some(content) = self.content.get() {
-                    content.render_at(r, 0.0, 0.0)
+                    content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0)
                 }
             },
         );

@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_description::{ColorDescription, LinearColorDescription},
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
@@ -20,8 +21,8 @@ use {
     ash::vk::{
         BindImageMemoryInfo, BindImagePlaneMemoryInfo, ComponentMapping, ComponentSwizzle,
         DescriptorDataEXT, DescriptorGetInfoEXT, DescriptorImageInfo, DescriptorType, DeviceMemory,
-        DeviceSize, Extent3D, ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo,
-        FormatFeatureFlags, Image, ImageAspectFlags, ImageCreateFlags, ImageCreateInfo,
+        Extent3D, ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo, FormatFeatureFlags,
+        Image, ImageAspectFlags, ImageCreateFlags, ImageCreateInfo,
         ImageDrmFormatModifierExplicitCreateInfoEXT, ImageLayout, ImageMemoryRequirementsInfo2,
         ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange, ImageTiling, ImageType,
         ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR,
@@ -65,8 +66,6 @@ pub struct VulkanImage {
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
     pub(super) sampled_image_descriptor: Box<[u8]>,
-    pub(super) descriptor_buffer_version: Cell<u64>,
-    pub(super) descriptor_buffer_offset: Cell<DeviceSize>,
     pub(super) execution_version: Cell<u64>,
 }
 
@@ -467,8 +466,6 @@ impl VulkanDmaBufImageTemplate {
             }),
             bridge,
             sampled_image_descriptor: self.renderer.sampled_image_descriptor(texture_view),
-            descriptor_buffer_version: Cell::new(0),
-            descriptor_buffer_offset: Cell::new(0),
             execution_version: Cell::new(0),
         }))
     }
@@ -552,10 +549,13 @@ impl GfxFramebuffer for VulkanImage {
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut blend_buffer =
             blend_buffer.map(|b| b.clone().into_vk(&self.renderer.device.device));
@@ -574,10 +574,13 @@ impl GfxFramebuffer for VulkanImage {
                 &self,
                 acquire_sync,
                 release_sync,
+                cd,
                 ops,
                 clear,
+                clear_cd,
                 region,
                 blend_buffer,
+                blend_cd,
             )
             .map_err(|e| e.into())
     }

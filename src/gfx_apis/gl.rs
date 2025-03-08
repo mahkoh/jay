@@ -67,8 +67,9 @@ macro_rules! dynload {
 
 use {
     crate::{
+        cmm::cmm_transfer_function::TransferFunction,
         gfx_api::{
-            AcquireSync, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
+            AcquireSync, CopyTexture, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
             ReleaseSync, SyncFile,
         },
         gfx_apis::gl::{
@@ -84,7 +85,7 @@ use {
                 GL_TRIANGLE_STRIP, GL_TRIANGLES,
             },
         },
-        theme::{Color, TransferFunction},
+        theme::Color,
         utils::{errorfmt::ErrorFmt, rc_eq::rc_eq, vecstorage::VecStorage},
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -204,8 +205,13 @@ enum RenderError {
 #[derive(Default)]
 struct GfxGlState {
     triangles: RefCell<Vec<[f32; 2]>>,
-    fill_rect: VecStorage<FillRect>,
+    fill_rect: VecStorage<GlFillRect>,
     copy_tex: VecStorage<&'static CopyTexture>,
+}
+
+struct GlFillRect {
+    pub rect: FramebufferRect,
+    pub color: Color,
 }
 
 fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
@@ -235,10 +241,9 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
                     }
                 }
                 GfxApiOpt::FillRect(f) => {
-                    fill_rect.push(FillRect {
+                    fill_rect.push(GlFillRect {
                         rect: f.rect,
                         color: f.effective_color(),
-                        alpha: None,
                     });
                     i += 1;
                 }

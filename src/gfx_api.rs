@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::Allocator,
+        cmm::cmm_description::{ColorDescription, LinearColorDescription},
         cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
@@ -41,6 +42,7 @@ pub enum GfxApiOpt {
 pub struct GfxRenderPass {
     pub ops: Vec<GfxApiOpt>,
     pub clear: Option<Color>,
+    pub clear_cd: Rc<LinearColorDescription>,
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
@@ -194,6 +196,7 @@ pub struct FillRect {
     pub rect: FramebufferRect,
     pub color: Color,
     pub alpha: Option<f32>,
+    pub cd: Rc<LinearColorDescription>,
 }
 
 impl FillRect {
@@ -215,6 +218,7 @@ pub struct CopyTexture {
     pub release_sync: ReleaseSync,
     pub alpha: Option<f32>,
     pub opaque: bool,
+    pub cd: Rc<ColorDescription>,
 }
 
 #[derive(Clone, Debug)]
@@ -299,10 +303,13 @@ pub trait GfxFramebuffer: Debug {
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError>;
 
     fn format(&self) -> &'static Format;
@@ -333,17 +340,23 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.clone().render_with_region(
             acquire_sync,
             release_sync,
+            cd,
             ops,
             clear,
+            clear_cd,
             &self.full_region(),
             blend_buffer,
+            blend_cd,
         )
     }
 
@@ -351,17 +364,35 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.clear_with(acquire_sync, release_sync, &Color::TRANSPARENT)
+        self.clear_with(
+            acquire_sync,
+            release_sync,
+            cd,
+            &Color::TRANSPARENT,
+            &cd.linear,
+        )
     }
 
     pub fn clear_with(
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         color: &Color,
+        color_cd: &Rc<LinearColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
-        self.render(acquire_sync, release_sync, &[], Some(color), None)
+        self.render(
+            acquire_sync,
+            release_sync,
+            cd,
+            &[],
+            Some(color),
+            color_cd,
+            None,
+            cd,
+        )
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -381,7 +412,9 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
+        fb_cd: &Rc<ColorDescription>,
         texture: &Rc<dyn GfxTexture>,
+        texture_cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
@@ -404,24 +437,46 @@ impl dyn GfxFramebuffer {
             acquire_sync,
             release_sync,
             false,
+            texture_cd,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(fb_acquire_sync, fb_release_sync, &ops, clear, None)
+        self.render(
+            fb_acquire_sync,
+            fb_release_sync,
+            fb_cd,
+            &ops,
+            clear,
+            &fb_cd.linear,
+            None,
+            fb_cd,
+        )
     }
 
     pub fn render_custom(
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         scale: Scale,
         clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(acquire_sync, release_sync, &ops, clear, blend_buffer)
+        self.render(
+            acquire_sync,
+            release_sync,
+            cd,
+            &ops,
+            clear,
+            clear_cd,
+            blend_buffer,
+            blend_cd,
+        )
     }
 
     pub fn create_render_pass(
@@ -456,17 +511,22 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         pass: &GfxRenderPass,
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.clone().render_with_region(
             acquire_sync,
             release_sync,
+            cd,
             &pass.ops,
             pass.clear.as_ref(),
+            &pass.clear_cd,
             region,
             blend_buffer,
+            blend_cd,
         )
     }
 
@@ -474,6 +534,7 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         node: &OutputNode,
         state: &State,
         cursor_rect: Option<Rect>,
@@ -481,10 +542,12 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         fill_black_in_grace_period: bool,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
             acquire_sync,
             release_sync,
+            cd,
             node,
             state,
             cursor_rect,
@@ -495,6 +558,7 @@ impl dyn GfxFramebuffer {
             fill_black_in_grace_period,
             node.global.persistent.transform.get(),
             blend_buffer,
+            blend_cd,
         )
     }
 
@@ -502,6 +566,7 @@ impl dyn GfxFramebuffer {
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
@@ -512,6 +577,7 @@ impl dyn GfxFramebuffer {
         fill_black_in_grace_period: bool,
         transform: Transform,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let pass = self.create_render_pass(
             node,
@@ -528,9 +594,11 @@ impl dyn GfxFramebuffer {
         self.perform_render_pass(
             acquire_sync,
             release_sync,
+            cd,
             &pass,
             &self.full_region(),
             blend_buffer,
+            blend_cd,
         )
     }
 
@@ -542,6 +610,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         scale: Scale,
         transform: Transform,
+        cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
@@ -557,9 +626,12 @@ impl dyn GfxFramebuffer {
         self.render(
             acquire_sync,
             release_sync,
+            cd,
             &ops,
             Some(&Color::TRANSPARENT),
+            &cd.linear,
             None,
+            cd,
         )
     }
 }
@@ -832,6 +904,7 @@ pub fn create_render_pass(
         return GfxRenderPass {
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),
+            clear_cd: state.color_manager.srgb_srgb().linear.clone(),
         };
     }
     let mut ops = vec![];
@@ -898,6 +971,7 @@ pub fn create_render_pass(
     GfxRenderPass {
         ops,
         clear: Some(c),
+        clear_cd: state.color_manager.srgb_srgb().linear.clone(),
     }
 }
 

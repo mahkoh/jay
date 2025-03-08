@@ -507,6 +507,7 @@ impl CursorUser {
                 &self.group.state,
                 scale,
                 transform,
+                self.group.state.color_manager.srgb_srgb(),
             );
             match res {
                 Ok(sync_file) => {

@@ -106,8 +106,6 @@ impl VulkanRenderer {
             ty: VulkanImageMemory::Blend(allocation),
             bridge: None,
             sampled_image_descriptor: self.sampled_image_descriptor(view),
-            descriptor_buffer_version: Default::default(),
-            descriptor_buffer_offset: Default::default(),
             execution_version: Default::default(),
         });
         cached.insert_entry(Rc::downgrade(&img));

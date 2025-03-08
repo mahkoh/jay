@@ -79,6 +79,7 @@ pub fn take_screenshot(
     fb.render_node(
         AcquireSync::Unnecessary,
         ReleaseSync::Implicit,
+        state.color_manager.srgb_srgb(),
         state.root.deref(),
         state,
         Some(state.root.extents.get()),
@@ -89,6 +90,7 @@ pub fn take_screenshot(
         false,
         Transform::None,
         None,
+        state.color_manager.srgb_linear(),
     )?;
     let drm = match allocator.drm() {
         Some(drm) => Some(drm.dup_render()?.fd().clone()),

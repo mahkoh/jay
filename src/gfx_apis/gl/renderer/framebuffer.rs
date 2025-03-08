@@ -1,5 +1,9 @@
 use {
     crate::{
+        cmm::{
+            cmm_description::{ColorDescription, LinearColorDescription},
+            cmm_transfer_function::TransferFunction,
+        },
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxBlendBuffer, GfxError,
@@ -18,7 +22,7 @@ use {
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
         },
         rect::Region,
-        theme::{Color, TransferFunction},
+        theme::Color,
     },
     std::{
         cell::Cell,
@@ -104,10 +108,13 @@ impl GfxFramebuffer for Framebuffer {
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
+        _cd: &Rc<ColorDescription>,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
+        _clear_cd: &Rc<LinearColorDescription>,
         _region: &Region,
         _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        _blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
         (*self)
             .render(acquire_sync, ops, clear)
