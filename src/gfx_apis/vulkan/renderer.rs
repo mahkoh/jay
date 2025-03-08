@@ -1610,6 +1610,7 @@ impl VulkanRenderer {
                     slice::from_ref(&submit_info),
                     release_fence.fence,
                 )
+                .inspect_err(self.device.idl())
                 .map_err(VulkanError::Submit)?;
         }
         zone!("export_sync_file");
@@ -1919,6 +1920,7 @@ impl VulkanRenderer {
         log::warn!("Blocking.");
         unsafe {
             if let Err(e) = self.device.device.device_wait_idle() {
+                self.device.idl()(&e);
                 log::error!("Could not wait for device idle: {}", ErrorFmt(e));
             }
         }

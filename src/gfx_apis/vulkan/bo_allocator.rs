@@ -260,8 +260,12 @@ impl VulkanBoAllocator {
                     slice::from_ref(&submit_info),
                     Fence::null(),
                 )
+                .inspect_err(self.data.device.idl())
                 .map_err(VulkanError::Submit)?;
-            device.device_wait_idle().map_err(VulkanError::WaitIdle)?;
+            device
+                .device_wait_idle()
+                .inspect_err(self.data.device.idl())
+                .map_err(VulkanError::WaitIdle)?;
         }
         destroy_image.forget();
         destroy_memory.forget();
@@ -565,8 +569,12 @@ impl VulkanBo {
                     slice::from_ref(&submit_info),
                     Fence::null(),
                 )
+                .inspect_err(self.allocator.device.idl())
                 .map_err(VulkanError::Submit)?;
-            device.device_wait_idle().map_err(VulkanError::WaitIdle)?;
+            device
+                .device_wait_idle()
+                .inspect_err(self.allocator.device.idl())
+                .map_err(VulkanError::WaitIdle)?;
         }
         Ok(())
     }
