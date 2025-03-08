@@ -296,6 +296,7 @@ impl VulkanShmImage {
                 slice::from_ref(&submit_info),
                 release_fence.fence,
             )
+            .inspect_err(img.renderer.device.idl())
             .map_err(VulkanError::Submit)?;
         }
         if tt == TransferType::Upload {

@@ -28,7 +28,7 @@ use {
             push_descriptor,
         },
         vk::{
-            DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, DriverId,
+            self, DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, DriverId,
             ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
             ExternalSemaphoreProperties, MAX_MEMORY_TYPES, MemoryPropertyFlags, MemoryType,
             PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
@@ -44,6 +44,7 @@ use {
     },
     isnt::std_1::collections::IsntHashMap2Ext,
     std::{
+        cell::Cell,
         ffi::{CStr, CString},
         rc::Rc,
         sync::Arc,
@@ -78,6 +79,7 @@ pub struct VulkanDevice {
     pub(super) is_anv: bool,
     pub(super) uniform_buffer_offset_mask: DeviceSize,
     pub(super) uniform_buffer_descriptor_size: usize,
+    pub(super) lost: Cell<bool>,
 }
 
 impl Drop for VulkanDevice {
@@ -102,6 +104,15 @@ impl VulkanDevice {
             }
         }
         None
+    }
+
+    #[inline(always)]
+    pub(super) fn idl(&self) -> impl Fn(&vk::Result) + use<'_> {
+        |res| {
+            if *res == vk::Result::ERROR_DEVICE_LOST {
+                self.lost.set(true);
+            }
+        }
     }
 }
 
@@ -450,6 +461,7 @@ impl VulkanInstance {
                 == DriverId::INTEL_OPEN_SOURCE_MESA,
             uniform_buffer_offset_mask,
             uniform_buffer_descriptor_size,
+            lost: Cell::new(false),
         }))
     }
 }

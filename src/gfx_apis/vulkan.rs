@@ -243,7 +243,7 @@ struct Context(Rc<VulkanRenderer>);
 
 impl GfxContext for Context {
     fn reset_status(&self) -> Option<ResetStatus> {
-        None
+        self.0.device.lost.get().then_some(ResetStatus::Unknown)
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {
