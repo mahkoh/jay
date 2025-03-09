@@ -2,7 +2,7 @@ use {
     crate::{
         client::ClientError,
         ifs::wl_seat::zwp_pointer_constraints_v1::{
-            ConstraintOwner, SeatConstraint, ZwpPointerConstraintsV1Error,
+            ConstraintOwner, SeatConstraint, SeatConstraintStatus, ZwpPointerConstraintsV1Error,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -30,9 +30,16 @@ impl ZwpLockedPointerV1RequestHandler for ZwpLockedPointerV1 {
 
     fn set_cursor_position_hint(
         &self,
-        _req: SetCursorPositionHint,
+        req: SetCursorPositionHint,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        if self.constraint.status.get() != SeatConstraintStatus::Active {
+            return Ok(());
+        }
+        let mut x = req.surface_x;
+        let mut y = req.surface_y;
+        client_wire_scale_to_logical!(self.constraint.client, x, y);
+        self.constraint.set_cursor_hint(x, y, true);
         Ok(())
     }
 
