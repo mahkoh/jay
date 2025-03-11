@@ -1,6 +1,10 @@
 use {
     crate::{
-        backend::{BackendEvent, ConnectorEvent, ConnectorKernelId, Mode, MonitorInfo},
+        backend::{
+            BackendColorSpace, BackendEvent, BackendTransferFunction, ConnectorEvent,
+            ConnectorKernelId, Mode, MonitorInfo,
+        },
+        cmm::cmm_primaries::Primaries,
         ifs::wl_output::OutputId,
         it::{test_backend::TestConnector, test_error::TestResult, testrun::TestRun},
         video::drm::ConnectorType,
@@ -48,6 +52,12 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         height_mm: 0,
         non_desktop: false,
         vrr_capable: false,
+        transfer_functions: vec![],
+        transfer_function: BackendTransferFunction::Default,
+        color_spaces: vec![],
+        color_space: BackendColorSpace::Default,
+        primaries: Primaries::SRGB,
+        luminance: None,
     };
     run.backend
         .state

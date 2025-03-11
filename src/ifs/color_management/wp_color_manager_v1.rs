@@ -147,15 +147,21 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 
     fn get_output(&self, req: GetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.output)?;
+        let output = self.client.lookup(req.output)?;
         let obj = Rc::new(WpColorManagementOutputV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            output: output.global.clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        if let Some(global) = output.global.get() {
+            global
+                .color_description_listeners
+                .set((self.client.id, req.id), obj);
+        }
         Ok(())
     }
 
@@ -179,15 +185,17 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         req: GetSurfaceFeedback,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.surface)?;
+        let surface = self.client.lookup(req.surface)?;
         let obj = Rc::new(WpColorManagementSurfaceFeedbackV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            surface: surface.clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        surface.add_color_management_feedback(&obj);
         Ok(())
     }
 
@@ -232,7 +240,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: self.client.state.color_manager.windows_scrgb().clone(),
+            description: Some(self.client.state.color_manager.windows_scrgb().clone()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

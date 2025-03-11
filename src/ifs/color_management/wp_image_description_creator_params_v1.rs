@@ -91,7 +91,7 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description,
+            description: Some(description),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

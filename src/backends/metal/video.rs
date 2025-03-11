@@ -3,9 +3,10 @@ use {
         allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor,
-            HardwareCursorUpdate, Mode, MonitorInfo,
+            BackendColorSpace, BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent,
+            BackendLuminance, BackendTransferFunction, Connector, ConnectorEvent, ConnectorId,
+            ConnectorKernelId, DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode,
+            MonitorInfo,
         },
         backends::metal::{
             MetalBackend, MetalError,
@@ -14,7 +15,7 @@ use {
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
         },
-        cmm::cmm_manager::ColorManager,
+        cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{ARGB8888, Format, XRGB8888},
@@ -33,7 +34,8 @@ use {
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
-            numcell::NumCell, on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
+            numcell::NumCell, on_change::OnChange, opaque_cell::OpaqueCell, ordered_float::F64,
+            oserror::OsError,
         },
         video::{
             INVALID_MODIFIER, Modifier,
@@ -43,7 +45,7 @@ use {
                 DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder,
                 DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster, DrmModeInfo, DrmObject,
                 DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, DrmVersion,
-                PropBlob, drm_mode_modeinfo,
+                PropBlob, drm_mode_modeinfo, hdr_output_metadata,
             },
             gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmDevice},
         },
@@ -64,6 +66,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
+    thiserror::Error,
     uapi::{
         OwnedFd,
         c::{self, dev_t},
@@ -322,6 +325,8 @@ pub struct PersistentDisplayData {
     pub mode: RefCell<Option<DrmModeInfo>>,
     pub vrr_requested: Cell<bool>,
     pub format: Cell<&'static Format>,
+    pub eotf: Cell<BackendTransferFunction>,
+    pub color_space: Cell<BackendColorSpace>,
 }
 
 #[derive(Debug)]
@@ -346,6 +351,15 @@ pub struct ConnectorDisplayData {
     pub mm_width: u32,
     pub mm_height: u32,
     pub _subpixel: u32,
+
+    pub supports_bt2020: bool,
+    pub supports_pq: bool,
+    pub primaries: Primaries,
+    pub luminance: Option<BackendLuminance>,
+
+    pub colorspace: Option<MutableProperty<u64>>,
+    pub hdr_metadata: Option<MutableProperty<DrmBlob>>,
+    pub hdr_metadata_blob: Option<PropBlob>,
 }
 
 impl ConnectorDisplayData {
@@ -653,6 +667,21 @@ impl MetalConnector {
 
     pub fn send_event(&self, event: ConnectorEvent) {
         let state = self.frontend_state.get();
+        macro_rules! desktop_event {
+            ($name:expr) => {
+                match state {
+                    FrontState::Connected { non_desktop: false } => {
+                        self.on_change.send_event(event);
+                    }
+                    FrontState::Connected { non_desktop: true }
+                    | FrontState::Removed
+                    | FrontState::Disconnected
+                    | FrontState::Unavailable => {
+                        log::error!("Tried to send {} event in invalid state: {state:?}", $name);
+                    }
+                }
+            };
+        }
         match &event {
             ConnectorEvent::Connected(ty) => match state {
                 FrontState::Disconnected => {
@@ -665,21 +694,12 @@ impl MetalConnector {
                     log::error!("Tried to send connected event in invalid state: {state:?}");
                 }
             },
-            ConnectorEvent::HardwareCursor(_) | ConnectorEvent::ModeChanged(_) => match state {
-                FrontState::Connected { non_desktop: false } => {
-                    self.on_change.send_event(event);
-                }
-                FrontState::Connected { non_desktop: true }
-                | FrontState::Removed
-                | FrontState::Disconnected
-                | FrontState::Unavailable => {
-                    let name = match &event {
-                        ConnectorEvent::HardwareCursor(_) => "hardware cursor",
-                        _ => "mode change",
-                    };
-                    log::error!("Tried to send {name} event in invalid state: {state:?}");
-                }
-            },
+            ConnectorEvent::HardwareCursor(_) => {
+                desktop_event!("hardware cursor");
+            }
+            ConnectorEvent::ModeChanged(_) => {
+                desktop_event!("mode change");
+            }
             ConnectorEvent::Disconnected => match state {
                 FrontState::Connected { .. } | FrontState::Unavailable => {
                     self.on_change.send_event(event);
@@ -720,28 +740,15 @@ impl MetalConnector {
                     log::error!("Tried to send available event in invalid state: {state:?}");
                 }
             },
-            ConnectorEvent::VrrChanged(_) => match state {
-                FrontState::Connected { non_desktop: false } => {
-                    self.on_change.send_event(event);
-                }
-                FrontState::Connected { non_desktop: true }
-                | FrontState::Removed
-                | FrontState::Disconnected
-                | FrontState::Unavailable => {
-                    log::error!("Tried to send vrr-changed event in invalid state: {state:?}");
-                }
-            },
-            ConnectorEvent::FormatsChanged(_, _) => match state {
-                FrontState::Connected { non_desktop: false } => {
-                    self.on_change.send_event(event);
-                }
-                FrontState::Connected { non_desktop: true }
-                | FrontState::Removed
-                | FrontState::Disconnected
-                | FrontState::Unavailable => {
-                    log::error!("Tried to send format-changed event in invalid state: {state:?}");
-                }
-            },
+            ConnectorEvent::VrrChanged(_) => {
+                desktop_event!("vrr-changed");
+            }
+            ConnectorEvent::FormatsChanged(_, _) => {
+                desktop_event!("formats-changed");
+            }
+            ConnectorEvent::ColorsChanged(_, _) => {
+                desktop_event!("colors-changed");
+            }
         }
     }
 
@@ -764,6 +771,55 @@ impl MetalConnector {
                 crtc.have_queued_sequence.set(true);
             }
         }
+    }
+
+    fn change_property(
+        &self,
+        name: &str,
+        needs_change: impl FnOnce(&ConnectorDisplayData) -> bool,
+        supports_change: impl FnOnce(&ConnectorDisplayData) -> bool,
+        change: impl FnOnce(&ConnectorDisplayData),
+        changed: impl FnOnce(),
+        reset: impl FnOnce(&ConnectorDisplayData),
+    ) {
+        match self.frontend_state.get() {
+            FrontState::Connected { non_desktop: false } => {}
+            FrontState::Connected { non_desktop: true }
+            | FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable => return,
+        }
+        let dd = self.display.borrow();
+        if !needs_change(&dd) {
+            return;
+        }
+        if !supports_change(&dd) {
+            return;
+        }
+        if dd.connection != ConnectorStatus::Connected {
+            log::warn!("Cannot change {name} of connector that is not connected");
+            return;
+        }
+        let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) else {
+            log::warn!("Cannot change {name} because underlying device does not exist?");
+            return;
+        };
+        change(&dd);
+        drop(dd);
+        let Err(e) = self.backend.handle_drm_change_(&dev, true) else {
+            changed();
+            return;
+        };
+        log::warn!("Could not change {name}: {}", ErrorFmt(&e));
+        reset(&self.display.borrow());
+        if let MetalError::Modeset(DrmError::Atomic(OsError(c::EACCES))) = e {
+            log::warn!("Failed due to access denied. Resetting in memory only.");
+            return;
+        }
+        log::warn!("Trying to re-initialize the drm device");
+        if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
+            log::warn!("Could not restore the previous {name}: {}", ErrorFmt(e));
+        };
     }
 }
 
@@ -941,6 +997,47 @@ impl Connector for MetalConnector {
                 log::error!("Could not change format: {}", ErrorFmt(e));
             }
         }
+    }
+
+    fn set_colors(&self, bcs: BackendColorSpace, btf: BackendTransferFunction) {
+        let prev_bcs = Cell::new(bcs);
+        let prev_btf = Cell::new(btf);
+        self.change_property(
+            "colors",
+            |dd| {
+                prev_bcs.set(dd.persistent.color_space.get());
+                prev_btf.set(dd.persistent.eotf.get());
+                prev_bcs.get() != bcs || prev_btf.get() != btf
+            },
+            |dd| {
+                let cs = match bcs {
+                    BackendColorSpace::Default => true,
+                    BackendColorSpace::Bt2020 => dd.supports_bt2020,
+                };
+                if !cs {
+                    log::warn!("Display does not support color space {:?}", bcs);
+                }
+                let tf = match btf {
+                    BackendTransferFunction::Default => true,
+                    BackendTransferFunction::Pq => dd.supports_pq,
+                };
+                if !tf {
+                    log::warn!("Display does not support transfer function {:?}", btf);
+                }
+                cs && tf
+            },
+            |dd| {
+                dd.persistent.color_space.set(bcs);
+                dd.persistent.eotf.set(btf);
+            },
+            || {
+                self.send_event(ConnectorEvent::ColorsChanged(bcs, btf));
+            },
+            |dd| {
+                dd.persistent.color_space.set(prev_bcs.get());
+                dd.persistent.eotf.set(prev_btf.get());
+            },
+        );
     }
 }
 
@@ -1203,6 +1300,10 @@ fn create_connector_display_data(
         ty: ConnectorType::from_drm(info.connector_type),
         idx: info.connector_type_id,
     };
+    let mut supports_bt2020 = false;
+    let mut supports_pq = false;
+    let mut luminance = None;
+    let mut primaries = Primaries::SRGB;
     'fetch_edid: {
         if connection != ConnectorStatus::Connected {
             break 'fetch_edid;
@@ -1286,6 +1387,40 @@ fn create_connector_display_data(
         if min_vrr_hz > 0 {
             vrr_refresh_max_nsec = 1_000_000_000 / min_vrr_hz;
         }
+        let cc = &edid.base_block.chromaticity_coordinates;
+        let map = |c: u16| F64(c as f64 / 1024.0);
+        primaries = Primaries {
+            r: (map(cc.red_x), map(cc.red_y)),
+            g: (map(cc.green_x), map(cc.green_y)),
+            b: (map(cc.blue_x), map(cc.blue_y)),
+            wp: (map(cc.white_x), map(cc.white_y)),
+        };
+        for ext in &edid.extension_blocks {
+            if let EdidExtension::CtaV3(cta) = ext {
+                for data_block in &cta.data_blocks {
+                    match data_block {
+                        CtaDataBlock::Colorimetry(c) => {
+                            if c.bt2020_rgb {
+                                supports_bt2020 = true;
+                            }
+                        }
+                        CtaDataBlock::StaticHdrMetadata(h) => {
+                            if h.smpte_st_2084 {
+                                supports_pq = true;
+                            }
+                            if let Some(max) = h.max_luminance {
+                                luminance = Some(BackendLuminance {
+                                    min: h.min_luminance.unwrap_or(0.0),
+                                    max,
+                                    max_fall: h.max_luminance.unwrap_or(max),
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
     let output_id = Rc::new(OutputId::new(
         connector_id.to_string(),
@@ -1295,7 +1430,9 @@ fn create_connector_display_data(
     ));
     let desired_state = match dev.backend.persistent_display_data.get(&output_id) {
         Some(ds) => {
-            log::info!("Reusing desired state for {:?}", output_id);
+            if connection != ConnectorStatus::Disconnected {
+                log::info!("Reusing desired state for {:?}", output_id);
+            }
             ds
         }
         None => {
@@ -1303,6 +1440,8 @@ fn create_connector_display_data(
                 mode: RefCell::new(info.modes.first().cloned()),
                 vrr_requested: Default::default(),
                 format: Cell::new(XRGB8888),
+                eotf: Default::default(),
+                color_space: Default::default(),
             });
             dev.backend
                 .persistent_display_data
@@ -1331,12 +1470,30 @@ fn create_connector_display_data(
     };
     let mode = mode_opt.clone();
     drop(mode_opt);
+    {
+        let viable = match desired_state.eotf.get() {
+            BackendTransferFunction::Default => true,
+            BackendTransferFunction::Pq => supports_pq,
+        };
+        if !viable {
+            log::warn!("Discarding previously desired transfer function");
+            desired_state.eotf.set(BackendTransferFunction::Default);
+        }
+    }
+    {
+        let viable = match desired_state.color_space.get() {
+            BackendColorSpace::Default => true,
+            BackendColorSpace::Bt2020 => supports_bt2020,
+        };
+        if !viable {
+            log::warn!("Discarding previously desired color space");
+            desired_state.color_space.set(BackendColorSpace::Default);
+        }
+    }
     let default_properties = create_default_properties(
         &props,
         &[
             ("Broadcast RGB", DefaultValue::Enum("Automatic")),
-            ("Colorspace", DefaultValue::Enum("Default")),
-            ("HDR_OUTPUT_METADATA", DefaultValue::Fixed(0)),
             ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
             ("Output format", DefaultValue::Enum("Default")),
             ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
@@ -1363,8 +1520,18 @@ fn create_connector_display_data(
         mm_width: info.mm_width,
         mm_height: info.mm_height,
         _subpixel: info.subpixel,
+        supports_bt2020,
+        supports_pq,
+        primaries,
+        luminance,
         connector_id,
         output_id,
+        colorspace: props.get("Colorspace").ok(),
+        hdr_metadata: props
+            .get("HDR_OUTPUT_METADATA")
+            .ok()
+            .map(|v| v.map(|v| DrmBlob(v as _))),
+        hdr_metadata_blob: None,
     })
 }
 
@@ -1802,6 +1969,14 @@ impl MetalBackend {
                 modes.push(mode);
             }
         }
+        let mut transfer_functions = vec![];
+        if dd.supports_pq {
+            transfer_functions.push(BackendTransferFunction::Pq);
+        }
+        let mut color_spaces = vec![];
+        if dd.supports_bt2020 {
+            color_spaces.push(BackendColorSpace::Bt2020);
+        }
         connector.send_event(ConnectorEvent::Connected(MonitorInfo {
             modes,
             output_id: dd.output_id.clone(),
@@ -1810,6 +1985,12 @@ impl MetalBackend {
             height_mm: dd.mm_height as _,
             non_desktop: dd.non_desktop_effective,
             vrr_capable: dd.vrr_capable,
+            transfer_functions,
+            transfer_function: dd.persistent.eotf.get(),
+            color_spaces,
+            color_space: dd.persistent.color_space.get(),
+            primaries: dd.primaries,
+            luminance: dd.luminance,
         }));
         connector.send_hardware_cursor();
         connector.send_vrr_enabled();
@@ -1971,9 +2152,16 @@ impl MetalBackend {
         for c in dev.connectors.lock().values() {
             let dd = &mut *c.display.borrow_mut();
             collect_untyped_properties(master, c.id, &mut dd.untyped_properties)?;
+            let props = &dd.untyped_properties;
             dd.crtc_id
                 .value
-                .set(DrmCrtc(get(&dd.untyped_properties, dd.crtc_id.id)? as _));
+                .set(DrmCrtc(get(props, dd.crtc_id.id)? as _));
+            if let Some(meta) = &dd.hdr_metadata {
+                meta.value.set(DrmBlob(get(props, meta.id)? as _));
+            }
+            if let Some(cs) = &dd.colorspace {
+                cs.value.set(get(props, cs.id)?);
+            }
         }
         for c in dev.dev.crtcs.values() {
             let props = &mut *c.untyped_properties.borrow_mut();
@@ -2229,9 +2417,21 @@ impl MetalBackend {
             connector.version.fetch_add(1);
             let dd = connector.display.borrow_mut();
             dd.crtc_id.value.set(DrmCrtc::NONE);
+            if let Some(cs) = &dd.colorspace {
+                cs.value.set(0);
+            }
+            if let Some(hdr) = &dd.hdr_metadata {
+                hdr.value.set(DrmBlob(0));
+            }
             changes.change_object(connector.id, |c| {
                 c.change(dd.crtc_id.id, 0);
-            })
+                if let Some(cs) = &dd.colorspace {
+                    c.change(cs.id, 0);
+                }
+                if let Some(hdr) = &dd.hdr_metadata {
+                    c.change(hdr.id, 0);
+                }
+            });
         }
         for crtc in dev.dev.crtcs.values() {
             if preserve.crtcs.contains(&crtc.id) {
@@ -2309,6 +2509,16 @@ impl MetalBackend {
                         );
                         fail!(c.id);
                     }
+                }
+                if let Some(m) = &dd.colorspace {
+                    if m.value.get() != dd.persistent.color_space.get().to_drm() {
+                        log::debug!("Connector has wrong colorspace");
+                        fail!(c.id);
+                    }
+                }
+                if let Some(diff) = self.compare_hdr_metadata(&dev.dev, &dd) {
+                    log::debug!("{}", diff);
+                    fail!(c.id);
                 }
             }
         }
@@ -2509,6 +2719,39 @@ impl MetalBackend {
         Ok(())
     }
 
+    fn compare_hdr_metadata(
+        &self,
+        dev: &MetalDrmDevice,
+        dd: &ConnectorDisplayData,
+    ) -> Option<HdrMetadataDiff> {
+        let Some(m) = &dd.hdr_metadata else {
+            return None;
+        };
+        match dd.persistent.eotf.get() {
+            BackendTransferFunction::Default => {
+                if m.value.get() != DrmBlob::NONE {
+                    return Some(HdrMetadataDiff::Undesired);
+                }
+            }
+            eotf => {
+                if m.value.get() == DrmBlob::NONE {
+                    return Some(HdrMetadataDiff::No);
+                }
+                let current_metadata =
+                    match dev.master.getblob::<hdr_output_metadata>(m.value.get()) {
+                        Ok(m) => m,
+                        _ => {
+                            return Some(HdrMetadataDiff::CouldNotRetrieve);
+                        }
+                    };
+                if current_metadata != hdr_output_metadata::from_eotf(eotf.to_drm()) {
+                    return Some(HdrMetadataDiff::Incompatible);
+                }
+            }
+        }
+        None
+    }
+
     fn can_use_current_drm_mode(&self, dev: &Rc<MetalDrmDeviceData>) -> bool {
         let mut used_crtcs = AHashSet::new();
         let mut vrr_crtcs = AHashSet::new();
@@ -2531,6 +2774,16 @@ impl MetalBackend {
             used_crtcs.insert(crtc_id);
             if dd.should_enable_vrr() {
                 vrr_crtcs.insert(crtc_id);
+            }
+            if let Some(m) = &dd.colorspace {
+                if m.value.get() != dd.persistent.color_space.get().to_drm() {
+                    log::debug!("Connector has wrong colorspace");
+                    return false;
+                }
+            }
+            if let Some(diff) = self.compare_hdr_metadata(&dev.dev, &dd) {
+                log::debug!("{}", diff);
+                return false;
             }
             let crtc = dev.dev.crtcs.get(&crtc_id).unwrap();
             connector.crtc.set(Some(crtc.clone()));
@@ -2804,8 +3057,8 @@ impl MetalBackend {
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
     ) -> Result<(), MetalError> {
-        let dd = connector.display.borrow_mut();
-        if should_ignore(connector, &dd) {
+        let dd = &mut *connector.display.borrow_mut();
+        if should_ignore(connector, dd) {
             return Ok(());
         }
         let crtc = 'crtc: {
@@ -2820,9 +3073,23 @@ impl MetalBackend {
             Some(m) => m,
             _ => return Err(MetalError::NoModeForConnector),
         };
+        let hdr_blob = match dd.persistent.eotf.get() {
+            BackendTransferFunction::Default => None,
+            eotf => {
+                let m = hdr_output_metadata::from_eotf(eotf.to_drm());
+                Some(connector.master.create_blob(&m)?)
+            }
+        };
+        let hdr_blob_id = hdr_blob.as_ref().map(|b| b.id()).unwrap_or_default();
         let mode_blob = mode.create_blob(&connector.master)?;
         changes.change_object(connector.id, |c| {
             c.change(dd.crtc_id.id, crtc.id.0 as _);
+            if let Some(meta) = &dd.hdr_metadata {
+                c.change(meta.id, hdr_blob_id.0 as _);
+            }
+            if let Some(cs) = &dd.colorspace {
+                c.change(cs.id, dd.persistent.color_space.get().to_drm());
+            }
         });
         changes.change_object(crtc.id, |c| {
             c.change(crtc.active.id, 1);
@@ -2832,6 +3099,13 @@ impl MetalBackend {
         connector.crtc.set(Some(crtc.clone()));
         connector.version.fetch_add(1);
         dd.crtc_id.value.set(crtc.id);
+        dd.hdr_metadata_blob = hdr_blob;
+        if let Some(meta) = &dd.hdr_metadata {
+            meta.value.set(hdr_blob_id);
+        }
+        if let Some(cs) = &dd.colorspace {
+            cs.value.set(dd.persistent.color_space.get().to_drm());
+        }
         crtc.connector.set(Some(connector.clone()));
         crtc.active.value.set(true);
         crtc.mode_id.value.set(mode_blob.id());
@@ -3041,7 +3315,7 @@ impl RenderBuffer {
 
     pub fn copy_to_dev(
         &self,
-        cm: &ColorManager,
+        cd: &Rc<ColorDescription>,
         sync_file: Option<SyncFile>,
     ) -> Result<Option<SyncFile>, MetalError> {
         let Some(tex) = &self.dev_tex else {
@@ -3051,9 +3325,9 @@ impl RenderBuffer {
             .copy_texture(
                 AcquireSync::Unnecessary,
                 ReleaseSync::Explicit,
-                cm.srgb_srgb(),
+                cd,
                 tex,
-                cm.srgb_srgb(),
+                cd,
                 None,
                 AcquireSync::from_sync_file(sync_file),
                 ReleaseSync::None,
@@ -3090,4 +3364,16 @@ fn should_ignore(connector: &MetalConnector, dd: &ConnectorDisplayData) -> bool 
     !connector.enabled.get()
         || dd.connection != ConnectorStatus::Connected
         || dd.non_desktop_effective
+}
+
+#[derive(Error, Debug)]
+enum HdrMetadataDiff {
+    #[error("Connector has undesired HDR metadata")]
+    Undesired,
+    #[error("Connector has no HDR metadata")]
+    No,
+    #[error("Could not retrieve current HDR metadata of connector")]
+    CouldNotRetrieve,
+    #[error("Connector has incompatible HDR metadata")]
+    Incompatible,
 }

@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
+        cmm::cmm_primaries::Primaries,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::Format,
@@ -17,9 +18,14 @@ use {
             },
         },
         libinput::consts::DeviceCapability,
-        video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
+        video::drm::{
+            ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
+            DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
+            HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+        },
     },
     jay_config::{input::SwitchEvent, video::GfxApi},
+    linearize::Linearize,
     std::{
         any::Any,
         error::Error,
@@ -83,6 +89,12 @@ pub struct MonitorInfo {
     pub height_mm: i32,
     pub non_desktop: bool,
     pub vrr_capable: bool,
+    pub transfer_functions: Vec<BackendTransferFunction>,
+    pub transfer_function: BackendTransferFunction,
+    pub color_spaces: Vec<BackendColorSpace>,
+    pub color_space: BackendColorSpace,
+    pub primaries: Primaries,
+    pub luminance: Option<BackendLuminance>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -129,6 +141,10 @@ pub trait Connector {
     fn set_fb_format(&self, format: &'static Format) {
         let _ = format;
     }
+    fn set_colors(&self, bcs: BackendColorSpace, btf: BackendTransferFunction) {
+        let _ = bcs;
+        let _ = btf;
+    }
 }
 
 #[derive(Debug)]
@@ -142,6 +158,7 @@ pub enum ConnectorEvent {
     Available,
     VrrChanged(bool),
     FormatsChanged(Rc<Vec<&'static Format>>, &'static Format),
+    ColorsChanged(BackendColorSpace, BackendTransferFunction),
 }
 
 pub trait HardwareCursorUpdate {
@@ -476,4 +493,57 @@ pub trait BackendDrmLease {
 
 pub trait BackendDrmLessee {
     fn created(&self, lease: Rc<dyn BackendDrmLease>);
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Linearize)]
+pub enum BackendTransferFunction {
+    #[default]
+    Default,
+    Pq,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Linearize)]
+pub enum BackendColorSpace {
+    #[default]
+    Default,
+    Bt2020,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct BackendLuminance {
+    pub min: f64,
+    pub max: f64,
+    pub max_fall: f64,
+}
+
+impl BackendTransferFunction {
+    pub fn to_drm(self) -> u8 {
+        match self {
+            BackendTransferFunction::Default => HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+            BackendTransferFunction::Pq => HDMI_EOTF_SMPTE_ST2084,
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            BackendTransferFunction::Default => "default",
+            BackendTransferFunction::Pq => "pq",
+        }
+    }
+}
+
+impl BackendColorSpace {
+    pub fn to_drm(self) -> u64 {
+        match self {
+            BackendColorSpace::Default => DRM_MODE_COLORIMETRY_DEFAULT,
+            BackendColorSpace::Bt2020 => DRM_MODE_COLORIMETRY_BT2020_RGB,
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            BackendColorSpace::Default => "default",
+            BackendColorSpace::Bt2020 => "bt2020",
+        }
+    }
 }

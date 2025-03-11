@@ -136,6 +136,12 @@ impl ConnectorHandler {
             info.height_mm,
             &output_id,
             &desired_state,
+            info.transfer_functions.clone(),
+            info.transfer_function,
+            info.color_spaces.clone(),
+            info.color_space,
+            info.primaries,
+            info.luminance,
         ));
         let schedule = Rc::new(OutputSchedule::new(
             &self.state.ring,
@@ -269,6 +275,9 @@ impl ConnectorHandler {
                     ConnectorEvent::FormatsChanged(formats, format) => {
                         on.global.formats.set(formats);
                         on.global.format.set(format);
+                    }
+                    ConnectorEvent::ColorsChanged(bcs, btf) => {
+                        on.update_btf_and_bcs(btf, bcs);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }

@@ -69,19 +69,12 @@ impl ColorManager {
             None,
             None,
         );
-        let srgb_linear = get_description(
+        let srgb_linear = get_description2(
             &shared,
-            &linear_descriptions,
+            &srgb_srgb.linear,
             &complete_descriptions,
-            &linear_ids,
             Some(NamedPrimaries::Srgb),
-            Primaries::SRGB,
-            Luminance::SRGB,
             TransferFunction::Linear,
-            Primaries::SRGB,
-            Luminance::SRGB.to_target(),
-            None,
-            None,
         );
         let windows_scrgb = get_description(
             &shared,
@@ -146,6 +139,20 @@ impl ColorManager {
             max_fall,
         )
     }
+
+    pub fn get_with_tf(
+        self: &Rc<Self>,
+        cd: &Rc<ColorDescription>,
+        transfer_function: TransferFunction,
+    ) -> Rc<ColorDescription> {
+        get_description2(
+            &self.shared,
+            &cd.linear,
+            &self.complete_descriptions,
+            cd.named_primaries,
+            transfer_function,
+        )
+    }
 }
 
 fn get_description(
@@ -182,26 +189,13 @@ fn get_description(
     };
     if let Some(d) = linear_descriptions.get(&key) {
         if let Some(d) = d.upgrade() {
-            let key = CompleteDescriptionKey {
-                linear: d.id,
+            return get_description2(
+                shared,
+                &d,
+                complete_descriptions,
                 named_primaries,
                 transfer_function,
-            };
-            if let Some(d) = complete_descriptions.get(&key) {
-                if let Some(d) = d.upgrade() {
-                    return d;
-                }
-                shared.dead_complete.fetch_sub(1);
-            }
-            let d = Rc::new(ColorDescription {
-                id: shared.complete_ids.acquire(),
-                linear: d,
-                named_primaries,
-                transfer_function,
-                shared: shared.clone(),
-            });
-            complete_descriptions.set(key, Rc::downgrade(&d));
-            return d;
+            );
         }
         shared.dead_linear.fetch_sub(1);
     }
@@ -227,6 +221,35 @@ fn get_description(
     let d = Rc::new(ColorDescription {
         id: shared.complete_ids.acquire(),
         linear: d,
+        named_primaries,
+        transfer_function,
+        shared: shared.clone(),
+    });
+    complete_descriptions.set(key, Rc::downgrade(&d));
+    d
+}
+
+fn get_description2(
+    shared: &Rc<Shared>,
+    ld: &Rc<LinearColorDescription>,
+    complete_descriptions: &CopyHashMap<CompleteDescriptionKey, Weak<ColorDescription>>,
+    named_primaries: Option<NamedPrimaries>,
+    transfer_function: TransferFunction,
+) -> Rc<ColorDescription> {
+    let key = CompleteDescriptionKey {
+        linear: ld.id,
+        named_primaries,
+        transfer_function,
+    };
+    if let Some(d) = complete_descriptions.get(&key) {
+        if let Some(d) = d.upgrade() {
+            return d;
+        }
+        shared.dead_complete.fetch_sub(1);
+    }
+    let d = Rc::new(ColorDescription {
+        id: shared.complete_ids.acquire(),
+        linear: ld.clone(),
         named_primaries,
         transfer_function,
         shared: shared.clone(),

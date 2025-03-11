@@ -11,6 +11,7 @@
   observable. This should have no impact on performance in the common case.
 - Implement color-management-v1.
 - Implement cursor-shape-v1 version 2.
+- Outputs can now optionally use the BT.2020/PQ color space.
 
 # 1.9.1 (2025-02-13)
 

@@ -272,6 +272,19 @@ impl Connector {
     pub fn set_format(self, format: Format) {
         get!().connector_set_format(self, format);
     }
+
+    /// Sets the color space and transfer function of the connector.
+    ///
+    /// By default, the default values are used which usually means sRGB color space with
+    /// sRGB transfer function.
+    ///
+    /// If the output supports it, HDR10 can be enabled by setting the color space to
+    /// BT.2020 and the transfer function to PQ.
+    ///
+    /// Note that some displays might ignore incompatible settings.
+    pub fn set_colors(self, color_space: ColorSpace, transfer_function: TransferFunction) {
+        get!().connector_set_colors(self, color_space, transfer_function);
+    }
 }
 
 /// Returns all available DRM devices.
@@ -661,4 +674,26 @@ impl Format {
     pub const XBGR16161616: Self = Self(25);
     pub const ABGR16161616F: Self = Self(26);
     pub const XBGR16161616F: Self = Self(27);
+}
+
+/// A color space.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ColorSpace(pub u32);
+
+impl ColorSpace {
+    /// The default color space (usually sRGB).
+    pub const DEFAULT: Self = Self(0);
+    /// The BT.2020 color space.
+    pub const BT2020: Self = Self(1);
+}
+
+/// A transfer function.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct TransferFunction(pub u32);
+
+impl TransferFunction {
+    /// The default transfer function (usually sRGB).
+    pub const DEFAULT: Self = Self(0);
+    /// The PQ transfer function.
+    pub const PQ: Self = Self(1);
 }

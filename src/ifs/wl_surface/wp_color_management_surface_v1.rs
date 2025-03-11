@@ -41,6 +41,7 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.color_management_surface.take();
+        self.surface.pending.borrow_mut().color_description = Some(None);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -56,7 +57,10 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
             ));
         }
         let desc = self.client.lookup(req.image_description)?;
-        self.surface.pending.borrow_mut().color_description = Some(Some(desc.description.clone()));
+        if desc.description.is_none() {
+            return Err(WpColorManagementSurfaceV1Error::NotReady);
+        }
+        self.surface.pending.borrow_mut().color_description = Some(desc.description.clone());
         Ok(())
     }
 
@@ -87,5 +91,7 @@ pub enum WpColorManagementSurfaceV1Error {
     UnsupportedRenderIntent(u32),
     #[error("wl_surface already has a color-management extension")]
     HasSurface,
+    #[error("The color description is not ready")]
+    NotReady,
 }
 efrom!(WpColorManagementSurfaceV1Error, ClientError);

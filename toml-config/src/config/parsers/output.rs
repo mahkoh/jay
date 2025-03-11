@@ -19,7 +19,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::video::Transform,
+    jay_config::video::{ColorSpace, TransferFunction, Transform},
     thiserror::Error,
 };
 
@@ -49,8 +49,11 @@ impl Parser for OutputParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val) = ext
-            .extract((
+        let (
+            (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
+            (color_space, transfer_function),
+        ) = ext.extract((
+            (
                 opt(str("name")),
                 val("match"),
                 recover(opt(s32("x"))),
@@ -61,7 +64,12 @@ impl Parser for OutputParser<'_> {
                 opt(val("vrr")),
                 opt(val("tearing")),
                 opt(val("format")),
-            ))?;
+            ),
+            (
+                recover(opt(str("color-space"))),
+                recover(opt(str("transfer-function"))),
+            ),
+        ))?;
         let transform = match transform {
             None => None,
             Some(t) => match t.value {
@@ -75,6 +83,36 @@ impl Parser for OutputParser<'_> {
                 "flip-rotate-270" => Some(Transform::FlipRotate270),
                 _ => {
                     log::warn!("Unknown transform {}: {}", t.value, self.cx.error3(t.span));
+                    None
+                }
+            },
+        };
+        let color_space = match color_space {
+            None => None,
+            Some(cs) => match cs.value {
+                "default" => Some(ColorSpace::DEFAULT),
+                "bt2020" => Some(ColorSpace::BT2020),
+                _ => {
+                    log::warn!(
+                        "Unknown color space {}: {}",
+                        cs.value,
+                        self.cx.error3(cs.span)
+                    );
+                    None
+                }
+            },
+        };
+        let transfer_function = match transfer_function {
+            None => None,
+            Some(tf) => match tf.value {
+                "default" => Some(TransferFunction::DEFAULT),
+                "pq" => Some(TransferFunction::PQ),
+                _ => {
+                    log::warn!(
+                        "Unknown transfer function {}: {}",
+                        tf.value,
+                        self.cx.error3(tf.span)
+                    );
                     None
                 }
             },
@@ -144,6 +182,8 @@ impl Parser for OutputParser<'_> {
             vrr,
             tearing,
             format,
+            color_space,
+            transfer_function,
         })
     }
 }

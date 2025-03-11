@@ -11,8 +11,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            Connector, DrmDevice, Format, GfxApi, TearingMode, Transform, VrrMode,
-            connector_type::ConnectorType,
+            ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
+            Transform, VrrMode, connector_type::ConnectorType,
         },
         xwayland::XScalingMode,
     },
@@ -532,6 +532,11 @@ pub enum ClientMessage<'a> {
     },
     SetColorManagementEnabled {
         enabled: bool,
+    },
+    ConnectorSetColors {
+        connector: Connector,
+        color_space: ColorSpace,
+        transfer_function: TransferFunction,
     },
 }
 

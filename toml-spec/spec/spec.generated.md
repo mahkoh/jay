@@ -617,6 +617,25 @@ The table has the following fields:
   The value of this field should be a boolean.
 
 
+<a name="types-ColorSpace"></a>
+### `ColorSpace`
+
+The color space of an output.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `default`:
+
+  The default color space (usually sRGB).
+
+- `bt2020`:
+
+  The BT.2020 color space.
+
+
+
 <a name="types-ComplexShortcut"></a>
 ### `ComplexShortcut`
 
@@ -2530,6 +2549,18 @@ The table has the following fields:
 
   The value of this field should be a [Format](#types-Format).
 
+- `color-space` (optional):
+
+  The color space of the output.
+
+  The value of this field should be a [ColorSpace](#types-ColorSpace).
+
+- `transfer-function` (optional):
+
+  The transfer function of the output.
+
+  The value of this field should be a [TransferFunction](#types-TransferFunction).
+
 
 <a name="types-OutputMatch"></a>
 ### `OutputMatch`
@@ -3048,6 +3079,25 @@ The table has the following fields:
   The name of the font to use.
 
   The value of this field should be a string.
+
+
+<a name="types-TransferFunction"></a>
+### `TransferFunction`
+
+The transfer function of an output.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `default`:
+
+  The default transfer function (usually sRGB).
+
+- `pq`:
+
+  The PQ transfer function.
+
 
 
 <a name="types-Transform"></a>

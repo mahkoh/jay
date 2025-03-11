@@ -75,7 +75,6 @@ pub struct ScreenDimensions {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
 pub struct ChromaticityCoordinates {
     pub red_x: u16,
     pub red_y: u16,
@@ -1223,8 +1222,8 @@ pub struct CtaExtensionV3 {
 pub enum CtaDataBlock {
     Unknown,
     VendorAmd(CtaAmdVendorDataBlock),
-    Colorimetry(#[expect(dead_code)] CtaColorimetryDataBlock),
-    StaticHdrMetadata(#[expect(dead_code)] CtaStaticHdrMetadataDataBlock),
+    Colorimetry(CtaColorimetryDataBlock),
+    StaticHdrMetadata(CtaStaticHdrMetadataDataBlock),
 }
 
 #[derive(Debug)]

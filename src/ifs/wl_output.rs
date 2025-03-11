@@ -2,22 +2,31 @@ mod removed_output;
 
 use {
     crate::{
-        backend,
+        backend::{self, BackendColorSpace, BackendLuminance, BackendTransferFunction},
         client::{Client, ClientError, ClientId},
+        cmm::{
+            cmm_description::ColorDescription,
+            cmm_luminance::Luminance,
+            cmm_primaries::{NamedPrimaries, Primaries},
+            cmm_transfer_function::TransferFunction,
+        },
         damage::DamageMatrix,
         format::{Format, XRGB8888},
         globals::{Global, GlobalName},
-        ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
+        ifs::{
+            color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
+            wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1,
+        },
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
         tree::{OutputNode, TearingMode, VrrMode, calculate_logical_size},
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq,
-            transform_ext::TransformExt,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, ordered_float::F64,
+            rc_eq::rc_eq, transform_ext::TransformExt,
         },
-        wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
+        wire::{WlOutputId, WpColorManagementOutputV1Id, ZxdgOutputV1Id, wl_output::*},
     },
     ahash::AHashMap,
     jay_config::video::Transform,
@@ -67,12 +76,22 @@ pub struct WlOutputGlobal {
     pub format: Cell<&'static Format>,
     pub width_mm: i32,
     pub height_mm: i32,
+    pub transfer_functions: Vec<BackendTransferFunction>,
+    pub color_spaces: Vec<BackendColorSpace>,
+    pub primaries: Primaries,
+    pub luminance: Option<BackendLuminance>,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
     pub persistent: Rc<PersistentOutputState>,
     pub opt: Rc<OutputGlobalOpt>,
     pub damage_matrix: Cell<DamageMatrix>,
+    pub btf: Cell<BackendTransferFunction>,
+    pub bcs: Cell<BackendColorSpace>,
+    pub color_description: CloneCell<Rc<ColorDescription>>,
+    pub linear_color_description: CloneCell<Rc<ColorDescription>>,
+    pub color_description_listeners:
+        CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
 }
 
 #[derive(Default)]
@@ -133,6 +152,7 @@ impl WlOutputGlobal {
     pub fn clear(&self) {
         self.opt.clear();
         self.bindings.borrow_mut().clear();
+        self.color_description_listeners.clear();
     }
 
     pub fn new(
@@ -145,6 +165,12 @@ impl WlOutputGlobal {
         height_mm: i32,
         output_id: &Rc<OutputId>,
         persistent_state: &Rc<PersistentOutputState>,
+        transfer_functions: Vec<BackendTransferFunction>,
+        btf: BackendTransferFunction,
+        color_spaces: Vec<BackendColorSpace>,
+        bcs: BackendColorSpace,
+        primaries: Primaries,
+        luminance: Option<BackendLuminance>,
     ) -> Self {
         let (x, y) = persistent_state.pos.get();
         let scale = persistent_state.scale.get();
@@ -166,14 +192,24 @@ impl WlOutputGlobal {
             format: Cell::new(XRGB8888),
             width_mm,
             height_mm,
+            transfer_functions,
+            color_spaces,
+            primaries,
+            luminance,
             bindings: Default::default(),
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(scale.round_up()),
             persistent: persistent_state.clone(),
             opt: Default::default(),
             damage_matrix: Default::default(),
+            btf: Cell::new(btf),
+            bcs: Cell::new(bcs),
+            color_description: CloneCell::new(state.color_manager.srgb_srgb().clone()),
+            linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
+            color_description_listeners: Default::default(),
         };
         global.update_damage_matrix();
+        global.update_color_description();
         global
     }
 
@@ -291,6 +327,46 @@ impl WlOutputGlobal {
 
     pub fn add_visualizer_damage(&self) {
         self.state.damage_visualizer.copy_damage(self);
+    }
+
+    pub fn update_color_description(&self) -> bool {
+        let mut luminance = Luminance::SRGB;
+        let tf = match self.btf.get() {
+            BackendTransferFunction::Default => TransferFunction::Srgb,
+            BackendTransferFunction::Pq => {
+                luminance = Luminance::ST2084_PQ;
+                TransferFunction::St2084Pq
+            }
+        };
+        let mut target_luminance = luminance.to_target();
+        let mut max_cll = None;
+        let mut max_fall = None;
+        if let Some(l) = self.luminance {
+            target_luminance.min = F64(l.min);
+            target_luminance.max = F64(l.max);
+            max_cll = Some(F64(l.max));
+            max_fall = Some(F64(l.max_fall));
+        }
+        let primaries = match self.bcs.get() {
+            BackendColorSpace::Default => NamedPrimaries::Srgb,
+            BackendColorSpace::Bt2020 => NamedPrimaries::Bt2020,
+        };
+        let cd = self.state.color_manager.get_description(
+            Some(primaries),
+            primaries.primaries(),
+            luminance,
+            tf,
+            self.primaries,
+            target_luminance,
+            max_cll,
+            max_fall,
+        );
+        let cd_linear = self
+            .state
+            .color_manager
+            .get_with_tf(&cd, TransferFunction::Linear);
+        self.linear_color_description.set(cd_linear.clone());
+        self.color_description.set(cd.clone()).id != cd.id
     }
 }
 

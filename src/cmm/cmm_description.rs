@@ -19,6 +19,12 @@ pub type ColorDescriptionIds = FreeList<ColorDescriptionId, 3>;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ColorDescriptionId(u32);
 
+impl ColorDescriptionId {
+    pub fn raw(self) -> u32 {
+        self.0
+    }
+}
+
 impl From<u32> for ColorDescriptionId {
     fn from(value: u32) -> Self {
         Self(value)
