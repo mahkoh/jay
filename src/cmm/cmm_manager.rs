@@ -5,11 +5,11 @@ use {
                 ColorDescription, ColorDescriptionIds, LinearColorDescription,
                 LinearColorDescriptionId, LinearColorDescriptionIds,
             },
-            cmm_luminance::Luminance,
+            cmm_luminance::{Luminance, TargetLuminance},
             cmm_primaries::{NamedPrimaries, Primaries},
             cmm_transfer_function::TransferFunction,
         },
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
+        utils::{copyhashmap::CopyHashMap, numcell::NumCell, ordered_float::F64},
     },
     std::rc::{Rc, Weak},
 };
@@ -35,6 +35,10 @@ pub(super) struct Shared {
 struct LinearDescriptionKey {
     primaries: Primaries,
     luminance: Luminance,
+    target_primaries: Primaries,
+    target_luminance: TargetLuminance,
+    max_cll: Option<F64>,
+    max_fall: Option<F64>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -60,6 +64,10 @@ impl ColorManager {
             Primaries::SRGB,
             Luminance::SRGB,
             TransferFunction::Srgb,
+            Primaries::SRGB,
+            Luminance::SRGB.to_target(),
+            None,
+            None,
         );
         let srgb_linear = get_description(
             &shared,
@@ -70,6 +78,10 @@ impl ColorManager {
             Primaries::SRGB,
             Luminance::SRGB,
             TransferFunction::Linear,
+            Primaries::SRGB,
+            Luminance::SRGB.to_target(),
+            None,
+            None,
         );
         let windows_scrgb = get_description(
             &shared,
@@ -80,6 +92,10 @@ impl ColorManager {
             Primaries::SRGB,
             Luminance::WINDOWS_SCRGB,
             TransferFunction::Linear,
+            Primaries::BT2020,
+            Luminance::ST2084_PQ.to_target(),
+            None,
+            None,
         );
         Rc::new(Self {
             linear_ids,
@@ -110,6 +126,10 @@ impl ColorManager {
         primaries: Primaries,
         luminance: Luminance,
         transfer_function: TransferFunction,
+        target_primaries: Primaries,
+        target_luminance: TargetLuminance,
+        max_cll: Option<F64>,
+        max_fall: Option<F64>,
     ) -> Rc<ColorDescription> {
         get_description(
             &self.shared,
@@ -120,6 +140,10 @@ impl ColorManager {
             primaries,
             luminance,
             transfer_function,
+            target_primaries,
+            target_luminance,
+            max_cll,
+            max_fall,
         )
     }
 }
@@ -133,6 +157,10 @@ fn get_description(
     primaries: Primaries,
     luminance: Luminance,
     transfer_function: TransferFunction,
+    target_primaries: Primaries,
+    target_luminance: TargetLuminance,
+    max_cll: Option<F64>,
+    max_fall: Option<F64>,
 ) -> Rc<ColorDescription> {
     macro_rules! gc {
         ($d:ident, $i:expr) => {
@@ -147,6 +175,10 @@ fn get_description(
     let key = LinearDescriptionKey {
         primaries,
         luminance,
+        target_primaries,
+        target_luminance,
+        max_cll,
+        max_fall,
     };
     if let Some(d) = linear_descriptions.get(&key) {
         if let Some(d) = d.upgrade() {
@@ -180,6 +212,10 @@ fn get_description(
         xyz_from_local,
         local_from_xyz,
         luminance,
+        target_primaries,
+        target_luminance,
+        max_cll,
+        max_fall,
         shared: shared.clone(),
     });
     linear_descriptions.set(key, Rc::downgrade(&d));

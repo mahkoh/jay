@@ -4,6 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             color_management::{
+                FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -77,6 +78,8 @@ impl WpColorManagerV1 {
         self.send_supported_feature(FEATURE_PARAMETRIC);
         self.send_supported_feature(FEATURE_SET_PRIMARIES);
         self.send_supported_feature(FEATURE_SET_LUMINANCES);
+        self.send_supported_feature(FEATURE_SET_MASTERING_DISPLAY_PRIMARIES);
+        self.send_supported_feature(FEATURE_EXTENDED_TARGET_VOLUME);
         self.send_supported_feature(FEATURE_WINDOWS_SCRGB);
         self.send_supported_tf_named(TRANSFER_FUNCTION_BT1886);
         self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA22);
@@ -209,6 +212,10 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             tf: Default::default(),
             primaries: Default::default(),
             luminance: Default::default(),
+            mastering_primaries: Default::default(),
+            mastering_luminance: Default::default(),
+            max_cll: Default::default(),
+            max_fall: Default::default(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

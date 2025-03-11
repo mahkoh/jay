@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         cmm::{
-            cmm_luminance::Luminance,
+            cmm_luminance::{Luminance, TargetLuminance},
             cmm_primaries::{NamedPrimaries, Primaries},
             cmm_transfer_function::TransferFunction,
         },
@@ -43,6 +43,10 @@ pub struct WpImageDescriptionCreatorParamsV1 {
     pub tf: Cell<Option<TransferFunction>>,
     pub primaries: Cell<Option<(Option<NamedPrimaries>, Primaries)>>,
     pub luminance: Cell<Option<Luminance>>,
+    pub mastering_primaries: Cell<Option<Primaries>>,
+    pub mastering_luminance: Cell<Option<TargetLuminance>>,
+    pub max_cll: Cell<Option<F64>>,
+    pub max_fall: Cell<Option<F64>>,
 }
 
 impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreatorParamsV1 {
@@ -67,11 +71,20 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
         if luminance.max.0 <= luminance.min.0 || luminance.white.0 <= luminance.min.0 {
             return Err(WpImageDescriptionCreatorParamsV1Error::MinLuminanceTooLow);
         }
+        let target_primaries = self.mastering_primaries.get().unwrap_or(primaries);
+        let target_luminance = self
+            .mastering_luminance
+            .get()
+            .unwrap_or(luminance.to_target());
         let description = self.client.state.color_manager.get_description(
             named_primaries,
             primaries,
             luminance,
             transfer_function,
+            target_primaries,
+            target_luminance,
+            self.max_cll.get(),
+            self.max_fall.get(),
         );
         let obj = Rc::new(WpImageDescriptionV1 {
             id: req.image_description,
@@ -174,25 +187,59 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
 
     fn set_mastering_display_primaries(
         &self,
-        _req: SetMasteringDisplayPrimaries,
+        req: SetMasteringDisplayPrimaries,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        Err(WpImageDescriptionCreatorParamsV1Error::SetMasteringDisplayPrimariesNotSupported)
+        let map = |n: i32| F64(n as f64 * PRIMARIES_MUL_INV);
+        let primaries = Primaries {
+            r: (map(req.r_x), map(req.r_y)),
+            g: (map(req.g_x), map(req.g_y)),
+            b: (map(req.b_x), map(req.b_y)),
+            wp: (map(req.w_x), map(req.w_y)),
+        };
+        if self.mastering_primaries.replace(Some(primaries)).is_some() {
+            return Err(WpImageDescriptionCreatorParamsV1Error::MasteringPrimariesAlreadySet);
+        }
+        Ok(())
     }
 
     fn set_mastering_luminance(
         &self,
-        _req: SetMasteringLuminance,
+        req: SetMasteringLuminance,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        Err(WpImageDescriptionCreatorParamsV1Error::SetMasteringLuminanceNotSupported)
-    }
-
-    fn set_max_cll(&self, _req: SetMaxCll, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let luminance = TargetLuminance {
+            min: F64(req.min_lum as f64 * MIN_LUM_MUL_INV),
+            max: F64(req.max_lum as f64),
+        };
+        if luminance.max.0 <= luminance.min.0 {
+            return Err(WpImageDescriptionCreatorParamsV1Error::MinMasteringLuminanceTooLow);
+        }
+        if self.mastering_luminance.replace(Some(luminance)).is_some() {
+            return Err(WpImageDescriptionCreatorParamsV1Error::MasteringLuminancesAlreadySet);
+        }
         Ok(())
     }
 
-    fn set_max_fall(&self, _req: SetMaxFall, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_max_cll(&self, req: SetMaxCll, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self
+            .max_cll
+            .replace(Some(F64(req.max_cll as f64)))
+            .is_some()
+        {
+            return Err(WpImageDescriptionCreatorParamsV1Error::MaxCllAlreadySet);
+        }
+        Ok(())
+    }
+
+    fn set_max_fall(&self, req: SetMaxFall, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self
+            .max_fall
+            .replace(Some(F64(req.max_fall as f64)))
+            .is_some()
+        {
+            return Err(WpImageDescriptionCreatorParamsV1Error::MaxFallAlreadySet);
+        }
         Ok(())
     }
 }
@@ -210,10 +257,6 @@ simple_add_obj!(WpImageDescriptionCreatorParamsV1);
 pub enum WpImageDescriptionCreatorParamsV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("set_mastering_luminance is not supported")]
-    SetMasteringLuminanceNotSupported,
-    #[error("set_mastering_display_primaries is not supported")]
-    SetMasteringDisplayPrimariesNotSupported,
     #[error("{} is not a supported named primary", .0)]
     UnsupportedPrimaries(u32),
     #[error("set_tf_power is not supported")]
@@ -232,5 +275,15 @@ pub enum WpImageDescriptionCreatorParamsV1Error {
     TfNotSet,
     #[error("The primaries were not set")]
     PrimariesNotSet,
+    #[error("The mastering display primaries have already been set")]
+    MasteringPrimariesAlreadySet,
+    #[error("The mastering display luminances have already been set")]
+    MasteringLuminancesAlreadySet,
+    #[error("The minimum mastering luminance is too low")]
+    MinMasteringLuminanceTooLow,
+    #[error("The max CLL has already been set")]
+    MaxCllAlreadySet,
+    #[error("The max FALL has already been set")]
+    MaxFallAlreadySet,
 }
 efrom!(WpImageDescriptionCreatorParamsV1Error, ClientError);

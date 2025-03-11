@@ -2138,7 +2138,7 @@ impl ColorTransforms {
         src: &LinearColorDescription,
         dst: &ColorDescription,
     ) -> Option<&mut ColorTransform> {
-        if src.id == dst.linear.id {
+        if src.embeds_into(&dst.linear) {
             return None;
         }
         let ct = match self.map.entry([src.id, dst.linear.id]) {

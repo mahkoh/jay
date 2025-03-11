@@ -54,7 +54,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
         });
         self.client.add_client_obj(&obj)?;
         track!(self.client, obj);
-        obj.send_srgb();
+        obj.send_description(self.client.state.color_manager.srgb_srgb());
         self.client.remove_obj(&*obj)?;
         Ok(())
     }
