@@ -468,6 +468,7 @@ impl CursorUser {
         let transform = output.global.persistent.transform.get();
         let render = output.hardware_cursor_needs_render.take();
         let scale = output.global.persistent.scale.get();
+        let cd = output.global.color_description.get();
         if render {
             cursor.tick();
         }
@@ -507,7 +508,7 @@ impl CursorUser {
                 &self.group.state,
                 scale,
                 transform,
-                self.group.state.color_manager.srgb_srgb(),
+                &cd,
             );
             match res {
                 Ok(sync_file) => {

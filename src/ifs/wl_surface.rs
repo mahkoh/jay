@@ -33,6 +33,7 @@ use {
             ReleaseSync, SampleRect, SyncFile,
         },
         ifs::{
+            color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_seat::{
@@ -89,8 +90,8 @@ use {
             drm::sync_obj::{SyncObj, SyncObjPoint},
         },
         wire::{
-            WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id, ZwpLinuxDmabufFeedbackV1Id,
-            wl_surface::*,
+            WlOutputId, WlSurfaceId, WpColorManagementSurfaceFeedbackV1Id, ZwpIdleInhibitorV1Id,
+            ZwpLinuxDmabufFeedbackV1Id, wl_surface::*,
         },
         xwayland::XWaylandEvent,
     },
@@ -197,6 +198,14 @@ pub struct SurfaceSendPreferredTransformVisitor;
 impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
         node.send_preferred_buffer_transform();
+        node.node_visit_children(self);
+    }
+}
+
+pub struct SurfaceSendPreferredColorDescription;
+impl NodeVisitorBase for SurfaceSendPreferredColorDescription {
+    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+        node.send_preferred_color_description();
         node.node_visit_children(self);
     }
 }
@@ -336,6 +345,8 @@ pub struct WlSurface {
     before_latch_listener: EventListener<dyn BeforeLatchListener>,
     is_opaque: Cell<bool>,
     color_management_surface: CloneCell<Option<Rc<WpColorManagementSurfaceV1>>>,
+    color_management_feedback:
+        CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
 }
 
@@ -678,6 +689,7 @@ impl WlSurface {
             before_latch_listener: EventListener::new(slf.clone()),
             is_opaque: Cell::new(false),
             color_management_surface: Default::default(),
+            color_management_feedback: Default::default(),
             color_description: Default::default(),
         }
     }
@@ -699,7 +711,6 @@ impl WlSurface {
         Ok(ext.into_xsurface().unwrap())
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn get_output(&self) -> Rc<OutputNode> {
         self.output.get()
     }
@@ -719,6 +730,9 @@ impl WlSurface {
         }
         if old.global.persistent.transform.get() != output.global.persistent.transform.get() {
             self.send_preferred_buffer_transform();
+        }
+        if old.global.color_description.get().id != output.global.color_description.get().id {
+            self.send_preferred_color_description();
         }
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
@@ -1682,6 +1696,24 @@ impl WlSurface {
             None => self.client.state.color_manager.srgb_srgb().clone(),
         }
     }
+
+    pub fn add_color_management_feedback(&self, fb: &Rc<WpColorManagementSurfaceFeedbackV1>) {
+        self.color_management_feedback.set(fb.id, fb.clone());
+    }
+
+    pub fn remove_color_management_feedback(&self, fb: &WpColorManagementSurfaceFeedbackV1) {
+        self.color_management_feedback.remove(&fb.id);
+    }
+
+    pub fn send_preferred_color_description(&self) {
+        if self.color_management_feedback.is_empty() {
+            return;
+        }
+        let cd = self.output.get().global.color_description.get();
+        for fb in self.color_management_feedback.lock().values() {
+            fb.send_preferred_changed(&cd);
+        }
+    }
 }
 
 object_base! {
@@ -1714,6 +1746,7 @@ impl Object for WlSurface {
         self.fifo.take();
         self.commit_timer.take();
         self.color_management_surface.take();
+        self.color_management_feedback.clear();
     }
 }
 

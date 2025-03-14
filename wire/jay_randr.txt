@@ -80,6 +80,12 @@ request set_flip_margin (since = 10) {
     margin_ns: pod(u64),
 }
 
+request set_colors (since = 15) {
+    output: str,
+    color_space: str,
+    transfer_function: str,
+}
+
 # events
 
 event global {
@@ -159,4 +165,20 @@ event fb_format (since = 8) {
 
 event flip_margin (since = 10) {
     margin_ns: pod(u64),
+}
+
+event supported_color_space (since = 15) {
+    color_space: str,
+}
+
+event current_color_space (since = 15) {
+    color_space: str,
+}
+
+event supported_transfer_function (since = 15) {
+    transfer_function: str,
+}
+
+event current_transfer_function (since = 15) {
+    transfer_function: str,
 }

@@ -7,6 +7,7 @@ use {
                 MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
             },
         },
+        cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
             create_render_pass,
@@ -176,10 +177,13 @@ impl MetalConnector {
         };
         let buffer = &buffers[self.next_buffer.get() % buffers.len()];
 
+        let cd = node.global.color_description.get();
+        let linear_cd = node.global.linear_color_description.get();
+
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();
         }
-        self.latch_cursor(&node)?;
+        self.latch_cursor(&node, &cd)?;
         let cursor_programming = self.compute_cursor_programming();
         let latched = self.latch(&node, buffer);
         node.latched(self.try_async_flip());
@@ -191,11 +195,11 @@ impl MetalConnector {
         let mut present_fb = None;
         let mut direct_scanout_id = None;
         if let Some(latched) = &latched {
-            let fb = self.prepare_present_fb(buffer, &plane, latched, true)?;
+            let fb = self.prepare_present_fb(&cd, &linear_cd, buffer, &plane, latched, true)?;
             direct_scanout_id = fb.direct_scanout_data.as_ref().map(|d| d.dma_buf_id);
             present_fb = Some(fb);
         }
-        self.perform_screencopies(&present_fb, &node);
+        self.perform_screencopies(&present_fb, &node, &cd);
         if let Some(sync_file) = self.cursor_sync_file.take() {
             if let Err(e) = self.state.ring.readable(&sync_file).await {
                 log::error!(
@@ -214,8 +218,14 @@ impl MetalConnector {
         );
         if res.is_err() {
             if let Some(dsd_id) = direct_scanout_id {
-                let fb =
-                    self.prepare_present_fb(buffer, &plane, latched.as_ref().unwrap(), false)?;
+                let fb = self.prepare_present_fb(
+                    &cd,
+                    &linear_cd,
+                    buffer,
+                    &plane,
+                    latched.as_ref().unwrap(),
+                    false,
+                )?;
                 present_fb = Some(fb);
                 self.await_present_fb(present_fb.as_mut()).await;
                 res = self.program_connector(
@@ -432,7 +442,11 @@ impl MetalConnector {
         res.map_err(MetalError::Commit)
     }
 
-    fn latch_cursor(&self, node: &Rc<OutputNode>) -> Result<(), MetalError> {
+    fn latch_cursor(
+        &self,
+        node: &Rc<OutputNode>,
+        cd: &Rc<ColorDescription>,
+    ) -> Result<(), MetalError> {
         if !self.cursor_damage.take() {
             return Ok(());
         }
@@ -451,9 +465,7 @@ impl MetalConnector {
         };
         self.state.present_hardware_cursor(node, &mut c);
         if c.cursor_swap_buffer {
-            c.sync_file = c
-                .cursor_buffer
-                .copy_to_dev(&self.state.color_manager, c.sync_file)?;
+            c.sync_file = c.cursor_buffer.copy_to_dev(cd, c.sync_file)?;
         }
         self.cursor_swap_buffer.set(c.cursor_swap_buffer);
         if c.sync_file.is_some() {
@@ -544,6 +556,7 @@ impl MetalConnector {
         &self,
         pass: &GfxRenderPass,
         plane: &Rc<MetalPlane>,
+        cd: &Rc<ColorDescription>,
     ) -> Option<DirectScanoutData> {
         let ct = 'ct: {
             let mut ops = pass.ops.iter().rev();
@@ -560,8 +573,8 @@ impl MetalConnector {
                 }
                 return None;
             };
-            if ct.cd.id != self.state.color_manager.srgb_srgb().id {
-                // Direct scanout requires identical color descriptions.
+            if !ct.cd.embeds_into(cd) {
+                // Direct scanout requires embeddable color descriptions.
                 return None;
             }
             if ct.alpha.is_some() {
@@ -717,6 +730,8 @@ impl MetalConnector {
 
     fn prepare_present_fb(
         &self,
+        cd: &Rc<ColorDescription>,
+        linear_cd: &Rc<ColorDescription>,
         buffer: &RenderBuffer,
         plane: &Rc<MetalPlane>,
         latched: &Latched,
@@ -733,7 +748,7 @@ impl MetalConnector {
             && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane);
+            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, cd);
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
@@ -753,14 +768,14 @@ impl MetalConnector {
                     .perform_render_pass(
                         AcquireSync::Unnecessary,
                         ReleaseSync::Explicit,
-                        self.state.color_manager.srgb_srgb(),
+                        cd,
                         &latched.pass,
                         &latched.damage,
                         buffer.blend_buffer.as_ref(),
-                        self.state.color_manager.srgb_linear(),
+                        linear_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
-                sync_file = buffer.copy_to_dev(&self.state.color_manager, sf)?;
+                sync_file = buffer.copy_to_dev(cd, sf)?;
                 fb = buffer.drm.clone();
                 tex = buffer.render_tex.clone();
             }
@@ -783,7 +798,12 @@ impl MetalConnector {
         })
     }
 
-    fn perform_screencopies(&self, new_fb: &Option<PresentFb>, output: &OutputNode) {
+    fn perform_screencopies(
+        &self,
+        new_fb: &Option<PresentFb>,
+        output: &OutputNode,
+        cd: &Rc<ColorDescription>,
+    ) {
         let active_fb;
         let fb = match &new_fb {
             Some(f) => f,
@@ -800,7 +820,7 @@ impl MetalConnector {
             None => {
                 output.perform_screencopies(
                     &fb.tex,
-                    self.state.color_manager.srgb_srgb(),
+                    cd,
                     None,
                     &AcquireSync::Unnecessary,
                     ReleaseSync::None,
@@ -813,7 +833,7 @@ impl MetalConnector {
             Some(dsd) => {
                 output.perform_screencopies(
                     &dsd.tex,
-                    self.state.color_manager.srgb_srgb(),
+                    cd,
                     dsd.resv.as_ref(),
                     &dsd.acquire_sync,
                     dsd.release_sync,

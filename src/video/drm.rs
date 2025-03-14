@@ -1,6 +1,7 @@
 pub mod sync_obj;
 mod sys;
 pub mod wait_for_sync_obj;
+pub use consts::*;
 
 use {
     crate::{
@@ -668,7 +669,7 @@ pub struct DrmPropertyDefinition {
     pub ty: DrmPropertyType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DrmPropertyType {
     Range {
         _min: u64,
@@ -688,7 +689,7 @@ pub enum DrmPropertyType {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DrmPropertyEnumValue {
     pub value: u64,
     pub name: BString,
@@ -801,6 +802,132 @@ pub struct DrmVersion {
     pub name: BString,
     pub date: BString,
     pub desc: BString,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct HdrMetadata {
+    pub eotf: u8,
+    pub metadata_type: u8,
+    pub red: (u16, u16),
+    pub green: (u16, u16),
+    pub blue: (u16, u16),
+    pub white: (u16, u16),
+    pub max_display_mastering_luminance: u16,
+    pub min_display_mastering_luminance: u16,
+    pub max_cll: u16,
+    pub max_fall: u16,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+pub struct hdr_metadata_primary {
+    pub x: u16,
+    pub y: u16,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+union hdr_output_metadata_type {
+    hdmi_metadata_type1: hdr_metadata_infoframe,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct hdr_output_metadata {
+    metadata_type: u32,
+    ty: hdr_output_metadata_type,
+}
+
+impl hdr_output_metadata {
+    pub fn new(infoframe: hdr_metadata_infoframe) -> Self {
+        Self {
+            metadata_type: 0,
+            ty: hdr_output_metadata_type {
+                hdmi_metadata_type1: infoframe,
+            },
+        }
+    }
+
+    pub fn from_eotf(eotf: u8) -> Self {
+        Self::new(hdr_metadata_infoframe {
+            eotf,
+            metadata_type: 0,
+            ..hdr_metadata_infoframe::default()
+        })
+    }
+}
+
+unsafe impl Pod for hdr_output_metadata {}
+
+impl Debug for hdr_output_metadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_struct("hdr_output_metadata");
+        f.field("metadata_type", &self.metadata_type);
+        match self.metadata_type {
+            0 => unsafe {
+                f.field("hdmi_metadata_type1", &self.ty.hdmi_metadata_type1)
+                    .finish()
+            },
+            _ => f.finish_non_exhaustive(),
+        }
+    }
+}
+
+impl Eq for hdr_output_metadata {}
+
+impl PartialEq for hdr_output_metadata {
+    fn eq(&self, other: &Self) -> bool {
+        if self.metadata_type != other.metadata_type {
+            return false;
+        }
+        match self.metadata_type {
+            0 => unsafe {
+                self.ty
+                    .hdmi_metadata_type1
+                    .eq(&other.ty.hdmi_metadata_type1)
+            },
+            _ => return false,
+        }
+    }
+}
+
+#[expect(dead_code)]
+mod consts {
+    pub const HDMI_EOTF_TRADITIONAL_GAMMA_SDR: u8 = 0;
+    pub const HDMI_EOTF_TRADITIONAL_GAMMA_HDR: u8 = 1;
+    pub const HDMI_EOTF_SMPTE_ST2084: u8 = 2;
+    pub const HDMI_EOTF_BT_2100_HLG: u8 = 3;
+
+    pub const DRM_MODE_COLORIMETRY_DEFAULT: u64 = 0;
+    pub const DRM_MODE_COLORIMETRY_NO_DATA: u64 = 0;
+    pub const DRM_MODE_COLORIMETRY_SMPTE_170M_YCC: u64 = 1;
+    pub const DRM_MODE_COLORIMETRY_BT709_YCC: u64 = 2;
+    pub const DRM_MODE_COLORIMETRY_XVYCC_601: u64 = 3;
+    pub const DRM_MODE_COLORIMETRY_XVYCC_709: u64 = 4;
+    pub const DRM_MODE_COLORIMETRY_SYCC_601: u64 = 5;
+    pub const DRM_MODE_COLORIMETRY_OPYCC_601: u64 = 6;
+    pub const DRM_MODE_COLORIMETRY_OPRGB: u64 = 7;
+    pub const DRM_MODE_COLORIMETRY_BT2020_CYCC: u64 = 8;
+    pub const DRM_MODE_COLORIMETRY_BT2020_RGB: u64 = 9;
+    pub const DRM_MODE_COLORIMETRY_BT2020_YCC: u64 = 10;
+    pub const DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65: u64 = 11;
+    pub const DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER: u64 = 12;
+    pub const DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED: u64 = 13;
+    pub const DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT: u64 = 14;
+    pub const DRM_MODE_COLORIMETRY_BT601_YCC: u64 = 15;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+pub struct hdr_metadata_infoframe {
+    pub eotf: u8,
+    pub metadata_type: u8,
+    pub display_primaries: [hdr_metadata_primary; 3],
+    pub white_point: hdr_metadata_primary,
+    pub max_display_mastering_luminance: u16,
+    pub min_display_mastering_luminance: u16,
+    pub max_cll: u16,
+    pub max_fall: u16,
 }
 
 impl DrmModeInfo {

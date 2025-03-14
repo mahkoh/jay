@@ -1,7 +1,10 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::color_management::wp_image_description_v1::WpImageDescriptionV1,
+        cmm::cmm_description::ColorDescription,
+        ifs::{
+            color_management::wp_image_description_v1::WpImageDescriptionV1, wl_surface::WlSurface,
+        },
         leaks::Tracker,
         object::{Object, Version},
         wire::{
@@ -18,6 +21,7 @@ pub struct WpColorManagementSurfaceFeedbackV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
+    pub surface: Rc<WlSurface>,
 }
 
 impl WpColorManagementSurfaceFeedbackV1 {
@@ -30,12 +34,19 @@ impl WpColorManagementSurfaceFeedbackV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: self.client.state.color_manager.srgb_srgb().clone(),
+            description: Some(self.surface.get_output().global.color_description.get()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         obj.send_ready();
         Ok(())
+    }
+
+    pub fn send_preferred_changed(&self, cd: &ColorDescription) {
+        self.client.event(PreferredChanged {
+            self_id: self.id,
+            identity: cd.id.raw(),
+        });
     }
 }
 
@@ -44,6 +55,7 @@ impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfa
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
+        self.surface.remove_color_management_feedback(self);
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend,
+        backend::{self, BackendColorSpace, BackendTransferFunction},
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
         format::named_formats,
@@ -15,6 +15,7 @@ use {
     jay_config::video::{
         GfxApi, TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
     },
+    linearize::LinearizeExt,
     std::rc::Rc,
     thiserror::Error,
 };
@@ -30,6 +31,7 @@ const VRR_CAPABLE_SINCE: Version = Version(2);
 const TEARING_SINCE: Version = Version(3);
 const FORMAT_SINCE: Version = Version(8);
 const FLIP_MARGIN_SINCE: Version = Version(10);
+const COLORIMETRY_SINCE: Version = Version(15);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -161,6 +163,28 @@ impl JayRandr {
                 height: mode.height,
                 refresh_rate_millihz: mode.refresh_rate_millihz,
                 current: (mode == &current_mode) as _,
+            });
+        }
+        if self.version >= COLORIMETRY_SINCE {
+            for tf in &node.global.transfer_functions {
+                self.client.event(SupportedTransferFunction {
+                    self_id: self.id,
+                    transfer_function: tf.name(),
+                });
+            }
+            self.client.event(CurrentTransferFunction {
+                self_id: self.id,
+                transfer_function: node.global.btf.get().name(),
+            });
+            for cs in &node.global.color_spaces {
+                self.client.event(SupportedColorSpace {
+                    self_id: self.id,
+                    color_space: cs.name(),
+                });
+            }
+            self.client.event(CurrentColorSpace {
+                self_id: self.id,
+                color_space: node.global.bcs.get().name(),
             });
         }
     }
@@ -412,6 +436,34 @@ impl JayRandrRequestHandler for JayRandr {
         dev.dev.set_flip_margin(req.margin_ns);
         Ok(())
     }
+
+    fn set_colors(&self, req: SetColors<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let cs = 'cs: {
+            for cs in BackendColorSpace::variants() {
+                if cs.name() == req.color_space {
+                    break 'cs cs;
+                }
+            }
+            return Err(JayRandrError::UnknownColorSpace(
+                req.color_space.to_string(),
+            ));
+        };
+        let tf = 'tf: {
+            for tf in BackendTransferFunction::variants() {
+                if tf.name() == req.transfer_function {
+                    break 'tf tf;
+                }
+            }
+            return Err(JayRandrError::UnknownTransferFunction(
+                req.transfer_function.to_string(),
+            ));
+        };
+        let Some(c) = self.get_connector(req.output) else {
+            return Ok(());
+        };
+        c.connector.set_colors(cs, tf);
+        Ok(())
+    }
 }
 
 object_base! {
@@ -433,5 +485,9 @@ pub enum JayRandrError {
     UnknownTearingMode(u32),
     #[error("Unknown format {0}")]
     UnknownFormat(String),
+    #[error("Unknown color space {0}")]
+    UnknownColorSpace(String),
+    #[error("Unknown transfer function {0}")]
+    UnknownTransferFunction(String),
 }
 efrom!(JayRandrError, ClientError);

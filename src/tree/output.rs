@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{HardwareCursor, KeyState, Mode},
+        backend::{BackendColorSpace, BackendTransferFunction, HardwareCursor, KeyState, Mode},
         client::ClientId,
         cmm::cmm_description::ColorDescription,
         cursor::KnownCursor,
@@ -18,7 +18,8 @@ use {
                 wl_pointer::PendingScroll,
             },
             wl_surface::{
-                SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
+                SurfaceSendPreferredColorDescription, SurfaceSendPreferredScaleVisitor,
+                SurfaceSendPreferredTransformVisitor,
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
                 tray::DynTrayItem,
                 zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
@@ -835,6 +836,25 @@ impl OutputNode {
             seat.cursor_group().output_pos_changed(self)
         }
         self.state.tree_changed();
+    }
+
+    pub fn update_btf_and_bcs(&self, btf: BackendTransferFunction, bcs: BackendColorSpace) {
+        let old_btf = self.global.btf.replace(btf);
+        let old_bcs = self.global.bcs.replace(bcs);
+        if (old_btf, old_bcs) == (btf, bcs) {
+            return;
+        }
+        if self.global.update_color_description() {
+            self.state.damage(self.global.position());
+            if let Some(hc) = self.hardware_cursor.get() {
+                self.hardware_cursor_needs_render.set(true);
+                hc.damage();
+            }
+            for fb in self.global.color_description_listeners.lock().values() {
+                fb.send_image_description_changed();
+            }
+            self.node_visit_children(&mut SurfaceSendPreferredColorDescription);
+        }
     }
 
     fn find_stacked_at(

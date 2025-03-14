@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::{BackendColorSpace, BackendTransferFunction},
         cli::GlobalArgs,
         format::{Format, XRGB8888},
         scale::Scale,
@@ -7,9 +8,13 @@ use {
         utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
         wire::{JayRandrId, jay_compositor, jay_randr},
     },
-    clap::{Args, Subcommand, ValueEnum},
+    clap::{
+        Args, Subcommand, ValueEnum,
+        builder::{PossibleValue, PossibleValuesParser},
+    },
     isnt::std_1::vec::IsntVecExt,
     jay_config::video::{TearingMode, Transform, VrrMode},
+    linearize::LinearizeExt,
     std::{
         cell::RefCell,
         fmt::{Display, Formatter},
@@ -154,6 +159,8 @@ pub enum OutputCommand {
     Tearing(TearingArgs),
     /// Change format settings.
     Format(FormatSettings),
+    /// Change color settings.
+    Colors(ColorsSettings),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -315,6 +322,51 @@ pub enum TransformCmd {
     FlipRotate270,
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct ColorsSettings {
+    #[clap(subcommand)]
+    pub command: ColorsCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum ColorsCommand {
+    /// Sets the color space and transfer function of the output.
+    Set {
+        /// The name of the color space.
+        #[clap(value_parser = PossibleValuesParser::new(color_space_possible_values()))]
+        color_space: String,
+        /// The name of the transfer function.
+        #[clap(value_parser = PossibleValuesParser::new(transfer_function_possible_values()))]
+        transfer_function: String,
+    },
+}
+
+fn color_space_possible_values() -> Vec<PossibleValue> {
+    let mut res = vec![];
+    for cs in BackendColorSpace::variants() {
+        use BackendColorSpace::*;
+        let help = match cs {
+            Default => "The default color space (usually sRGB)",
+            Bt2020 => "The BT.2020 color space",
+        };
+        res.push(PossibleValue::new(cs.name()).help(help));
+    }
+    res
+}
+
+fn transfer_function_possible_values() -> Vec<PossibleValue> {
+    let mut res = vec![];
+    for cs in BackendTransferFunction::variants() {
+        use BackendTransferFunction::*;
+        let help = match cs {
+            Default => "The default transfer function (usually sRGB)",
+            Pq => "The PQ transfer function",
+        };
+        res.push(PossibleValue::new(cs.name()).help(help));
+    }
+    res
+}
+
 pub fn main(global: GlobalArgs, args: RandrArgs) {
     with_tool_client(global.log_level.into(), |tc| async move {
         let idle = Rc::new(Randr { tc: tc.clone() });
@@ -368,6 +420,10 @@ struct Output {
     pub formats: Vec<String>,
     pub format: Option<String>,
     pub flip_margin_ns: Option<u64>,
+    pub supported_color_spaces: Vec<String>,
+    pub current_color_space: Option<String>,
+    pub supported_transfer_functions: Vec<String>,
+    pub current_transfer_function: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -610,6 +666,24 @@ impl Randr {
                     }
                 }
             }
+            OutputCommand::Colors(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the colors: {}", msg);
+                });
+                match a.command {
+                    ColorsCommand::Set {
+                        color_space,
+                        transfer_function,
+                    } => {
+                        tc.send(jay_randr::SetColors {
+                            self_id: randr,
+                            output: &args.output,
+                            color_space: &color_space,
+                            transfer_function: &transfer_function,
+                        });
+                    }
+                }
+            }
         }
         tc.round_trip().await;
     }
@@ -806,6 +880,32 @@ impl Randr {
                 );
             }
         }
+        if o.supported_color_spaces.is_not_empty() {
+            println!("        color spaces:");
+            let handle_cs = |cs: &str| {
+                let current = match Some(cs) == o.current_color_space.as_deref() {
+                    false => "",
+                    true => " (current)",
+                };
+                println!("          {cs}{current}");
+            };
+            handle_cs("default");
+            o.supported_color_spaces.iter().for_each(|cs| handle_cs(cs));
+        }
+        if o.supported_transfer_functions.is_not_empty() {
+            println!("        transfer functions:");
+            let handle_tf = |tf: &str| {
+                let current = match Some(tf) == o.current_transfer_function.as_deref() {
+                    false => "",
+                    true => " (current)",
+                };
+                println!("          {tf}{current}");
+            };
+            handle_tf("default");
+            o.supported_transfer_functions
+                .iter()
+                .for_each(|tf| handle_tf(tf));
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -886,6 +986,10 @@ impl Randr {
                 formats: vec![],
                 format: None,
                 flip_margin_ns: None,
+                supported_color_spaces: vec![],
+                current_color_space: None,
+                supported_transfer_functions: vec![],
+                current_transfer_function: None,
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -914,6 +1018,10 @@ impl Randr {
                 formats: vec![],
                 format: None,
                 flip_margin_ns: None,
+                supported_color_spaces: vec![],
+                current_color_space: None,
+                supported_transfer_functions: vec![],
+                current_transfer_function: None,
             });
         });
         jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
@@ -965,6 +1073,34 @@ impl Randr {
                 o.current_mode = Some(mode);
             }
             o.modes.push(mode);
+        });
+        jay_randr::SupportedColorSpace::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output
+                .supported_color_spaces
+                .push(msg.color_space.to_string());
+        });
+        jay_randr::CurrentColorSpace::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.current_color_space = Some(msg.color_space.to_string());
+        });
+        jay_randr::SupportedTransferFunction::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output
+                .supported_transfer_functions
+                .push(msg.transfer_function.to_string());
+        });
+        jay_randr::CurrentTransferFunction::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.current_transfer_function = Some(msg.transfer_function.to_string());
         });
         tc.round_trip().await;
         let x = data.borrow_mut().clone();

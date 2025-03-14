@@ -438,6 +438,14 @@
       },
       "required": []
     },
+    "ColorSpace": {
+      "type": "string",
+      "description": "The color space of an output.\n",
+      "enum": [
+        "default",
+        "bt2020"
+      ]
+    },
     "ComplexShortcut": {
       "description": "Describes a complex shortcut.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n",
       "type": "object",
@@ -1152,6 +1160,14 @@
         "format": {
           "description": "Configures the framebuffer format of this output.\n\nBy default, the format is `xrgb8888`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  format = \"rgb565\"\n  ```\n",
           "$ref": "#/$defs/Format"
+        },
+        "color-space": {
+          "description": "The color space of the output.\n",
+          "$ref": "#/$defs/ColorSpace"
+        },
+        "transfer-function": {
+          "description": "The transfer function of the output.\n",
+          "$ref": "#/$defs/TransferFunction"
         }
       },
       "required": [
@@ -1371,6 +1387,14 @@
         }
       },
       "required": []
+    },
+    "TransferFunction": {
+      "type": "string",
+      "description": "The transfer function of an output.\n",
+      "enum": [
+        "default",
+        "pq"
+      ]
     },
     "Transform": {
       "type": "string",

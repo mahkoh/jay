@@ -10,6 +10,12 @@ pub struct Luminance {
     pub white: F64,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct TargetLuminance {
+    pub min: F64,
+    pub max: F64,
+}
+
 impl Luminance {
     pub const SRGB: Self = Self {
         min: F64(0.2),
@@ -44,6 +50,15 @@ impl Luminance {
         // 80 cd/m^2.
         white: F64(Self::ST2084_PQ.white.0 / 80.0 * Self::ST2084_PQ.max.0),
     };
+}
+
+impl Luminance {
+    pub fn to_target(&self) -> TargetLuminance {
+        TargetLuminance {
+            min: self.min,
+            max: self.max,
+        }
+    }
 }
 
 impl Default for Luminance {

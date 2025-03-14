@@ -3,11 +3,12 @@ use {
         allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            AXIS_120, AxisSource, Backend, BackendDrmDevice, BackendEvent, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent, InputDevice,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState,
-            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            AXIS_120, AxisSource, Backend, BackendColorSpace, BackendDrmDevice, BackendEvent,
+            BackendTransferFunction, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
+            DrmDeviceId, DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
         },
+        cmm::cmm_primaries::Primaries,
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync},
@@ -581,6 +582,12 @@ impl XBackend {
             height_mm: output.height.get(),
             non_desktop: false,
             vrr_capable: false,
+            transfer_functions: vec![],
+            transfer_function: BackendTransferFunction::Default,
+            color_spaces: vec![],
+            color_space: BackendColorSpace::Default,
+            primaries: Primaries::SRGB,
+            luminance: None,
         }));
         output.changed();
         self.present(output).await;

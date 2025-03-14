@@ -141,7 +141,18 @@ mod transforms {
 
     fn check(p1: Primaries, p2: Primaries, expected: [[f64; 4]; 3]) {
         let manager = ColorManager::new();
-        let d = |p| manager.get_description(None, p, Luminance::SRGB, TransferFunction::Linear);
+        let d = |p| {
+            manager.get_description(
+                None,
+                p,
+                Luminance::SRGB,
+                TransferFunction::Linear,
+                p,
+                Luminance::SRGB.to_target(),
+                None,
+                None,
+            )
+        };
         let d1 = d(p1);
         let d2 = d(p2);
         let m = d1.linear.color_transform(&d2.linear);

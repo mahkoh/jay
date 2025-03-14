@@ -1,9 +1,22 @@
 use {
     crate::{
         client::Client,
-        ifs::color_management::consts::{PRIMARIES_SRGB, TRANSFER_FUNCTION_SRGB},
+        cmm::{
+            cmm_description::ColorDescription, cmm_primaries::NamedPrimaries,
+            cmm_transfer_function::TransferFunction,
+        },
+        ifs::color_management::{
+            MIN_LUM_MUL, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020, PRIMARIES_CIE1931_XYZ,
+            PRIMARIES_DCI_P3, PRIMARIES_DISPLAY_P3, PRIMARIES_GENERIC_FILM, PRIMARIES_MUL,
+            PRIMARIES_NTSC, PRIMARIES_PAL, PRIMARIES_PAL_M, TRANSFER_FUNCTION_BT1886,
+            TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_EXT_SRGB, TRANSFER_FUNCTION_GAMMA22,
+            TRANSFER_FUNCTION_GAMMA28, TRANSFER_FUNCTION_LOG_100, TRANSFER_FUNCTION_LOG_316,
+            TRANSFER_FUNCTION_ST240, TRANSFER_FUNCTION_ST428, TRANSFER_FUNCTION_ST2084_PQ,
+            consts::{PRIMARIES_SRGB, TRANSFER_FUNCTION_SRGB},
+        },
         leaks::Tracker,
         object::{Object, Version},
+        utils::ordered_float::F64,
         wire::{WpImageDescriptionInfoV1Id, wp_image_description_info_v1::*},
     },
     std::{convert::Infallible, rc::Rc},
@@ -18,17 +31,46 @@ pub struct WpImageDescriptionInfoV1 {
 }
 
 impl WpImageDescriptionInfoV1 {
-    pub fn send_srgb(&self) {
-        let red = [0.64, 0.33];
-        let green = [0.3, 0.6];
-        let blue = [0.15, 0.06];
-        let white = [0.3127, 0.3290];
-        self.send_primaries(red, green, blue, white);
-        self.send_primaries_named(PRIMARIES_SRGB);
-        self.send_tf_named(TRANSFER_FUNCTION_SRGB);
-        self.send_luminances(0.2, 80.0, 80.0);
-        self.send_target_primaries(red, green, blue, white);
-        self.send_target_luminances(0.2, 80.0);
+    pub fn send_description(&self, d: &ColorDescription) {
+        let tf = match d.transfer_function {
+            TransferFunction::Srgb => TRANSFER_FUNCTION_SRGB,
+            TransferFunction::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
+            TransferFunction::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
+            TransferFunction::Bt1886 => TRANSFER_FUNCTION_BT1886,
+            TransferFunction::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
+            TransferFunction::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
+            TransferFunction::St240 => TRANSFER_FUNCTION_ST240,
+            TransferFunction::ExtSrgb => TRANSFER_FUNCTION_EXT_SRGB,
+            TransferFunction::Log100 => TRANSFER_FUNCTION_LOG_100,
+            TransferFunction::Log316 => TRANSFER_FUNCTION_LOG_316,
+            TransferFunction::St428 => TRANSFER_FUNCTION_ST428,
+        };
+        self.send_primaries(&d.linear.primaries);
+        if let Some(n) = d.named_primaries {
+            let n = match n {
+                NamedPrimaries::Srgb => PRIMARIES_SRGB,
+                NamedPrimaries::PalM => PRIMARIES_PAL_M,
+                NamedPrimaries::Pal => PRIMARIES_PAL,
+                NamedPrimaries::Ntsc => PRIMARIES_NTSC,
+                NamedPrimaries::GenericFilm => PRIMARIES_GENERIC_FILM,
+                NamedPrimaries::Bt2020 => PRIMARIES_BT2020,
+                NamedPrimaries::Cie1931Xyz => PRIMARIES_CIE1931_XYZ,
+                NamedPrimaries::DciP3 => PRIMARIES_DCI_P3,
+                NamedPrimaries::DisplayP3 => PRIMARIES_DISPLAY_P3,
+                NamedPrimaries::AdobeRgb => PRIMARIES_ADOBE_RGB,
+            };
+            self.send_primaries_named(n);
+        }
+        self.send_tf_named(tf);
+        self.send_luminances(&d.linear.luminance);
+        self.send_target_primaries(&d.linear.target_primaries);
+        self.send_target_luminances(&d.linear.target_luminance);
+        if let Some(max_cll) = d.linear.max_cll {
+            self.send_target_max_cll(max_cll.0);
+        }
+        if let Some(max_fall) = d.linear.max_fall {
+            self.send_target_max_fall(max_fall.0);
+        }
         self.send_done();
     }
 
@@ -45,18 +87,18 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_primaries(&self, r: [f64; 2], g: [f64; 2], b: [f64; 2], w: [f64; 2]) {
-        let map = |c: f64| (c * 1_000_000.0) as i32;
+    pub fn send_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
+        let map = |c: F64| (c.0 * PRIMARIES_MUL) as i32;
         self.client.event(Primaries {
             self_id: self.id,
-            r_x: map(r[0]),
-            r_y: map(r[1]),
-            g_x: map(g[0]),
-            g_y: map(g[1]),
-            b_x: map(b[0]),
-            b_y: map(b[1]),
-            w_x: map(w[0]),
-            w_y: map(w[1]),
+            r_x: map(p.r.0),
+            r_y: map(p.r.1),
+            g_x: map(p.g.0),
+            g_y: map(p.g.1),
+            b_x: map(p.b.0),
+            b_y: map(p.b.1),
+            w_x: map(p.wp.0),
+            w_y: map(p.wp.1),
         });
     }
 
@@ -82,39 +124,38 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_luminances(&self, min_lum: f64, max_lum: f64, reference_lum: f64) {
+    pub fn send_luminances(&self, l: &crate::cmm::cmm_luminance::Luminance) {
         self.client.event(Luminances {
             self_id: self.id,
-            min_lum: (min_lum * 10_000.0) as u32,
-            max_lum: max_lum as _,
-            reference_lum: reference_lum as _,
+            min_lum: (l.min.0 * MIN_LUM_MUL) as u32,
+            max_lum: l.max.0 as _,
+            reference_lum: l.white.0 as _,
         });
     }
 
-    pub fn send_target_primaries(&self, r: [f64; 2], g: [f64; 2], b: [f64; 2], w: [f64; 2]) {
-        let map = |c: f64| (c * 1_000_000.0) as i32;
+    pub fn send_target_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
+        let map = |c: F64| (c.0 * PRIMARIES_MUL) as i32;
         self.client.event(TargetPrimaries {
             self_id: self.id,
-            r_x: map(r[0]),
-            r_y: map(r[1]),
-            g_x: map(g[0]),
-            g_y: map(g[1]),
-            b_x: map(b[0]),
-            b_y: map(b[1]),
-            w_x: map(w[0]),
-            w_y: map(w[1]),
+            r_x: map(p.r.0),
+            r_y: map(p.r.1),
+            g_x: map(p.g.0),
+            g_y: map(p.g.1),
+            b_x: map(p.b.0),
+            b_y: map(p.b.1),
+            w_x: map(p.wp.0),
+            w_y: map(p.wp.1),
         });
     }
 
-    pub fn send_target_luminances(&self, min_lum: f64, max_lum: f64) {
+    pub fn send_target_luminances(&self, l: &crate::cmm::cmm_luminance::TargetLuminance) {
         self.client.event(TargetLuminance {
             self_id: self.id,
-            min_lum: (min_lum * 10_000.0) as u32,
-            max_lum: max_lum as _,
+            min_lum: (l.min.0 * MIN_LUM_MUL) as u32,
+            max_lum: l.max.0 as _,
         });
     }
 
-    #[expect(dead_code)]
     pub fn send_target_max_cll(&self, max_cll: f64) {
         self.client.event(TargetMaxCll {
             self_id: self.id,
@@ -122,7 +163,6 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    #[expect(dead_code)]
     pub fn send_target_max_fall(&self, max_fall: f64) {
         self.client.event(TargetMaxFall {
             self_id: self.id,

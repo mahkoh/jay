@@ -1,13 +1,13 @@
 use {
     crate::{
         cmm::{
-            cmm_luminance::{Luminance, white_balance},
+            cmm_luminance::{Luminance, TargetLuminance, white_balance},
             cmm_manager::Shared,
             cmm_primaries::{NamedPrimaries, Primaries},
             cmm_transfer_function::TransferFunction,
             cmm_transform::{ColorMatrix, Local, Xyz, bradford_adjustment},
         },
-        utils::free_list::FreeList,
+        utils::{free_list::FreeList, ordered_float::F64},
     },
     std::rc::Rc,
 };
@@ -18,6 +18,12 @@ pub type ColorDescriptionIds = FreeList<ColorDescriptionId, 3>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ColorDescriptionId(u32);
+
+impl ColorDescriptionId {
+    pub fn raw(self) -> u32 {
+        self.0
+    }
+}
 
 impl From<u32> for ColorDescriptionId {
     fn from(value: u32) -> Self {
@@ -38,6 +44,10 @@ pub struct LinearColorDescription {
     pub xyz_from_local: ColorMatrix<Xyz, Local>,
     pub local_from_xyz: ColorMatrix<Local, Xyz>,
     pub luminance: Luminance,
+    pub target_primaries: Primaries,
+    pub target_luminance: TargetLuminance,
+    pub max_cll: Option<F64>,
+    pub max_fall: Option<F64>,
     pub(super) shared: Rc<Shared>,
 }
 
@@ -45,7 +55,6 @@ pub struct LinearColorDescription {
 pub struct ColorDescription {
     pub id: ColorDescriptionId,
     pub linear: Rc<LinearColorDescription>,
-    #[expect(dead_code)]
     pub named_primaries: Option<NamedPrimaries>,
     pub transfer_function: TransferFunction,
     pub(super) shared: Rc<Shared>,
@@ -61,6 +70,26 @@ impl LinearColorDescription {
             mat *= bradford_adjustment(self.primaries.wp, target.primaries.wp);
         }
         mat * self.xyz_from_local
+    }
+
+    pub fn embeds_into(&self, target: &Self) -> bool {
+        if self.id == target.id {
+            return true;
+        }
+        if self.primaries != target.primaries {
+            return false;
+        }
+        if self.luminance != target.luminance {
+            return false;
+        }
+        true
+    }
+}
+
+impl ColorDescription {
+    pub fn embeds_into(&self, target: &Self) -> bool {
+        self.transfer_function == target.transfer_function
+            && self.linear.embeds_into(&target.linear)
     }
 }
 

@@ -2,8 +2,8 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            self, ConnectorId, DrmDeviceId, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId,
+            self, BackendColorSpace, BackendTransferFunction, ConnectorId, DrmDeviceId,
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
         },
         cmm::cmm_transfer_function::TransferFunction,
         compositor::MAX_EXTENTS,
@@ -51,7 +51,8 @@ use {
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
-            Connector, DrmDevice, Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode,
+            ColorSpace, Connector, DrmDevice, Format as ConfigFormat, GfxApi,
+            TearingMode as ConfigTearingMode, TransferFunction as ConfigTransferFunction,
             Transform, VrrMode as ConfigVrrMode,
         },
         xwayland::XScalingMode,
@@ -1104,6 +1105,27 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_colors(
+        &self,
+        connector: Connector,
+        color_space: ColorSpace,
+        transfer_function: ConfigTransferFunction,
+    ) -> Result<(), CphError> {
+        let bcs = match color_space {
+            ColorSpace::DEFAULT => BackendColorSpace::Default,
+            ColorSpace::BT2020 => BackendColorSpace::Bt2020,
+            _ => return Err(CphError::UnknownColorSpace(color_space)),
+        };
+        let btf = match transfer_function {
+            ConfigTransferFunction::DEFAULT => BackendTransferFunction::Default,
+            ConfigTransferFunction::PQ => BackendTransferFunction::Pq,
+            _ => return Err(CphError::UnknownTransferFunction(transfer_function)),
+        };
+        let connector = self.get_connector(connector)?;
+        connector.connector.set_colors(bcs, btf);
+        Ok(())
+    }
+
     fn handle_set_vrr_mode(
         &self,
         connector: Option<Connector>,
@@ -1994,6 +2016,13 @@ impl ConfigProxyHandler {
             ClientMessage::SetColorManagementEnabled { enabled } => {
                 self.handle_set_color_management_enabled(enabled)
             }
+            ClientMessage::ConnectorSetColors {
+                connector,
+                color_space,
+                transfer_function,
+            } => self
+                .handle_connector_set_colors(connector, color_space, transfer_function)
+                .wrn("connector_set_colors")?,
         }
         Ok(())
     }
@@ -2065,6 +2094,10 @@ enum CphError {
     UnknownFormat(ConfigFormat),
     #[error("Unknown x scaling mode {0:?}")]
     UnknownXScalingMode(XScalingMode),
+    #[error("Unknown color space {0:?}")]
+    UnknownColorSpace(ColorSpace),
+    #[error("Unknown transfer function {0:?}")]
+    UnknownTransferFunction(ConfigTransferFunction),
 }
 
 trait WithRequestName {

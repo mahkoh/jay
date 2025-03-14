@@ -16,11 +16,10 @@ pub struct WpImageDescriptionV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
-    pub description: Rc<ColorDescription>,
+    pub description: Option<Rc<ColorDescription>>,
 }
 
 impl WpImageDescriptionV1 {
-    #[expect(dead_code)]
     pub fn send_failed(&self, cause: u32, msg: &str) {
         self.client.event(Failed {
             self_id: self.id,
@@ -32,7 +31,7 @@ impl WpImageDescriptionV1 {
     pub fn send_ready(&self) {
         self.client.event(Ready {
             self_id: self.id,
-            identity: self.description.id.into(),
+            identity: self.description.as_ref().unwrap().id.raw(),
         });
     }
 }
@@ -46,6 +45,9 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
     }
 
     fn get_information(&self, req: GetInformation, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(desc) = &self.description else {
+            return Err(WpImageDescriptionV1Error::NotReady);
+        };
         let obj = Rc::new(WpImageDescriptionInfoV1 {
             id: req.information,
             client: self.client.clone(),
@@ -54,7 +56,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
         });
         self.client.add_client_obj(&obj)?;
         track!(self.client, obj);
-        obj.send_srgb();
+        obj.send_description(desc);
         self.client.remove_obj(&*obj)?;
         Ok(())
     }
@@ -77,5 +79,7 @@ dedicated_add_obj!(
 pub enum WpImageDescriptionV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("The description is not ready")]
+    NotReady,
 }
 efrom!(WpImageDescriptionV1Error, ClientError);

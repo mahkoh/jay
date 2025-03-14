@@ -4,6 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             color_management::{
+                FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -77,6 +78,8 @@ impl WpColorManagerV1 {
         self.send_supported_feature(FEATURE_PARAMETRIC);
         self.send_supported_feature(FEATURE_SET_PRIMARIES);
         self.send_supported_feature(FEATURE_SET_LUMINANCES);
+        self.send_supported_feature(FEATURE_SET_MASTERING_DISPLAY_PRIMARIES);
+        self.send_supported_feature(FEATURE_EXTENDED_TARGET_VOLUME);
         self.send_supported_feature(FEATURE_WINDOWS_SCRGB);
         self.send_supported_tf_named(TRANSFER_FUNCTION_BT1886);
         self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA22);
@@ -144,15 +147,21 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 
     fn get_output(&self, req: GetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.output)?;
+        let output = self.client.lookup(req.output)?;
         let obj = Rc::new(WpColorManagementOutputV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            output: output.global.clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        if let Some(global) = output.global.get() {
+            global
+                .color_description_listeners
+                .set((self.client.id, req.id), obj);
+        }
         Ok(())
     }
 
@@ -176,15 +185,17 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         req: GetSurfaceFeedback,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let _ = self.client.lookup(req.surface)?;
+        let surface = self.client.lookup(req.surface)?;
         let obj = Rc::new(WpColorManagementSurfaceFeedbackV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
+            surface: surface.clone(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        surface.add_color_management_feedback(&obj);
         Ok(())
     }
 
@@ -209,6 +220,10 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             tf: Default::default(),
             primaries: Default::default(),
             luminance: Default::default(),
+            mastering_primaries: Default::default(),
+            mastering_luminance: Default::default(),
+            max_cll: Default::default(),
+            max_fall: Default::default(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
@@ -225,7 +240,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: self.client.state.color_manager.windows_scrgb().clone(),
+            description: Some(self.client.state.color_manager.windows_scrgb().clone()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

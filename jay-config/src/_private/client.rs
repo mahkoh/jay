@@ -25,7 +25,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, Transform, VrrMode,
+            ColorSpace, Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, TransferFunction,
+            Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         xwayland::XScalingMode,
@@ -779,6 +780,19 @@ impl Client {
 
     pub fn connector_set_format(&self, connector: Connector, format: Format) {
         self.send(&ClientMessage::ConnectorSetFormat { connector, format });
+    }
+
+    pub fn connector_set_colors(
+        &self,
+        connector: Connector,
+        color_space: ColorSpace,
+        transfer_function: TransferFunction,
+    ) {
+        self.send(&ClientMessage::ConnectorSetColors {
+            connector,
+            color_space,
+            transfer_function,
+        });
     }
 
     pub fn connector_get_scale(&self, connector: Connector) -> f64 {

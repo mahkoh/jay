@@ -1631,6 +1631,16 @@ Output:
           match.serial-number = "33K03894SL0"
           format = "rgb565"
           ```
+    color-space:
+      ref: ColorSpace
+      required: false
+      description: |
+        The color space of the output.
+    transfer-function:
+      ref: TransferFunction
+      required: false
+      description: |
+        The transfer function of the output.
 
 
 Transform:
@@ -2762,3 +2772,25 @@ ColorManagement:
         The default is `false`.
       kind: boolean
       required: false
+
+
+ColorSpace:
+  description: |
+    The color space of an output.
+  kind: string
+  values:
+    - value: default
+      description: The default color space (usually sRGB).
+    - value: bt2020
+      description: The BT.2020 color space.
+
+
+TransferFunction:
+  description: |
+    The transfer function of an output.
+  kind: string
+  values:
+    - value: default
+      description: The default transfer function (usually sRGB).
+    - value: pq
+      description: The PQ transfer function.

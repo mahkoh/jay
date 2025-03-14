@@ -26,7 +26,7 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
-        video::{Format, GfxApi, TearingMode, Transform, VrrMode},
+        video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
         xwayland::XScalingMode,
     },
     std::{
@@ -220,6 +220,8 @@ pub struct Output {
     pub vrr: Option<Vrr>,
     pub tearing: Option<Tearing>,
     pub format: Option<Format>,
+    pub color_space: Option<ColorSpace>,
+    pub transfer_function: Option<TransferFunction>,
 }
 
 #[derive(Debug, Clone)]
