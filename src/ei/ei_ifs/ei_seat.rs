@@ -16,7 +16,10 @@ use {
             ei_object::{EiInterface, EiObject, EiVersion},
         },
         fixed::Fixed,
-        ifs::wl_seat::{PhysicalKeyboardId, WlSeatGlobal, wl_pointer::PendingScroll},
+        ifs::wl_seat::{
+            PhysicalKeyboardId, WlSeatGlobal,
+            wl_pointer::{HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL},
+        },
         keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         leaks::Tracker,
         tree::Node,
@@ -163,14 +166,19 @@ impl EiSeat {
         }
         if let Some(b) = self.scroll.get() {
             b.send_scroll(
-                ps.px[0].get().unwrap_or_default(),
-                ps.px[1].get().unwrap_or_default(),
+                ps.px[HORIZONTAL_SCROLL as usize].get().unwrap_or_default(),
+                ps.px[VERTICAL_SCROLL as usize].get().unwrap_or_default(),
             );
             b.send_scroll_discrete(
-                ps.v120[0].get().unwrap_or_default(),
-                ps.v120[1].get().unwrap_or_default(),
+                ps.v120[HORIZONTAL_SCROLL as usize]
+                    .get()
+                    .unwrap_or_default(),
+                ps.v120[VERTICAL_SCROLL as usize].get().unwrap_or_default(),
             );
-            b.send_scroll_stop(ps.stop[0].get(), ps.stop[1].get());
+            b.send_scroll_stop(
+                ps.stop[HORIZONTAL_SCROLL as usize].get(),
+                ps.stop[VERTICAL_SCROLL as usize].get(),
+            );
             b.device.send_frame(self.client.serial(), time_usec);
         }
     }
