@@ -475,7 +475,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+    pub fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
         let dnd_icon = self.pointer_owner.dnd_icon();
         if let Some(dnd_icon) = &dnd_icon {
             let (x_old, y_old) = self.pointer_cursor.position_int();

@@ -61,11 +61,38 @@ pub struct SeatConstraint {
     pub one_shot: bool,
     pub status: Cell<SeatConstraintStatus>,
     pub ty: ConstraintType,
+    pub cursor_hint: Cell<Option<(Fixed, Fixed)>>,
 }
 
 impl SeatConstraint {
+    fn apply_cursor_hint(&self, hint_x: Fixed, hint_y: Fixed) -> bool {
+        let surface_pos = self.surface.buffer_abs_pos.get();
+        let surface_rect = self.surface.extents.get();
+        let (x, y) = (hint_x + surface_pos.x1(), hint_y + surface_pos.y1());
+
+        if surface_rect.contains(hint_x.round_down(), hint_y.round_down()) {
+            if self.seat.pointer_cursor.is_invisible() {
+                let _ = self.seat.set_pointer_cursor_position(x, y);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn set_cursor_hint(&self, x: Fixed, y: Fixed, apply: bool) {
+        self.cursor_hint.set(Some((x, y)));
+
+        if apply
+            && self.status.get() == SeatConstraintStatus::Active
+            && self.ty == ConstraintType::Lock
+        {
+            self.apply_cursor_hint(x, y);
+        }
+    }
+
     pub fn deactivate(&self) {
         if self.status.get() == SeatConstraintStatus::Active {
+            let was_locked = self.ty == ConstraintType::Lock;
             self.seat.constraint.take();
             if let Some(owner) = self.owner.get() {
                 owner.send_disabled();
@@ -75,6 +102,12 @@ impl SeatConstraint {
             } else {
                 self.status.set(SeatConstraintStatus::Inactive);
             }
+            if was_locked {
+                if let Some((hint_x, hint_y)) = self.cursor_hint.get() {
+                    self.apply_cursor_hint(hint_x, hint_y);
+                }
+            }
+            self.clear_cursor_hint();
         }
     }
 
@@ -128,6 +161,10 @@ impl SeatConstraint {
         let region = get_region(&self.client, region)?;
         self.region.set(region);
         Ok(())
+    }
+
+    pub fn clear_cursor_hint(&self) {
+        self.cursor_hint.set(None);
     }
 }
 
@@ -221,6 +258,7 @@ impl ZwpPointerConstraintsV1 {
             one_shot,
             status: Cell::new(SeatConstraintStatus::Inactive),
             ty,
+            cursor_hint: Cell::new(None),
         }))
     }
 }
