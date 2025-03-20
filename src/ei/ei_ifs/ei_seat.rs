@@ -166,18 +166,16 @@ impl EiSeat {
         }
         if let Some(b) = self.scroll.get() {
             b.send_scroll(
-                ps.px[HORIZONTAL_SCROLL as usize].get().unwrap_or_default(),
-                ps.px[VERTICAL_SCROLL as usize].get().unwrap_or_default(),
+                ps.px[HORIZONTAL_SCROLL].get().unwrap_or_default(),
+                ps.px[VERTICAL_SCROLL].get().unwrap_or_default(),
             );
             b.send_scroll_discrete(
-                ps.v120[HORIZONTAL_SCROLL as usize]
-                    .get()
-                    .unwrap_or_default(),
-                ps.v120[VERTICAL_SCROLL as usize].get().unwrap_or_default(),
+                ps.v120[HORIZONTAL_SCROLL].get().unwrap_or_default(),
+                ps.v120[VERTICAL_SCROLL].get().unwrap_or_default(),
             );
             b.send_scroll_stop(
-                ps.stop[HORIZONTAL_SCROLL as usize].get(),
-                ps.stop[VERTICAL_SCROLL as usize].get(),
+                ps.stop[HORIZONTAL_SCROLL].get(),
+                ps.stop[VERTICAL_SCROLL].get(),
             );
             b.device.send_frame(self.client.serial(), time_usec);
         }

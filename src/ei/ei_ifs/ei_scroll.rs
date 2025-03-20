@@ -66,8 +66,8 @@ impl EiScrollRequestHandler for EiScroll {
     }
 
     fn client_scroll(&self, req: ClientScroll, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.device.scroll_px[HORIZONTAL_SCROLL as usize].set(Some(req.x));
-        self.device.scroll_px[VERTICAL_SCROLL as usize].set(Some(req.y));
+        self.device.scroll_px[HORIZONTAL_SCROLL].set(Some(req.x));
+        self.device.scroll_px[VERTICAL_SCROLL].set(Some(req.y));
         Ok(())
     }
 
@@ -76,8 +76,8 @@ impl EiScrollRequestHandler for EiScroll {
         req: ClientScrollDiscrete,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.device.scroll_v120[HORIZONTAL_SCROLL as usize].set(Some(req.x));
-        self.device.scroll_v120[VERTICAL_SCROLL as usize].set(Some(req.y));
+        self.device.scroll_v120[HORIZONTAL_SCROLL].set(Some(req.x));
+        self.device.scroll_v120[VERTICAL_SCROLL].set(Some(req.y));
         Ok(())
     }
 
@@ -86,8 +86,8 @@ impl EiScrollRequestHandler for EiScroll {
         req: ClientScrollStop,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.device.scroll_stop[HORIZONTAL_SCROLL as usize].set(Some(req.x != 0));
-        self.device.scroll_stop[VERTICAL_SCROLL as usize].set(Some(req.y != 0));
+        self.device.scroll_stop[HORIZONTAL_SCROLL].set(Some(req.x != 0));
+        self.device.scroll_stop[VERTICAL_SCROLL].set(Some(req.y != 0));
         Ok(())
     }
 }

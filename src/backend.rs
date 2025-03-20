@@ -280,7 +280,7 @@ pub enum KeyState {
     Pressed,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
 pub enum ScrollAxis {
     Horizontal = HORIZONTAL_SCROLL as _,
     Vertical = VERTICAL_SCROLL as _,

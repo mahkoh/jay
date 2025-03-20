@@ -21,6 +21,7 @@ use {
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
+    linearize::LinearizeExt,
     std::{
         cell::Cell,
         rc::{Rc, Weak},
@@ -80,7 +81,8 @@ impl PointerOwnerHolder {
     pub fn frame(&self, px_per_scroll_wheel: f64, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
         self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
-        for axis in 0..2 {
+        for axis in ScrollAxis::variants() {
+            let axis = axis as usize;
             if let Some(dist) = pending.v120[axis].get() {
                 let px = (dist as f64 / AXIS_120 as f64) * px_per_scroll_wheel;
                 pending.px[axis].set(Some(Fixed::from_f64(px)));

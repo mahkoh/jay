@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{InputDeviceId, KeyState},
+        backend::{InputDeviceId, KeyState, ScrollAxis},
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{
@@ -15,6 +15,7 @@ use {
         object::{Object, Version},
         wire::{JaySeatEventsId, jay_seat_events::*},
     },
+    linearize::LinearizeExt,
     std::{convert::Infallible, rc::Rc},
 };
 
@@ -95,7 +96,8 @@ impl JaySeatEvents {
                 source,
             });
         }
-        for axis in 0..1 {
+        for axis in ScrollAxis::variants() {
+            let axis = axis as usize;
             if let Some(dist) = ps.v120[axis].get() {
                 self.client.event(Axis120 {
                     self_id: self.id,

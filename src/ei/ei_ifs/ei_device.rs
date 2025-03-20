@@ -21,6 +21,7 @@ use {
             },
         },
     },
+    linearize::LinearizeExt,
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
@@ -204,7 +205,7 @@ impl EiDeviceRequestHandler for EiDevice {
         }
         {
             let mut need_frame = false;
-            for axis in [ScrollAxis::Horizontal, ScrollAxis::Vertical] {
+            for axis in ScrollAxis::variants() {
                 let idx = axis as usize;
                 if let Some(v120) = self.scroll_v120[idx].take() {
                     need_frame = true;
