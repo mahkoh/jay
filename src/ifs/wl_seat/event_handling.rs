@@ -54,6 +54,7 @@ use {
         },
     },
     kbvm::{ModifierMask, state_machine::Event},
+    linearize::LinearizeExt,
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
 };
@@ -1173,7 +1174,8 @@ impl WlSeatGlobal {
         }
         let time = (event.time_usec.get() / 1000) as _;
         self.for_each_pointer(Version::ALL, surface.client.id, |p| {
-            for i in 0..1 {
+            for i in ScrollAxis::variants() {
+                let i = i as usize;
                 let axis = i as _;
                 if let Some(delta) = event.v120[i].get() {
                     if p.seat.version >= AXIS_VALUE120_SINCE_VERSION {

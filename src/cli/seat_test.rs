@@ -2,7 +2,9 @@ use {
     crate::{
         cli::{GlobalArgs, SeatTestArgs},
         fixed::Fixed,
-        ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, PendingScroll, WHEEL},
+        ifs::wl_seat::wl_pointer::{
+            CONTINUOUS, FINGER, HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL, WHEEL,
+        },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
@@ -188,14 +190,14 @@ async fn run(seat_test: Rc<SeatTest>) {
     let st = seat_test.clone();
     AxisFrame::handle(tc, se, ps.clone(), move |ps, ev| {
         let source = ps.source.take();
-        let px_x = ps.px[0].take();
-        let px_y = ps.px[1].take();
-        let stop_x = ps.stop[0].take();
-        let stop_y = ps.stop[1].take();
-        let v120_x = ps.v120[0].take();
-        let v120_y = ps.v120[1].take();
-        let inverted_x = ps.inverted[0].get();
-        let inverted_y = ps.inverted[1].get();
+        let px_x = ps.px[HORIZONTAL_SCROLL].take();
+        let px_y = ps.px[VERTICAL_SCROLL].take();
+        let stop_x = ps.stop[HORIZONTAL_SCROLL].take();
+        let stop_y = ps.stop[VERTICAL_SCROLL].take();
+        let v120_x = ps.v120[HORIZONTAL_SCROLL].take();
+        let v120_y = ps.v120[VERTICAL_SCROLL].take();
+        let inverted_x = ps.inverted[HORIZONTAL_SCROLL].get();
+        let inverted_y = ps.inverted[VERTICAL_SCROLL].get();
         if all || ev.seat == seat {
             if all {
                 print!("Seat: {}, ", st.name(ev.seat));

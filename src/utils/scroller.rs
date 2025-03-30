@@ -17,14 +17,14 @@ pub struct Scroller {
 
 impl Scroller {
     pub fn handle(&self, scroll: &PendingScroll) -> Option<i32> {
-        let n = if let Some(d) = scroll.v120[VERTICAL_SCROLL as usize].get() {
+        let n = if let Some(d) = scroll.v120[VERTICAL_SCROLL].get() {
             self.px.set(0.0);
             let mut v120 = self.v120.get() + d;
             let discrete = v120 / AXIS_120;
             v120 -= discrete * AXIS_120;
             self.v120.set(v120);
             discrete
-        } else if let Some(px) = scroll.px[VERTICAL_SCROLL as usize].get() {
+        } else if let Some(px) = scroll.px[VERTICAL_SCROLL].get() {
             self.v120.set(0);
             let mut px = self.px.get() + px.to_f64();
             let discrete = (px / PX_PER_SCROLL).trunc();
@@ -34,7 +34,7 @@ impl Scroller {
         } else {
             0
         };
-        if scroll.stop[VERTICAL_SCROLL as usize].get() {
+        if scroll.stop[VERTICAL_SCROLL].get() {
             self.v120.set(0);
             self.px.set(0.0);
         }
