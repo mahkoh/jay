@@ -21,3 +21,7 @@ See [setup.md](./docs/setup.md).
 ## License
 
 Jay is free software licensed under the GNU General Public License v3.0.
+
+## Community
+
+[Community Discord server(unofficial)](https://discord.gg/ct9t42Pj)
