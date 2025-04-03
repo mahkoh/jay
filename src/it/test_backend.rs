@@ -30,7 +30,7 @@ use {
         },
     },
     bstr::ByteSlice,
-    std::{any::Any, cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
+    std::{cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
     thiserror::Error,
     uapi::c,
 };
@@ -285,10 +285,6 @@ impl Backend for TestBackend {
             future.await;
             Ok(())
         })
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
     }
 
     fn switch_to(&self, vtnr: u32) {

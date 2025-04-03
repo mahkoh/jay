@@ -138,11 +138,7 @@ impl ExtImageCopyCaptureFrameV1 {
                     Some(s) => s,
                     _ => ctx.create_staging_buffer(bridge.staging_size(), STAGING_DOWNLOAD),
                 };
-                let res = f(
-                    bridge.clone().into_fb(),
-                    AcquireSync::Unnecessary,
-                    ReleaseSync::None,
-                );
+                let res = f(bridge.clone(), AcquireSync::Unnecessary, ReleaseSync::None);
                 if let Err(e) = res {
                     log::error!("Could not copy frame to staging texture: {}", ErrorFmt(e));
                     return Err(FrameFailureReason::Unknown);

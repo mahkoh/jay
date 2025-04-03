@@ -614,7 +614,7 @@ impl Node for FloatNode {
         let x = x - bw;
         let y = y - bw - th - 1;
         tree.push(FoundNode {
-            node: child.clone().tl_into_node(),
+            node: child.clone(),
             x,
             y,
         });
@@ -833,8 +833,6 @@ impl ContainingNode for FloatNode {
 }
 
 impl StackedNode for FloatNode {
-    stacked_node_impl!();
-
     fn stacked_set_visible(&self, visible: bool) {
         if self.visible.replace(visible) != visible {
             self.state.damage(self.position.get());

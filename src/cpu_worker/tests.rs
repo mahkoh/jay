@@ -71,10 +71,6 @@ impl AsyncCpuWork for AsyncWork {
             completion.complete(self)
         })
     }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
 }
 
 fn run(cancel: bool) {

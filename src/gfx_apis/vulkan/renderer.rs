@@ -60,6 +60,7 @@ use {
     jay_algorithms::rect::Tag,
     linearize::{Linearize, LinearizeExt, StaticMap, static_map},
     std::{
+        any::Any,
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -1967,8 +1968,7 @@ impl VulkanImage {
 
 impl dyn GfxTexture {
     fn as_vk(&self, device: &Device) -> &VulkanImage {
-        let img: &VulkanImage = self
-            .as_any()
+        let img: &VulkanImage = (self as &dyn Any)
             .downcast_ref()
             .expect("Non-vulkan texture passed into vulkan");
         img.assert_device(device);
@@ -1976,8 +1976,7 @@ impl dyn GfxTexture {
     }
 
     pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanImage> {
-        let img: Rc<VulkanImage> = self
-            .into_any()
+        let img: Rc<VulkanImage> = (self as Rc<dyn Any>)
             .downcast()
             .expect("Non-vulkan texture passed into vulkan");
         img.assert_device(device);
@@ -1987,8 +1986,7 @@ impl dyn GfxTexture {
 
 impl dyn GfxBlendBuffer {
     pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanImage> {
-        let img: Rc<VulkanImage> = self
-            .into_any()
+        let img: Rc<VulkanImage> = (self as Rc<dyn Any>)
             .downcast()
             .expect("Non-vulkan blend buffer passed into vulkan");
         img.assert_device(device);

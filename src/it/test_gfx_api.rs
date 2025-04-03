@@ -278,14 +278,6 @@ impl GfxTexture for TestGfxImage {
         }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         match self {
             TestGfxImage::Shm(_) => None,
@@ -298,11 +290,7 @@ impl GfxTexture for TestGfxImage {
     }
 }
 
-impl ShmGfxTexture for TestGfxImage {
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
-    }
-}
+impl ShmGfxTexture for TestGfxImage {}
 
 impl AsyncShmGfxTexture for TestGfxImage {
     fn async_upload(
@@ -343,10 +331,6 @@ impl AsyncShmGfxTexture for TestGfxImage {
             unreachable!();
         };
         shm.format == format && shm.width == width && shm.height == height && shm.stride == stride
-    }
-
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
     }
 }
 
@@ -573,10 +557,6 @@ impl GfxFramebuffer for TestGfxFb {
 }
 
 impl GfxInternalFramebuffer for TestGfxFb {
-    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
-        self
-    }
-
     fn stride(&self) -> i32 {
         let TestGfxImage::Shm(shm) = &*self.img else {
             unreachable!();
@@ -604,7 +584,7 @@ impl GfxInternalFramebuffer for TestGfxFb {
 
 impl dyn GfxTexture {
     fn as_native(&self) -> &TestGfxImage {
-        self.as_any()
+        (self as &dyn Any)
             .downcast_ref()
             .expect("Non-test texture passed into vulkan")
     }

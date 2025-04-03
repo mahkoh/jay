@@ -39,13 +39,11 @@ linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 linear_ids!(DrmDeviceIds, DrmDeviceId);
 
-pub trait Backend {
+pub trait Backend: Any {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
     fn clear(&self) {
         // nothing
     }
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 
     fn switch_to(&self, vtnr: u32) {
         let _ = vtnr;

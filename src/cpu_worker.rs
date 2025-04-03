@@ -45,15 +45,13 @@ pub trait CpuWork: Send {
     }
 }
 
-pub trait AsyncCpuWork {
+pub trait AsyncCpuWork: Any {
     fn run(
         self: Box<Self>,
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
         completion: WorkCompletion,
     ) -> SpawnedFuture<CompletedWork>;
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
 }
 
 pub struct WorkCompletion {

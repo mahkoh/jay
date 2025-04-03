@@ -95,7 +95,7 @@ use {
     },
     isnt::std_1::vec::IsntVecExt,
     once_cell::sync::Lazy,
-    std::{cell::RefCell, error::Error, rc::Rc, sync::Arc},
+    std::{any::Any, cell::RefCell, error::Error, rc::Rc, sync::Arc},
     thiserror::Error,
 };
 
@@ -439,7 +439,7 @@ fn handle_explicit_sync(ctx: &GlRenderContext, img: Option<&Rc<EglImage>>, sync:
 
 impl dyn GfxTexture {
     fn as_gl(&self) -> &Texture {
-        self.as_any()
+        (self as &dyn Any)
             .downcast_ref()
             .expect("Non-gl texture passed into gl")
     }

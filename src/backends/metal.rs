@@ -52,7 +52,6 @@ use {
     },
     bstr::ByteSlice,
     std::{
-        any::Any,
         cell::{Cell, RefCell},
         error::Error,
         ffi::{CStr, CString},
@@ -231,10 +230,6 @@ impl Backend for MetalBackend {
                 connector.next_framebuffer.take();
             }
         }
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
     }
 
     fn switch_to(&self, vtnr: u32) {

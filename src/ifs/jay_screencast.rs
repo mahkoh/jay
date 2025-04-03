@@ -195,7 +195,7 @@ impl JayScreencast {
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
                     self.client.state.color_manager.srgb_srgb(),
-                    tl.tl_as_node(),
+                    &*tl,
                     &self.client.state,
                     Some(tl.node_absolute_position()),
                     scale,

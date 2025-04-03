@@ -98,5 +98,5 @@ pub fn render(
             None,
         )
         .ok()
-        .map(|t| (t.into_texture(), measurement))
+        .map(|t| (t as _, measurement))
 }

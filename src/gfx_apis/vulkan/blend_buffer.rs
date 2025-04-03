@@ -14,7 +14,7 @@ use {
         ImageTiling, ImageType, ImageViewCreateInfo, ImageViewType, SampleCountFlags, SharingMode,
     },
     gpu_alloc::UsageFlags,
-    std::{any::Any, cell::Cell, collections::hash_map::Entry, rc::Rc},
+    std::{cell::Cell, collections::hash_map::Entry, rc::Rc},
 };
 
 impl VulkanRenderer {
@@ -113,8 +113,4 @@ impl VulkanRenderer {
     }
 }
 
-impl GfxBlendBuffer for VulkanImage {
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
-    }
-}
+impl GfxBlendBuffer for VulkanImage {}

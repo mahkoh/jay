@@ -488,8 +488,6 @@ impl ToplevelNodeBase for Xwindow {
 }
 
 impl StackedNode for Xwindow {
-    stacked_node_impl!();
-
     fn stacked_set_visible(&self, visible: bool) {
         self.damage_override_redirect();
         self.tl_set_visible(visible);
