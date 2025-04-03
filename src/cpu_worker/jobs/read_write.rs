@@ -89,7 +89,7 @@ impl CpuWork for ReadWriteWork {
     }
 
     fn async_work_done(&mut self, work: Box<dyn AsyncCpuWork>) {
-        let work = work.into_any().downcast().unwrap();
+        let work = (work as Box<dyn Any>).downcast().unwrap();
         self.config = Some(work);
     }
 }
@@ -143,9 +143,5 @@ impl AsyncCpuWork for ReadWriteWorkConfig {
             self.result = Some(res);
             completion.complete(self)
         })
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
     }
 }

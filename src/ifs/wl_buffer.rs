@@ -212,12 +212,9 @@ impl WlBuffer {
         match &*self.storage.borrow() {
             None => None,
             Some(s) => match s {
-                WlBufferStorage::Shm { .. } => surface
-                    .shm_textures
-                    .front()
-                    .tex
-                    .get()
-                    .map(|t| t.into_texture()),
+                WlBufferStorage::Shm { .. } => {
+                    surface.shm_textures.front().tex.get().map(|t| t as _)
+                }
                 WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
             },
         }

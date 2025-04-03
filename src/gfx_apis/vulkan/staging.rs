@@ -178,10 +178,6 @@ impl GfxStagingBuffer for VulkanStagingShell {
     fn size(&self) -> usize {
         self.size as _
     }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
-    }
 }
 
 impl VulkanStagingShell {
@@ -196,8 +192,7 @@ impl VulkanStagingShell {
 
 impl dyn GfxStagingBuffer {
     pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanStagingShell> {
-        let shell: Rc<VulkanStagingShell> = self
-            .into_any()
+        let shell: Rc<VulkanStagingShell> = (self as Rc<dyn Any>)
             .downcast()
             .expect("Non-vulkan staging buffer passed into vulkan");
         shell.assert_device(device);

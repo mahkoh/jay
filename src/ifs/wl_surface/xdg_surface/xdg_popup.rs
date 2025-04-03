@@ -356,8 +356,6 @@ impl Node for XdgPopup {
 }
 
 impl StackedNode for XdgPopup {
-    stacked_node_impl!();
-
     fn stacked_prepare_set_visible(&self) {
         self.set_visible_prepared.set(true);
     }

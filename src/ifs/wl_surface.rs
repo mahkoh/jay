@@ -1656,7 +1656,7 @@ impl WlSurface {
 
     pub fn request_activation(&self) {
         if let Some(tl) = self.toplevel.get() {
-            tl.tl_data().request_attention(tl.tl_as_node());
+            tl.tl_data().request_attention(&*tl);
         }
     }
 

@@ -32,7 +32,6 @@ use {
     },
     gpu_alloc::UsageFlags,
     std::{
-        any::Any,
         cell::Cell,
         fmt::{Debug, Formatter},
         mem,
@@ -591,10 +590,6 @@ impl GfxFramebuffer for VulkanImage {
 }
 
 impl GfxInternalFramebuffer for VulkanImage {
-    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
-        self
-    }
-
     fn stride(&self) -> i32 {
         let VulkanImageMemory::Internal(shm) = &self.ty else {
             unreachable!();
@@ -637,14 +632,6 @@ impl GfxTexture for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         match &self.ty {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
@@ -658,11 +645,7 @@ impl GfxTexture for VulkanImage {
     }
 }
 
-impl ShmGfxTexture for VulkanImage {
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
-    }
-}
+impl ShmGfxTexture for VulkanImage {}
 
 impl AsyncShmGfxTexture for VulkanImage {
     fn staging_size(&self) -> usize {
@@ -710,10 +693,6 @@ impl AsyncShmGfxTexture for VulkanImage {
             && self.width == width as u32
             && self.height == height as u32
             && self.stride == stride as u32
-    }
-
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
     }
 }
 

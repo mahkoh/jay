@@ -49,10 +49,6 @@ macro_rules! object_base {
                 $version
             }
 
-            fn into_any($self: std::rc::Rc<Self>) -> std::rc::Rc<dyn std::any::Any> {
-                $self
-            }
-
             fn handle_request(
                 $self: std::rc::Rc<Self>,
                 client: &crate::client::Client,
@@ -456,14 +452,6 @@ macro_rules! fatal {
         log::error!($($arg)+);
         std::process::exit(1);
     }}
-}
-
-macro_rules! stacked_node_impl {
-    () => {
-        fn stacked_into_node(self: Rc<Self>) -> Rc<dyn Node> {
-            self
-        }
-    };
 }
 
 macro_rules! bitflags {

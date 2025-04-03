@@ -52,7 +52,6 @@ use {
     },
     jay_config::video::GfxApi,
     std::{
-        any::Any,
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -250,10 +249,6 @@ impl Backend for XBackend {
             slf.run().await?;
             Ok(())
         })
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
     }
 }
 

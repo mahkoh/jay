@@ -80,7 +80,7 @@ impl Renderer<'_> {
         let srgb_srgb = self.state.color_manager.srgb_srgb();
         let srgb = &srgb_srgb.linear;
         if let Some(fs) = fullscreen {
-            fs.tl_as_node().node_render(self, x, y, None);
+            fs.node_render(self, x, y, None);
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);

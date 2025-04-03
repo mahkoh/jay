@@ -291,7 +291,7 @@ impl LatchListener for ExtImageCopyCaptureSessionV1 {
             self.force_capture.set(true);
             return;
         }
-        frame.copy_node(on, tl.tl_as_node(), data.desired_pixel_size());
+        frame.copy_node(on, &*tl, data.desired_pixel_size());
     }
 }
 

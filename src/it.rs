@@ -16,7 +16,7 @@ use {
     log::Level,
     parking_lot::Mutex,
     std::{
-        cell::Cell, collections::VecDeque, future::pending, pin::Pin, rc::Rc, sync::Arc,
+        any::Any, cell::Cell, collections::VecDeque, future::pending, pin::Pin, rc::Rc, sync::Arc,
         time::SystemTime,
     },
     uapi::c,
@@ -132,7 +132,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
             sun_path[path.len()] = 0;
             addr
         };
-        let backend: Rc<TestBackend> = state.backend.get().into_any().downcast().unwrap();
+        let backend: Rc<TestBackend> = (state.backend.get() as Rc<dyn Any>).downcast().unwrap();
         let testrun = Rc::new(TestRun {
             state: state.clone(),
             backend,

@@ -383,12 +383,7 @@ impl TextTexture {
     }
 
     pub fn texture(&self) -> Option<Rc<dyn GfxTexture>> {
-        self.data
-            .textures
-            .front()
-            .tex
-            .get()
-            .map(|t| t.into_texture())
+        self.data.textures.front().tex.get().map(|t| t as _)
     }
 
     fn apply_config(&self, on_completed: Rc<dyn OnCompleted>, config: Config<'_>) {

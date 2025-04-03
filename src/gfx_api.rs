@@ -292,9 +292,7 @@ pub enum ResetStatus {
     Other(u32),
 }
 
-pub trait GfxBlendBuffer: Debug {
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
-}
+pub trait GfxBlendBuffer: Any + Debug {}
 
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
@@ -321,7 +319,6 @@ pub trait GfxFramebuffer: Debug {
 }
 
 pub trait GfxInternalFramebuffer: GfxFramebuffer {
-    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer>;
     fn stride(&self) -> i32;
 
     fn staging_size(&self) -> usize;
@@ -645,17 +642,13 @@ pub trait GfxImage {
     fn height(&self) -> i32;
 }
 
-pub trait GfxTexture: Debug {
+pub trait GfxTexture: Any + Debug {
     fn size(&self) -> (i32, i32);
-    fn as_any(&self) -> &dyn Any;
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
     fn format(&self) -> &'static Format;
 }
 
-pub trait ShmGfxTexture: GfxTexture {
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
-}
+pub trait ShmGfxTexture: GfxTexture {}
 
 pub trait AsyncShmGfxTextureCallback {
     fn completed(self: Rc<Self>, res: Result<(), GfxError>);
@@ -667,9 +660,8 @@ bitflags! {
         STAGING_DOWNLOAD = 1 << 1,
 }
 
-pub trait GfxStagingBuffer {
+pub trait GfxStagingBuffer: Any {
     fn size(&self) -> usize;
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 }
 
 pub trait AsyncShmGfxTextureTransferCancellable {
@@ -729,8 +721,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
         height: i32,
         stride: i32,
     ) -> bool;
-
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture>;
 }
 
 pub trait GfxContext: Debug {
@@ -791,10 +781,6 @@ pub trait GfxContext: Debug {
         impl GfxStagingBuffer for Dummy {
             fn size(&self) -> usize {
                 self.0
-            }
-
-            fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-                self
             }
         }
         Rc::new(Dummy(size))

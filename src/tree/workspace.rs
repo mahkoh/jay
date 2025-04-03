@@ -277,7 +277,7 @@ impl Node for WorkspaceNode {
             visitor.visit_container(&c);
         }
         if let Some(fs) = self.fullscreen.get() {
-            fs.tl_into_node().node_visit(visitor);
+            fs.node_visit(visitor);
         }
     }
 
@@ -291,7 +291,7 @@ impl Node for WorkspaceNode {
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(fs) = self.fullscreen.get() {
-            fs.tl_into_node().node_do_focus(seat, direction);
+            fs.node_do_focus(seat, direction);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
         } else if let Some(float) = self
@@ -359,7 +359,7 @@ impl ContainingNode for WorkspaceNode {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         if let Some(container) = self.container.get() {
             if container.node_id() == old.node_id() {
-                let new = match new.tl_into_node().node_into_container() {
+                let new = match new.node_into_container() {
                     Some(c) => c,
                     _ => {
                         log::error!("cnode_replace_child called with non-container new");
@@ -383,7 +383,7 @@ impl ContainingNode for WorkspaceNode {
             }
         }
         if let Some(fs) = self.fullscreen.get() {
-            if fs.tl_as_node().node_id() == child.node_id() {
+            if fs.node_id() == child.node_id() {
                 self.remove_fullscreen_node();
                 return;
             }

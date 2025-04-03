@@ -28,7 +28,7 @@ use {
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxBlendBuffer, GfxContext, GfxError, GfxFormat, GfxImage,
-            GfxInternalFramebuffer, GfxStagingBuffer, ResetStatus, STAGING_DOWNLOAD,
+            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus, STAGING_DOWNLOAD,
             STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
@@ -272,7 +272,7 @@ impl GfxContext for Context {
         damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         if let Some(old) = old {
-            let old = old.into_texture().into_vk(&self.0.device.device);
+            let old = (old as Rc<dyn GfxTexture>).into_vk(&self.0.device.device);
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
                 VulkanImageMemory::Blend(_) => unreachable!(),

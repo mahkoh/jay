@@ -6,7 +6,7 @@ use {
         },
         video::drm::ConnectorType,
     },
-    std::{any::Any, error::Error, rc::Rc},
+    std::{error::Error, rc::Rc},
 };
 
 pub struct DummyBackend;
@@ -14,10 +14,6 @@ pub struct DummyBackend;
 impl Backend for DummyBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
         unreachable!();
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
     }
 }
 

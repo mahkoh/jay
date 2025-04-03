@@ -40,9 +40,6 @@ use {
 tree_id!(ToplevelNodeId);
 
 pub trait ToplevelNode: ToplevelNodeBase {
-    fn tl_as_node(&self) -> &dyn Node;
-    fn tl_into_node(self: Rc<Self>) -> Rc<dyn Node>;
-    fn tl_into_dyn(self: Rc<Self>) -> Rc<dyn ToplevelNode>;
     fn tl_surface_active_changed(&self, active: bool);
     fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool);
     fn tl_title_changed(&self);
@@ -56,18 +53,6 @@ pub trait ToplevelNode: ToplevelNodeBase {
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
-    fn tl_as_node(&self) -> &dyn Node {
-        self
-    }
-
-    fn tl_into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
-    }
-
-    fn tl_into_dyn(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
-        self
-    }
-
     fn tl_surface_active_changed(&self, active: bool) {
         let data = self.tl_data();
         data.update_active(self, || {
@@ -79,10 +64,10 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         if fullscreen {
             if let Some(ws) = data.workspace.get() {
-                data.set_fullscreen2(&data.state, self.clone().tl_into_dyn(), &ws);
+                data.set_fullscreen2(&data.state, self.clone(), &ws);
             }
         } else {
-            data.unset_fullscreen(&data.state, self.clone().tl_into_dyn());
+            data.unset_fullscreen(&data.state, self.clone());
         }
     }
 
@@ -323,7 +308,7 @@ impl ToplevelData {
         if active_old != active_new {
             tl.tl_set_active(active_new);
             if let Some(parent) = self.parent.get() {
-                parent.node_child_active_changed(tl.tl_as_node(), active_new, 1);
+                parent.node_child_active_changed(tl, active_new, 1);
             }
         }
     }
@@ -480,14 +465,14 @@ impl ToplevelData {
         }
         let placeholder =
             Rc::new_cyclic(|weak| PlaceholderNode::new_for(state, node.clone(), weak));
-        parent.cnode_replace_child(node.tl_as_node(), placeholder.clone());
+        parent.cnode_replace_child(&*node, placeholder.clone());
         let mut kb_foci = Default::default();
         if ws.visible.get() {
             if let Some(container) = ws.container.get() {
                 kb_foci = collect_kb_foci(container);
             }
             for stacked in ws.stacked.iter() {
-                collect_kb_foci2(stacked.deref().clone().stacked_into_node(), &mut kb_foci);
+                collect_kb_foci2(stacked.deref().clone(), &mut kb_foci);
             }
         }
         *data = Some(FullscreenedData {
@@ -501,9 +486,7 @@ impl ToplevelData {
         node.clone()
             .tl_change_extents(&ws.output.get().global.pos.get());
         for seat in kb_foci {
-            node.clone()
-                .tl_into_node()
-                .node_do_focus(&seat, Direction::Unspecified);
+            node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
     }
 
@@ -527,7 +510,7 @@ impl ToplevelData {
                 );
                 return;
             }
-            Some(f) if f.tl_as_node().node_id() != node.tl_as_node().node_id() => {
+            Some(f) if f.node_id() != node.node_id() => {
                 log::error!(
                     "Node is supposed to be fullscreened on a workspace but the workspace has a different node attached."
                 );
@@ -542,12 +525,10 @@ impl ToplevelData {
         }
         let parent = fd.placeholder.tl_data().parent.get().unwrap();
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
-        if node.tl_as_node().node_visible() {
+        if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
             for seat in kb_foci {
-                node.clone()
-                    .tl_into_node()
-                    .node_do_focus(&seat, Direction::Unspecified);
+                node.clone().node_do_focus(&seat, Direction::Unspecified);
             }
         }
         fd.placeholder

@@ -1,7 +1,6 @@
-use {crate::tree::Node, std::rc::Rc};
+use crate::tree::Node;
 
 pub trait StackedNode: Node {
-    fn stacked_into_node(self: Rc<Self>) -> Rc<dyn Node>;
     fn stacked_prepare_set_visible(&self) {
         // nothing
     }

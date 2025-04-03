@@ -77,7 +77,6 @@ impl TrayItemData {
 pub trait DynTrayItem: Node {
     fn send_current_configure(&self);
     fn data(&self) -> &TrayItemData;
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
     fn destroy_node(&self);
@@ -91,10 +90,6 @@ impl<T: TrayItem> DynTrayItem for T {
 
     fn data(&self) -> &TrayItemData {
         <Self as TrayItem>::data(self)
-    }
-
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
     }
 
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {

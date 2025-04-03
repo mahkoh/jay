@@ -127,10 +127,6 @@ impl GfxFramebuffer for Framebuffer {
 }
 
 impl GfxInternalFramebuffer for Framebuffer {
-    fn into_fb(self: Rc<Self>) -> Rc<dyn GfxFramebuffer> {
-        self
-    }
-
     fn stride(&self) -> i32 {
         self.gl.rb.stride
     }

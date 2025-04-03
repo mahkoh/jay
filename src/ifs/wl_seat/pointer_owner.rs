@@ -1089,7 +1089,7 @@ impl WindowManagementGrabUsecase for MoveToplevelGrabPointerOwner {
     ) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down() - self.dx, y.round_down() - self.dy);
-        parent.cnode_set_child_position(tl.tl_as_node(), x, y);
+        parent.cnode_set_child_position(&**tl, x, y);
     }
 }
 
@@ -1144,7 +1144,7 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
             }
         }
         if x1.is_some() || x2.is_some() || y1.is_some() || y2.is_some() {
-            parent.cnode_resize_child(tl.tl_as_node(), x1, y1, x2, y2);
+            parent.cnode_resize_child(&**tl, x1, y1, x2, y2);
         }
     }
 }
@@ -1230,13 +1230,11 @@ impl UiDragUsecase for TileDragUsecase {
             let placeholder = Rc::new_cyclic(|weak| PlaceholderNode::new_empty(&seat.state, weak));
             src_parent
                 .clone()
-                .cnode_replace_child(src.tl_as_node(), placeholder.clone());
+                .cnode_replace_child(&*src, placeholder.clone());
             placeholder
         };
         let new_container = |workspace: &Rc<WorkspaceNode>| {
-            src_parent
-                .clone()
-                .cnode_remove_child2(src.tl_as_node(), true);
+            src_parent.clone().cnode_remove_child2(&*src, true);
             let cn = ContainerNode::new(
                 &seat.state,
                 &workspace,
@@ -1251,8 +1249,8 @@ impl UiDragUsecase for TileDragUsecase {
                     return;
                 };
                 let placeholder = detach();
-                dst_parent.cnode_replace_child(dst.tl_as_node(), src);
-                src_parent.cnode_replace_child(placeholder.tl_as_node(), dst);
+                dst_parent.cnode_replace_child(&*dst, src);
+                src_parent.cnode_replace_child(&*placeholder, dst);
             }
             TddType::Split {
                 node,
@@ -1268,12 +1266,12 @@ impl UiDragUsecase for TileDragUsecase {
                 };
                 let placeholder = detach();
                 let cn = ContainerNode::new(&seat.state, &ws, node.clone(), split);
-                pn.cnode_replace_child(node.tl_as_node(), cn.clone());
+                pn.cnode_replace_child(&*node, cn.clone());
                 match before {
-                    true => cn.add_child_before(node.tl_as_node(), src),
-                    false => cn.add_child_after(node.tl_as_node(), src),
+                    true => cn.add_child_before(&*node, src),
+                    false => cn.add_child_after(&*node, src),
                 }
-                src_parent.cnode_remove_child(placeholder.tl_as_node());
+                src_parent.cnode_remove_child(&*placeholder);
             }
             TddType::Insert {
                 container,
@@ -1282,10 +1280,10 @@ impl UiDragUsecase for TileDragUsecase {
             } => {
                 let placeholder = detach();
                 match before {
-                    true => container.add_child_before(neighbor.tl_as_node(), src),
-                    false => container.add_child_after(neighbor.tl_as_node(), src),
+                    true => container.add_child_before(&*neighbor, src),
+                    false => container.add_child_after(&*neighbor, src),
                 };
-                src_parent.cnode_remove_child(placeholder.tl_as_node());
+                src_parent.cnode_remove_child(&*placeholder);
             }
             TddType::NewWorkspace { output } => {
                 new_container(&output.ensure_workspace());
@@ -1294,12 +1292,12 @@ impl UiDragUsecase for TileDragUsecase {
                 new_container(&workspace);
             }
             TddType::MoveToWorkspace { workspace } => {
-                src_parent.cnode_remove_child(src.tl_as_node());
+                src_parent.cnode_remove_child(&*src);
                 seat.state.map_tiled_on(src, &workspace);
             }
             TddType::MoveToNewWorkspace { output } => {
                 let ws = output.generate_workspace();
-                src_parent.cnode_remove_child(src.tl_as_node());
+                src_parent.cnode_remove_child(&*src);
                 seat.state.map_tiled_on(src, &ws);
             }
         }

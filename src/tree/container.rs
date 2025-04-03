@@ -856,7 +856,7 @@ impl ContainerNode {
                 return;
             }
             if !preserve_focus {
-                let seats = collect_kb_foci(mc.node.clone().tl_into_node());
+                let seats = collect_kb_foci(mc.node.clone());
                 mc.node.tl_set_visible(false);
                 for seat in seats {
                     child
@@ -898,7 +898,7 @@ impl ContainerNode {
                 let mut seats = SmallVec::<[_; 3]>::new();
                 for other in self.children.iter() {
                     if other.node.node_id() != child_id {
-                        collect_kb_foci2(other.node.clone().tl_into_node(), &mut seats);
+                        collect_kb_foci2(other.node.clone(), &mut seats);
                         other.node.tl_set_visible(false);
                     }
                 }
@@ -996,9 +996,7 @@ impl ContainerNode {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
             if let Some(parent) = self.toplevel_data.parent.get() {
-                if !self.toplevel_data.is_fullscreen.get()
-                    && parent.cnode_accepts_child(child.tl_as_node())
-                {
+                if !self.toplevel_data.is_fullscreen.get() && parent.cnode_accepts_child(&*child) {
                     parent.cnode_replace_child(self.deref(), child.clone());
                 }
             }
@@ -1019,13 +1017,13 @@ impl ContainerNode {
             };
             if let Some(neighbor) = neighbor {
                 if let Some(cn) = neighbor.node.clone().node_into_container() {
-                    if cn.cnode_accepts_child(child.tl_as_node()) {
+                    if cn.cnode_accepts_child(&*child) {
                         if let Some(mc) = self.mono_child.get() {
                             if mc.node.node_id() == child.node_id() {
                                 self.activate_child2(&neighbor, true);
                             }
                         }
-                        self.cnode_remove_child2(child.tl_as_node(), true);
+                        self.cnode_remove_child2(&*child, true);
                         cn.insert_child(child, direction);
                         return;
                     }
@@ -1053,7 +1051,7 @@ impl ContainerNode {
             Some(p) => p,
             _ => return,
         };
-        self.cnode_remove_child2(child.tl_as_node(), true);
+        self.cnode_remove_child2(&*child, true);
         match prev {
             true => parent.add_child_before(&*neighbor, child.clone()),
             false => parent.add_child_after(&*neighbor, child.clone()),
@@ -1567,7 +1565,7 @@ impl Node for ContainerNode {
             if content.contains(x, y) {
                 let (x, y) = content.translate(x, y);
                 tree.push(FoundNode {
-                    node: child.node.clone().tl_into_node(),
+                    node: child.node.clone(),
                     x,
                     y,
                 });

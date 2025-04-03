@@ -678,7 +678,7 @@ impl State {
                 .get()
                 .and_then(|n| n.node_into_container());
             if let Some(lap) = lap {
-                lap.add_child_after(la.tl_as_node(), node);
+                lap.add_child_after(&*la, node);
             } else {
                 c.append_child(node);
             }
@@ -1120,7 +1120,7 @@ impl State {
             acquire_sync,
             ReleaseSync::None,
             src_cd,
-            &fb.clone().into_fb(),
+            &(fb.clone() as Rc<dyn GfxFramebuffer>),
             AcquireSync::Unnecessary,
             ReleaseSync::None,
             transform,

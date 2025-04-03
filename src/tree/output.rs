@@ -881,7 +881,7 @@ impl OutputNode {
             let (x, y) = ext.translate(x_abs, y_abs);
             let idx = tree.len();
             tree.push(FoundNode {
-                node: stacked.deref().clone().stacked_into_node(),
+                node: stacked.deref().clone(),
                 x,
                 y,
             });
@@ -1401,11 +1401,11 @@ impl Node for OutputNode {
         }
         if let Some(fs) = fullscreen {
             tree.push(FoundNode {
-                node: fs.clone().tl_into_node(),
+                node: fs.clone(),
                 x,
                 y,
             });
-            fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
+            fs.node_find_tree_at(x, y, tree, usecase)
         } else {
             let mut search_layers = true;
             let non_exclusive_rect = self.non_exclusive_rect_rel.get();
@@ -1419,7 +1419,7 @@ impl Node for OutputNode {
                         if pos.contains(x, y) {
                             let (x, y) = pos.translate(x, y);
                             tree.push(FoundNode {
-                                node: item.deref().clone().into_node(),
+                                node: item.deref().clone(),
                                 x,
                                 y,
                             });

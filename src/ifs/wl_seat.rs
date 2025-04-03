@@ -420,8 +420,8 @@ impl WlSeatGlobal {
             Some(cn) => cn,
             _ => return,
         };
-        let kb_foci = collect_kb_foci(tl.clone().tl_into_node());
-        cn.cnode_remove_child2(tl.tl_as_node(), true);
+        let kb_foci = collect_kb_foci(tl.clone());
+        cn.cnode_remove_child2(&*tl, true);
         if !ws.visible.get() {
             for focus in kb_foci {
                 old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
@@ -604,7 +604,7 @@ impl WlSeatGlobal {
         };
         if let Some(pn) = pn.node_into_containing_node() {
             let cn = ContainerNode::new(&self.state, &ws, tl.clone(), axis);
-            pn.cnode_replace_child(tl.tl_as_node(), cn);
+            pn.cnode_replace_child(&*tl, cn);
         }
     }
 
@@ -612,7 +612,7 @@ impl WlSeatGlobal {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
             if let Some(parent) = tl.tl_data().parent.get() {
                 if let Some(tl) = parent.node_toplevel() {
-                    self.focus_node(tl.tl_into_node());
+                    self.focus_node(tl);
                 }
             }
         }
@@ -646,10 +646,10 @@ impl WlSeatGlobal {
             _ => return,
         };
         if !floating {
-            parent.cnode_remove_child2(tl.tl_as_node(), true);
+            parent.cnode_remove_child2(&*tl, true);
             self.state.map_tiled(tl);
         } else if let Some(ws) = data.workspace.get() {
-            parent.cnode_remove_child2(tl.tl_as_node(), true);
+            parent.cnode_remove_child2(&*tl, true);
             let (width, height) = data.float_size(&ws);
             self.state.map_floating(tl, width, height, &ws, None);
         }

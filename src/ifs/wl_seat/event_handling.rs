@@ -926,7 +926,7 @@ impl WlSeatGlobal {
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         let node = match n.tl_focus_child() {
             Some(n) => n,
-            _ => n.tl_into_node(),
+            _ => n,
         };
         self.focus_node(node);
     }

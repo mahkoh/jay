@@ -18,7 +18,6 @@ use {
         video::dmabuf::DmaBuf,
     },
     std::{
-        any::Any,
         cell::Cell,
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -52,14 +51,6 @@ impl GfxTexture for Texture {
         (self.width(), self.height())
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
-        self
-    }
-
     fn dmabuf(&self) -> Option<&DmaBuf> {
         self.gl.img.as_ref().map(|i| &i.dmabuf)
     }
@@ -69,11 +60,7 @@ impl GfxTexture for Texture {
     }
 }
 
-impl ShmGfxTexture for Texture {
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
-    }
-}
+impl ShmGfxTexture for Texture {}
 
 impl AsyncShmGfxTexture for Texture {
     fn async_upload(
@@ -135,9 +122,5 @@ impl AsyncShmGfxTexture for Texture {
             && width == self.gl.width
             && height == self.gl.height
             && stride == self.gl.stride
-    }
-
-    fn into_texture(self: Rc<Self>) -> Rc<dyn GfxTexture> {
-        self
     }
 }
