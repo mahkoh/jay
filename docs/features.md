@@ -175,7 +175,7 @@ Jay supports the following wayland protocols:
 | wp_viewporter                                        | 1               |               |
 | xdg_activation_v1                                    | 1               |               |
 | xdg_toplevel_drag_manager_v1                         | 1               |               |
-| xdg_wm_base                                          | 6               |               |
+| xdg_wm_base                                          | 7               |               |
 | xdg_wm_dialog_v1                                     | 1               |               |
 | zwlr_data_control_manager_v1                         | 2               | Yes           |
 | zwlr_layer_shell_v1                                  | 5               | No[^lsaccess] |

@@ -67,6 +67,10 @@ const STATE_TILED_RIGHT: u32 = 6;
 const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
 pub const STATE_SUSPENDED: u32 = 9;
+const STATE_CONSTRAINED_LEFT: u32 = 10;
+const STATE_CONSTRAINED_RIGHT: u32 = 11;
+const STATE_CONSTRAINED_TOP: u32 = 12;
+const STATE_CONSTRAINED_BOTTOM: u32 = 13;
 
 #[expect(dead_code)]
 const CAP_WINDOW_MENU: u32 = 1;
@@ -78,6 +82,7 @@ const CAP_MINIMIZE: u32 = 4;
 
 pub const WM_CAPABILITIES_SINCE: Version = Version(5);
 pub const SUSPENDED_SINCE: Version = Version(6);
+pub const CONSTRAINTS_SINCE: Version = Version(7);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
@@ -121,6 +126,12 @@ impl XdgToplevel {
         states.insert(STATE_TILED_RIGHT);
         states.insert(STATE_TILED_TOP);
         states.insert(STATE_TILED_BOTTOM);
+        if surface.base.version >= CONSTRAINTS_SINCE {
+            states.insert(STATE_CONSTRAINED_LEFT);
+            states.insert(STATE_CONSTRAINED_RIGHT);
+            states.insert(STATE_CONSTRAINED_TOP);
+            states.insert(STATE_CONSTRAINED_BOTTOM);
+        }
         let state = &surface.surface.client.state;
         Self {
             id,
