@@ -14,7 +14,7 @@ pub async fn handle_hardware_cursor_tick(state: Rc<State>) {
             continue;
         }
         loop {
-            let tick = (cursor.time_until_tick().as_nanos() + 999_999) / 1_000_000;
+            let tick = cursor.time_until_tick().as_nanos().div_ceil(1_000_000);
             if tick > 0 {
                 let res = select! {
                     _ = state.hardware_tick_cursor.non_empty().fuse() => break,

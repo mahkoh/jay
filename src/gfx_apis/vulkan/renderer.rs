@@ -1507,7 +1507,7 @@ impl VulkanRenderer {
                 };
                 match sync {
                     AcquireSync::None => {}
-                    AcquireSync::Implicit { .. } => {
+                    AcquireSync::Implicit => {
                         zone!("import implicit");
                         for plane in &buf.template.dmabuf.planes {
                             let fd = dma_buf_export_sync_file(&plane.fd, flag)

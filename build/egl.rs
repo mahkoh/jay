@@ -158,7 +158,7 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
         writeln!(f, "       unsafe {{")?;
         writeln!(
             f,
-            "           ptr::read(&self.{} as *const *mut u8 as *const unsafe extern fn({}) -> {})({})",
+            r#"           ptr::read(&self.{} as *const *mut u8 as *const unsafe extern "C" fn({}) -> {})({})"#,
             name, args_tys, ret, args_names
         )?;
         writeln!(f, "       }}")?;

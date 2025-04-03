@@ -110,7 +110,7 @@ async fn run(n: Rc<ExtIdleNotificationV1>, skip_if_inhibited: bool) {
                 .client
                 .state
                 .wheel
-                .timeout((n.duration_usec - elapsed + 999) / 1000)
+                .timeout((n.duration_usec - elapsed).div_ceil(1000))
                 .await;
             if let Err(e) = res {
                 log::error!("Could not wait for idle timeout to elapse: {}", ErrorFmt(e));
