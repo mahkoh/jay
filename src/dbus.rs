@@ -139,6 +139,8 @@ pub enum DbusError {
 }
 efrom!(DbusError, IoUringError);
 
+const DBUS_SESSION_BUS_ADDRESS: &str = "DBUS_SESSION_BUS_ADDRESS";
+
 pub struct Dbus {
     eng: Rc<AsyncEngine>,
     ring: Rc<IoUring>,
@@ -149,12 +151,66 @@ pub struct Dbus {
 
 impl Dbus {
     pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>, run_toplevel: &Rc<RunToplevel>) -> Self {
-        let user_path = match xrd() {
-            Some(path) => Some(format!("{}/bus", path)),
-            _ => {
-                log::warn!("{} is not set", XRD);
-                None
+        // https://dbus.freedesktop.org/doc/dbus-specification.html#addresses
+        fn unescape_value(escaped: &str) -> Option<String> {
+            let mut unescaped = Vec::new();
+            let mut bytes = escaped.bytes();
+            while let Some(c) = bytes.next() {
+                match c {
+                    b'-'
+                    | b'0'..=b'9'
+                    | b'A'..=b'Z'
+                    | b'a'..=b'z'
+                    | b'_'
+                    | b'/'
+                    | b'.'
+                    | b'\\'
+                    | b'*' => {
+                        unescaped.push(c);
+                    }
+                    b'%' => {
+                        let hi = (bytes.next()? as char).to_digit(16)?;
+                        let lo = (bytes.next()? as char).to_digit(16)?;
+                        unescaped.push((hi << 4 | lo) as u8);
+                    }
+                    _ => return None,
+                }
             }
+            String::from_utf8(unescaped).ok()
+        }
+        let user_path = 'path: {
+            let Some(addr) = std::env::var(DBUS_SESSION_BUS_ADDRESS).ok() else {
+                if let Some(xrd) = xrd() {
+                    break 'path Some(format!("{xrd}/bus"));
+                }
+                log::warn!("Neither {DBUS_SESSION_BUS_ADDRESS} nor {XRD} is set");
+                break 'path None;
+            };
+            let (first_addr, _) = addr.split_once(';').unwrap_or((&addr, ""));
+            let Some((transport, attrs)) = first_addr.split_once(':') else {
+                log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                break 'path None;
+            };
+            if transport != "unix" {
+                log::warn!("{DBUS_SESSION_BUS_ADDRESS} has unsupported transport {transport}");
+                break 'path None;
+            }
+            for attr in attrs.split(',') {
+                let Some((k, v)) = attr.split_once("=") else {
+                    log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                    break 'path None;
+                };
+                if k != "path" {
+                    continue;
+                }
+                let Some(path) = unescape_value(v) else {
+                    log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                    break 'path None;
+                };
+                break 'path Some(path);
+            }
+            log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+            None
         };
         log::info!("dbus path = {:?}", user_path);
         Self {
