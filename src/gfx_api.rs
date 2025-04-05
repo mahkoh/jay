@@ -795,6 +795,10 @@ pub trait GfxContext: Debug {
     fn supports_color_management(&self) -> bool {
         false
     }
+
+    fn supports_invalid_modifier(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug)]
