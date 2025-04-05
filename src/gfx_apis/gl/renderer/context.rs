@@ -347,4 +347,8 @@ impl GfxContext for GlRenderContext {
     ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError> {
         Err(GfxError(Box::new(RenderError::NoBlendBuffer)))
     }
+
+    fn supports_invalid_modifier(&self) -> bool {
+        true
+    }
 }

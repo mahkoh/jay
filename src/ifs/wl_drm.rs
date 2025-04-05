@@ -6,6 +6,7 @@ use {
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
         video::{
             INVALID_MODIFIER,
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
@@ -61,6 +62,13 @@ impl Global for WlDrmGlobal {
 
     fn version(&self) -> u32 {
         2
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        let Some(ctx) = state.render_ctx.get() else {
+            return false;
+        };
+        ctx.supports_invalid_modifier()
     }
 }
 
