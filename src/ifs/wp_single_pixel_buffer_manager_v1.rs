@@ -76,13 +76,32 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
         req: CreateU32RgbaBuffer,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        let map = |c: u32| (c as f64 / u32::MAX as f64) as f32;
         let buffer = Rc::new(WlBuffer::new_single_pixel(
             req.id,
             &self.client,
-            req.r,
-            req.g,
-            req.b,
-            req.a,
+            map(req.r),
+            map(req.g),
+            map(req.b),
+            map(req.a),
+        ));
+        track!(self.client, buffer);
+        self.client.add_client_obj(&buffer)?;
+        Ok(())
+    }
+
+    fn create_f32_rgba_buffer(
+        &self,
+        req: CreateF32RgbaBuffer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let buffer = Rc::new(WlBuffer::new_single_pixel(
+            req.id,
+            &self.client,
+            f32::from_bits(req.r),
+            f32::from_bits(req.g),
+            f32::from_bits(req.b),
+            f32::from_bits(req.a),
         ));
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
