@@ -6,7 +6,7 @@ use {
         utils::asyncevent::AsyncEvent,
         wheel::Wheel,
     },
-    std::{any::Any, future::pending, rc::Rc, sync::Arc},
+    std::{future::pending, rc::Rc, sync::Arc},
     uapi::{OwnedFd, c::EFD_CLOEXEC},
 };
 

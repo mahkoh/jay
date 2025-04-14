@@ -203,6 +203,13 @@ pub trait ToplevelNodeBase: Node {
         let _ = start;
         default_tile_drag_bounds(self, split)
     }
+
+    fn tl_render_bounds(&self) -> Option<Rect> {
+        self.tl_data()
+            .parent
+            .is_some()
+            .then_some(self.node_absolute_position())
+    }
 }
 
 pub struct FullscreenedData {
