@@ -1453,7 +1453,7 @@ impl WlSurface {
     }
 
     fn apply_damage(&self, pending: &PendingState) {
-        let bounds = self.toplevel.get().map(|tl| tl.node_absolute_position());
+        let bounds = self.toplevel.get().and_then(|tl| tl.tl_render_bounds());
         let pos = self.buffer_abs_pos.get();
         let apply_damage = |pos: Rect| {
             if pending.damage_full {
