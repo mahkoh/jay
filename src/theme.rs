@@ -193,25 +193,6 @@ impl Color {
         )
     }
 
-    pub fn from_u32_premultiplied(
-        transfer_function: TransferFunction,
-        r: u32,
-        g: u32,
-        b: u32,
-        a: u32,
-    ) -> Self {
-        fn to_f32(c: u32) -> f32 {
-            ((c as f64) / (u32::MAX as f64)) as f32
-        }
-        Self::new_premultiplied(
-            transfer_function,
-            to_f32(r),
-            to_f32(g),
-            to_f32(b),
-            to_f32(a),
-        )
-    }
-
     pub fn from_srgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
         let mut c = Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b));
         if a < 255 {

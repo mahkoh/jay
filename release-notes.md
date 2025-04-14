@@ -13,6 +13,7 @@
 - Implement cursor-shape-v1 version 2.
 - Outputs can now optionally use the BT.2020/PQ color space.
 - Implement ext-shell version 7.
+- Implement single-pixel-buffer version 2.
 
 # 1.9.1 (2025-02-13)
 

@@ -10,3 +10,11 @@ request create_u32_rgba_buffer {
     b: u32,
     a: u32,
 }
+
+request create_f32_rgba_buffer {
+    id: id(wl_buffer),
+    r: u32,
+    g: u32,
+    b: u32,
+    a: u32,
+}

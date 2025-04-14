@@ -41,7 +41,7 @@ pub struct WlBuffer {
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     shm: bool,
-    pub color: Option<[u32; 4]>,
+    pub color: Option<[f32; 4]>,
     width: i32,
     height: i32,
     pub tracker: Tracker<Self>,
@@ -130,10 +130,10 @@ impl WlBuffer {
     pub fn new_single_pixel(
         id: WlBufferId,
         client: &Rc<Client>,
-        r: u32,
-        g: u32,
-        b: u32,
-        a: u32,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
     ) -> Self {
         Self {
             id,
