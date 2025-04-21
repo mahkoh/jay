@@ -1,19 +1,58 @@
 # Unreleased
 
 - Various bugfixes.
-- The vulkan renderer now only renders in damaged areas. This has exposed several places
-  where the damage tracking was incorrect. There might be additional damage tracking bugs.
-  Such bugs manifest through flickering or through areas getting stuck with an old image.
-  If you encounter such an issue, please open a bug.
-- The vulkan renderer now performs blending in linear space. A green window with 50%
-  opacity on top of a red window will produce a perfectly yellow image instead of a muddy
-  yellow. The blend buffer is only used for those areas of the screen where blending is
-  observable. This should have no impact on performance in the common case.
-- Implement color-management-v1.
 - Implement cursor-shape-v1 version 2.
+- Implement xdg-shell version 7.
+- Implement color-management-v1.
+
+  This release adds support for color management if the vulkan renderer is used
+  and the vulkan driver supports the VK_EXT_descriptor_buffer extension. Color
+  management is not available with the opengl renderer.
+
+  There are two limitations:
+
+  - No tone mapping is performed. That is, HDR content that is brighter than
+    what the framebuffer can store will be clipped.
+  - No gamut mapping is performed. That is, content that is more colorful than
+    what the framebuffer can store will be clipped.
+
+  The color management protocol is disabled by default. You can enable it on the
+  command line via `jay color-management enable` or in the config file via
+  `color-management.enabled = true`. If you are not using an OLED display, you
+  probably want to keep it disabled and instead rely on the tone mapping
+  performed by applications such as mpv. Changing this setting usually requires
+  applications to be restarted.
+
+  You can use this application to test various settings:
+  https://github.com/mahkoh/wayland-color-test
 - Outputs can now optionally use the BT.2020/PQ color space.
-- Implement ext-shell version 7.
-- The reference brightness of outputs can now be configured.
+
+  On the command line this can be controlled via
+  `jay randr output <OUTPUT> colors ...`. In the config file it can be
+  controlled via the `color-space` and `transfer-function` fields in the output
+  configuration.
+
+  When using the PQ transfer function, the output should also be configured to
+  use at least a 10 bpc framebuffer format.
+- The reference brightness of outputs can now be configured via
+  `jay randr output <OUTPUT> brightness ...` or in the config file via the
+  `brightness` field in the output configuration.
+
+  This is primarily useful when using the PQ transfer function and the display
+  does not support configuring the brightness via its hardware overlay.
+
+  This configuration has no effect unless the vulkan renderer is used and the
+  vulkan driver supports the VK_EXT_descriptor_buffer extension.
+- The vulkan renderer has been significantly improved to ensure high performance
+  even with color management enabled:
+  - VK_EXT_descriptor_buffer is used if available.
+  - Only the damaged areas of the screen are rendered.
+  - Draw calls are instanced so that only one draw call is required per texture
+    even if there are multiple small damage areas.
+  - Blending is now performed with a dedicated 16 bpc texture in linear space.
+  - The blend buffer is deduplicated between outputs with the same size.
+  - Areas of the screen where the topmost texture is opaque bypass the blend
+    buffer and render directly to the frame buffer.
 
 # 1.9.1 (2025-02-13)
 
