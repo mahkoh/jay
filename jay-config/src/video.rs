@@ -285,6 +285,22 @@ impl Connector {
     pub fn set_colors(self, color_space: ColorSpace, transfer_function: TransferFunction) {
         get!().connector_set_colors(self, color_space, transfer_function);
     }
+
+    /// Sets the brightness of the output.
+    ///
+    /// By default or when `brightness` is `None`, the brightness depends on the
+    /// transfer function:
+    ///
+    /// - [`TransferFunction::DEFAULT`]: The maximum brightness of the output.
+    /// - [`TransferFunction::PQ`]: 203 cd/m^2.
+    ///
+    /// This should only be used with the PQ transfer function. If the default transfer
+    /// function is used, you should instead calibrate the hardware directly.
+    ///
+    /// This has no effect unless the vulkan renderer is used.
+    pub fn set_brightness(self, brightness: Option<f64>) {
+        get!().connector_set_brightness(self, brightness);
+    }
 }
 
 /// Returns all available DRM devices.

@@ -795,6 +795,13 @@ impl Client {
         });
     }
 
+    pub fn connector_set_brightness(&self, connector: Connector, brightness: Option<f64>) {
+        self.send(&ClientMessage::ConnectorSetBrightness {
+            connector,
+            brightness,
+        });
+    }
+
     pub fn connector_get_scale(&self, connector: Connector) -> f64 {
         let res = self.send_with_response(&ClientMessage::ConnectorGetScale { connector });
         get_response!(res, 1.0, ConnectorGetScale { scale });

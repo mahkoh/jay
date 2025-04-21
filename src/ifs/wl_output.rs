@@ -122,6 +122,7 @@ pub struct PersistentOutputState {
     pub vrr_mode: Cell<&'static VrrMode>,
     pub vrr_cursor_hz: Cell<Option<f64>>,
     pub tearing_mode: Cell<&'static TearingMode>,
+    pub brightness: Cell<Option<f64>>,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]
@@ -332,9 +333,21 @@ impl WlOutputGlobal {
     pub fn update_color_description(&self) -> bool {
         let mut luminance = Luminance::SRGB;
         let tf = match self.btf.get() {
-            BackendTransferFunction::Default => TransferFunction::Srgb,
+            BackendTransferFunction::Default => {
+                if let Some(brightness) = self.persistent.brightness.get() {
+                    let output_max = match self.luminance {
+                        None => 80.0,
+                        Some(v) => v.max,
+                    };
+                    luminance.white.0 = luminance.max.0 * brightness / output_max;
+                }
+                TransferFunction::Srgb
+            }
             BackendTransferFunction::Pq => {
                 luminance = Luminance::ST2084_PQ;
+                if let Some(brightness) = self.persistent.brightness.get() {
+                    luminance.white.0 = brightness;
+                }
                 TransferFunction::St2084Pq
             }
         };
@@ -367,6 +380,12 @@ impl WlOutputGlobal {
             .get_with_tf(&cd, TransferFunction::Linear);
         self.linear_color_description.set(cd_linear.clone());
         self.color_description.set(cd.clone()).id != cd.id
+    }
+
+    pub fn set_brightness(&self, brightness: Option<f64>) {
+        self.persistent.brightness.set(brightness);
+        self.update_color_description();
+        self.state.damage(self.pos.get());
     }
 }
 

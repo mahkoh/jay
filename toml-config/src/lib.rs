@@ -593,6 +593,9 @@ impl Output {
             let tf = self.transfer_function.unwrap_or(TransferFunction::DEFAULT);
             c.set_colors(cs, tf);
         }
+        if let Some(brightness) = self.brightness {
+            c.set_brightness(brightness);
+        }
     }
 }
 

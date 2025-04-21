@@ -14,7 +14,7 @@ use {
             },
         },
         toml::{
-            toml_span::{DespanExt, Span, Spanned},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
@@ -51,7 +51,7 @@ impl Parser for OutputParser<'_> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
             (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
-            (color_space, transfer_function),
+            (color_space, transfer_function, brightness_val),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -68,6 +68,7 @@ impl Parser for OutputParser<'_> {
             (
                 recover(opt(str("color-space"))),
                 recover(opt(str("transfer-function"))),
+                opt(val("brightness")),
             ),
         ))?;
         let transform = match transform {
@@ -171,6 +172,15 @@ impl Parser for OutputParser<'_> {
                 }
             }
         }
+        let mut brightness = None;
+        if let Some(value) = brightness_val {
+            match value.parse(&mut BrightnessParser) {
+                Ok(v) => brightness = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse brightness setting: {}", self.cx.error(e));
+                }
+            }
+        }
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
@@ -184,6 +194,7 @@ impl Parser for OutputParser<'_> {
             format,
             color_space,
             transfer_function,
+            brightness,
         })
     }
 }
@@ -226,5 +237,36 @@ impl Parser for OutputsParser<'_> {
         }
         .parse_table(span, table)
         .map(|v| vec![v])
+    }
+}
+
+struct BrightnessParser;
+
+#[derive(Debug, Error)]
+pub enum BrightnessParserError {
+    #[error(transparent)]
+    Expected(#[from] UnexpectedDataType),
+    #[error("Expected `default`")]
+    UnexpectedString(String),
+}
+
+impl Parser for BrightnessParser {
+    type Value = Option<f64>;
+    type Error = BrightnessParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Float, DataType::Integer, DataType::String];
+
+    fn parse_string(&mut self, span: Span, string: &str) -> ParseResult<Self> {
+        if string == "default" {
+            return Ok(None);
+        }
+        Err(BrightnessParserError::UnexpectedString(string.to_string()).spanned(span))
+    }
+
+    fn parse_integer(&mut self, _span: Span, integer: i64) -> ParseResult<Self> {
+        Ok(Some(integer as _))
+    }
+
+    fn parse_float(&mut self, _span: Span, float: f64) -> ParseResult<Self> {
+        Ok(Some(float))
     }
 }

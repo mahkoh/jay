@@ -119,6 +119,7 @@ impl ConnectorHandler {
                     vrr_mode: Cell::new(self.state.default_vrr_mode.get()),
                     vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
                     tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
+                    brightness: Cell::new(None),
                 });
                 self.state
                     .persistent_output_states

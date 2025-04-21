@@ -86,6 +86,15 @@ request set_colors (since = 15) {
     transfer_function: str,
 }
 
+request set_brightness (since = 16) {
+    output: str,
+    lux: pod(f64),
+}
+
+request unset_brightness (since = 16) {
+    output: str,
+}
+
 # events
 
 event global {
@@ -181,4 +190,14 @@ event supported_transfer_function (since = 15) {
 
 event current_transfer_function (since = 15) {
     transfer_function: str,
+}
+
+event brightness_range (since = 16) {
+    min: pod(f64),
+    max: pod(f64),
+    max_fall: pod(f64),
+}
+
+event brightness (since = 16) {
+    lux: pod(f64),
 }

@@ -1641,6 +1641,13 @@ Output:
       required: false
       description: |
         The transfer function of the output.
+    brightness:
+      ref: Brightness
+      required: false
+      description: |
+        The brightness of the output.
+        
+        This setting has no effect unless the vulkan renderer is used.
 
 
 Transform:
@@ -2794,3 +2801,25 @@ TransferFunction:
       description: The default transfer function (usually sRGB).
     - value: pq
       description: The PQ transfer function.
+
+
+Brightness:
+  kind: variable
+  description: |
+    The brightness setting of an output.
+  variants:
+    - kind: string
+      description: | 
+        The default brightness setting.
+      values:
+        - value: default
+          description: |
+            The default brightness setting.       
+            
+            The behavior depends on the transfer function:
+            
+            - `default`: The maximum brightness of the output.
+            - `PQ`: 203 cd/m^2
+    - kind: number
+      description: |
+        The brightness in cd/m^2.

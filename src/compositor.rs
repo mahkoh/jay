@@ -536,6 +536,7 @@ fn create_dummy_output(state: &Rc<State>) {
         vrr_mode: Cell::new(VrrMode::NEVER),
         vrr_cursor_hz: Default::default(),
         tearing_mode: Cell::new(&TearingMode::Never),
+        brightness: Cell::new(None),
     });
     let connector = Rc::new(DummyOutput {
         id: state.connector_ids.next(),
