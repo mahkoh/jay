@@ -222,6 +222,7 @@ pub struct Output {
     pub format: Option<Format>,
     pub color_space: Option<ColorSpace>,
     pub transfer_function: Option<TransferFunction>,
+    pub brightness: Option<Option<f64>>,
 }
 
 #[derive(Debug, Clone)]

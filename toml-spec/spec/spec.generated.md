@@ -575,6 +575,34 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The value of this field should be a [DrmDeviceMatch](#types-DrmDeviceMatch).
 
 
+<a name="types-Brightness"></a>
+### `Brightness`
+
+The brightness setting of an output.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+The default brightness setting.
+
+The string should have one of the following values:
+
+- `default`:
+
+  The default brightness setting.       
+  
+  The behavior depends on the transfer function:
+  
+  - `default`: The maximum brightness of the output.
+  - `PQ`: 203 cd/m^2
+
+
+#### A number
+
+The brightness in cd/m^2.
+
+
 <a name="types-Color"></a>
 ### `Color`
 
@@ -2560,6 +2588,14 @@ The table has the following fields:
   The transfer function of the output.
 
   The value of this field should be a [TransferFunction](#types-TransferFunction).
+
+- `brightness` (optional):
+
+  The brightness of the output.
+  
+  This setting has no effect unless the vulkan renderer is used.
+
+  The value of this field should be a [Brightness](#types-Brightness).
 
 
 <a name="types-OutputMatch"></a>

@@ -538,6 +538,10 @@ pub enum ClientMessage<'a> {
         color_space: ColorSpace,
         transfer_function: TransferFunction,
     },
+    ConnectorSetBrightness {
+        connector: Connector,
+        brightness: Option<f64>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

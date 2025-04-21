@@ -423,6 +423,22 @@
         }
       ]
     },
+    "Brightness": {
+      "description": "The brightness setting of an output.\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "The default brightness setting.\n",
+          "enum": [
+            "default"
+          ]
+        },
+        {
+          "type": "number",
+          "description": "The brightness in cd/m^2.\n"
+        }
+      ]
+    },
     "Color": {
       "type": "string",
       "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
@@ -1168,6 +1184,10 @@
         "transfer-function": {
           "description": "The transfer function of the output.\n",
           "$ref": "#/$defs/TransferFunction"
+        },
+        "brightness": {
+          "description": "The brightness of the output.\n\nThis setting has no effect unless the vulkan renderer is used.\n",
+          "$ref": "#/$defs/Brightness"
         }
       },
       "required": [

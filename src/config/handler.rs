@@ -1126,6 +1126,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_brightness(
+        &self,
+        connector: Connector,
+        brightness: Option<f64>,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output_node(connector)?;
+        connector.global.set_brightness(brightness);
+        Ok(())
+    }
+
     fn handle_set_vrr_mode(
         &self,
         connector: Option<Connector>,
@@ -2023,6 +2033,12 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_colors(connector, color_space, transfer_function)
                 .wrn("connector_set_colors")?,
+            ClientMessage::ConnectorSetBrightness {
+                connector,
+                brightness,
+            } => self
+                .handle_connector_set_brightness(connector, brightness)
+                .wrn("connector_set_brightness")?,
         }
         Ok(())
     }

@@ -32,6 +32,7 @@ const TEARING_SINCE: Version = Version(3);
 const FORMAT_SINCE: Version = Version(8);
 const FLIP_MARGIN_SINCE: Version = Version(10);
 const COLORIMETRY_SINCE: Version = Version(15);
+const BRIGHTNESS_SINCE: Version = Version(16);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -186,6 +187,22 @@ impl JayRandr {
                 self_id: self.id,
                 color_space: node.global.bcs.get().name(),
             });
+        }
+        if self.version >= BRIGHTNESS_SINCE {
+            if let Some(lum) = node.global.luminance {
+                self.client.event(BrightnessRange {
+                    self_id: self.id,
+                    min: lum.min,
+                    max: lum.max,
+                    max_fall: lum.max_fall,
+                });
+            }
+            if let Some(lux) = node.global.persistent.brightness.get() {
+                self.client.event(Brightness {
+                    self_id: self.id,
+                    lux,
+                });
+            }
         }
     }
 
@@ -462,6 +479,26 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.connector.set_colors(cs, tf);
+        Ok(())
+    }
+
+    fn set_brightness(&self, req: SetBrightness<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.global.set_brightness(Some(req.lux));
+        Ok(())
+    }
+
+    fn unset_brightness(
+        &self,
+        req: UnsetBrightness<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.global.set_brightness(None);
         Ok(())
     }
 }

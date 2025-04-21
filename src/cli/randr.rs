@@ -22,6 +22,7 @@ use {
         str::FromStr,
         time::Duration,
     },
+    thiserror::Error,
 };
 
 #[derive(Args, Debug)]
@@ -161,6 +162,8 @@ pub enum OutputCommand {
     Format(FormatSettings),
     /// Change color settings.
     Colors(ColorsSettings),
+    /// Change the output brightness.
+    Brightness(BrightnessArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -367,6 +370,43 @@ fn transfer_function_possible_values() -> Vec<PossibleValue> {
     res
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct BrightnessArgs {
+    /// The brightness of standard white in cd/m^2 or `default` to use the default
+    /// brightness.
+    ///
+    /// The default brightness depends on the transfer function:
+    ///
+    /// - default: the maximum display brightness
+    /// - PQ: 203 cd/m^2.
+    ///
+    /// When using the default transfer function, you likely want to set this to `default`
+    /// and adjust the display hardware brightness setting instead.
+    ///
+    /// This has no effect unless the vulkan renderer is used.
+    #[clap(verbatim_doc_comment, value_parser = parse_brightness)]
+    brightness: Brightness,
+}
+
+#[derive(Debug, Clone)]
+pub enum Brightness {
+    Default,
+    Lux(f64),
+}
+
+#[derive(Debug, Error)]
+#[error("Value is neither `default` nor a floating point value")]
+struct ParseBrightnessError;
+
+fn parse_brightness(s: &str) -> Result<Brightness, ParseBrightnessError> {
+    if s == "default" {
+        return Ok(Brightness::Default);
+    }
+    f64::from_str(s)
+        .map(Brightness::Lux)
+        .map_err(|_| ParseBrightnessError)
+}
+
 pub fn main(global: GlobalArgs, args: RandrArgs) {
     with_tool_client(global.log_level.into(), |tc| async move {
         let idle = Rc::new(Randr { tc: tc.clone() });
@@ -396,7 +436,7 @@ struct Connector {
     pub output: Option<Output>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct Output {
     pub scale: f64,
     pub width: i32,
@@ -424,6 +464,8 @@ struct Output {
     pub current_color_space: Option<String>,
     pub supported_transfer_functions: Vec<String>,
     pub current_transfer_function: Option<String>,
+    pub brightness_range: Option<(f64, f64)>,
+    pub brightness: Option<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -684,6 +726,26 @@ impl Randr {
                     }
                 }
             }
+            OutputCommand::Brightness(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the brightness: {}", msg);
+                });
+                match a.brightness {
+                    Brightness::Default => {
+                        tc.send(jay_randr::UnsetBrightness {
+                            self_id: randr,
+                            output: &args.output,
+                        });
+                    }
+                    Brightness::Lux(lux) => {
+                        tc.send(jay_randr::SetBrightness {
+                            self_id: randr,
+                            output: &args.output,
+                            lux,
+                        });
+                    }
+                }
+            }
         }
         tc.round_trip().await;
     }
@@ -906,6 +968,15 @@ impl Randr {
                 .iter()
                 .for_each(|tf| handle_tf(tf));
         }
+        if let Some((min, max)) = o.brightness_range {
+            println!("        min brightness: {:>10.4} cd/m^2", min);
+            println!("        max brightness: {:>10.4} cd/m^2", max);
+        } else {
+            println!("        max brightness: {:>10.4} cd/m^2 (implied)", 80.0);
+        }
+        if let Some(lux) = o.brightness {
+            println!("        brightness:     {:>10.4} cd/m^2", lux);
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -975,21 +1046,7 @@ impl Randr {
                 serial_number: msg.serial_number.to_string(),
                 width_mm: msg.width_mm,
                 height_mm: msg.height_mm,
-                modes: Default::default(),
-                current_mode: None,
-                non_desktop: false,
-                vrr_capable: false,
-                vrr_enabled: false,
-                vrr_mode: VrrMode::NEVER,
-                vrr_cursor_hz: None,
-                tearing_mode: TearingMode::NEVER,
-                formats: vec![],
-                format: None,
-                flip_margin_ns: None,
-                supported_color_spaces: vec![],
-                current_color_space: None,
-                supported_transfer_functions: vec![],
-                current_transfer_function: None,
+                ..Default::default()
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -997,31 +1054,13 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             c.output = Some(Output {
                 scale: 1.0,
-                width: 0,
-                height: 0,
-                x: 0,
-                y: 0,
-                transform: Transform::None,
                 manufacturer: msg.manufacturer.to_string(),
                 product: msg.product.to_string(),
                 serial_number: msg.serial_number.to_string(),
                 width_mm: msg.width_mm,
                 height_mm: msg.height_mm,
-                modes: Default::default(),
-                current_mode: None,
                 non_desktop: true,
-                vrr_capable: false,
-                vrr_enabled: false,
-                vrr_mode: VrrMode::NEVER,
-                vrr_cursor_hz: None,
-                tearing_mode: TearingMode::NEVER,
-                formats: vec![],
-                format: None,
-                flip_margin_ns: None,
-                supported_color_spaces: vec![],
-                current_color_space: None,
-                supported_transfer_functions: vec![],
-                current_transfer_function: None,
+                ..Default::default()
             });
         });
         jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
@@ -1101,6 +1140,18 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.current_transfer_function = Some(msg.transfer_function.to_string());
+        });
+        jay_randr::BrightnessRange::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.brightness_range = Some((msg.min, msg.max));
+        });
+        jay_randr::Brightness::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.brightness = Some(msg.lux);
         });
         tc.round_trip().await;
         let x = data.borrow_mut().clone();
