@@ -1132,7 +1132,7 @@ impl ConfigProxyHandler {
         brightness: Option<f64>,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        connector.global.set_brightness(brightness);
+        connector.set_brightness(brightness);
         Ok(())
     }
 

@@ -486,7 +486,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.global.set_brightness(Some(req.lux));
+        c.set_brightness(Some(req.lux));
         Ok(())
     }
 
@@ -498,7 +498,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.global.set_brightness(None);
+        c.set_brightness(None);
         Ok(())
     }
 }
