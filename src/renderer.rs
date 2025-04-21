@@ -472,7 +472,7 @@ impl Renderer<'_> {
                     Some(bounds) => rect.intersect(*bounds),
                 };
                 if !rect.is_empty() {
-                    let color = Color::from_u32_premultiplied(
+                    let color = Color::new_premultiplied(
                         cd.transfer_function,
                         color[0],
                         color[1],
