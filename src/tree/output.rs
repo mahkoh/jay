@@ -844,6 +844,10 @@ impl OutputNode {
         if (old_btf, old_bcs) == (btf, bcs) {
             return;
         }
+        self.update_color_description();
+    }
+
+    fn update_color_description(&self) {
         if self.global.update_color_description() {
             self.state.damage(self.global.position());
             if let Some(hc) = self.hardware_cursor.get() {
@@ -855,6 +859,11 @@ impl OutputNode {
             }
             self.node_visit_children(&mut SurfaceSendPreferredColorDescription);
         }
+    }
+
+    pub fn set_brightness(&self, brightness: Option<f64>) {
+        self.global.persistent.brightness.set(brightness);
+        self.update_color_description();
     }
 
     fn find_stacked_at(

@@ -381,12 +381,6 @@ impl WlOutputGlobal {
         self.linear_color_description.set(cd_linear.clone());
         self.color_description.set(cd.clone()).id != cd.id
     }
-
-    pub fn set_brightness(&self, brightness: Option<f64>) {
-        self.persistent.brightness.set(brightness);
-        self.update_color_description();
-        self.state.damage(self.pos.get());
-    }
 }
 
 global_base!(WlOutputGlobal, WlOutput, WlOutputError);
