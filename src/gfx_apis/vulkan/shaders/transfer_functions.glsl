@@ -58,6 +58,7 @@ vec3 oetf_ext_srgb(vec3 c) {
 }
 
 vec3 eotf_st2084_pq(vec3 c) {
+    c = clamp(c, 0.0, 1.0);
     vec3 cp = pow(c, vec3(1.0 / 78.84375));
     vec3 num = max(cp - vec3(0.8359375), 0.0);
     vec3 den = vec3(18.8515625) - vec3(18.6875) * cp;
@@ -130,10 +131,12 @@ vec3 oetf_log316(vec3 c) {
 }
 
 vec3 eotf_st428(vec3 c) {
+    c = max(c, 0.0);
     return pow(c, vec3(2.6)) * vec3(52.37 / 48.0);
 }
 
 vec3 oetf_st428(vec3 c) {
+    c = max(c, 0.0);
     return pow(vec3(48.0) * c / vec3(52.37), vec3(1.0 / 2.6));
 }
 
@@ -143,8 +146,8 @@ vec3 apply_eotf(vec3 c) {
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return eotf_st2084_pq(c);
         case TF_BT1886: return eotf_bt1886(c);
-        case TF_GAMMA22: return pow(c, vec3(2.2));
-        case TF_GAMMA28: return pow(c, vec3(2.8));
+        case TF_GAMMA22: return pow(max(c, 0.0), vec3(2.2));
+        case TF_GAMMA28: return pow(max(c, 0.0), vec3(2.8));
         case TF_ST240: return eotf_st240(c);
         case TF_EXT_SRGB: return eotf_ext_srgb(c);
         case TF_LOG100: return eotf_log100(c);
@@ -160,8 +163,8 @@ vec3 apply_oetf(vec3 c) {
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return oetf_st2084_pq(c);
         case TF_BT1886: return oetf_bt1886(c);
-        case TF_GAMMA22: return pow(c, vec3(1.0 / 2.2));
-        case TF_GAMMA28: return pow(c, vec3(1.0 / 2.8));
+        case TF_GAMMA22: return pow(max(c, 0.0), vec3(1.0 / 2.2));
+        case TF_GAMMA28: return pow(max(c, 0.0), vec3(1.0 / 2.8));
         case TF_ST240: return oetf_st240(c);
         case TF_EXT_SRGB: return oetf_ext_srgb(c);
         case TF_LOG100: return oetf_log100(c);
