@@ -106,7 +106,6 @@ impl CursorUserGroup {
     fn remove_hardware_cursor(&self) {
         self.state.hardware_tick_cursor.push(None);
         self.state.damage_hardware_cursors(false);
-        self.state.cursor_user_group_hardware_cursor.take();
     }
 
     pub fn detach(&self) {
@@ -182,6 +181,7 @@ impl CursorUserGroup {
             }
         } else {
             self.remove_hardware_cursor();
+            self.state.cursor_user_group_hardware_cursor.take();
         }
     }
 
