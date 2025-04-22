@@ -768,6 +768,16 @@ impl Client {
         self.send(&ClientMessage::SetColorManagementEnabled { enabled });
     }
 
+    pub fn set_float_above_fullscreen(&self, above: bool) {
+        self.send(&ClientMessage::SetFloatAboveFullscreen { above });
+    }
+
+    pub fn get_float_above_fullscreen(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetFloatAboveFullscreen);
+        get_response!(res, false, GetFloatAboveFullscreen { above });
+        above
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

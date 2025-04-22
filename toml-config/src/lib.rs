@@ -24,11 +24,12 @@ use {
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
         on_devices_enumerated, on_idle, quit, reload, set_color_management_enabled,
-        set_default_workspace_capture, set_explicit_sync_enabled, set_idle, set_idle_grace_period,
-        set_ui_drag_enabled, set_ui_drag_threshold,
+        set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
+        set_idle, set_idle_grace_period, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
+        toggle_float_above_fullscreen,
         video::{
             ColorSpace, Connector, DrmDevice, TransferFunction, connectors, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
@@ -95,6 +96,12 @@ impl Action {
                 SimpleCommand::Forward(bool) => B::new(move || s.set_forward(bool)),
                 SimpleCommand::EnableWindowManagement(bool) => {
                     B::new(move || s.set_window_management_enabled(bool))
+                }
+                SimpleCommand::SetFloatAboveFullscreen(bool) => {
+                    B::new(move || set_float_above_fullscreen(bool))
+                }
+                SimpleCommand::ToggleFloatAboveFullscreen => {
+                    B::new(|| toggle_float_above_fullscreen())
                 }
             },
             Action::Multi { actions } => {

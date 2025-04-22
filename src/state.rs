@@ -236,6 +236,7 @@ pub struct State {
     pub workspace_managers: WorkspaceManagerState,
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
+    pub float_above_fullscreen: Cell<bool>,
 }
 
 // impl Drop for State {

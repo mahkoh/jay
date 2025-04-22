@@ -701,6 +701,17 @@ SimpleActionName:
     - value: disable-window-management
       description: |
         Disables window management mode.
+    - value: enable-float-above-fullscreen
+      description: |
+        Enables floating windows showing above fullscreen windows.
+
+        By default, floating windows are hidden below fullscreen windows.
+    - value: disable-float-above-fullscreen
+      description: |
+        Disables floating windows showing above fullscreen windows.
+    - value: toggle-float-above-fullscreen
+      description: |
+        Toggles floating windows showing above fullscreen windows.
 
 
 Color:

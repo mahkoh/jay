@@ -273,3 +273,22 @@ pub fn set_ui_drag_threshold(threshold: i32) {
 pub fn set_color_management_enabled(enabled: bool) {
     get!().set_color_management_enabled(enabled);
 }
+
+/// Sets whether floating windows are shown above fullscreen windows.
+///
+/// The default is `false`.
+pub fn set_float_above_fullscreen(above: bool) {
+    get!().set_float_above_fullscreen(above);
+}
+
+/// Gets whether floating windows are shown above fullscreen windows.
+pub fn get_float_above_fullscreen() -> bool {
+    get!().get_float_above_fullscreen()
+}
+
+/// Toggles whether floating windows are shown above fullscreen windows.
+///
+/// The default is `false`.
+pub fn toggle_float_above_fullscreen() {
+    set_float_above_fullscreen(!get_float_above_fullscreen())
+}

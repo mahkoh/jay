@@ -287,6 +287,7 @@ fn start_compositor2(
         workspace_managers: Default::default(),
         color_management_enabled: Cell::new(false),
         color_manager,
+        float_above_fullscreen: Cell::new(false),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

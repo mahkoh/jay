@@ -1281,7 +1281,10 @@
         "forward",
         "none",
         "enable-window-management",
-        "disable-window-management"
+        "disable-window-management",
+        "enable-float-above-fullscreen",
+        "disable-float-above-fullscreen",
+        "toggle-float-above-fullscreen"
       ]
     },
     "Status": {

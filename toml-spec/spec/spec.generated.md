@@ -2891,6 +2891,20 @@ The string should have one of the following values:
 
   Disables window management mode.
 
+- `enable-float-above-fullscreen`:
+
+  Enables floating windows showing above fullscreen windows.
+  
+  By default, floating windows are hidden below fullscreen windows.
+
+- `disable-float-above-fullscreen`:
+
+  Disables floating windows showing above fullscreen windows.
+
+- `toggle-float-above-fullscreen`:
+
+  Toggles floating windows showing above fullscreen windows.
+
 
 
 <a name="types-Status"></a>

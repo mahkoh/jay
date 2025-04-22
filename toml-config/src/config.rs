@@ -56,6 +56,8 @@ pub enum SimpleCommand {
     ToggleSplit,
     Forward(bool),
     EnableWindowManagement(bool),
+    SetFloatAboveFullscreen(bool),
+    ToggleFloatAboveFullscreen,
 }
 
 #[derive(Debug, Clone)]
