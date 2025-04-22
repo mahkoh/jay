@@ -470,6 +470,27 @@ impl JaySeatEvents {
         });
     }
 
+    pub fn send_tablet_pad_dial(
+        &self,
+        seat: SeatId,
+        pad: InputDeviceId,
+        time_usec: u64,
+        value120: i32,
+        dial: u32,
+    ) {
+        self.client.event(TabletPadDialDelta {
+            self_id: self.id,
+            value120,
+        });
+        self.client.event(TabletPadDialFrame {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            input_device: pad.raw(),
+            dial,
+        });
+    }
+
     pub fn send_touch_down(&self, seat: SeatId, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
         self.client.event(TouchDown {
             self_id: self.id,

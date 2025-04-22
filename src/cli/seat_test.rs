@@ -12,13 +12,13 @@ use {
                 Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, HoldBegin,
                 HoldEnd, Key, Modifiers, PinchBegin, PinchEnd, PinchUpdate, PointerAbs, PointerRel,
                 SwipeBegin, SwipeEnd, SwipeUpdate, SwitchEvent, TabletPadButton,
-                TabletPadModeSwitch, TabletPadRingAngle, TabletPadRingFrame, TabletPadRingSource,
-                TabletPadRingStop, TabletPadStripFrame, TabletPadStripPosition,
-                TabletPadStripSource, TabletPadStripStop, TabletToolButton, TabletToolDistance,
-                TabletToolDown, TabletToolFrame, TabletToolMotion, TabletToolPressure,
-                TabletToolProximityIn, TabletToolProximityOut, TabletToolRotation,
-                TabletToolSlider, TabletToolTilt, TabletToolUp, TabletToolWheel, TouchCancel,
-                TouchDown, TouchMotion, TouchUp,
+                TabletPadDialDelta, TabletPadDialFrame, TabletPadModeSwitch, TabletPadRingAngle,
+                TabletPadRingFrame, TabletPadRingSource, TabletPadRingStop, TabletPadStripFrame,
+                TabletPadStripPosition, TabletPadStripSource, TabletPadStripStop, TabletToolButton,
+                TabletToolDistance, TabletToolDown, TabletToolFrame, TabletToolMotion,
+                TabletToolPressure, TabletToolProximityIn, TabletToolProximityOut,
+                TabletToolRotation, TabletToolSlider, TabletToolTilt, TabletToolUp,
+                TabletToolWheel, TouchCancel, TouchDown, TouchMotion, TouchUp,
             },
         },
     },
@@ -80,6 +80,11 @@ pub struct PendingTabletPadRing {
     source: u32,
     degrees: Option<f64>,
     stop: bool,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PendingTabletPadDial {
+    value120: Option<i32>,
 }
 
 async fn run(seat_test: Rc<SeatTest>) {
@@ -583,6 +588,30 @@ async fn run(seat_test: Rc<SeatTest>) {
         }
         if tt.stop {
             print!(", stop");
+        }
+        println!();
+    });
+    let tt = Rc::new(RefCell::new(PendingTabletPadDial::default()));
+    TabletPadDialDelta::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().value120 = Some(ev.value120);
+    });
+    let st = seat_test.clone();
+    TabletPadDialFrame::handle(tc, se, tt.clone(), move |tt, ev| {
+        let tt = tt.take();
+        if !all && ev.seat != seat {
+            return;
+        }
+        if all {
+            print!("Seat: {}, ", st.name(ev.seat));
+        }
+        print!(
+            "Time: {:.4}, Device: {}, Dial: {}",
+            time(ev.time_usec),
+            ev.input_device,
+            ev.dial,
+        );
+        if let Some(val) = tt.value120 {
+            print!(", delta: {val}/120");
         }
         println!();
     });

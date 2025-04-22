@@ -25,18 +25,19 @@ use {
             libinput_device_config_tap_set_drag_enabled,
             libinput_device_config_tap_set_drag_lock_enabled,
             libinput_device_config_tap_set_enabled, libinput_device_get_device_group,
-            libinput_device_get_id_product, libinput_device_get_id_vendor,
-            libinput_device_get_name, libinput_device_get_user_data, libinput_device_group,
-            libinput_device_group_get_user_data, libinput_device_group_set_user_data,
-            libinput_device_has_capability, libinput_device_set_user_data,
-            libinput_device_tablet_pad_get_mode_group, libinput_device_tablet_pad_get_num_buttons,
+            libinput_device_get_id_bustype, libinput_device_get_id_product,
+            libinput_device_get_id_vendor, libinput_device_get_name, libinput_device_get_user_data,
+            libinput_device_group, libinput_device_group_get_user_data,
+            libinput_device_group_set_user_data, libinput_device_has_capability,
+            libinput_device_set_user_data, libinput_device_tablet_pad_get_mode_group,
+            libinput_device_tablet_pad_get_num_buttons, libinput_device_tablet_pad_get_num_dials,
             libinput_device_tablet_pad_get_num_mode_groups,
             libinput_device_tablet_pad_get_num_rings, libinput_device_tablet_pad_get_num_strips,
             libinput_device_unref, libinput_path_remove_device, libinput_tablet_pad_mode_group,
             libinput_tablet_pad_mode_group_get_index, libinput_tablet_pad_mode_group_get_mode,
             libinput_tablet_pad_mode_group_get_num_modes,
-            libinput_tablet_pad_mode_group_has_button, libinput_tablet_pad_mode_group_has_ring,
-            libinput_tablet_pad_mode_group_has_strip,
+            libinput_tablet_pad_mode_group_has_button, libinput_tablet_pad_mode_group_has_dial,
+            libinput_tablet_pad_mode_group_has_ring, libinput_tablet_pad_mode_group_has_strip,
         },
     },
     bstr::ByteSlice,
@@ -223,6 +224,10 @@ impl<'a> LibInputDevice<'a> {
         unsafe { libinput_device_get_id_vendor(self.dev) as u32 }
     }
 
+    pub fn bustype(&self) -> Option<u32> {
+        libinput_device_get_id_bustype.map(|f| unsafe { f(self.dev) as u32 })
+    }
+
     pub fn pad_num_buttons(&self) -> u32 {
         match unsafe { libinput_device_tablet_pad_get_num_buttons(self.dev) } {
             -1 => 0,
@@ -239,6 +244,17 @@ impl<'a> LibInputDevice<'a> {
 
     pub fn pad_num_strips(&self) -> u32 {
         match unsafe { libinput_device_tablet_pad_get_num_strips(self.dev) } {
+            -1 => 0,
+            n => n as u32,
+        }
+    }
+
+    pub fn pad_num_dials(&self) -> u32 {
+        match unsafe {
+            libinput_device_tablet_pad_get_num_dials
+                .map(|f| f(self.dev))
+                .unwrap_or_default()
+        } {
             -1 => 0,
             n => n as u32,
         }
@@ -315,6 +331,15 @@ impl<'a> LibInputTabletPadModeGroup<'a> {
 
     pub fn has_strip(&self, strip: u32) -> bool {
         unsafe { libinput_tablet_pad_mode_group_has_strip(self.group, strip as _) != 0 }
+    }
+
+    pub fn has_dial(&self, dial: u32) -> bool {
+        unsafe {
+            libinput_tablet_pad_mode_group_has_dial
+                .map(|f| f(self.group, dial as _))
+                .unwrap_or_default()
+                != 0
+        }
     }
 }
 

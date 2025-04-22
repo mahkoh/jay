@@ -71,7 +71,7 @@ impl MetalBackend {
                     break;
                 }
                 Ok(n) if n.intersects(c::POLLERR | c::POLLHUP) => {
-                    log::error!("libinput fd fd is in an error state");
+                    log::error!("libinput fd is in an error state");
                     break;
                 }
                 _ => {}
@@ -121,6 +121,7 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_TABLET_PAD_BUTTON => self.handle_tablet_pad_button(event),
             c::LIBINPUT_EVENT_TABLET_PAD_RING => self.handle_tablet_pad_ring(event),
             c::LIBINPUT_EVENT_TABLET_PAD_STRIP => self.handle_tablet_pad_strip(event),
+            c::LIBINPUT_EVENT_TABLET_PAD_DIAL => self.handle_tablet_pad_dial(event),
             c::LIBINPUT_EVENT_TOUCH_DOWN => self.handle_touch_down(event),
             c::LIBINPUT_EVENT_TOUCH_UP => self.handle_touch_up(event),
             c::LIBINPUT_EVENT_TOUCH_MOTION => self.handle_touch_motion(event),
@@ -542,6 +543,25 @@ impl MetalBackend {
                 -1.0 => None,
                 n => Some(n),
             },
+        });
+    }
+
+    fn handle_tablet_pad_dial(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_pad_event);
+        let Some(dial) = event.dial_number() else {
+            return;
+        };
+        let Some(value120) = event.dial_delta_v120() else {
+            return;
+        };
+        dev.event(InputEvent::TabletPadDial {
+            time_usec: event.time_usec(),
+            pad: match dev.tablet_pad_id.get() {
+                None => return,
+                Some(id) => id,
+            },
+            dial,
+            value120: value120 as _,
         });
     }
 

@@ -27,7 +27,9 @@ use {
             libinput_event_switch, libinput_event_switch_get_switch,
             libinput_event_switch_get_switch_state, libinput_event_switch_get_time_usec,
             libinput_event_tablet_pad, libinput_event_tablet_pad_get_button_number,
-            libinput_event_tablet_pad_get_button_state, libinput_event_tablet_pad_get_mode,
+            libinput_event_tablet_pad_get_button_state,
+            libinput_event_tablet_pad_get_dial_delta_v120,
+            libinput_event_tablet_pad_get_dial_number, libinput_event_tablet_pad_get_mode,
             libinput_event_tablet_pad_get_mode_group, libinput_event_tablet_pad_get_ring_number,
             libinput_event_tablet_pad_get_ring_position, libinput_event_tablet_pad_get_ring_source,
             libinput_event_tablet_pad_get_strip_number,
@@ -457,6 +459,14 @@ impl<'a> LibInputEventTabletPad<'a> {
 
     pub fn strip_source(&self) -> TabletPadStripAxisSource {
         unsafe { TabletPadStripAxisSource(libinput_event_tablet_pad_get_strip_source(self.event)) }
+    }
+
+    pub fn dial_number(&self) -> Option<u32> {
+        libinput_event_tablet_pad_get_dial_number.map(|f| unsafe { f(self.event) as u32 })
+    }
+
+    pub fn dial_delta_v120(&self) -> Option<f64> {
+        libinput_event_tablet_pad_get_dial_delta_v120.map(|f| unsafe { f(self.event) })
     }
 
     pub fn button_number(&self) -> u32 {

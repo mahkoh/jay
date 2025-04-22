@@ -1,0 +1,15 @@
+request set_feedback {
+    description: str,
+    serial: u32,
+}
+
+request destroy {
+}
+
+event delta {
+    value120: i32,
+}
+
+event frame {
+    time: u32,
+}

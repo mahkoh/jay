@@ -6,9 +6,10 @@ use {
             wl_seat::{
                 WlSeatGlobal,
                 tablet::{
-                    PadButtonState, TabletPad, TabletPadGroup, TabletPadId, TabletPadInit,
-                    TabletPadRing, TabletPadStrip, TabletRingEventSource, TabletStripEventSource,
-                    normalizeu, zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_v2::ZwpTabletV2,
+                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadId,
+                    TabletPadInit, TabletPadRing, TabletPadStrip, TabletRingEventSource,
+                    TabletStripEventSource, normalizeu, zwp_tablet_pad_v2::ZwpTabletPadV2,
+                    zwp_tablet_v2::ZwpTabletV2,
                 },
             },
             wl_surface::WlSurface,
@@ -33,6 +34,12 @@ impl WlSeatGlobal {
                 bindings: Default::default(),
             }));
         }
+        let mut dials = Vec::new();
+        for _ in 0..init.dials {
+            dials.push(Rc::new(TabletPadDial {
+                bindings: Default::default(),
+            }));
+        }
         let mut groups = Vec::new();
         for group_init in &init.groups {
             groups.push(Rc::new(TabletPadGroup {
@@ -41,6 +48,7 @@ impl WlSeatGlobal {
                 modes: group_init.modes,
                 rings: group_init.rings.clone(),
                 strips: group_init.strips.clone(),
+                dials: group_init.dials.clone(),
                 bindings: Default::default(),
             }));
         }
@@ -56,6 +64,7 @@ impl WlSeatGlobal {
             groups,
             strips,
             rings,
+            dials,
             node: CloneCell::new(self.state.root.clone()),
             pad_owner: Default::default(),
         });
@@ -161,6 +170,26 @@ impl WlSeatGlobal {
             }
         }
     }
+
+    pub fn tablet_event_pad_dial(
+        self: &Rc<Self>,
+        pad: TabletPadId,
+        dial: u32,
+        value120: i32,
+        time_usec: u64,
+    ) {
+        if let Some(pad) = self.tablet.pads.get(&pad) {
+            self.state.for_each_seat_tester(|t| {
+                t.send_tablet_pad_dial(self.id, pad.dev, time_usec, value120, dial)
+            });
+            if pad.tablet.is_some() {
+                if let Some(dial) = pad.dials.get(dial as usize) {
+                    let node = self.keyboard_node.get();
+                    node.node_on_tablet_pad_dial(&pad, dial, value120, time_usec);
+                }
+            }
+        }
+    }
 }
 
 impl TabletPad {
@@ -231,6 +260,22 @@ impl TabletPad {
                     ring.send_stop();
                 }
                 ring.send_frame(time);
+            }
+        });
+    }
+
+    pub fn surface_dial(
+        self: &Rc<Self>,
+        n: &WlSurface,
+        dial: &Rc<TabletPadDial>,
+        value120: i32,
+        time_usec: u64,
+    ) {
+        let time = usec_to_msec(time_usec);
+        self.seat.tablet_for_each_seat(n, |s| {
+            if let Some(dial) = dial.bindings.get(&s) {
+                dial.send_delta(value120);
+                dial.send_frame(time);
             }
         });
     }

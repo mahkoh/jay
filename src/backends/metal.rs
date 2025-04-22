@@ -697,6 +697,7 @@ impl InputDevice for MetalInputDevice {
             name: dev.name(),
             pid: dev.product(),
             vid: dev.vendor(),
+            bustype: dev.bustype(),
             path: self.syspath.as_bytes().as_bstr().to_string(),
         }))
     }
@@ -718,6 +719,7 @@ impl InputDevice for MetalInputDevice {
         let buttons = dev.pad_num_buttons();
         let strips = dev.pad_num_strips();
         let rings = dev.pad_num_rings();
+        let dials = dev.pad_num_dials();
         let mut groups = vec![];
         for n in 0..dev.pad_num_mode_groups() {
             let Some(group) = dev.pad_mode_group(n) else {
@@ -727,6 +729,7 @@ impl InputDevice for MetalInputDevice {
                 buttons: (0..buttons).filter(|b| group.has_button(*b)).collect(),
                 rings: (0..rings).filter(|b| group.has_ring(*b)).collect(),
                 strips: (0..strips).filter(|b| group.has_strip(*b)).collect(),
+                dials: (0..dials).filter(|b| group.has_dial(*b)).collect(),
                 modes: group.num_modes(),
                 mode: group.mode(),
             });
@@ -738,6 +741,7 @@ impl InputDevice for MetalInputDevice {
             buttons,
             strips,
             rings,
+            dials,
             groups,
         }))
     }

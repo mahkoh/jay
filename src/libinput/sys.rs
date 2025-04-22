@@ -1,4 +1,4 @@
-use uapi::c;
+use {libloading::os::unix::Library, std::sync::LazyLock, uapi::c};
 
 include!(concat!(env!("OUT_DIR"), "/libinput_tys.rs"));
 
@@ -392,4 +392,39 @@ pub struct libinput_interface {
         user_data: *mut c::c_void,
     ) -> c::c_int,
     pub close_restricted: unsafe extern "C" fn(fd: c::c_int, user_data: *mut c::c_void),
+}
+
+macro_rules! dynload {
+    (
+        $(
+            fn $name:ident($($arg:ident: $ty:ty),* $(,)?) -> $ret:ty;
+        )*
+    ) => {
+        $(
+            #[expect(non_upper_case_globals)]
+            pub static $name: LazyLock<Option<unsafe extern "C" fn($($arg: $ty),*) -> $ret>> = LazyLock::new(|| {
+                unsafe {
+                    Library::this()
+                        .get(concat!(stringify!($name), "\0").as_bytes())
+                        .ok()
+                        .map(|sym| *sym)
+                }
+            });
+        )*
+    };
+}
+
+dynload! {
+    fn libinput_device_get_id_bustype(device: *mut libinput_device) -> c::c_uint;
+
+    fn libinput_event_tablet_pad_get_dial_delta_v120(event: *mut libinput_event_tablet_pad) -> f64;
+
+    fn libinput_event_tablet_pad_get_dial_number(event: *mut libinput_event_tablet_pad) -> c::c_uint;
+
+    fn libinput_device_tablet_pad_get_num_dials(device: *mut libinput_device) -> c::c_int;
+
+    fn libinput_tablet_pad_mode_group_has_dial(
+        group: *mut libinput_tablet_pad_mode_group,
+        dial: c::c_uint,
+    ) -> c::c_int;
 }
