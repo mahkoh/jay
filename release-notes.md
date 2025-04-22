@@ -49,6 +49,10 @@ This release implements the following new protocols:
 
   Thanks to @tadeokondrak for suggesting this.
 
+- color-management-v1, version 2
+
+  This version makes using the protocol less error prone.
+
 ## Disabling the Built-In Bar
 
 The built-in bar can now be disabled:
