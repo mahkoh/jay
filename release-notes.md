@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.10.0 (2025-04-22)
+
 - Various bugfixes.
 - Implement cursor-shape-v1 version 2.
 - Implement xdg-shell version 7.

@@ -548,14 +548,14 @@ checksum = "d75a2a4b1b190afb6f5425f10f6a8f959d2ea0b9c2b1d79553551850539e4674"
 
 [[package]]
 name = "jay-algorithms"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "smallvec",
 ]
 
 [[package]]
 name = "jay-compositor"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -603,7 +603,7 @@ dependencies = [
 
 [[package]]
 name = "jay-config"
-version = "1.7.0"
+version = "1.8.0"
 dependencies = [
  "backtrace",
  "bincode",
@@ -619,7 +619,7 @@ dependencies = [
 
 [[package]]
 name = "jay-toml-config"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ahash",
  "bstr",
