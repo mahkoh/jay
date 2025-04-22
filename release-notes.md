@@ -1,5 +1,8 @@
 # Unreleased
 
+- Floating windows can now be configured to be shown above fullscreen windows
+  by using the `enable-float-above-fullscreen` action.
+
 # 1.10.0 (2025-04-22)
 
 - Various bugfixes.

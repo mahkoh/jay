@@ -542,6 +542,10 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         brightness: Option<f64>,
     },
+    SetFloatAboveFullscreen {
+        above: bool,
+    },
+    GetFloatAboveFullscreen,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -689,6 +693,9 @@ pub enum Response {
     },
     GetSocketPath {
         path: String,
+    },
+    GetFloatAboveFullscreen {
+        above: bool,
     },
 }
 

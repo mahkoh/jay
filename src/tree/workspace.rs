@@ -165,6 +165,10 @@ impl WorkspaceNode {
         self.visible.get() && self.fullscreen.is_none()
     }
 
+    pub fn float_visible(&self) -> bool {
+        self.visible.get() && (self.fullscreen.is_none() || self.state.float_above_fullscreen.get())
+    }
+
     pub fn change_extents(&self, rect: &Rect) {
         self.position.set(*rect);
         if let Some(c) = self.container.get() {
@@ -197,7 +201,7 @@ impl WorkspaceNode {
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked.stacked_set_visible(self.container_visible());
+                stacked.stacked_set_visible(self.float_visible());
             }
         }
         self.seat_state.set_visible(self, visible);

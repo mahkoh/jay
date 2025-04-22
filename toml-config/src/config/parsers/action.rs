@@ -113,6 +113,9 @@ impl ActionParser<'_> {
             "consume" => Forward(false),
             "enable-window-management" => EnableWindowManagement(true),
             "disable-window-management" => EnableWindowManagement(false),
+            "enable-float-above-fullscreen" => SetFloatAboveFullscreen(true),
+            "disable-float-above-fullscreen" => SetFloatAboveFullscreen(false),
+            "toggle-float-above-fullscreen" => ToggleFloatAboveFullscreen,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

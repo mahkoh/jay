@@ -1093,6 +1093,10 @@ impl WlSeatGlobal {
         self.apply_changes();
     }
 
+    pub fn emulate_cursor_moved(&self) {
+        self.changes.or_assign(CHANGE_CURSOR_MOVED);
+    }
+
     pub fn clear_shortcuts(&self) {
         self.shortcuts.borrow_mut().clear();
     }

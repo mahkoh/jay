@@ -1136,6 +1136,21 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_float_above_fullscreen(&self, above: bool) {
+        self.state.float_above_fullscreen.set(above);
+        for seat in self.state.globals.seats.lock().values() {
+            seat.emulate_cursor_moved();
+            seat.trigger_tree_changed(false);
+        }
+        self.state.root.update_visible(&self.state);
+    }
+
+    fn handle_get_float_above_fullscreen(&self) {
+        self.respond(Response::GetFloatAboveFullscreen {
+            above: self.state.float_above_fullscreen.get(),
+        });
+    }
+
     fn handle_set_vrr_mode(
         &self,
         connector: Option<Connector>,
@@ -2039,6 +2054,10 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_brightness(connector, brightness)
                 .wrn("connector_set_brightness")?,
+            ClientMessage::SetFloatAboveFullscreen { above } => {
+                self.handle_set_float_above_fullscreen(above)
+            }
+            ClientMessage::GetFloatAboveFullscreen => self.handle_get_float_above_fullscreen(),
         }
         Ok(())
     }
