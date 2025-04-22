@@ -100,9 +100,7 @@ impl Action {
                 SimpleCommand::SetFloatAboveFullscreen(bool) => {
                     B::new(move || set_float_above_fullscreen(bool))
                 }
-                SimpleCommand::ToggleFloatAboveFullscreen => {
-                    B::new(|| toggle_float_above_fullscreen())
-                }
+                SimpleCommand::ToggleFloatAboveFullscreen => B::new(toggle_float_above_fullscreen),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();

@@ -39,9 +39,9 @@ use {
             wl_seat::{
                 Dnd, NodeSeatState, SeatId, WlSeatGlobal,
                 tablet::{
-                    PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
-                    TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
-                    ToolButtonState,
+                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadRing,
+                    TabletPadStrip, TabletRingEventSource, TabletStripEventSource, TabletTool,
+                    TabletToolChanges, ToolButtonState,
                 },
                 text_input::TextInputConnection,
                 wl_pointer::PendingScroll,
@@ -2014,6 +2014,16 @@ impl Node for WlSurface {
         time_usec: u64,
     ) {
         pad.surface_strip(self, strip, source, position, time_usec);
+    }
+
+    fn node_on_tablet_pad_dial(
+        &self,
+        pad: &Rc<TabletPad>,
+        dial: &Rc<TabletPadDial>,
+        value120: i32,
+        time_usec: u64,
+    ) {
+        pad.surface_dial(self, dial, value120, time_usec);
     }
 
     fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, time_usec: u64) {

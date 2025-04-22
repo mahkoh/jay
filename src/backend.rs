@@ -430,6 +430,12 @@ pub enum InputEvent {
         source: Option<TabletStripEventSource>,
         position: Option<f64>,
     },
+    TabletPadDial {
+        time_usec: u64,
+        pad: TabletPadId,
+        dial: u32,
+        value120: i32,
+    },
     TouchDown {
         time_usec: u64,
         id: i32,

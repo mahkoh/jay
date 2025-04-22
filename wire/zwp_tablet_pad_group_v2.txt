@@ -25,3 +25,7 @@ event mode_switch {
     serial: u32,
     mode: u32,
 }
+
+event dial {
+    dial: id(zwp_tablet_pad_dial_v2),
+}

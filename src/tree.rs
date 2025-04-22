@@ -7,9 +7,9 @@ use {
             wl_seat::{
                 Dnd, NodeSeatState, WlSeatGlobal,
                 tablet::{
-                    PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
-                    TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
-                    ToolButtonState,
+                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadRing,
+                    TabletPadStrip, TabletRingEventSource, TabletStripEventSource, TabletTool,
+                    TabletToolChanges, ToolButtonState,
                 },
                 wl_pointer::PendingScroll,
             },
@@ -462,6 +462,19 @@ pub trait Node: 'static {
         let _ = strip;
         let _ = source;
         let _ = position;
+    }
+
+    fn node_on_tablet_pad_dial(
+        &self,
+        pad: &Rc<TabletPad>,
+        dial: &Rc<TabletPadDial>,
+        value120: i32,
+        time_usec: u64,
+    ) {
+        let _ = pad;
+        let _ = time_usec;
+        let _ = dial;
+        let _ = value120;
     }
 
     fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, time_usec: u64) {

@@ -19,3 +19,7 @@ event done {
 
 event removed {
 }
+
+event bustype {
+    bustype: u32,
+}

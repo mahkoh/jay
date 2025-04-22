@@ -7,7 +7,8 @@ use {
                 WlSeatGlobal,
                 tablet::{
                     pad_owner::PadOwnerHolder, tablet_bindings::TabletBindings,
-                    tool_owner::ToolOwnerHolder, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
+                    tool_owner::ToolOwnerHolder, zwp_tablet_pad_dial_v2::ZwpTabletPadDialV2,
+                    zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
                     zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
                     zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2,
                     zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_seat_v2::ZwpTabletSeatV2,
@@ -35,6 +36,7 @@ mod tablet_bindings;
 mod tool;
 pub mod tool_owner;
 pub mod zwp_tablet_manager_v2;
+pub mod zwp_tablet_pad_dial_v2;
 pub mod zwp_tablet_pad_group_v2;
 pub mod zwp_tablet_pad_ring_v2;
 pub mod zwp_tablet_pad_strip_v2;
@@ -58,6 +60,7 @@ pub struct TabletInit {
     pub name: String,
     pub pid: u32,
     pub vid: u32,
+    pub bustype: Option<u32>,
     pub path: String,
 }
 
@@ -79,6 +82,7 @@ pub struct TabletPadInit {
     pub buttons: u32,
     pub strips: u32,
     pub rings: u32,
+    pub dials: u32,
     pub groups: Vec<TabletPadGroupInit>,
 }
 
@@ -87,6 +91,7 @@ pub struct TabletPadGroupInit {
     pub buttons: Vec<u32>,
     pub rings: Vec<u32>,
     pub strips: Vec<u32>,
+    pub dials: Vec<u32>,
     pub modes: u32,
     pub mode: u32,
 }
@@ -112,6 +117,7 @@ pub struct Tablet {
     name: String,
     pid: u32,
     vid: u32,
+    bustype: Option<u32>,
     path: String,
     bindings: TabletBindings<ZwpTabletV2>,
     tools: CopyHashMap<TabletToolId, Rc<TabletTool>>,
@@ -186,6 +192,7 @@ pub struct TabletPad {
     groups: Vec<Rc<TabletPadGroup>>,
     strips: Vec<Rc<TabletPadStrip>>,
     rings: Vec<Rc<TabletPadRing>>,
+    dials: Vec<Rc<TabletPadDial>>,
     node: CloneCell<Rc<dyn Node>>,
     pub(super) pad_owner: PadOwnerHolder,
 }
@@ -196,6 +203,7 @@ pub struct TabletPadGroup {
     modes: u32,
     rings: Vec<u32>,
     strips: Vec<u32>,
+    dials: Vec<u32>,
     bindings: TabletBindings<ZwpTabletPadGroupV2>,
 }
 
@@ -205,6 +213,10 @@ pub struct TabletPadStrip {
 
 pub struct TabletPadRing {
     bindings: TabletBindings<ZwpTabletPadRingV2>,
+}
+
+pub struct TabletPadDial {
+    bindings: TabletBindings<ZwpTabletPadDialV2>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -269,6 +281,7 @@ impl WlSeatGlobal {
             name: init.name.clone(),
             pid: init.pid,
             vid: init.vid,
+            bustype: init.bustype,
             path: init.path.clone(),
             bindings: Default::default(),
             tools: Default::default(),
@@ -318,6 +331,9 @@ impl WlSeatGlobal {
             }
             for strips in &pad.strips {
                 strips.bindings.clear();
+            }
+            for dials in &pad.dials {
+                dials.bindings.clear();
             }
         }
     }

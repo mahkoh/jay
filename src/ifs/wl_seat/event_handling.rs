@@ -266,6 +266,7 @@ impl WlSeatGlobal {
             | InputEvent::TabletPadModeSwitch { time_usec, .. }
             | InputEvent::TabletPadRing { time_usec, .. }
             | InputEvent::TabletPadStrip { time_usec, .. }
+            | InputEvent::TabletPadDial { time_usec, .. }
             | InputEvent::TouchFrame { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
@@ -314,6 +315,7 @@ impl WlSeatGlobal {
             InputEvent::TabletPadModeSwitch { .. } => {}
             InputEvent::TabletPadRing { .. } => {}
             InputEvent::TabletPadStrip { .. } => {}
+            InputEvent::TabletPadDial { .. } => {}
             InputEvent::TouchDown { .. } => {}
             InputEvent::TouchUp { .. } => {}
             InputEvent::TouchMotion { .. } => {}
@@ -458,6 +460,12 @@ impl WlSeatGlobal {
                 source,
                 position,
             } => self.tablet_event_pad_strip(pad, strip, source, position, time_usec),
+            InputEvent::TabletPadDial {
+                time_usec,
+                pad,
+                dial,
+                value120,
+            } => self.tablet_event_pad_dial(pad, dial, value120, time_usec),
             InputEvent::TouchDown {
                 time_usec,
                 id,

@@ -3,6 +3,7 @@
 - Floating windows can now be configured to be shown above fullscreen windows
   by using the `enable-float-above-fullscreen` action.
 - Implement xdg-toplevel-tag-v1.
+- Implement tablet-v2 version 2.
 
 # 1.10.0 (2025-04-22)
 

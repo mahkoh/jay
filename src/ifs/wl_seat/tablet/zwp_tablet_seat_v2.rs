@@ -4,7 +4,8 @@ use {
         ifs::wl_seat::{
             WlSeatGlobal,
             tablet::{
-                Tablet, TabletPad, TabletTool, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
+                Tablet, TabletPad, TabletTool, zwp_tablet_pad_dial_v2::ZwpTabletPadDialV2,
+                zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
                 zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
                 zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2, zwp_tablet_pad_v2::ZwpTabletPadV2,
                 zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2,
@@ -17,6 +18,9 @@ use {
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
+
+const BUSTYPE_SINCE: Version = Version(2);
+const DIALS_SINCE: Version = Version(2);
 
 pub struct ZwpTabletSeatV2 {
     pub id: ZwpTabletSeatV2Id,
@@ -53,6 +57,11 @@ impl ZwpTabletSeatV2 {
         obj.send_name(&tablet.name);
         obj.send_id(tablet.vid, tablet.pid);
         obj.send_path(&tablet.path);
+        if obj.version >= BUSTYPE_SINCE {
+            if let Some(bustype) = tablet.bustype {
+                obj.send_bustype(bustype);
+            }
+        }
         obj.send_done();
         tablet.bindings.add(self, &obj);
     }
@@ -160,6 +169,25 @@ impl ZwpTabletSeatV2 {
                 self.client.add_server_obj(&strip_obj);
                 group_obj.send_strip(&strip_obj);
                 strip.bindings.add(self, &strip_obj);
+            }
+            if self.version >= DIALS_SINCE {
+                for dial in &group.dials {
+                    let Some(dial) = pad.dials.get(*dial as usize) else {
+                        continue;
+                    };
+                    let dial_obj = Rc::new(ZwpTabletPadDialV2 {
+                        id: id!(),
+                        client: self.client.clone(),
+                        seat: self.clone(),
+                        tracker: Default::default(),
+                        version: self.version,
+                        dial: dial.clone(),
+                    });
+                    track!(self.client, dial_obj);
+                    self.client.add_server_obj(&dial_obj);
+                    group_obj.send_dial(&dial_obj);
+                    dial.bindings.add(self, &dial_obj);
+                }
             }
             group_obj.send_done();
         }

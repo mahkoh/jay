@@ -2,7 +2,8 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::wl_seat::tablet::{
-            TabletPadGroup, zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
+            TabletPadGroup, zwp_tablet_pad_dial_v2::ZwpTabletPadDialV2,
+            zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
             zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2, zwp_tablet_seat_v2::ZwpTabletSeatV2,
         },
         leaks::Tracker,
@@ -45,6 +46,13 @@ impl ZwpTabletPadGroupV2 {
         self.client.event(Strip {
             self_id: self.id,
             strip: strip.id,
+        });
+    }
+
+    pub fn send_dial(&self, dial: &ZwpTabletPadDialV2) {
+        self.client.event(Dial {
+            self_id: self.id,
+            dial: dial.id,
         });
     }
 

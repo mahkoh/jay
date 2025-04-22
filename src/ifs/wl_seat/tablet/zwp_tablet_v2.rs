@@ -53,6 +53,13 @@ impl ZwpTabletV2 {
     pub fn send_removed(&self) {
         self.client.event(Removed { self_id: self.id });
     }
+
+    pub fn send_bustype(&self, bustype: u32) {
+        self.client.event(Bustype {
+            self_id: self.id,
+            bustype,
+        });
+    }
 }
 
 impl ZwpTabletV2RequestHandler for ZwpTabletV2 {
