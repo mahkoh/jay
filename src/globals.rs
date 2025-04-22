@@ -55,6 +55,7 @@ use {
             wp_viewporter::WpViewporterGlobal,
             xdg_activation_v1::XdgActivationV1Global,
             xdg_toplevel_drag_manager_v1::XdgToplevelDragManagerV1Global,
+            xdg_toplevel_tag_manager_v1::XdgToplevelTagManagerV1Global,
             xdg_wm_base::XdgWmBaseGlobal,
             xdg_wm_dialog_v1::XdgWmDialogV1Global,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
@@ -221,6 +222,7 @@ impl Globals {
         add_singleton!(WlFixesGlobal);
         add_singleton!(ExtWorkspaceManagerV1Global);
         add_singleton!(WpColorManagerV1Global);
+        add_singleton!(XdgToplevelTagManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
