@@ -1,0 +1,13 @@
+request destroy {
+
+}
+
+request set_toplevel_tag {
+    toplevel: id(xdg_toplevel),
+    tag: str,
+}
+
+request set_toplevel_description {
+    toplevel: id(xdg_toplevel),
+    description: str,
+}
