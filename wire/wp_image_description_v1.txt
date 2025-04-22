@@ -10,6 +10,11 @@ event ready {
     identity: u32,
 }
 
+event ready2 (since = 2) {
+    identity_hi: u32,
+    identity_lo: u32,
+}
+
 request get_information {
     information: id(wp_image_description_info_v1),
 }
