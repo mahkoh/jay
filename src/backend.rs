@@ -60,6 +60,10 @@ pub trait Backend: Any {
     fn supports_presentation_feedback(&self) -> bool {
         false
     }
+
+    fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
+        vec![]
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]

@@ -277,6 +277,18 @@ impl Backend for MetalBackend {
     fn supports_presentation_feedback(&self) -> bool {
         true
     }
+
+    fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
+        let mut res = vec![];
+        for dev in &*self.device_holder.input_devices.borrow() {
+            if let Some(dev) = dev {
+                if let Some(fd) = dev.fd.get() {
+                    res.push(fd);
+                }
+            }
+        }
+        res
+    }
 }
 
 fn dup_fd(fd: c::c_int) -> Result<Rc<OwnedFd>, MetalError> {
