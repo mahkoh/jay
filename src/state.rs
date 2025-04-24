@@ -33,6 +33,7 @@ use {
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
+        icons::Icons,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
@@ -237,6 +238,7 @@ pub struct State {
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
+    pub icons: Icons,
 }
 
 // impl Drop for State {
@@ -466,6 +468,7 @@ impl State {
         UpdateTextTexturesVisitor.visit_display(&self.root);
         self.reload_cursors();
         self.update_xwayland_wire_scale();
+        self.icons.update_sizes(self);
     }
 
     fn cursor_sizes_changed(&self) {
@@ -501,6 +504,7 @@ impl State {
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
         self.drm_feedback.set(None);
+        self.icons.clear();
         self.wait_for_sync_obj
             .set_ctx(ctx.as_ref().and_then(|c| c.sync_obj_ctx().cloned()));
 
@@ -1044,6 +1048,7 @@ impl State {
                 let (width, height) = target.logical_size(target_transform);
                 Rect::new_sized(0, 0, width, height).unwrap()
             },
+            icons: None,
         };
         let mut sample_rect = SampleRect::identity();
         sample_rect.buffer_transform = transform;

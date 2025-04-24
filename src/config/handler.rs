@@ -1545,6 +1545,7 @@ impl ConfigProxyHandler {
         }
         self.state.root.clone().node_visit(&mut V);
         self.state.damage(self.state.root.extents.get());
+        self.state.icons.update_sizes(&self.state);
     }
 
     fn colors_changed(&self) {
@@ -1561,6 +1562,7 @@ impl ConfigProxyHandler {
         }
         self.state.root.clone().node_visit(&mut V);
         self.state.damage(self.state.root.extents.get());
+        self.state.icons.clear();
     }
 
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {

@@ -182,7 +182,6 @@ impl Color {
         Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b))
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn from_srgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::new_premultiplied(
             TransferFunction::Srgb,
@@ -220,7 +219,6 @@ impl Color {
         c
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn to_srgba_premultiplied(self) -> [u8; 4] {
         let [r, g, b, a] = self.to_array(TransferFunction::Srgb);
         [to_u8(r), to_u8(g), to_u8(b), to_u8(a)]
@@ -332,7 +330,6 @@ impl Color {
         res
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn and_then(self, other: &Color) -> Color {
         Color {
             r: self.r * (1.0 - other.a) + other.r,

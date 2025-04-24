@@ -72,6 +72,7 @@ mod format;
 mod gfx_api;
 mod gfx_apis;
 mod globals;
+mod icons;
 mod ifs;
 mod io_uring;
 #[cfg(feature = "it")]

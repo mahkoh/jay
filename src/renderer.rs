@@ -1,6 +1,7 @@
 use {
     crate::{
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
+        icons::SizedIcons,
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
@@ -27,6 +28,8 @@ pub struct Renderer<'a> {
     pub state: &'a State,
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
+    #[expect(dead_code)]
+    pub icons: Option<Rc<SizedIcons>>,
 }
 
 impl Renderer<'_> {
