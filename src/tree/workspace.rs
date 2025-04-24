@@ -128,7 +128,7 @@ impl WorkspaceNode {
             }
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.adjust_position_after_ws_move(self.0);
+                node.after_ws_move(self.0);
                 node.node_visit_children(self);
             }
 
@@ -426,6 +426,27 @@ pub fn move_ws_to_output(
     config: WsMoveConfig,
 ) {
     let source = ws.output.get();
+    if let Some(visible) = source.workspace.get() {
+        if visible.id == ws.id {
+            source.workspace.take();
+        }
+    }
+    let mut new_source_ws = None;
+    if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
+        new_source_ws = source
+            .workspaces
+            .iter()
+            .find(|c| c.id != ws.id)
+            .map(|c| (*c).clone());
+        if new_source_ws.is_none() && source.pinned.is_not_empty() {
+            new_source_ws = Some(source.generate_workspace());
+        }
+    }
+    if let Some(new_source_ws) = &new_source_ws {
+        for pinned in source.pinned.iter() {
+            pinned.deref().clone().set_workspace(new_source_ws, false);
+        }
+    }
     ws.set_output(&target);
     'link: {
         if let Some(before) = config.before {
@@ -445,18 +466,9 @@ pub fn move_ws_to_output(
         ws.set_visible(false);
     }
     ws.flush_jay_workspaces();
-    if let Some(visible) = source.workspace.get() {
-        if visible.id == ws.id {
-            source.workspace.take();
-        }
-    }
-    if !config.source_is_destroyed && !source.is_dummy {
-        if source.workspace.is_none() {
-            if let Some(ws) = source.workspaces.first() {
-                source.show_workspace(&ws);
-                ws.flush_jay_workspaces();
-            }
-        }
+    if let Some(ws) = new_source_ws {
+        source.show_workspace(&ws);
+        ws.flush_jay_workspaces();
     }
     if !target.is_dummy {
         target.schedule_update_render_data();

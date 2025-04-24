@@ -195,6 +195,7 @@ impl ConnectorHandler {
             tray_start_rel: Default::default(),
             tray_items: Default::default(),
             ext_workspace_groups: Default::default(),
+            pinned: Default::default(),
         });
         on.update_visible();
         on.update_rects();

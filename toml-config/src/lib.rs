@@ -25,7 +25,8 @@ use {
         logging::set_log_level,
         on_devices_enumerated, on_idle, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
-        set_idle, set_idle_grace_period, set_ui_drag_enabled, set_ui_drag_threshold,
+        set_idle, set_idle_grace_period, set_show_float_pin_icon, set_ui_drag_enabled,
+        set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
@@ -101,6 +102,8 @@ impl Action {
                     B::new(move || set_float_above_fullscreen(bool))
                 }
                 SimpleCommand::ToggleFloatAboveFullscreen => B::new(toggle_float_above_fullscreen),
+                SimpleCommand::SetFloatPinned(pinned) => B::new(move || s.set_float_pinned(pinned)),
+                SimpleCommand::ToggleFloatPinned => B::new(move || s.toggle_float_pinned()),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1094,6 +1097,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     if let Some(cm) = config.color_management {
         if let Some(enabled) = cm.enabled {
             set_color_management_enabled(enabled);
+        }
+    }
+    if let Some(float) = config.float {
+        if let Some(show) = float.show_pin_icon {
+            set_show_float_pin_icon(show);
         }
     }
 }

@@ -43,6 +43,8 @@
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 
+#[expect(unused_imports)]
+use crate::input::Seat;
 use {
     crate::{_private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector},
     serde::{Deserialize, Serialize},
@@ -291,4 +293,14 @@ pub fn get_float_above_fullscreen() -> bool {
 /// The default is `false`.
 pub fn toggle_float_above_fullscreen() {
     set_float_above_fullscreen(!get_float_above_fullscreen())
+}
+
+/// Sets whether floating windows always show a pin icon.
+///
+/// Clicking on the pin icon toggles the pin mode. See [`Seat::toggle_float_pinned`].
+///
+/// The icon is always shown if the window is pinned. This setting only affects unpinned
+/// windows.
+pub fn set_show_float_pin_icon(show: bool) {
+    get!().set_show_float_pin_icon(show);
 }

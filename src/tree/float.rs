@@ -5,7 +5,7 @@ use {
         cursor_user::CursorUser,
         fixed::Fixed,
         ifs::wl_seat::{
-            BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal,
+            BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal,
             tablet::{TabletTool, TabletToolChanges, TabletToolId},
         },
         rect::Rect,
@@ -15,7 +15,7 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            OutputNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
+            OutputNode, PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
             walker::NodeVisitor,
         },
         utils::{
@@ -25,6 +25,7 @@ use {
         },
     },
     ahash::AHashMap,
+    arrayvec::ArrayVec,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -42,6 +43,7 @@ pub struct FloatNode {
     pub position: Cell<Rect>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
@@ -120,6 +122,7 @@ impl FloatNode {
             position: Cell::new(position),
             display_link: RefCell::new(None),
             workspace_link: Cell::new(None),
+            pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
             child: CloneCell::new(Some(child.clone())),
             active: Cell::new(false),
@@ -143,6 +146,9 @@ impl FloatNode {
         floater.schedule_layout();
         if floater.visible.get() {
             state.damage(position);
+        }
+        if child.tl_data().pinned.get() {
+            floater.toggle_pinned();
         }
         floater
     }
@@ -217,6 +223,9 @@ impl FloatNode {
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();
+            if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
+                width = (width - th).max(0);
+            }
             if *scale != 1 {
                 let scale = scale.to_f64();
                 th = (th as f64 * scale).round() as _;
@@ -402,17 +411,32 @@ impl FloatNode {
         }
     }
 
-    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn set_workspace_(
+        self: &Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        update_pinned: bool,
+        update_visible: bool,
+    ) {
         if let Some(c) = self.child.get() {
             c.tl_set_workspace(ws);
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
-        self.stacked_set_visible(ws.float_visible());
+        if update_visible {
+            self.stacked_set_visible(ws.float_visible());
+        }
+        if update_pinned {
+            if let Some(pl) = &*self.pinned_link.borrow_mut() {
+                ws.output.get().pinned.add_last_existing(pl);
+            }
+        }
     }
 
-    pub fn adjust_position_after_ws_move(self: &Rc<Self>, output: &Rc<OutputNode>) {
+    pub fn after_ws_move(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        if let Some(pinned) = &*self.pinned_link.borrow() {
+            output.pinned.add_last_existing(pinned);
+        }
         if output.is_dummy {
             return;
         }
@@ -505,6 +529,20 @@ impl FloatNode {
         }
     }
 
+    fn toggle_pinned(self: &Rc<Self>) {
+        let pl = &mut *self.pinned_link.borrow_mut();
+        *pl = if pl.is_some() {
+            None
+        } else {
+            let output = self.workspace.get().output.get();
+            Some(output.pinned.add_last(self.clone()))
+        };
+        if let Some(tl) = self.child.get() {
+            tl.tl_data().pinned.set(pl.is_some());
+        }
+        self.schedule_render_titles();
+    }
+
     fn button(
         self: Rc<Self>,
         id: CursorType,
@@ -518,6 +556,34 @@ impl FloatNode {
             Some(s) => s,
             _ => return,
         };
+        let bw = self.state.theme.sizes.border_width.get();
+        let th = self.state.theme.sizes.title_height.get();
+        let mut is_icon_press = false;
+        if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
+            enum FloatIcon {
+                Pin,
+            }
+            let mut icons = ArrayVec::<FloatIcon, 1>::new();
+            if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
+                icons.push(FloatIcon::Pin);
+            }
+            let mut x2 = bw + th;
+            let icon = 'icon: {
+                for icon in icons {
+                    if cursor_data.x < x2 {
+                        break 'icon Some(icon);
+                    }
+                    x2 += th;
+                }
+                None
+            };
+            if let Some(icon) = icon {
+                is_icon_press = true;
+                match icon {
+                    FloatIcon::Pin => self.toggle_pinned(),
+                }
+            }
+        }
         if !cursor_data.op_active {
             if !pressed {
                 return;
@@ -533,6 +599,7 @@ impl FloatNode {
                 cursor_data.x,
                 cursor_data.y,
             ) && cursor_data.op_type == OpType::Move
+                && !is_icon_press
             {
                 if let Some(tl) = self.child.get() {
                     drop(cursors);
@@ -572,7 +639,7 @@ impl FloatNode {
         } else if !pressed {
             cursor_data.op_active = false;
             let ws = cursor.output().ensure_workspace();
-            self.set_workspace(&ws);
+            self.set_workspace_(&ws, true, true);
         }
     }
 
@@ -681,6 +748,9 @@ impl Node for FloatNode {
         state: KeyState,
         _serial: u64,
     ) {
+        if button == BTN_RIGHT && state == KeyState::Pressed {
+            self.toggle_pinned();
+        }
         if button != BTN_LEFT {
             return;
         }
@@ -800,6 +870,7 @@ impl ContainingNode for FloatNode {
         self.child.set(None);
         self.display_link.borrow_mut().take();
         self.workspace_link.set(None);
+        self.pinned_link.take();
         if self.visible.get() {
             self.state.damage(self.position.get());
         }
@@ -874,6 +945,17 @@ impl ContainingNode for FloatNode {
             self.schedule_layout();
         }
     }
+
+    fn cnode_pinned(&self) -> bool {
+        self.pinned_link.borrow().is_some()
+    }
+
+    fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
+        if self.pinned_link.borrow().is_some() == pinned {
+            return;
+        }
+        self.toggle_pinned();
+    }
 }
 
 impl StackedNode for FloatNode {
@@ -889,5 +971,11 @@ impl StackedNode for FloatNode {
 
     fn stacked_has_workspace_link(&self) -> bool {
         true
+    }
+}
+
+impl PinnedNode for FloatNode {
+    fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool) {
+        self.set_workspace_(workspace, false, update_visible);
     }
 }

@@ -452,6 +452,24 @@ impl Seat {
             });
         });
     }
+
+    /// Gets whether the currently focused window is pinned.
+    ///
+    /// If a floating window is pinned, it will stay visible even when switching to a
+    /// different workspace.
+    pub fn float_pinned(self) -> bool {
+        get!().get_pinned(self)
+    }
+
+    /// Sets whether the currently focused window is pinned.
+    pub fn set_float_pinned(self, pinned: bool) {
+        get!().set_pinned(self, pinned);
+    }
+
+    /// Toggles whether the currently focused window is pinned.
+    pub fn toggle_float_pinned(self) {
+        self.set_float_pinned(!self.float_pinned());
+    }
 }
 
 /// A focus-follows-mouse mode.

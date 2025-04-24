@@ -546,6 +546,16 @@ pub enum ClientMessage<'a> {
         above: bool,
     },
     GetFloatAboveFullscreen,
+    GetFloatPinned {
+        seat: Seat,
+    },
+    SetFloatPinned {
+        seat: Seat,
+        pinned: bool,
+    },
+    SetShowFloatPinIcon {
+        show: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -696,6 +706,9 @@ pub enum Response {
     },
     GetFloatAboveFullscreen {
         above: bool,
+    },
+    GetFloatPinned {
+        pinned: bool,
     },
 }
 

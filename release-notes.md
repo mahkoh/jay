@@ -5,6 +5,8 @@
   by using the `enable-float-above-fullscreen` action.
 - Implement xdg-toplevel-tag-v1.
 - Implement tablet-v2 version 2.
+- Floating windows can now be pinned. A pinned floating window stays visible on
+  its output even when switching workspaces.
 
 # 1.10.0 (2025-04-22)
 

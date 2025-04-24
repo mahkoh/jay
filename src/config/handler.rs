@@ -1151,6 +1151,29 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_show_float_pin_icon(&self, show: bool) {
+        self.state.show_pin_icon.set(show);
+        for stacked in self.state.root.stacked.iter() {
+            if let Some(float) = stacked.deref().clone().node_into_float() {
+                float.schedule_render_titles();
+            }
+        }
+    }
+
+    fn handle_get_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetFloatPinned {
+            pinned: seat.pinned(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_float_pinned(&self, seat: Seat, pinned: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_pinned(pinned);
+        Ok(())
+    }
+
     fn handle_set_vrr_mode(
         &self,
         connector: Option<Connector>,
@@ -2060,6 +2083,15 @@ impl ConfigProxyHandler {
                 self.handle_set_float_above_fullscreen(above)
             }
             ClientMessage::GetFloatAboveFullscreen => self.handle_get_float_above_fullscreen(),
+            ClientMessage::GetFloatPinned { seat } => {
+                self.handle_get_float_pinned(seat).wrn("get_float_pinned")?
+            }
+            ClientMessage::SetFloatPinned { seat, pinned } => self
+                .handle_set_float_pinned(seat, pinned)
+                .wrn("set_float_pinned")?,
+            ClientMessage::SetShowFloatPinIcon { show } => {
+                self.handle_set_show_float_pin_icon(show)
+            }
         }
         Ok(())
     }

@@ -636,6 +636,10 @@
         "color-management": {
           "description": "Configures the color-management settings.\n\n- Example:\n\n  ```toml\n  [color-management]\n  enabled = true\n  ```\n",
           "$ref": "#/$defs/ColorManagement"
+        },
+        "float": {
+          "description": "Configures the settings of floating windows.\n\n- Example:\n\n  ```toml\n  [float]\n  show-pin-icon = true\n  ```\n",
+          "$ref": "#/$defs/Float"
         }
       },
       "required": []
@@ -807,6 +811,17 @@
           ]
         }
       ]
+    },
+    "Float": {
+      "description": "Describes settings of floating windows.\n\n- Example:\n\n  ```toml\n  [float]\n  show-pin-icon = true\n  ```\n",
+      "type": "object",
+      "properties": {
+        "show-pin-icon": {
+          "type": "boolean",
+          "description": "Sets whether floating windows always show a pin icon.\n\nThe default is `false`.\n"
+        }
+      },
+      "required": []
     },
     "Format": {
       "type": "string",
@@ -1284,7 +1299,10 @@
         "disable-window-management",
         "enable-float-above-fullscreen",
         "disable-float-above-fullscreen",
-        "toggle-float-above-fullscreen"
+        "toggle-float-above-fullscreen",
+        "pin-float",
+        "unpin-float",
+        "toggle-float-pinned"
       ]
     },
     "Status": {

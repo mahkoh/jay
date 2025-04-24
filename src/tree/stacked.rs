@@ -1,4 +1,7 @@
-use crate::tree::Node;
+use {
+    crate::tree::{Node, WorkspaceNode},
+    std::rc::Rc,
+};
 
 pub trait StackedNode: Node {
     fn stacked_prepare_set_visible(&self) {
@@ -13,4 +16,8 @@ pub trait StackedNode: Node {
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         true
     }
+}
+
+pub trait PinnedNode: StackedNode {
+    fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool);
 }

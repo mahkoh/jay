@@ -14,6 +14,7 @@ use {
             parsers::{
                 color_management::ColorManagement,
                 config::{ConfigParser, ConfigParserError},
+                float::Float,
             },
         },
         toml::{self},
@@ -58,6 +59,8 @@ pub enum SimpleCommand {
     EnableWindowManagement(bool),
     SetFloatAboveFullscreen(bool),
     ToggleFloatAboveFullscreen,
+    SetFloatPinned(bool),
+    ToggleFloatPinned,
 }
 
 #[derive(Debug, Clone)]
@@ -367,6 +370,7 @@ pub struct Config {
     pub ui_drag: UiDrag,
     pub xwayland: Option<Xwayland>,
     pub color_management: Option<ColorManagement>,
+    pub float: Option<Float>,
 }
 
 #[derive(Debug, Error)]

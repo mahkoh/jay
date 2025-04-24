@@ -81,7 +81,7 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
             NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
-            ToplevelNodeBase, VrrMode, WorkspaceNode,
+            ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -115,7 +115,7 @@ use {
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         mem,
-        ops::DerefMut,
+        ops::{Deref, DerefMut},
         rc::{Rc, Weak},
         sync::Arc,
         time::Duration,
@@ -239,6 +239,7 @@ pub struct State {
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
     pub icons: Icons,
+    pub show_pin_icon: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -742,8 +743,21 @@ impl State {
         let (output, ws) = match self.workspaces.get(name) {
             Some(ws) => {
                 let output = ws.output.get();
+                let mut pinned_is_focused = false;
+                for pinned in output.pinned.iter() {
+                    pinned
+                        .deref()
+                        .clone()
+                        .node_visit(&mut generic_node_visitor(|node| {
+                            node.node_seat_state().for_each_kb_focus(|s| {
+                                pinned_is_focused |= s.id() == seat.id();
+                            });
+                        }));
+                }
                 let did_change = output.show_workspace(&ws);
-                ws.clone().node_do_focus(seat, Direction::Unspecified);
+                if !pinned_is_focused {
+                    ws.clone().node_do_focus(seat, Direction::Unspecified);
+                }
                 if !did_change {
                     return;
                 }

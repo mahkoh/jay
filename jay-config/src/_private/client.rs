@@ -778,6 +778,20 @@ impl Client {
         above
     }
 
+    pub fn set_show_float_pin_icon(&self, show: bool) {
+        self.send(&ClientMessage::SetShowFloatPinIcon { show });
+    }
+
+    pub fn get_pinned(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetFloatPinned { seat });
+        get_response!(res, false, GetFloatPinned { pinned });
+        pinned
+    }
+
+    pub fn set_pinned(&self, seat: Seat, pinned: bool) {
+        self.send(&ClientMessage::SetFloatPinned { seat, pinned });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

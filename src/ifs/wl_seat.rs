@@ -1119,6 +1119,20 @@ impl WlSeatGlobal {
         };
         kb.phy_state.destroy(self.state.now_usec(), self);
     }
+
+    pub fn pinned(&self) -> bool {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return false;
+        };
+        tl.tl_pinned()
+    }
+
+    pub fn set_pinned(&self, pinned: bool) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
+        };
+        tl.tl_set_pinned(true, pinned);
+    }
 }
 
 impl CursorUserOwner for WlSeatGlobal {

@@ -28,7 +28,6 @@ pub enum IconState {
     Passive,
 }
 
-#[expect(dead_code)]
 pub struct SizedIcons {
     pub pin_unfocused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,
     pub pin_focused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,

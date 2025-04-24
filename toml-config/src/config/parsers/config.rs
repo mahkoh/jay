@@ -12,6 +12,7 @@ use {
                 drm_device::DrmDevicesParser,
                 drm_device_match::DrmDeviceMatchParser,
                 env::EnvParser,
+                float::FloatParser,
                 gfx_api::GfxApiParser,
                 idle::IdleParser,
                 input::InputsParser,
@@ -118,7 +119,7 @@ impl Parser for ConfigParser<'_> {
                 ui_drag_val,
                 xwayland_val,
             ),
-            (color_management_val,),
+            (color_management_val, float_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -156,7 +157,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("ui-drag")),
                 opt(val("xwayland")),
             ),
-            (opt(val("color-management")),),
+            (opt(val("color-management")), opt(val("float"))),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -381,6 +382,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut float = None;
+        if let Some(value) = float_val {
+            match value.parse(&mut FloatParser(self.0)) {
+                Ok(v) => float = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse the float settings: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -412,6 +422,7 @@ impl Parser for ConfigParser<'_> {
             ui_drag,
             xwayland,
             color_management,
+            float,
         })
     }
 }
