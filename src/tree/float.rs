@@ -15,7 +15,8 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode, walker::NodeVisitor,
+            OutputNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -409,6 +410,49 @@ impl FloatNode {
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
         self.stacked_set_visible(ws.float_visible());
+    }
+
+    pub fn adjust_position_after_ws_move(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        if output.is_dummy {
+            return;
+        }
+        let pos = self.position.get();
+        let opos = output.global.pos.get();
+        if pos.intersects(&opos) {
+            return;
+        }
+        let bw = self.state.theme.sizes.border_width.get();
+        let th = self.state.theme.sizes.title_height.get();
+        let mut x1 = pos.x1();
+        let mut x2 = pos.x2();
+        let mut y1 = pos.y1();
+        let mut y2 = pos.y2();
+        const DELTA: i32 = 100;
+        let delta = bw + DELTA;
+        macro_rules! adjust {
+            ($z1:ident, $z2:ident) => {
+                if $z1 > opos.$z2() - delta {
+                    $z1 = (opos.$z2() - delta).max(opos.$z1());
+                    $z2 += $z1 - pos.$z1();
+                } else if $z2 < opos.$z1() + delta {
+                    $z2 = (opos.$z1() + delta).min(opos.$z2());
+                    $z1 += $z2 - pos.$z2();
+                }
+            };
+        }
+        adjust!(x1, x2);
+        adjust!(y1, y2);
+        if y1 + bw + th <= opos.y1() {
+            y1 = opos.y1();
+            y2 += y1 - pos.y1();
+        }
+        let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+        self.position.set(new_pos);
+        if self.visible.get() {
+            self.state.damage(pos);
+            self.state.damage(new_pos);
+        }
+        self.schedule_layout();
     }
 
     fn update_child_title(self: &Rc<Self>, title: &str) {

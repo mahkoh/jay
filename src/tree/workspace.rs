@@ -20,8 +20,8 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitorBase, OutputNode, PlaceholderNode, StackedNode, ToplevelNode,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
+            NodeId, NodeVisitorBase, OutputNode, PlaceholderNode, StackedNode, ToplevelNode,
             container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
@@ -124,6 +124,11 @@ impl WorkspaceNode {
 
             fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
                 node.tl_workspace_output_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.adjust_position_after_ws_move(self.0);
                 node.node_visit_children(self);
             }
 
