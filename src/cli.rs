@@ -8,6 +8,7 @@ mod input;
 mod log;
 mod quit;
 mod randr;
+mod reexec;
 mod run_privileged;
 pub mod screenshot;
 mod seat_test;
@@ -19,7 +20,8 @@ use {
     crate::{
         cli::{
             color_management::ColorManagementArgs, damage_tracking::DamageTrackingArgs,
-            idle::IdleCmd, input::InputArgs, randr::RandrArgs, xwayland::XwaylandArgs,
+            idle::IdleCmd, input::InputArgs, randr::RandrArgs, reexec::ReexecArgs,
+            xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
         format::{Format, ref_formats},
@@ -81,6 +83,9 @@ pub enum Cmd {
     Xwayland(XwaylandArgs),
     /// Inspect/modify the color-management settings.
     ColorManagement(ColorManagementArgs),
+    /// Replace the compositor by another process. (Only for development.)
+    #[clap(hide = true)]
+    Reexec(ReexecArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -241,5 +246,6 @@ pub fn main() {
         Cmd::ColorManagement(a) => color_management::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
+        Cmd::Reexec(a) => reexec::main(cli.global, a),
     }
 }

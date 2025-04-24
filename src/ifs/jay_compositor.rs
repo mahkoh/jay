@@ -12,6 +12,7 @@ use {
             jay_output::JayOutput,
             jay_pointer::JayPointer,
             jay_randr::JayRandr,
+            jay_reexec::JayReexec,
             jay_render_ctx::JayRenderCtx,
             jay_screencast::JayScreencast,
             jay_screenshot::JayScreenshot,
@@ -73,7 +74,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        16
+        17
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -451,6 +452,19 @@ impl JayCompositorRequestHandler for JayCompositor {
             client: self.client.clone(),
             tracker: Default::default(),
             version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn reexec(&self, req: Reexec, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayReexec {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            args: Default::default(),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

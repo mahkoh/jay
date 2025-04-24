@@ -1,0 +1,11 @@
+request arg {
+    arg: str,
+}
+
+request exec {
+    path: str,
+}
+
+event failed {
+    msg: str,
+}

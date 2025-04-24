@@ -105,6 +105,10 @@ request get_color_management (since = 14) {
     id: id(jay_color_management),
 }
 
+request reexec (since = 17) {
+    id: id(jay_reexec),
+}
+
 # events
 
 event client_id {
