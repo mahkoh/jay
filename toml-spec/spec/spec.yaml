@@ -89,6 +89,22 @@ Action:
           [shortcuts]
           alt-q = "quit"
           ```
+    - kind: string
+      pattern: "^\\$.*$"
+      description: |
+        The value should be the name of a `named` action, prefixed with the `$` character.
+        
+        This is the same as using the `named` action with the `$` removed.
+        
+        - Example:
+        
+          ```toml
+          [actions]
+          q = "quit"
+        
+          [shortcuts]
+          alt-q = "$q"
+          ```
     - kind: array
       items:
         ref: Action
@@ -130,6 +146,36 @@ Action:
               description: The simple action to execute.
               required: true
               ref: SimpleActionName
+        named:
+          description: |
+            A named action that was defined via the top-level `actions` table or a
+            `define-action` action. These are usually written as plain strings with a `$`
+            prefix.
+            
+            - Example 1:
+            
+              ```toml
+              [actions]
+              my-action = "quit"
+            
+              [shortcuts]
+              alt-q = { type = "named", name = "my-action" }
+              ```
+            
+            - Example 2:
+            
+              ```toml
+              [shortcuts]
+              alt-q = [
+                { type = "define-action", name = "my-action", action = "quit" },
+                { type = "named", name = "my-action" },
+              ]
+              ```
+          fields:
+            name:
+              kind: string
+              description: The named action to execute.
+              required: true
         multi:
           description: |
             A list of actions to execute in sequence. These are usually written as plain
@@ -521,6 +567,41 @@ Action:
                 The first matching device is used.
               required: true
               ref: DrmDeviceMatch
+        define-action:
+          description: |
+            Defines a name for an action. Usually you would define these by using the
+            top-level `actions` table. This action can be used to re-define actions.
+            
+            - Example:
+            
+              ```toml
+              [actions]
+              a1 = "quit"
+              a2 = "$a1"
+            
+              [shortcuts]
+              alt-q = [
+                { type = "define-action", name = "a2", action = [] },
+                "$2", # does nothing
+              ]
+              ```
+          fields:
+            name:
+              kind: string
+              description: The name of the action.
+              required: true
+            action:
+              description: The action to execute.
+              required: true
+              ref: Action
+        undefine-action:
+          description: |
+            Removes a named action.
+          fields:
+            name:
+              kind: string
+              description: The name of the action.
+              required: true
 
 
 Exec:
@@ -2350,6 +2431,46 @@ Config:
           [float]
           show-pin-icon = true
           ```
+    actions:
+      kind: map
+      values:
+        ref: Action
+      required: false
+      description: |
+        Named actions.
+        
+        Named actions can be used everywhere an action can be used. This can be used to
+        avoid repeating the same action multiple times.
+        
+        - Example:
+        
+          ```toml
+          actions.switch-to-1 = [
+            { type = "show-workspace", name = "1" },
+            { type = "define-action", name = "switch-to-next", action = "$switch-to-2" },
+          ]
+            actions.switch-to-2 = [
+            { type = "show-workspace", name = "2" },
+            { type = "define-action", name = "switch-to-next", action = "$switch-to-3" },
+          ]
+            actions.switch-to-3 = [
+            { type = "show-workspace", name = "3" },
+            { type = "define-action", name = "switch-to-next", action = "$switch-to-1" },
+          ]
+          actions.switch-to-next = "$switch-to-1"
+        
+          [shortcuts]
+          alt-x = "$switch-to-next"
+          ```
+    max-action-depth:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: |
+        The maximum call depth of named actions. This setting prevents infinite recursion
+        when using named actions. Setting this value to 0 or less disables named actions
+        completely. The default is `16`.
 
 
 Idle:

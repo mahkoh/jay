@@ -50,6 +50,7 @@ pub enum RefOrSpec<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct StringSpec {
+    pub pattern: Option<String>,
     pub values: Option<Vec<Described<StringSpecValue>>>,
 }
 

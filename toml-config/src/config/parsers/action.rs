@@ -87,6 +87,11 @@ pub struct ActionParser<'a>(pub &'a Context<'a>);
 impl ActionParser<'_> {
     fn parse_simple_cmd(&self, span: Span, string: &str) -> ParseResult<Self> {
         use {crate::config::SimpleCommand::*, jay_config::Direction::*};
+        if let Some(name) = string.strip_prefix("$") {
+            return Ok(Action::NamedAction {
+                name: name.to_string(),
+            });
+        }
         let cmd = match string {
             "focus-left" => Focus(Left),
             "focus-down" => Focus(Down),
@@ -323,6 +328,28 @@ impl ActionParser<'_> {
             .map_spanned_err(ActionParserError::RepeatRate)?;
         Ok(Action::SetRepeatRate { rate })
     }
+
+    fn parse_undefine_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::UndefineAction {
+            name: name.value.to_string(),
+        })
+    }
+
+    fn parse_define_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name, action) = ext.extract((str("name"), val("action")))?;
+        Ok(Action::DefineAction {
+            name: name.value.to_string(),
+            action: Box::new(action.parse(&mut ActionParser(self.0))?),
+        })
+    }
+
+    fn parse_named_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::NamedAction {
+            name: name.value.to_string(),
+        })
+    }
 }
 
 impl Parser for ActionParser<'_> {
@@ -374,6 +401,9 @@ impl Parser for ActionParser<'_> {
             "configure-idle" => self.parse_configure_idle(&mut ext),
             "move-to-output" => self.parse_move_to_output(&mut ext),
             "set-repeat-rate" => self.parse_set_repeat_rate(&mut ext),
+            "define-action" => self.parse_define_action(&mut ext),
+            "undefine-action" => self.parse_undefine_action(&mut ext),
+            "named" => self.parse_named_action(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

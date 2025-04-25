@@ -641,6 +641,7 @@ dependencies = [
  "jay-config",
  "log",
  "phf",
+ "run-on-drop",
  "serde_json",
  "simplelog",
  "thiserror",
@@ -1091,6 +1092,12 @@ checksum = "921904a62e410e37e215c40381b7117f830d9d89ba60ab5236170541dd25646b"
 dependencies = [
  "xmlparser",
 ]
+
+[[package]]
+name = "run-on-drop"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c9afdcca45aed5b357d64e0d033f6400c07a668aa4f9b92d25d39a884889457"
 
 [[package]]
 name = "rustc-demangle"

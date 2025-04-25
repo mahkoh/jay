@@ -39,7 +39,14 @@ use {
         },
         xwayland::set_x_scaling_mode,
     },
-    std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc, time::Duration},
+    run_on_drop::on_drop,
+    std::{
+        cell::{Cell, RefCell},
+        io::ErrorKind,
+        path::PathBuf,
+        rc::Rc,
+        time::Duration,
+    },
 };
 
 fn default_seat() -> Seat {
@@ -224,6 +231,40 @@ impl Action {
             }
             Action::SetRepeatRate { rate } => {
                 B::new(move || s.set_repeat_rate(rate.rate, rate.delay))
+            }
+            Action::DefineAction { name, action } => {
+                let state = state.clone();
+                let action = action.into_rc_fn(&state);
+                let name = Rc::new(name);
+                B::new(move || {
+                    state
+                        .actions
+                        .borrow_mut()
+                        .insert(name.clone(), action.clone());
+                })
+            }
+            Action::UndefineAction { name } => {
+                let state = state.clone();
+                B::new(move || {
+                    state.actions.borrow_mut().remove(&name);
+                })
+            }
+            Action::NamedAction { name } => {
+                let state = state.clone();
+                B::new(move || {
+                    let depth = state.action_depth.get();
+                    if depth >= state.action_depth_max {
+                        log::error!("Maximum action depth reached");
+                        return;
+                    }
+                    state.action_depth.set(depth + 1);
+                    let _reset = on_drop(|| state.action_depth.set(depth));
+                    let Some(action) = state.actions.borrow().get(&name).cloned() else {
+                        log::error!("There is no action named {name}");
+                        return;
+                    };
+                    action();
+                })
             }
         }
     }
@@ -607,6 +648,7 @@ impl Output {
     }
 }
 
+#[expect(clippy::type_complexity)]
 struct State {
     outputs: AHashMap<String, OutputMatch>,
     drm_devices: AHashMap<String, DrmDeviceMatch>,
@@ -617,6 +659,10 @@ struct State {
     io_maps: Vec<(InputMatch, OutputMatch)>,
     io_inputs: RefCell<AHashMap<InputDevice, Vec<bool>>>,
     io_outputs: RefCell<AHashMap<Connector, Vec<bool>>>,
+
+    action_depth_max: u64,
+    action_depth: Cell<u64>,
+    actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
 }
 
 impl Drop for State {
@@ -914,8 +960,15 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         io_maps,
         io_inputs: Default::default(),
         io_outputs: Default::default(),
+        action_depth_max: config.max_action_depth,
+        action_depth: Cell::new(0),
+        actions: Default::default(),
     });
     state.set_status(&config.status);
+    for a in config.named_actions {
+        let action = a.action.into_rc_fn(&state);
+        state.actions.borrow_mut().insert(a.name, action);
+    }
     let mut switch_actions = vec![];
     for input in &mut config.inputs {
         let mut actions = AHashMap::new();

@@ -7,6 +7,7 @@ use {
 };
 
 pub mod action;
+mod actions;
 mod color;
 pub mod color_management;
 pub mod config;

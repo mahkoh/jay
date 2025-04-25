@@ -7,6 +7,26 @@
 - Implement tablet-v2 version 2.
 - Floating windows can now be pinned. A pinned floating window stays visible on
   its output even when switching workspaces.
+- The toml config can now contain named actions:
+
+  ```toml
+  actions.switch-to-1 = [
+    { type = "show-workspace", name = "1" },
+    { type = "define-action", name = "switch-to-next", action = "$switch-to-2" },
+  ]
+  actions.switch-to-2 = [
+    { type = "show-workspace", name = "2" },
+    { type = "define-action", name = "switch-to-next", action = "$switch-to-3" },
+  ]
+  actions.switch-to-3 = [
+    { type = "show-workspace", name = "3" },
+    { type = "define-action", name = "switch-to-next", action = "$switch-to-1" },
+  ]
+  actions.switch-to-next = "$switch-to-1"
+
+  [shortcuts]
+  alt-x = "$switch-to-next"
+  ```
 
 # 1.10.0 (2025-04-22)
 

@@ -19,6 +19,11 @@
           "$ref": "#/$defs/SimpleActionName"
         },
         {
+          "type": "string",
+          "description": "The value should be the name of a `named` action, prefixed with the `$` character.\n\nThis is the same as using the `named` action with the `$` removed.\n\n- Example:\n\n  ```toml\n  [actions]\n  q = \"quit\"\n\n  [shortcuts]\n  alt-q = \"$q\"\n  ```\n",
+          "pattern": "^\\$.*$"
+        },
+        {
           "type": "array",
           "description": "A list of actions to execute in sequence.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = [\n    { type = \"exec\", exec = [\"notify-send\", \"exiting\"] },\n    \"quit\",\n  ]\n  ```\n",
           "items": {
@@ -44,6 +49,23 @@
               "required": [
                 "type",
                 "cmd"
+              ]
+            },
+            {
+              "description": "A named action that was defined via the top-level `actions` table or a\n`define-action` action. These are usually written as plain strings with a `$`\nprefix.\n\n- Example 1:\n\n  ```toml\n  [actions]\n  my-action = \"quit\"\n\n  [shortcuts]\n  alt-q = { type = \"named\", name = \"my-action\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-q = [\n    { type = \"define-action\", name = \"my-action\", action = \"quit\" },\n    { type = \"named\", name = \"my-action\" },\n  ]\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "named"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The named action to execute."
+                }
+              },
+              "required": [
+                "type",
+                "name"
               ]
             },
             {
@@ -418,6 +440,45 @@
                 "type",
                 "dev"
               ]
+            },
+            {
+              "description": "Defines a name for an action. Usually you would define these by using the\ntop-level `actions` table. This action can be used to re-define actions.\n\n- Example:\n\n  ```toml\n  [actions]\n  a1 = \"quit\"\n  a2 = \"$a1\"\n\n  [shortcuts]\n  alt-q = [\n    { type = \"define-action\", name = \"a2\", action = [] },\n    \"$2\", # does nothing\n  ]\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "define-action"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the action."
+                },
+                "action": {
+                  "description": "The action to execute.",
+                  "$ref": "#/$defs/Action"
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "action"
+              ]
+            },
+            {
+              "description": "Removes a named action.\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "undefine-action"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the action."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
             }
           ]
         }
@@ -640,6 +701,19 @@
         "float": {
           "description": "Configures the settings of floating windows.\n\n- Example:\n\n  ```toml\n  [float]\n  show-pin-icon = true\n  ```\n",
           "$ref": "#/$defs/Float"
+        },
+        "actions": {
+          "description": "Named actions.\n\nNamed actions can be used everywhere an action can be used. This can be used to\navoid repeating the same action multiple times.\n\n- Example:\n\n  ```toml\n  actions.switch-to-1 = [\n    { type = \"show-workspace\", name = \"1\" },\n    { type = \"define-action\", name = \"switch-to-next\", action = \"$switch-to-2\" },\n  ]\n    actions.switch-to-2 = [\n    { type = \"show-workspace\", name = \"2\" },\n    { type = \"define-action\", name = \"switch-to-next\", action = \"$switch-to-3\" },\n  ]\n    actions.switch-to-3 = [\n    { type = \"show-workspace\", name = \"3\" },\n    { type = \"define-action\", name = \"switch-to-next\", action = \"$switch-to-1\" },\n  ]\n  actions.switch-to-next = \"$switch-to-1\"\n\n  [shortcuts]\n  alt-x = \"$switch-to-next\"\n  ```\n",
+          "type": "object",
+          "additionalProperties": {
+            "description": "",
+            "$ref": "#/$defs/Action"
+          }
+        },
+        "max-action-depth": {
+          "type": "integer",
+          "description": "The maximum call depth of named actions. This setting prevents infinite recursion\nwhen using named actions. Setting this value to 0 or less disables named actions\ncompletely. The default is `16`.\n",
+          "minimum": 0.0
         }
       },
       "required": []

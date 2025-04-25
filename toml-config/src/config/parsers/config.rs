@@ -3,10 +3,11 @@ use {
         config::{
             Action, Config, Libei, Theme, UiDrag,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, opt, recover, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
+                actions::ActionsParser,
                 color_management::ColorManagementParser,
                 connector::ConnectorsParser,
                 drm_device::DrmDevicesParser,
@@ -119,7 +120,7 @@ impl Parser for ConfigParser<'_> {
                 ui_drag_val,
                 xwayland_val,
             ),
-            (color_management_val, float_val),
+            (color_management_val, float_val, actions_val, max_action_depth_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -157,7 +158,12 @@ impl Parser for ConfigParser<'_> {
                 opt(val("ui-drag")),
                 opt(val("xwayland")),
             ),
-            (opt(val("color-management")), opt(val("float"))),
+            (
+                opt(val("color-management")),
+                opt(val("float")),
+                opt(val("actions")),
+                recover(opt(int("max-action-depth"))),
+            ),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -391,6 +397,28 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut named_actions = vec![];
+        if let Some(value) = actions_val {
+            let mut parser = ActionsParser {
+                cx: self.0,
+                used_names: Default::default(),
+                actions: &mut named_actions,
+            };
+            if let Err(e) = value.parse(&mut parser) {
+                log::warn!("Could not parse named actions: {}", self.0.error(e));
+            }
+        }
+        let mut max_action_depth = 16;
+        if let Some(mut value) = max_action_depth_val {
+            if value.value < 0 {
+                log::warn!(
+                    "Max action depth should not be negative: {}",
+                    self.0.error3(value.span)
+                );
+                value.value = 0;
+            }
+            max_action_depth = value.value as _;
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -423,6 +451,8 @@ impl Parser for ConfigParser<'_> {
             xwayland,
             color_management,
             float,
+            named_actions,
+            max_action_depth,
         })
     }
 }
