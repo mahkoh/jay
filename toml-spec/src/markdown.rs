@@ -230,6 +230,12 @@ fn write_string_spec(buf: &mut Vec<u8>, spec: &StringSpec, pad: &str) -> Result<
             writeln!(buf)?;
         }
         writeln!(buf)?;
+    } else if let Some(pattern) = &spec.pattern {
+        writeln!(
+            buf,
+            "{pad}The string should match the following regular expression: `{pattern}`"
+        )?;
+        writeln!(buf)?;
     }
     Ok(())
 }

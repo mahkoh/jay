@@ -57,6 +57,24 @@ variant for more details.
 
 The value should be a [SimpleActionName](#types-SimpleActionName).
 
+#### A string
+
+The value should be the name of a `named` action, prefixed with the `$` character.
+
+This is the same as using the `named` action with the `$` removed.
+
+- Example:
+
+  ```toml
+  [actions]
+  q = "quit"
+
+  [shortcuts]
+  alt-q = "$q"
+  ```
+
+The string should match the following regular expression: `^\$.*$`
+
 #### An array
 
 A list of actions to execute in sequence.
@@ -105,6 +123,40 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The simple action to execute.
 
     The value of this field should be a [SimpleActionName](#types-SimpleActionName).
+
+- `named`:
+
+  A named action that was defined via the top-level `actions` table or a
+  `define-action` action. These are usually written as plain strings with a `$`
+  prefix.
+  
+  - Example 1:
+  
+    ```toml
+    [actions]
+    my-action = "quit"
+  
+    [shortcuts]
+    alt-q = { type = "named", name = "my-action" }
+    ```
+  
+  - Example 2:
+  
+    ```toml
+    [shortcuts]
+    alt-q = [
+      { type = "define-action", name = "my-action", action = "quit" },
+      { type = "named", name = "my-action" },
+    ]
+    ```
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The named action to execute.
+
+    The value of this field should be a string.
 
 - `multi`:
 
@@ -573,6 +625,51 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The first matching device is used.
 
     The value of this field should be a [DrmDeviceMatch](#types-DrmDeviceMatch).
+
+- `define-action`:
+
+  Defines a name for an action. Usually you would define these by using the
+  top-level `actions` table. This action can be used to re-define actions.
+  
+  - Example:
+  
+    ```toml
+    [actions]
+    a1 = "quit"
+    a2 = "$a1"
+  
+    [shortcuts]
+    alt-q = [
+      { type = "define-action", name = "a2", action = [] },
+      "$2", # does nothing
+    ]
+    ```
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the action.
+
+    The value of this field should be a string.
+
+  - `action` (required):
+
+    The action to execute.
+
+    The value of this field should be a [Action](#types-Action).
+
+- `undefine-action`:
+
+  Removes a named action.
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the action.
+
+    The value of this field should be a string.
 
 
 <a name="types-Brightness"></a>
@@ -1277,6 +1374,48 @@ The table has the following fields:
     ```
 
   The value of this field should be a [Float](#types-Float).
+
+- `actions` (optional):
+
+  Named actions.
+  
+  Named actions can be used everywhere an action can be used. This can be used to
+  avoid repeating the same action multiple times.
+  
+  - Example:
+  
+    ```toml
+    actions.switch-to-1 = [
+      { type = "show-workspace", name = "1" },
+      { type = "define-action", name = "switch-to-next", action = "$switch-to-2" },
+    ]
+      actions.switch-to-2 = [
+      { type = "show-workspace", name = "2" },
+      { type = "define-action", name = "switch-to-next", action = "$switch-to-3" },
+    ]
+      actions.switch-to-3 = [
+      { type = "show-workspace", name = "3" },
+      { type = "define-action", name = "switch-to-next", action = "$switch-to-1" },
+    ]
+    actions.switch-to-next = "$switch-to-1"
+  
+    [shortcuts]
+    alt-x = "$switch-to-next"
+    ```
+
+  The value of this field should be a table whose values are [Actions](#types-Action).
+
+- `max-action-depth` (optional):
+
+  The maximum call depth of named actions. This setting prevents infinite recursion
+  when using named actions. Setting this value to 0 or less disables named actions
+  completely. The default is `16`.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
 
 
 <a name="types-Connector"></a>

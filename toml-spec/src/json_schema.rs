@@ -159,6 +159,8 @@ fn create_string_spec(description: &str, spec: &StringSpec) -> Value {
     if let Some(values) = &spec.values {
         let strings: Vec<_> = values.iter().map(|v| &v.value.value).collect();
         res.insert("enum".into(), json!(strings));
+    } else if let Some(pattern) = &spec.pattern {
+        res.insert("pattern".into(), json!(pattern));
     }
     res.into()
 }

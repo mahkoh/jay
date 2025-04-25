@@ -33,6 +33,7 @@ use {
     std::{
         error::Error,
         fmt::{Display, Formatter},
+        rc::Rc,
         time::Duration,
     },
     thiserror::Error,
@@ -64,6 +65,7 @@ pub enum SimpleCommand {
 }
 
 #[derive(Debug, Clone)]
+#[expect(clippy::enum_variant_names)]
 pub enum Action {
     ConfigureConnector {
         con: ConfigConnector,
@@ -132,6 +134,16 @@ pub enum Action {
     },
     SetRepeatRate {
         rate: RepeatRate,
+    },
+    DefineAction {
+        name: String,
+        action: Box<Action>,
+    },
+    UndefineAction {
+        name: String,
+    },
+    NamedAction {
+        name: String,
     },
 }
 
@@ -339,6 +351,12 @@ pub struct Shortcut {
 }
 
 #[derive(Debug, Clone)]
+pub struct NamedAction {
+    pub name: Rc<String>,
+    pub action: Action,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub keymap: Option<ConfigKeymap>,
     pub repeat_rate: Option<RepeatRate>,
@@ -371,6 +389,8 @@ pub struct Config {
     pub xwayland: Option<Xwayland>,
     pub color_management: Option<ColorManagement>,
     pub float: Option<Float>,
+    pub named_actions: Vec<NamedAction>,
+    pub max_action_depth: u64,
 }
 
 #[derive(Debug, Error)]
