@@ -2041,6 +2041,14 @@ impl ContainingNode for ContainerNode {
             }
         }
     }
+
+    fn cnode_pinned(&self) -> bool {
+        self.tl_pinned()
+    }
+
+    fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
+        self.tl_set_pinned(false, pinned);
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {

@@ -1265,6 +1265,19 @@ The table has the following fields:
 
   The value of this field should be a [ColorManagement](#types-ColorManagement).
 
+- `float` (optional):
+
+  Configures the settings of floating windows.
+  
+  - Example:
+  
+    ```toml
+    [float]
+    show-pin-icon = true
+    ```
+
+  The value of this field should be a [Float](#types-Float).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -1623,6 +1636,31 @@ The table has the following fields:
 - `privileged` (optional):
 
   If `true`, the executable gets access to privileged wayland protocols.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
+
+<a name="types-Float"></a>
+### `Float`
+
+Describes settings of floating windows.
+
+- Example:
+
+  ```toml
+  [float]
+  show-pin-icon = true
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `show-pin-icon` (optional):
+
+  Sets whether floating windows always show a pin icon.
   
   The default is `false`.
 
@@ -2904,6 +2942,21 @@ The string should have one of the following values:
 - `toggle-float-above-fullscreen`:
 
   Toggles floating windows showing above fullscreen windows.
+
+- `pin-float`:
+
+  Pins the currently focused floating window.
+  
+  If a floating window is pinned, it will stay visible even when switching to a
+  different workspace.
+
+- `unpin-float`:
+
+  Unpins the currently focused floating window.
+
+- `toggle-float-pinned`:
+
+  Toggles whether the currently focused floating window is pinned.
 
 
 

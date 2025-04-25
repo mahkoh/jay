@@ -618,6 +618,7 @@ impl dyn GfxFramebuffer {
                 let (width, height) = self.logical_size(transform);
                 Rect::new(0, 0, width, height).unwrap()
             },
+            icons: None,
         };
         cursor.render_hardware_cursor(&mut renderer);
         self.render(
@@ -906,6 +907,7 @@ pub fn create_render_pass(
             let (width, height) = logical_size(physical_size, transform);
             Rect::new(0, 0, width, height).unwrap()
         },
+        icons: state.icons.get(state, scale),
     };
     node.node_render(&mut renderer, 0, 0, None);
     if let Some(rect) = cursor_rect {

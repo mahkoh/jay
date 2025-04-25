@@ -31,4 +31,10 @@ pub trait ContainingNode: Node {
         let _ = new_y1;
         let _ = new_y2;
     }
+    fn cnode_pinned(&self) -> bool {
+        false
+    }
+    fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
+        let _ = pinned;
+    }
 }

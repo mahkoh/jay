@@ -116,6 +116,9 @@ impl ActionParser<'_> {
             "enable-float-above-fullscreen" => SetFloatAboveFullscreen(true),
             "disable-float-above-fullscreen" => SetFloatAboveFullscreen(false),
             "toggle-float-above-fullscreen" => ToggleFloatAboveFullscreen,
+            "pin-float" => SetFloatPinned(true),
+            "unpin-float" => SetFloatPinned(false),
+            "toggle-float-pinned" => ToggleFloatPinned,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

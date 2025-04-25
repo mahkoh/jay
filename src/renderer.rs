@@ -1,6 +1,7 @@
 use {
     crate::{
         gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
+        icons::{IconState, SizedIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
@@ -27,6 +28,7 @@ pub struct Renderer<'a> {
     pub state: &'a State,
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
+    pub icons: Option<Rc<SizedIcons>>,
 }
 
 impl Renderer<'_> {
@@ -521,11 +523,45 @@ impl Renderer<'_> {
         let title_underline =
             [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
         self.base.fill_boxes(&title_underline, &uc, srgb);
+        let rect = floating.title_rect.get().move_(x, y);
+        let bounds = self.base.scale_rect(rect);
+        let (mut x1, y1) = rect.position();
+        let is_pinned = floating.pinned_link.borrow().is_some();
+        if is_pinned || self.state.show_pin_icon.get() {
+            let (x, y) = self.base.scale_point(x1, y1);
+            if let Some(icons) = &self.icons {
+                let icon = if floating.active.get() {
+                    &icons.pin_focused_title
+                } else if floating.attention_requested.get() {
+                    &icons.pin_attention_requested
+                } else {
+                    &icons.pin_unfocused_title
+                };
+                let state = match is_pinned {
+                    true => IconState::Active,
+                    false => IconState::Passive,
+                };
+                self.base.render_texture(
+                    &icon[state],
+                    None,
+                    x,
+                    y,
+                    None,
+                    None,
+                    self.base.scale,
+                    Some(&bounds),
+                    None,
+                    AcquireSync::None,
+                    ReleaseSync::None,
+                    false,
+                    srgb_srgb,
+                );
+            }
+            x1 += th;
+        }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale) {
             if let Some(texture) = title.texture() {
-                let rect = floating.title_rect.get().move_(x, y);
-                let bounds = self.base.scale_rect(rect);
-                let (x, y) = self.base.scale_point(rect.x1(), rect.y1());
+                let (x, y) = self.base.scale_point(x1, y1);
                 self.base.render_texture(
                     &texture,
                     None,

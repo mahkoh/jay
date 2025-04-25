@@ -39,9 +39,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, StackedNode,
-            TddType, TileDragDestination, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
-            walker::NodeVisitor,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, PinnedNode,
+            StackedNode, TddType, TileDragDestination, WorkspaceDragDestination, WorkspaceNode,
+            WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -103,6 +103,7 @@ pub struct OutputNode {
     pub tray_start_rel: Cell<i32>,
     pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
+    pub pinned: LinkedList<Rc<dyn PinnedNode>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -646,6 +647,9 @@ impl OutputNode {
                 return false;
             }
             collect_kb_foci2(old.clone(), &mut seats);
+            for pinned in self.pinned.iter() {
+                pinned.deref().clone().set_workspace(ws, false);
+            }
             if old.is_empty() {
                 for jw in old.jay_workspaces.lock().values() {
                     jw.send_destroyed();

@@ -50,6 +50,8 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_change_extents(self: Rc<Self>, rect: &Rect);
     fn tl_set_visible(&self, visible: bool);
     fn tl_destroy(&self);
+    fn tl_pinned(&self) -> bool;
+    fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -151,6 +153,24 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_data().destroy_node(self);
         self.tl_destroy_impl();
     }
+
+    fn tl_pinned(&self) -> bool {
+        let Some(parent) = self.tl_data().parent.get() else {
+            return false;
+        };
+        parent.cnode_pinned()
+    }
+
+    fn tl_set_pinned(&self, self_pinned: bool, pinned: bool) {
+        let data = self.tl_data();
+        if self_pinned {
+            data.pinned.set(pinned);
+        }
+        let Some(parent) = data.parent.get() else {
+            return;
+        };
+        parent.cnode_set_pinned(pinned);
+    }
 }
 
 pub trait ToplevelNodeBase: Node {
@@ -243,6 +263,7 @@ pub struct ToplevelData {
     pub is_floating: Cell<bool>,
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
+    pub pinned: Cell<bool>,
     pub is_fullscreen: Cell<bool>,
     pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
@@ -283,6 +304,7 @@ impl ToplevelData {
             is_floating: Default::default(),
             float_width: Default::default(),
             float_height: Default::default(),
+            pinned: Cell::new(false),
             is_fullscreen: Default::default(),
             fullscrceen_data: Default::default(),
             workspace: Default::default(),

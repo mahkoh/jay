@@ -712,6 +712,18 @@ SimpleActionName:
     - value: toggle-float-above-fullscreen
       description: |
         Toggles floating windows showing above fullscreen windows.
+    - value: pin-float
+      description: |
+        Pins the currently focused floating window.
+        
+        If a floating window is pinned, it will stay visible even when switching to a
+        different workspace.
+    - value: unpin-float
+      description: |
+        Unpins the currently focused floating window.
+    - value: toggle-float-pinned
+      description: |
+        Toggles whether the currently focused floating window is pinned.
 
 
 Color:
@@ -2326,6 +2338,18 @@ Config:
           [color-management]
           enabled = true
           ```
+    float:
+      ref: Float
+      required: false
+      description: |
+        Configures the settings of floating windows.
+
+        - Example:
+        
+          ```toml
+          [float]
+          show-pin-icon = true
+          ```
 
 
 Idle:
@@ -2834,3 +2858,24 @@ Brightness:
     - kind: number
       description: |
         The brightness in cd/m^2.
+
+
+Float:
+  kind: table
+  description: |
+    Describes settings of floating windows.
+    
+    - Example:
+    
+      ```toml
+      [float]
+      show-pin-icon = true
+      ```
+  fields:
+    show-pin-icon:
+      description: |
+        Sets whether floating windows always show a pin icon.
+        
+        The default is `false`.
+      kind: boolean
+      required: false
