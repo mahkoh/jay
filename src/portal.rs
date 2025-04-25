@@ -44,13 +44,15 @@ use {
     },
     log::Level,
     std::{
-        os::unix::process::CommandExt,
-        process::Command,
+        ffi::OsStr,
+        io::{BufReader, BufWriter},
+        os::unix::{ffi::OsStrExt, process::CommandExt},
+        process::{Command, exit},
         rc::{Rc, Weak},
         sync::Arc,
     },
     thiserror::Error,
-    uapi::{OwnedFd, c, getpid},
+    uapi::{OwnedFd, WEXITSTATUS, c, getpid},
 };
 
 const PORTAL_SUCCESS: u32 = 0;
@@ -101,7 +103,7 @@ impl PortalStartup {
                         return;
                     }
                 };
-                let status = uapi::WEXITSTATUS(status);
+                let status = WEXITSTATUS(status);
                 if status != 0 {
                     log::error!("Portal exited with non-0 exit code: {status}");
                 }
@@ -146,12 +148,55 @@ pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
             drop(read);
             let logger = Logger::install_pipe(write, level);
             run(logger, false);
-            std::process::exit(0);
         }
     }
 }
 
-fn run(logger: Arc<Logger>, freestanding: bool) {
+fn run(logger: Arc<Logger>, freestanding: bool) -> ! {
+    let (read, write) = match uapi::pipe2(c::O_CLOEXEC) {
+        Ok(p) => p,
+        Err(e) => {
+            fatal!("Could not create a pipe: {}", ErrorFmt(OsError::from(e)));
+        }
+    };
+    let fork = match fork_with_pidfd(false) {
+        Ok(f) => f,
+        Err(e) => {
+            fatal!("Could not fork: {}", ErrorFmt(e));
+        }
+    };
+    let Forked::Parent { pid, .. } = fork else {
+        drop(read);
+        run2(logger, write);
+        exit(0);
+    };
+    drop(write);
+    let read = BufReader::new(read);
+    let Ok(log_file) = bincode::deserialize_from::<_, Vec<u8>>(read) else {
+        let (_, status) = match uapi::waitpid(pid, 0) {
+            Ok(r) => r,
+            Err(e) => {
+                fatal!(
+                    "Could not retrieve exit status of portal ({pid}): {}",
+                    ErrorFmt(OsError::from(e)),
+                );
+            }
+        };
+        exit(WEXITSTATUS(status));
+    };
+    if freestanding {
+        let e = Command::new("tail")
+            .arg("-f")
+            .arg("-n")
+            .arg("+1")
+            .arg(OsStr::from_bytes(&log_file))
+            .exec();
+        fatal!("Could not exec `tail`: {}", ErrorFmt(e));
+    }
+    exit(0);
+}
+
+fn run2(logger: Arc<Logger>, path_sink: OwnedFd) {
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
         Ok(r) => r,
@@ -161,7 +206,7 @@ fn run(logger: Arc<Logger>, freestanding: bool) {
     };
     let _f = eng.spawn(
         "portal",
-        run_async(eng.clone(), ring.clone(), logger, freestanding),
+        run_async(eng.clone(), ring.clone(), logger, path_sink),
     );
     if let Err(e) = ring.run() {
         fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
@@ -172,11 +217,11 @@ async fn run_async(
     eng: Rc<AsyncEngine>,
     ring: Rc<IoUring>,
     logger: Arc<Logger>,
-    freestanding: bool,
+    path_sink: OwnedFd,
 ) {
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
-    let dbus = init_dbus_session(&dbus, logger, freestanding).await;
+    let dbus = init_dbus_session(&dbus, logger, path_sink).await;
     let xrd = match xrd() {
         Some(xrd) => xrd,
         _ => {
@@ -229,7 +274,7 @@ async fn run_async(
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 
-async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, freestanding: bool) -> Rc<DbusSocket> {
+async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd) -> Rc<DbusSocket> {
     let session = match dbus.session().await {
         Ok(s) => s,
         Err(e) => {
@@ -251,37 +296,20 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, freestanding: bool)
             log::info!("Acquired unique name {}", UNIQUE_NAME);
             let log_file = logger.redirect("portal");
             log::info!("version = {VERSION}");
-            let fork = match fork_with_pidfd(false) {
-                Ok(f) => f,
-                Err(e) => fatal!("Could not fork: {}", ErrorFmt(e)),
-            };
-            match fork {
-                Forked::Parent { .. } => {
-                    if freestanding {
-                        let e = Command::new("tail")
-                            .arg("-f")
-                            .arg("-n")
-                            .arg("+1")
-                            .arg(&log_file)
-                            .exec();
-                        eprintln!("Could not exec `tail`: {}", ErrorFmt(e));
-                        std::process::exit(1);
-                    }
-                    std::process::exit(0)
-                }
-                Forked::Child { .. } => {
-                    if let Err(e) = uapi::setsid() {
-                        log::error!("setsid failed: {}", ErrorFmt(OsError::from(e)));
-                    }
-                    log::info!("pid = {}", getpid());
-                }
+            let sink = BufWriter::new(path_sink);
+            if let Err(e) = bincode::serialize_into(sink, log_file.as_bytes()) {
+                log::error!("Could not send log file to parent: {}", ErrorFmt(e));
             }
+            if let Err(e) = uapi::setsid() {
+                log::error!("setsid failed: {}", ErrorFmt(OsError::from(e)));
+            }
+            log::info!("pid = {}", getpid());
             set_process_name("jay portal");
             session
         }
         Ok(_) => {
             log::info!("Portal is already running");
-            std::process::exit(0);
+            exit(0);
         }
         Err(e) => {
             fatal!(
