@@ -12,7 +12,7 @@ use {
     },
     std::{array::from_mut, cell::RefCell, rc::Rc},
     thiserror::Error,
-    uapi::{OwnedFd, UstrPtr, c, close_range, dup2, pipe2},
+    uapi::{OwnedFd, UstrPtr, c, close_range, dup2, pipe2, waitpid},
 };
 
 pub struct JayReexec {
@@ -51,27 +51,36 @@ impl JayReexec {
         let (p1, c1) = pipe!();
         let (c2, p2) = pipe!();
         if let Ok(f) = fork_with_pidfd(false) {
-            if let Forked::Child { .. } = f {
-                drop(p2);
-                fds.sort_by_key(|fd| fd.raw());
-                let c2_dup = fds.last().unwrap().raw() + 1;
-                let c1_dup = c2_dup + 1;
-                let _ = dup2(c1.raw(), c1_dup);
-                let _ = dup2(c2.raw(), c2_dup);
-                for (idx, fd) in fds.iter().enumerate() {
-                    let _ = dup2(fd.raw(), idx as _);
+            match f {
+                Forked::Parent { pid, .. } => {
+                    let _ = waitpid(pid, 0);
                 }
-                let c2_dup_dup = fds.len() as _;
-                let _ = dup2(c2_dup, c2_dup_dup);
-                let _ = close_range(c2_dup_dup as c::c_uint + 1, !0, 0);
-                let mut pollfd = c::pollfd {
-                    fd: c2_dup_dup,
-                    events: 0,
-                    revents: 0,
-                };
-                let _ = uapi::poll(from_mut(&mut pollfd), -1);
-                unsafe {
-                    c::_exit(0);
+                Forked::Child { .. } => {
+                    if let Ok(f) = fork_with_pidfd(false) {
+                        if let Forked::Child { .. } = f {
+                            drop(p2);
+                            fds.sort_by_key(|fd| fd.raw());
+                            let c2_dup = fds.last().unwrap().raw() + 1;
+                            let c1_dup = c2_dup + 1;
+                            let _ = dup2(c1.raw(), c1_dup);
+                            let _ = dup2(c2.raw(), c2_dup);
+                            for (idx, fd) in fds.iter().enumerate() {
+                                let _ = dup2(fd.raw(), idx as _);
+                            }
+                            let c2_dup_dup = fds.len() as _;
+                            let _ = dup2(c2_dup, c2_dup_dup);
+                            let _ = close_range(c2_dup_dup as c::c_uint + 1, !0, 0);
+                            let mut pollfd = c::pollfd {
+                                fd: c2_dup_dup,
+                                events: 0,
+                                revents: 0,
+                            };
+                            let _ = uapi::poll(from_mut(&mut pollfd), -1);
+                        }
+                    }
+                    unsafe {
+                        c::_exit(0);
+                    }
                 }
             }
         }
