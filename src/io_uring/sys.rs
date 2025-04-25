@@ -102,6 +102,17 @@ pub const IORING_SETUP_CQSIZE: u32 = 1 << 3;
 pub const IORING_SETUP_CLAMP: u32 = 1 << 4;
 pub const IORING_SETUP_ATTACH_WQ: u32 = 1 << 5;
 pub const IORING_SETUP_R_DISABLED: u32 = 1 << 6;
+pub const IORING_SETUP_SUBMIT_ALL: u32 = 1 << 7;
+pub const IORING_SETUP_COOP_TASKRUN: u32 = 1 << 8;
+pub const IORING_SETUP_TASKRUN_FLAG: u32 = 1 << 9;
+pub const IORING_SETUP_SQE128: u32 = 1 << 10;
+pub const IORING_SETUP_CQE32: u32 = 1 << 11;
+pub const IORING_SETUP_SINGLE_ISSUER: u32 = 1 << 12;
+pub const IORING_SETUP_DEFER_TASKRUN: u32 = 1 << 13;
+pub const IORING_SETUP_NO_MMAP: u32 = 1 << 14;
+pub const IORING_SETUP_REGISTERED_FD_ONLY: u32 = 1 << 15;
+pub const IORING_SETUP_NO_SQARRAY: u32 = 1 << 16;
+pub const IORING_SETUP_HYBRID_IOPOLL: u32 = 1 << 17;
 
 pub const IORING_OP_NOP: u8 = 0;
 pub const IORING_OP_READV: u8 = 1;

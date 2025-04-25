@@ -17,8 +17,9 @@ use {
             pending_result::PendingResults,
             sys::{
                 IORING_ENTER_GETEVENTS, IORING_FEAT_NODROP, IORING_OFF_CQ_RING, IORING_OFF_SQ_RING,
-                IORING_OFF_SQES, IOSQE_IO_LINK, io_uring_cqe, io_uring_enter, io_uring_params,
-                io_uring_setup, io_uring_sqe,
+                IORING_OFF_SQES, IORING_SETUP_COOP_TASKRUN, IORING_SETUP_DEFER_TASKRUN,
+                IORING_SETUP_SINGLE_ISSUER, IORING_SETUP_SUBMIT_ALL, IOSQE_IO_LINK, io_uring_cqe,
+                io_uring_enter, io_uring_params, io_uring_setup, io_uring_sqe,
             },
         },
         utils::{
@@ -98,10 +99,29 @@ impl Drop for IoUring {
 
 impl IoUring {
     pub fn new(eng: &Rc<AsyncEngine>, entries: u32) -> Result<Rc<Self>, IoUringError> {
-        let mut params = io_uring_params::default();
-        let fd = match io_uring_setup(entries, &mut params) {
-            Ok(f) => f,
-            Err(e) => return Err(IoUringError::CreateUring(e)),
+        let feature_levels = [
+            IORING_SETUP_SUBMIT_ALL,    // 5.18
+            IORING_SETUP_COOP_TASKRUN,  // 5.19
+            IORING_SETUP_SINGLE_ISSUER, // 6.0
+            IORING_SETUP_DEFER_TASKRUN, // 6.1
+        ];
+        let mut feature_levels = &feature_levels[..];
+        let mut params;
+        let fd = loop {
+            params = io_uring_params::default();
+            for &flags in feature_levels {
+                params.flags |= flags;
+            }
+            match io_uring_setup(entries, &mut params) {
+                Ok(f) => break f,
+                Err(e) => {
+                    if let Some((_, levels)) = feature_levels.split_last() {
+                        feature_levels = levels;
+                    } else {
+                        return Err(IoUringError::CreateUring(e));
+                    }
+                }
+            }
         };
         if !params.features.contains(IORING_FEAT_NODROP) {
             return Err(IoUringError::NoDrop);
