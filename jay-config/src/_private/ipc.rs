@@ -556,6 +556,15 @@ pub enum ClientMessage<'a> {
     SetShowFloatPinIcon {
         show: bool,
     },
+    GetSeatKeyboardWorkspace {
+        seat: Seat,
+    },
+    GetConnectorActiveWorkspace {
+        connector: Connector,
+    },
+    GetConnectorWorkspaces {
+        connector: Connector,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -709,6 +718,15 @@ pub enum Response {
     },
     GetFloatPinned {
         pinned: bool,
+    },
+    GetSeatKeyboardWorkspace {
+        workspace: Workspace,
+    },
+    GetConnectorActiveWorkspace {
+        workspace: Workspace,
+    },
+    GetConnectorWorkspaces {
+        workspaces: Vec<Workspace>,
     },
 }
 

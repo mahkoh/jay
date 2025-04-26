@@ -417,6 +417,12 @@ impl Client {
         workspace
     }
 
+    pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWorkspace { seat });
+        get_response!(res, Workspace(0), GetSeatKeyboardWorkspace { workspace });
+        workspace
+    }
+
     pub fn set_default_workspace_capture(&self, capture: bool) {
         self.send(&ClientMessage::SetDefaultWorkspaceCapture { capture });
     }
@@ -1074,6 +1080,19 @@ impl Client {
 
     pub fn set_ei_socket_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetEiSocketEnabled { enabled })
+    }
+
+    pub fn get_connector_active_workspace(&self, connector: Connector) -> Workspace {
+        let res =
+            self.send_with_response(&ClientMessage::GetConnectorActiveWorkspace { connector });
+        get_response!(res, Workspace(0), GetConnectorActiveWorkspace { workspace });
+        workspace
+    }
+
+    pub fn get_connector_workspaces(&self, connector: Connector) -> Vec<Workspace> {
+        let res = self.send_with_response(&ClientMessage::GetConnectorWorkspaces { connector });
+        get_response!(res, vec![], GetConnectorWorkspaces { workspaces });
+        workspaces
     }
 
     pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, f: F) {

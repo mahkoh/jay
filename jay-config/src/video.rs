@@ -3,7 +3,7 @@
 use {
     crate::{
         _private::WireMode,
-        PciId,
+        PciId, Workspace,
         video::connector_type::{
             CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI, CON_DSI,
             CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA, CON_HDMIB,
@@ -300,6 +300,21 @@ impl Connector {
     /// This has no effect unless the vulkan renderer is used.
     pub fn set_brightness(self, brightness: Option<f64>) {
         get!().connector_set_brightness(self, brightness);
+    }
+
+    /// Get the currently visible/active workspace.
+    ///
+    /// If this connector is not connected, or is there no active workspace, returns a
+    /// workspace whose `exists()` returns false.
+    pub fn active_workspace(self) -> Workspace {
+        get!(Workspace(0)).get_connector_active_workspace(self)
+    }
+
+    /// Get all workspaces on this connector.
+    ///
+    /// If this connector is not connected, returns an empty list.
+    pub fn workspaces(self) -> Vec<Workspace> {
+        get!().get_connector_workspaces(self)
     }
 }
 
