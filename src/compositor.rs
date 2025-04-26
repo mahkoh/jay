@@ -44,9 +44,9 @@ use {
         },
         user_session::import_environment,
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, numcell::NumCell,
-            oserror::OsError, queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
-            tri::Try,
+            clone3::ensure_reaper, clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser,
+            numcell::NumCell, oserror::OsError, queue::AsyncQueue, refcounted::RefCounted,
+            run_toplevel::RunToplevel, tri::Try,
         },
         version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
@@ -63,7 +63,9 @@ use {
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
-    let forker = create_forker();
+    sighand::reset_all();
+    let reaper_pid = ensure_reaper();
+    let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();
     let logger = Logger::install_compositor(global.log_level.into());
@@ -93,8 +95,8 @@ pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorErr
     res
 }
 
-fn create_forker() -> Rc<ForkerProxy> {
-    match ForkerProxy::create() {
+fn create_forker(reaper_pid: c::pid_t) -> Rc<ForkerProxy> {
+    match ForkerProxy::create(reaper_pid) {
         Ok(f) => Rc::new(f),
         Err(e) => fatal!("Could not create a forker process: {}", ErrorFmt(e)),
     }

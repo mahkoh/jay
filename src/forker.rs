@@ -9,7 +9,7 @@ use {
         state::State,
         utils::{
             buffd::BufFdError,
-            clone3::{Forked, fork_with_pidfd},
+            clone3::{Forked, double_fork, fork_with_pidfd},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
@@ -38,7 +38,6 @@ use {
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,
-    pid: c::pid_t,
     socket: Rc<OwnedFd>,
     task_in: Cell<Option<SpawnedFuture<()>>>,
     task_out: Cell<Option<SpawnedFuture<()>>>,
@@ -70,6 +69,12 @@ pub enum ForkerError {
     EncodeFailed(#[source] bincode::Error),
     #[error("Could not fork")]
     PidfdForkFailed,
+    #[error("Could not receive pidfd from child")]
+    RecvPidfd(#[source] crate::utils::oserror::OsError),
+    #[error("Could not read cmsg")]
+    CmsgRead(#[source] crate::utils::oserror::OsError),
+    #[error("Cmsg has an unexpected form")]
+    InvalidCmsg,
 }
 
 impl ForkerProxy {
@@ -80,17 +85,15 @@ impl ForkerProxy {
         self.outgoing.clear();
     }
 
-    pub fn create() -> Result<Self, ForkerError> {
+    pub fn create(reaper_pid: c::pid_t) -> Result<Self, ForkerError> {
         let (parent, child) =
             match uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
                 Ok(o) => o,
                 Err(e) => return Err(ForkerError::Socketpair(e.into())),
             };
-        let pid = uapi::getpid();
-        match fork_with_pidfd(false)? {
-            Forked::Parent { pid, pidfd } => Ok(ForkerProxy {
+        match double_fork()? {
+            Some(pidfd) => Ok(ForkerProxy {
                 pidfd: Rc::new(pidfd),
-                pid,
                 socket: Rc::new(parent),
                 task_in: Cell::new(None),
                 task_out: Cell::new(None),
@@ -100,9 +103,9 @@ impl ForkerProxy {
                 pending_pidfds: Default::default(),
                 fds: Default::default(),
             }),
-            Forked::Child { .. } => {
+            None => {
                 drop(parent);
-                Forker::handle(pid, child)
+                Forker::handle(reaper_pid, child)
             }
         }
     }
@@ -284,8 +287,6 @@ impl ForkerProxy {
                 "Cannot wait for the forker pidfd to become readable: {}",
                 ErrorFmt(e)
             );
-        } else {
-            let _ = uapi::waitpid(self.pid, 0);
         }
         log::error!("The ol' forker died. Cannot spawn further processes.");
         self.clear();
@@ -339,7 +340,9 @@ impl Forker {
         }
         set_process_name("the ol' forker");
         setup_deathsig(ppid);
-        reset_signals();
+        unsafe {
+            c::signal(c::SIGCHLD, c::SIG_IGN);
+        }
         let socket = Rc::new(setup_fds(socket));
         std::panic::set_hook({
             let socket = socket.raw();
@@ -567,16 +570,6 @@ fn setup_fds(mut socket: OwnedFd) -> OwnedFd {
     uapi::dup2(0, 1).unwrap();
     uapi::dup2(0, 2).unwrap();
     socket
-}
-
-fn reset_signals() {
-    const NSIG: c::c_int = 64;
-    unsafe {
-        for sig in 1..=NSIG {
-            c::signal(sig, c::SIG_DFL);
-        }
-        c::signal(c::SIGCHLD, c::SIG_IGN);
-    }
 }
 
 fn setup_deathsig(ppid: c::pid_t) {
