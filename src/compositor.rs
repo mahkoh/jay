@@ -63,6 +63,7 @@ use {
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
+    sighand::reset_all();
     let forker = create_forker();
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();

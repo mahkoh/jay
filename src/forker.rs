@@ -339,7 +339,9 @@ impl Forker {
         }
         set_process_name("the ol' forker");
         setup_deathsig(ppid);
-        reset_signals();
+        unsafe {
+            c::signal(c::SIGCHLD, c::SIG_IGN);
+        }
         let socket = Rc::new(setup_fds(socket));
         std::panic::set_hook({
             let socket = socket.raw();
@@ -567,16 +569,6 @@ fn setup_fds(mut socket: OwnedFd) -> OwnedFd {
     uapi::dup2(0, 1).unwrap();
     uapi::dup2(0, 2).unwrap();
     socket
-}
-
-fn reset_signals() {
-    const NSIG: c::c_int = 64;
-    unsafe {
-        for sig in 1..=NSIG {
-            c::signal(sig, c::SIG_DFL);
-        }
-        c::signal(c::SIGCHLD, c::SIG_IGN);
-    }
 }
 
 fn setup_deathsig(ppid: c::pid_t) {

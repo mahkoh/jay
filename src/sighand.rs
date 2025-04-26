@@ -50,3 +50,15 @@ async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>) {
         }
     }
 }
+
+pub fn reset_all() {
+    const NSIG: c::c_int = 64;
+    unsafe {
+        for sig in 1..=NSIG {
+            c::signal(sig, c::SIG_DFL);
+        }
+    }
+    let mut set: c::sigset_t = uapi::pod_zeroed();
+    uapi::sigfillset(&mut set).unwrap();
+    let _ = uapi::pthread_sigmask(c::SIG_UNBLOCK, Some(&set), None);
+}
