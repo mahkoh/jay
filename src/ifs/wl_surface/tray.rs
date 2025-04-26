@@ -292,6 +292,10 @@ impl<T: TrayItem> Node for T {
         self.data().surface.node_absolute_position()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.data().output.node()
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,

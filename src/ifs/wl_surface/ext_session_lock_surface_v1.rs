@@ -10,7 +10,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
-        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
+        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
         utils::numcell::NumCell,
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
@@ -121,6 +121,10 @@ impl Node for ExtSessionLockSurfaceV1 {
 
     fn node_absolute_position(&self) -> Rect {
         self.surface.node_absolute_position()
+    }
+
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.output.node()
     }
 
     fn node_find_tree_at(

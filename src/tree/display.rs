@@ -146,6 +146,10 @@ impl Node for DisplayNode {
         self.extents.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        None
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,

@@ -12,7 +12,7 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, StackedNode, TileDragDestination, ToplevelData, ToplevelNode,
+            NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData, ToplevelNode,
             ToplevelNodeBase, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
@@ -344,6 +344,10 @@ impl Node for Xwindow {
 
     fn node_absolute_position(&self) -> Rect {
         self.data.info.extents.get()
+    }
+
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel_data.output_opt()
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {

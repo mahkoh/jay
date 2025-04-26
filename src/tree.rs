@@ -122,6 +122,8 @@ pub trait Node: 'static {
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
     fn node_absolute_position(&self) -> Rect;
+    #[expect(dead_code)]
+    fn node_output(&self) -> Option<Rc<OutputNode>>;
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;

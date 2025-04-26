@@ -1783,6 +1783,10 @@ impl Node for WlSurface {
         self.buffer_abs_pos.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        Some(self.output.get())
+    }
+
     fn node_active_changed(&self, active: bool) {
         if let Some(tl) = self.toplevel.get() {
             tl.tl_surface_active_changed(active);

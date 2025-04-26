@@ -697,6 +697,10 @@ impl Node for FloatNode {
         self.position.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        Some(self.workspace.get().output.get())
+    }
+
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
         self.update_child_title(title);
     }
