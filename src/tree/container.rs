@@ -998,6 +998,9 @@ impl ContainerNode {
             if let Some(parent) = self.toplevel_data.parent.get() {
                 if !self.toplevel_data.is_fullscreen.get() && parent.cnode_accepts_child(&*child) {
                     parent.cnode_replace_child(self.deref(), child.clone());
+                    self.toplevel_data.parent.take();
+                    self.child_nodes.borrow_mut().clear();
+                    self.tl_destroy();
                 }
             }
             return;
