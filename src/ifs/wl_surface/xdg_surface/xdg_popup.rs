@@ -314,6 +314,10 @@ impl Node for XdgPopup {
         self.xdg.absolute_desired_extents.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.xdg.workspace.get().map(|w| w.output.get())
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,

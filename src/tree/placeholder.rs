@@ -11,8 +11,8 @@ use {
         text::TextTexture,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            default_tile_drag_destination,
+            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -200,6 +200,10 @@ impl Node for PlaceholderNode {
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
+    }
+
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel.output_opt()
     }
 }
 

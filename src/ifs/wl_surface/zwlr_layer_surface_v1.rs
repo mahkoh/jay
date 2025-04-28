@@ -648,6 +648,10 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.pos.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.output.node()
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,

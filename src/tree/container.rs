@@ -18,7 +18,7 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            TddType, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
+            OutputNode, TddType, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
             WorkspaceNode, default_tile_drag_bounds, walker::NodeVisitor,
         },
         utils::{
@@ -1760,6 +1760,10 @@ impl Node for ContainerNode {
 
     fn node_is_container(&self) -> bool {
         true
+    }
+
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel_data.output_opt()
     }
 }
 

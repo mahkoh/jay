@@ -137,6 +137,20 @@ impl ConfigProxyHandler {
         self.next_id.fetch_add(1)
     }
 
+    fn get_workspace_by_name(&self, name: &String) -> Workspace {
+        let id = match self.workspaces_by_name.get(name) {
+            None => {
+                let id = self.workspace_ids.fetch_add(1);
+                let name = Rc::new(name.clone());
+                self.workspaces_by_name.set(name.clone(), id);
+                self.workspaces_by_id.set(id, name);
+                id
+            }
+            Some(id) => id,
+        };
+        Workspace(id)
+    }
+
     fn handle_log_request(
         &self,
         level: LogLevel,
@@ -410,17 +424,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspaces(&self) {
         let mut workspaces = vec![];
         for ws in self.state.workspaces.lock().values() {
-            let id = match self.workspaces_by_name.get(&ws.name) {
-                None => {
-                    let id = self.workspace_ids.fetch_add(1);
-                    let name = Rc::new(ws.name.clone());
-                    self.workspaces_by_name.set(name.clone(), id);
-                    self.workspaces_by_id.set(id, name);
-                    id
-                }
-                Some(id) => id,
-            };
-            workspaces.push(Workspace(id));
+            workspaces.push(self.get_workspace_by_name(&ws.name));
         }
         self.respond(Response::GetWorkspaces { workspaces });
     }
@@ -708,18 +712,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_workspace(&self, name: &str) {
-        let name = Rc::new(name.to_owned());
-        let ws = match self.workspaces_by_name.get(&name) {
-            Some(w) => w,
-            _ => {
-                let ws = self.workspace_ids.fetch_add(1);
-                self.workspaces_by_name.set(name.clone(), ws);
-                self.workspaces_by_id.set(ws, name);
-                ws
-            }
-        };
         self.respond(Response::GetWorkspace {
-            workspace: Workspace(ws),
+            workspace: self.get_workspace_by_name(&name.to_owned()),
         });
     }
 
@@ -818,17 +812,27 @@ impl ConfigProxyHandler {
     fn handle_get_seat_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let output = seat.get_output();
-        let mut workspace = 0;
+        let mut workspace = Workspace(0);
         if !output.is_dummy {
             if let Some(ws) = output.workspace.get() {
-                if let Some(ws) = self.workspaces_by_name.get(&ws.name) {
-                    workspace = ws;
+                workspace = self.get_workspace_by_name(&ws.name);
+            }
+        }
+        self.respond(Response::GetSeatWorkspace { workspace });
+        Ok(())
+    }
+
+    fn handle_get_seat_keyboard_workspace(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let mut workspace = Workspace(0);
+        if let Some(output) = seat.get_keyboard_output() {
+            if !output.is_dummy {
+                if let Some(ws) = output.workspace.get() {
+                    workspace = self.get_workspace_by_name(&ws.name);
                 }
             }
         }
-        self.respond(Response::GetSeatWorkspace {
-            workspace: Workspace(workspace),
-        });
+        self.respond(Response::GetSeatKeyboardWorkspace { workspace });
         Ok(())
     }
 
@@ -1289,6 +1293,27 @@ impl ConfigProxyHandler {
             Connector(0)
         };
         self.respond(Response::GetConnector { connector });
+        Ok(())
+    }
+
+    fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
+        let output = self.get_output_node(connector)?;
+        let workspace = output
+            .workspace
+            .get()
+            .map_or(Workspace(0), |ws| self.get_workspace_by_name(&ws.name));
+        self.respond(Response::GetConnectorActiveWorkspace { workspace });
+        Ok(())
+    }
+
+    fn handle_get_connector_workspaces(&self, connector: Connector) -> Result<(), CphError> {
+        let output = self.get_output_node(connector)?;
+        let workspaces = output
+            .workspaces
+            .iter()
+            .map(|ws| self.get_workspace_by_name(&ws.name))
+            .collect::<Vec<_>>();
+        self.respond(Response::GetConnectorWorkspaces { workspaces });
         Ok(())
     }
 
@@ -1904,6 +1929,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetSeatWorkspace { seat } => self
                 .handle_get_seat_workspace(seat)
                 .wrn("get_seat_workspace")?,
+            ClientMessage::GetSeatKeyboardWorkspace { seat } => self
+                .handle_get_seat_keyboard_workspace(seat)
+                .wrn("get_seat_keyboard_workspace")?,
             ClientMessage::SetDefaultWorkspaceCapture { capture } => {
                 self.handle_set_default_workspace_capture(capture)
             }
@@ -2092,6 +2120,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetShowFloatPinIcon { show } => {
                 self.handle_set_show_float_pin_icon(show)
             }
+            ClientMessage::GetConnectorActiveWorkspace { connector } => self
+                .handle_get_connector_active_workspace(connector)
+                .wrn("get_connector_active_workspace")?,
+            ClientMessage::GetConnectorWorkspaces { connector } => self
+                .handle_get_connector_workspaces(connector)
+                .wrn("get_connector_workspaces")?,
         }
         Ok(())
     }

@@ -298,6 +298,10 @@ impl Node for WorkspaceNode {
         self.position.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        Some(self.output.get())
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(fs) = self.fullscreen.get() {
             fs.node_do_focus(seat, direction);

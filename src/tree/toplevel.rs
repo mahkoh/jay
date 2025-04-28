@@ -600,10 +600,14 @@ impl ToplevelData {
     }
 
     pub fn output(&self) -> Rc<OutputNode> {
-        match self.workspace.get() {
+        match self.output_opt() {
             None => self.state.dummy_output.get().unwrap(),
-            Some(ws) => ws.output.get(),
+            Some(o) => o,
         }
+    }
+
+    pub fn output_opt(&self) -> Option<Rc<OutputNode>> {
+        self.workspace.get().map(|ws| ws.output.get())
     }
 
     pub fn desired_pixel_size(&self) -> (i32, i32) {

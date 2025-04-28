@@ -401,6 +401,10 @@ impl WlSeatGlobal {
         self.cursor_user_group.latest_output()
     }
 
+    pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
+        self.keyboard_node.get().node_output()
+    }
+
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,

@@ -1343,6 +1343,10 @@ impl Node for OutputNode {
         self.global.pos.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.global.opt.node()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if self.state.lock.locked.get() {
             if let Some(lock) = self.lock_surface.get() {

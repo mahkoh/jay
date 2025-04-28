@@ -523,6 +523,10 @@ impl Node for XdgToplevel {
         self.xdg.absolute_desired_extents.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel_data.output_opt()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
