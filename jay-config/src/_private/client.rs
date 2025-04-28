@@ -12,8 +12,8 @@ use {
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
         exec::Command,
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
+            acceleration::AccelProfile, capability::Capability,
         },
         keyboard::{
             Keymap,
@@ -414,9 +414,9 @@ impl Client {
         connector
     }
 
-    pub fn get_seat_workspace(&self, seat: Seat) -> Workspace {
-        let res = self.send_with_response(&ClientMessage::GetSeatWorkspace { seat });
-        get_response!(res, Workspace(0), GetSeatWorkspace { workspace });
+    pub fn get_seat_cursor_workspace(&self, seat: Seat) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetSeatCursorWorkspace { seat });
+        get_response!(res, Workspace(0), GetSeatCursorWorkspace { workspace });
         workspace
     }
 
@@ -1058,6 +1058,10 @@ impl Client {
 
     pub fn set_focus_follows_mouse_mode(&self, seat: Seat, mode: FocusFollowsMouseMode) {
         self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
+    }
+
+    pub fn set_fallback_output_mode(&self, seat: Seat, mode: FallbackOutputMode) {
+        self.send(&ClientMessage::SetFallbackOutputMode { seat, mode })
     }
 
     pub fn set_window_management_enabled(&self, seat: Seat, enabled: bool) {

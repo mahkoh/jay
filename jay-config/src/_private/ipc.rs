@@ -3,8 +3,8 @@ use {
         _private::{PollableId, WireMode},
         Axis, Direction, PciId, Workspace,
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
+            acceleration::AccelProfile, capability::Capability,
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -352,7 +352,7 @@ pub enum ClientMessage<'a> {
     MakeRenderDevice {
         device: DrmDevice,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         seat: Seat,
     },
     SetDefaultWorkspaceCapture {
@@ -565,6 +565,10 @@ pub enum ClientMessage<'a> {
     GetConnectorWorkspaces {
         connector: Connector,
     },
+    SetFallbackOutputMode {
+        seat: Seat,
+        mode: FallbackOutputMode,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -664,7 +668,7 @@ pub enum Response {
         width: i32,
         height: i32,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         workspace: Workspace,
     },
     GetDefaultWorkspaceCapture {

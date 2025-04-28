@@ -39,7 +39,7 @@ use {
         },
         Axis, Direction, Workspace,
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, Seat,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -356,6 +356,16 @@ impl ConfigProxyHandler {
             FocusFollowsMouseMode::False => false,
         };
         seat.set_focus_follows_mouse(focus_follows_mouse);
+        Ok(())
+    }
+
+    fn handle_set_fallback_output_mode(
+        &self,
+        seat: Seat,
+        mode: FallbackOutputMode,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_fallback_output_mode(mode);
         Ok(())
     }
 
@@ -809,16 +819,16 @@ impl ConfigProxyHandler {
         self.state.double_click_distance.set(dist);
     }
 
-    fn handle_get_seat_workspace(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_cursor_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        let output = seat.get_output();
+        let output = seat.get_cursor_output();
         let mut workspace = Workspace(0);
         if !output.is_dummy {
             if let Some(ws) = output.workspace.get() {
                 workspace = self.get_workspace_by_name(&ws.name);
             }
         }
-        self.respond(Response::GetSeatWorkspace { workspace });
+        self.respond(Response::GetSeatCursorWorkspace { workspace });
         Ok(())
     }
 
@@ -1926,8 +1936,8 @@ impl ConfigProxyHandler {
             ClientMessage::MakeRenderDevice { device } => self
                 .handle_make_render_device(device)
                 .wrn("make_render_device")?,
-            ClientMessage::GetSeatWorkspace { seat } => self
-                .handle_get_seat_workspace(seat)
+            ClientMessage::GetSeatCursorWorkspace { seat } => self
+                .handle_get_seat_cursor_workspace(seat)
                 .wrn("get_seat_workspace")?,
             ClientMessage::GetSeatKeyboardWorkspace { seat } => self
                 .handle_get_seat_keyboard_workspace(seat)
@@ -2048,6 +2058,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetFocusFollowsMouseMode { seat, mode } => self
                 .handle_set_focus_follows_mouse_mode(seat, mode)
                 .wrn("set_focus_follows_mouse_mode")?,
+            ClientMessage::SetFallbackOutputMode { seat, mode } => self
+                .handle_set_fallback_output_mode(seat, mode)
+                .wrn("set_fallback_output_mode")?,
             ClientMessage::SetInputDeviceConnector {
                 input_device,
                 connector,
