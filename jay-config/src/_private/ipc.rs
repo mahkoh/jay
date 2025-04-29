@@ -129,20 +129,20 @@ pub enum ClientMessage<'a> {
         rate: i32,
         delay: i32,
     },
-    GetSplit {
+    GetSeatSplit {
         seat: Seat,
     },
     SetStatus {
         status: &'a str,
     },
-    SetSplit {
+    SetSeatSplit {
         seat: Seat,
         axis: Axis,
     },
-    GetMono {
+    GetSeatMono {
         seat: Seat,
     },
-    SetMono {
+    SetSeatMono {
         seat: Seat,
         mono: bool,
     },
@@ -168,11 +168,11 @@ pub enum ClientMessage<'a> {
         args: Vec<String>,
         env: Vec<(String, String)>,
     },
-    Focus {
+    SeatFocus {
         seat: Seat,
         direction: Direction,
     },
-    Move {
+    SeatMove {
         seat: Seat,
         direction: Direction,
     },
@@ -196,20 +196,20 @@ pub enum ClientMessage<'a> {
         colorable: Colorable,
         color: Color,
     },
-    CreateSplit {
+    CreateSeatSplit {
         seat: Seat,
         axis: Axis,
     },
-    Close {
+    SeatClose {
         seat: Seat,
     },
-    FocusParent {
+    FocusSeatParent {
         seat: Seat,
     },
-    GetFloating {
+    GetSeatFloating {
         seat: Seat,
     },
-    SetFloating {
+    SetSeatFloating {
         seat: Seat,
         floating: bool,
     },
@@ -261,7 +261,7 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         workspace: Workspace,
     },
-    SetWorkspace {
+    SetSeatWorkspace {
         seat: Seat,
         workspace: Workspace,
     },
@@ -280,11 +280,11 @@ pub enum ClientMessage<'a> {
         key: &'a str,
         val: &'a str,
     },
-    SetFullscreen {
+    SetSeatFullscreen {
         seat: Seat,
         fullscreen: bool,
     },
-    GetFullscreen {
+    GetSeatFullscreen {
         seat: Seat,
     },
     GetDeviceConnectors {
@@ -546,10 +546,10 @@ pub enum ClientMessage<'a> {
         above: bool,
     },
     GetFloatAboveFullscreen,
-    GetFloatPinned {
+    GetSeatFloatPinned {
         seat: Seat,
     },
-    SetFloatPinned {
+    SetSeatFloatPinned {
         seat: Seat,
         pinned: bool,
     },

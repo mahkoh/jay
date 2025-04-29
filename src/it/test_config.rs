@@ -214,14 +214,14 @@ impl TestConfig {
     }
 
     pub fn create_split(&self, seat: SeatId, axis: Axis) -> TestResult {
-        self.send(ClientMessage::CreateSplit {
+        self.send(ClientMessage::CreateSeatSplit {
             seat: Seat(seat.raw() as _),
             axis,
         })
     }
 
     pub fn set_mono(&self, seat: SeatId, mono: bool) -> TestResult {
-        self.send(ClientMessage::SetMono {
+        self.send(ClientMessage::SetSeatMono {
             seat: Seat(seat.raw() as _),
             mono,
         })
@@ -248,14 +248,14 @@ impl TestConfig {
     }
 
     pub fn focus(&self, seat: SeatId, direction: Direction) -> TestResult {
-        self.send(ClientMessage::Focus {
+        self.send(ClientMessage::SeatFocus {
             seat: Seat(seat.raw() as _),
             direction,
         })
     }
 
     pub fn set_fullscreen(&self, seat: SeatId, fs: bool) -> TestResult {
-        self.send(ClientMessage::SetFullscreen {
+        self.send(ClientMessage::SetSeatFullscreen {
             seat: Seat(seat.raw() as _),
             fullscreen: fs,
         })
@@ -270,7 +270,7 @@ impl TestConfig {
     }
 
     pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {
-        self.send(ClientMessage::SetFloating {
+        self.send(ClientMessage::SetSeatFloating {
             seat: Seat(seat.raw() as _),
             floating,
         })

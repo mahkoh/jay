@@ -333,12 +333,12 @@ impl Client {
         self.send(&ClientMessage::GrabKb { kb, grab });
     }
 
-    pub fn focus(&self, seat: Seat, direction: Direction) {
-        self.send(&ClientMessage::Focus { seat, direction });
+    pub fn seat_focus(&self, seat: Seat, direction: Direction) {
+        self.send(&ClientMessage::SeatFocus { seat, direction });
     }
 
-    pub fn move_(&self, seat: Seat, direction: Direction) {
-        self.send(&ClientMessage::Move { seat, direction });
+    pub fn seat_move(&self, seat: Seat, direction: Direction) {
+        self.send(&ClientMessage::SeatMove { seat, direction });
     }
 
     pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
@@ -367,8 +367,8 @@ impl Client {
         seats
     }
 
-    pub fn mono(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetMono { seat });
+    pub fn seat_mono(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatMono { seat });
         get_response!(res, false, GetMono { mono });
         mono
     }
@@ -450,12 +450,12 @@ impl Client {
         self.send(&ClientMessage::ShowWorkspace { seat, workspace });
     }
 
-    pub fn set_workspace(&self, seat: Seat, workspace: Workspace) {
-        self.send(&ClientMessage::SetWorkspace { seat, workspace });
+    pub fn set_seat_workspace(&self, seat: Seat, workspace: Workspace) {
+        self.send(&ClientMessage::SetSeatWorkspace { seat, workspace });
     }
 
-    pub fn split(&self, seat: Seat) -> Axis {
-        let res = self.send_with_response(&ClientMessage::GetSplit { seat });
+    pub fn seat_split(&self, seat: Seat) -> Axis {
+        let res = self.send_with_response(&ClientMessage::GetSeatSplit { seat });
         get_response!(res, Axis::Horizontal, GetSplit { axis });
         axis
     }
@@ -471,12 +471,12 @@ impl Client {
         });
     }
 
-    pub fn set_fullscreen(&self, seat: Seat, fullscreen: bool) {
-        self.send(&ClientMessage::SetFullscreen { seat, fullscreen });
+    pub fn set_seat_fullscreen(&self, seat: Seat, fullscreen: bool) {
+        self.send(&ClientMessage::SetSeatFullscreen { seat, fullscreen });
     }
 
-    pub fn get_fullscreen(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFullscreen { seat });
+    pub fn get_seat_fullscreen(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatFullscreen { seat });
         get_response!(res, false, GetFullscreen { fullscreen });
         fullscreen
     }
@@ -495,18 +495,18 @@ impl Client {
         font
     }
 
-    pub fn get_floating(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFloating { seat });
+    pub fn get_seat_floating(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatFloating { seat });
         get_response!(res, false, GetFloating { floating });
         floating
     }
 
-    pub fn set_floating(&self, seat: Seat, floating: bool) {
-        self.send(&ClientMessage::SetFloating { seat, floating });
+    pub fn set_seat_floating(&self, seat: Seat, floating: bool) {
+        self.send(&ClientMessage::SetSeatFloating { seat, floating });
     }
 
-    pub fn toggle_floating(&self, seat: Seat) {
-        self.set_floating(seat, !self.get_floating(seat));
+    pub fn toggle_seat_floating(&self, seat: Seat) {
+        self.set_seat_floating(seat, !self.get_seat_floating(seat));
     }
 
     pub fn reset_colors(&self) {
@@ -548,8 +548,8 @@ impl Client {
         self.send(&ClientMessage::SetSize { sized, size })
     }
 
-    pub fn set_mono(&self, seat: Seat, mono: bool) {
-        self.send(&ClientMessage::SetMono { seat, mono });
+    pub fn set_seat_mono(&self, seat: Seat, mono: bool) {
+        self.send(&ClientMessage::SetSeatMono { seat, mono });
     }
 
     pub fn set_env(&self, key: &str, val: &str) {
@@ -582,20 +582,20 @@ impl Client {
         self.i3bar_separator.borrow().clone()
     }
 
-    pub fn set_split(&self, seat: Seat, axis: Axis) {
-        self.send(&ClientMessage::SetSplit { seat, axis });
+    pub fn set_seat_split(&self, seat: Seat, axis: Axis) {
+        self.send(&ClientMessage::SetSeatSplit { seat, axis });
     }
 
-    pub fn create_split(&self, seat: Seat, axis: Axis) {
-        self.send(&ClientMessage::CreateSplit { seat, axis });
+    pub fn create_seat_split(&self, seat: Seat, axis: Axis) {
+        self.send(&ClientMessage::CreateSeatSplit { seat, axis });
     }
 
-    pub fn close(&self, seat: Seat) {
-        self.send(&ClientMessage::Close { seat });
+    pub fn seat_close(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatClose { seat });
     }
 
-    pub fn focus_parent(&self, seat: Seat) {
-        self.send(&ClientMessage::FocusParent { seat });
+    pub fn focus_seat_parent(&self, seat: Seat) {
+        self.send(&ClientMessage::FocusSeatParent { seat });
     }
 
     pub fn get_seat(&self, name: &str) -> Seat {
@@ -792,13 +792,13 @@ impl Client {
     }
 
     pub fn get_pinned(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFloatPinned { seat });
+        let res = self.send_with_response(&ClientMessage::GetSeatFloatPinned { seat });
         get_response!(res, false, GetFloatPinned { pinned });
         pinned
     }
 
     pub fn set_pinned(&self, seat: Seat, pinned: bool) {
-        self.send(&ClientMessage::SetFloatPinned { seat, pinned });
+        self.send(&ClientMessage::SetSeatFloatPinned { seat, pinned });
     }
 
     pub fn connector_connected(&self, connector: Connector) -> bool {

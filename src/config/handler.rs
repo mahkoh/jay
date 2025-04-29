@@ -299,7 +299,7 @@ impl ConfigProxyHandler {
         self.state.config.set(Some(Rc::new(config)));
     }
 
-    fn handle_get_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetFullscreen {
             fullscreen: seat.get_fullscreen(),
@@ -307,7 +307,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_fullscreen(&self, seat: Seat, fullscreen: bool) -> Result<(), CphError> {
+    fn handle_set_seat_fullscreen(&self, seat: Seat, fullscreen: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_fullscreen(fullscreen);
         Ok(())
@@ -484,19 +484,19 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_close(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_seat_close(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.close();
         Ok(())
     }
 
-    fn handle_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
+    fn handle_seat_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focus(direction.into());
         Ok(())
     }
 
-    fn handle_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
+    fn handle_seat_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focused(direction.into());
         Ok(())
@@ -843,7 +843,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
+    fn handle_set_seat_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
         let workspace = match self.state.workspaces.get(name.deref()) {
@@ -1164,7 +1164,7 @@ impl ConfigProxyHandler {
         }
     }
 
-    fn handle_get_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetFloatPinned {
             pinned: seat.pinned(),
@@ -1172,7 +1172,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_float_pinned(&self, seat: Seat, pinned: bool) -> Result<(), CphError> {
+    fn handle_set_seat_float_pinned(&self, seat: Seat, pinned: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_pinned(pinned);
         Ok(())
@@ -1344,7 +1344,7 @@ impl ConfigProxyHandler {
         }
     }
 
-    fn handle_get_mono(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_mono(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetMono {
             mono: seat.get_mono().unwrap_or(false),
@@ -1352,13 +1352,13 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_mono(&self, seat: Seat, mono: bool) -> Result<(), CphError> {
+    fn handle_set_seat_mono(&self, seat: Seat, mono: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_mono(mono);
         Ok(())
     }
 
-    fn handle_get_split(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_split(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetSplit {
             axis: seat
@@ -1369,7 +1369,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
+    fn handle_set_seat_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_split(axis.into());
         Ok(())
@@ -1472,13 +1472,13 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_create_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
+    fn handle_create_seat_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.create_split(axis.into());
         Ok(())
     }
 
-    fn handle_focus_parent(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_focus_seat_parent(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.focus_parent();
         Ok(())
@@ -1493,7 +1493,7 @@ impl ConfigProxyHandler {
         self.state.backend.get().switch_to(vtnr);
     }
 
-    fn handle_get_floating(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_floating(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetFloating {
             floating: seat.get_floating().unwrap_or(false),
@@ -1501,7 +1501,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_floating(&self, seat: Seat, floating: bool) -> Result<(), CphError> {
+    fn handle_set_seat_floating(&self, seat: Seat, floating: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_floating(floating);
         Ok(())
@@ -1751,25 +1751,29 @@ impl ConfigProxyHandler {
             ClientMessage::SetSeat { device, seat } => {
                 self.handle_set_seat(device, seat).wrn("set_seat")?
             }
-            ClientMessage::GetMono { seat } => self.handle_get_mono(seat).wrn("get_mono")?,
-            ClientMessage::SetMono { seat, mono } => {
-                self.handle_set_mono(seat, mono).wrn("set_mono")?
+            ClientMessage::GetSeatMono { seat } => {
+                self.handle_get_seat_mono(seat).wrn("get_seat_mono")?
             }
-            ClientMessage::GetSplit { seat } => self.handle_get_split(seat).wrn("get_split")?,
-            ClientMessage::SetSplit { seat, axis } => {
-                self.handle_set_split(seat, axis).wrn("set_split")?
+            ClientMessage::SetSeatMono { seat, mono } => {
+                self.handle_set_seat_mono(seat, mono).wrn("set_seat_mono")?
             }
+            ClientMessage::GetSeatSplit { seat } => {
+                self.handle_get_seat_split(seat).wrn("get_seat_split")?
+            }
+            ClientMessage::SetSeatSplit { seat, axis } => self
+                .handle_set_seat_split(seat, axis)
+                .wrn("set_seat_split")?,
             ClientMessage::AddShortcut { seat, mods, sym } => self
                 .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
                 .wrn("add_shortcut")?,
             ClientMessage::RemoveShortcut { seat, mods, sym } => self
                 .handle_remove_shortcut(seat, mods, sym)
                 .wrn("remove_shortcut")?,
-            ClientMessage::Focus { seat, direction } => {
-                self.handle_focus(seat, direction).wrn("focus")?
+            ClientMessage::SeatFocus { seat, direction } => {
+                self.handle_seat_focus(seat, direction).wrn("seat_focus")?
             }
-            ClientMessage::Move { seat, direction } => {
-                self.handle_move(seat, direction).wrn("move")?
+            ClientMessage::SeatMove { seat, direction } => {
+                self.handle_seat_move(seat, direction).wrn("seat_move")?
             }
             ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat),
             ClientMessage::GetSeats => self.handle_get_seats(),
@@ -1784,18 +1788,18 @@ impl ConfigProxyHandler {
             ClientMessage::GetColor { colorable } => {
                 self.handle_get_color(colorable).wrn("get_color")?
             }
-            ClientMessage::CreateSplit { seat, axis } => {
-                self.handle_create_split(seat, axis).wrn("create_split")?
-            }
-            ClientMessage::FocusParent { seat } => {
-                self.handle_focus_parent(seat).wrn("focus_parent")?
-            }
-            ClientMessage::GetFloating { seat } => {
-                self.handle_get_floating(seat).wrn("get_floating")?
-            }
-            ClientMessage::SetFloating { seat, floating } => self
-                .handle_set_floating(seat, floating)
-                .wrn("set_floating")?,
+            ClientMessage::CreateSeatSplit { seat, axis } => self
+                .handle_create_seat_split(seat, axis)
+                .wrn("create_seat_split")?,
+            ClientMessage::FocusSeatParent { seat } => self
+                .handle_focus_seat_parent(seat)
+                .wrn("focus_seat_parent")?,
+            ClientMessage::GetSeatFloating { seat } => self
+                .handle_get_seat_floating(seat)
+                .wrn("get_seat_floating")?,
+            ClientMessage::SetSeatFloating { seat, floating } => self
+                .handle_set_seat_floating(seat, floating)
+                .wrn("set_seat_floating")?,
             ClientMessage::Quit => self.handle_quit(),
             ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
             ClientMessage::HasCapability { device, cap } => self
@@ -1823,9 +1827,9 @@ impl ConfigProxyHandler {
             ClientMessage::ShowWorkspace { seat, workspace } => self
                 .handle_show_workspace(seat, workspace)
                 .wrn("show_workspace")?,
-            ClientMessage::SetWorkspace { seat, workspace } => self
-                .handle_set_workspace(seat, workspace)
-                .wrn("set_workspace")?,
+            ClientMessage::SetSeatWorkspace { seat, workspace } => self
+                .handle_set_seat_workspace(seat, workspace)
+                .wrn("set_seat_workspace")?,
             ClientMessage::GetConnector { ty, idx } => {
                 self.handle_get_connector(ty, idx).wrn("get_connector")?
             }
@@ -1844,7 +1848,7 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetEnabled { connector, enabled } => self
                 .handle_connector_set_enabled(connector, enabled)
                 .wrn("connector_set_enabled")?,
-            ClientMessage::Close { seat } => self.handle_close(seat).wrn("close")?,
+            ClientMessage::SeatClose { seat } => self.handle_seat_close(seat).wrn("seat_close")?,
             ClientMessage::SetStatus { status } => self.handle_set_status(status),
             ClientMessage::GetTimer { name } => self.handle_get_timer(name).wrn("get_timer")?,
             ClientMessage::RemoveTimer { timer } => {
@@ -1858,12 +1862,12 @@ impl ConfigProxyHandler {
                 .handle_program_timer(timer, initial, periodic)
                 .wrn("program_timer")?,
             ClientMessage::SetEnv { key, val } => self.handle_set_env(key, val),
-            ClientMessage::SetFullscreen { seat, fullscreen } => self
-                .handle_set_fullscreen(seat, fullscreen)
-                .wrn("set_fullscreen")?,
-            ClientMessage::GetFullscreen { seat } => {
-                self.handle_get_fullscreen(seat).wrn("get_fullscreen")?
-            }
+            ClientMessage::SetSeatFullscreen { seat, fullscreen } => self
+                .handle_set_seat_fullscreen(seat, fullscreen)
+                .wrn("set_seat_fullscreen")?,
+            ClientMessage::GetSeatFullscreen { seat } => self
+                .handle_get_seat_fullscreen(seat)
+                .wrn("get_seat_fullscreen")?,
             ClientMessage::Reload => self.handle_reload(),
             ClientMessage::GetDeviceConnectors { device } => self
                 .handle_get_connectors(Some(device), false)
@@ -2111,12 +2115,12 @@ impl ConfigProxyHandler {
                 self.handle_set_float_above_fullscreen(above)
             }
             ClientMessage::GetFloatAboveFullscreen => self.handle_get_float_above_fullscreen(),
-            ClientMessage::GetFloatPinned { seat } => {
-                self.handle_get_float_pinned(seat).wrn("get_float_pinned")?
-            }
-            ClientMessage::SetFloatPinned { seat, pinned } => self
-                .handle_set_float_pinned(seat, pinned)
-                .wrn("set_float_pinned")?,
+            ClientMessage::GetSeatFloatPinned { seat } => self
+                .handle_get_seat_float_pinned(seat)
+                .wrn("get_seat_float_pinned")?,
+            ClientMessage::SetSeatFloatPinned { seat, pinned } => self
+                .handle_set_seat_float_pinned(seat, pinned)
+                .wrn("set_seat_float_pinned")?,
             ClientMessage::SetShowFloatPinIcon { show } => {
                 self.handle_set_show_float_pin_icon(show)
             }
