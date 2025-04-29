@@ -13,7 +13,7 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, WorkspaceNode, default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -205,16 +205,19 @@ impl Xwindow {
         if xsurface.xwindow.is_some() {
             return Err(XWindowError::AlreadyAttached);
         }
+        let id = data.state.node_ids.next();
         let slf = Rc::new_cyclic(|weak| {
             let tld = ToplevelData::new(
                 &data.state,
                 data.info.title.borrow_mut().clone().unwrap_or_default(),
                 Some(surface.client.clone()),
+                ToplevelType::XWindow,
+                id,
                 weak,
             );
             tld.pos.set(surface.extents.get());
             Self {
-                id: data.state.node_ids.next(),
+                id,
                 data: data.clone(),
                 display_link: Default::default(),
                 toplevel_data: tld,

@@ -27,7 +27,8 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelNodeId, WorkspaceNode, default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelNodeId, ToplevelType, WorkspaceNode,
+            default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire::{XdgToplevelId, xdg_toplevel::*},
@@ -133,11 +134,12 @@ impl XdgToplevel {
             states.insert(STATE_CONSTRAINED_BOTTOM);
         }
         let state = &surface.surface.client.state;
+        let node_id = state.node_ids.next();
         Self {
             id,
             state: state.clone(),
             xdg: surface.clone(),
-            node_id: state.node_ids.next(),
+            node_id,
             parent: Default::default(),
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
@@ -152,6 +154,8 @@ impl XdgToplevel {
                 state,
                 String::new(),
                 Some(surface.surface.client.clone()),
+                ToplevelType::XdgToplevel,
+                node_id,
                 slf,
             ),
             drag: Default::default(),

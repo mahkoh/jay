@@ -12,7 +12,7 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelType, default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -49,12 +49,15 @@ pub async fn placeholder_render_textures(state: Rc<State>) {
 
 impl PlaceholderNode {
     pub fn new_for(state: &Rc<State>, node: Rc<dyn ToplevelNode>, slf: &Weak<Self>) -> Self {
+        let id = state.node_ids.next();
         Self {
-            id: state.node_ids.next(),
+            id,
             toplevel: ToplevelData::new(
                 state,
                 node.tl_data().title.borrow().clone(),
                 node.node_client(),
+                ToplevelType::Placeholder,
+                id,
                 slf,
             ),
             destroyed: Default::default(),
@@ -65,9 +68,17 @@ impl PlaceholderNode {
     }
 
     pub fn new_empty(state: &Rc<State>, slf: &Weak<Self>) -> Self {
+        let id = state.node_ids.next();
         Self {
-            id: state.node_ids.next(),
-            toplevel: ToplevelData::new(state, String::new(), None, slf),
+            id,
+            toplevel: ToplevelData::new(
+                state,
+                String::new(),
+                None,
+                ToplevelType::Placeholder,
+                id,
+                slf,
+            ),
             destroyed: Default::default(),
             update_textures_scheduled: Default::default(),
             state: state.clone(),

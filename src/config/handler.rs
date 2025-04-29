@@ -19,7 +19,9 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, VrrMode, WsMoveConfig, move_ws_to_output,
+            TearingMode, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig, move_ws_to_output,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -30,6 +32,7 @@ use {
             oserror::OsError,
             stack::Stack,
             timer::{TimerError, TimerFd},
+            toplevel_identifier::ToplevelIdentifier,
         },
     },
     bincode::Options,
@@ -57,6 +60,7 @@ use {
             TearingMode as ConfigTearingMode, TransferFunction as ConfigTransferFunction,
             Transform, VrrMode as ConfigVrrMode,
         },
+        window::Window,
         xwayland::XScalingMode,
     },
     libloading::Library,
@@ -89,6 +93,10 @@ pub(super) struct ConfigProxyHandler {
 
     pub pollable_id: NumCell<u64>,
     pub pollables: CopyHashMap<PollableId, Rc<Pollable>>,
+
+    pub window_ids: NumCell<u64>,
+    pub windows_from_tl_id: CopyHashMap<ToplevelIdentifier, Window>,
+    pub windows_to_tl_id: CopyHashMap<Window, ToplevelIdentifier>,
 }
 
 pub struct Pollable {
@@ -315,6 +323,24 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_window_fullscreen(&self, window: Window) -> Result<(), CphError> {
+        let tl = self.get_window(window)?;
+        self.respond(Response::GetWindowFullscreen {
+            fullscreen: tl.tl_data().is_fullscreen.get(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_fullscreen(
+        &self,
+        window: Window,
+        fullscreen: bool,
+    ) -> Result<(), CphError> {
+        let tl = self.get_window(window)?;
+        tl.tl_set_fullscreen(fullscreen);
+        Ok(())
+    }
+
     fn handle_set_keymap(&self, seat: Seat, keymap: Keymap) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let keymap = if keymap.is_invalid() {
@@ -492,6 +518,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_window_close(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        window.tl_close();
+        Ok(())
+    }
+
     fn handle_seat_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focus(direction.into());
@@ -501,6 +533,14 @@ impl ConfigProxyHandler {
     fn handle_seat_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focused(direction.into());
+        Ok(())
+    }
+
+    fn handle_window_move(&self, window: Window, direction: Direction) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_parent_container(&*window) {
+            c.move_child(window, direction.into());
+        }
         Ok(())
     }
 
@@ -528,6 +568,11 @@ impl ConfigProxyHandler {
             Some(ws) => Ok(ws),
             _ => Err(CphError::WorkspaceDoesNotExist(ws)),
         }
+    }
+
+    fn get_existing_workspace(&self, ws: Workspace) -> Result<Option<Rc<WorkspaceNode>>, CphError> {
+        self.get_workspace(ws)
+            .map(|ws| self.state.workspaces.get(&*ws))
     }
 
     fn get_device_handler_data(
@@ -720,8 +765,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_workspace_capture(&self, workspace: Workspace) -> Result<(), CphError> {
-        let name = self.get_workspace(workspace)?;
-        let capture = match self.state.workspaces.get(name.as_str()) {
+        let ws = self.get_existing_workspace(workspace)?;
+        let capture = match ws {
             Some(ws) => ws.may_capture.get(),
             None => self.state.default_workspace_capture.get(),
         };
@@ -734,8 +779,7 @@ impl ConfigProxyHandler {
         workspace: Workspace,
         capture: bool,
     ) -> Result<(), CphError> {
-        let name = self.get_workspace(workspace)?;
-        if let Some(ws) = self.state.workspaces.get(name.as_str()) {
+        if let Some(ws) = self.get_existing_workspace(workspace)? {
             ws.may_capture.set(capture);
             ws.update_has_captures();
         }
@@ -856,6 +900,20 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_window_workspace(&self, window: Window, ws: Workspace) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let name = self.get_workspace(ws)?;
+        let workspace = match self.state.workspaces.get(name.deref()) {
+            Some(ws) => ws,
+            _ => match window.node_output() {
+                Some(o) => o.create_workspace(name.deref()),
+                _ => return Ok(()),
+            },
+        };
+        toplevel_set_workspace(&self.state, window, &workspace);
+        Ok(())
+    }
+
     fn handle_get_device_name(&self, device: InputDevice) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let name = dev.device.name();
@@ -888,13 +946,10 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
         let ws = match workspace {
-            WorkspaceSource::Explicit(ws) => {
-                let name = self.get_workspace(ws)?;
-                match self.state.workspaces.get(name.as_str()) {
-                    Some(ws) => ws,
-                    _ => return Ok(()),
-                }
-            }
+            WorkspaceSource::Explicit(ws) => match self.get_existing_workspace(ws)? {
+                Some(ws) => ws,
+                _ => return Ok(()),
+            },
             WorkspaceSource::Seat(s) => match self.get_seat(s)?.get_output().workspace.get() {
                 Some(ws) => ws,
                 _ => return Ok(()),
@@ -1180,6 +1235,20 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_window_float_pinned(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowFloatPinned {
+            pinned: window.tl_pinned(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_float_pinned(&self, window: Window, pinned: bool) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        window.tl_set_pinned(true, pinned);
+        Ok(())
+    }
+
     fn handle_set_vrr_mode(
         &self,
         connector: Option<Connector>,
@@ -1360,6 +1429,24 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_window_mono(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowMono {
+            mono: toplevel_parent_container(&*window)
+                .map(|c| c.mono_child.is_some())
+                .unwrap_or(false),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_mono(&self, window: Window, mono: bool) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_parent_container(&*window) {
+            c.set_mono(mono.then_some(window.as_ref()));
+        }
+        Ok(())
+    }
+
     fn handle_get_seat_split(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetSplit {
@@ -1374,6 +1461,25 @@ impl ConfigProxyHandler {
     fn handle_set_seat_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_split(axis.into());
+        Ok(())
+    }
+
+    fn handle_get_window_split(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowSplit {
+            axis: toplevel_parent_container(&*window)
+                .map(|c| c.split.get())
+                .unwrap_or(ContainerSplit::Horizontal)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_split(&self, window: Window, axis: Axis) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_parent_container(&*window) {
+            c.set_split(axis.into());
+        }
         Ok(())
     }
 
@@ -1480,6 +1586,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_create_window_split(&self, window: Window, axis: Axis) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        toplevel_create_split(&self.state, window, axis.into());
+        Ok(())
+    }
+
     fn handle_focus_seat_parent(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.focus_parent();
@@ -1506,6 +1618,20 @@ impl ConfigProxyHandler {
     fn handle_set_seat_floating(&self, seat: Seat, floating: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_floating(floating);
+        Ok(())
+    }
+
+    fn handle_get_window_floating(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowFloating {
+            floating: window.tl_data().is_floating.get(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_floating(&self, window: Window, floating: bool) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        toplevel_set_floating(&self.state, window, floating);
         Ok(())
     }
 
@@ -1575,6 +1701,28 @@ impl ConfigProxyHandler {
         };
         trigger.trigger();
         Ok(())
+    }
+
+    fn tl_to_window(&self, tl: &dyn ToplevelNode) -> Window {
+        self.tl_id_to_window(tl.tl_data().identifier.get())
+    }
+
+    fn tl_id_to_window(&self, tl: ToplevelIdentifier) -> Window {
+        if let Some(win) = self.windows_from_tl_id.get(&tl) {
+            return win;
+        }
+        let id = Window(self.window_ids.fetch_add(1));
+        self.windows_from_tl_id.set(tl, id);
+        self.windows_to_tl_id.set(id, tl);
+        id
+    }
+
+    fn get_window(&self, window: Window) -> Result<Rc<dyn ToplevelNode>, CphError> {
+        self.windows_to_tl_id
+            .get(&window)
+            .and_then(|id| self.state.toplevels.get(&id))
+            .and_then(|tl| tl.upgrade())
+            .ok_or(CphError::WindowDoesNotExist(window))
     }
 
     fn spaces_change(&self) {
@@ -1750,6 +1898,123 @@ impl ConfigProxyHandler {
 
     fn handle_client_kill(&self, client: ConfigClient) {
         self.state.clients.kill(ClientId::from_raw(client.0));
+    }
+
+    fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {
+        let window = self
+            .get_existing_workspace(ws)?
+            .and_then(|ws| ws.container.get())
+            .map(|c| self.tl_to_window(&*c))
+            .unwrap_or(Window(0));
+        self.respond(Response::GetWorkspaceWindow { window });
+        Ok(())
+    }
+
+    fn handle_get_seat_keyboard_window(&self, seat: Seat) -> Result<(), CphError> {
+        let window = self
+            .get_seat(seat)?
+            .get_keyboard_node()
+            .node_toplevel()
+            .map(|tl| self.tl_to_window(&*tl))
+            .unwrap_or(Window(0));
+        self.respond(Response::GetSeatKeyboardWindow { window });
+        Ok(())
+    }
+
+    fn handle_seat_focus_window(&self, seat: Seat, window_id: Window) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let window = self.get_window(window_id)?;
+        if !window.node_visible() {
+            return Err(CphError::WindowNotVisible(window_id));
+        }
+        seat.focus_toplevel(window);
+        Ok(())
+    }
+
+    fn handle_get_window_title(&self, window: Window) -> Result<(), CphError> {
+        let title = self.get_window(window)?.tl_data().title.borrow().clone();
+        self.respond(Response::GetWindowTitle { title });
+        Ok(())
+    }
+
+    fn handle_get_window_type(&self, window: Window) -> Result<(), CphError> {
+        let kind = self.get_window(window)?.tl_data().kind.to_window_type();
+        self.respond(Response::GetWindowType { kind });
+        Ok(())
+    }
+
+    fn handle_window_exists(&self, window: Window) {
+        self.respond(Response::WindowExists {
+            exists: self.get_window(window).is_ok(),
+        });
+    }
+
+    fn handle_get_window_id(&self, window: Window) -> Result<(), CphError> {
+        let id = self
+            .get_window(window)?
+            .tl_data()
+            .identifier
+            .get()
+            .to_string();
+        self.respond(Response::GetWindowId { id: id.to_string() });
+        Ok(())
+    }
+
+    fn handle_get_window_is_visible(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowIsVisible {
+            visible: window.node_visible(),
+        });
+        Ok(())
+    }
+
+    fn handle_get_window_client(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowClient {
+            client: window
+                .tl_data()
+                .client
+                .as_ref()
+                .map(|c| ConfigClient(c.id.raw()))
+                .unwrap_or(ConfigClient(0)),
+        });
+        Ok(())
+    }
+
+    fn handle_get_window_parent(&self, window: Window) -> Result<(), CphError> {
+        let window = self
+            .get_window(window)?
+            .tl_data()
+            .parent
+            .get()
+            .and_then(|tl| tl.node_into_toplevel())
+            .map(|tl| self.tl_to_window(&*tl))
+            .unwrap_or(Window(0));
+        self.respond(Response::GetWindowParent { window });
+        Ok(())
+    }
+
+    fn handle_get_window_workspace(&self, window: Window) -> Result<(), CphError> {
+        let workspace = self
+            .get_window(window)?
+            .tl_data()
+            .workspace
+            .get()
+            .map(|ws| self.get_workspace_by_name(&ws.name))
+            .unwrap_or(Workspace(0));
+        self.respond(Response::GetWindowWorkspace { workspace });
+        Ok(())
+    }
+
+    fn handle_get_window_children(&self, window: Window) -> Result<(), CphError> {
+        let mut windows = vec![];
+        if let Some(c) = self.get_window(window)?.node_into_container() {
+            for c in c.children.iter() {
+                windows.push(self.tl_to_window(&*c.node));
+            }
+        }
+        self.respond(Response::GetWindowChildren { windows });
+        Ok(())
     }
 
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
@@ -2171,6 +2436,82 @@ impl ConfigProxyHandler {
                 .handle_client_is_xwayland(client)
                 .wrn("client_is_xwayland")?,
             ClientMessage::ClientKill { client } => self.handle_client_kill(client),
+            ClientMessage::WindowExists { window } => self.handle_window_exists(window),
+            ClientMessage::GetWorkspaceWindow { workspace } => self
+                .handle_get_workspace_window(workspace)
+                .wrn("get_workspace_window")?,
+            ClientMessage::GetSeatKeyboardWindow { seat } => self
+                .handle_get_seat_keyboard_window(seat)
+                .wrn("get_seat_keyboard_window")?,
+            ClientMessage::SeatFocusWindow { seat, window } => self
+                .handle_seat_focus_window(seat, window)
+                .wrn("seat_focus_window")?,
+            ClientMessage::GetWindowTitle { window } => self
+                .handle_get_window_title(window)
+                .wrn("get_window_title")?,
+            ClientMessage::GetWindowType { window } => {
+                self.handle_get_window_type(window).wrn("get_window_type")?
+            }
+            ClientMessage::GetWindowId { window } => {
+                self.handle_get_window_id(window).wrn("get_window_id")?
+            }
+            ClientMessage::GetWindowParent { window } => self
+                .handle_get_window_parent(window)
+                .wrn("get_window_parent")?,
+            ClientMessage::GetWindowWorkspace { window } => self
+                .handle_get_window_workspace(window)
+                .wrn("get_window_workspace")?,
+            ClientMessage::GetWindowChildren { window } => self
+                .handle_get_window_children(window)
+                .wrn("get_window_children")?,
+            ClientMessage::GetWindowSplit { window } => self
+                .handle_get_window_split(window)
+                .wrn("get_window_split")?,
+            ClientMessage::SetWindowSplit { window, axis } => self
+                .handle_set_window_split(window, axis)
+                .wrn("set_window_split")?,
+            ClientMessage::GetWindowMono { window } => {
+                self.handle_get_window_mono(window).wrn("get_window_mono")?
+            }
+            ClientMessage::SetWindowMono { window, mono } => self
+                .handle_set_window_mono(window, mono)
+                .wrn("set_window_mono")?,
+            ClientMessage::WindowMove { window, direction } => self
+                .handle_window_move(window, direction)
+                .wrn("window_move")?,
+            ClientMessage::CreateWindowSplit { window, axis } => self
+                .handle_create_window_split(window, axis)
+                .wrn("create_window_split")?,
+            ClientMessage::WindowClose { window } => {
+                self.handle_window_close(window).wrn("close_window")?
+            }
+            ClientMessage::GetWindowFloating { window } => self
+                .handle_get_window_floating(window)
+                .wrn("get_window_floating")?,
+            ClientMessage::SetWindowFloating { window, floating } => self
+                .handle_set_window_floating(window, floating)
+                .wrn("set_window_floating")?,
+            ClientMessage::SetWindowWorkspace { window, workspace } => self
+                .handle_set_window_workspace(window, workspace)
+                .wrn("set_window_workspace")?,
+            ClientMessage::SetWindowFullscreen { window, fullscreen } => self
+                .handle_set_window_fullscreen(window, fullscreen)
+                .wrn("set_window_fullscreen")?,
+            ClientMessage::GetWindowFullscreen { window } => self
+                .handle_get_window_fullscreen(window)
+                .wrn("get_window_fullscreen")?,
+            ClientMessage::GetWindowFloatPinned { window } => self
+                .handle_get_window_float_pinned(window)
+                .wrn("get_window_float_pinned")?,
+            ClientMessage::SetWindowFloatPinned { window, pinned } => self
+                .handle_set_window_float_pinned(window, pinned)
+                .wrn("set_window_float_pinned")?,
+            ClientMessage::GetWindowIsVisible { window } => self
+                .handle_get_window_is_visible(window)
+                .wrn("get_window_is_visible")?,
+            ClientMessage::GetWindowClient { window } => self
+                .handle_get_window_client(window)
+                .wrn("get_window_client")?,
         }
         Ok(())
     }
@@ -2248,6 +2589,10 @@ enum CphError {
     UnknownTransferFunction(ConfigTransferFunction),
     #[error("Client {0:?} does not exist")]
     ClientDoesNotExist(ConfigClient),
+    #[error("Window {0:?} does not exist")]
+    WindowDoesNotExist(Window),
+    #[error("Window {0:?} is not visible")]
+    WindowNotVisible(Window),
 }
 
 trait WithRequestName {

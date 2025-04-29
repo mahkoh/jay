@@ -30,6 +30,7 @@ use {
             Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
+        window::{Window, WindowType},
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -342,6 +343,74 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatMove { seat, direction });
     }
 
+    pub fn window_move(&self, window: Window, direction: Direction) {
+        self.send(&ClientMessage::WindowMove { window, direction });
+    }
+
+    pub fn window_exists(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::WindowExists { window });
+        get_response!(res, false, WindowExists { exists });
+        exists
+    }
+
+    pub fn window_client(&self, window: Window) -> Client {
+        let res = self.send_with_response(&ClientMessage::GetWindowClient { window });
+        get_response!(res, Client(0), GetWindowClient { client });
+        client
+    }
+
+    pub fn get_workspace_window(&self, workspace: Workspace) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceWindow { workspace });
+        get_response!(res, Window(0), GetWorkspaceWindow { window });
+        window
+    }
+
+    pub fn get_seat_keyboard_window(&self, seat: Seat) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWindow { seat });
+        get_response!(res, Window(0), GetSeatKeyboardWindow { window });
+        window
+    }
+
+    pub fn focus_window(&self, seat: Seat, window: Window) {
+        self.send(&ClientMessage::SeatFocusWindow { seat, window });
+    }
+
+    pub fn window_title(&self, window: Window) -> String {
+        let res = self.send_with_response(&ClientMessage::GetWindowTitle { window });
+        get_response!(res, String::new(), GetWindowTitle { title });
+        title
+    }
+
+    pub fn window_type(&self, window: Window) -> WindowType {
+        let res = self.send_with_response(&ClientMessage::GetWindowType { window });
+        get_response!(res, WindowType(0), GetWindowType { kind });
+        kind
+    }
+
+    pub fn window_id(&self, window: Window) -> String {
+        let res = self.send_with_response(&ClientMessage::GetWindowId { window });
+        get_response!(res, String::new(), GetWindowId { id });
+        id
+    }
+
+    pub fn window_parent(&self, window: Window) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetWindowParent { window });
+        get_response!(res, Window(0), GetWindowParent { window });
+        window
+    }
+
+    pub fn window_children(&self, window: Window) -> Vec<Window> {
+        let res = self.send_with_response(&ClientMessage::GetWindowChildren { window });
+        get_response!(res, vec![], GetWindowChildren { windows });
+        windows
+    }
+
+    pub fn window_is_visible(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowIsVisible { window });
+        get_response!(res, false, GetWindowIsVisible { visible });
+        visible
+    }
+
     pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
         let mod_sym = mod_sym.into();
         if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, mod_sym)) {
@@ -371,6 +440,12 @@ impl ConfigClient {
     pub fn seat_mono(&self, seat: Seat) -> bool {
         let res = self.send_with_response(&ClientMessage::GetSeatMono { seat });
         get_response!(res, false, GetMono { mono });
+        mono
+    }
+
+    pub fn window_mono(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowMono { window });
+        get_response!(res, false, GetWindowMono { mono });
         mono
     }
 
@@ -421,6 +496,12 @@ impl ConfigClient {
         workspace
     }
 
+    pub fn get_window_workspace(&self, window: Window) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetWindowWorkspace { window });
+        get_response!(res, Workspace(0), GetWindowWorkspace { workspace });
+        workspace
+    }
+
     pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWorkspace { seat });
         get_response!(res, Workspace(0), GetSeatKeyboardWorkspace { workspace });
@@ -455,9 +536,19 @@ impl ConfigClient {
         self.send(&ClientMessage::SetSeatWorkspace { seat, workspace });
     }
 
+    pub fn set_window_workspace(&self, window: Window, workspace: Workspace) {
+        self.send(&ClientMessage::SetWindowWorkspace { window, workspace });
+    }
+
     pub fn seat_split(&self, seat: Seat) -> Axis {
         let res = self.send_with_response(&ClientMessage::GetSeatSplit { seat });
         get_response!(res, Axis::Horizontal, GetSplit { axis });
+        axis
+    }
+
+    pub fn window_split(&self, window: Window) -> Axis {
+        let res = self.send_with_response(&ClientMessage::GetWindowSplit { window });
+        get_response!(res, Axis::Horizontal, GetWindowSplit { axis });
         axis
     }
 
@@ -479,6 +570,16 @@ impl ConfigClient {
     pub fn get_seat_fullscreen(&self, seat: Seat) -> bool {
         let res = self.send_with_response(&ClientMessage::GetSeatFullscreen { seat });
         get_response!(res, false, GetFullscreen { fullscreen });
+        fullscreen
+    }
+
+    pub fn set_window_fullscreen(&self, window: Window, fullscreen: bool) {
+        self.send(&ClientMessage::SetWindowFullscreen { window, fullscreen });
+    }
+
+    pub fn get_window_fullscreen(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFullscreen { window });
+        get_response!(res, false, GetWindowFullscreen { fullscreen });
         fullscreen
     }
 
@@ -508,6 +609,16 @@ impl ConfigClient {
 
     pub fn toggle_seat_floating(&self, seat: Seat) {
         self.set_seat_floating(seat, !self.get_seat_floating(seat));
+    }
+
+    pub fn get_window_floating(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFloating { window });
+        get_response!(res, false, GetWindowFloating { floating });
+        floating
+    }
+
+    pub fn set_window_floating(&self, window: Window, floating: bool) {
+        self.send(&ClientMessage::SetWindowFloating { window, floating });
     }
 
     pub fn reset_colors(&self) {
@@ -553,6 +664,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetSeatMono { seat, mono });
     }
 
+    pub fn set_window_mono(&self, window: Window, mono: bool) {
+        self.send(&ClientMessage::SetWindowMono { window, mono });
+    }
+
     pub fn set_env(&self, key: &str, val: &str) {
         self.send(&ClientMessage::SetEnv { key, val });
     }
@@ -587,12 +702,24 @@ impl ConfigClient {
         self.send(&ClientMessage::SetSeatSplit { seat, axis });
     }
 
+    pub fn set_window_split(&self, window: Window, axis: Axis) {
+        self.send(&ClientMessage::SetWindowSplit { window, axis });
+    }
+
     pub fn create_seat_split(&self, seat: Seat, axis: Axis) {
         self.send(&ClientMessage::CreateSeatSplit { seat, axis });
     }
 
+    pub fn create_window_split(&self, window: Window, axis: Axis) {
+        self.send(&ClientMessage::CreateWindowSplit { window, axis });
+    }
+
     pub fn seat_close(&self, seat: Seat) {
         self.send(&ClientMessage::SeatClose { seat });
+    }
+
+    pub fn close_window(&self, window: Window) {
+        self.send(&ClientMessage::WindowClose { window });
     }
 
     pub fn focus_seat_parent(&self, seat: Seat) {
@@ -800,6 +927,16 @@ impl ConfigClient {
 
     pub fn set_pinned(&self, seat: Seat, pinned: bool) {
         self.send(&ClientMessage::SetSeatFloatPinned { seat, pinned });
+    }
+
+    pub fn get_window_pinned(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFloatPinned { window });
+        get_response!(res, false, GetWindowFloatPinned { pinned });
+        pinned
+    }
+
+    pub fn set_window_pinned(&self, window: Window, pinned: bool) {
+        self.send(&ClientMessage::SetWindowFloatPinned { window, pinned });
     }
 
     pub fn connector_connected(&self, connector: Connector) -> bool {

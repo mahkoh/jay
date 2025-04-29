@@ -16,7 +16,7 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             OutputNode, PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
-            walker::NodeVisitor,
+            toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -603,7 +603,7 @@ impl FloatNode {
             {
                 if let Some(tl) = self.child.get() {
                     drop(cursors);
-                    seat.set_tl_floating(tl, false);
+                    toplevel_set_floating(&self.state, tl, false);
                     return;
                 }
             }

@@ -43,40 +43,89 @@ macro_rules! get {
     }};
 }
 
-// #[macro_export]
-// macro_rules! log {
-//     ($lvl:expr, $($arg:tt)+) => ({
-//         $crate::log(
-//             $lvl,
-//             &format!($($args)*),
-//         );
-//     })
-// }
-//
-// #[macro_export]
-// macro_rules! trace {
-//     ($($arg:tt)+) => {
-//         $crate::log!($crate::LogLevel::Trace, $($arg)+)
-//     }
-// }
-//
-// #[macro_export]
-// macro_rules! debug {
-//     ($($arg:tt)+) => {
-//         $crate::log!($crate::LogLevel::Debug, $($arg)+)
-//     }
-// }
-//
-// #[macro_export]
-// macro_rules! info {
-//     ($($arg:tt)+) => {
-//         $crate::log!($crate::LogLevel::Info, $($arg)+)
-//     }
-// }
-//
-// #[macro_export]
-// macro_rules! info {
-//     ($($arg:tt)+) => {
-//         $crate::log!($crate::LogLevel::Info, $($arg)+)
-//     }
-// }
+macro_rules! bitflags {
+    (
+        $(#[$attr1:meta])*
+        $vis1:vis struct $name:ident($vis2:vis $rep:ty) {
+            $(
+                $(#[$attr2:meta])*
+                $vis3:vis const $var:ident = $val:expr,
+            )*
+        }
+    ) => {
+        $(#[$attr1])*
+        $vis1 struct $name($vis2 $rep);
+
+        $(
+            $(#[$attr2])*
+            $vis3 const $var: $name = $name($val);
+        )*
+
+        impl std::ops::BitOr for $name {
+            type Output = Self;
+
+            fn bitor(self, rhs: Self) -> Self::Output {
+                Self(self.0 | rhs.0)
+            }
+        }
+
+        impl std::ops::BitAnd for $name {
+            type Output = Self;
+
+            fn bitand(self, rhs: Self) -> Self::Output {
+                Self(self.0 & rhs.0)
+            }
+        }
+
+        impl std::ops::BitOrAssign for $name {
+            fn bitor_assign(&mut self, rhs: Self) {
+                self.0 |= rhs.0;
+            }
+        }
+
+        impl std::ops::BitAndAssign for $name {
+            fn bitand_assign(&mut self, rhs: Self) {
+                self.0 &= rhs.0;
+            }
+        }
+
+        impl std::ops::BitXorAssign for $name {
+            fn bitxor_assign(&mut self, rhs: Self) {
+                self.0 ^= rhs.0;
+            }
+        }
+
+        impl std::ops::Not for $name {
+            type Output = Self;
+
+            fn not(self) -> Self::Output {
+                Self(!self.0)
+            }
+        }
+
+        impl std::fmt::Debug for $name {
+            #[allow(clippy::allow_attributes, clippy::bad_bit_mask, unused_mut)]
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let mut any = false;
+                let mut v = self.0;
+                $(
+                    if $val != 0 && v & $val == $val {
+                        if any {
+                            write!(f, "|")?;
+                        }
+                        any = true;
+                        write!(f, "{}", stringify!($var))?;
+                        v &= !$val;
+                    }
+                )*
+                if !any || v != 0 {
+                    if any {
+                        write!(f, "|")?;
+                    }
+                    write!(f, "0x{:x}", v)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}

@@ -30,6 +30,7 @@ use {
             JayToplevelId,
         },
     },
+    jay_config::{window, window::WindowType},
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -254,7 +255,29 @@ impl ToplevelOpt {
     }
 }
 
+#[derive(Debug)]
+pub enum ToplevelType {
+    Container,
+    Placeholder,
+    XdgToplevel,
+    XWindow,
+}
+
+impl ToplevelType {
+    pub fn to_window_type(&self) -> WindowType {
+        match self {
+            ToplevelType::Container => window::CONTAINER,
+            ToplevelType::Placeholder => window::PLACEHOLDER,
+            ToplevelType::XdgToplevel => window::XDG_TOPLEVEL,
+            ToplevelType::XWindow => window::X_WINDOW,
+        }
+    }
+}
+
 pub struct ToplevelData {
+    #[expect(dead_code)]
+    pub node_id: NodeId,
+    pub kind: ToplevelType,
     pub self_active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
@@ -291,11 +314,16 @@ impl ToplevelData {
         state: &Rc<State>,
         title: String,
         client: Option<Rc<Client>>,
+        kind: ToplevelType,
+        node_id: impl Into<NodeId>,
         slf: &Weak<T>,
     ) -> Self {
+        let node_id = node_id.into();
         let id = toplevel_identifier();
         state.toplevels.set(id, slf.clone());
         Self {
+            node_id,
+            kind,
             self_active: Cell::new(false),
             client,
             state: state.clone(),
@@ -372,7 +400,7 @@ impl ToplevelData {
         {
             let id = toplevel_identifier();
             let prev = self.identifier.replace(id);
-            self.state.toplevels.remove(&prev);
+            self.state.remove_toplevel_id(prev);
             self.state.toplevels.set(id, self.slf.clone());
         }
         {
@@ -620,7 +648,7 @@ impl ToplevelData {
 
 impl Drop for ToplevelData {
     fn drop(&mut self) {
-        self.state.toplevels.remove(&self.identifier.get());
+        self.state.remove_toplevel_id(self.identifier.get());
     }
 }
 
@@ -660,5 +688,84 @@ pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: Cont
     match split {
         ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
         ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+    }
+}
+
+pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNode>> {
+    if let Some(parent) = tl.tl_data().parent.get() {
+        if let Some(container) = parent.node_into_container() {
+            return Some(container);
+        }
+    }
+    None
+}
+
+pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {
+    if tl.tl_data().is_fullscreen.get() {
+        return;
+    }
+    let ws = match tl.tl_data().workspace.get() {
+        Some(ws) => ws,
+        _ => return,
+    };
+    let pn = match tl.tl_data().parent.get() {
+        Some(pn) => pn,
+        _ => return,
+    };
+    if let Some(pn) = pn.node_into_containing_node() {
+        let cn = ContainerNode::new(state, &ws, tl.clone(), axis);
+        pn.cnode_replace_child(&*tl, cn);
+    }
+}
+
+pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floating: bool) {
+    let data = tl.tl_data();
+    if data.is_fullscreen.get() {
+        return;
+    }
+    if data.is_floating.get() == floating {
+        return;
+    }
+    let parent = match data.parent.get() {
+        Some(p) => p,
+        _ => return,
+    };
+    if !floating {
+        parent.cnode_remove_child2(&*tl, true);
+        state.map_tiled(tl);
+    } else if let Some(ws) = data.workspace.get() {
+        parent.cnode_remove_child2(&*tl, true);
+        let (width, height) = data.float_size(&ws);
+        state.map_floating(tl, width, height, &ws, None);
+    }
+}
+
+pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+    if tl.tl_data().is_fullscreen.get() {
+        return;
+    }
+    let old_ws = match tl.tl_data().workspace.get() {
+        Some(ws) => ws,
+        _ => return,
+    };
+    if old_ws.id == ws.id {
+        return;
+    }
+    let cn = match tl.tl_data().parent.get() {
+        Some(cn) => cn,
+        _ => return,
+    };
+    let kb_foci = collect_kb_foci(tl.clone());
+    cn.cnode_remove_child2(&*tl, true);
+    if !ws.visible.get() {
+        for focus in kb_foci {
+            old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
+        }
+    }
+    if tl.tl_data().is_floating.get() {
+        let (width, height) = tl.tl_data().float_size(ws);
+        state.map_floating(tl.clone(), width, height, ws, None);
+    } else {
+        state.map_tiled_on(tl, ws);
     }
 }

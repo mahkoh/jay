@@ -9,8 +9,8 @@ use {
         ifs::wl_seat::SeatId,
         state::State,
         utils::{
-            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt, unlink_on_drop::UnlinkOnDrop,
-            xrd::xrd,
+            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt,
+            toplevel_identifier::ToplevelIdentifier, unlink_on_drop::UnlinkOnDrop, xrd::xrd,
         },
     },
     bincode::Options,
@@ -151,6 +151,15 @@ impl ConfigProxy {
             event,
         });
     }
+
+    pub fn toplevel_removed(&self, id: ToplevelIdentifier) {
+        let Some(handler) = self.handler.get() else {
+            return;
+        };
+        if let Some(win) = handler.windows_from_tl_id.remove(&id) {
+            handler.windows_to_tl_id.remove(&win);
+        }
+    }
 }
 
 impl Drop for ConfigProxy {
@@ -202,6 +211,9 @@ impl ConfigProxy {
             timers_by_id: Default::default(),
             pollable_id: Default::default(),
             pollables: Default::default(),
+            window_ids: NumCell::new(1),
+            windows_from_tl_id: Default::default(),
+            windows_to_tl_id: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

@@ -15,6 +15,7 @@ use {
             ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
             Transform, VrrMode, connector_type::ConnectorType,
         },
+        window::{Window, WindowType},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -576,6 +577,93 @@ pub enum ClientMessage<'a> {
     ClientIsXwayland {
         client: Client,
     },
+    WindowExists {
+        window: Window,
+    },
+    GetWindowClient {
+        window: Window,
+    },
+    GetWorkspaceWindow {
+        workspace: Workspace,
+    },
+    GetSeatKeyboardWindow {
+        seat: Seat,
+    },
+    SeatFocusWindow {
+        seat: Seat,
+        window: Window,
+    },
+    GetWindowTitle {
+        window: Window,
+    },
+    GetWindowType {
+        window: Window,
+    },
+    GetWindowId {
+        window: Window,
+    },
+    GetWindowIsVisible {
+        window: Window,
+    },
+    GetWindowParent {
+        window: Window,
+    },
+    GetWindowWorkspace {
+        window: Window,
+    },
+    GetWindowChildren {
+        window: Window,
+    },
+    GetWindowSplit {
+        window: Window,
+    },
+    SetWindowSplit {
+        window: Window,
+        axis: Axis,
+    },
+    GetWindowMono {
+        window: Window,
+    },
+    SetWindowMono {
+        window: Window,
+        mono: bool,
+    },
+    WindowMove {
+        window: Window,
+        direction: Direction,
+    },
+    CreateWindowSplit {
+        window: Window,
+        axis: Axis,
+    },
+    WindowClose {
+        window: Window,
+    },
+    GetWindowFloating {
+        window: Window,
+    },
+    SetWindowFloating {
+        window: Window,
+        floating: bool,
+    },
+    SetWindowWorkspace {
+        window: Window,
+        workspace: Workspace,
+    },
+    SetWindowFullscreen {
+        window: Window,
+        fullscreen: bool,
+    },
+    GetWindowFullscreen {
+        window: Window,
+    },
+    GetWindowFloatPinned {
+        window: Window,
+    },
+    SetWindowFloatPinned {
+        window: Window,
+        pinned: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -747,6 +835,54 @@ pub enum Response {
     },
     ClientIsXwayland {
         is_xwayland: bool,
+    },
+    WindowExists {
+        exists: bool,
+    },
+    GetWindowClient {
+        client: Client,
+    },
+    GetSeatKeyboardWindow {
+        window: Window,
+    },
+    GetWorkspaceWindow {
+        window: Window,
+    },
+    GetWindowParent {
+        window: Window,
+    },
+    GetWindowChildren {
+        windows: Vec<Window>,
+    },
+    GetWindowTitle {
+        title: String,
+    },
+    GetWindowType {
+        kind: WindowType,
+    },
+    GetWindowId {
+        id: String,
+    },
+    GetWindowWorkspace {
+        workspace: Workspace,
+    },
+    GetWindowFloating {
+        floating: bool,
+    },
+    GetWindowSplit {
+        axis: Axis,
+    },
+    GetWindowMono {
+        mono: bool,
+    },
+    GetWindowFullscreen {
+        fullscreen: bool,
+    },
+    GetWindowFloatPinned {
+        pinned: bool,
+    },
+    GetWindowIsVisible {
+        visible: bool,
     },
 }
 

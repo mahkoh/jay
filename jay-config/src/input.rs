@@ -10,6 +10,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability},
         keyboard::{Keymap, mods::Modifiers},
         video::Connector,
+        window::Window,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -477,6 +478,20 @@ impl Seat {
     /// Toggles whether the currently focused window is pinned.
     pub fn toggle_float_pinned(self) {
         self.set_float_pinned(!self.float_pinned());
+    }
+
+    /// Returns the focused window.
+    ///
+    /// If no window is focused, [`Window::exists`] returns false.
+    pub fn window(self) -> Window {
+        get!(Window(0)).get_seat_keyboard_window(self)
+    }
+
+    /// Puts the keyboard focus on the window.
+    ///
+    /// This has no effect if the window is not visible.
+    pub fn focus_window(self, window: Window) {
+        get!().focus_window(self, window)
     }
 }
 

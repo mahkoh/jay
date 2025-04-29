@@ -951,6 +951,13 @@ impl State {
         self.workspace_managers.clear();
     }
 
+    pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
+        self.toplevels.remove(&id);
+        if let Some(config) = self.config.get() {
+            config.toplevel_removed(id);
+        }
+    }
+
     pub fn damage_hardware_cursors(&self, render: bool) {
         for output in self.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
