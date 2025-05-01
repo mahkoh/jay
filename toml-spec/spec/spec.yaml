@@ -3499,6 +3499,10 @@ WindowMatch:
       kind: boolean
       required: false
       description: Matches if the window has/hasn't the keyboard focus.
+    fullscreen:
+      kind: boolean
+      required: false
+      description: Matches if the window is/isn't fullscreen.
 
 
 WindowMatchExactly:

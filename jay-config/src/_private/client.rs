@@ -1661,6 +1661,7 @@ impl ConfigClient {
             WindowCriterion::Visible => WindowCriterionIpc::Visible,
             WindowCriterion::Urgent => WindowCriterionIpc::Urgent,
             WindowCriterion::Focus(seat) => WindowCriterionIpc::SeatFocus(seat),
+            WindowCriterion::Fullscreen => WindowCriterionIpc::Fullscreen,
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

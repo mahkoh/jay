@@ -4,8 +4,9 @@ use {
         criteria::{
             CritDestroyListener, CritMatcherId,
             tlm::{
-                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING, TL_CHANGED_NEW,
-                TL_CHANGED_TITLE, TL_CHANGED_URGENT, TL_CHANGED_VISIBLE, TlMatcherChange,
+                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING,
+                TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE, TL_CHANGED_URGENT,
+                TL_CHANGED_VISIBLE, TlMatcherChange,
             },
         },
         ifs::{
@@ -579,6 +580,7 @@ impl ToplevelData {
         });
         drop(data);
         self.is_fullscreen.set(true);
+        self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
         node.clone()
@@ -601,6 +603,7 @@ impl ToplevelData {
             }
         };
         self.is_fullscreen.set(false);
+        self.property_changed(TL_CHANGED_FULLSCREEN);
         match fd.workspace.fullscreen.get() {
             None => {
                 log::error!(

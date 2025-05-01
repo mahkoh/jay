@@ -115,6 +115,7 @@ pub enum WindowCriterionIpc {
     Visible,
     Urgent,
     SeatFocus(Seat),
+    Fullscreen,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

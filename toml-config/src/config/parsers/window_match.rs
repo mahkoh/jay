@@ -56,7 +56,7 @@ impl Parser for WindowMatchParser<'_> {
                 title,
                 title_regex,
             ),
-            (app_id, app_id_regex, floating, visible, urgent, focused),
+            (app_id, app_id_regex, floating, visible, urgent, focused, fullscreen),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -76,6 +76,7 @@ impl Parser for WindowMatchParser<'_> {
                 opt(bol("visible")),
                 opt(bol("urgent")),
                 opt(bol("focused")),
+                opt(bol("fullscreen")),
             ),
         ))?;
         let mut not = None;
@@ -125,6 +126,7 @@ impl Parser for WindowMatchParser<'_> {
             visible: visible.despan(),
             urgent: urgent.despan(),
             focused: focused.despan(),
+            fullscreen: fullscreen.despan(),
             types,
             client,
         })

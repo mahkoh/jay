@@ -253,6 +253,8 @@ pub enum WindowCriterion<'a> {
     Urgent,
     /// Matches if the window has the keyboard focus of the seat.
     Focus(Seat),
+    /// Matches if the window is fullscreen.
+    Fullscreen,
 }
 
 impl WindowCriterion<'_> {

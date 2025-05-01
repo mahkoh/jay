@@ -4058,6 +4058,12 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `fullscreen` (optional):
+
+  Matches if the window is/isn't fullscreen.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

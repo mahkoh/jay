@@ -14,6 +14,7 @@ use {
             tlm::tlm_matchers::{
                 tlmm_client::TlmMatchClient,
                 tlmm_floating::TlmMatchFloating,
+                tlmm_fullscreen::TlmMatchFullscreen,
                 tlmm_kind::TlmMatchKind,
                 tlmm_seat_focus::TlmMatchSeatFocus,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
@@ -47,6 +48,7 @@ bitflags! {
     TL_CHANGED_VISIBLE     = 1 << 5,
     TL_CHANGED_URGENT      = 1 << 6,
     TL_CHANGED_SEAT_FOCI   = 1 << 7,
+    TL_CHANGED_FULLSCREEN  = 1 << 8,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -59,6 +61,7 @@ pub struct TlMatcherManager {
     floating: TlmFixedRootMatcher<TlmMatchFloating>,
     visible: TlmFixedRootMatcher<TlmMatchVisible>,
     urgent: TlmFixedRootMatcher<TlmMatchUrgent>,
+    fullscreen: TlmFixedRootMatcher<TlmMatchFullscreen>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -113,6 +116,7 @@ impl TlMatcherManager {
             floating: bool!(TlmMatchFloating),
             visible: bool!(TlmMatchVisible),
             urgent: bool!(TlmMatchUrgent),
+            fullscreen: bool!(TlmMatchFullscreen),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -187,6 +191,7 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
+        fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
         false
     }
 
@@ -257,6 +262,7 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
+        fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
@@ -281,6 +287,10 @@ impl TlMatcherManager {
 
     pub fn visible(&self) -> Rc<TlmUpstreamNode> {
         self.visible[true].clone()
+    }
+
+    pub fn fullscreen(&self) -> Rc<TlmUpstreamNode> {
+        self.fullscreen[true].clone()
     }
 
     pub fn urgent(&self) -> Rc<TlmUpstreamNode> {

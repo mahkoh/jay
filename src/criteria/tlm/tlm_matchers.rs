@@ -19,6 +19,7 @@ macro_rules! fixed_root_criterion {
 
 pub mod tlmm_client;
 pub mod tlmm_floating;
+pub mod tlmm_fullscreen;
 pub mod tlmm_kind;
 pub mod tlmm_seat_focus;
 pub mod tlmm_string;

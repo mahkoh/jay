@@ -263,6 +263,7 @@ pub struct WindowMatch {
     pub visible: Option<bool>,
     pub urgent: Option<bool>,
     pub focused: Option<bool>,
+    pub fullscreen: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

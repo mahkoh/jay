@@ -1811,6 +1811,10 @@
         "focused": {
           "type": "boolean",
           "description": "Matches if the window has/hasn't the keyboard focus."
+        },
+        "fullscreen": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't fullscreen."
         }
       },
       "required": []
