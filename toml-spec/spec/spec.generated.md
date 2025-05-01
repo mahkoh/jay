@@ -2991,13 +2991,37 @@ The string should have one of the following values:
   Toggle the split of the currently focused container between vertical and
   horizontal.
 
+- `tile-horizontal`:
+
+  Sets the split of the currently focused container to horizontal.
+
+- `tile-vertical`:
+
+  Sets the split of the currently focused container to vertical.
+
 - `toggle-mono`:
 
   Toggle the currently focused container between showing a single and all children.
 
+- `show-single`:
+
+  Makes the currently focused container show a single child.
+
+- `show-all`:
+
+  Makes the currently focused container show all children.
+
 - `toggle-fullscreen`:
 
   Toggle the currently focused window between fullscreen and windowed.
+
+- `enter-fullscreen`:
+
+  Makes the currently focused window fullscreen.
+
+- `exit-fullscreen`:
+
+  Makes the currently focused window windowed.
 
 - `focus-parent`:
 
@@ -3017,6 +3041,14 @@ The string should have one of the following values:
 - `toggle-floating`:
 
   Toggle the currently focused window between floating and tiled.
+
+- `float`:
+
+  Makes the currently focused window floating.
+
+- `tile`:
+
+  Makes the currently focused window tiled.
 
 - `quit`:
 

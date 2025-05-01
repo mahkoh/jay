@@ -726,11 +726,23 @@ SimpleActionName:
       description: |
         Toggle the split of the currently focused container between vertical and
         horizontal.
+    - value: tile-horizontal
+      description: Sets the split of the currently focused container to horizontal.
+    - value: tile-vertical
+      description: Sets the split of the currently focused container to vertical.
     - value: toggle-mono
       description: |
         Toggle the currently focused container between showing a single and all children.
+    - value: show-single
+      description: Makes the currently focused container show a single child.
+    - value: show-all
+      description: Makes the currently focused container show all children.
     - value: toggle-fullscreen
       description: Toggle the currently focused window between fullscreen and windowed.
+    - value: enter-fullscreen
+      description: Makes the currently focused window fullscreen.
+    - value: exit-fullscreen
+      description: Makes the currently focused window windowed.
     - value: focus-parent
       description: Focus the parent of the currently focused window.
     - value: close
@@ -743,6 +755,10 @@ SimpleActionName:
         The constraint will be re-enabled when the pointer re-enters the window.
     - value: toggle-floating
       description: Toggle the currently focused window between floating and tiled.
+    - value: float
+      description: Makes the currently focused window floating.
+    - value: tile
+      description: Makes the currently focused window tiled.
     - value: quit
       description: Terminate the compositor.
     - value: reload-config-toml

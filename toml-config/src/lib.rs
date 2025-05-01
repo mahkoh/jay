@@ -86,14 +86,18 @@ impl Action {
                 SimpleCommand::Move(dir) => B::new(move || s.move_(dir)),
                 SimpleCommand::Split(axis) => B::new(move || s.create_split(axis)),
                 SimpleCommand::ToggleSplit => B::new(move || s.toggle_split()),
+                SimpleCommand::SetSplit(b) => B::new(move || s.set_split(b)),
                 SimpleCommand::ToggleMono => B::new(move || s.toggle_mono()),
+                SimpleCommand::SetMono(b) => B::new(move || s.set_mono(b)),
                 SimpleCommand::ToggleFullscreen => B::new(move || s.toggle_fullscreen()),
+                SimpleCommand::SetFullscreen(b) => B::new(move || s.set_fullscreen(b)),
                 SimpleCommand::FocusParent => B::new(move || s.focus_parent()),
                 SimpleCommand::Close => B::new(move || s.close()),
                 SimpleCommand::DisablePointerConstraint => {
                     B::new(move || s.disable_pointer_constraint())
                 }
                 SimpleCommand::ToggleFloating => B::new(move || s.toggle_floating()),
+                SimpleCommand::SetFloating(b) => B::new(move || s.set_floating(b)),
                 SimpleCommand::Quit => B::new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
