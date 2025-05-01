@@ -3,13 +3,15 @@ pub mod tlm_matchers;
 use {
     crate::{
         criteria::{
-            CritDestroyListener, CritMatcherId, CritMatcherIds, CritMgrExt, CritUpstreamNode,
-            FixedRootMatcher, RootMatcherMap,
+            CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
+            CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
             clm::ClmUpstreamNode,
             crit_graph::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
             crit_leaf::{CritLeafEvent, CritLeafMatcher},
             crit_matchers::critm_constant::CritMatchConstant,
-            tlm::tlm_matchers::{tlmm_client::TlmMatchClient, tlmm_kind::TlmMatchKind},
+            tlm::tlm_matchers::{
+                tlmm_client::TlmMatchClient, tlmm_kind::TlmMatchKind, tlmm_string::TlmMatchTitle,
+            },
         },
         state::State,
         tree::{NodeId, ToplevelData, ToplevelNode},
@@ -26,6 +28,7 @@ bitflags! {
     TlMatcherChange: u32;
     TL_CHANGED_DESTROYED   = 1 << 0,
     TL_CHANGED_NEW         = 1 << 1,
+    TL_CHANGED_TITLE       = 1 << 2,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -44,6 +47,7 @@ type TlmRootMatcherMap<T> = RootMatcherMap<ToplevelData, T>;
 pub struct RootMatchers {
     kinds: TlmRootMatcherMap<TlmMatchKind>,
     clients: CopyHashMap<CritMatcherId, Weak<TlmMatchClient>>,
+    title: TlmRootMatcherMap<TlmMatchTitle>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -123,7 +127,6 @@ impl TlMatcherManager {
             }
             change |= TlMatcherChange::all();
         }
-        #[expect(unused_macros)]
         macro_rules! conditional {
             ($change:expr, $field:ident) => {
                 if change.contains($change) && self.matchers.$field.is_not_empty() {
@@ -139,6 +142,7 @@ impl TlMatcherManager {
                 }
             };
         }
+        conditional!(TL_CHANGED_TITLE, title);
         false
     }
 
@@ -188,7 +192,6 @@ impl TlMatcherManager {
             unconditional!(clients);
             self.constant[true].handle(data);
         }
-        #[expect(unused_macros)]
         macro_rules! conditional {
             ($change:expr, $field:ident) => {
                 if changed.contains($change) {
@@ -206,6 +209,11 @@ impl TlMatcherManager {
                 }
             };
         }
+        conditional!(TL_CHANGED_TITLE, title);
+    }
+
+    pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchTitle::new(string))
     }
 
     pub fn kind(&self, kind: WindowType) -> Rc<TlmUpstreamNode> {

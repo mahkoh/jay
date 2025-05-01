@@ -1779,6 +1779,14 @@
         "client": {
           "description": "Matches if the window's client matches the client criterion.",
           "$ref": "#/$defs/ClientMatch"
+        },
+        "title": {
+          "type": "string",
+          "description": "Matches the title of the window verbatim."
+        },
+        "title-regex": {
+          "type": "string",
+          "description": "Matches the title of the window with a regular expression."
         }
       },
       "required": []

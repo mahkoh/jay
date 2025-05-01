@@ -4,7 +4,8 @@ use {
     crate::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
-            GenericCriterionIpc, PollableId, VERSION, WindowCriterionIpc, WireMode, bincode_ops,
+            GenericCriterionIpc, PollableId, VERSION, WindowCriterionIpc,
+            WindowCriterionStringField, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
             },
@@ -1609,7 +1610,6 @@ impl ConfigClient {
         criterion: WindowCriterion,
         child: bool,
     ) -> (WindowMatcher, bool) {
-        #[expect(unused_macros)]
         macro_rules! string {
             ($t:expr, $field:ident, $regex:expr) => {
                 WindowCriterionIpc::String {
@@ -1653,6 +1653,8 @@ impl ConfigClient {
                 }
                 WindowCriterionIpc::Client(matcher)
             }
+            WindowCriterion::Title(t) => string!(t, Title, false),
+            WindowCriterion::TitleRegex(t) => string!(t, Title, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

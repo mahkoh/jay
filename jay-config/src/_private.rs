@@ -113,4 +113,6 @@ pub enum WindowCriterionIpc {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum WindowCriterionStringField {}
+pub enum WindowCriterionStringField {
+    Title,
+}

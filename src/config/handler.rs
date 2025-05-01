@@ -44,7 +44,7 @@ use {
     jay_config::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
-            WindowCriterionIpc, WireMode, bincode_ops,
+            WindowCriterionIpc, WindowCriterionStringField, WireMode, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
@@ -1980,7 +1980,6 @@ impl ConfigProxyHandler {
                 field,
                 regex,
             } => {
-                #[expect(unused_variables)]
                 let needle = match *regex {
                     true => {
                         let regex = Regex::new(string).map_err(CphError::InvalidRegex)?;
@@ -1988,7 +1987,9 @@ impl ConfigProxyHandler {
                     }
                     false => CritLiteralOrRegex::Literal(string.to_string()),
                 };
-                match *field {}
+                match *field {
+                    WindowCriterionStringField::Title => mgr.title(needle),
+                }
             }
             WindowCriterionIpc::Types(t) => mgr.kind(*t),
             WindowCriterionIpc::Client(c) => {

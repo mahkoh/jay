@@ -224,7 +224,6 @@ impl Rule for WindowRule {
         match_: &Self::Match,
     ) -> Option<()> {
         let m = |c: WindowCriterion<'_>| MatcherTemp(c.to_matcher());
-        #[expect(unused_macros)]
         macro_rules! value {
             ($ty:ident, $field:ident) => {
                 if let Some(value) = &match_.$field {
@@ -256,6 +255,8 @@ impl Rule for WindowRule {
                 matcher.0,
             ))));
         }
+        value!(Title, title);
+        value!(TitleRegex, title_regex);
         Some(())
     }
 

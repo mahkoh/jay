@@ -236,6 +236,10 @@ pub enum WindowCriterion<'a> {
     Exactly(usize, &'a [WindowCriterion<'a>]),
     /// Matches if the window's client matches the client criterion.
     Client(&'a ClientCriterion<'a>),
+    /// Matches the title of the window verbatim.
+    Title(&'a str),
+    /// Matches the title of the window with a regular expression.
+    TitleRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {

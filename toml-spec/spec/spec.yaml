@@ -3467,6 +3467,14 @@ WindowMatch:
       ref: ClientMatch
       required: false
       description: Matches if the window's client matches the client criterion.
+    title:
+      kind: string
+      required: false
+      description: Matches the title of the window verbatim.
+    title-regex:
+      kind: string
+      required: false
+      description: Matches the title of the window with a regular expression.
 
 
 WindowMatchExactly:

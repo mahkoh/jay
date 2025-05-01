@@ -4010,6 +4010,18 @@ The table has the following fields:
 
   The value of this field should be a [ClientMatch](#types-ClientMatch).
 
+- `title` (optional):
+
+  Matches the title of the window verbatim.
+
+  The value of this field should be a string.
+
+- `title-regex` (optional):
+
+  Matches the title of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

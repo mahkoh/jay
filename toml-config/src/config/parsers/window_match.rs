@@ -44,16 +44,27 @@ impl Parser for WindowMatchParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let ((name, not_val, all_val, any_val, exactly_val, types_val, client_val),) = ext
-            .extract(((
-                opt(str("name")),
-                opt(val("not")),
-                opt(arr("all")),
-                opt(arr("any")),
-                opt(val("exactly")),
-                opt(val("types")),
-                opt(val("client")),
-            ),))?;
+        let ((
+            name,
+            not_val,
+            all_val,
+            any_val,
+            exactly_val,
+            types_val,
+            client_val,
+            title,
+            title_regex,
+        ),) = ext.extract(((
+            opt(str("name")),
+            opt(val("not")),
+            opt(arr("all")),
+            opt(arr("any")),
+            opt(val("exactly")),
+            opt(val("types")),
+            opt(val("client")),
+            opt(str("title")),
+            opt(str("title-regex")),
+        ),))?;
         let mut not = None;
         if let Some(value) = not_val {
             not = Some(Box::new(value.parse(&mut WindowMatchParser(self.0))?));
@@ -93,6 +104,8 @@ impl Parser for WindowMatchParser<'_> {
                 any,
                 exactly,
             },
+            title: title.despan_into(),
+            title_regex: title_regex.despan_into(),
             types,
             client,
         })

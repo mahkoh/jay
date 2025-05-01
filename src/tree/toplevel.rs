@@ -3,7 +3,7 @@ use {
         client::{Client, ClientId},
         criteria::{
             CritDestroyListener, CritMatcherId,
-            tlm::{TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TlMatcherChange},
+            tlm::{TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TL_CHANGED_TITLE, TlMatcherChange},
         },
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
@@ -92,6 +92,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 .clone_from(&title);
             data.placeholder.tl_title_changed();
         }
+        data.property_changed(TL_CHANGED_TITLE);
     }
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {

@@ -255,6 +255,8 @@ pub struct WindowMatch {
     pub generic: GenericMatch<Self>,
     pub types: Option<WindowType>,
     pub client: Option<ClientMatch>,
+    pub title: Option<String>,
+    pub title_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]
