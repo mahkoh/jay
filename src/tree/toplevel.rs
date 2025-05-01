@@ -16,7 +16,7 @@ use {
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
             wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
-            wl_surface::WlSurface,
+            wl_surface::{WlSurface, xdg_surface::xdg_toplevel::XdgToplevelToplevelData},
         },
         rect::Rect,
         state::State,
@@ -277,7 +277,7 @@ impl ToplevelOpt {
 pub enum ToplevelType {
     Container,
     Placeholder,
-    XdgToplevel,
+    XdgToplevel(Rc<XdgToplevelToplevelData>),
     XWindow,
 }
 
@@ -286,7 +286,7 @@ impl ToplevelType {
         match self {
             ToplevelType::Container => window::CONTAINER,
             ToplevelType::Placeholder => window::PLACEHOLDER,
-            ToplevelType::XdgToplevel => window::XDG_TOPLEVEL,
+            ToplevelType::XdgToplevel { .. } => window::XDG_TOPLEVEL,
             ToplevelType::XWindow => window::X_WINDOW,
         }
     }

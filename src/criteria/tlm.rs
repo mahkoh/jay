@@ -18,7 +18,7 @@ use {
                 tlmm_just_mapped::TlmMatchJustMapped,
                 tlmm_kind::TlmMatchKind,
                 tlmm_seat_focus::TlmMatchSeatFocus,
-                tlmm_string::{TlmMatchAppId, TlmMatchTitle},
+                tlmm_string::{TlmMatchAppId, TlmMatchTag, TlmMatchTitle},
                 tlmm_urgent::TlmMatchUrgent,
                 tlmm_visible::TlmMatchVisible,
             },
@@ -51,6 +51,7 @@ bitflags! {
     TL_CHANGED_SEAT_FOCI   = 1 << 7,
     TL_CHANGED_FULLSCREEN  = 1 << 8,
     TL_CHANGED_JUST_MAPPED = 1 << 9,
+    TL_CHANGED_TAG         = 1 << 10,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -76,6 +77,7 @@ pub struct RootMatchers {
     kinds: TlmRootMatcherMap<TlmMatchKind>,
     clients: CopyHashMap<CritMatcherId, Weak<TlmMatchClient>>,
     title: TlmRootMatcherMap<TlmMatchTitle>,
+    tag: TlmRootMatcherMap<TlmMatchTag>,
     app_id: TlmRootMatcherMap<TlmMatchAppId>,
     seat_foci: TlmRootMatcherMap<TlmMatchSeatFocus>,
 }
@@ -205,6 +207,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
         conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
+        conditional!(TL_CHANGED_TAG, tag);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -277,6 +280,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
         conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
+        conditional!(TL_CHANGED_TAG, tag);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -297,6 +301,10 @@ impl TlMatcherManager {
 
     pub fn app_id(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchAppId::new(string))
+    }
+
+    pub fn tag(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchTag::new(string))
     }
 
     pub fn floating(&self) -> Rc<TlmUpstreamNode> {

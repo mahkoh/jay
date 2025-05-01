@@ -260,6 +260,10 @@ pub enum WindowCriterion<'a> {
     /// This is true for one iteration of the compositor's main loop immediately after the
     /// window has been mapped.
     JustMapped,
+    /// Matches the toplevel-tag of the window verbatim.
+    Tag(&'a str),
+    /// Matches the toplevel-tag of the window with a regular expression.
+    TagRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {

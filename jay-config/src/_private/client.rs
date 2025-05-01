@@ -1663,6 +1663,8 @@ impl ConfigClient {
             WindowCriterion::Focus(seat) => WindowCriterionIpc::SeatFocus(seat),
             WindowCriterion::Fullscreen => WindowCriterionIpc::Fullscreen,
             WindowCriterion::JustMapped => WindowCriterionIpc::JustMapped,
+            WindowCriterion::Tag(t) => string!(t, Tag, false),
+            WindowCriterion::TagRegex(t) => string!(t, Tag, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

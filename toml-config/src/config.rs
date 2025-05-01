@@ -265,6 +265,8 @@ pub struct WindowMatch {
     pub focused: Option<bool>,
     pub fullscreen: Option<bool>,
     pub just_mapped: Option<bool>,
+    pub tag: Option<String>,
+    pub tag_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

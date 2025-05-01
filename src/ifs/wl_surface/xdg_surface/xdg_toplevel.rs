@@ -92,6 +92,11 @@ pub enum Decoration {
     Server,
 }
 
+#[derive(Debug)]
+pub struct XdgToplevelToplevelData {
+    pub tag: RefCell<String>,
+}
+
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub state: Rc<State>,
@@ -112,6 +117,7 @@ pub struct XdgToplevel {
     is_mapped: Cell<bool>,
     dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
     extents_set: Cell<bool>,
+    pub data: Rc<XdgToplevelToplevelData>,
 }
 
 impl Debug for XdgToplevel {
@@ -135,6 +141,9 @@ impl XdgToplevel {
         }
         let state = &surface.surface.client.state;
         let node_id = state.node_ids.next();
+        let data = Rc::new(XdgToplevelToplevelData {
+            tag: Default::default(),
+        });
         Self {
             id,
             state: state.clone(),
@@ -154,7 +163,7 @@ impl XdgToplevel {
                 state,
                 String::new(),
                 Some(surface.surface.client.clone()),
-                ToplevelType::XdgToplevel,
+                ToplevelType::XdgToplevel(data.clone()),
                 node_id,
                 slf,
             ),
@@ -162,6 +171,7 @@ impl XdgToplevel {
             is_mapped: Cell::new(false),
             dialog: Default::default(),
             extents_set: Cell::new(false),
+            data,
         }
     }
 

@@ -4073,6 +4073,18 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `tag` (optional):
+
+  Matches the toplevel-tag of the window verbatim.
+
+  The value of this field should be a string.
+
+- `tag-regex` (optional):
+
+  Matches the toplevel-tag of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

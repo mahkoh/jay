@@ -123,4 +123,5 @@ pub enum WindowCriterionIpc {
 pub enum WindowCriterionStringField {
     Title,
     AppId,
+    Tag,
 }

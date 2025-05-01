@@ -258,6 +258,8 @@ impl Rule for WindowRule {
         value!(TitleRegex, title_regex);
         value!(AppId, app_id);
         value!(AppIdRegex, app_id_regex);
+        value!(Tag, tag);
+        value!(TagRegex, tag_regex);
         bool!(Floating, floating);
         bool!(Visible, visible);
         bool!(Urgent, urgent);

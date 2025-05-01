@@ -1819,6 +1819,14 @@
         "just-mapped": {
           "type": "boolean",
           "description": "Matches if the window has/hasn't just been mapped.\n\nThis is true for one iteration of the compositor's main loop immediately after the\nwindow has been mapped.\n"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Matches the toplevel-tag of the window verbatim."
+        },
+        "tag-regex": {
+          "type": "string",
+          "description": "Matches the toplevel-tag of the window with a regular expression."
         }
       },
       "required": []

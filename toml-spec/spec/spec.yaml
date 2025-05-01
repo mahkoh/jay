@@ -3511,6 +3511,14 @@ WindowMatch:
        
         This is true for one iteration of the compositor's main loop immediately after the
         window has been mapped.
+    tag:
+      kind: string
+      required: false
+      description: Matches the toplevel-tag of the window verbatim.
+    tag-regex:
+      kind: string
+      required: false
+      description: Matches the toplevel-tag of the window with a regular expression.
 
 
 WindowMatchExactly:
