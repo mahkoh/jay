@@ -1815,6 +1815,10 @@
         "fullscreen": {
           "type": "boolean",
           "description": "Matches if the window is/isn't fullscreen."
+        },
+        "just-mapped": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't just been mapped.\n\nThis is true for one iteration of the compositor's main loop immediately after the\nwindow has been mapped.\n"
         }
       },
       "required": []

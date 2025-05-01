@@ -255,6 +255,11 @@ pub enum WindowCriterion<'a> {
     Focus(Seat),
     /// Matches if the window is fullscreen.
     Fullscreen,
+    /// Matches if the window has/hasn't just been mapped.
+    ///
+    /// This is true for one iteration of the compositor's main loop immediately after the
+    /// window has been mapped.
+    JustMapped,
 }
 
 impl WindowCriterion<'_> {

@@ -262,6 +262,7 @@ impl Rule for WindowRule {
         bool!(Visible, visible);
         bool!(Urgent, urgent);
         bool!(Fullscreen, fullscreen);
+        bool!(JustMapped, just_mapped);
         if let Some(value) = match_.focused {
             let crit = WindowCriterion::Focus(state.persistent.seat);
             let matcher = match value {

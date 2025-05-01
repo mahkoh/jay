@@ -18,7 +18,9 @@ use {
         criteria::{
             CritMatcherIds,
             clm::{ClMatcherManager, handle_cl_changes, handle_cl_leaf_events},
-            tlm::{TlMatcherManager, handle_tl_changes, handle_tl_leaf_events},
+            tlm::{
+                TlMatcherManager, handle_tl_changes, handle_tl_just_mapped, handle_tl_leaf_events,
+            },
         },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
@@ -483,6 +485,11 @@ fn start_global_event_handlers(
         eng.spawn(
             "tl matcher leaf events",
             handle_tl_leaf_events(state.clone()),
+        ),
+        eng.spawn2(
+            "tl matcher just mapped",
+            Phase::Layout,
+            handle_tl_just_mapped(state.clone()),
         ),
     ]
 }

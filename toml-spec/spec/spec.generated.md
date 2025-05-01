@@ -4064,6 +4064,15 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `just-mapped` (optional):
+
+  Matches if the window has/hasn't just been mapped.
+  
+  This is true for one iteration of the compositor's main loop immediately after the
+  window has been mapped.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

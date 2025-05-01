@@ -2002,6 +2002,7 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::Urgent => mgr.urgent(),
             WindowCriterionIpc::SeatFocus(seat) => mgr.seat_focus(&*self.get_seat(*seat)?),
             WindowCriterionIpc::Fullscreen => mgr.fullscreen(),
+            WindowCriterionIpc::JustMapped => mgr.just_mapped(),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

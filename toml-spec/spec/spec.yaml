@@ -3503,6 +3503,14 @@ WindowMatch:
       kind: boolean
       required: false
       description: Matches if the window is/isn't fullscreen.
+    just-mapped:
+      kind: boolean
+      required: false
+      description: |
+        Matches if the window has/hasn't just been mapped.
+       
+        This is true for one iteration of the compositor's main loop immediately after the
+        window has been mapped.
 
 
 WindowMatchExactly:

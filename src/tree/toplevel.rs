@@ -103,6 +103,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
+            data.mapped_during_iteration.set(data.state.eng.iteration());
             data.property_changed(TL_CHANGED_NEW);
         }
         let was_floating = data.is_floating.get();
@@ -308,6 +309,7 @@ pub struct ToplevelData {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
+    pub mapped_during_iteration: Cell<u64>,
     pub pos: Cell<Rect>,
     pub desired_extents: Cell<Rect>,
     pub seat_state: NodeSeatState,
@@ -325,6 +327,7 @@ pub struct ToplevelData {
     pub slf: Weak<dyn ToplevelNode>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<ToplevelData>>>,
     pub changed_properties: Cell<TlMatcherChange>,
+    pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
 }
 
@@ -357,6 +360,7 @@ impl ToplevelData {
             workspace: Default::default(),
             title: RefCell::new(title),
             parent: Default::default(),
+            mapped_during_iteration: Cell::new(0),
             pos: Default::default(),
             desired_extents: Default::default(),
             seat_state: Default::default(),
@@ -372,6 +376,7 @@ impl ToplevelData {
             slf: slf.clone(),
             destroyed: Default::default(),
             changed_properties: Default::default(),
+            just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
         }
     }
@@ -695,6 +700,10 @@ impl ToplevelData {
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)
+    }
+
+    pub fn just_mapped(&self) -> bool {
+        self.mapped_during_iteration.get() == self.state.eng.iteration()
     }
 }
 

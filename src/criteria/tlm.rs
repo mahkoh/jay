@@ -15,6 +15,7 @@ use {
                 tlmm_client::TlmMatchClient,
                 tlmm_floating::TlmMatchFloating,
                 tlmm_fullscreen::TlmMatchFullscreen,
+                tlmm_just_mapped::TlmMatchJustMapped,
                 tlmm_kind::TlmMatchKind,
                 tlmm_seat_focus::TlmMatchSeatFocus,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
@@ -49,6 +50,7 @@ bitflags! {
     TL_CHANGED_URGENT      = 1 << 6,
     TL_CHANGED_SEAT_FOCI   = 1 << 7,
     TL_CHANGED_FULLSCREEN  = 1 << 8,
+    TL_CHANGED_JUST_MAPPED = 1 << 9,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -57,11 +59,13 @@ pub struct TlMatcherManager {
     ids: Rc<CritMatcherIds>,
     changes: AsyncQueue<Rc<dyn ToplevelNode>>,
     leaf_events: Rc<AsyncQueue<CritLeafEvent<ToplevelData>>>,
+    handle_just_mapped: AsyncQueue<Rc<dyn ToplevelNode>>,
     constant: TlmFixedRootMatcher<CritMatchConstant<ToplevelData>>,
     floating: TlmFixedRootMatcher<TlmMatchFloating>,
     visible: TlmFixedRootMatcher<TlmMatchVisible>,
     urgent: TlmFixedRootMatcher<TlmMatchUrgent>,
     fullscreen: TlmFixedRootMatcher<TlmMatchFullscreen>,
+    just_mapped: TlmFixedRootMatcher<TlmMatchJustMapped>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -94,6 +98,16 @@ pub async fn handle_tl_leaf_events(state: Rc<State>) {
     }
 }
 
+pub async fn handle_tl_just_mapped(state: Rc<State>) {
+    let mgr = &state.tl_matcher_manager;
+    loop {
+        let tl = mgr.handle_just_mapped.pop().await;
+        let data = tl.tl_data();
+        data.just_mapped_scheduled.set(false);
+        data.property_changed(TL_CHANGED_JUST_MAPPED);
+    }
+}
+
 pub type TlmUpstreamNode = dyn CritUpstreamNode<ToplevelData>;
 pub type TlmLeafMatcher = CritLeafMatcher<ToplevelData>;
 
@@ -117,16 +131,19 @@ impl TlMatcherManager {
             visible: bool!(TlmMatchVisible),
             urgent: bool!(TlmMatchUrgent),
             fullscreen: bool!(TlmMatchFullscreen),
+            just_mapped: bool!(TlmMatchJustMapped),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
             matchers,
+            handle_just_mapped: Default::default(),
         }
     }
 
     pub fn clear(&self) {
         self.changes.clear();
         self.leaf_events.clear();
+        self.handle_just_mapped.clear();
     }
 
     pub fn rematch_all(&self, state: &Rc<State>) {
@@ -192,6 +209,7 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
         fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
+        fixed_conditional!(TL_CHANGED_JUST_MAPPED, just_mapped);
         false
     }
 
@@ -263,6 +281,14 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
         fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
+        fixed_conditional!(TL_CHANGED_JUST_MAPPED, just_mapped);
+        if changed.contains(TL_CHANGED_JUST_MAPPED)
+            && data.just_mapped()
+            && (self.just_mapped[false].has_downstream() || self.just_mapped[true].has_downstream())
+            && !data.just_mapped_scheduled.replace(true)
+        {
+            self.handle_just_mapped.push(node);
+        }
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
@@ -295,6 +321,10 @@ impl TlMatcherManager {
 
     pub fn urgent(&self) -> Rc<TlmUpstreamNode> {
         self.urgent[true].clone()
+    }
+
+    pub fn just_mapped(&self) -> Rc<TlmUpstreamNode> {
+        self.just_mapped[true].clone()
     }
 
     pub fn seat_focus(&self, seat: &WlSeatGlobal) -> Rc<TlmUpstreamNode> {

@@ -264,6 +264,7 @@ pub struct WindowMatch {
     pub urgent: Option<bool>,
     pub focused: Option<bool>,
     pub fullscreen: Option<bool>,
+    pub just_mapped: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
