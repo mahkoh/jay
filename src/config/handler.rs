@@ -1998,6 +1998,7 @@ impl ConfigProxyHandler {
                 mgr.client(&self.state, &self.get_client_matcher(*c)?.node)
             }
             WindowCriterionIpc::Floating => mgr.floating(),
+            WindowCriterionIpc::Visible => mgr.visible(),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

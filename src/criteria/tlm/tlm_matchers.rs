@@ -21,3 +21,4 @@ pub mod tlmm_client;
 pub mod tlmm_floating;
 pub mod tlmm_kind;
 pub mod tlmm_string;
+pub mod tlmm_visible;

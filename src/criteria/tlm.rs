@@ -16,6 +16,7 @@ use {
                 tlmm_floating::TlmMatchFloating,
                 tlmm_kind::TlmMatchKind,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
+                tlmm_visible::TlmMatchVisible,
             },
         },
         state::State,
@@ -40,6 +41,7 @@ bitflags! {
     TL_CHANGED_TITLE       = 1 << 2,
     TL_CHANGED_APP_ID      = 1 << 3,
     TL_CHANGED_FLOATING    = 1 << 4,
+    TL_CHANGED_VISIBLE     = 1 << 5,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -50,6 +52,7 @@ pub struct TlMatcherManager {
     leaf_events: Rc<AsyncQueue<CritLeafEvent<ToplevelData>>>,
     constant: TlmFixedRootMatcher<CritMatchConstant<ToplevelData>>,
     floating: TlmFixedRootMatcher<TlmMatchFloating>,
+    visible: TlmFixedRootMatcher<TlmMatchVisible>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -101,6 +104,7 @@ impl TlMatcherManager {
         Self {
             constant: CritMatchConstant::create(&matchers, ids),
             floating: bool!(TlmMatchFloating),
+            visible: bool!(TlmMatchVisible),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -168,6 +172,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
+        fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         false
     }
 
@@ -235,6 +240,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
+        fixed_conditional!(TL_CHANGED_VISIBLE, visible);
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
@@ -255,6 +261,10 @@ impl TlMatcherManager {
 
     pub fn client(&self, state: &Rc<State>, client: &Rc<ClmUpstreamNode>) -> Rc<TlmUpstreamNode> {
         TlmMatchClient::new(state, client)
+    }
+
+    pub fn visible(&self) -> Rc<TlmUpstreamNode> {
+        self.visible[true].clone()
     }
 }
 

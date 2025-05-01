@@ -111,6 +111,7 @@ pub enum WindowCriterionIpc {
     Types(WindowType),
     Client(ClientMatcher),
     Floating,
+    Visible,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

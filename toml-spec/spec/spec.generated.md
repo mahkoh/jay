@@ -4040,6 +4040,12 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `visible` (optional):
+
+  Matches if the window is/isn't visible.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

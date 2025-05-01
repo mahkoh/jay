@@ -1799,6 +1799,10 @@
         "floating": {
           "type": "boolean",
           "description": "Matches if the window is/isn't floating."
+        },
+        "visible": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't visible."
         }
       },
       "required": []

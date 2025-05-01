@@ -3487,6 +3487,10 @@ WindowMatch:
       kind: boolean
       required: false
       description: Matches if the window is/isn't floating.
+    visible:
+      kind: boolean
+      required: false
+      description: Matches if the window is/isn't visible.
 
 
 WindowMatchExactly:

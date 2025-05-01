@@ -260,6 +260,7 @@ pub struct WindowMatch {
     pub app_id: Option<String>,
     pub app_id_regex: Option<String>,
     pub floating: Option<bool>,
+    pub visible: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

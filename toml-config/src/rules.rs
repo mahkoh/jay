@@ -259,6 +259,7 @@ impl Rule for WindowRule {
         value!(AppId, app_id);
         value!(AppIdRegex, app_id_regex);
         bool!(Floating, floating);
+        bool!(Visible, visible);
         Some(())
     }
 

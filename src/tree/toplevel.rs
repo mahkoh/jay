@@ -5,7 +5,7 @@ use {
             CritDestroyListener, CritMatcherId,
             tlm::{
                 TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING, TL_CHANGED_NEW,
-                TL_CHANGED_TITLE, TlMatcherChange,
+                TL_CHANGED_TITLE, TL_CHANGED_VISIBLE, TlMatcherChange,
             },
         },
         ifs::{
@@ -631,7 +631,9 @@ impl ToplevelData {
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
-        self.visible.set(visible);
+        if self.visible.replace(visible) != visible {
+            self.property_changed(TL_CHANGED_VISIBLE);
+        }
         self.seat_state.set_visible(node, visible);
         for sc in self.jay_screencasts.lock().values() {
             sc.update_latch_listener();
