@@ -1997,6 +1997,7 @@ impl ConfigProxyHandler {
                 self.state.cl_matcher_manager.rematch_all(&self.state);
                 mgr.client(&self.state, &self.get_client_matcher(*c)?.node)
             }
+            WindowCriterionIpc::Floating => mgr.floating(),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

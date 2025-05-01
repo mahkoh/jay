@@ -1,4 +1,3 @@
-#[expect(unused_macros)]
 macro_rules! fixed_root_criterion {
     ($ty:ty, $field:ident) => {
         impl crate::criteria::crit_graph::CritFixedRootCriterionBase<crate::tree::ToplevelData>
@@ -19,5 +18,6 @@ macro_rules! fixed_root_criterion {
 }
 
 pub mod tlmm_client;
+pub mod tlmm_floating;
 pub mod tlmm_kind;
 pub mod tlmm_string;

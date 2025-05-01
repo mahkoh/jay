@@ -4,8 +4,8 @@ use {
         criteria::{
             CritDestroyListener, CritMatcherId,
             tlm::{
-                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TL_CHANGED_TITLE,
-                TlMatcherChange,
+                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING, TL_CHANGED_NEW,
+                TL_CHANGED_TITLE, TlMatcherChange,
             },
         },
         ifs::{
@@ -104,7 +104,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if parent_was_none {
             data.property_changed(TL_CHANGED_NEW);
         }
-        data.is_floating.set(parent.node_is_float());
+        let was_floating = data.is_floating.get();
+        let is_floating = parent.node_is_float();
+        if was_floating != is_floating {
+            data.property_changed(TL_CHANGED_FLOATING);
+        }
+        data.is_floating.set(is_floating);
         self.tl_set_workspace(&parent.cnode_workspace());
     }
 

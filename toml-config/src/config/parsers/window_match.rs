@@ -3,7 +3,7 @@ use {
         config::{
             GenericMatch, MatchExactly, WindowMatch,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, n32, opt, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 client_match::{ClientMatchParser, ClientMatchParserError},
@@ -56,7 +56,7 @@ impl Parser for WindowMatchParser<'_> {
                 title,
                 title_regex,
             ),
-            (app_id, app_id_regex),
+            (app_id, app_id_regex, floating),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -69,7 +69,11 @@ impl Parser for WindowMatchParser<'_> {
                 opt(str("title")),
                 opt(str("title-regex")),
             ),
-            (opt(str("app-id")), opt(str("app-id-regex"))),
+            (
+                opt(str("app-id")),
+                opt(str("app-id-regex")),
+                opt(bol("floating")),
+            ),
         ))?;
         let mut not = None;
         if let Some(value) = not_val {
@@ -114,6 +118,7 @@ impl Parser for WindowMatchParser<'_> {
             title_regex: title_regex.despan_into(),
             app_id: app_id.despan_into(),
             app_id_regex: app_id_regex.despan_into(),
+            floating: floating.despan(),
             types,
             client,
         })

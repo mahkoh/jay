@@ -259,6 +259,7 @@ pub struct WindowMatch {
     pub title_regex: Option<String>,
     pub app_id: Option<String>,
     pub app_id_regex: Option<String>,
+    pub floating: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

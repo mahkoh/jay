@@ -6,11 +6,14 @@ use {
             CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
             CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
             clm::ClmUpstreamNode,
-            crit_graph::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
+            crit_graph::{
+                CritMgr, CritRoot, CritRootFixed, CritTarget, CritTargetOwner, WeakCritTargetOwner,
+            },
             crit_leaf::{CritLeafEvent, CritLeafMatcher},
             crit_matchers::critm_constant::CritMatchConstant,
             tlm::tlm_matchers::{
                 tlmm_client::TlmMatchClient,
+                tlmm_floating::TlmMatchFloating,
                 tlmm_kind::TlmMatchKind,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
             },
@@ -23,7 +26,11 @@ use {
         },
     },
     jay_config::window::WindowType,
-    std::rc::{Rc, Weak},
+    linearize::static_map,
+    std::{
+        marker::PhantomData,
+        rc::{Rc, Weak},
+    },
 };
 
 bitflags! {
@@ -32,6 +39,7 @@ bitflags! {
     TL_CHANGED_NEW         = 1 << 1,
     TL_CHANGED_TITLE       = 1 << 2,
     TL_CHANGED_APP_ID      = 1 << 3,
+    TL_CHANGED_FLOATING    = 1 << 4,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -41,6 +49,7 @@ pub struct TlMatcherManager {
     changes: AsyncQueue<Rc<dyn ToplevelNode>>,
     leaf_events: Rc<AsyncQueue<CritLeafEvent<ToplevelData>>>,
     constant: TlmFixedRootMatcher<CritMatchConstant<ToplevelData>>,
+    floating: TlmFixedRootMatcher<TlmMatchFloating>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -78,8 +87,20 @@ pub type TlmLeafMatcher = CritLeafMatcher<ToplevelData>;
 impl TlMatcherManager {
     pub fn new(ids: &Rc<CritMatcherIds>) -> Self {
         let matchers = Rc::new(RootMatchers::default());
+        macro_rules! bool {
+            ($name:ident) => {{
+                static_map! {
+                    v => CritRoot::new(
+                        &matchers,
+                        ids.next(),
+                        CritRootFixed($name(v), PhantomData),
+                    )
+                }
+            }};
+        }
         Self {
             constant: CritMatchConstant::create(&matchers, ids),
+            floating: bool!(TlmMatchFloating),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -108,7 +129,6 @@ impl TlMatcherManager {
         if change.contains(TL_CHANGED_DESTROYED) && data.destroyed.is_not_empty() {
             return true;
         }
-        #[expect(unused_macros)]
         macro_rules! fixed {
             ($name:ident) => {
                 if self.$name[false].has_downstream() || self.$name[true].has_downstream() {
@@ -138,7 +158,6 @@ impl TlMatcherManager {
                 }
             };
         }
-        #[expect(unused_macros)]
         macro_rules! fixed_conditional {
             ($change:expr, $field:ident) => {
                 if change.contains($change) {
@@ -148,6 +167,7 @@ impl TlMatcherManager {
         }
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
+        fixed_conditional!(TL_CHANGED_FLOATING, floating);
         false
     }
 
@@ -177,7 +197,6 @@ impl TlMatcherManager {
                     .filter_map(|m| m.upgrade())
             };
         }
-        #[expect(unused_macros)]
         macro_rules! fixed {
             ($name:ident) => {
                 self.$name[false].handle(data);
@@ -206,7 +225,6 @@ impl TlMatcherManager {
                 }
             };
         }
-        #[expect(unused_macros)]
         macro_rules! fixed_conditional {
             ($change:expr, $field:ident) => {
                 if changed.contains($change) {
@@ -216,6 +234,7 @@ impl TlMatcherManager {
         }
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
+        fixed_conditional!(TL_CHANGED_FLOATING, floating);
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
@@ -224,6 +243,10 @@ impl TlMatcherManager {
 
     pub fn app_id(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchAppId::new(string))
+    }
+
+    pub fn floating(&self) -> Rc<TlmUpstreamNode> {
+        self.floating[true].clone()
     }
 
     pub fn kind(&self, kind: WindowType) -> Rc<TlmUpstreamNode> {

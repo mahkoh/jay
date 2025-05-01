@@ -244,6 +244,8 @@ pub enum WindowCriterion<'a> {
     AppId(&'a str),
     /// Matches the app-id of the window with a regular expression.
     AppIdRegex(&'a str),
+    /// Matches if the window is floating.
+    Floating,
 }
 
 impl WindowCriterion<'_> {

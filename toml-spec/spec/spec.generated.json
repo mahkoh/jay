@@ -1795,6 +1795,10 @@
         "app-id-regex": {
           "type": "string",
           "description": "Matches the app-id of the window with a regular expression."
+        },
+        "floating": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't floating."
         }
       },
       "required": []

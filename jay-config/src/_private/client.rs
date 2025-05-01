@@ -1657,6 +1657,7 @@ impl ConfigClient {
             WindowCriterion::TitleRegex(t) => string!(t, Title, true),
             WindowCriterion::AppId(t) => string!(t, AppId, false),
             WindowCriterion::AppIdRegex(t) => string!(t, AppId, true),
+            WindowCriterion::Floating => WindowCriterionIpc::Floating,
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

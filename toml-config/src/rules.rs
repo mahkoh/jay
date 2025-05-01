@@ -231,7 +231,6 @@ impl Rule for WindowRule {
                 }
             };
         }
-        #[expect(unused_macros)]
         macro_rules! bool {
             ($ty:ident, $field:ident) => {
                 if let Some(value) = &match_.$field {
@@ -259,6 +258,7 @@ impl Rule for WindowRule {
         value!(TitleRegex, title_regex);
         value!(AppId, app_id);
         value!(AppIdRegex, app_id_regex);
+        bool!(Floating, floating);
         Some(())
     }
 
