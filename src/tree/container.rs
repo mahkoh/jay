@@ -1152,7 +1152,7 @@ impl ContainerNode {
     fn mod_attention_requests(&self, set: bool) {
         let propagate = self.attention_requests.adj(set);
         if set || propagate {
-            self.toplevel_data.wants_attention.set(set);
+            self.toplevel_data.set_wants_attention(set);
         }
         if propagate {
             if let Some(parent) = self.toplevel_data.parent.get() {

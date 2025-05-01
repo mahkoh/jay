@@ -1999,6 +1999,7 @@ impl ConfigProxyHandler {
             }
             WindowCriterionIpc::Floating => mgr.floating(),
             WindowCriterionIpc::Visible => mgr.visible(),
+            WindowCriterionIpc::Urgent => mgr.urgent(),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

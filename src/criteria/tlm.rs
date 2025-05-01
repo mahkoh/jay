@@ -16,6 +16,7 @@ use {
                 tlmm_floating::TlmMatchFloating,
                 tlmm_kind::TlmMatchKind,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
+                tlmm_urgent::TlmMatchUrgent,
                 tlmm_visible::TlmMatchVisible,
             },
         },
@@ -42,6 +43,7 @@ bitflags! {
     TL_CHANGED_APP_ID      = 1 << 3,
     TL_CHANGED_FLOATING    = 1 << 4,
     TL_CHANGED_VISIBLE     = 1 << 5,
+    TL_CHANGED_URGENT      = 1 << 6,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -53,6 +55,7 @@ pub struct TlMatcherManager {
     constant: TlmFixedRootMatcher<CritMatchConstant<ToplevelData>>,
     floating: TlmFixedRootMatcher<TlmMatchFloating>,
     visible: TlmFixedRootMatcher<TlmMatchVisible>,
+    urgent: TlmFixedRootMatcher<TlmMatchUrgent>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -105,6 +108,7 @@ impl TlMatcherManager {
             constant: CritMatchConstant::create(&matchers, ids),
             floating: bool!(TlmMatchFloating),
             visible: bool!(TlmMatchVisible),
+            urgent: bool!(TlmMatchUrgent),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -173,6 +177,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_APP_ID, app_id);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
+        fixed_conditional!(TL_CHANGED_URGENT, urgent);
         false
     }
 
@@ -241,6 +246,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_APP_ID, app_id);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
+        fixed_conditional!(TL_CHANGED_URGENT, urgent);
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
@@ -265,6 +271,10 @@ impl TlMatcherManager {
 
     pub fn visible(&self) -> Rc<TlmUpstreamNode> {
         self.visible[true].clone()
+    }
+
+    pub fn urgent(&self) -> Rc<TlmUpstreamNode> {
+        self.urgent[true].clone()
     }
 }
 

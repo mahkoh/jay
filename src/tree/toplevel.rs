@@ -5,7 +5,7 @@ use {
             CritDestroyListener, CritMatcherId,
             tlm::{
                 TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING, TL_CHANGED_NEW,
-                TL_CHANGED_TITLE, TL_CHANGED_VISIBLE, TlMatcherChange,
+                TL_CHANGED_TITLE, TL_CHANGED_URGENT, TL_CHANGED_VISIBLE, TlMatcherChange,
             },
         },
         ifs::{
@@ -647,7 +647,7 @@ impl ToplevelData {
         if !self.requested_attention.replace(false) {
             return;
         }
-        self.wants_attention.set(false);
+        self.set_wants_attention(false);
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, false);
         }
@@ -660,9 +660,15 @@ impl ToplevelData {
         if self.requested_attention.replace(true) {
             return;
         }
-        self.wants_attention.set(true);
+        self.set_wants_attention(true);
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, true);
+        }
+    }
+
+    pub fn set_wants_attention(&self, value: bool) {
+        if self.wants_attention.replace(value) != value {
+            self.property_changed(TL_CHANGED_URGENT);
         }
     }
 

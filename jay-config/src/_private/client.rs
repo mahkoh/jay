@@ -1659,6 +1659,7 @@ impl ConfigClient {
             WindowCriterion::AppIdRegex(t) => string!(t, AppId, true),
             WindowCriterion::Floating => WindowCriterionIpc::Floating,
             WindowCriterion::Visible => WindowCriterionIpc::Visible,
+            WindowCriterion::Urgent => WindowCriterionIpc::Urgent,
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

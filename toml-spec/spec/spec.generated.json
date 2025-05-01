@@ -1803,6 +1803,10 @@
         "visible": {
           "type": "boolean",
           "description": "Matches if the window is/isn't visible."
+        },
+        "urgent": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't the urgency flag set."
         }
       },
       "required": []

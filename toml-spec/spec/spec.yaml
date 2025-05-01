@@ -3491,6 +3491,10 @@ WindowMatch:
       kind: boolean
       required: false
       description: Matches if the window is/isn't visible.
+    urgent:
+      kind: boolean
+      required: false
+      description: Matches if the window has/hasn't the urgency flag set.
 
 
 WindowMatchExactly:

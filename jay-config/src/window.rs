@@ -248,6 +248,8 @@ pub enum WindowCriterion<'a> {
     Floating,
     /// Matches if the window is visible.
     Visible,
+    /// Matches if the window has the urgency flag set.
+    Urgent,
 }
 
 impl WindowCriterion<'_> {
