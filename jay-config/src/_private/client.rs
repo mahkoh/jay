@@ -1660,6 +1660,7 @@ impl ConfigClient {
             WindowCriterion::Floating => WindowCriterionIpc::Floating,
             WindowCriterion::Visible => WindowCriterionIpc::Visible,
             WindowCriterion::Urgent => WindowCriterionIpc::Urgent,
+            WindowCriterion::Focus(seat) => WindowCriterionIpc::SeatFocus(seat),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

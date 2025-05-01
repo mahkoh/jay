@@ -3495,6 +3495,10 @@ WindowMatch:
       kind: boolean
       required: false
       description: Matches if the window has/hasn't the urgency flag set.
+    focused:
+      kind: boolean
+      required: false
+      description: Matches if the window has/hasn't the keyboard focus.
 
 
 WindowMatchExactly:

@@ -261,6 +261,14 @@ impl Rule for WindowRule {
         bool!(Floating, floating);
         bool!(Visible, visible);
         bool!(Urgent, urgent);
+        if let Some(value) = match_.focused {
+            let crit = WindowCriterion::Focus(state.persistent.seat);
+            let matcher = match value {
+                false => m(WindowCriterion::Not(&crit)),
+                true => m(crit),
+            };
+            all.push(matcher);
+        }
         Some(())
     }
 

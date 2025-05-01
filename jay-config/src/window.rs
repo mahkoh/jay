@@ -4,6 +4,7 @@ use {
     crate::{
         Axis, Direction, Workspace,
         client::{Client, ClientCriterion},
+        input::Seat,
     },
     serde::{Deserialize, Serialize},
     std::ops::Deref,
@@ -250,6 +251,8 @@ pub enum WindowCriterion<'a> {
     Visible,
     /// Matches if the window has the urgency flag set.
     Urgent,
+    /// Matches if the window has the keyboard focus of the seat.
+    Focus(Seat),
 }
 
 impl WindowCriterion<'_> {

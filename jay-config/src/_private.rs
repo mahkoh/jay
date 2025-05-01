@@ -6,6 +6,7 @@ pub(crate) mod string_error;
 use {
     crate::{
         client::ClientMatcher,
+        input::Seat,
         video::Mode,
         window::{WindowMatcher, WindowType},
     },
@@ -113,6 +114,7 @@ pub enum WindowCriterionIpc {
     Floating,
     Visible,
     Urgent,
+    SeatFocus(Seat),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

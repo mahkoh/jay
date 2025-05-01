@@ -1807,6 +1807,10 @@
         "urgent": {
           "type": "boolean",
           "description": "Matches if the window has/hasn't the urgency flag set."
+        },
+        "focused": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't the keyboard focus."
         }
       },
       "required": []

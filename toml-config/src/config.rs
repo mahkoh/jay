@@ -262,6 +262,7 @@ pub struct WindowMatch {
     pub floating: Option<bool>,
     pub visible: Option<bool>,
     pub urgent: Option<bool>,
+    pub focused: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

@@ -14,7 +14,7 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{NodeSeatState, collect_kb_foci, collect_kb_foci2},
+            wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -324,6 +324,7 @@ pub struct ToplevelData {
     pub slf: Weak<dyn ToplevelNode>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<ToplevelData>>>,
     pub changed_properties: Cell<TlMatcherChange>,
+    pub seat_foci: CopyHashMap<SeatId, ()>,
 }
 
 impl ToplevelData {
@@ -370,6 +371,7 @@ impl ToplevelData {
             slf: slf.clone(),
             destroyed: Default::default(),
             changed_properties: Default::default(),
+            seat_foci: Default::default(),
         }
     }
 

@@ -15,11 +15,13 @@ use {
                 tlmm_client::TlmMatchClient,
                 tlmm_floating::TlmMatchFloating,
                 tlmm_kind::TlmMatchKind,
+                tlmm_seat_focus::TlmMatchSeatFocus,
                 tlmm_string::{TlmMatchAppId, TlmMatchTitle},
                 tlmm_urgent::TlmMatchUrgent,
                 tlmm_visible::TlmMatchVisible,
             },
         },
+        ifs::wl_seat::WlSeatGlobal,
         state::State,
         tree::{NodeId, ToplevelData, ToplevelNode},
         utils::{
@@ -44,6 +46,7 @@ bitflags! {
     TL_CHANGED_FLOATING    = 1 << 4,
     TL_CHANGED_VISIBLE     = 1 << 5,
     TL_CHANGED_URGENT      = 1 << 6,
+    TL_CHANGED_SEAT_FOCI   = 1 << 7,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -67,6 +70,7 @@ pub struct RootMatchers {
     clients: CopyHashMap<CritMatcherId, Weak<TlmMatchClient>>,
     title: TlmRootMatcherMap<TlmMatchTitle>,
     app_id: TlmRootMatcherMap<TlmMatchAppId>,
+    seat_foci: TlmRootMatcherMap<TlmMatchSeatFocus>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -129,6 +133,10 @@ impl TlMatcherManager {
         }
     }
 
+    pub fn has_seat_foci(&self) -> bool {
+        self.matchers.seat_foci.is_not_empty()
+    }
+
     pub fn has_no_interest(&self, data: &ToplevelData, change: TlMatcherChange) -> bool {
         !self.has_interest(data, change)
     }
@@ -175,6 +183,7 @@ impl TlMatcherManager {
         }
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
+        conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -244,6 +253,7 @@ impl TlMatcherManager {
         }
         conditional!(TL_CHANGED_TITLE, title);
         conditional!(TL_CHANGED_APP_ID, app_id);
+        conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -275,6 +285,10 @@ impl TlMatcherManager {
 
     pub fn urgent(&self) -> Rc<TlmUpstreamNode> {
         self.urgent[true].clone()
+    }
+
+    pub fn seat_focus(&self, seat: &WlSeatGlobal) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchSeatFocus::new(seat.id()))
     }
 }
 

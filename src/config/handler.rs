@@ -2000,6 +2000,7 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::Floating => mgr.floating(),
             WindowCriterionIpc::Visible => mgr.visible(),
             WindowCriterionIpc::Urgent => mgr.urgent(),
+            WindowCriterionIpc::SeatFocus(seat) => mgr.seat_focus(&*self.get_seat(*seat)?),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

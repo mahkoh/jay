@@ -1,7 +1,7 @@
 use {
     crate::{
-        ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell,
-        xwayland::XWaylandEvent,
+        criteria::tlm::TL_CHANGED_SEAT_FOCI, ifs::wl_seat::WlSeatGlobal, tree::Node,
+        utils::clonecell::CloneCell, xwayland::XWaylandEvent,
     },
     std::rc::Rc,
 };
@@ -61,6 +61,18 @@ impl KbOwner for DefaultKbOwner {
     }
 
     fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>, serial: u64) {
+        macro_rules! notify_matcher {
+            ($node:expr, $data:ident, $block:expr) => {
+                if let Some(tl) = $node.clone().node_toplevel() {
+                    let $data = tl.tl_data();
+                    $block;
+                    if seat.state.tl_matcher_manager.has_seat_foci() {
+                        $data.property_changed(TL_CHANGED_SEAT_FOCI);
+                    }
+                }
+            };
+        }
+
         let old = seat.keyboard_node.get();
         if old.node_id() == node.node_id() {
             return;
@@ -70,6 +82,7 @@ impl KbOwner for DefaultKbOwner {
             seat.state.xwayland.queue.push(XWaylandEvent::ActivateRoot);
         }
         old.node_on_unfocus(seat);
+        notify_matcher!(old, data, data.seat_foci.remove(&seat.id));
         if old.node_seat_state().unfocus(seat) {
             old.node_active_changed(false);
         }
@@ -79,6 +92,7 @@ impl KbOwner for DefaultKbOwner {
         }
         // log::info!("focus {}", node.node_id());
         node.clone().node_on_focus(seat);
+        notify_matcher!(node, data, data.seat_foci.set(seat.id, ()));
         seat.keyboard_node_serial.set(serial);
         seat.keyboard_node.set(node.clone());
         seat.tablet_on_keyboard_node_change();
