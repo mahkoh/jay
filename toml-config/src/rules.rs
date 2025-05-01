@@ -257,6 +257,8 @@ impl Rule for WindowRule {
         }
         value!(Title, title);
         value!(TitleRegex, title_regex);
+        value!(AppId, app_id);
+        value!(AppIdRegex, app_id_regex);
         Some(())
     }
 

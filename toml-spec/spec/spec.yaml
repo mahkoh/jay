@@ -3475,6 +3475,14 @@ WindowMatch:
       kind: string
       required: false
       description: Matches the title of the window with a regular expression.
+    app-id:
+      kind: string
+      required: false
+      description: Matches the app-id of the window verbatim.
+    app-id-regex:
+      kind: string
+      required: false
+      description: Matches the app-id of the window with a regular expression.
 
 
 WindowMatchExactly:

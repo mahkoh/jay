@@ -3,7 +3,10 @@ use {
         client::{Client, ClientId},
         criteria::{
             CritDestroyListener, CritMatcherId,
-            tlm::{TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TL_CHANGED_TITLE, TlMatcherChange},
+            tlm::{
+                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TL_CHANGED_TITLE,
+                TlMatcherChange,
+            },
         },
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
@@ -498,11 +501,16 @@ impl ToplevelData {
     }
 
     pub fn set_app_id(&self, app_id: &str) {
-        *self.app_id.borrow_mut() = app_id.to_string();
+        let dst = &mut *self.app_id.borrow_mut();
+        if *dst == app_id {
+            return;
+        }
+        *dst = app_id.to_string();
         for handle in self.handles.lock().values() {
             handle.send_app_id(app_id);
             handle.send_done();
         }
+        self.property_changed(TL_CHANGED_APP_ID)
     }
 
     pub fn set_fullscreen(

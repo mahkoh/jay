@@ -240,6 +240,10 @@ pub enum WindowCriterion<'a> {
     Title(&'a str),
     /// Matches the title of the window with a regular expression.
     TitleRegex(&'a str),
+    /// Matches the app-id of the window verbatim.
+    AppId(&'a str),
+    /// Matches the app-id of the window with a regular expression.
+    AppIdRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {

@@ -10,7 +10,9 @@ use {
             crit_leaf::{CritLeafEvent, CritLeafMatcher},
             crit_matchers::critm_constant::CritMatchConstant,
             tlm::tlm_matchers::{
-                tlmm_client::TlmMatchClient, tlmm_kind::TlmMatchKind, tlmm_string::TlmMatchTitle,
+                tlmm_client::TlmMatchClient,
+                tlmm_kind::TlmMatchKind,
+                tlmm_string::{TlmMatchAppId, TlmMatchTitle},
             },
         },
         state::State,
@@ -29,6 +31,7 @@ bitflags! {
     TL_CHANGED_DESTROYED   = 1 << 0,
     TL_CHANGED_NEW         = 1 << 1,
     TL_CHANGED_TITLE       = 1 << 2,
+    TL_CHANGED_APP_ID      = 1 << 3,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -48,6 +51,7 @@ pub struct RootMatchers {
     kinds: TlmRootMatcherMap<TlmMatchKind>,
     clients: CopyHashMap<CritMatcherId, Weak<TlmMatchClient>>,
     title: TlmRootMatcherMap<TlmMatchTitle>,
+    app_id: TlmRootMatcherMap<TlmMatchAppId>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -143,6 +147,7 @@ impl TlMatcherManager {
             };
         }
         conditional!(TL_CHANGED_TITLE, title);
+        conditional!(TL_CHANGED_APP_ID, app_id);
         false
     }
 
@@ -210,10 +215,15 @@ impl TlMatcherManager {
             };
         }
         conditional!(TL_CHANGED_TITLE, title);
+        conditional!(TL_CHANGED_APP_ID, app_id);
     }
 
     pub fn title(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchTitle::new(string))
+    }
+
+    pub fn app_id(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchAppId::new(string))
     }
 
     pub fn kind(&self, kind: WindowType) -> Rc<TlmUpstreamNode> {

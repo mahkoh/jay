@@ -1989,6 +1989,7 @@ impl ConfigProxyHandler {
                 };
                 match *field {
                     WindowCriterionStringField::Title => mgr.title(needle),
+                    WindowCriterionStringField::AppId => mgr.app_id(needle),
                 }
             }
             WindowCriterionIpc::Types(t) => mgr.kind(*t),

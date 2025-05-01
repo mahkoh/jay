@@ -4022,6 +4022,18 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `app-id` (optional):
+
+  Matches the app-id of the window verbatim.
+
+  The value of this field should be a string.
+
+- `app-id-regex` (optional):
+
+  Matches the app-id of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`
