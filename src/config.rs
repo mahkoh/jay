@@ -22,6 +22,7 @@ use {
         input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
+        window,
     },
     libloading::Library,
     std::{cell::Cell, io, mem, ptr, rc::Rc},
@@ -218,6 +219,11 @@ impl ConfigProxy {
             client_matchers: Default::default(),
             client_matcher_cache: Default::default(),
             client_matcher_leafs: Default::default(),
+            window_matcher_ids: NumCell::new(1),
+            window_matchers: Default::default(),
+            window_matcher_cache: Default::default(),
+            window_matcher_leafs: Default::default(),
+            window_matcher_std_kinds: state.tl_matcher_manager.kind(window::CLIENT_WINDOW),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

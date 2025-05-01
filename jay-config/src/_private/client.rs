@@ -4,7 +4,7 @@ use {
     crate::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
-            GenericCriterionIpc, PollableId, VERSION, WireMode, bincode_ops,
+            GenericCriterionIpc, PollableId, VERSION, WindowCriterionIpc, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
             },
@@ -31,7 +31,7 @@ use {
             Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
-        window::{Window, WindowType},
+        window::{MatchedWindow, Window, WindowCriterion, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -114,6 +114,7 @@ pub(crate) struct ConfigClient {
     i3bar_separator: RefCell<Option<Rc<String>>>,
     pressed_keysym: Cell<Option<KeySym>>,
     client_match_handlers: RefCell<HashMap<ClientMatcher, ClientMatchHandler>>,
+    window_match_handlers: RefCell<HashMap<WindowMatcher, WindowMatchHandler>>,
 
     feat_mod_mask: Cell<bool>,
 }
@@ -121,6 +122,11 @@ pub(crate) struct ConfigClient {
 struct ClientMatchHandler {
     cb: Callback<MatchedClient>,
     latched: HashMap<Client, Box<dyn FnOnce()>>,
+}
+
+struct WindowMatchHandler {
+    cb: Callback<MatchedWindow>,
+    latched: HashMap<Window, Box<dyn FnOnce()>>,
 }
 
 struct Interest {
@@ -253,6 +259,7 @@ pub unsafe extern "C" fn init(
         i3bar_separator: Default::default(),
         pressed_keysym: Cell::new(None),
         client_match_handlers: Default::default(),
+        window_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
@@ -1593,6 +1600,95 @@ impl ConfigClient {
         self.client_match_handlers.borrow_mut().remove(&matcher);
     }
 
+    pub fn create_window_matcher(&self, criterion: WindowCriterion) -> WindowMatcher {
+        self.create_window_matcher_(criterion, false).0
+    }
+
+    fn create_window_matcher_(
+        &self,
+        criterion: WindowCriterion,
+        child: bool,
+    ) -> (WindowMatcher, bool) {
+        #[expect(unused_macros)]
+        macro_rules! string {
+            ($t:expr, $field:ident, $regex:expr) => {
+                WindowCriterionIpc::String {
+                    string: $t.to_string(),
+                    field: WindowCriterionStringField::$field,
+                    regex: $regex,
+                }
+            };
+        }
+        let create_matcher = |criterion| {
+            let res = self.send_with_response(&ClientMessage::CreateWindowMatcher {
+                criterion: WindowCriterionIpc::Generic(criterion),
+            });
+            get_response!(res, WindowMatcher(0), CreateWindowMatcher { matcher });
+            matcher
+        };
+        let destroy_matcher = |matcher| {
+            self.send(&ClientMessage::DestroyWindowMatcher { matcher });
+        };
+        let generic = |crit: GenericCriterion<WindowCriterion, WindowMatcher>| {
+            self.create_generic_matcher(
+                crit,
+                child,
+                |c| self.create_window_matcher_(c, true),
+                create_matcher,
+                destroy_matcher,
+            )
+        };
+        let criterion = match criterion {
+            WindowCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
+            WindowCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
+            WindowCriterion::All(c) => return generic(GenericCriterion::All(c)),
+            WindowCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
+            WindowCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
+            WindowCriterion::Types(t) => WindowCriterionIpc::Types(t),
+        };
+        let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
+        get_response!(
+            res,
+            (WindowMatcher(0), false),
+            CreateWindowMatcher { matcher }
+        );
+        (matcher, true)
+    }
+
+    pub fn set_window_matcher_handler(
+        &self,
+        matcher: WindowMatcher,
+        cb: impl FnMut(MatchedWindow) + 'static,
+    ) {
+        let cb = Rc::new(RefCell::new(cb));
+        let handlers = &mut *self.window_match_handlers.borrow_mut();
+        let handler = handlers.entry(matcher).or_insert_with(|| {
+            self.send(&ClientMessage::EnableWindowMatcherEvents { matcher });
+            WindowMatchHandler {
+                cb: cb.clone(),
+                latched: Default::default(),
+            }
+        });
+        handler.cb = cb.clone();
+    }
+
+    pub fn set_window_matcher_latch_handler(
+        &self,
+        matcher: WindowMatcher,
+        window: Window,
+        cb: impl FnOnce() + 'static,
+    ) {
+        let handlers = &mut *self.window_match_handlers.borrow_mut();
+        if let Some(handler) = handlers.get_mut(&matcher) {
+            handler.latched.insert(window, Box::new(cb));
+        }
+    }
+
+    pub fn destroy_window_matcher(&self, matcher: WindowMatcher) {
+        self.send(&ClientMessage::DestroyWindowMatcher { matcher });
+        self.window_match_handlers.borrow_mut().remove(&matcher);
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();
@@ -1873,6 +1969,30 @@ impl ConfigClient {
                         return;
                     };
                     let Some(cb) = handler.latched.remove(&client) else {
+                        return;
+                    };
+                    cb
+                };
+                cb();
+            }
+            ServerMessage::WindowMatcherMatched { matcher, window } => {
+                let cb = {
+                    let handlers = self.window_match_handlers.borrow();
+                    let Some(handler) = handlers.get(&matcher) else {
+                        return;
+                    };
+                    handler.cb.clone()
+                };
+                let matched = MatchedWindow { matcher, window };
+                cb.borrow_mut()(matched);
+            }
+            ServerMessage::WindowMatcherUnmatched { matcher, window } => {
+                let cb = {
+                    let mut handlers = self.window_match_handlers.borrow_mut();
+                    let Some(handler) = handlers.get_mut(&matcher) else {
+                        return;
+                    };
+                    let Some(cb) = handler.latched.remove(&window) else {
                         return;
                     };
                     cb

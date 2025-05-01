@@ -1,10 +1,13 @@
 use {
     crate::{
         State,
-        config::{ClientMatch, ClientRule, GenericMatch},
+        config::{ClientMatch, ClientRule, GenericMatch, WindowMatch, WindowRule},
     },
     ahash::{AHashMap, AHashSet},
-    jay_config::client::{ClientCriterion, ClientMatcher},
+    jay_config::{
+        client::{ClientCriterion, ClientMatcher},
+        window::{WindowCriterion, WindowMatcher},
+    },
     std::{mem::ManuallyDrop, rc::Rc},
 };
 
@@ -192,6 +195,131 @@ impl Rule for ClientRule {
 
     fn gen_exactly<'a, 'b: 'a>(n: usize, m: &'a [Self::Criterion<'b>]) -> Self::Criterion<'a> {
         ClientCriterion::Exactly(n, m)
+    }
+}
+
+impl Rule for WindowRule {
+    type Match = WindowMatch;
+    type Matcher = WindowMatcher;
+    type Criterion<'a> = WindowCriterion<'a>;
+
+    const NAME_UPPER: &str = "Window";
+    const NAME_LOWER: &str = "window";
+
+    fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    fn match_(&self) -> &Self::Match {
+        &self.match_
+    }
+
+    fn generic(m: &Self::Match) -> &GenericMatch<Self::Match> {
+        &m.generic
+    }
+
+    fn map_custom(
+        _state: &Rc<State>,
+        all: &mut Vec<MatcherTemp<Self>>,
+        match_: &Self::Match,
+    ) -> Option<()> {
+        let m = |c: WindowCriterion<'_>| MatcherTemp(c.to_matcher());
+        #[expect(unused_macros)]
+        macro_rules! value {
+            ($ty:ident, $field:ident) => {
+                if let Some(value) = &match_.$field {
+                    all.push(m(WindowCriterion::$ty(value)));
+                }
+            };
+        }
+        #[expect(unused_macros)]
+        macro_rules! bool {
+            ($ty:ident, $field:ident) => {
+                if let Some(value) = &match_.$field {
+                    let crit = WindowCriterion::$ty;
+                    let matcher = match value {
+                        false => m(WindowCriterion::Not(&crit)),
+                        true => m(crit),
+                    };
+                    all.push(matcher);
+                }
+            };
+        }
+        if let Some(value) = &match_.types {
+            all.push(m(WindowCriterion::Types(*value)));
+        }
+        Some(())
+    }
+
+    fn create(c: Self::Criterion<'_>) -> Self::Matcher {
+        c.to_matcher()
+    }
+
+    fn destroy(m: Self::Matcher) {
+        m.destroy();
+    }
+
+    fn bind(&self, state: &Rc<State>, matcher: Self::Matcher) {
+        let state = state.clone();
+        macro_rules! latch {
+            ($g:ident, $client:ident, $win:ident) => {
+                let g = $g.clone();
+                let state = state.clone();
+                $win.latch(move || {
+                    state.with_client($client, true, || {
+                        state.with_window(*$win, true, || g());
+                    });
+                });
+            };
+        }
+        if let Some(action) = &self.action {
+            let f = action.clone().into_fn(&state);
+            if let Some(action) = &self.latch {
+                let g = action.clone().into_rc_fn(&state);
+                matcher.bind(move |win| {
+                    let client = win.client();
+                    state.with_client(client, false, || {
+                        state.with_window(*win, false, &f);
+                    });
+                    latch!(g, client, win);
+                });
+            } else {
+                matcher.bind(move |win| {
+                    let client = win.client();
+                    state.with_client(client, false, || {
+                        state.with_window(*win, false, &f);
+                    });
+                });
+            }
+        } else {
+            if let Some(action) = &self.latch {
+                let g = action.clone().into_rc_fn(&state);
+                matcher.bind(move |win| {
+                    let client = win.client();
+                    latch!(g, client, win);
+                });
+            }
+        }
+    }
+
+    fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {
+        WindowCriterion::Matcher(m)
+    }
+
+    fn gen_not<'a, 'b: 'a>(m: &'a Self::Criterion<'b>) -> Self::Criterion<'a> {
+        WindowCriterion::Not(m)
+    }
+
+    fn gen_all<'a, 'b: 'a>(m: &'a [Self::Criterion<'b>]) -> Self::Criterion<'a> {
+        WindowCriterion::All(m)
+    }
+
+    fn gen_any<'a, 'b: 'a>(m: &'a [Self::Criterion<'b>]) -> Self::Criterion<'a> {
+        WindowCriterion::Any(m)
+    }
+
+    fn gen_exactly<'a, 'b: 'a>(n: usize, m: &'a [Self::Criterion<'b>]) -> Self::Criterion<'a> {
+        WindowCriterion::Exactly(n, m)
     }
 }
 

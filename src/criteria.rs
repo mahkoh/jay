@@ -3,6 +3,7 @@ mod crit_graph;
 pub mod crit_leaf;
 mod crit_matchers;
 mod crit_per_target_data;
+pub mod tlm;
 
 use {
     crate::{

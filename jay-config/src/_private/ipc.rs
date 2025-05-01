@@ -1,6 +1,6 @@
 use {
     crate::{
-        _private::{ClientCriterionIpc, PollableId, WireMode},
+        _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode},
         Axis, Direction, PciId, Workspace,
         client::{Client, ClientMatcher},
         input::{
@@ -15,7 +15,7 @@ use {
             ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
             Transform, VrrMode, connector_type::ConnectorType,
         },
-        window::{Window, WindowType},
+        window::{Window, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -101,6 +101,14 @@ pub enum ServerMessage {
     ClientMatcherUnmatched {
         matcher: ClientMatcher,
         client: Client,
+    },
+    WindowMatcherMatched {
+        matcher: WindowMatcher,
+        window: Window,
+    },
+    WindowMatcherUnmatched {
+        matcher: WindowMatcher,
+        window: Window,
     },
 }
 
@@ -681,6 +689,15 @@ pub enum ClientMessage<'a> {
     EnableClientMatcherEvents {
         matcher: ClientMatcher,
     },
+    CreateWindowMatcher {
+        criterion: WindowCriterionIpc,
+    },
+    DestroyWindowMatcher {
+        matcher: WindowMatcher,
+    },
+    EnableWindowMatcherEvents {
+        matcher: WindowMatcher,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -903,6 +920,9 @@ pub enum Response {
     },
     CreateClientMatcher {
         matcher: ClientMatcher,
+    },
+    CreateWindowMatcher {
+        matcher: WindowMatcher,
     },
 }
 

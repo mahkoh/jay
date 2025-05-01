@@ -691,6 +691,33 @@ Exec:
 SimpleActionName:
   description: |
     The name of a `simple` Action.
+    
+    When used inside a window rule, the following actions apply to the matched window
+    instead fo the focused window:
+    
+    - `move-left`
+    - `move-down`
+    - `move-up`
+    - `move-right`
+    - `split-horizontal`
+    - `split-vertical`
+    - `toggle-split`
+    - `tile-horizontal`
+    - `tile-vertical`
+    - `toggle-split`
+    - `show-single`
+    - `show-all`
+    - `toggle-fullscreen`
+    - `enter-fullscreen`
+    - `exit-fullscreen`
+    - `close`
+    - `toggle-floating`
+    - `float`
+    - `tile`
+    - `toggle-float-pinned`
+    - `pin-float`
+    - `unpin-float`
+
 
     - Example:
     
@@ -825,7 +852,8 @@ SimpleActionName:
       description: |
         Kills a client.
         
-        This action has no effect outside of client rules.
+        Within a window rule, it applies to the client of the window. Within a client rule
+        it applies to the matched client. Has no effect otherwise.
 
 
 Color:
@@ -2509,6 +2537,24 @@ Config:
           name = "spotify"
           match.sandbox-app-id = "com.spotify.Client"
           ```
+    windows:
+      kind: array
+      items:
+        ref: WindowRule
+      required: false
+      description: |
+        An array of window rules.
+        
+        These rules can be used to give names to windows and to manipulate them.
+        
+        - Example:
+        
+          ```toml
+          [[windows]]
+          name = "spotify"
+          match.title-regex = "Spotify"
+          action = { type = "move-to-workspace", name = "music" }
+          ```
 
 
 Idle:
@@ -3284,3 +3330,179 @@ ClientMatchExactly:
         ref: ClientMatch
       required: true
       description: The list of criteria.
+
+
+WindowRule:
+  kind: table
+  description: |
+    A window rule.
+  fields:
+    name:
+      kind: string
+      required: false
+      description: |
+        The name of this rule.
+        
+        This name can be referenced in other rules.
+        
+        - Example
+        
+          ```toml
+          [[windows]]
+          name = "spotify"
+          match.title-regex = "Spotify"
+        
+          [[windows]]
+          match.name = "spotify"
+          action = "enter-fullscreen"
+          ```
+    match:
+      ref: WindowMatch
+      required: false
+      description: The criteria that select the window that this rule applies to.
+    action:
+      ref: Action
+      required: false
+      description: An action to execute when a window matches the criteria.
+    latch:
+      ref: Action
+      required: false
+      description: An action to execute when a window no longer matches the criteria.
+
+
+WindowMatch:
+  kind: table
+  description: |
+    Criteria for matching windows.
+    
+    If no fields are set, all windows are matched. If multiple fields are set, all fields
+    must match the window.
+  fields:
+    name:
+      kind: string
+      required: false
+      description: |
+        Matches if the window rule with this name matches.
+        
+        - Example:
+        
+          ```toml
+          [[windows]]
+          name = "spotify"
+          match.title-regex = "Spotify"
+        
+          # Matches the same windows as the previous rule.
+          [[windows]]
+          match.name = "spotify"
+          ```
+    not:
+      ref: WindowMatch
+      required: false
+      description: |
+        Matches if the contained criteria don't match.
+        
+        - Example:
+        
+          ```toml
+          [[windows]]
+          name = "not-spotify"
+          match.not.title-regex = "Spotify"
+          ```
+    all:
+      kind: array
+      items:
+        ref: WindowMatch
+      required: false
+      description: |
+        Matches if all of the contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          [[windows]]
+          match.all = [
+            { title-regex = "Spotify" },
+            { title-regex = "Premium" },
+          ]
+          ```
+    any:
+      kind: array
+      items:
+        ref: WindowMatch
+      required: false
+      description: |
+        Matches if any of the contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          [[windows]]
+          match.any = [
+            { title-regex = "Spotify" },
+            { title-regex = "Alacritty" },
+          ]
+          ```
+    exactly:
+      ref: WindowMatchExactly
+      required: false
+      description: |
+        Matches if a specific number of contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          # Matches any window that is either Alacritty or on workspace 3 but not both.
+          [[windows]]
+          match.exactly.num = 1
+          match.exactly.list = [
+            { workspace = "3" },
+            { title-regex = "Alacritty" },
+          ]
+          ```
+    types:
+      ref: WindowTypeMask
+      required: false
+      description: Matches windows whose type is contained in the mask.
+
+
+WindowMatchExactly:
+  kind: table
+  description: |
+    Criterion for matching a specific number of window criteria.
+  fields:
+    num:
+      kind: number
+      required: true
+      description: The number of criteria that must match.
+    list:
+      kind: array
+      items:
+        ref: WindowMatch
+      required: true
+      description: The list of criteria.
+
+
+WindowTypeMask:
+  description: |
+    A mask of window types.
+  kind: variable
+  variants:
+    - kind: string
+      description: A named mask.
+      values:
+        - value: none
+          description: The empty mask.
+        - value: any
+          description: The mask containing every possible type.
+        - value: container
+          description: The mask matching a container.
+        - value: xdg-toplevel
+          description: The mask matching an XDG toplevel.
+        - value: x-window
+          description: The mask matching an X window.
+        - value: client-window
+          description: The mask matching any type of client window.
+    - kind: array
+      description: An array of masks that are OR'd.
+      items:
+        ref: WindowTypeMask

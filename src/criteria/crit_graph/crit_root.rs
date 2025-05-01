@@ -141,7 +141,6 @@ where
         self.downstream.update_matched(target, node, new, !new);
     }
 
-    #[expect(dead_code)]
     pub fn has_downstream(&self) -> bool {
         self.downstream.has_downstream()
     }

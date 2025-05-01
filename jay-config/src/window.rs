@@ -3,6 +3,7 @@
 use {
     crate::{Axis, Direction, Workspace, client::Client},
     serde::{Deserialize, Serialize},
+    std::ops::Deref,
 };
 
 /// A toplevel window.
@@ -200,5 +201,89 @@ impl Window {
     /// Toggles whether the window is pinned.
     pub fn toggle_float_pinned(self) {
         self.set_float_pinned(!self.float_pinned());
+    }
+}
+
+/// A window matcher.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct WindowMatcher(pub u64);
+
+/// A matched window.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct MatchedWindow {
+    pub(crate) matcher: WindowMatcher,
+    pub(crate) window: Window,
+}
+
+/// A criterion for matching a window.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum WindowCriterion<'a> {
+    /// Matches if the contained matcher matches.
+    Matcher(WindowMatcher),
+    /// Matches if the contained criterion does not match.
+    Not(&'a WindowCriterion<'a>),
+    /// Matches if the window has one of the types.
+    Types(WindowType),
+    /// Matches if all of the contained criteria match.
+    All(&'a [WindowCriterion<'a>]),
+    /// Matches if any of the contained criteria match.
+    Any(&'a [WindowCriterion<'a>]),
+    /// Matches if an exact number of the contained criteria match.
+    Exactly(usize, &'a [WindowCriterion<'a>]),
+}
+
+impl WindowCriterion<'_> {
+    /// Converts the criterion to a matcher.
+    pub fn to_matcher(self) -> WindowMatcher {
+        get!(WindowMatcher(0)).create_window_matcher(self)
+    }
+
+    /// Binds a function to execute when the criterion matches a window.
+    ///
+    /// This leaks the matcher.
+    pub fn bind<F: FnMut(MatchedWindow) + 'static>(self, cb: F) {
+        self.to_matcher().bind(cb);
+    }
+}
+
+impl WindowMatcher {
+    /// Destroys the matcher.
+    ///
+    /// Any bound callback will no longer be executed.
+    pub fn destroy(self) {
+        get!().destroy_window_matcher(self);
+    }
+
+    /// Sets a function to execute when the criterion matches a window.
+    ///
+    /// Replaces any already bound callback.
+    pub fn bind<F: FnMut(MatchedWindow) + 'static>(self, cb: F) {
+        get!().set_window_matcher_handler(self, cb);
+    }
+}
+
+impl MatchedWindow {
+    /// Returns the window that matched.
+    pub fn window(self) -> Window {
+        self.window
+    }
+
+    /// Returns the matcher.
+    pub fn matcher(self) -> WindowMatcher {
+        self.matcher
+    }
+
+    /// Latches a function to be executed when the window no longer matches the criteria.
+    pub fn latch<F: FnOnce() + 'static>(self, cb: F) {
+        get!().set_window_matcher_latch_handler(self.matcher, self.window, cb);
+    }
+}
+
+impl Deref for MatchedWindow {
+    type Target = Window;
+
+    fn deref(&self) -> &Self::Target {
+        &self.window
     }
 }

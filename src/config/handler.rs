@@ -10,7 +10,9 @@ use {
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
         criteria::{
-            CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode, clm::ClmLeafMatcher,
+            CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
+            clm::ClmLeafMatcher,
+            tlm::{TlmLeafMatcher, TlmUpstreamNode},
         },
         format::config_formats,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
@@ -22,9 +24,9 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig, move_ws_to_output,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
+            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
+            move_ws_to_output, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -42,7 +44,7 @@ use {
     jay_config::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
-            WireMode, bincode_ops,
+            WindowCriterionIpc, WireMode, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
@@ -64,7 +66,7 @@ use {
             TearingMode as ConfigTearingMode, TransferFunction as ConfigTransferFunction,
             Transform, VrrMode as ConfigVrrMode,
         },
-        window::Window,
+        window::{Window, WindowMatcher},
         xwayland::XScalingMode,
     },
     libloading::Library,
@@ -115,6 +117,13 @@ pub(super) struct ConfigProxyHandler {
         CopyHashMap<ClientMatcher, Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>>,
     pub client_matcher_cache: CriterionCache<ClientCriterionIpc, Rc<Client>>,
     pub client_matcher_leafs: CopyHashMap<ClientMatcher, Rc<ClmLeafMatcher>>,
+
+    pub window_matcher_ids: NumCell<u64>,
+    pub window_matchers:
+        CopyHashMap<WindowMatcher, Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>>,
+    pub window_matcher_cache: CriterionCache<WindowCriterionIpc, ToplevelData>,
+    pub window_matcher_leafs: CopyHashMap<WindowMatcher, Rc<TlmLeafMatcher>>,
+    pub window_matcher_std_kinds: Rc<TlmUpstreamNode>,
 }
 
 pub struct Pollable {
@@ -159,7 +168,6 @@ where
     K: Hash + Eq,
     T: CritTarget,
 {
-    #[allow(clippy::allow_attributes, dead_code)]
     fn any(&self, v: &impl Fn(&K) -> bool) -> bool {
         v(&self.crit) || self.upstream.iter().any(|u| u.any(v))
     }
@@ -176,6 +184,9 @@ impl ConfigProxyHandler {
 
         self.client_matcher_leafs.clear();
         self.client_matchers.clear();
+
+        self.window_matcher_leafs.clear();
+        self.window_matchers.clear();
 
         if let Some(path) = &self.path {
             if let Err(e) = uapi::unlink(path.as_str()) {
@@ -1933,6 +1944,98 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn get_window_matcher(
+        &self,
+        matcher: WindowMatcher,
+    ) -> Result<Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>, CphError> {
+        self.window_matchers
+            .get(&matcher)
+            .ok_or(CphError::WindowMatcherDoesNotExist(matcher))
+    }
+
+    fn handle_create_window_matcher(
+        &self,
+        mut criterion: WindowCriterionIpc,
+    ) -> Result<(), CphError> {
+        if let WindowCriterionIpc::Generic(generic) = &mut criterion {
+            self.sort_generic_matcher(generic, |m| m.0);
+        }
+        let id = WindowMatcher(self.window_matcher_ids.fetch_add(1));
+        let cache = &self.window_matcher_cache;
+        if let Some(matcher) = cache.get(&criterion) {
+            if let Some(matcher) = matcher.upgrade() {
+                self.window_matchers.set(id, matcher);
+                self.respond(Response::CreateWindowMatcher { matcher: id });
+                return Ok(());
+            }
+        }
+        let mgr = &self.state.tl_matcher_manager;
+        let mut upstream = vec![];
+        let matcher = match &criterion {
+            WindowCriterionIpc::Generic(m) => {
+                self.create_generic_matcher(mgr, m, &mut upstream, |m| self.get_window_matcher(*m))?
+            }
+            WindowCriterionIpc::String {
+                string,
+                field,
+                regex,
+            } => {
+                #[expect(unused_variables)]
+                let needle = match *regex {
+                    true => {
+                        let regex = Regex::new(string).map_err(CphError::InvalidRegex)?;
+                        CritLiteralOrRegex::Regex(regex)
+                    }
+                    false => CritLiteralOrRegex::Literal(string.to_string()),
+                };
+                match *field {}
+            }
+            WindowCriterionIpc::Types(t) => mgr.kind(*t),
+        };
+        let cached = Rc::new(CachedCriterion {
+            crit: criterion.clone(),
+            cache: cache.clone(),
+            upstream,
+            node: matcher.clone(),
+        });
+        cache.set(criterion, Rc::downgrade(&cached));
+        self.window_matchers.set(id, cached);
+        self.respond(Response::CreateWindowMatcher { matcher: id });
+        Ok(())
+    }
+
+    fn handle_destroy_window_matcher(&self, matcher: WindowMatcher) {
+        self.window_matchers.remove(&matcher);
+        self.window_matcher_leafs.remove(&matcher);
+    }
+
+    fn handle_enable_window_matcher_events(
+        self: &Rc<Self>,
+        matcher: WindowMatcher,
+    ) -> Result<(), CphError> {
+        if self.window_matcher_leafs.contains(&matcher) {
+            return Ok(());
+        }
+        let upstream = self.get_window_matcher(matcher)?;
+        let mut node = upstream.node.clone();
+        if !upstream.any(&|crit| matches!(crit, WindowCriterionIpc::Types(_))) {
+            let list = [self.window_matcher_std_kinds.clone(), node];
+            node = self.state.tl_matcher_manager.list(&list, true);
+        }
+        let slf = self.clone();
+        let leaf = self.state.tl_matcher_manager.leaf(&node, move |tl| {
+            let window = slf.tl_id_to_window(tl);
+            slf.send(&ServerMessage::WindowMatcherMatched { matcher, window });
+            let slf = slf.clone();
+            Box::new(move || {
+                slf.send(&ServerMessage::WindowMatcherUnmatched { matcher, window });
+            })
+        });
+        self.window_matcher_leafs.set(matcher, leaf);
+        self.state.tl_matcher_manager.rematch_all(&self.state);
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -2729,6 +2832,15 @@ impl ConfigProxyHandler {
             ClientMessage::EnableClientMatcherEvents { matcher } => self
                 .handle_enable_client_matcher_events(matcher)
                 .wrn("enable_window_matcher_events")?,
+            ClientMessage::CreateWindowMatcher { criterion } => self
+                .handle_create_window_matcher(criterion)
+                .wrn("create_window_matcher")?,
+            ClientMessage::DestroyWindowMatcher { matcher } => {
+                self.handle_destroy_window_matcher(matcher)
+            }
+            ClientMessage::EnableWindowMatcherEvents { matcher } => self
+                .handle_enable_window_matcher_events(matcher)
+                .wrn("enable_window_matcher_events")?,
         }
         Ok(())
     }
@@ -2814,6 +2926,8 @@ enum CphError {
     ClientMatcherDoesNotExist(ClientMatcher),
     #[error("Could not parse regex")]
     InvalidRegex(#[source] regex::Error),
+    #[error("Window matcher {0:?} does not exist")]
+    WindowMatcherDoesNotExist(WindowMatcher),
 }
 
 trait WithRequestName {

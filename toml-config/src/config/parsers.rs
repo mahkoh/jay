@@ -39,6 +39,9 @@ mod tearing;
 mod theme;
 mod ui_drag;
 mod vrr;
+mod window_match;
+mod window_rule;
+mod window_type;
 mod xwayland;
 
 #[derive(Debug, Error)]

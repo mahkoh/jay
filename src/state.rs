@@ -15,7 +15,7 @@ use {
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         cpu_worker::CpuWorker,
-        criteria::clm::ClMatcherManager,
+        criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         damage::DamageVisualizer,
@@ -243,6 +243,7 @@ pub struct State {
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: ClMatcherManager,
+    pub tl_matcher_manager: TlMatcherManager,
 }
 
 // impl Drop for State {
@@ -952,6 +953,7 @@ impl State {
         self.toplevels.clear();
         self.workspace_managers.clear();
         self.cl_matcher_manager.clear();
+        self.tl_matcher_manager.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

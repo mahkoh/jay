@@ -28,6 +28,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
+        window::WindowType,
         xwayland::XScalingMode,
     },
     std::{
@@ -242,6 +243,20 @@ pub struct ClientMatch {
 }
 
 #[derive(Debug, Clone)]
+pub struct WindowRule {
+    pub name: Option<String>,
+    pub match_: WindowMatch,
+    pub action: Option<Action>,
+    pub latch: Option<Action>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct WindowMatch {
+    pub generic: GenericMatch<Self>,
+    pub types: Option<WindowType>,
+}
+
+#[derive(Debug, Clone)]
 pub enum DrmDeviceMatch {
     Any(Vec<DrmDeviceMatch>),
     All {
@@ -439,6 +454,7 @@ pub struct Config {
     pub named_actions: Vec<NamedAction>,
     pub max_action_depth: u64,
     pub client_rules: Vec<ClientRule>,
+    pub window_rules: Vec<WindowRule>,
 }
 
 #[derive(Debug, Error)]

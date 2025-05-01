@@ -1,6 +1,10 @@
 use {
     crate::{
         client::{Client, ClientId},
+        criteria::{
+            CritDestroyListener, CritMatcherId,
+            tlm::{TL_CHANGED_DESTROYED, TL_CHANGED_NEW, TlMatcherChange},
+        },
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
@@ -92,7 +96,10 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
-        data.parent.set(Some(parent.clone()));
+        let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
+        if parent_was_none {
+            data.property_changed(TL_CHANGED_NEW);
+        }
         data.is_floating.set(parent.node_is_float());
         self.tl_set_workspace(&parent.cnode_workspace());
     }
@@ -275,7 +282,6 @@ impl ToplevelType {
 }
 
 pub struct ToplevelData {
-    #[expect(dead_code)]
     pub node_id: NodeId,
     pub kind: ToplevelType,
     pub self_active: Cell<bool>,
@@ -307,6 +313,8 @@ pub struct ToplevelData {
     pub ext_copy_sessions:
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
     pub slf: Weak<dyn ToplevelNode>,
+    pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<ToplevelData>>>,
+    pub changed_properties: Cell<TlMatcherChange>,
 }
 
 impl ToplevelData {
@@ -351,6 +359,8 @@ impl ToplevelData {
             jay_screencasts: Default::default(),
             ext_copy_sessions: Default::default(),
             slf: slf.clone(),
+            destroyed: Default::default(),
+            changed_properties: Default::default(),
         }
     }
 
@@ -387,6 +397,20 @@ impl ToplevelData {
         (width, height)
     }
 
+    pub fn property_changed(&self, change: TlMatcherChange) {
+        let mgr = &self.state.tl_matcher_manager;
+        let props = self.changed_properties.get();
+        if props.is_none() && mgr.has_no_interest(self, change) {
+            return;
+        }
+        self.changed_properties.set(props | change);
+        if props.is_none() && change.is_some() {
+            if let Some(node) = self.slf.upgrade() {
+                mgr.changed(node);
+            }
+        }
+    }
+
     pub fn destroy_node(&self, node: &dyn Node) {
         for jay_tl in self.jay_toplevels.lock().drain_values() {
             jay_tl.destroy();
@@ -410,6 +434,7 @@ impl ToplevelData {
             }
         }
         self.detach_node(node);
+        self.property_changed(TL_CHANGED_DESTROYED);
     }
 
     pub fn detach_node(&self, node: &dyn Node) {

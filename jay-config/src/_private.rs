@@ -4,7 +4,11 @@ mod logging;
 pub(crate) mod string_error;
 
 use {
-    crate::{client::ClientMatcher, video::Mode},
+    crate::{
+        client::ClientMatcher,
+        video::Mode,
+        window::{WindowMatcher, WindowType},
+    },
     bincode::Options,
     serde::{Deserialize, Serialize},
     std::marker::PhantomData,
@@ -95,3 +99,17 @@ pub enum ClientCriterionStringField {
     Comm,
     Exe,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WindowCriterionIpc {
+    Generic(GenericCriterionIpc<WindowMatcher>),
+    String {
+        string: String,
+        field: WindowCriterionStringField,
+        regex: bool,
+    },
+    Types(WindowType),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WindowCriterionStringField {}

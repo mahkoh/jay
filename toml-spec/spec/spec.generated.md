@@ -1721,6 +1721,23 @@ The table has the following fields:
 
   The value of this field should be an array of [ClientRules](#types-ClientRule).
 
+- `windows` (optional):
+
+  An array of window rules.
+  
+  These rules can be used to give names to windows and to manipulate them.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+    action = { type = "move-to-workspace", name = "music" }
+    ```
+
+  The value of this field should be an array of [WindowRules](#types-WindowRule).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -3235,6 +3252,33 @@ The table has the following fields:
 
 The name of a `simple` Action.
 
+When used inside a window rule, the following actions apply to the matched window
+instead fo the focused window:
+
+- `move-left`
+- `move-down`
+- `move-up`
+- `move-right`
+- `split-horizontal`
+- `split-vertical`
+- `toggle-split`
+- `tile-horizontal`
+- `tile-vertical`
+- `toggle-split`
+- `show-single`
+- `show-all`
+- `toggle-fullscreen`
+- `enter-fullscreen`
+- `exit-fullscreen`
+- `close`
+- `toggle-floating`
+- `float`
+- `tile`
+- `toggle-float-pinned`
+- `pin-float`
+- `unpin-float`
+
+
 - Example:
 
   ```toml
@@ -3437,7 +3481,8 @@ The string should have one of the following values:
 
   Kills a client.
   
-  This action has no effect outside of client rules.
+  Within a window rule, it applies to the client of the window. Within a client rule
+  it applies to the matched client. Has no effect otherwise.
 
 
 
@@ -3857,6 +3902,222 @@ The string should have one of the following values:
 
   VRR is enabled when a single game or video is displayed fullscreen.
 
+
+
+<a name="types-WindowMatch"></a>
+### `WindowMatch`
+
+Criteria for matching windows.
+
+If no fields are set, all windows are matched. If multiple fields are set, all fields
+must match the window.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  Matches if the window rule with this name matches.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+  
+    # Matches the same windows as the previous rule.
+    [[windows]]
+    match.name = "spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `not` (optional):
+
+  Matches if the contained criteria don't match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "not-spotify"
+    match.not.title-regex = "Spotify"
+    ```
+
+  The value of this field should be a [WindowMatch](#types-WindowMatch).
+
+- `all` (optional):
+
+  Matches if all of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    match.all = [
+      { title-regex = "Spotify" },
+      { title-regex = "Premium" },
+    ]
+    ```
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+- `any` (optional):
+
+  Matches if any of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    match.any = [
+      { title-regex = "Spotify" },
+      { title-regex = "Alacritty" },
+    ]
+    ```
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+- `exactly` (optional):
+
+  Matches if a specific number of contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    # Matches any window that is either Alacritty or on workspace 3 but not both.
+    [[windows]]
+    match.exactly.num = 1
+    match.exactly.list = [
+      { workspace = "3" },
+      { title-regex = "Alacritty" },
+    ]
+    ```
+
+  The value of this field should be a [WindowMatchExactly](#types-WindowMatchExactly).
+
+- `types` (optional):
+
+  Matches windows whose type is contained in the mask.
+
+  The value of this field should be a [WindowTypeMask](#types-WindowTypeMask).
+
+
+<a name="types-WindowMatchExactly"></a>
+### `WindowMatchExactly`
+
+Criterion for matching a specific number of window criteria.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `num` (required):
+
+  The number of criteria that must match.
+
+  The value of this field should be a number.
+
+- `list` (required):
+
+  The list of criteria.
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+
+<a name="types-WindowRule"></a>
+### `WindowRule`
+
+A window rule.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  The name of this rule.
+  
+  This name can be referenced in other rules.
+  
+  - Example
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+  
+    [[windows]]
+    match.name = "spotify"
+    action = "enter-fullscreen"
+    ```
+
+  The value of this field should be a string.
+
+- `match` (optional):
+
+  The criteria that select the window that this rule applies to.
+
+  The value of this field should be a [WindowMatch](#types-WindowMatch).
+
+- `action` (optional):
+
+  An action to execute when a window matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `latch` (optional):
+
+  An action to execute when a window no longer matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+
+<a name="types-WindowTypeMask"></a>
+### `WindowTypeMask`
+
+A mask of window types.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+A named mask.
+
+The string should have one of the following values:
+
+- `none`:
+
+  The empty mask.
+
+- `any`:
+
+  The mask containing every possible type.
+
+- `container`:
+
+  The mask matching a container.
+
+- `xdg-toplevel`:
+
+  The mask matching an XDG toplevel.
+
+- `x-window`:
+
+  The mask matching an X window.
+
+- `client-window`:
+
+  The mask matching any type of client window.
+
+
+#### An array
+
+An array of masks that are OR'd.
+
+Each element of this array should be a [WindowTypeMask](#types-WindowTypeMask).
 
 
 <a name="types-XScalingMode"></a>

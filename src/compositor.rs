@@ -18,6 +18,7 @@ use {
         criteria::{
             CritMatcherIds,
             clm::{ClMatcherManager, handle_cl_changes, handle_cl_leaf_events},
+            tlm::{TlMatcherManager, handle_tl_changes, handle_tl_leaf_events},
         },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
@@ -299,6 +300,7 @@ fn start_compositor2(
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
         cl_matcher_manager: ClMatcherManager::new(&crit_ids),
+        tl_matcher_manager: TlMatcherManager::new(&crit_ids),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -475,6 +477,11 @@ fn start_global_event_handlers(
         eng.spawn(
             "cl matcher leaf events",
             handle_cl_leaf_events(state.clone()),
+        ),
+        eng.spawn("tl matcher manager", handle_tl_changes(state.clone())),
+        eng.spawn(
+            "tl matcher leaf events",
+            handle_tl_leaf_events(state.clone()),
         ),
     ]
 }

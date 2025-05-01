@@ -1,0 +1,113 @@
+use {
+    crate::{
+        config::{
+            GenericMatch, MatchExactly, WindowMatch,
+            context::Context,
+            extractor::{Extractor, ExtractorError, arr, n32, opt, str, val},
+            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
+            parsers::window_type::{WindowTypeParser, WindowTypeParserError},
+        },
+        toml::{
+            toml_span::{DespanExt, Span, Spanned},
+            toml_value::Value,
+        },
+    },
+    indexmap::IndexMap,
+    thiserror::Error,
+};
+
+#[derive(Debug, Error)]
+pub enum WindowMatchParserError {
+    #[error(transparent)]
+    Expected(#[from] UnexpectedDataType),
+    #[error(transparent)]
+    Extract(#[from] ExtractorError),
+    #[error(transparent)]
+    WindowTypes(#[from] WindowTypeParserError),
+}
+
+pub struct WindowMatchParser<'a>(pub &'a Context<'a>);
+
+impl Parser for WindowMatchParser<'_> {
+    type Value = WindowMatch;
+    type Error = WindowMatchParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Table];
+
+    fn parse_table(
+        &mut self,
+        span: Span,
+        table: &IndexMap<Spanned<String>, Spanned<Value>>,
+    ) -> ParseResult<Self> {
+        let mut ext = Extractor::new(self.0, span, table);
+        let ((name, not_val, all_val, any_val, exactly_val, types_val),) = ext.extract(((
+            opt(str("name")),
+            opt(val("not")),
+            opt(arr("all")),
+            opt(arr("any")),
+            opt(val("exactly")),
+            opt(val("types")),
+        ),))?;
+        let mut not = None;
+        if let Some(value) = not_val {
+            not = Some(Box::new(value.parse(&mut WindowMatchParser(self.0))?));
+        }
+        macro_rules! list {
+            ($val:expr) => {{
+                let mut list = None;
+                if let Some(value) = $val {
+                    let mut res = vec![];
+                    for value in value.value {
+                        res.push(value.parse(&mut WindowMatchParser(self.0))?);
+                    }
+                    list = Some(res);
+                }
+                list
+            }};
+        }
+        let all = list!(all_val);
+        let any = list!(any_val);
+        let mut types = None;
+        if let Some(value) = types_val {
+            types = Some(value.parse_map(&mut WindowTypeParser)?);
+        }
+        let mut exactly = None;
+        if let Some(value) = exactly_val {
+            exactly = Some(value.parse(&mut WindowMatchExactlyParser(self.0))?);
+        }
+        Ok(WindowMatch {
+            generic: GenericMatch {
+                name: name.despan_into(),
+                not,
+                all,
+                any,
+                exactly,
+            },
+            types,
+        })
+    }
+}
+
+pub struct WindowMatchExactlyParser<'a>(pub &'a Context<'a>);
+
+impl Parser for WindowMatchExactlyParser<'_> {
+    type Value = MatchExactly<WindowMatch>;
+    type Error = WindowMatchParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Table];
+
+    fn parse_table(
+        &mut self,
+        span: Span,
+        table: &IndexMap<Spanned<String>, Spanned<Value>>,
+    ) -> ParseResult<Self> {
+        let mut ext = Extractor::new(self.0, span, table);
+        let (num, list_val) = ext.extract((n32("num"), arr("list")))?;
+        let mut list = vec![];
+        for el in list_val.value {
+            list.push(el.parse(&mut WindowMatchParser(self.0))?);
+        }
+        Ok(MatchExactly {
+            num: num.value as _,
+            list,
+        })
+    }
+}

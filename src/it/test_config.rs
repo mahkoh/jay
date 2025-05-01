@@ -126,6 +126,8 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::SwitchEvent { .. } => {}
         ServerMessage::ClientMatcherMatched { .. } => {}
         ServerMessage::ClientMatcherUnmatched { .. } => {}
+        ServerMessage::WindowMatcherMatched { .. } => {}
+        ServerMessage::WindowMatcherUnmatched { .. } => {}
     }
 }
 
