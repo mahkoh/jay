@@ -23,7 +23,7 @@ use {
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
-        on_devices_enumerated, on_idle, quit, reload, set_color_management_enabled,
+        on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
         set_idle, set_idle_grace_period, set_show_float_pin_icon, set_ui_drag_enabled,
         set_ui_drag_threshold,
@@ -238,6 +238,7 @@ impl Action {
                 let name = Rc::new(name);
                 B::new(move || {
                     state
+                        .persistent
                         .actions
                         .borrow_mut()
                         .insert(name.clone(), action.clone());
@@ -246,7 +247,7 @@ impl Action {
             Action::UndefineAction { name } => {
                 let state = state.clone();
                 B::new(move || {
-                    state.actions.borrow_mut().remove(&name);
+                    state.persistent.actions.borrow_mut().remove(&name);
                 })
             }
             Action::NamedAction { name } => {
@@ -259,7 +260,7 @@ impl Action {
                     }
                     state.action_depth.set(depth + 1);
                     let _reset = on_drop(|| state.action_depth.set(depth));
-                    let Some(action) = state.actions.borrow().get(&name).cloned() else {
+                    let Some(action) = state.persistent.actions.borrow().get(&name).cloned() else {
                         log::error!("There is no action named {name}");
                         return;
                     };
@@ -648,7 +649,6 @@ impl Output {
     }
 }
 
-#[expect(clippy::type_complexity)]
 struct State {
     outputs: AHashMap<String, OutputMatch>,
     drm_devices: AHashMap<String, DrmDeviceMatch>,
@@ -662,7 +662,6 @@ struct State {
 
     action_depth_max: u64,
     action_depth: Cell<u64>,
-    actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
 }
 
 impl Drop for State {
@@ -882,6 +881,8 @@ struct PersistentState {
     default: Config,
     seat: Seat,
     binds: RefCell<AHashSet<ModifiedKeySym>>,
+    #[expect(clippy::type_complexity)]
+    actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -962,12 +963,12 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         io_outputs: Default::default(),
         action_depth_max: config.max_action_depth,
         action_depth: Cell::new(0),
-        actions: Default::default(),
     });
     state.set_status(&config.status);
+    persistent.actions.borrow_mut().clear();
     for a in config.named_actions {
         let action = a.action.into_rc_fn(&state);
-        state.actions.borrow_mut().insert(a.name, action);
+        persistent.actions.borrow_mut().insert(a.name, action);
     }
     let mut switch_actions = vec![];
     for input in &mut config.inputs {
@@ -1184,7 +1185,12 @@ pub fn configure() {
         default: default.unwrap(),
         seat: default_seat(),
         binds: Default::default(),
+        actions: Default::default(),
     });
+    {
+        let p = persistent.clone();
+        on_unload(move || p.actions.borrow_mut().clear());
+    }
     load_config(true, &persistent);
 }
 

@@ -33,6 +33,7 @@ use {
     },
     bincode::Options,
     futures_util::task::ArcWake,
+    run_on_drop::{OnDrop, on_drop},
     std::{
         cell::{Cell, RefCell},
         collections::{HashMap, VecDeque, hash_map::Entry},
@@ -100,6 +101,7 @@ pub(crate) struct Client {
     on_del_drm_device: RefCell<Option<Callback<DrmDevice>>>,
     on_idle: RefCell<Option<Callback>>,
     on_switch_event: RefCell<HashMap<InputDevice, Callback<SwitchEvent>>>,
+    on_unload: Cell<Option<OnDrop<Box<dyn FnOnce()>>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
     read_interests: RefCell<HashMap<PollableId, Interest>>,
@@ -232,6 +234,7 @@ pub unsafe extern "C" fn init(
         on_del_drm_device: Default::default(),
         on_idle: Default::default(),
         on_switch_event: Default::default(),
+        on_unload: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
         read_interests: Default::default(),
@@ -1247,6 +1250,12 @@ impl Client {
                 });
                 Poll::Pending
             }
+        }
+    }
+
+    pub fn on_unload(&self, f: impl FnOnce() + 'static) {
+        if let Some(prev) = self.on_unload.replace(Some(on_drop(Box::new(f)))) {
+            prev.forget();
         }
     }
 

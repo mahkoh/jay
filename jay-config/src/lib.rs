@@ -304,3 +304,13 @@ pub fn toggle_float_above_fullscreen() {
 pub fn set_show_float_pin_icon(show: bool) {
     get!().set_show_float_pin_icon(show);
 }
+
+/// Sets a callback to run when this config is unloaded.
+///
+/// Only one callback can be set at a time. If another callback is already set, it will be
+/// dropped without being run.
+///
+/// This function can be used to terminate threads and clear reference cycles.
+pub fn on_unload(f: impl FnOnce() + 'static) {
+    get!().on_unload(f);
+}
