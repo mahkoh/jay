@@ -63,6 +63,7 @@ rustc-demangle = { version = "0.1.24", optional = true }
 tracy-client-sys = { version = "0.24.1", features = ["ondemand", "manual-lifetime", "debuginfod", "demangle"], optional = true }
 kbvm = "0.1.4"
 tiny-skia = { version = "0.11.4", default-features = false, features = ["std"] }
+regex = "1.11.1"
 
 [build-dependencies]
 repc = "0.1.1"

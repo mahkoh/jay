@@ -602,6 +602,7 @@ dependencies = [
  "pin-project",
  "png",
  "rand",
+ "regex",
  "repc",
  "rustc-demangle",
  "serde",

@@ -181,10 +181,10 @@ macro_rules! shared_ids {
 }
 
 macro_rules! linear_ids {
-    ($ids:ident, $id:ident $(,)?) => {
-        linear_ids!($ids, $id, u32);
+    ($(#[$attr1:meta])* $ids:ident, $id:ident $(,)?) => {
+        linear_ids!($(#[$attr1])* $ids, $id, u32);
     };
-    ($ids:ident, $id:ident, $ty:ty $(,)?) => {
+    ($(#[$attr1:meta])* $ids:ident, $id:ident, $ty:ty $(,)?) => {
         pub struct $ids {
             next: crate::utils::numcell::NumCell<$ty>,
         }
@@ -197,6 +197,7 @@ macro_rules! linear_ids {
             }
         }
 
+        $(#[$attr1])*
         impl $ids {
             pub fn next(&self) -> $id {
                 $id(self.next.fetch_add(1))

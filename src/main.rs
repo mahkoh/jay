@@ -59,6 +59,7 @@ mod cmm;
 mod compositor;
 mod config;
 mod cpu_worker;
+mod criteria;
 mod cursor;
 mod cursor_user;
 mod damage;
