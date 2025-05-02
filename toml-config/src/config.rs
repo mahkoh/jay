@@ -254,6 +254,7 @@ pub struct WindowRule {
 pub struct WindowMatch {
     pub generic: GenericMatch<Self>,
     pub types: Option<WindowType>,
+    pub client: Option<ClientMatch>,
 }
 
 #[derive(Debug, Clone)]

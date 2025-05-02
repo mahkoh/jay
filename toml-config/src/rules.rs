@@ -219,7 +219,7 @@ impl Rule for WindowRule {
     }
 
     fn map_custom(
-        _state: &Rc<State>,
+        state: &Rc<State>,
         all: &mut Vec<MatcherTemp<Self>>,
         match_: &Self::Match,
     ) -> Option<()> {
@@ -247,6 +247,14 @@ impl Rule for WindowRule {
         }
         if let Some(value) = &match_.types {
             all.push(m(WindowCriterion::Types(*value)));
+        }
+        if let Some(value) = &match_.client {
+            let mut mapper = state.persistent.client_rule_mapper.borrow_mut();
+            let mapper = mapper.as_mut()?;
+            let matcher = mapper.map_temporary_match(&[], value)?;
+            all.push(m(WindowCriterion::Client(&ClientCriterion::Matcher(
+                matcher.0,
+            ))));
         }
         Some(())
     }

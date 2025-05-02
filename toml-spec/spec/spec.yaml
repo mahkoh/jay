@@ -3463,6 +3463,10 @@ WindowMatch:
       ref: WindowTypeMask
       required: false
       description: Matches windows whose type is contained in the mask.
+    client:
+      ref: ClientMatch
+      required: false
+      description: Matches if the window's client matches the client criterion.
 
 
 WindowMatchExactly:

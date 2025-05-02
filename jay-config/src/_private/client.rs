@@ -1638,6 +1638,7 @@ impl ConfigClient {
                 destroy_matcher,
             )
         };
+        let _destroy_client_matcher;
         let criterion = match criterion {
             WindowCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
             WindowCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
@@ -1645,6 +1646,13 @@ impl ConfigClient {
             WindowCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
             WindowCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
             WindowCriterion::Types(t) => WindowCriterionIpc::Types(t),
+            WindowCriterion::Client(c) => {
+                let (matcher, original) = self.create_client_matcher_(*c, true);
+                if original {
+                    _destroy_client_matcher = on_drop(move || matcher.destroy());
+                }
+                WindowCriterionIpc::Client(matcher)
+            }
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

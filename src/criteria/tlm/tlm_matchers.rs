@@ -18,4 +18,5 @@ macro_rules! fixed_root_criterion {
     };
 }
 
+pub mod tlmm_client;
 pub mod tlmm_kind;

@@ -230,6 +230,7 @@ fn start_compositor2(
             ipc_device_ids: Default::default(),
             use_wire_scale: Default::default(),
             wire_scale: Default::default(),
+            windows: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),

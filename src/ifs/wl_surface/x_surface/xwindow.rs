@@ -238,6 +238,13 @@ impl Xwindow {
         self.tl_destroy();
         self.x.surface.set_toplevel(None);
         self.x.xwindow.set(None);
+        self.x
+            .surface
+            .client
+            .state
+            .xwayland
+            .windows
+            .remove(&self.id);
     }
 
     pub fn is_mapped(&self) -> bool {

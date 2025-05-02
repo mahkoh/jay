@@ -12,5 +12,7 @@ pub use {
         CritRootFixed,
     },
     crit_target::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
-    crit_upstream::{CritUpstreamData, CritUpstreamNode},
+    crit_upstream::{
+        CritUpstreamData, CritUpstreamNode, CritUpstreamNodeBase, CritUpstreamNodeData,
+    },
 };

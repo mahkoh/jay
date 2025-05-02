@@ -109,6 +109,7 @@ pub enum WindowCriterionIpc {
         regex: bool,
     },
     Types(WindowType),
+    Client(ClientMatcher),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

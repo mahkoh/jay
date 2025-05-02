@@ -1459,6 +1459,7 @@ impl Wm {
                 return;
             }
         };
+        self.state.xwayland.windows.set(window.id, window.clone());
         data.window.set(Some(window.clone()));
         {
             self.load_window_wm_class(data).await;

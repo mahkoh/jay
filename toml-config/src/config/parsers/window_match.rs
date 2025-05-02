@@ -5,7 +5,10 @@ use {
             context::Context,
             extractor::{Extractor, ExtractorError, arr, n32, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::window_type::{WindowTypeParser, WindowTypeParserError},
+            parsers::{
+                client_match::{ClientMatchParser, ClientMatchParserError},
+                window_type::{WindowTypeParser, WindowTypeParserError},
+            },
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},
@@ -24,6 +27,8 @@ pub enum WindowMatchParserError {
     Extract(#[from] ExtractorError),
     #[error(transparent)]
     WindowTypes(#[from] WindowTypeParserError),
+    #[error(transparent)]
+    ClientMatchParserError(#[from] ClientMatchParserError),
 }
 
 pub struct WindowMatchParser<'a>(pub &'a Context<'a>);
@@ -39,14 +44,16 @@ impl Parser for WindowMatchParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let ((name, not_val, all_val, any_val, exactly_val, types_val),) = ext.extract(((
-            opt(str("name")),
-            opt(val("not")),
-            opt(arr("all")),
-            opt(arr("any")),
-            opt(val("exactly")),
-            opt(val("types")),
-        ),))?;
+        let ((name, not_val, all_val, any_val, exactly_val, types_val, client_val),) = ext
+            .extract(((
+                opt(str("name")),
+                opt(val("not")),
+                opt(arr("all")),
+                opt(arr("any")),
+                opt(val("exactly")),
+                opt(val("types")),
+                opt(val("client")),
+            ),))?;
         let mut not = None;
         if let Some(value) = not_val {
             not = Some(Box::new(value.parse(&mut WindowMatchParser(self.0))?));
@@ -74,6 +81,10 @@ impl Parser for WindowMatchParser<'_> {
         if let Some(value) = exactly_val {
             exactly = Some(value.parse(&mut WindowMatchExactlyParser(self.0))?);
         }
+        let mut client = None;
+        if let Some(value) = client_val {
+            client = Some(value.parse_map(&mut ClientMatchParser(self.0))?);
+        }
         Ok(WindowMatch {
             generic: GenericMatch {
                 name: name.despan_into(),
@@ -83,6 +94,7 @@ impl Parser for WindowMatchParser<'_> {
                 exactly,
             },
             types,
+            client,
         })
     }
 }

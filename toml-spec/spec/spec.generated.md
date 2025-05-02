@@ -4004,6 +4004,12 @@ The table has the following fields:
 
   The value of this field should be a [WindowTypeMask](#types-WindowTypeMask).
 
+- `client` (optional):
+
+  Matches if the window's client matches the client criterion.
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

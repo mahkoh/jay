@@ -57,6 +57,7 @@ use {
                 NoneSurfaceExt,
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
+                x_surface::xwindow::{Xwindow, XwindowId},
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -271,6 +272,7 @@ pub struct XWaylandState {
     pub ipc_device_ids: XIpcDeviceIds,
     pub use_wire_scale: Cell<bool>,
     pub wire_scale: Cell<Option<i32>>,
+    pub windows: CopyHashMap<XwindowId, Rc<Xwindow>>,
 }
 
 pub struct IdleState {

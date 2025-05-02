@@ -5,10 +5,11 @@ use {
         criteria::{
             CritDestroyListener, CritMatcherId, CritMatcherIds, CritMgrExt, CritUpstreamNode,
             FixedRootMatcher, RootMatcherMap,
+            clm::ClmUpstreamNode,
             crit_graph::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
             crit_leaf::{CritLeafEvent, CritLeafMatcher},
             crit_matchers::critm_constant::CritMatchConstant,
-            tlm::tlm_matchers::tlmm_kind::TlmMatchKind,
+            tlm::tlm_matchers::{tlmm_client::TlmMatchClient, tlmm_kind::TlmMatchKind},
         },
         state::State,
         tree::{NodeId, ToplevelData, ToplevelNode},
@@ -42,6 +43,7 @@ type TlmRootMatcherMap<T> = RootMatcherMap<ToplevelData, T>;
 #[derive(Default)]
 pub struct RootMatchers {
     kinds: TlmRootMatcherMap<TlmMatchKind>,
+    clients: CopyHashMap<CritMatcherId, Weak<TlmMatchClient>>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -115,6 +117,7 @@ impl TlMatcherManager {
                 };
             }
             unconditional!(kinds);
+            unconditional!(clients);
             if self.constant[true].has_downstream() {
                 return true;
             }
@@ -182,6 +185,7 @@ impl TlMatcherManager {
                 };
             }
             unconditional!(kinds);
+            unconditional!(clients);
             self.constant[true].handle(data);
         }
         #[expect(unused_macros)]
@@ -206,6 +210,10 @@ impl TlMatcherManager {
 
     pub fn kind(&self, kind: WindowType) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchKind::new(kind))
+    }
+
+    pub fn client(&self, state: &Rc<State>, client: &Rc<ClmUpstreamNode>) -> Rc<TlmUpstreamNode> {
+        TlmMatchClient::new(state, client)
     }
 }
 

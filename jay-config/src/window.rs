@@ -1,7 +1,10 @@
 //! Tools for inspecting and manipulating windows.
 
 use {
-    crate::{Axis, Direction, Workspace, client::Client},
+    crate::{
+        Axis, Direction, Workspace,
+        client::{Client, ClientCriterion},
+    },
     serde::{Deserialize, Serialize},
     std::ops::Deref,
 };
@@ -231,6 +234,8 @@ pub enum WindowCriterion<'a> {
     Any(&'a [WindowCriterion<'a>]),
     /// Matches if an exact number of the contained criteria match.
     Exactly(usize, &'a [WindowCriterion<'a>]),
+    /// Matches if the window's client matches the client criterion.
+    Client(&'a ClientCriterion<'a>),
 }
 
 impl WindowCriterion<'_> {

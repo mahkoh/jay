@@ -55,7 +55,6 @@ where
     fn detach(&self, id: CritMatcherId);
     fn not(&self, mgr: &Target::Mgr) -> Rc<dyn CritUpstreamNode<Target>>;
     fn pull(&self, target: &Target) -> bool;
-    #[expect(dead_code)]
     fn get(&self, target: &Target) -> bool;
 }
 

@@ -1775,6 +1775,10 @@
         "types": {
           "description": "Matches windows whose type is contained in the mask.",
           "$ref": "#/$defs/WindowTypeMask"
+        },
+        "client": {
+          "description": "Matches if the window's client matches the client criterion.",
+          "$ref": "#/$defs/ClientMatch"
         }
       },
       "required": []
