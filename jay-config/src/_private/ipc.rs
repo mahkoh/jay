@@ -2,6 +2,7 @@ use {
     crate::{
         _private::{PollableId, WireMode},
         Axis, Direction, PciId, Workspace,
+        client::Client,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
             capability::Capability,
@@ -565,6 +566,16 @@ pub enum ClientMessage<'a> {
     GetConnectorWorkspaces {
         connector: Connector,
     },
+    GetClients,
+    ClientExists {
+        client: Client,
+    },
+    ClientKill {
+        client: Client,
+    },
+    ClientIsXwayland {
+        client: Client,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -727,6 +738,15 @@ pub enum Response {
     },
     GetConnectorWorkspaces {
         workspaces: Vec<Workspace>,
+    },
+    GetClients {
+        clients: Vec<Client>,
+    },
+    ClientExists {
+        exists: bool,
+    },
+    ClientIsXwayland {
+        is_xwayland: bool,
     },
 }
 

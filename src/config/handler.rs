@@ -5,6 +5,7 @@ use {
             self, BackendColorSpace, BackendTransferFunction, ConnectorId, DrmDeviceId,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
         },
+        client::{Client, ClientId},
         cmm::cmm_transfer_function::TransferFunction,
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
@@ -38,6 +39,7 @@ use {
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
+        client::Client as ConfigClient,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
@@ -1717,6 +1719,39 @@ impl ConfigProxyHandler {
         self.keymaps.remove(&keymap);
     }
 
+    fn get_client(&self, client: ConfigClient) -> Result<Rc<Client>, CphError> {
+        self.state
+            .clients
+            .get(ClientId::from_raw(client.0))
+            .ok()
+            .ok_or(CphError::ClientDoesNotExist(client))
+    }
+
+    fn handle_get_clients(&self) {
+        let mut clients = vec![];
+        for client in self.state.clients.clients.borrow().values() {
+            clients.push(ConfigClient(client.data.id.raw()));
+        }
+        self.respond(Response::GetClients { clients });
+    }
+
+    fn handle_client_exists(&self, client: ConfigClient) {
+        self.respond(Response::ClientExists {
+            exists: self.get_client(client).is_ok(),
+        });
+    }
+
+    fn handle_client_is_xwayland(&self, client: ConfigClient) -> Result<(), CphError> {
+        self.respond(Response::ClientIsXwayland {
+            is_xwayland: self.get_client(client)?.is_xwayland,
+        });
+        Ok(())
+    }
+
+    fn handle_client_kill(&self, client: ConfigClient) {
+        self.state.clients.kill(ClientId::from_raw(client.0));
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -2130,6 +2165,12 @@ impl ConfigProxyHandler {
             ClientMessage::GetConnectorWorkspaces { connector } => self
                 .handle_get_connector_workspaces(connector)
                 .wrn("get_connector_workspaces")?,
+            ClientMessage::GetClients => self.handle_get_clients(),
+            ClientMessage::ClientExists { client } => self.handle_client_exists(client),
+            ClientMessage::ClientIsXwayland { client } => self
+                .handle_client_is_xwayland(client)
+                .wrn("client_is_xwayland")?,
+            ClientMessage::ClientKill { client } => self.handle_client_kill(client),
         }
         Ok(())
     }
@@ -2205,6 +2246,8 @@ enum CphError {
     UnknownColorSpace(ColorSpace),
     #[error("Unknown transfer function {0:?}")]
     UnknownTransferFunction(ConfigTransferFunction),
+    #[error("Client {0:?} does not exist")]
+    ClientDoesNotExist(ConfigClient),
 }
 
 trait WithRequestName {

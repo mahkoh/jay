@@ -58,6 +58,7 @@ use {
 mod macros;
 #[doc(hidden)]
 pub mod _private;
+pub mod client;
 pub mod embedded;
 pub mod exec;
 pub mod input;

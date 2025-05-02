@@ -10,6 +10,7 @@ use {
             logging,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
+        client::Client,
         exec::Command,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
@@ -81,7 +82,7 @@ struct KeyHandler {
     latched: Vec<Box<dyn FnOnce()>>,
 }
 
-pub(crate) struct Client {
+pub(crate) struct ConfigClient {
     configure: extern "C" fn(),
     srv_data: *const u8,
     srv_unref: unsafe extern "C" fn(data: *const u8),
@@ -145,7 +146,7 @@ struct Task {
     waker: Waker,
 }
 
-impl Drop for Client {
+impl Drop for ConfigClient {
     fn drop(&mut self) {
         unsafe {
             (self.srv_unref)(self.srv_data);
@@ -154,13 +155,13 @@ impl Drop for Client {
 }
 
 thread_local! {
-    pub(crate) static CLIENT: Cell<*const Client> = const { Cell::new(ptr::null()) };
+    pub(crate) static CLIENT: Cell<*const ConfigClient> = const { Cell::new(ptr::null()) };
 }
 
-unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
+unsafe fn with_client<T, F: FnOnce(&ConfigClient) -> T>(data: *const u8, f: F) -> T {
     struct Reset<'a> {
-        cell: &'a Cell<*const Client>,
-        val: *const Client,
+        cell: &'a Cell<*const ConfigClient>,
+        val: *const ConfigClient,
     }
     impl Drop for Reset<'_> {
         fn drop(&mut self) {
@@ -168,7 +169,7 @@ unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
         }
     }
     CLIENT.with(|cell| unsafe {
-        let client = data as *const Client;
+        let client = data as *const ConfigClient;
         Rc::increment_strong_count(client);
         let client = Rc::from_raw(client);
         let old = cell.replace(client.deref());
@@ -214,7 +215,7 @@ pub unsafe extern "C" fn init(
     size: usize,
     f: extern "C" fn(),
 ) -> *const u8 {
-    let client = Rc::new(Client {
+    let client = Rc::new(ConfigClient {
         configure: f,
         srv_data,
         srv_unref,
@@ -251,7 +252,7 @@ pub unsafe extern "C" fn init(
 }
 
 pub unsafe extern "C" fn unref(data: *const u8) {
-    let client = data as *const Client;
+    let client = data as *const ConfigClient;
     unsafe {
         drop(Rc::from_raw(client));
     }
@@ -278,7 +279,7 @@ macro_rules! get_response {
     }
 }
 
-impl Client {
+impl ConfigClient {
     fn send(&self, msg: &ClientMessage) {
         let mut buf = self.bufs.borrow_mut().pop().unwrap_or_default();
         buf.clear();
@@ -1257,6 +1258,28 @@ impl Client {
         if let Some(prev) = self.on_unload.replace(Some(on_drop(Box::new(f)))) {
             prev.forget();
         }
+    }
+
+    pub fn clients(&self) -> Vec<Client> {
+        let res = self.send_with_response(&ClientMessage::GetClients);
+        get_response!(res, vec!(), GetClients { clients });
+        clients
+    }
+
+    pub fn client_exists(&self, client: Client) -> bool {
+        let res = self.send_with_response(&ClientMessage::ClientExists { client });
+        get_response!(res, false, ClientExists { exists });
+        exists
+    }
+
+    pub fn client_is_xwayland(&self, client: Client) -> bool {
+        let res = self.send_with_response(&ClientMessage::ClientIsXwayland { client });
+        get_response!(res, false, ClientIsXwayland { is_xwayland });
+        is_xwayland
+    }
+
+    pub fn client_kill(&self, client: Client) {
+        self.send(&ClientMessage::ClientKill { client });
     }
 
     fn handle_msg(&self, msg: &[u8]) {

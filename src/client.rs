@@ -106,7 +106,6 @@ impl Clients {
         ClientId(self.next_client_id.fetch_add(1))
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn get(&self, id: ClientId) -> Result<Rc<Client>, ClientError> {
         let clients = self.clients.borrow();
         match clients.get(&id) {
