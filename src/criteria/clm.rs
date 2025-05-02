@@ -4,16 +4,28 @@ use {
     crate::{
         client::{Client, ClientId},
         criteria::{
-            CritDestroyListener, CritMatcherId, CritMatcherIds, CritUpstreamNode, FixedRootMatcher,
-            RootMatcherMap,
-            crit_graph::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
+            CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
+            CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
+            clm::clm_matchers::{
+                clmm_sandboxed::ClmMatchSandboxed,
+                clmm_string::{
+                    ClmMatchSandboxAppId, ClmMatchSandboxEngine, ClmMatchSandboxInstanceId,
+                },
+            },
+            crit_graph::{
+                CritMgr, CritRoot, CritRootFixed, CritTarget, CritTargetOwner, WeakCritTargetOwner,
+            },
             crit_leaf::{CritLeafEvent, CritLeafMatcher},
             crit_matchers::critm_constant::CritMatchConstant,
         },
         state::State,
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, queue::AsyncQueue},
     },
-    std::rc::{Rc, Weak},
+    linearize::static_map,
+    std::{
+        marker::PhantomData,
+        rc::{Rc, Weak},
+    },
 };
 
 bitflags! {
@@ -29,14 +41,18 @@ pub struct ClMatcherManager {
     changes: AsyncQueue<Rc<Client>>,
     leaf_events: Rc<AsyncQueue<CritLeafEvent<Rc<Client>>>>,
     constant: ClmFixedRootMatcher<CritMatchConstant<Rc<Client>>>,
+    sandboxed: ClmFixedRootMatcher<ClmMatchSandboxed>,
     matchers: Rc<RootMatchers>,
 }
 
-#[expect(dead_code)]
 type ClmRootMatcherMap<T> = RootMatcherMap<Rc<Client>, T>;
 
 #[derive(Default)]
-pub struct RootMatchers {}
+pub struct RootMatchers {
+    sandbox_app_id: ClmRootMatcherMap<ClmMatchSandboxAppId>,
+    sandbox_engine: ClmRootMatcherMap<ClmMatchSandboxEngine>,
+    sandbox_instance_id: ClmRootMatcherMap<ClmMatchSandboxInstanceId>,
+}
 
 pub async fn handle_cl_changes(state: Rc<State>) {
     let mgr = &state.cl_matcher_manager;
@@ -56,14 +72,12 @@ pub async fn handle_cl_leaf_events(state: Rc<State>) {
     }
 }
 
-#[expect(dead_code)]
 pub type ClmUpstreamNode = dyn CritUpstreamNode<Rc<Client>>;
 pub type ClmLeafMatcher = CritLeafMatcher<Rc<Client>>;
 
 impl ClMatcherManager {
     pub fn new(ids: &Rc<CritMatcherIds>) -> Self {
         let matchers = Rc::new(RootMatchers::default());
-        #[expect(unused_macros)]
         macro_rules! bool {
             ($name:ident) => {{
                 static_map! {
@@ -77,6 +91,7 @@ impl ClMatcherManager {
         }
         Self {
             constant: CritMatchConstant::create(&matchers, ids),
+            sandboxed: bool!(ClmMatchSandboxed),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -109,7 +124,6 @@ impl ClMatcherManager {
             }
             return;
         }
-        #[expect(unused_macros)]
         macro_rules! handlers {
             ($name:ident) => {
                 self.matchers
@@ -119,7 +133,6 @@ impl ClMatcherManager {
                     .filter_map(|m| m.upgrade())
             };
         }
-        #[expect(unused_macros)]
         macro_rules! fixed {
             ($name:ident) => {
                 self.$name[false].handle(data);
@@ -128,7 +141,6 @@ impl ClMatcherManager {
         }
         if changed.contains(CL_CHANGED_NEW) {
             changed |= ClMatcherChange::all();
-            #[expect(unused_macros)]
             macro_rules! unconditional {
                 ($field:ident) => {
                     for m in handlers!($field) {
@@ -136,8 +148,28 @@ impl ClMatcherManager {
                     }
                 };
             }
+            unconditional!(sandbox_instance_id);
+            unconditional!(sandbox_app_id);
+            unconditional!(sandbox_engine);
+            fixed!(sandboxed);
             self.constant[true].handle(data);
         }
+    }
+
+    pub fn sandbox_engine(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchSandboxEngine::new(string))
+    }
+
+    pub fn sandbox_app_id(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchSandboxAppId::new(string))
+    }
+
+    pub fn sandbox_instance_id(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchSandboxInstanceId::new(string))
+    }
+
+    pub fn sandboxed(&self) -> Rc<ClmUpstreamNode> {
+        self.sandboxed[true].clone()
     }
 }
 

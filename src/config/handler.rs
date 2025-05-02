@@ -41,7 +41,8 @@ use {
     bincode::Options,
     jay_config::{
         _private::{
-            ClientCriterionIpc, GenericCriterionIpc, PollableId, WireMode, bincode_ops,
+            ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
+            WireMode, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
@@ -1868,7 +1869,6 @@ impl ConfigProxyHandler {
                 field,
                 regex,
             } => {
-                #[expect(unused_variables)]
                 let needle = match *regex {
                     true => {
                         let regex = Regex::new(string).map_err(CphError::InvalidRegex)?;
@@ -1876,8 +1876,15 @@ impl ConfigProxyHandler {
                     }
                     false => CritLiteralOrRegex::Literal(string.to_string()),
                 };
-                match *field {}
+                match *field {
+                    ClientCriterionStringField::SandboxEngine => mgr.sandbox_engine(needle),
+                    ClientCriterionStringField::SandboxAppId => mgr.sandbox_app_id(needle),
+                    ClientCriterionStringField::SandboxInstanceId => {
+                        mgr.sandbox_instance_id(needle)
+                    }
+                }
             }
+            ClientCriterionIpc::Sandboxed => mgr.sandboxed(),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

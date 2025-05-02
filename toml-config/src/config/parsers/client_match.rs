@@ -3,7 +3,7 @@ use {
         config::{
             ClientMatch, GenericMatch, MatchExactly,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, n32, opt, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
@@ -36,13 +36,38 @@ impl Parser for ClientMatchParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let ((name, not_val, all_val, any_val, exactly_val),) = ext.extract(((
-            opt(str("name")),
-            opt(val("not")),
-            opt(arr("all")),
-            opt(arr("any")),
-            opt(val("exactly")),
-        ),))?;
+        let (
+            (
+                name,
+                not_val,
+                all_val,
+                any_val,
+                exactly_val,
+                sandboxed,
+                sandbox_engine,
+                sandbox_engine_regex,
+                sandbox_app_id,
+                sandbox_app_id_regex,
+            ),
+            (sandbox_instance_id, sandbox_instance_id_regex),
+        ) = ext.extract((
+            (
+                opt(str("name")),
+                opt(val("not")),
+                opt(arr("all")),
+                opt(arr("any")),
+                opt(val("exactly")),
+                opt(bol("sandboxed")),
+                opt(str("sandbox-engine")),
+                opt(str("sandbox-engine-regex")),
+                opt(str("sandbox-app-id")),
+                opt(str("sandbox-app-id-regex")),
+            ),
+            (
+                opt(str("sandbox-instance-id")),
+                opt(str("sandbox-instance-id-regex")),
+            ),
+        ))?;
         let mut not = None;
         if let Some(value) = not_val {
             not = Some(Box::new(value.parse(&mut ClientMatchParser(self.0))?));
@@ -74,6 +99,13 @@ impl Parser for ClientMatchParser<'_> {
                 any,
                 exactly,
             },
+            sandbox_engine: sandbox_engine.despan_into(),
+            sandbox_engine_regex: sandbox_engine_regex.despan_into(),
+            sandbox_app_id: sandbox_app_id.despan_into(),
+            sandbox_app_id_regex: sandbox_app_id_regex.despan_into(),
+            sandbox_instance_id: sandbox_instance_id.despan_into(),
+            sandbox_instance_id_regex: sandbox_instance_id_regex.despan_into(),
+            sandboxed: sandboxed.despan(),
         })
     }
 }

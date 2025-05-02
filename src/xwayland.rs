@@ -12,6 +12,7 @@ use {
             wl_surface::x_surface::xwindow::{Xwindow, XwindowData},
         },
         io_uring::IoUringError,
+        security_context_acceptor::AcceptorMetadata,
         state::State,
         user_session::import_environment,
         utils::{
@@ -179,6 +180,7 @@ async fn run(
         ClientCaps::all(),
         ClientCaps::all(),
         true,
+        &Rc::new(AcceptorMetadata::default()),
     );
     let client = match client {
         Ok(c) => c,

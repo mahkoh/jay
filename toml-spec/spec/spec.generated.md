@@ -794,6 +794,83 @@ The table has the following fields:
 
   The value of this field should be a [ClientMatchExactly](#types-ClientMatchExactly).
 
+- `sandboxed` (optional):
+
+  Matches if the client is/isn't sandboxed.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandboxed = true
+    ```
+
+  The value of this field should be a boolean.
+
+- `sandbox-engine` (optional):
+
+  Matches the engine name of the client's sandbox verbatim.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-engine = "org.flatpak"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-engine-regex` (optional):
+
+  Matches the engine name of the client's sandbox with a regular expression.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-engine = "flatpak"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-app-id` (optional):
+
+  Matches the app id of the client's sandbox verbatim.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-app-id-regex` (optional):
+
+  Matches the app id of the client's sandbox with a regular expression.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-app-id-regex = "(?i)spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-instance-id` (optional):
+
+  Matches the instance id of the client's sandbox verbatim.
+
+  The value of this field should be a string.
+
+- `sandbox-instance-id-regex` (optional):
+
+  Matches the instance id of the client's sandbox with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`

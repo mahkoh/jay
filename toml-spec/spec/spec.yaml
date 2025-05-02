@@ -3167,6 +3167,76 @@ ClientMatch:
             { sandbox-app-id = "com.valvesoftware.Steam" },
           ]
           ```
+    sandboxed:
+      kind: boolean
+      required: false
+      description: |
+        Matches if the client is/isn't sandboxed.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.sandboxed = true
+          ```
+    sandbox-engine:
+      kind: string
+      required: false
+      description: |
+        Matches the engine name of the client's sandbox verbatim.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.sandbox-engine = "org.flatpak"
+          ```
+    sandbox-engine-regex:
+      kind: string
+      required: false
+      description: |
+        Matches the engine name of the client's sandbox with a regular expression.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.sandbox-engine = "flatpak"
+          ```
+    sandbox-app-id:
+      kind: string
+      required: false
+      description: |
+        Matches the app id of the client's sandbox verbatim.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.sandbox-app-id = "com.spotify.Client"
+          ```
+    sandbox-app-id-regex:
+      kind: string
+      required: false
+      description: |
+        Matches the app id of the client's sandbox with a regular expression.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.sandbox-app-id-regex = "(?i)spotify"
+          ```
+    sandbox-instance-id:
+      kind: string
+      required: false
+      description: |
+        Matches the instance id of the client's sandbox verbatim.
+    sandbox-instance-id-regex:
+      kind: string
+      required: false
+      description: |
+        Matches the instance id of the client's sandbox with a regular expression.
 
 
 ClientMatchExactly:

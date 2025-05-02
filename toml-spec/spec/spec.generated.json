@@ -531,6 +531,34 @@
         "exactly": {
           "description": "Matches if a specific number of contained criteria match.\n\n- Example:\n\n  ```toml\n  # Matches any client that is either steam or sandboxed by flatpak but not both.\n  [[clients]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { sandbox-engine = \"org.flatpak\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
           "$ref": "#/$defs/ClientMatchExactly"
+        },
+        "sandboxed": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't sandboxed.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandboxed = true\n  ```\n"
+        },
+        "sandbox-engine": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"org.flatpak\"\n  ```\n"
+        },
+        "sandbox-engine-regex": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"flatpak\"\n  ```\n"
+        },
+        "sandbox-app-id": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id = \"com.spotify.Client\"\n  ```\n"
+        },
+        "sandbox-app-id-regex": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id-regex = \"(?i)spotify\"\n  ```\n"
+        },
+        "sandbox-instance-id": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox verbatim.\n"
+        },
+        "sandbox-instance-id-regex": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox with a regular expression.\n"
         }
       },
       "required": []

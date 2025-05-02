@@ -84,9 +84,36 @@ impl Rule for ClientRule {
 
     fn map_custom(
         _state: &Rc<State>,
-        _all: &mut Vec<MatcherTemp<Self>>,
-        _match_: &Self::Match,
+        all: &mut Vec<MatcherTemp<Self>>,
+        match_: &Self::Match,
     ) -> Option<()> {
+        let m = |c: ClientCriterion<'_>| MatcherTemp(c.to_matcher());
+        macro_rules! value_ref {
+            ($ty:ident, $field:ident) => {
+                if let Some(value) = &match_.$field {
+                    all.push(m(ClientCriterion::$ty(value)));
+                }
+            };
+        }
+        macro_rules! bool {
+            ($ty:ident, $field:ident) => {
+                if let Some(value) = &match_.$field {
+                    let crit = ClientCriterion::$ty;
+                    let matcher = match value {
+                        false => m(ClientCriterion::Not(&crit)),
+                        true => m(crit),
+                    };
+                    all.push(matcher);
+                }
+            };
+        }
+        value_ref!(SandboxEngine, sandbox_engine);
+        value_ref!(SandboxEngineRegex, sandbox_engine_regex);
+        value_ref!(SandboxAppId, sandbox_app_id);
+        value_ref!(SandboxAppIdRegex, sandbox_app_id_regex);
+        value_ref!(SandboxInstanceId, sandbox_instance_id);
+        value_ref!(SandboxInstanceIdRegex, sandbox_instance_id_regex);
+        bool!(Sandboxed, sandboxed);
         Some(())
     }
 

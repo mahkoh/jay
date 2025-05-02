@@ -81,7 +81,12 @@ pub enum ClientCriterionIpc {
         field: ClientCriterionStringField,
         regex: bool,
     },
+    Sandboxed,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum ClientCriterionStringField {}
+pub enum ClientCriterionStringField {
+    SandboxEngine,
+    SandboxAppId,
+    SandboxInstanceId,
+}

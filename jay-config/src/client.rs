@@ -63,6 +63,20 @@ pub enum ClientCriterion<'a> {
     Any(&'a [ClientCriterion<'a>]),
     /// Matches if an exact number of the contained criteria match.
     Exactly(usize, &'a [ClientCriterion<'a>]),
+    /// Matches the engine name of the client's sandbox verbatim.
+    SandboxEngine(&'a str),
+    /// Matches the engine name of the client's sandbox with a regular expression.
+    SandboxEngineRegex(&'a str),
+    /// Matches the app id of the client's sandbox verbatim.
+    SandboxAppId(&'a str),
+    /// Matches the app id of the client's sandbox with a regular expression.
+    SandboxAppIdRegex(&'a str),
+    /// Matches the instance id of the client's sandbox verbatim.
+    SandboxInstanceId(&'a str),
+    /// Matches the instance id of the client's sandbox with a regular expression.
+    SandboxInstanceIdRegex(&'a str),
+    /// Matches if the client is sandboxed.
+    Sandboxed,
 }
 
 impl ClientCriterion<'_> {

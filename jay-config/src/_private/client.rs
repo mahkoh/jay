@@ -3,8 +3,8 @@
 use {
     crate::{
         _private::{
-            ClientCriterionIpc, Config, ConfigEntry, ConfigEntryGen, GenericCriterionIpc,
-            PollableId, VERSION, WireMode, bincode_ops,
+            ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
+            GenericCriterionIpc, PollableId, VERSION, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
             },
@@ -1501,7 +1501,6 @@ impl ConfigClient {
         criterion: ClientCriterion<'_>,
         child: bool,
     ) -> (ClientMatcher, bool) {
-        #[expect(unused_macros)]
         macro_rules! string {
             ($t:expr, $field:ident, $regex:expr) => {
                 ClientCriterionIpc::String {
@@ -1530,15 +1529,20 @@ impl ConfigClient {
                 destroy_matcher,
             )
         };
-        #[expect(unused_variables)]
         let criterion = match criterion {
             ClientCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
             ClientCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
             ClientCriterion::All(c) => return generic(GenericCriterion::All(c)),
             ClientCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
             ClientCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
+            ClientCriterion::SandboxEngine(t) => string!(t, SandboxEngine, false),
+            ClientCriterion::SandboxEngineRegex(t) => string!(t, SandboxEngine, true),
+            ClientCriterion::SandboxAppId(t) => string!(t, SandboxAppId, false),
+            ClientCriterion::SandboxAppIdRegex(t) => string!(t, SandboxAppId, true),
+            ClientCriterion::SandboxInstanceId(t) => string!(t, SandboxInstanceId, false),
+            ClientCriterion::SandboxInstanceIdRegex(t) => string!(t, SandboxInstanceId, true),
+            ClientCriterion::Sandboxed => ClientCriterionIpc::Sandboxed,
         };
-        #[expect(unreachable_code)]
         let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
         get_response!(
             res,

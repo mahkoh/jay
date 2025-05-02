@@ -1,4 +1,3 @@
-#[expect(unused_macros)]
 macro_rules! fixed_root_criterion {
     ($ty:ty, $field:ident) => {
         impl crate::criteria::crit_graph::CritFixedRootCriterionBase<Rc<crate::client::Client>>
@@ -17,3 +16,6 @@ macro_rules! fixed_root_criterion {
         }
     };
 }
+
+pub mod clmm_sandboxed;
+pub mod clmm_string;

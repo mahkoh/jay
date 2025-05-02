@@ -24,14 +24,20 @@ linear_ids!(AcceptorIds, AcceptorId, u64);
 struct Acceptor {
     id: AcceptorId,
     state: Rc<State>,
-    sandbox_engine: Option<String>,
-    app_id: Option<String>,
-    instance_id: Option<String>,
+    metadata: Rc<AcceptorMetadata>,
     listen_fd: Rc<OwnedFd>,
     close_fd: Rc<OwnedFd>,
     caps: ClientCaps,
     listen_future: Cell<Option<SpawnedFuture<()>>>,
     close_future: Cell<Option<SpawnedFuture<()>>>,
+}
+
+#[derive(Default)]
+pub struct AcceptorMetadata {
+    pub sandboxed: bool,
+    pub sandbox_engine: Option<String>,
+    pub app_id: Option<String>,
+    pub instance_id: Option<String>,
 }
 
 impl SecurityContextAcceptors {
@@ -54,9 +60,12 @@ impl SecurityContextAcceptors {
         let acceptor = Rc::new(Acceptor {
             id: self.ids.next(),
             state: state.clone(),
-            sandbox_engine,
-            app_id,
-            instance_id,
+            metadata: Rc::new(AcceptorMetadata {
+                sandboxed: true,
+                sandbox_engine,
+                app_id,
+                instance_id,
+            }),
             listen_fd: listen_fd.clone(),
             close_fd: close_fd.clone(),
             caps,
@@ -100,7 +109,10 @@ impl Acceptor {
                 }
             };
             let id = s.clients.id();
-            if let Err(e) = s.clients.spawn(id, s, fd, self.caps, self.caps) {
+            if let Err(e) = s
+                .clients
+                .spawn(id, s, fd, self.caps, self.caps, &self.metadata)
+            {
                 log::error!("Could not spawn a client: {}", ErrorFmt(e));
                 break;
             }
@@ -119,9 +131,9 @@ impl Display for Acceptor {
         write!(
             f,
             "{}/{}/{}",
-            self.sandbox_engine.as_deref().unwrap_or(""),
-            self.app_id.as_deref().unwrap_or(""),
-            self.instance_id.as_deref().unwrap_or(""),
+            self.metadata.sandbox_engine.as_deref().unwrap_or(""),
+            self.metadata.app_id.as_deref().unwrap_or(""),
+            self.metadata.instance_id.as_deref().unwrap_or(""),
         )
     }
 }

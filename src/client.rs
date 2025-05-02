@@ -13,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
+        security_context_acceptor::AcceptorMetadata,
         state::State,
         utils::{
             activation_token::ActivationToken,
@@ -125,6 +126,7 @@ impl Clients {
         socket: Rc<OwnedFd>,
         effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
+        acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<(), ClientError> {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
             return Ok(());
@@ -138,6 +140,7 @@ impl Clients {
             effective_caps,
             bounding_caps,
             false,
+            acceptor,
         )?;
         Ok(())
     }
@@ -152,6 +155,7 @@ impl Clients {
         effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
         is_xwayland: bool,
+        acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new_cyclic(|slf| Client {
             id,
@@ -183,6 +187,7 @@ impl Clients {
             focus_stealing_serial: Default::default(),
             changed_properties: Default::default(),
             destroyed: Default::default(),
+            acceptor: acceptor.clone(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -306,6 +311,7 @@ pub struct Client {
     pub focus_stealing_serial: Cell<Option<u64>>,
     pub changed_properties: Cell<ClMatcherChange>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
+    pub acceptor: Rc<AcceptorMetadata>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

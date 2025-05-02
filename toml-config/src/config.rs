@@ -225,6 +225,13 @@ pub struct ClientRule {
 #[derive(Default, Debug, Clone)]
 pub struct ClientMatch {
     pub generic: GenericMatch<Self>,
+    pub sandbox_engine: Option<String>,
+    pub sandbox_engine_regex: Option<String>,
+    pub sandbox_app_id: Option<String>,
+    pub sandbox_app_id_regex: Option<String>,
+    pub sandbox_instance_id: Option<String>,
+    pub sandbox_instance_id_regex: Option<String>,
+    pub sandboxed: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

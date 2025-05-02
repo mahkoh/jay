@@ -22,7 +22,6 @@ where
 }
 
 impl<Target, A> CritMatchString<Target, A> {
-    #[expect(dead_code)]
     pub fn new(string: CritLiteralOrRegex) -> Self {
         Self {
             string,

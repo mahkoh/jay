@@ -84,7 +84,6 @@ pub trait CritMgrExt: CritMgr {
         upstream.not(self)
     }
 
-    #[expect(dead_code)]
     fn root<T>(&self, criterion: T) -> Rc<dyn CritUpstreamNode<Self::Target>>
     where
         T: CritRootCriterion<Self::Target>,
