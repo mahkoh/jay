@@ -3237,6 +3237,11 @@ ClientMatch:
       required: false
       description: |
         Matches the instance id of the client's sandbox with a regular expression.
+    uid:
+      kind: number
+      integer_only: true
+      required: false
+      description: Matches the user ID of the client.
 
 
 ClientMatchExactly:

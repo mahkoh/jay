@@ -19,3 +19,4 @@ macro_rules! fixed_root_criterion {
 
 pub mod clmm_sandboxed;
 pub mod clmm_string;
+pub mod clmm_uid;

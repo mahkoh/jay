@@ -1885,6 +1885,7 @@ impl ConfigProxyHandler {
                 }
             }
             ClientCriterionIpc::Sandboxed => mgr.sandboxed(),
+            ClientCriterionIpc::Uid(p) => mgr.uid(*p),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

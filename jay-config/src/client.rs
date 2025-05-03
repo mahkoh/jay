@@ -77,6 +77,8 @@ pub enum ClientCriterion<'a> {
     SandboxInstanceIdRegex(&'a str),
     /// Matches if the client is sandboxed.
     Sandboxed,
+    /// Matches the user ID of the client.
+    Uid(i32),
 }
 
 impl ClientCriterion<'_> {

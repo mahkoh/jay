@@ -559,6 +559,10 @@
         "sandbox-instance-id-regex": {
           "type": "string",
           "description": "Matches the instance id of the client's sandbox with a regular expression.\n"
+        },
+        "uid": {
+          "type": "integer",
+          "description": "Matches the user ID of the client."
         }
       },
       "required": []

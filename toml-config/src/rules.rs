@@ -95,6 +95,13 @@ impl Rule for ClientRule {
                 }
             };
         }
+        macro_rules! value {
+            ($ty:ident, $field:ident) => {
+                if let Some(value) = match_.$field {
+                    all.push(m(ClientCriterion::$ty(value)));
+                }
+            };
+        }
         macro_rules! bool {
             ($ty:ident, $field:ident) => {
                 if let Some(value) = &match_.$field {
@@ -113,6 +120,7 @@ impl Rule for ClientRule {
         value_ref!(SandboxAppIdRegex, sandbox_app_id_regex);
         value_ref!(SandboxInstanceId, sandbox_instance_id);
         value_ref!(SandboxInstanceIdRegex, sandbox_instance_id_regex);
+        value!(Uid, uid);
         bool!(Sandboxed, sandboxed);
         Some(())
     }

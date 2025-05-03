@@ -11,6 +11,7 @@ use {
                 clmm_string::{
                     ClmMatchSandboxAppId, ClmMatchSandboxEngine, ClmMatchSandboxInstanceId,
                 },
+                clmm_uid::ClmMatchUid,
             },
             crit_graph::{
                 CritMgr, CritRoot, CritRootFixed, CritTarget, CritTargetOwner, WeakCritTargetOwner,
@@ -52,6 +53,7 @@ pub struct RootMatchers {
     sandbox_app_id: ClmRootMatcherMap<ClmMatchSandboxAppId>,
     sandbox_engine: ClmRootMatcherMap<ClmMatchSandboxEngine>,
     sandbox_instance_id: ClmRootMatcherMap<ClmMatchSandboxInstanceId>,
+    uid: ClmRootMatcherMap<ClmMatchUid>,
 }
 
 pub async fn handle_cl_changes(state: Rc<State>) {
@@ -151,6 +153,7 @@ impl ClMatcherManager {
             unconditional!(sandbox_instance_id);
             unconditional!(sandbox_app_id);
             unconditional!(sandbox_engine);
+            unconditional!(uid);
             fixed!(sandboxed);
             self.constant[true].handle(data);
         }
@@ -170,6 +173,10 @@ impl ClMatcherManager {
 
     pub fn sandboxed(&self) -> Rc<ClmUpstreamNode> {
         self.sandboxed[true].clone()
+    }
+
+    pub fn uid(&self, pid: i32) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchUid(pid as _))
     }
 }
 

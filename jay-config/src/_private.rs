@@ -82,6 +82,7 @@ pub enum ClientCriterionIpc {
         regex: bool,
     },
     Sandboxed,
+    Uid(i32),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

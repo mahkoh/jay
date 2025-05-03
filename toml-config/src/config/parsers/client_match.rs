@@ -3,7 +3,7 @@ use {
         config::{
             ClientMatch, GenericMatch, MatchExactly,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
@@ -49,7 +49,7 @@ impl Parser for ClientMatchParser<'_> {
                 sandbox_app_id,
                 sandbox_app_id_regex,
             ),
-            (sandbox_instance_id, sandbox_instance_id_regex),
+            (sandbox_instance_id, sandbox_instance_id_regex, uid),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -66,6 +66,7 @@ impl Parser for ClientMatchParser<'_> {
             (
                 opt(str("sandbox-instance-id")),
                 opt(str("sandbox-instance-id-regex")),
+                opt(s32("uid")),
             ),
         ))?;
         let mut not = None;
@@ -106,6 +107,7 @@ impl Parser for ClientMatchParser<'_> {
             sandbox_instance_id: sandbox_instance_id.despan_into(),
             sandbox_instance_id_regex: sandbox_instance_id_regex.despan_into(),
             sandboxed: sandboxed.despan(),
+            uid: uid.despan(),
         })
     }
 }

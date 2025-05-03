@@ -871,6 +871,14 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `uid` (optional):
+
+  Matches the user ID of the client.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`
