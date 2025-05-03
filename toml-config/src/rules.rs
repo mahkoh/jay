@@ -123,6 +123,7 @@ impl Rule for ClientRule {
         value!(Uid, uid);
         value!(Pid, pid);
         bool!(Sandboxed, sandboxed);
+        bool!(IsXwayland, is_xwayland);
         Some(())
     }
 

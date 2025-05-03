@@ -17,6 +17,7 @@ macro_rules! fixed_root_criterion {
     };
 }
 
+pub mod clmm_is_xwayland;
 pub mod clmm_pid;
 pub mod clmm_sandboxed;
 pub mod clmm_string;

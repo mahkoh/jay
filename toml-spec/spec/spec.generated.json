@@ -567,6 +567,10 @@
         "pid": {
           "type": "integer",
           "description": "Matches the process ID of the client."
+        },
+        "is-xwayland": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't Xwayland."
         }
       },
       "required": []

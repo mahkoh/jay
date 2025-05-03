@@ -234,6 +234,7 @@ pub struct ClientMatch {
     pub sandboxed: Option<bool>,
     pub uid: Option<i32>,
     pub pid: Option<i32>,
+    pub is_xwayland: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

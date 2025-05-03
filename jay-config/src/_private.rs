@@ -84,6 +84,7 @@ pub enum ClientCriterionIpc {
     Sandboxed,
     Uid(i32),
     Pid(i32),
+    IsXwayland,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

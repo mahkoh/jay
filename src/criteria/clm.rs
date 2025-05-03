@@ -7,6 +7,7 @@ use {
             CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
             CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
             clm::clm_matchers::{
+                clmm_is_xwayland::ClmMatchIsXwayland,
                 clmm_pid::ClmMatchPid,
                 clmm_sandboxed::ClmMatchSandboxed,
                 clmm_string::{
@@ -44,6 +45,7 @@ pub struct ClMatcherManager {
     leaf_events: Rc<AsyncQueue<CritLeafEvent<Rc<Client>>>>,
     constant: ClmFixedRootMatcher<CritMatchConstant<Rc<Client>>>,
     sandboxed: ClmFixedRootMatcher<ClmMatchSandboxed>,
+    is_xwayland: ClmFixedRootMatcher<ClmMatchIsXwayland>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -96,6 +98,7 @@ impl ClMatcherManager {
         Self {
             constant: CritMatchConstant::create(&matchers, ids),
             sandboxed: bool!(ClmMatchSandboxed),
+            is_xwayland: bool!(ClmMatchIsXwayland),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -158,6 +161,7 @@ impl ClMatcherManager {
             unconditional!(uid);
             unconditional!(pid);
             fixed!(sandboxed);
+            fixed!(is_xwayland);
             self.constant[true].handle(data);
         }
     }
@@ -184,6 +188,10 @@ impl ClMatcherManager {
 
     pub fn pid(&self, pid: i32) -> Rc<ClmUpstreamNode> {
         self.root(ClmMatchPid(pid as _))
+    }
+
+    pub fn is_xwayland(&self) -> Rc<ClmUpstreamNode> {
+        self.is_xwayland[true].clone()
     }
 }
 

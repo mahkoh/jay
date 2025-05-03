@@ -81,6 +81,8 @@ pub enum ClientCriterion<'a> {
     Uid(i32),
     /// Matches the process ID of the client.
     Pid(i32),
+    /// Matches if the client is Xwayland.
+    IsXwayland,
 }
 
 impl ClientCriterion<'_> {

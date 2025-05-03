@@ -3247,6 +3247,10 @@ ClientMatch:
       integer_only: true
       required: false
       description: Matches the process ID of the client.
+    is-xwayland:
+      kind: boolean
+      required: false
+      description: Matches if the client is/isn't Xwayland.
 
 
 ClientMatchExactly:

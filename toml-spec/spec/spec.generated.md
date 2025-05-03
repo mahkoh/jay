@@ -887,6 +887,12 @@ The table has the following fields:
 
   The numbers should be integers.
 
+- `is-xwayland` (optional):
+
+  Matches if the client is/isn't Xwayland.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`
