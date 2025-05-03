@@ -1882,6 +1882,7 @@ impl ConfigProxyHandler {
                     ClientCriterionStringField::SandboxInstanceId => {
                         mgr.sandbox_instance_id(needle)
                     }
+                    ClientCriterionStringField::Comm => mgr.comm(needle),
                 }
             }
             ClientCriterionIpc::Sandboxed => mgr.sandboxed(),

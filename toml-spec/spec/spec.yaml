@@ -3251,6 +3251,14 @@ ClientMatch:
       kind: boolean
       required: false
       description: Matches if the client is/isn't Xwayland.
+    comm:
+      kind: string
+      required: false
+      description: Matches the `/proc/pid/comm` of the client verbatim.
+    comm-regex:
+      kind: string
+      required: false
+      description: Matches the `/proc/pid/comm` of the client with a regular expression.
 
 
 ClientMatchExactly:

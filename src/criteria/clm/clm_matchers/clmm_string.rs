@@ -15,8 +15,10 @@ pub type ClmMatchString<T> = CritMatchString<Rc<Client>, T>;
 pub type ClmMatchSandboxEngine = ClmMatchString<AcceptorMetadataAccess<SandboxEngineField>>;
 pub type ClmMatchSandboxAppId = ClmMatchString<AcceptorMetadataAccess<SandboxAppIdField>>;
 pub type ClmMatchSandboxInstanceId = ClmMatchString<AcceptorMetadataAccess<SandboxInstanceIdField>>;
+pub type ClmMatchComm = ClmMatchString<CommAccess>;
 
 pub struct AcceptorMetadataAccess<T>(PhantomData<T>);
+pub struct CommAccess;
 
 trait SandboxField: Sized + 'static {
     fn field(meta: &AcceptorMetadata) -> &Option<String>;
@@ -75,5 +77,15 @@ impl SandboxField for SandboxInstanceIdField {
         roots: &RootMatchers,
     ) -> &ClmRootMatcherMap<ClmMatchString<AcceptorMetadataAccess<Self>>> {
         &roots.sandbox_instance_id
+    }
+}
+
+impl StringAccess<Rc<Client>> for CommAccess {
+    fn with_string(data: &Rc<Client>, f: impl FnOnce(&str) -> bool) -> bool {
+        f(&data.pid_info.comm)
+    }
+
+    fn nodes(roots: &RootMatchers) -> &ClmRootMatcherMap<ClmMatchString<Self>> {
+        &roots.comm
     }
 }

@@ -893,6 +893,18 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `comm` (optional):
+
+  Matches the `/proc/pid/comm` of the client verbatim.
+
+  The value of this field should be a string.
+
+- `comm-regex` (optional):
+
+  Matches the `/proc/pid/comm` of the client with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`

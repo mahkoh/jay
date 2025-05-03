@@ -235,6 +235,8 @@ pub struct ClientMatch {
     pub uid: Option<i32>,
     pub pid: Option<i32>,
     pub is_xwayland: Option<bool>,
+    pub comm: Option<String>,
+    pub comm_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

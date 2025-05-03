@@ -83,6 +83,10 @@ pub enum ClientCriterion<'a> {
     Pid(i32),
     /// Matches if the client is Xwayland.
     IsXwayland,
+    /// Matches the `/proc/pid/comm` of the client verbatim.
+    Comm(&'a str),
+    /// Matches the `/proc/pid/comm` of the client with a regular expression.
+    CommRegex(&'a str),
 }
 
 impl ClientCriterion<'_> {

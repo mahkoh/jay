@@ -571,6 +571,14 @@
         "is-xwayland": {
           "type": "boolean",
           "description": "Matches if the client is/isn't Xwayland."
+        },
+        "comm": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client verbatim."
+        },
+        "comm-regex": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client with a regular expression."
         }
       },
       "required": []
