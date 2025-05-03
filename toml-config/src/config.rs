@@ -233,6 +233,7 @@ pub struct ClientMatch {
     pub sandbox_instance_id_regex: Option<String>,
     pub sandboxed: Option<bool>,
     pub uid: Option<i32>,
+    pub pid: Option<i32>,
 }
 
 #[derive(Debug, Clone)]

@@ -7,6 +7,7 @@ use {
             CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
             CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
             clm::clm_matchers::{
+                clmm_pid::ClmMatchPid,
                 clmm_sandboxed::ClmMatchSandboxed,
                 clmm_string::{
                     ClmMatchSandboxAppId, ClmMatchSandboxEngine, ClmMatchSandboxInstanceId,
@@ -54,6 +55,7 @@ pub struct RootMatchers {
     sandbox_engine: ClmRootMatcherMap<ClmMatchSandboxEngine>,
     sandbox_instance_id: ClmRootMatcherMap<ClmMatchSandboxInstanceId>,
     uid: ClmRootMatcherMap<ClmMatchUid>,
+    pid: ClmRootMatcherMap<ClmMatchPid>,
 }
 
 pub async fn handle_cl_changes(state: Rc<State>) {
@@ -154,6 +156,7 @@ impl ClMatcherManager {
             unconditional!(sandbox_app_id);
             unconditional!(sandbox_engine);
             unconditional!(uid);
+            unconditional!(pid);
             fixed!(sandboxed);
             self.constant[true].handle(data);
         }
@@ -177,6 +180,10 @@ impl ClMatcherManager {
 
     pub fn uid(&self, pid: i32) -> Rc<ClmUpstreamNode> {
         self.root(ClmMatchUid(pid as _))
+    }
+
+    pub fn pid(&self, pid: i32) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchPid(pid as _))
     }
 }
 

@@ -563,6 +563,10 @@
         "uid": {
           "type": "integer",
           "description": "Matches the user ID of the client."
+        },
+        "pid": {
+          "type": "integer",
+          "description": "Matches the process ID of the client."
         }
       },
       "required": []

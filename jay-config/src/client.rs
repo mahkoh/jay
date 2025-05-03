@@ -79,6 +79,8 @@ pub enum ClientCriterion<'a> {
     Sandboxed,
     /// Matches the user ID of the client.
     Uid(i32),
+    /// Matches the process ID of the client.
+    Pid(i32),
 }
 
 impl ClientCriterion<'_> {

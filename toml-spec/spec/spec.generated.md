@@ -879,6 +879,14 @@ The table has the following fields:
 
   The numbers should be integers.
 
+- `pid` (optional):
+
+  Matches the process ID of the client.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`

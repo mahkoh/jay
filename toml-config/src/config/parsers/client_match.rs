@@ -49,7 +49,7 @@ impl Parser for ClientMatchParser<'_> {
                 sandbox_app_id,
                 sandbox_app_id_regex,
             ),
-            (sandbox_instance_id, sandbox_instance_id_regex, uid),
+            (sandbox_instance_id, sandbox_instance_id_regex, uid, pid),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -67,6 +67,7 @@ impl Parser for ClientMatchParser<'_> {
                 opt(str("sandbox-instance-id")),
                 opt(str("sandbox-instance-id-regex")),
                 opt(s32("uid")),
+                opt(s32("pid")),
             ),
         ))?;
         let mut not = None;
@@ -108,6 +109,7 @@ impl Parser for ClientMatchParser<'_> {
             sandbox_instance_id_regex: sandbox_instance_id_regex.despan_into(),
             sandboxed: sandboxed.despan(),
             uid: uid.despan(),
+            pid: pid.despan(),
         })
     }
 }

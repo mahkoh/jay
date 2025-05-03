@@ -1543,6 +1543,7 @@ impl ConfigClient {
             ClientCriterion::SandboxInstanceIdRegex(t) => string!(t, SandboxInstanceId, true),
             ClientCriterion::Sandboxed => ClientCriterionIpc::Sandboxed,
             ClientCriterion::Uid(p) => ClientCriterionIpc::Uid(p),
+            ClientCriterion::Pid(p) => ClientCriterionIpc::Pid(p),
         };
         let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
         get_response!(

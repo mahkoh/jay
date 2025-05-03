@@ -3242,6 +3242,11 @@ ClientMatch:
       integer_only: true
       required: false
       description: Matches the user ID of the client.
+    pid:
+      kind: number
+      integer_only: true
+      required: false
+      description: Matches the process ID of the client.
 
 
 ClientMatchExactly:
