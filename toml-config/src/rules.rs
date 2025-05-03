@@ -260,6 +260,10 @@ impl Rule for WindowRule {
         value!(AppIdRegex, app_id_regex);
         value!(Tag, tag);
         value!(TagRegex, tag_regex);
+        value!(XClass, x_class);
+        value!(XClassRegex, x_class_regex);
+        value!(XInstance, x_instance);
+        value!(XInstanceRegex, x_instance_regex);
         bool!(Floating, floating);
         bool!(Visible, visible);
         bool!(Urgent, urgent);

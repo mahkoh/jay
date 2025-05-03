@@ -1827,6 +1827,22 @@
         "tag-regex": {
           "type": "string",
           "description": "Matches the toplevel-tag of the window with a regular expression."
+        },
+        "x-class": {
+          "type": "string",
+          "description": "Matches the X class of the window verbatim."
+        },
+        "x-class-regex": {
+          "type": "string",
+          "description": "Matches the X class of the window with a regular expression."
+        },
+        "x-instance": {
+          "type": "string",
+          "description": "Matches the X instance of the window verbatim."
+        },
+        "x-instance-regex": {
+          "type": "string",
+          "description": "Matches the X instance of the window with a regular expression."
         }
       },
       "required": []

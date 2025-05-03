@@ -1991,6 +1991,8 @@ impl ConfigProxyHandler {
                     WindowCriterionStringField::Title => mgr.title(needle),
                     WindowCriterionStringField::AppId => mgr.app_id(needle),
                     WindowCriterionStringField::Tag => mgr.tag(needle),
+                    WindowCriterionStringField::XClass => mgr.class(needle),
+                    WindowCriterionStringField::XInstance => mgr.instance(needle),
                 }
             }
             WindowCriterionIpc::Types(t) => mgr.kind(*t),

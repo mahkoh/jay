@@ -124,4 +124,6 @@ pub enum WindowCriterionStringField {
     Title,
     AppId,
     Tag,
+    XClass,
+    XInstance,
 }

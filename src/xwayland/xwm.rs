@@ -4,6 +4,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::Client,
+        criteria::tlm::TL_CHANGED_CLASS_INST,
         ifs::{
             ipc::{
                 DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
@@ -1116,6 +1117,11 @@ impl Wm {
 
     async fn load_window_wm_class(&self, data: &Rc<XwindowData>) {
         let mut buf = vec![];
+        let property_changed = || {
+            if let Some(window) = data.window.get() {
+                window.toplevel_data.property_changed(TL_CHANGED_CLASS_INST);
+            }
+        };
         match self
             .c
             .get_property::<u8>(data.window_id, ATOM_WM_CLASS, 0, &mut buf)
@@ -1130,6 +1136,7 @@ impl Wm {
             Err(XconError::PropertyUnavailable) => {
                 data.info.instance.borrow_mut().take();
                 data.info.class.borrow_mut().take();
+                property_changed();
                 return;
             }
             Err(e) => {
@@ -1138,8 +1145,10 @@ impl Wm {
             }
         }
         let mut iter = buf.split(|c| *c == 0);
-        *data.info.instance.borrow_mut() = Some(iter.next().unwrap_or(&[]).to_vec().into());
-        *data.info.class.borrow_mut() = Some(iter.next().unwrap_or(&[]).to_vec().into());
+        let mut map = || Some(iter.next().unwrap_or(&[]).to_str_lossy().into_owned());
+        *data.info.instance.borrow_mut() = map();
+        *data.info.class.borrow_mut() = map();
+        property_changed();
     }
 
     async fn load_window_wm_name2(&self, data: &Rc<XwindowData>, prop: u32, name: &str) {

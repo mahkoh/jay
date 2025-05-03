@@ -267,6 +267,10 @@ pub struct WindowMatch {
     pub just_mapped: Option<bool>,
     pub tag: Option<String>,
     pub tag_regex: Option<String>,
+    pub x_class: Option<String>,
+    pub x_class_regex: Option<String>,
+    pub x_instance: Option<String>,
+    pub x_instance_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

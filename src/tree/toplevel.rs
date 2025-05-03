@@ -16,7 +16,10 @@ use {
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
             wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
-            wl_surface::{WlSurface, xdg_surface::xdg_toplevel::XdgToplevelToplevelData},
+            wl_surface::{
+                WlSurface, x_surface::xwindow::XwindowData,
+                xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
+            },
         },
         rect::Rect,
         state::State,
@@ -273,12 +276,11 @@ impl ToplevelOpt {
     }
 }
 
-#[derive(Debug)]
 pub enum ToplevelType {
     Container,
     Placeholder,
     XdgToplevel(Rc<XdgToplevelToplevelData>),
-    XWindow,
+    XWindow(Rc<XwindowData>),
 }
 
 impl ToplevelType {
@@ -287,7 +289,7 @@ impl ToplevelType {
             ToplevelType::Container => window::CONTAINER,
             ToplevelType::Placeholder => window::PLACEHOLDER,
             ToplevelType::XdgToplevel { .. } => window::XDG_TOPLEVEL,
-            ToplevelType::XWindow => window::X_WINDOW,
+            ToplevelType::XWindow { .. } => window::X_WINDOW,
         }
     }
 }

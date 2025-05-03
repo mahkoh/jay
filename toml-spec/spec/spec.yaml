@@ -3519,6 +3519,22 @@ WindowMatch:
       kind: string
       required: false
       description: Matches the toplevel-tag of the window with a regular expression.
+    x-class:
+      kind: string
+      required: false
+      description: Matches the X class of the window verbatim.
+    x-class-regex:
+      kind: string
+      required: false
+      description: Matches the X class of the window with a regular expression.
+    x-instance:
+      kind: string
+      required: false
+      description: Matches the X instance of the window verbatim.
+    x-instance-regex:
+      kind: string
+      required: false
+      description: Matches the X instance of the window with a regular expression.
 
 
 WindowMatchExactly:

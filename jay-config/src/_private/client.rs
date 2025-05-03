@@ -1665,6 +1665,10 @@ impl ConfigClient {
             WindowCriterion::JustMapped => WindowCriterionIpc::JustMapped,
             WindowCriterion::Tag(t) => string!(t, Tag, false),
             WindowCriterion::TagRegex(t) => string!(t, Tag, true),
+            WindowCriterion::XClass(t) => string!(t, XClass, false),
+            WindowCriterion::XClassRegex(t) => string!(t, XClass, true),
+            WindowCriterion::XInstance(t) => string!(t, XInstance, false),
+            WindowCriterion::XInstanceRegex(t) => string!(t, XInstance, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

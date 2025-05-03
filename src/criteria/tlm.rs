@@ -18,7 +18,9 @@ use {
                 tlmm_just_mapped::TlmMatchJustMapped,
                 tlmm_kind::TlmMatchKind,
                 tlmm_seat_focus::TlmMatchSeatFocus,
-                tlmm_string::{TlmMatchAppId, TlmMatchTag, TlmMatchTitle},
+                tlmm_string::{
+                    TlmMatchAppId, TlmMatchClass, TlmMatchInstance, TlmMatchTag, TlmMatchTitle,
+                },
                 tlmm_urgent::TlmMatchUrgent,
                 tlmm_visible::TlmMatchVisible,
             },
@@ -52,6 +54,7 @@ bitflags! {
     TL_CHANGED_FULLSCREEN  = 1 << 8,
     TL_CHANGED_JUST_MAPPED = 1 << 9,
     TL_CHANGED_TAG         = 1 << 10,
+    TL_CHANGED_CLASS_INST  = 1 << 11,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -80,6 +83,8 @@ pub struct RootMatchers {
     tag: TlmRootMatcherMap<TlmMatchTag>,
     app_id: TlmRootMatcherMap<TlmMatchAppId>,
     seat_foci: TlmRootMatcherMap<TlmMatchSeatFocus>,
+    class: TlmRootMatcherMap<TlmMatchClass>,
+    instance: TlmRootMatcherMap<TlmMatchInstance>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -208,6 +213,8 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_APP_ID, app_id);
         conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
         conditional!(TL_CHANGED_TAG, tag);
+        conditional!(TL_CHANGED_CLASS_INST, class);
+        conditional!(TL_CHANGED_CLASS_INST, instance);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -281,6 +288,8 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_APP_ID, app_id);
         conditional!(TL_CHANGED_SEAT_FOCI, seat_foci);
         conditional!(TL_CHANGED_TAG, tag);
+        conditional!(TL_CHANGED_CLASS_INST, class);
+        conditional!(TL_CHANGED_CLASS_INST, instance);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -337,6 +346,14 @@ impl TlMatcherManager {
 
     pub fn seat_focus(&self, seat: &WlSeatGlobal) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchSeatFocus::new(seat.id()))
+    }
+
+    pub fn class(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchClass::new(string))
+    }
+
+    pub fn instance(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchInstance::new(string))
     }
 }
 

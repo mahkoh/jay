@@ -4085,6 +4085,30 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `x-class` (optional):
+
+  Matches the X class of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-class-regex` (optional):
+
+  Matches the X class of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `x-instance` (optional):
+
+  Matches the X instance of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-instance-regex` (optional):
+
+  Matches the X instance of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

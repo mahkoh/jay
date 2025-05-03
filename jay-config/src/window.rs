@@ -264,6 +264,14 @@ pub enum WindowCriterion<'a> {
     Tag(&'a str),
     /// Matches the toplevel-tag of the window with a regular expression.
     TagRegex(&'a str),
+    /// Matches the X class of the window verbatim.
+    XClass(&'a str),
+    /// Matches the X class of the window with a regular expression.
+    XClassRegex(&'a str),
+    /// Matches the X instance of the window verbatim.
+    XInstance(&'a str),
+    /// Matches the X instance of the window with a regular expression.
+    XInstanceRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {
