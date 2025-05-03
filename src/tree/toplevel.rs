@@ -552,7 +552,7 @@ impl ToplevelData {
             state.map_tiled(node);
             return;
         }
-        let parent = fd.placeholder.tl_data().parent.get().unwrap();
+        let parent = fd.placeholder.tl_data().parent.take().unwrap();
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
         if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
@@ -560,9 +560,7 @@ impl ToplevelData {
                 node.clone().node_do_focus(&seat, Direction::Unspecified);
             }
         }
-        fd.placeholder
-            .node_seat_state()
-            .destroy_node(fd.placeholder.deref());
+        fd.placeholder.tl_destroy();
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
