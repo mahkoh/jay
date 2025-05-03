@@ -122,6 +122,8 @@ impl Rule for ClientRule {
         value_ref!(SandboxInstanceIdRegex, sandbox_instance_id_regex);
         value_ref!(Comm, comm);
         value_ref!(CommRegex, comm_regex);
+        value_ref!(Exe, exe);
+        value_ref!(ExeRegex, exe_regex);
         value!(Uid, uid);
         value!(Pid, pid);
         bool!(Sandboxed, sandboxed);

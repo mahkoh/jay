@@ -3259,6 +3259,14 @@ ClientMatch:
       kind: string
       required: false
       description: Matches the `/proc/pid/comm` of the client with a regular expression.
+    exe:
+      kind: string
+      required: false
+      description: Matches the `/proc/pid/exe` of the client verbatim.
+    exe-regex:
+      kind: string
+      required: false
+      description: Matches the `/proc/pid/exe` of the client with a regular expression.
 
 
 ClientMatchExactly:

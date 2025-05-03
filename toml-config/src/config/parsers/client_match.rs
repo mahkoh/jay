@@ -57,6 +57,8 @@ impl Parser for ClientMatchParser<'_> {
                 is_xwayland,
                 comm,
                 comm_regex,
+                exe,
+                exe_regex,
             ),
         ) = ext.extract((
             (
@@ -79,6 +81,8 @@ impl Parser for ClientMatchParser<'_> {
                 opt(bol("is-xwayland")),
                 opt(str("comm")),
                 opt(str("comm-regex")),
+                opt(str("exe")),
+                opt(str("exe-regex")),
             ),
         ))?;
         let mut not = None;
@@ -124,6 +128,8 @@ impl Parser for ClientMatchParser<'_> {
             is_xwayland: is_xwayland.despan(),
             comm: comm.despan_into(),
             comm_regex: comm_regex.despan_into(),
+            exe: exe.despan_into(),
+            exe_regex: exe_regex.despan_into(),
         })
     }
 }

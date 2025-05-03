@@ -93,4 +93,5 @@ pub enum ClientCriterionStringField {
     SandboxAppId,
     SandboxInstanceId,
     Comm,
+    Exe,
 }

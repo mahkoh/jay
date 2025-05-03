@@ -16,9 +16,11 @@ pub type ClmMatchSandboxEngine = ClmMatchString<AcceptorMetadataAccess<SandboxEn
 pub type ClmMatchSandboxAppId = ClmMatchString<AcceptorMetadataAccess<SandboxAppIdField>>;
 pub type ClmMatchSandboxInstanceId = ClmMatchString<AcceptorMetadataAccess<SandboxInstanceIdField>>;
 pub type ClmMatchComm = ClmMatchString<CommAccess>;
+pub type ClmMatchExe = ClmMatchString<ExeAccess>;
 
 pub struct AcceptorMetadataAccess<T>(PhantomData<T>);
 pub struct CommAccess;
+pub struct ExeAccess;
 
 trait SandboxField: Sized + 'static {
     fn field(meta: &AcceptorMetadata) -> &Option<String>;
@@ -87,5 +89,15 @@ impl StringAccess<Rc<Client>> for CommAccess {
 
     fn nodes(roots: &RootMatchers) -> &ClmRootMatcherMap<ClmMatchString<Self>> {
         &roots.comm
+    }
+}
+
+impl StringAccess<Rc<Client>> for ExeAccess {
+    fn with_string(data: &Rc<Client>, f: impl FnOnce(&str) -> bool) -> bool {
+        f(&data.pid_info.exe)
+    }
+
+    fn nodes(roots: &RootMatchers) -> &ClmRootMatcherMap<ClmMatchString<Self>> {
+        &roots.exe
     }
 }

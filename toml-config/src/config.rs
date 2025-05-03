@@ -237,6 +237,8 @@ pub struct ClientMatch {
     pub is_xwayland: Option<bool>,
     pub comm: Option<String>,
     pub comm_regex: Option<String>,
+    pub exe: Option<String>,
+    pub exe_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

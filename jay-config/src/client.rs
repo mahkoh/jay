@@ -87,6 +87,10 @@ pub enum ClientCriterion<'a> {
     Comm(&'a str),
     /// Matches the `/proc/pid/comm` of the client with a regular expression.
     CommRegex(&'a str),
+    /// Matches the `/proc/pid/exe` of the client verbatim.
+    Exe(&'a str),
+    /// Matches the `/proc/pid/exe` of the client with a regular expression.
+    ExeRegex(&'a str),
 }
 
 impl ClientCriterion<'_> {

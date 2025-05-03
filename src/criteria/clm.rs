@@ -11,7 +11,7 @@ use {
                 clmm_pid::ClmMatchPid,
                 clmm_sandboxed::ClmMatchSandboxed,
                 clmm_string::{
-                    ClmMatchComm, ClmMatchSandboxAppId, ClmMatchSandboxEngine,
+                    ClmMatchComm, ClmMatchExe, ClmMatchSandboxAppId, ClmMatchSandboxEngine,
                     ClmMatchSandboxInstanceId,
                 },
                 clmm_uid::ClmMatchUid,
@@ -60,6 +60,7 @@ pub struct RootMatchers {
     uid: ClmRootMatcherMap<ClmMatchUid>,
     pid: ClmRootMatcherMap<ClmMatchPid>,
     comm: ClmRootMatcherMap<ClmMatchComm>,
+    exe: ClmRootMatcherMap<ClmMatchExe>,
 }
 
 pub async fn handle_cl_changes(state: Rc<State>) {
@@ -163,6 +164,7 @@ impl ClMatcherManager {
             unconditional!(uid);
             unconditional!(pid);
             unconditional!(comm);
+            unconditional!(exe);
             fixed!(sandboxed);
             fixed!(is_xwayland);
             self.constant[true].handle(data);
@@ -199,6 +201,10 @@ impl ClMatcherManager {
 
     pub fn comm(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
         self.root(ClmMatchComm::new(string))
+    }
+
+    pub fn exe(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchExe::new(string))
     }
 }
 

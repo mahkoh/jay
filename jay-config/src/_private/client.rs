@@ -1547,6 +1547,8 @@ impl ConfigClient {
             ClientCriterion::IsXwayland => ClientCriterionIpc::IsXwayland,
             ClientCriterion::Comm(t) => string!(t, Comm, false),
             ClientCriterion::CommRegex(t) => string!(t, Comm, true),
+            ClientCriterion::Exe(t) => string!(t, Exe, false),
+            ClientCriterion::ExeRegex(t) => string!(t, Exe, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
         get_response!(
