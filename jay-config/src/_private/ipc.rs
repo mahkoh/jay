@@ -698,6 +698,10 @@ pub enum ClientMessage<'a> {
     EnableWindowMatcherEvents {
         matcher: WindowMatcher,
     },
+    SetWindowMatcherAutoFocus {
+        matcher: WindowMatcher,
+        auto_focus: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

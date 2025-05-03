@@ -1701,6 +1701,13 @@ impl ConfigClient {
         handler.cb = cb.clone();
     }
 
+    pub fn set_window_matcher_auto_focus(&self, matcher: WindowMatcher, auto_focus: bool) {
+        self.send(&ClientMessage::SetWindowMatcherAutoFocus {
+            matcher,
+            auto_focus,
+        });
+    }
+
     pub fn set_window_matcher_latch_handler(
         &self,
         matcher: WindowMatcher,

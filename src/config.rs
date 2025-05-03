@@ -8,6 +8,7 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
+        tree::ToplevelData,
         utils::{
             clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt,
             toplevel_identifier::ToplevelIdentifier, unlink_on_drop::UnlinkOnDrop, xrd::xrd,
@@ -161,6 +162,13 @@ impl ConfigProxy {
             handler.windows_to_tl_id.remove(&win);
         }
     }
+
+    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
+        let Some(handler) = self.handler.get() else {
+            return true;
+        };
+        handler.auto_focus(data)
+    }
 }
 
 impl Drop for ConfigProxy {
@@ -224,6 +232,7 @@ impl ConfigProxy {
             window_matcher_cache: Default::default(),
             window_matcher_leafs: Default::default(),
             window_matcher_std_kinds: state.tl_matcher_manager.kind(window::CLIENT_WINDOW),
+            window_matcher_no_auto_focus: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

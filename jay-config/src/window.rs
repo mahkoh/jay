@@ -296,6 +296,16 @@ impl WindowCriterion<'_> {
     pub fn bind<F: FnMut(MatchedWindow) + 'static>(self, cb: F) {
         self.to_matcher().bind(cb);
     }
+
+    /// Sets whether newly mapped windows that match this criterion get the keyboard focus.
+    ///
+    /// If a window matches any criterion for which this is false, the window will not be
+    /// automatically focused.
+    ///
+    /// This leaks the matcher.
+    pub fn set_auto_focus(self, auto_focus: bool) {
+        self.to_matcher().set_auto_focus(auto_focus);
+    }
 }
 
 impl WindowMatcher {
@@ -311,6 +321,14 @@ impl WindowMatcher {
     /// Replaces any already bound callback.
     pub fn bind<F: FnMut(MatchedWindow) + 'static>(self, cb: F) {
         get!().set_window_matcher_handler(self, cb);
+    }
+
+    /// Sets whether newly mapped windows that match this matcher get the keyboard focus.
+    ///
+    /// If a window matches any matcher for which this is false, the window will not be
+    /// automatically focused.
+    pub fn set_auto_focus(self, auto_focus: bool) {
+        get!().set_window_matcher_auto_focus(self, auto_focus);
     }
 }
 

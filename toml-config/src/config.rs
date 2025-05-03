@@ -248,6 +248,7 @@ pub struct WindowRule {
     pub match_: WindowMatch,
     pub action: Option<Action>,
     pub latch: Option<Action>,
+    pub auto_focus: Option<bool>,
 }
 
 #[derive(Default, Debug, Clone)]

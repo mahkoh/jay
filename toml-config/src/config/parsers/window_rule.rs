@@ -3,7 +3,7 @@ use {
         config::{
             WindowMatch, WindowRule,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, str, val},
+            extractor::{Extractor, ExtractorError, bol, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::{ActionParser, ActionParserError},
@@ -47,11 +47,12 @@ impl Parser for WindowRuleParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, match_val, action_val, latch_val) = ext.extract((
+        let (name, match_val, action_val, latch_val, auto_focus) = ext.extract((
             opt(str("name")),
             opt(val("match")),
             opt(val("action")),
             opt(val("latch")),
+            recover(opt(bol("auto-focus"))),
         ))?;
         let mut action = None;
         if let Some(value) = action_val {
@@ -78,6 +79,7 @@ impl Parser for WindowRuleParser<'_> {
             match_,
             action,
             latch,
+            auto_focus: auto_focus.despan(),
         })
     }
 }

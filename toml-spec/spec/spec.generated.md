@@ -4203,6 +4203,15 @@ The table has the following fields:
 
   The value of this field should be a [Action](#types-Action).
 
+- `auto-focus` (optional):
+
+  Whether newly mapped windows that match this rule get the keyboard focus.
+  
+  If a window matches any rule for which this is false, the window will not be
+  automatically focused.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-WindowTypeMask"></a>
 ### `WindowTypeMask`

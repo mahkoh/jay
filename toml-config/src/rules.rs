@@ -333,6 +333,9 @@ impl Rule for WindowRule {
                 });
             }
         }
+        if let Some(auto_focus) = self.auto_focus {
+            matcher.set_auto_focus(auto_focus);
+        }
     }
 
     fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {

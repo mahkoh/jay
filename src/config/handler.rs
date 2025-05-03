@@ -124,6 +124,8 @@ pub(super) struct ConfigProxyHandler {
     pub window_matcher_cache: CriterionCache<WindowCriterionIpc, ToplevelData>,
     pub window_matcher_leafs: CopyHashMap<WindowMatcher, Rc<TlmLeafMatcher>>,
     pub window_matcher_std_kinds: Rc<TlmUpstreamNode>,
+    pub window_matcher_no_auto_focus:
+        CopyHashMap<WindowMatcher, Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>>,
 }
 
 pub struct Pollable {
@@ -2027,6 +2029,7 @@ impl ConfigProxyHandler {
     fn handle_destroy_window_matcher(&self, matcher: WindowMatcher) {
         self.window_matchers.remove(&matcher);
         self.window_matcher_leafs.remove(&matcher);
+        self.window_matcher_no_auto_focus.remove(&matcher);
     }
 
     fn handle_enable_window_matcher_events(
@@ -2053,6 +2056,20 @@ impl ConfigProxyHandler {
         });
         self.window_matcher_leafs.set(matcher, leaf);
         self.state.tl_matcher_manager.rematch_all(&self.state);
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_auto_focus(
+        &self,
+        matcher: WindowMatcher,
+        auto_focus: bool,
+    ) -> Result<(), CphError> {
+        if auto_focus {
+            self.window_matcher_no_auto_focus.remove(&matcher);
+        } else {
+            let m = self.get_window_matcher(matcher)?;
+            self.window_matcher_no_auto_focus.set(matcher, m);
+        }
         Ok(())
     }
 
@@ -2861,8 +2878,23 @@ impl ConfigProxyHandler {
             ClientMessage::EnableWindowMatcherEvents { matcher } => self
                 .handle_enable_window_matcher_events(matcher)
                 .wrn("enable_window_matcher_events")?,
+            ClientMessage::SetWindowMatcherAutoFocus {
+                matcher,
+                auto_focus,
+            } => self
+                .handle_set_window_matcher_auto_focus(matcher, auto_focus)
+                .wrn("set_window_matcher_auto_focus")?,
         }
         Ok(())
+    }
+
+    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
+        for matcher in self.window_matcher_no_auto_focus.lock().values() {
+            if matcher.node.pull(data) {
+                return false;
+            }
+        }
+        true
     }
 }
 

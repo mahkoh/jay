@@ -3368,6 +3368,14 @@ WindowRule:
       ref: Action
       required: false
       description: An action to execute when a window no longer matches the criteria.
+    auto-focus:
+      kind: boolean
+      required: false
+      description: |
+        Whether newly mapped windows that match this rule get the keyboard focus.
+       
+        If a window matches any rule for which this is false, the window will not be
+        automatically focused.
 
 
 WindowMatch:

@@ -1904,6 +1904,10 @@
         "latch": {
           "description": "An action to execute when a window no longer matches the criteria.",
           "$ref": "#/$defs/Action"
+        },
+        "auto-focus": {
+          "type": "boolean",
+          "description": "Whether newly mapped windows that match this rule get the keyboard focus.\n\nIf a window matches any rule for which this is false, the window will not be\nautomatically focused.\n"
         }
       },
       "required": []

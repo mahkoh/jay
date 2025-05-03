@@ -665,11 +665,7 @@ impl State {
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
         self.do_map_tiled(seat.as_deref(), node.clone());
-        if node.node_visible() {
-            if let Some(seat) = seat {
-                node.node_do_focus(&seat, Direction::Unspecified);
-            }
-        }
+        self.focus_after_map(node, seat.as_deref());
     }
 
     fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
@@ -739,11 +735,22 @@ impl State {
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
         FloatNode::new(self, workspace, position, node.clone());
-        if node.node_visible() {
-            if let Some(seat) = self.seat_queue.last() {
-                node.node_do_focus(&seat, Direction::Unspecified);
+        self.focus_after_map(node, self.seat_queue.last().as_deref());
+    }
+
+    fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
+        if !node.node_visible() {
+            return;
+        }
+        let Some(seat) = seat else {
+            return;
+        };
+        if let Some(config) = self.config.get() {
+            if !config.auto_focus(node.tl_data()) {
+                return;
             }
         }
+        node.node_do_focus(&seat, Direction::Unspecified);
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
