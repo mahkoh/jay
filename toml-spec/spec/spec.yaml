@@ -3535,6 +3535,14 @@ WindowMatch:
       kind: string
       required: false
       description: Matches the X instance of the window with a regular expression.
+    x-role:
+      kind: string
+      required: false
+      description: Matches the X role of the window verbatim.
+    x-role-regex:
+      kind: string
+      required: false
+      description: Matches the X role of the window with a regular expression.
 
 
 WindowMatchExactly:

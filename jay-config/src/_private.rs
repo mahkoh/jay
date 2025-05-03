@@ -126,4 +126,5 @@ pub enum WindowCriterionStringField {
     Tag,
     XClass,
     XInstance,
+    XRole,
 }

@@ -272,6 +272,10 @@ pub enum WindowCriterion<'a> {
     XInstance(&'a str),
     /// Matches the X instance of the window with a regular expression.
     XInstanceRegex(&'a str),
+    /// Matches the X role of the window verbatim.
+    XRole(&'a str),
+    /// Matches the X role of the window with a regular expression.
+    XRoleRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {

@@ -4,7 +4,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::Client,
-        criteria::tlm::TL_CHANGED_CLASS_INST,
+        criteria::tlm::{TL_CHANGED_CLASS_INST, TL_CHANGED_ROLE},
         ifs::{
             ipc::{
                 DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
@@ -60,7 +60,7 @@ use {
         xwayland::{XWaylandError, XWaylandEvent},
     },
     ahash::{AHashMap, AHashSet},
-    bstr::ByteSlice,
+    bstr::{ByteSlice, ByteVec},
     futures_util::{FutureExt, select},
     smallvec::SmallVec,
     std::{
@@ -1086,6 +1086,11 @@ impl Wm {
     }
 
     async fn load_window_wm_window_role(&self, data: &Rc<XwindowData>) {
+        let property_changed = || {
+            if let Some(window) = data.window.get() {
+                window.toplevel_data.property_changed(TL_CHANGED_ROLE);
+            }
+        };
         let mut buf = vec![];
         match self
             .c
@@ -1101,6 +1106,7 @@ impl Wm {
             }
             Err(XconError::PropertyUnavailable) => {
                 data.info.role.borrow_mut().take();
+                property_changed();
                 return;
             }
             Err(e) => {
@@ -1112,7 +1118,8 @@ impl Wm {
             }
         }
         // log::info!("{} role {}", data.window_id, buf.as_bstr());
-        *data.info.role.borrow_mut() = Some(buf.into());
+        *data.info.role.borrow_mut() = Some(buf.into_string_lossy());
+        property_changed();
     }
 
     async fn load_window_wm_class(&self, data: &Rc<XwindowData>) {

@@ -1993,6 +1993,7 @@ impl ConfigProxyHandler {
                     WindowCriterionStringField::Tag => mgr.tag(needle),
                     WindowCriterionStringField::XClass => mgr.class(needle),
                     WindowCriterionStringField::XInstance => mgr.instance(needle),
+                    WindowCriterionStringField::XRole => mgr.role(needle),
                 }
             }
             WindowCriterionIpc::Types(t) => mgr.kind(*t),

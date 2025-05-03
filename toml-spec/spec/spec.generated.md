@@ -4109,6 +4109,18 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `x-role` (optional):
+
+  Matches the X role of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-role-regex` (optional):
+
+  Matches the X role of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

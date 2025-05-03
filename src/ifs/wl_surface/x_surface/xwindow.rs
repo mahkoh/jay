@@ -93,7 +93,7 @@ pub struct XwindowInfo {
     pub instance: RefCell<Option<String>>,
     pub class: RefCell<Option<String>>,
     pub title: RefCell<Option<String>>,
-    pub role: RefCell<Option<BString>>,
+    pub role: RefCell<Option<String>>,
     pub protocols: CopyHashMap<u32, ()>,
     pub window_types: CopyHashMap<u32, ()>,
     pub never_focus: Cell<bool>,

@@ -264,6 +264,8 @@ impl Rule for WindowRule {
         value!(XClassRegex, x_class_regex);
         value!(XInstance, x_instance);
         value!(XInstanceRegex, x_instance_regex);
+        value!(XRole, x_role);
+        value!(XRoleRegex, x_role_regex);
         bool!(Floating, floating);
         bool!(Visible, visible);
         bool!(Urgent, urgent);

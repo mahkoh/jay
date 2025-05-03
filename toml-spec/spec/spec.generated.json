@@ -1843,6 +1843,14 @@
         "x-instance-regex": {
           "type": "string",
           "description": "Matches the X instance of the window with a regular expression."
+        },
+        "x-role": {
+          "type": "string",
+          "description": "Matches the X role of the window verbatim."
+        },
+        "x-role-regex": {
+          "type": "string",
+          "description": "Matches the X role of the window with a regular expression."
         }
       },
       "required": []

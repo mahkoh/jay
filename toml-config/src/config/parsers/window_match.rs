@@ -68,7 +68,7 @@ impl Parser for WindowMatchParser<'_> {
                 tag,
                 tag_regex,
             ),
-            (x_class, x_class_regex, x_instance, x_instance_regex),
+            (x_class, x_class_regex, x_instance, x_instance_regex, x_role, x_role_regex),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -98,6 +98,8 @@ impl Parser for WindowMatchParser<'_> {
                 opt(str("x-class-regex")),
                 opt(str("x-instance")),
                 opt(str("x-instance-regex")),
+                opt(str("x-role")),
+                opt(str("x-role-regex")),
             ),
         ))?;
         let mut not = None;
@@ -155,6 +157,8 @@ impl Parser for WindowMatchParser<'_> {
             x_class_regex: x_class_regex.despan_into(),
             x_instance: x_instance.despan_into(),
             x_instance_regex: x_instance_regex.despan_into(),
+            x_role: x_role.despan_into(),
+            x_role_regex: x_role_regex.despan_into(),
             types,
             client,
         })

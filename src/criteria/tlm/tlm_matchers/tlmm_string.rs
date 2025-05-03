@@ -13,12 +13,14 @@ pub type TlmMatchAppId = TlmMatchString<AppIdAccess>;
 pub type TlmMatchTag = TlmMatchString<TagAccess>;
 pub type TlmMatchClass = TlmMatchString<ClassAccess>;
 pub type TlmMatchInstance = TlmMatchString<InstanceAccess>;
+pub type TlmMatchRole = TlmMatchString<RoleAccess>;
 
 pub struct TitleAccess;
 pub struct AppIdAccess;
 pub struct TagAccess;
 pub struct ClassAccess;
 pub struct InstanceAccess;
+pub struct RoleAccess;
 
 impl StringAccess<ToplevelData> for TitleAccess {
     fn with_string(data: &ToplevelData, f: impl FnOnce(&str) -> bool) -> bool {
@@ -76,5 +78,18 @@ impl StringAccess<ToplevelData> for InstanceAccess {
 
     fn nodes(roots: &RootMatchers) -> &TlmRootMatcherMap<TlmMatchString<Self>> {
         &roots.instance
+    }
+}
+
+impl StringAccess<ToplevelData> for RoleAccess {
+    fn with_string(data: &ToplevelData, f: impl FnOnce(&str) -> bool) -> bool {
+        if let ToplevelType::XWindow(data) = &data.kind {
+            return f(&data.info.role.borrow().as_deref().unwrap_or_default());
+        }
+        false
+    }
+
+    fn nodes(roots: &RootMatchers) -> &TlmRootMatcherMap<TlmMatchString<Self>> {
+        &roots.role
     }
 }
