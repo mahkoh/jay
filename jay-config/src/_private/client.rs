@@ -1671,6 +1671,9 @@ impl ConfigClient {
             WindowCriterion::XInstanceRegex(t) => string!(t, XInstance, true),
             WindowCriterion::XRole(t) => string!(t, XRole, false),
             WindowCriterion::XRoleRegex(t) => string!(t, XRole, true),
+            WindowCriterion::Workspace(t) => WindowCriterionIpc::Workspace(t),
+            WindowCriterion::WorkspaceName(t) => string!(t, Workspace, false),
+            WindowCriterion::WorkspaceNameRegex(t) => string!(t, Workspace, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

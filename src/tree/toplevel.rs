@@ -6,7 +6,7 @@ use {
             tlm::{
                 TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING,
                 TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE, TL_CHANGED_URGENT,
-                TL_CHANGED_VISIBLE, TlMatcherChange,
+                TL_CHANGED_VISIBLE, TL_CHANGED_WORKSPACE, TlMatcherChange,
             },
         },
         ifs::{
@@ -131,6 +131,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         let prev = data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
+        self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
         let prev_id = prev.map(|p| p.output.get().id);
         let new_id = Some(ws.output.get().id);
         if prev_id != new_id {

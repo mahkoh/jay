@@ -4121,6 +4121,18 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `workspace` (optional):
+
+  Matches the workspace of the window verbatim.
+
+  The value of this field should be a string.
+
+- `workspace-regex` (optional):
+
+  Matches the workspace of the window with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

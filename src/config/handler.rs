@@ -1994,6 +1994,7 @@ impl ConfigProxyHandler {
                     WindowCriterionStringField::XClass => mgr.class(needle),
                     WindowCriterionStringField::XInstance => mgr.instance(needle),
                     WindowCriterionStringField::XRole => mgr.role(needle),
+                    WindowCriterionStringField::Workspace => mgr.workspace(needle),
                 }
             }
             WindowCriterionIpc::Types(t) => mgr.kind(*t),
@@ -2007,6 +2008,9 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::SeatFocus(seat) => mgr.seat_focus(&*self.get_seat(*seat)?),
             WindowCriterionIpc::Fullscreen => mgr.fullscreen(),
             WindowCriterionIpc::JustMapped => mgr.just_mapped(),
+            WindowCriterionIpc::Workspace(w) => mgr.workspace(CritLiteralOrRegex::Literal(
+                self.get_workspace(*w)?.to_string(),
+            )),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),

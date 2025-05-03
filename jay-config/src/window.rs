@@ -276,6 +276,12 @@ pub enum WindowCriterion<'a> {
     XRole(&'a str),
     /// Matches the X role of the window with a regular expression.
     XRoleRegex(&'a str),
+    /// Matches the workspace the window.
+    Workspace(Workspace),
+    /// Matches the workspace name of the window verbatim.
+    WorkspaceName(&'a str),
+    /// Matches the workspace name of the window with a regular expression.
+    WorkspaceNameRegex(&'a str),
 }
 
 impl WindowCriterion<'_> {

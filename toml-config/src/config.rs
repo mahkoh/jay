@@ -273,6 +273,8 @@ pub struct WindowMatch {
     pub x_instance_regex: Option<String>,
     pub x_role: Option<String>,
     pub x_role_regex: Option<String>,
+    pub workspace: Option<String>,
+    pub workspace_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

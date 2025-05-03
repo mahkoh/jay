@@ -266,6 +266,8 @@ impl Rule for WindowRule {
         value!(XInstanceRegex, x_instance_regex);
         value!(XRole, x_role);
         value!(XRoleRegex, x_role_regex);
+        value!(WorkspaceName, workspace);
+        value!(WorkspaceNameRegex, workspace_regex);
         bool!(Floating, floating);
         bool!(Visible, visible);
         bool!(Urgent, urgent);

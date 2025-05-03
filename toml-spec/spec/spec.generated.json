@@ -1851,6 +1851,14 @@
         "x-role-regex": {
           "type": "string",
           "description": "Matches the X role of the window with a regular expression."
+        },
+        "workspace": {
+          "type": "string",
+          "description": "Matches the workspace of the window verbatim."
+        },
+        "workspace-regex": {
+          "type": "string",
+          "description": "Matches the workspace of the window with a regular expression."
         }
       },
       "required": []

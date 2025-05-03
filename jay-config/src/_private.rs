@@ -5,6 +5,7 @@ pub(crate) mod string_error;
 
 use {
     crate::{
+        Workspace,
         client::ClientMatcher,
         input::Seat,
         video::Mode,
@@ -117,6 +118,7 @@ pub enum WindowCriterionIpc {
     SeatFocus(Seat),
     Fullscreen,
     JustMapped,
+    Workspace(Workspace),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
@@ -127,4 +129,5 @@ pub enum WindowCriterionStringField {
     XClass,
     XInstance,
     XRole,
+    Workspace,
 }

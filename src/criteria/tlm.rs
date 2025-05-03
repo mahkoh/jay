@@ -20,7 +20,7 @@ use {
                 tlmm_seat_focus::TlmMatchSeatFocus,
                 tlmm_string::{
                     TlmMatchAppId, TlmMatchClass, TlmMatchInstance, TlmMatchRole, TlmMatchTag,
-                    TlmMatchTitle,
+                    TlmMatchTitle, TlmMatchWorkspace,
                 },
                 tlmm_urgent::TlmMatchUrgent,
                 tlmm_visible::TlmMatchVisible,
@@ -57,6 +57,7 @@ bitflags! {
     TL_CHANGED_TAG         = 1 << 10,
     TL_CHANGED_CLASS_INST  = 1 << 11,
     TL_CHANGED_ROLE        = 1 << 12,
+    TL_CHANGED_WORKSPACE   = 1 << 13,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -88,6 +89,7 @@ pub struct RootMatchers {
     class: TlmRootMatcherMap<TlmMatchClass>,
     instance: TlmRootMatcherMap<TlmMatchInstance>,
     role: TlmRootMatcherMap<TlmMatchRole>,
+    workspace: TlmRootMatcherMap<TlmMatchWorkspace>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -219,6 +221,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_CLASS_INST, class);
         conditional!(TL_CHANGED_CLASS_INST, instance);
         conditional!(TL_CHANGED_ROLE, role);
+        conditional!(TL_CHANGED_WORKSPACE, workspace);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -295,6 +298,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_CLASS_INST, class);
         conditional!(TL_CHANGED_CLASS_INST, instance);
         conditional!(TL_CHANGED_ROLE, role);
+        conditional!(TL_CHANGED_WORKSPACE, workspace);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -363,6 +367,10 @@ impl TlMatcherManager {
 
     pub fn role(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchRole::new(string))
+    }
+
+    pub fn workspace(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchWorkspace::new(string))
     }
 }
 

@@ -3543,6 +3543,14 @@ WindowMatch:
       kind: string
       required: false
       description: Matches the X role of the window with a regular expression.
+    workspace:
+      kind: string
+      required: false
+      description: Matches the workspace of the window verbatim.
+    workspace-regex:
+      kind: string
+      required: false
+      description: Matches the workspace of the window with a regular expression.
 
 
 WindowMatchExactly:
