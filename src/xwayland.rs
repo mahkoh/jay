@@ -14,7 +14,9 @@ use {
         io_uring::IoUringError,
         state::State,
         user_session::import_environment,
-        utils::{buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
+        utils::{
+            buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, on_drop::OnDrop, oserror::OsError,
+        },
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -185,6 +187,10 @@ async fn run(
     state.update_xwayland_wire_scale();
     state.ring.readable(&Rc::new(dfdread)).await?;
     state.xwayland.queue.clear();
+    state.xwayland.pidfd.set(Some(pidfd.clone()));
+    let _remove_pidfd = OnDrop(|| {
+        state.xwayland.pidfd.take();
+    });
     {
         let shared = Rc::new(XwmShared::default());
         let wm = match Wm::get(state, client, wm1, &shared).await {

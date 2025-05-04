@@ -43,6 +43,7 @@ pub mod oserror;
 pub mod page_size;
 pub mod pending_serial;
 pub mod pid_info;
+pub mod pidfd_send_signal;
 pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;

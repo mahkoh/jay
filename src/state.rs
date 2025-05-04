@@ -121,6 +121,7 @@ use {
         time::Duration,
     },
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub struct State {
@@ -261,6 +262,7 @@ pub struct ScreenlockState {
 
 pub struct XWaylandState {
     pub enabled: Cell<bool>,
+    pub pidfd: CloneCell<Option<Rc<OwnedFd>>>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
     pub ipc_device_ids: XIpcDeviceIds,

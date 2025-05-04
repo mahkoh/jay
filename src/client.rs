@@ -19,6 +19,7 @@ use {
             numcell::NumCell,
             pending_serial::PendingSerial,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
+            pidfd_send_signal::pidfd_send_signal,
         },
         wire::WlRegistryId,
     },
@@ -251,6 +252,13 @@ impl Drop for ClientHolder {
         self.data.surfaces_by_xwayland_serial.clear();
         self.data.remove_activation_tokens();
         self.data.commit_timelines.clear();
+        if self.data.is_xwayland {
+            if let Some(pidfd) = self.data.state.xwayland.pidfd.get() {
+                if let Err(e) = pidfd_send_signal(&pidfd, c::SIGKILL) {
+                    log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
+                }
+            }
+        }
     }
 }
 
