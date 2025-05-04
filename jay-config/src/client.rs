@@ -1,6 +1,9 @@
 //! Tools for inspecting and manipulating clients.
 
-use serde::{Deserialize, Serialize};
+use {
+    serde::{Deserialize, Serialize},
+    std::ops::Deref,
+};
 
 /// A client connected to the compositor.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -33,4 +36,86 @@ impl Client {
 /// Returns all current clients.
 pub fn clients() -> Vec<Client> {
     get!().clients()
+}
+
+/// A client matcher.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct ClientMatcher(pub u64);
+
+/// A matched client.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct MatchedClient {
+    pub(crate) matcher: ClientMatcher,
+    pub(crate) client: Client,
+}
+
+/// A criterion for matching a client.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum ClientCriterion<'a> {
+    /// Matches if the contained matcher matches.
+    Matcher(ClientMatcher),
+    /// Matches if the contained criterion does not match.
+    Not(&'a ClientCriterion<'a>),
+    /// Matches if all of the contained criteria match.
+    All(&'a [ClientCriterion<'a>]),
+    /// Matches if any of the contained criteria match.
+    Any(&'a [ClientCriterion<'a>]),
+    /// Matches if an exact number of the contained criteria match.
+    Exactly(usize, &'a [ClientCriterion<'a>]),
+}
+
+impl ClientCriterion<'_> {
+    /// Converts the criterion to a matcher.
+    pub fn to_matcher(self) -> ClientMatcher {
+        get!(ClientMatcher(0)).create_client_matcher(self)
+    }
+
+    /// Binds a function to execute when the criterion matches a client.
+    ///
+    /// This leaks the matcher.
+    pub fn bind<F: FnMut(MatchedClient) + 'static>(self, cb: F) {
+        self.to_matcher().bind(cb);
+    }
+}
+
+impl ClientMatcher {
+    /// Destroys the matcher.
+    ///
+    /// Any bound callback will no longer be executed.
+    pub fn destroy(self) {
+        get!().destroy_client_matcher(self);
+    }
+
+    /// Sets a function to execute when the criterion matches a client.
+    ///
+    /// Replaces any already bound callback.
+    pub fn bind<F: FnMut(MatchedClient) + 'static>(self, cb: F) {
+        get!().set_client_matcher_handler(self, cb);
+    }
+}
+
+impl MatchedClient {
+    /// Returns the client that matched.
+    pub fn client(self) -> Client {
+        self.client
+    }
+
+    /// Returns the matcher.
+    pub fn matcher(self) -> ClientMatcher {
+        self.matcher
+    }
+
+    /// Latches a function to be executed when the client no longer matches the criteria.
+    pub fn latch<F: FnOnce() + 'static>(self, cb: F) {
+        get!().set_client_matcher_latch_handler(self.matcher, self.client, cb);
+    }
+}
+
+impl Deref for MatchedClient {
+    type Target = Client;
+
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
 }

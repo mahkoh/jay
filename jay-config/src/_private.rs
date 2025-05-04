@@ -4,7 +4,7 @@ mod logging;
 pub(crate) mod string_error;
 
 use {
-    crate::video::Mode,
+    crate::{client::ClientMatcher, video::Mode},
     bincode::Options,
     serde::{Deserialize, Serialize},
     std::marker::PhantomData,
@@ -64,3 +64,24 @@ impl WireMode {
 pub struct PollableId(pub u64);
 
 pub const DEFAULT_SEAT_NAME: &str = "default";
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum GenericCriterionIpc<T> {
+    Matcher(T),
+    Not(T),
+    List { list: Vec<T>, all: bool },
+    Exactly { list: Vec<T>, num: usize },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum ClientCriterionIpc {
+    Generic(GenericCriterionIpc<ClientMatcher>),
+    String {
+        string: String,
+        field: ClientCriterionStringField,
+        regex: bool,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum ClientCriterionStringField {}

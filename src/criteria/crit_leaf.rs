@@ -104,7 +104,6 @@ impl<Target> CritLeafEvent<Target>
 where
     Target: CritTarget,
 {
-    #[expect(dead_code)]
     pub fn run(self) {
         let n = self.node;
         n.needs_event.set(true);

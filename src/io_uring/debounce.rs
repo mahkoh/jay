@@ -11,7 +11,6 @@ pub struct Debouncer {
 }
 
 impl Debouncer {
-    #[expect(dead_code)]
     pub async fn debounce(&self) {
         let iteration = self.ring.iteration.get();
         if self.iteration.replace(iteration) != iteration {

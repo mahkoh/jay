@@ -1,3 +1,4 @@
+pub mod clm;
 mod crit_graph;
 pub mod crit_leaf;
 mod crit_matchers;
@@ -27,7 +28,6 @@ type RootMatcherMap<Target, T> = CopyHashMap<CritMatcherId, Weak<CritRoot<Target
 type FixedRootMatcher<Target, T> = StaticMap<bool, Rc<CritRoot<Target, CritRootFixed<Target, T>>>>;
 
 #[derive(Clone)]
-#[expect(dead_code)]
 pub enum CritLiteralOrRegex {
     Literal(String),
     Regex(Regex),
@@ -42,7 +42,6 @@ impl CritLiteralOrRegex {
     }
 }
 
-#[expect(dead_code)]
 pub trait CritMgrExt: CritMgr {
     fn list(
         &self,
@@ -85,6 +84,7 @@ pub trait CritMgrExt: CritMgr {
         upstream.not(self)
     }
 
+    #[expect(dead_code)]
     fn root<T>(&self, criterion: T) -> Rc<dyn CritUpstreamNode<Self::Target>>
     where
         T: CritRootCriterion<Self::Target>,

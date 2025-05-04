@@ -475,6 +475,10 @@ macro_rules! bitflags {
                 self.0 != 0
             }
 
+            pub fn is_none(self) -> bool {
+                self.0 == 0
+            }
+
             pub fn all() -> Self {
                 Self(0 $(| $val)*)
             }

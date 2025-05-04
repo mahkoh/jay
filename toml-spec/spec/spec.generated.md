@@ -700,6 +700,171 @@ The string should have one of the following values:
 The brightness in cd/m^2.
 
 
+<a name="types-ClientMatch"></a>
+### `ClientMatch`
+
+Criteria for matching clients.
+
+If no fields are set, all clients are matched. If multiple fields are set, all fields
+must match the client.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  Matches if the client rule with this name matches.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+  
+    # Matches the same clients as the previous rule.
+    [[clients]]
+    match.name = "spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `not` (optional):
+
+  Matches if the contained criteria don't match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "not-spotify"
+    match.not.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
+- `all` (optional):
+
+  Matches if all of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.all = [
+      { sandbox-app-id = "com.spotify.Client" },
+      { sandbox-engine = "org.flatpak" },
+    ]
+    ```
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+- `any` (optional):
+
+  Matches if any of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.any = [
+      { sandbox-app-id = "com.spotify.Client" },
+      { sandbox-app-id = "com.valvesoftware.Steam" },
+    ]
+    ```
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+- `exactly` (optional):
+
+  Matches if a specific number of contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    # Matches any client that is either steam or sandboxed by flatpak but not both.
+    [[clients]]
+    match.exactly.num = 1
+    match.exactly.list = [
+      { sandbox-engine = "org.flatpak" },
+      { sandbox-app-id = "com.valvesoftware.Steam" },
+    ]
+    ```
+
+  The value of this field should be a [ClientMatchExactly](#types-ClientMatchExactly).
+
+
+<a name="types-ClientMatchExactly"></a>
+### `ClientMatchExactly`
+
+Criterion for matching a specific number of client criteria.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `num` (required):
+
+  The number of criteria that must match.
+
+  The value of this field should be a number.
+
+- `list` (required):
+
+  The list of criteria.
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+
+<a name="types-ClientRule"></a>
+### `ClientRule`
+
+A client rule.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  The name of this rule.
+  
+  This name can be referenced in other rules.
+  
+  - Example
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+  
+    [[clients]]
+    match.name = "spotify"
+    action = "kill-client"
+    ```
+
+  The value of this field should be a string.
+
+- `match` (optional):
+
+  The criteria that select the client that this rule applies to.
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
+- `action` (optional):
+
+  An action to execute when a client matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `latch` (optional):
+
+  An action to execute when a client no longer matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+
 <a name="types-Color"></a>
 ### `Color`
 
@@ -1416,6 +1581,22 @@ The table has the following fields:
   The numbers should be integers.
 
   The numbers should be greater than or equal to 0.
+
+- `clients` (optional):
+
+  An array of client rules.
+  
+  These rules can be used to give names to clients and to manipulate them.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be an array of [ClientRules](#types-ClientRule).
 
 
 <a name="types-Connector"></a>
@@ -3128,6 +3309,12 @@ The string should have one of the following values:
 - `toggle-float-pinned`:
 
   Toggles whether the currently focused floating window is pinned.
+
+- `kill-client`:
+
+  Kills a client.
+  
+  This action has no effect outside of client rules.
 
 
 

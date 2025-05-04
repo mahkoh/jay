@@ -16,7 +16,6 @@ impl<Target> CritMatchConstant<Target>
 where
     Target: CritTarget,
 {
-    #[expect(dead_code)]
     pub fn create(
         roots: &Rc<Target::RootMatchers>,
         ids: &CritMatcherIds,

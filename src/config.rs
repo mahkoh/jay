@@ -214,6 +214,10 @@ impl ConfigProxy {
             window_ids: NumCell::new(1),
             windows_from_tl_id: Default::default(),
             windows_to_tl_id: Default::default(),
+            client_matcher_ids: NumCell::new(1),
+            client_matchers: Default::default(),
+            client_matcher_cache: Default::default(),
+            client_matcher_leafs: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

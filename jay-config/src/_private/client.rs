@@ -3,14 +3,15 @@
 use {
     crate::{
         _private::{
-            Config, ConfigEntry, ConfigEntryGen, PollableId, VERSION, WireMode, bincode_ops,
+            ClientCriterionIpc, Config, ConfigEntry, ConfigEntryGen, GenericCriterionIpc,
+            PollableId, VERSION, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
             },
             logging,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
-        client::Client,
+        client::{Client, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
@@ -112,8 +113,14 @@ pub(crate) struct ConfigClient {
     status_task: Cell<Vec<JoinHandle<()>>>,
     i3bar_separator: RefCell<Option<Rc<String>>>,
     pressed_keysym: Cell<Option<KeySym>>,
+    client_match_handlers: RefCell<HashMap<ClientMatcher, ClientMatchHandler>>,
 
     feat_mod_mask: Cell<bool>,
+}
+
+struct ClientMatchHandler {
+    cb: Callback<MatchedClient>,
+    latched: HashMap<Client, Box<dyn FnOnce()>>,
 }
 
 struct Interest {
@@ -245,6 +252,7 @@ pub unsafe extern "C" fn init(
         status_task: Default::default(),
         i3bar_separator: Default::default(),
         pressed_keysym: Cell::new(None),
+        client_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
@@ -278,6 +286,16 @@ macro_rules! get_response {
             }
         };
     }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+enum GenericCriterion<'a, Crit, Matcher> {
+    Matcher(Matcher),
+    Not(&'a Crit),
+    All(&'a [Crit]),
+    Any(&'a [Crit]),
+    Exactly(usize, &'a [Crit]),
 }
 
 impl ConfigClient {
@@ -1419,6 +1437,151 @@ impl ConfigClient {
         self.send(&ClientMessage::ClientKill { client });
     }
 
+    fn create_generic_matcher<Crit, Matcher>(
+        &self,
+        criterion: GenericCriterion<'_, Crit, Matcher>,
+        child: bool,
+        create_child_matcher: impl Fn(Crit) -> (Matcher, bool),
+        create_matcher: impl Fn(GenericCriterionIpc<Matcher>) -> Matcher,
+        destroy_matcher: impl Fn(Matcher),
+    ) -> (Matcher, bool)
+    where
+        Crit: Copy,
+        Matcher: Copy,
+    {
+        let mut ad_hoc = vec![];
+        let mut create_child_matcher = |c: Crit| {
+            let (m, original) = create_child_matcher(c);
+            if original {
+                ad_hoc.push(m);
+            }
+            m
+        };
+        let mut create_vec = |l: &[Crit]| {
+            let mut list = Vec::with_capacity(l.len());
+            for c in l {
+                list.push(create_child_matcher(*c));
+            }
+            list
+        };
+        let criterion = match criterion {
+            GenericCriterion::Matcher(m) => {
+                if child {
+                    return (m, false);
+                }
+                GenericCriterionIpc::Matcher(m)
+            }
+            GenericCriterion::Not(c) => GenericCriterionIpc::Not(create_child_matcher(*c)),
+            GenericCriterion::All(l) => GenericCriterionIpc::List {
+                list: create_vec(l),
+                all: true,
+            },
+            GenericCriterion::Any(l) => GenericCriterionIpc::List {
+                list: create_vec(l),
+                all: false,
+            },
+            GenericCriterion::Exactly(num, l) => GenericCriterionIpc::Exactly {
+                list: create_vec(l),
+                num,
+            },
+        };
+        let matcher = create_matcher(criterion);
+        for matcher in ad_hoc {
+            destroy_matcher(matcher);
+        }
+        (matcher, true)
+    }
+
+    pub fn create_client_matcher(&self, criterion: ClientCriterion<'_>) -> ClientMatcher {
+        self.create_client_matcher_(criterion, false).0
+    }
+
+    fn create_client_matcher_(
+        &self,
+        criterion: ClientCriterion<'_>,
+        child: bool,
+    ) -> (ClientMatcher, bool) {
+        #[expect(unused_macros)]
+        macro_rules! string {
+            ($t:expr, $field:ident, $regex:expr) => {
+                ClientCriterionIpc::String {
+                    string: $t.to_string(),
+                    field: ClientCriterionStringField::$field,
+                    regex: $regex,
+                }
+            };
+        }
+        let create_matcher = |criterion| {
+            let res = self.send_with_response(&ClientMessage::CreateClientMatcher {
+                criterion: ClientCriterionIpc::Generic(criterion),
+            });
+            get_response!(res, ClientMatcher(0), CreateClientMatcher { matcher });
+            matcher
+        };
+        let destroy_matcher = |matcher| {
+            self.send(&ClientMessage::DestroyClientMatcher { matcher });
+        };
+        let generic = |crit: GenericCriterion<ClientCriterion, ClientMatcher>| {
+            self.create_generic_matcher::<ClientCriterion, ClientMatcher>(
+                crit,
+                child,
+                |c| self.create_client_matcher_(c, true),
+                create_matcher,
+                destroy_matcher,
+            )
+        };
+        #[expect(unused_variables)]
+        let criterion = match criterion {
+            ClientCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
+            ClientCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
+            ClientCriterion::All(c) => return generic(GenericCriterion::All(c)),
+            ClientCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
+            ClientCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
+        };
+        #[expect(unreachable_code)]
+        let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
+        get_response!(
+            res,
+            (ClientMatcher(0), false),
+            CreateClientMatcher { matcher }
+        );
+        (matcher, true)
+    }
+
+    pub fn set_client_matcher_handler(
+        &self,
+        matcher: ClientMatcher,
+        cb: impl FnMut(MatchedClient) + 'static,
+    ) {
+        let cb = Rc::new(RefCell::new(cb));
+        let handlers = &mut *self.client_match_handlers.borrow_mut();
+        let handler = handlers.entry(matcher).or_insert_with(|| {
+            self.send(&ClientMessage::EnableClientMatcherEvents { matcher });
+            ClientMatchHandler {
+                cb: cb.clone(),
+                latched: Default::default(),
+            }
+        });
+        handler.cb = cb.clone();
+    }
+
+    pub fn set_client_matcher_latch_handler(
+        &self,
+        matcher: ClientMatcher,
+        client: Client,
+        cb: impl FnOnce() + 'static,
+    ) {
+        let handlers = &mut *self.client_match_handlers.borrow_mut();
+        if let Some(handler) = handlers.get_mut(&matcher) {
+            handler.latched.insert(client, Box::new(cb));
+        }
+    }
+
+    pub fn destroy_client_matcher(&self, matcher: ClientMatcher) {
+        self.send(&ClientMessage::DestroyClientMatcher { matcher });
+        self.client_match_handlers.borrow_mut().remove(&matcher);
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();
@@ -1680,6 +1843,30 @@ impl ConfigClient {
                 if let Some(cb) = cb {
                     run_cb("switch event", &cb, event);
                 }
+            }
+            ServerMessage::ClientMatcherMatched { matcher, client } => {
+                let cb = {
+                    let handlers = self.client_match_handlers.borrow();
+                    let Some(handler) = handlers.get(&matcher) else {
+                        return;
+                    };
+                    handler.cb.clone()
+                };
+                let matched = MatchedClient { matcher, client };
+                cb.borrow_mut()(matched);
+            }
+            ServerMessage::ClientMatcherUnmatched { matcher, client } => {
+                let cb = {
+                    let mut handlers = self.client_match_handlers.borrow_mut();
+                    let Some(handler) = handlers.get_mut(&matcher) else {
+                        return;
+                    };
+                    let Some(cb) = handler.latched.remove(&client) else {
+                        return;
+                    };
+                    cb
+                };
+                cb();
             }
         }
     }

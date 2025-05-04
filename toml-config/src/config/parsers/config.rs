@@ -8,6 +8,7 @@ use {
             parsers::{
                 action::ActionParser,
                 actions::ActionsParser,
+                client_rule::ClientRulesParser,
                 color_management::ColorManagementParser,
                 connector::ConnectorsParser,
                 drm_device::DrmDevicesParser,
@@ -120,7 +121,7 @@ impl Parser for ConfigParser<'_> {
                 ui_drag_val,
                 xwayland_val,
             ),
-            (color_management_val, float_val, actions_val, max_action_depth_val),
+            (color_management_val, float_val, actions_val, max_action_depth_val, client_rules_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -163,6 +164,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("float")),
                 opt(val("actions")),
                 recover(opt(int("max-action-depth"))),
+                opt(val("clients")),
             ),
         ))?;
         let mut keymap = None;
@@ -419,6 +421,13 @@ impl Parser for ConfigParser<'_> {
             }
             max_action_depth = value.value as _;
         }
+        let mut client_rules = vec![];
+        if let Some(value) = client_rules_val {
+            match value.parse(&mut ClientRulesParser(self.0)) {
+                Ok(v) => client_rules = v,
+                Err(e) => log::warn!("Could not parse the client rules: {}", self.0.error(e)),
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -453,6 +462,7 @@ impl Parser for ConfigParser<'_> {
             float,
             named_actions,
             max_action_depth,
+            client_rules,
         })
     }
 }

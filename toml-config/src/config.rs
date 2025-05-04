@@ -66,6 +66,7 @@ pub enum SimpleCommand {
     ToggleFloatAboveFullscreen,
     SetFloatPinned(bool),
     ToggleFloatPinned,
+    KillClient,
 }
 
 #[derive(Debug, Clone)]
@@ -196,6 +197,34 @@ pub enum OutputMatch {
         manufacturer: Option<String>,
         model: Option<String>,
     },
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct GenericMatch<Match> {
+    pub name: Option<String>,
+    pub not: Option<Box<Match>>,
+    pub all: Option<Vec<Match>>,
+    pub any: Option<Vec<Match>>,
+    pub exactly: Option<MatchExactly<Match>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchExactly<Match> {
+    pub num: usize,
+    pub list: Vec<Match>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientRule {
+    pub name: Option<String>,
+    pub match_: ClientMatch,
+    pub action: Option<Action>,
+    pub latch: Option<Action>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ClientMatch {
+    pub generic: GenericMatch<Self>,
 }
 
 #[derive(Debug, Clone)]
@@ -395,6 +424,7 @@ pub struct Config {
     pub float: Option<Float>,
     pub named_actions: Vec<NamedAction>,
     pub max_action_depth: u64,
+    pub client_rules: Vec<ClientRule>,
 }
 
 #[derive(Debug, Error)]

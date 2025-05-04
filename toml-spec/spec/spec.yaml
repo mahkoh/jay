@@ -821,6 +821,11 @@ SimpleActionName:
     - value: toggle-float-pinned
       description: |
         Toggles whether the currently focused floating window is pinned.
+    - value: kill-client
+      description: |
+        Kills a client.
+        
+        This action has no effect outside of client rules.
 
 
 Color:
@@ -2487,6 +2492,23 @@ Config:
         The maximum call depth of named actions. This setting prevents infinite recursion
         when using named actions. Setting this value to 0 or less disables named actions
         completely. The default is `16`.
+    clients:
+      kind: array
+      items:
+        ref: ClientRule
+      required: false
+      description: |
+        An array of client rules.
+        
+        These rules can be used to give names to clients and to manipulate them.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          name = "spotify"
+          match.sandbox-app-id = "com.spotify.Client"
+          ```
 
 
 Idle:
@@ -3016,3 +3038,149 @@ Float:
         The default is `false`.
       kind: boolean
       required: false
+
+
+ClientRule:
+  kind: table
+  description: |
+    A client rule.
+  fields:
+    name:
+      kind: string
+      required: false
+      description: |
+        The name of this rule.
+        
+        This name can be referenced in other rules.
+        
+        - Example
+        
+          ```toml
+          [[clients]]
+          name = "spotify"
+          match.sandbox-app-id = "com.spotify.Client"
+        
+          [[clients]]
+          match.name = "spotify"
+          action = "kill-client"
+          ```
+    match:
+      ref: ClientMatch
+      required: false
+      description: The criteria that select the client that this rule applies to.
+    action:
+      ref: Action
+      required: false
+      description: An action to execute when a client matches the criteria.
+    latch:
+      ref: Action
+      required: false
+      description: An action to execute when a client no longer matches the criteria.
+
+
+ClientMatch:
+  kind: table
+  description: |
+    Criteria for matching clients.
+    
+    If no fields are set, all clients are matched. If multiple fields are set, all fields
+    must match the client.
+  fields:
+    name:
+      kind: string
+      required: false
+      description: |
+        Matches if the client rule with this name matches.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          name = "spotify"
+          match.sandbox-app-id = "com.spotify.Client"
+        
+          # Matches the same clients as the previous rule.
+          [[clients]]
+          match.name = "spotify"
+          ```
+    not:
+      ref: ClientMatch
+      required: false
+      description: |
+        Matches if the contained criteria don't match.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          name = "not-spotify"
+          match.not.sandbox-app-id = "com.spotify.Client"
+          ```
+    all:
+      kind: array
+      items:
+        ref: ClientMatch
+      required: false
+      description: |
+        Matches if all of the contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.all = [
+            { sandbox-app-id = "com.spotify.Client" },
+            { sandbox-engine = "org.flatpak" },
+          ]
+          ```
+    any:
+      kind: array
+      items:
+        ref: ClientMatch
+      required: false
+      description: |
+        Matches if any of the contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          [[clients]]
+          match.any = [
+            { sandbox-app-id = "com.spotify.Client" },
+            { sandbox-app-id = "com.valvesoftware.Steam" },
+          ]
+          ```
+    exactly:
+      ref: ClientMatchExactly
+      required: false
+      description: |
+        Matches if a specific number of contained criteria match.
+        
+        - Example:
+        
+          ```toml
+          # Matches any client that is either steam or sandboxed by flatpak but not both.
+          [[clients]]
+          match.exactly.num = 1
+          match.exactly.list = [
+            { sandbox-engine = "org.flatpak" },
+            { sandbox-app-id = "com.valvesoftware.Steam" },
+          ]
+          ```
+
+
+ClientMatchExactly:
+  kind: table
+  description: |
+    Criterion for matching a specific number of client criteria.
+  fields:
+    num:
+      kind: number
+      required: true
+      description: The number of criteria that must match.
+    list:
+      kind: array
+      items:
+        ref: ClientMatch
+      required: true
+      description: The list of criteria.

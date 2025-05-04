@@ -41,7 +41,6 @@ pub trait CritDestroyListener<Target>: 'static
 where
     Target: CritTarget,
 {
-    #[expect(dead_code)]
     fn destroyed(&self, target_id: Target::Id);
 }
 

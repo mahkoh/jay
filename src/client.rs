@@ -2,6 +2,10 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{error::LookupError, objects::Objects},
+        criteria::{
+            CritDestroyListener, CritMatcherId,
+            clm::{CL_CHANGED_DESTROYED, CL_CHANGED_NEW, ClMatcherChange},
+        },
         ifs::{
             wl_display::WlDisplay,
             wl_registry::WlRegistry,
@@ -31,7 +35,7 @@ use {
         fmt::{Debug, Display, Formatter},
         mem,
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     uapi::{OwnedFd, c},
 };
@@ -177,6 +181,8 @@ impl Clients {
             )),
             wire_scale: Default::default(),
             focus_stealing_serial: Default::default(),
+            changed_properties: Default::default(),
+            destroyed: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -196,6 +202,7 @@ impl Clients {
             data.pid_info.comm,
             effective_caps,
         );
+        client.data.property_changed(CL_CHANGED_NEW);
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
     }
@@ -251,6 +258,7 @@ impl Drop for ClientHolder {
         self.data.surfaces_by_xwayland_serial.clear();
         self.data.remove_activation_tokens();
         self.data.commit_timelines.clear();
+        self.data.property_changed(CL_CHANGED_DESTROYED);
         if self.data.is_xwayland {
             if let Some(pidfd) = self.data.state.xwayland.pidfd.get() {
                 if let Err(e) = pidfd_send_signal(&pidfd, c::SIGKILL) {
@@ -296,6 +304,8 @@ pub struct Client {
     pub commit_timelines: Rc<CommitTimelines>,
     pub wire_scale: Cell<Option<i32>>,
     pub focus_stealing_serial: Cell<Option<u64>>,
+    pub changed_properties: Cell<ClMatcherChange>,
+    pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -499,6 +509,14 @@ impl Client {
     fn remove_activation_tokens(&self) {
         for token in &*self.activation_tokens.borrow() {
             self.state.activation_tokens.remove(token);
+        }
+    }
+
+    pub fn property_changed(self: &Rc<Self>, change: ClMatcherChange) {
+        let props = self.changed_properties.get();
+        self.changed_properties.set(props | change);
+        if props.is_none() && change.is_some() {
+            self.state.cl_matcher_manager.changed(self);
         }
     }
 }

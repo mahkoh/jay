@@ -1,8 +1,8 @@
 use {
     crate::{
-        _private::{PollableId, WireMode},
+        _private::{ClientCriterionIpc, PollableId, WireMode},
         Axis, Direction, PciId, Workspace,
-        client::Client,
+        client::{Client, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
             capability::Capability,
@@ -93,6 +93,14 @@ pub enum ServerMessage {
         seat: Seat,
         input_device: InputDevice,
         event: SwitchEvent,
+    },
+    ClientMatcherMatched {
+        matcher: ClientMatcher,
+        client: Client,
+    },
+    ClientMatcherUnmatched {
+        matcher: ClientMatcher,
+        client: Client,
     },
 }
 
@@ -664,6 +672,15 @@ pub enum ClientMessage<'a> {
         window: Window,
         pinned: bool,
     },
+    CreateClientMatcher {
+        criterion: ClientCriterionIpc,
+    },
+    DestroyClientMatcher {
+        matcher: ClientMatcher,
+    },
+    EnableClientMatcherEvents {
+        matcher: ClientMatcher,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -883,6 +900,9 @@ pub enum Response {
     },
     GetWindowIsVisible {
         visible: bool,
+    },
+    CreateClientMatcher {
+        matcher: ClientMatcher,
     },
 }
 

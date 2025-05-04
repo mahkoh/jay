@@ -129,7 +129,6 @@ where
         slf
     }
 
-    #[expect(dead_code)]
     pub fn handle(&self, target: &Target) {
         let new = self.criterion.matches(target) ^ self.not;
         let node = match new {

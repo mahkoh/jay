@@ -266,7 +266,6 @@ impl IoUring {
         self.ring.cancel_task(id);
     }
 
-    #[expect(dead_code)]
     pub fn debouncer(&self, max: u64) -> Debouncer {
         Debouncer {
             cur: Default::default(),

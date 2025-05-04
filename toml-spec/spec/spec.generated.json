@@ -500,6 +500,86 @@
         }
       ]
     },
+    "ClientMatch": {
+      "description": "Criteria for matching clients.\n\nIf no fields are set, all clients are matched. If multiple fields are set, all fields\nmust match the client.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Matches if the client rule with this name matches.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n\n  # Matches the same clients as the previous rule.\n  [[clients]]\n  match.name = \"spotify\"\n  ```\n"
+        },
+        "not": {
+          "description": "Matches if the contained criteria don't match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"not-spotify\"\n  match.not.sandbox-app-id = \"com.spotify.Client\"\n  ```\n",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "all": {
+          "type": "array",
+          "description": "Matches if all of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.all = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-engine = \"org.flatpak\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "any": {
+          "type": "array",
+          "description": "Matches if any of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.any = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "exactly": {
+          "description": "Matches if a specific number of contained criteria match.\n\n- Example:\n\n  ```toml\n  # Matches any client that is either steam or sandboxed by flatpak but not both.\n  [[clients]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { sandbox-engine = \"org.flatpak\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "$ref": "#/$defs/ClientMatchExactly"
+        }
+      },
+      "required": []
+    },
+    "ClientMatchExactly": {
+      "description": "Criterion for matching a specific number of client criteria.\n",
+      "type": "object",
+      "properties": {
+        "num": {
+          "type": "number",
+          "description": "The number of criteria that must match."
+        },
+        "list": {
+          "type": "array",
+          "description": "The list of criteria.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        }
+      },
+      "required": [
+        "num",
+        "list"
+      ]
+    },
+    "ClientRule": {
+      "description": "A client rule.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of this rule.\n\nThis name can be referenced in other rules.\n\n- Example\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n\n  [[clients]]\n  match.name = \"spotify\"\n  action = \"kill-client\"\n  ```\n"
+        },
+        "match": {
+          "description": "The criteria that select the client that this rule applies to.",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "action": {
+          "description": "An action to execute when a client matches the criteria.",
+          "$ref": "#/$defs/Action"
+        },
+        "latch": {
+          "description": "An action to execute when a client no longer matches the criteria.",
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": []
+    },
     "Color": {
       "type": "string",
       "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
@@ -714,6 +794,14 @@
           "type": "integer",
           "description": "The maximum call depth of named actions. This setting prevents infinite recursion\nwhen using named actions. Setting this value to 0 or less disables named actions\ncompletely. The default is `16`.\n",
           "minimum": 0.0
+        },
+        "clients": {
+          "type": "array",
+          "description": "An array of client rules.\n\nThese rules can be used to give names to clients and to manipulate them.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientRule"
+          }
         }
       },
       "required": []
@@ -1384,7 +1472,8 @@
         "toggle-float-above-fullscreen",
         "pin-float",
         "unpin-float",
-        "toggle-float-pinned"
+        "toggle-float-pinned",
+        "kill-client"
       ]
     },
     "Status": {

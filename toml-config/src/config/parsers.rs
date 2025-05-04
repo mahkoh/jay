@@ -8,6 +8,8 @@ use {
 
 pub mod action;
 mod actions;
+mod client_match;
+mod client_rule;
 mod color;
 pub mod color_management;
 pub mod config;

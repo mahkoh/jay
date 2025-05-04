@@ -9,6 +9,9 @@ use {
         cmm::cmm_transfer_function::TransferFunction,
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
+        criteria::{
+            CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode, clm::ClmLeafMatcher,
+        },
         format::config_formats,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         io_uring::TaskResultExt,
@@ -38,11 +41,11 @@ use {
     bincode::Options,
     jay_config::{
         _private::{
-            PollableId, WireMode, bincode_ops,
+            ClientCriterionIpc, GenericCriterionIpc, PollableId, WireMode, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
-        client::Client as ConfigClient,
+        client::{Client as ConfigClient, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, Seat,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
@@ -65,7 +68,15 @@ use {
     },
     libloading::Library,
     log::Level,
-    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
+    regex::Regex,
+    std::{
+        cell::Cell,
+        hash::Hash,
+        ops::Deref,
+        rc::{Rc, Weak},
+        sync::Arc,
+        time::Duration,
+    },
     thiserror::Error,
     uapi::{OwnedFd, c, fcntl_dupfd_cloexec},
 };
@@ -97,6 +108,12 @@ pub(super) struct ConfigProxyHandler {
     pub window_ids: NumCell<u64>,
     pub windows_from_tl_id: CopyHashMap<ToplevelIdentifier, Window>,
     pub windows_to_tl_id: CopyHashMap<Window, ToplevelIdentifier>,
+
+    pub client_matcher_ids: NumCell<u64>,
+    pub client_matchers:
+        CopyHashMap<ClientMatcher, Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>>,
+    pub client_matcher_cache: CriterionCache<ClientCriterionIpc, Rc<Client>>,
+    pub client_matcher_leafs: CopyHashMap<ClientMatcher, Rc<ClmLeafMatcher>>,
 }
 
 pub struct Pollable {
@@ -113,6 +130,40 @@ pub(super) struct TimerData {
     _handler: SpawnedFuture<()>,
 }
 
+pub type CriterionCache<K, T> = Rc<CopyHashMap<K, Weak<CachedCriterion<K, T>>>>;
+
+pub struct CachedCriterion<K, T>
+where
+    K: Hash + Eq,
+    T: CritTarget,
+{
+    crit: K,
+    cache: CriterionCache<K, T>,
+    upstream: Vec<Rc<CachedCriterion<K, T>>>,
+    node: Rc<dyn CritUpstreamNode<T>>,
+}
+
+impl<K, T> Drop for CachedCriterion<K, T>
+where
+    K: Hash + Eq,
+    T: CritTarget,
+{
+    fn drop(&mut self) {
+        self.cache.remove(&self.crit);
+    }
+}
+
+impl<K, T> CachedCriterion<K, T>
+where
+    K: Hash + Eq,
+    T: CritTarget,
+{
+    #[allow(clippy::allow_attributes, dead_code)]
+    fn any(&self, v: &impl Fn(&K) -> bool) -> bool {
+        v(&self.crit) || self.upstream.iter().any(|u| u.any(v))
+    }
+}
+
 impl ConfigProxyHandler {
     pub fn do_drop(&self) {
         self.dropped.set(true);
@@ -121,6 +172,9 @@ impl ConfigProxyHandler {
         self.timers_by_id.clear();
 
         self.pollables.clear();
+
+        self.client_matcher_leafs.clear();
+        self.client_matchers.clear();
 
         if let Some(path) = &self.path {
             if let Err(e) = uapi::unlink(path.as_str()) {
@@ -1725,6 +1779,148 @@ impl ConfigProxyHandler {
             .ok_or(CphError::WindowDoesNotExist(window))
     }
 
+    fn get_client_matcher(
+        &self,
+        matcher: ClientMatcher,
+    ) -> Result<Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>, CphError> {
+        self.client_matchers
+            .get(&matcher)
+            .ok_or(CphError::ClientMatcherDoesNotExist(matcher))
+    }
+
+    fn sort_generic_matcher<T, K>(
+        &self,
+        generic: &mut GenericCriterionIpc<T>,
+        key: impl FnMut(&T) -> K,
+    ) where
+        K: Ord,
+    {
+        match generic {
+            GenericCriterionIpc::List { list, .. } | GenericCriterionIpc::Exactly { list, .. } => {
+                list.sort_by_key(key)
+            }
+            GenericCriterionIpc::Matcher(_) | GenericCriterionIpc::Not(_) => {}
+        }
+    }
+
+    fn create_generic_matcher<Crit, Matcher, Mgr>(
+        &self,
+        mgr: &Mgr,
+        generic: &GenericCriterionIpc<Matcher>,
+        upstream: &mut Vec<Rc<CachedCriterion<Crit, Mgr::Target>>>,
+        get_matcher: impl Fn(&Matcher) -> Result<Rc<CachedCriterion<Crit, Mgr::Target>>, CphError>,
+    ) -> Result<Rc<dyn CritUpstreamNode<Mgr::Target>>, CphError>
+    where
+        Crit: Clone + Hash + Eq,
+        Mgr: CritMgrExt,
+    {
+        let mut get_upstream = |m: &Matcher| -> Result<_, CphError> {
+            let m = get_matcher(m)?;
+            let node = m.node.clone();
+            upstream.push(m);
+            Ok(node)
+        };
+        let node = match generic {
+            GenericCriterionIpc::Matcher(m) => get_matcher(m)?.node.clone(),
+            GenericCriterionIpc::Not(m) => mgr.not(&get_upstream(m)?),
+            GenericCriterionIpc::List { list, all } => {
+                let mut m = Vec::with_capacity(list.len());
+                for c in list {
+                    m.push(get_upstream(c)?);
+                }
+                mgr.list(&m, *all)
+            }
+            GenericCriterionIpc::Exactly { list, num } => {
+                let mut m = Vec::with_capacity(list.len());
+                for c in list {
+                    m.push(get_upstream(c)?);
+                }
+                mgr.exactly(&m, *num)
+            }
+        };
+        Ok(node)
+    }
+
+    fn handle_create_client_matcher(
+        &self,
+        mut criterion: ClientCriterionIpc,
+    ) -> Result<(), CphError> {
+        if let ClientCriterionIpc::Generic(generic) = &mut criterion {
+            self.sort_generic_matcher(generic, |m| m.0);
+        }
+        let id = ClientMatcher(self.client_matcher_ids.fetch_add(1));
+        let cache = &self.client_matcher_cache;
+        if let Some(matcher) = cache.get(&criterion) {
+            if let Some(matcher) = matcher.upgrade() {
+                self.client_matchers.set(id, matcher);
+                self.respond(Response::CreateClientMatcher { matcher: id });
+                return Ok(());
+            }
+        }
+        let mgr = &self.state.cl_matcher_manager;
+        let mut upstream = vec![];
+        let matcher = match &criterion {
+            ClientCriterionIpc::Generic(m) => {
+                self.create_generic_matcher(mgr, m, &mut upstream, |m| self.get_client_matcher(*m))?
+            }
+            ClientCriterionIpc::String {
+                string,
+                field,
+                regex,
+            } => {
+                #[expect(unused_variables)]
+                let needle = match *regex {
+                    true => {
+                        let regex = Regex::new(string).map_err(CphError::InvalidRegex)?;
+                        CritLiteralOrRegex::Regex(regex)
+                    }
+                    false => CritLiteralOrRegex::Literal(string.to_string()),
+                };
+                match *field {}
+            }
+        };
+        let cached = Rc::new(CachedCriterion {
+            crit: criterion.clone(),
+            cache: cache.clone(),
+            upstream,
+            node: matcher.clone(),
+        });
+        cache.set(criterion, Rc::downgrade(&cached));
+        self.client_matchers.set(id, cached);
+        self.respond(Response::CreateClientMatcher { matcher: id });
+        Ok(())
+    }
+
+    fn handle_destroy_client_matcher(&self, matcher: ClientMatcher) {
+        self.client_matchers.remove(&matcher);
+        self.client_matcher_leafs.remove(&matcher);
+    }
+
+    fn handle_enable_client_matcher_events(
+        self: &Rc<Self>,
+        matcher: ClientMatcher,
+    ) -> Result<(), CphError> {
+        if self.client_matcher_leafs.contains(&matcher) {
+            return Ok(());
+        }
+        let upstream = self.get_client_matcher(matcher)?;
+        let slf = self.clone();
+        let leaf = self
+            .state
+            .cl_matcher_manager
+            .leaf(&upstream.node, move |id| {
+                let client = ConfigClient(id.raw());
+                slf.send(&ServerMessage::ClientMatcherMatched { matcher, client });
+                let slf = slf.clone();
+                Box::new(move || {
+                    slf.send(&ServerMessage::ClientMatcherUnmatched { matcher, client });
+                })
+            });
+        self.client_matcher_leafs.set(matcher, leaf);
+        self.state.cl_matcher_manager.rematch_all(&self.state);
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -2512,6 +2708,15 @@ impl ConfigProxyHandler {
             ClientMessage::GetWindowClient { window } => self
                 .handle_get_window_client(window)
                 .wrn("get_window_client")?,
+            ClientMessage::CreateClientMatcher { criterion } => self
+                .handle_create_client_matcher(criterion)
+                .wrn("create_window_matcher")?,
+            ClientMessage::DestroyClientMatcher { matcher } => {
+                self.handle_destroy_client_matcher(matcher)
+            }
+            ClientMessage::EnableClientMatcherEvents { matcher } => self
+                .handle_enable_client_matcher_events(matcher)
+                .wrn("enable_window_matcher_events")?,
         }
         Ok(())
     }
@@ -2593,6 +2798,10 @@ enum CphError {
     WindowDoesNotExist(Window),
     #[error("Window {0:?} is not visible")]
     WindowNotVisible(Window),
+    #[error("Client matcher {0:?} does not exist")]
+    ClientMatcherDoesNotExist(ClientMatcher),
+    #[error("Could not parse regex")]
+    InvalidRegex(#[source] regex::Error),
 }
 
 trait WithRequestName {

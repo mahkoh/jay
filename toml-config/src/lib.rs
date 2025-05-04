@@ -1,17 +1,27 @@
-#![allow(clippy::len_zero, clippy::single_char_pattern, clippy::collapsible_if)]
+#![allow(
+    clippy::len_zero,
+    clippy::single_char_pattern,
+    clippy::collapsible_if,
+    clippy::collapsible_else_if
+)]
 
 mod config;
+mod rules;
 mod toml;
 
 use {
-    crate::config::{
-        Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap, ConnectorMatch,
-        DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut, SimpleCommand,
-        Status, Theme, parse_config,
+    crate::{
+        config::{
+            Action, ClientRule, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
+            ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
+            SimpleCommand, Status, Theme, parse_config,
+        },
+        rules::{MatcherTemp, RuleMapper},
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
     jay_config::{
+        client::Client,
         config, config_dir,
         exec::{Command, set_env, unset_env},
         get_workspace,
@@ -79,6 +89,16 @@ impl Action {
     }
 
     fn into_fn_impl<B: FnBuilder>(self, state: &Rc<State>) -> B {
+        macro_rules! client_action {
+            ($name:ident, $opt:expr) => {{
+                let state = state.clone();
+                B::new(move || {
+                    if let Some($name) = state.client.get() {
+                        $opt
+                    }
+                })
+            }};
+        }
         let s = state.persistent.seat;
         match self {
             Action::SimpleCommand { cmd } => match cmd {
@@ -115,6 +135,7 @@ impl Action {
                 SimpleCommand::ToggleFloatAboveFullscreen => B::new(toggle_float_above_fullscreen),
                 SimpleCommand::SetFloatPinned(pinned) => B::new(move || s.set_float_pinned(pinned)),
                 SimpleCommand::ToggleFloatPinned => B::new(move || s.toggle_float_pinned()),
+                SimpleCommand::KillClient => client_action!(c, c.kill()),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -666,6 +687,8 @@ struct State {
 
     action_depth_max: u64,
     action_depth: Cell<u64>,
+
+    client: Cell<Option<Client>>,
 }
 
 impl Drop for State {
@@ -871,6 +894,16 @@ impl State {
             }
         }
     }
+
+    fn with_client(&self, client: Client, check: bool, f: impl FnOnce()) {
+        let mut opt = Some(client);
+        if check && client.does_not_exist() {
+            opt = None;
+        }
+        self.client.set(opt);
+        f();
+        self.client.set(None);
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -887,6 +920,8 @@ struct PersistentState {
     binds: RefCell<AHashSet<ModifiedKeySym>>,
     #[expect(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
+    client_rules: Cell<Vec<MatcherTemp<ClientRule>>>,
+    client_rule_mapper: RefCell<Option<RuleMapper<ClientRule>>>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -967,7 +1002,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         io_outputs: Default::default(),
         action_depth_max: config.max_action_depth,
         action_depth: Cell::new(0),
+        client: Default::default(),
     });
+    let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
+    persistent.client_rules.set(client_rules);
+    *state.persistent.client_rule_mapper.borrow_mut() = Some(client_rule_mapper);
     state.set_status(&config.status);
     persistent.actions.borrow_mut().clear();
     for a in config.named_actions {
@@ -1190,10 +1229,15 @@ pub fn configure() {
         seat: default_seat(),
         binds: Default::default(),
         actions: Default::default(),
+        client_rules: Default::default(),
+        client_rule_mapper: Default::default(),
     });
     {
         let p = persistent.clone();
-        on_unload(move || p.actions.borrow_mut().clear());
+        on_unload(move || {
+            p.actions.borrow_mut().clear();
+            p.client_rule_mapper.borrow_mut().take();
+        });
     }
     load_config(true, &persistent);
 }
