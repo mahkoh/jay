@@ -27,6 +27,10 @@
   [shortcuts]
   alt-x = "$switch-to-next"
   ```
+- Add client and window rules. This is described in detail in
+  [window-and-client-rules.md](./docs/window-and-client-rules.md).
+- Add client and tree CLI subcommands to inspect clients and windows, primarily
+  to facilitate the writing of window and client rules.
 
 # 1.10.0 (2025-04-22)
 
