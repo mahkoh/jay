@@ -1,0 +1,15 @@
+# requests
+
+request stop {
+
+}
+
+# events
+
+event toplevel {
+    toplevel: id(zwlr_foreign_toplevel_handle_v1)
+}
+
+event finished {
+
+}

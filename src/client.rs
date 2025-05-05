@@ -63,6 +63,7 @@ bitflags! {
         CAP_DRM_LEASE                = 1 << 9,
         CAP_INPUT_METHOD             = 1 << 10,
         CAP_WORKSPACE                = 1 << 11,
+        CAP_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
 }
 
 pub const CAPS_DEFAULT: ClientCaps = ClientCaps(CAP_LAYER_SHELL.0 | CAP_DRM_LEASE.0);

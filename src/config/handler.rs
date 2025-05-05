@@ -415,7 +415,7 @@ impl ConfigProxyHandler {
         fullscreen: bool,
     ) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
-        tl.tl_set_fullscreen(fullscreen);
+        tl.tl_set_fullscreen(fullscreen, None);
         Ok(())
     }
 

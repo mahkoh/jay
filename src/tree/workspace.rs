@@ -103,7 +103,7 @@ impl WorkspaceNode {
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
-        self.output.set(output.clone());
+        let old = self.output.set(output.clone());
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
         }
@@ -111,38 +111,44 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
-        struct OutputSetter<'a>(&'a Rc<OutputNode>);
+        struct OutputSetter<'a> {
+            old: &'a Rc<OutputNode>,
+            new: &'a Rc<OutputNode>,
+        }
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                node.set_output(self.0);
+                node.set_output(self.new);
             }
 
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.tl_workspace_output_changed();
+                node.tl_workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-                node.tl_workspace_output_changed();
+                node.tl_workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.after_ws_move(self.0);
+                node.after_ws_move(self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-                node.tl_workspace_output_changed();
+                node.tl_workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                node.tl_workspace_output_changed();
+                node.tl_workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
         }
-        let mut visitor = OutputSetter(output);
+        let mut visitor = OutputSetter {
+            old: &old,
+            new: output,
+        };
         self.node_visit_children(&mut visitor);
         for stacked in self.stacked.iter() {
             stacked.deref().clone().node_visit(&mut visitor);
