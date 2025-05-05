@@ -133,7 +133,6 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_set_workspace_ext(ws);
         let prev_id = prev.clone().map(|p| p.output.get().id);
         let new_id = Some(ws.output.get().id);
-        log::info!("workspace moved from {prev_id:?} to {new_id:?}");
         if prev_id != new_id {
             self.tl_workspace_output_changed();
 
@@ -212,11 +211,7 @@ pub trait ToplevelNodeBase: Node {
     }
 
     fn tl_set_active(&self, active: bool) {
-        let data = self.tl_data();
-        for handle in data.manager_handles.borrow().lock().values() {
-            handle.send_state(false, false, active, data.is_fullscreen.get());
-            handle.send_done();
-        }
+        let _ = active;
     }
 
     fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
@@ -376,6 +371,10 @@ impl ToplevelData {
             tl.tl_set_active(active_new);
             if let Some(parent) = self.parent.get() {
                 parent.node_child_active_changed(tl, active_new, 1);
+            }
+            for handle in self.manager_handles.borrow().lock().values() {
+                handle.send_state(false, false, active_new, self.is_fullscreen.get());
+                handle.send_done();
             }
         }
     }
