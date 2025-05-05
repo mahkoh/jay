@@ -22,7 +22,9 @@ pub struct ZwlrForeignToplevelHandleV1 {
 impl ZwlrForeignToplevelHandleV1 {
     fn detach(&self) {
         if let Some(tl) = self.toplevel.get() {
-            tl.tl_data().manager_handles.remove(&(self.client.id, self.id));
+            tl.tl_data()
+                .manager_handles
+                .remove(&(self.client.id, self.id));
         }
     }
 }

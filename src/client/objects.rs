@@ -23,15 +23,17 @@ use {
             wl_output::WlOutput,
             wl_region::WlRegion,
             wl_registry::WlRegistry,
-            wl_seat::{tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer, WlSeat},
+            wl_seat::{WlSeat, tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer},
             wl_surface::{
-                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel, XdgSurface}, WlSurface
+                WlSurface,
+                xdg_surface::{XdgSurface, xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             },
             workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
             xdg_positioner::XdgPositioner,
-            xdg_wm_base::XdgWmBase, zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
+            xdg_wm_base::XdgWmBase,
+            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
         },
         object::{Object, ObjectId},
         utils::{
@@ -39,7 +41,13 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id, ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrForeignToplevelHandleV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id
+            ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
+            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
+            JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
+            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
+            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
+            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
+            ZwlrForeignToplevelHandleV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},

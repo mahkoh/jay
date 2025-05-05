@@ -9,7 +9,7 @@ use {
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
-        client::{Client, ClientId, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
+        client::{Client, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
@@ -28,19 +28,45 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, GfxBlendBuffer, GfxContext, GfxError, GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, SampleRect, SyncFile, STAGING_DOWNLOAD
+            AcquireSync, BufferResv, GfxBlendBuffer, GfxContext, GfxError, GfxFramebuffer,
+            GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD, SampleRect, SyncFile,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
         icons::Icons,
         ifs::{
-            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1, ext_idle_notification_v1::ExtIdleNotificationV1, ext_session_lock_v1::ExtSessionLockV1, ipc::{
-                data_control::DataControlDeviceIds, x_data_device::XIpcDeviceIds, DataOfferIds, DataSourceIds
-            }, jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast, jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher, wl_drm::WlDrmGlobal, wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState}, wl_seat::{
-                tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds}, PhysicalKeyboardId, PhysicalKeyboardIds, SeatIds, WlSeatGlobal
-            }, wl_surface::{
-                tray::TrayItemIds, wl_subsurface::SubsurfaceIds, zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1}, zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2, NoneSurfaceExt
-            }, workspace_manager::WorkspaceManagerState, wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1, wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global, wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global, zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1, zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global
+            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
+            ext_idle_notification_v1::ExtIdleNotificationV1,
+            ext_session_lock_v1::ExtSessionLockV1,
+            ipc::{
+                DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
+                x_data_device::XIpcDeviceIds,
+            },
+            jay_render_ctx::JayRenderCtx,
+            jay_screencast::JayScreencast,
+            jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
+            wl_drm::WlDrmGlobal,
+            wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
+            wl_seat::{
+                PhysicalKeyboardId, PhysicalKeyboardIds, SeatIds, WlSeatGlobal,
+                tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
+            },
+            wl_surface::{
+                NoneSurfaceExt,
+                tray::TrayItemIds,
+                wl_subsurface::SubsurfaceIds,
+                zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
+                zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
+            },
+            workspace_manager::WorkspaceManagerState,
+            wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
+            wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
+            wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
+            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
+            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
+            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
+            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
         io_uring::IoUring,
         kbvm::{KbvmContext, KbvmMap},
@@ -54,7 +80,9 @@ use {
         theme::{Color, Theme},
         time::Time,
         tree::{
-            generic_node_visitor, ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode
+            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
+            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
+            ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -66,19 +94,23 @@ use {
         video::{
             dmabuf::DmaBufIds,
             drm::{
-                sync_obj::{SyncObj, SyncObjPoint}, wait_for_sync_obj::WaitForSyncObj, Drm
+                Drm,
+                sync_obj::{SyncObj, SyncObjPoint},
+                wait_for_sync_obj::WaitForSyncObj,
             },
         },
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
+            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
     ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
     jay_config::{
-        video::{GfxApi, Transform}, PciId
+        PciId,
+        video::{GfxApi, Transform},
     },
     std::{
         cell::{Cell, RefCell},
@@ -204,7 +236,8 @@ pub struct State {
     pub tray_item_ids: TrayItemIds,
     pub data_control_device_ids: DataControlDeviceIds,
     pub workspace_managers: WorkspaceManagerState,
-    pub toplevel_managers: CopyHashMap<(ClientId, ZwlrForeignToplevelManagerV1Id), Rc<ZwlrForeignToplevelManagerV1>>,
+    pub toplevel_managers:
+        CopyHashMap<(ClientId, ZwlrForeignToplevelManagerV1Id), Rc<ZwlrForeignToplevelManagerV1>>,
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
