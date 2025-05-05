@@ -38,7 +38,7 @@ request destroy {
 }
 
 request set_fullscreen (since = 2) {
-    
+    output: id(wl_output)
 }
 
 request unset_fullscreen (since = 2) {

@@ -75,9 +75,22 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
         Ok(())
     }
 
-    fn set_fullscreen(&self, _req: SetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_fullscreen(&self, req: SetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            toplevel.tl_set_fullscreen(true);
+            let workspaces = self.client.state.workspaces.lock();
+            let ws = workspaces.values().find(|ws| {
+                let ws_output_node = ws.output.get();
+                let ws_bindigs = ws_output_node.global.bindings.borrow();
+                let ws_outputs = ws_bindigs.get(&self.client.id).map(|hm| hm.values());
+
+                ws_outputs.map(|mut os| os.any(|o| o.id == req.output)).unwrap_or(false)
+            });
+
+            if let Some(ws) = ws {
+                toplevel.tl_set_workspace(ws);
+                toplevel.tl_set_fullscreen(true);
+            }
+
         }
         Ok(())
     }
@@ -183,14 +196,6 @@ impl ZwlrForeignToplevelHandleV1 {
             self_id: self.id,
             output: output.id,
         });
-    }
-
-    pub fn send_set_fullscreen(&self) {
-        self.client.event(SetFullscreen { self_id: self.id });
-    }
-
-    pub fn send_unset_fullscreen(&self) {
-        self.client.event(UnsetFullscreen { self_id: self.id });
     }
 }
 

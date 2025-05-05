@@ -634,10 +634,6 @@ impl ToplevelData {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
         for handle in self.manager_handles.lock().values() {
-            handle.send_set_fullscreen();
-            handle.send_done();
-        }
-        for handle in self.manager_handles.lock().values() {
             handle.send_state(false, false, self.active(), true);
             handle.send_done();
         }
@@ -687,10 +683,6 @@ impl ToplevelData {
         fd.placeholder
             .node_seat_state()
             .destroy_node(fd.placeholder.deref());
-        for handle in self.manager_handles.lock().values() {
-            handle.send_unset_fullscreen();
-            handle.send_done();
-        }
         for handle in self.manager_handles.lock().values() {
             handle.send_state(false, false, self.active(), false);
             handle.send_done();
