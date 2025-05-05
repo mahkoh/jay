@@ -2,22 +2,19 @@ pub mod xdg_dialog_v1;
 
 use {
     crate::{
-        bugs,
-        bugs::Bugs,
+        bugs::{self, Bugs},
         client::{Client, ClientError},
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
+            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
             wl_surface::{
-                WlSurface,
                 xdg_surface::{
-                    XdgSurface, XdgSurfaceError, XdgSurfaceExt,
-                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1,
-                },
+                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError, XdgSurfaceExt
+                }, WlSurface
             },
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
+            xdg_toplevel_drag_v1::XdgToplevelDragV1, zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -25,12 +22,10 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelNodeId, WorkspaceNode, default_tile_drag_destination,
+            default_tile_drag_destination, ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
-        wire::{XdgToplevelId, xdg_toplevel::*},
+        wire::{xdg_toplevel::*, XdgToplevelId},
     },
     ahash::{AHashMap, AHashSet},
     num_derive::FromPrimitive,
@@ -163,6 +158,10 @@ impl XdgToplevel {
 
     pub fn send_to(self: &Rc<Self>, list: &ExtForeignToplevelListV1) {
         self.toplevel_data.send(self.clone(), list);
+    }
+
+    pub fn manager_send_to(self: &Rc<Self>, manager: &ZwlrForeignToplevelManagerV1) {
+        self.toplevel_data.manager_send(self.clone(), manager);
     }
 
     pub fn send_current_configure(&self) {

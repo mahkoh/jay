@@ -292,6 +292,7 @@ fn start_compositor2(
         float_above_fullscreen: Cell::new(false),
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
+        toplevel_managers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

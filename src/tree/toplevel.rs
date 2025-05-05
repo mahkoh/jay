@@ -9,6 +9,8 @@ use {
             jay_toplevel::JayToplevel,
             wl_seat::{NodeSeatState, collect_kb_foci, collect_kb_foci2},
             wl_surface::WlSurface,
+            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
+            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
         },
         rect::Rect,
         state::State,
@@ -27,10 +29,11 @@ use {
         },
         wire::{
             ExtForeignToplevelHandleV1Id, ExtImageCopyCaptureSessionV1Id, JayScreencastId,
-            JayToplevelId,
+            JayToplevelId, ZwlrForeignToplevelHandleV1Id,
         },
     },
     std::{
+        borrow::Borrow,
         cell::{Cell, RefCell},
         ops::Deref,
         rc::{Rc, Weak},
@@ -94,6 +97,24 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         data.parent.set(Some(parent.clone()));
         data.is_floating.set(parent.node_is_float());
         self.tl_set_workspace(&parent.cnode_workspace());
+
+        for handle in data.manager_handles.borrow().lock().values() {
+            if let Some(parent_toplevel) = data.parent.get().unwrap().node_toplevel() {
+                if let Some(client) = data.parent.get().unwrap().node_client() {
+                    let parent_handles = parent_toplevel.tl_data().manager_handles.borrow().lock();
+                    let parent_handle = parent_handles
+                        .iter()
+                        .find(|k| k.0.0 == client.id)
+                        .map(|k| k.1);
+                    if let Some(parent_handle) = parent_handle {
+                        handle.send_parent(parent_handle.clone());
+                        handle.send_done();
+                    }
+                }
+            }
+
+            handle.send_done();
+        }
     }
 
     fn tl_extents_changed(&self) {
@@ -108,11 +129,21 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
         let prev = data.workspace.set(Some(ws.clone()));
+
         self.tl_set_workspace_ext(ws);
-        let prev_id = prev.map(|p| p.output.get().id);
+        let prev_id = prev.clone().map(|p| p.output.get().id);
         let new_id = Some(ws.output.get().id);
+        log::info!("workspace moved from {prev_id:?} to {new_id:?}");
         if prev_id != new_id {
             self.tl_workspace_output_changed();
+
+            let prev_output = prev.clone().map(|p| p.output.get());
+            let new_output = ws.output.get();
+
+            for handle in data.manager_handles.borrow().lock().values() {
+                handle.handle_output_changed(prev_output.clone(), new_output.clone());
+                handle.send_done();
+            }
         }
     }
 
@@ -181,7 +212,11 @@ pub trait ToplevelNodeBase: Node {
     }
 
     fn tl_set_active(&self, active: bool) {
-        let _ = active;
+        let data = self.tl_data();
+        for handle in data.manager_handles.borrow().lock().values() {
+            handle.send_state(false, false, active, data.is_fullscreen.get());
+            handle.send_done();
+        }
     }
 
     fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
@@ -278,6 +313,8 @@ pub struct ToplevelData {
     pub identifier: Cell<ToplevelIdentifier>,
     pub handles:
         CopyHashMap<(ClientId, ExtForeignToplevelHandleV1Id), Rc<ExtForeignToplevelHandleV1>>,
+    pub manager_handles:
+        CopyHashMap<(ClientId, ZwlrForeignToplevelHandleV1Id), Rc<ZwlrForeignToplevelHandleV1>>,
     pub render_highlight: NumCell<u32>,
     pub jay_toplevels: CopyHashMap<(ClientId, JayToplevelId), Rc<JayToplevel>>,
     pub jay_screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
@@ -318,6 +355,7 @@ impl ToplevelData {
             app_id: Default::default(),
             identifier: Cell::new(id),
             handles: Default::default(),
+            manager_handles: Default::default(),
             render_highlight: Default::default(),
             jay_toplevels: Default::default(),
             jay_screencasts: Default::default(),
@@ -381,6 +419,12 @@ impl ToplevelData {
                 handle.send_closed();
             }
         }
+        {
+            let mut manager_handles = self.manager_handles.lock();
+            for handle in manager_handles.drain_values() {
+                handle.send_closed();
+            }
+        }
         self.detach_node(node);
     }
 
@@ -399,8 +443,17 @@ impl ToplevelData {
         let id = self.identifier.get().to_string();
         let title = self.title.borrow();
         let app_id = self.app_id.borrow();
+        let activated = self.active();
+        let fullscreen = self.is_fullscreen.get();
+
         for list in self.state.toplevel_lists.lock().values() {
             self.send_once(&toplevel, list, &id, &title, &app_id);
+        }
+
+        for manager in self.state.toplevel_managers.lock().values() {
+            self.manager_send_once(
+                &toplevel, manager, &title, &app_id, false, false, activated, fullscreen,
+            );
         }
     }
 
@@ -435,9 +488,69 @@ impl ToplevelData {
             .set((handle.client.id, handle.id), handle.clone());
     }
 
+    pub fn manager_send(
+        &self,
+        toplevel: Rc<dyn ToplevelNode>,
+        manager: &ZwlrForeignToplevelManagerV1,
+    ) {
+        let title = self.title.borrow();
+        let app_id = self.app_id.borrow();
+        let activated = self.active();
+        let fullscreen = self.is_fullscreen.get();
+        self.manager_send_once(
+            &toplevel, manager, &title, &app_id, false, false, activated, fullscreen,
+        );
+    }
+
+    fn manager_send_once(
+        &self,
+        toplevel: &Rc<dyn ToplevelNode>,
+        manager: &ZwlrForeignToplevelManagerV1,
+        title: &str,
+        app_id: &str,
+        maximized: bool,
+        minimzied: bool,
+        activated: bool,
+        fullscreen: bool,
+    ) {
+        let opt = ToplevelOpt {
+            toplevel: Rc::downgrade(toplevel),
+            identifier: self.identifier.get(),
+        };
+        let handle = match manager.publish_toplevel(opt) {
+            None => return,
+            Some(handle) => handle,
+        };
+
+        handle.send_app_id(app_id);
+        handle.send_title(title);
+
+        if let Some(outputs) = self
+            .output()
+            .global
+            .bindings
+            .borrow()
+            .get(&handle.client.id)
+            .map(|b| b.values())
+        {
+            for output in outputs {
+                handle.send_output_enter(output.clone());
+            }
+        }
+
+        handle.send_state(maximized, minimzied, activated, fullscreen);
+        handle.send_done();
+        self.manager_handles
+            .set((handle.client.id, handle.id), handle.clone());
+    }
+
     pub fn set_title(&self, title: &str) {
         *self.title.borrow_mut() = title.to_string();
         for handle in self.handles.lock().values() {
+            handle.send_title(title);
+            handle.send_done();
+        }
+        for handle in self.manager_handles.lock().values() {
             handle.send_title(title);
             handle.send_done();
         }
@@ -446,6 +559,10 @@ impl ToplevelData {
     pub fn set_app_id(&self, app_id: &str) {
         *self.app_id.borrow_mut() = app_id.to_string();
         for handle in self.handles.lock().values() {
+            handle.send_app_id(app_id);
+            handle.send_done();
+        }
+        for handle in self.manager_handles.lock().values() {
             handle.send_app_id(app_id);
             handle.send_done();
         }
@@ -517,6 +634,14 @@ impl ToplevelData {
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
+        for handle in self.manager_handles.lock().values() {
+            handle.send_set_fullscreen();
+            handle.send_done();
+        }
+        for handle in self.manager_handles.lock().values() {
+            handle.send_state(false, false, self.active(), true);
+            handle.send_done();
+        }
     }
 
     pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
@@ -563,6 +688,14 @@ impl ToplevelData {
         fd.placeholder
             .node_seat_state()
             .destroy_node(fd.placeholder.deref());
+        for handle in self.manager_handles.lock().values() {
+            handle.send_unset_fullscreen();
+            handle.send_done();
+        }
+        for handle in self.manager_handles.lock().values() {
+            handle.send_state(false, false, self.active(), false);
+            handle.send_done();
+        }
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
