@@ -43,7 +43,7 @@ use {
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
-            wl_output::WlOutputGlobal,
+            wl_output::{OutputGlobalOpt, WlOutputGlobal},
             wl_seat::{
                 gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
@@ -163,6 +163,7 @@ pub struct WlSeatGlobal {
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
+    prev_keyboard_node_output: CloneCell<Rc<OutputGlobalOpt>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
@@ -242,6 +243,7 @@ impl WlSeatGlobal {
             pointer_stack: RefCell::new(vec![]),
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
+            prev_keyboard_node_output: Default::default(),
             keyboard_node: CloneCell::new(state.root.clone()),
             keyboard_node_serial: Default::default(),
             bindings: Default::default(),
@@ -411,6 +413,9 @@ impl WlSeatGlobal {
     pub fn get_output(&self) -> Rc<OutputNode> {
         if self.fallback_output_mode.get() == FallbackOutputMode::Focus {
             if let Some(output) = self.get_keyboard_output() {
+                return output;
+            }
+            if let Some(output) = self.prev_keyboard_node_output.get().node() {
                 return output;
             }
         }
