@@ -83,14 +83,15 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
                 let ws_bindigs = ws_output_node.global.bindings.borrow();
                 let ws_outputs = ws_bindigs.get(&self.client.id).map(|hm| hm.values());
 
-                ws_outputs.map(|mut os| os.any(|o| o.id == req.output)).unwrap_or(false)
+                ws_outputs
+                    .map(|mut os| os.any(|o| o.id == req.output))
+                    .unwrap_or(false)
             });
 
             if let Some(ws) = ws {
                 toplevel.tl_set_workspace(ws);
                 toplevel.tl_set_fullscreen(true);
             }
-
         }
         Ok(())
     }
