@@ -117,6 +117,10 @@ request kill_client (since = 18) {
     id: pod(u64),
 }
 
+request create_tree_query (since = 18) {
+    id: id(jay_tree_query),
+}
+
 # events
 
 event client_id {

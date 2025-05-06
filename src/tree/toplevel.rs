@@ -279,7 +279,7 @@ impl ToplevelOpt {
 
 pub enum ToplevelType {
     Container,
-    Placeholder,
+    Placeholder(Option<ToplevelIdentifier>),
     XdgToplevel(Rc<XdgToplevelToplevelData>),
     XWindow(Rc<XwindowData>),
 }
@@ -288,7 +288,7 @@ impl ToplevelType {
     pub fn to_window_type(&self) -> WindowType {
         match self {
             ToplevelType::Container => window::CONTAINER,
-            ToplevelType::Placeholder => window::PLACEHOLDER,
+            ToplevelType::Placeholder { .. } => window::PLACEHOLDER,
             ToplevelType::XdgToplevel { .. } => window::XDG_TOPLEVEL,
             ToplevelType::XWindow { .. } => window::X_WINDOW,
         }

@@ -20,6 +20,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
             jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
+            jay_tree_query::JayTreeQuery,
             jay_workspace_watcher::JayWorkspaceWatcher,
             jay_xwayland::JayXwayland,
         },
@@ -505,6 +506,13 @@ impl JayCompositorRequestHandler for JayCompositor {
 
     fn kill_client(&self, req: KillClient, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.state.clients.kill(ClientId::from_raw(req.id));
+        Ok(())
+    }
+
+    fn create_tree_query(&self, req: CreateTreeQuery, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayTreeQuery::new(&self.client, req.id, self.version));
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
         Ok(())
     }
 }

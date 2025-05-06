@@ -23,9 +23,10 @@ use {
         },
         wheel::{Wheel, WheelError},
         wire::{
-            JayCompositor, JayCompositorId, JayDamageTracking, JayDamageTrackingId, WlCallbackId,
-            WlRegistryId, WlSeatId, jay_compositor, jay_select_toplevel, jay_toplevel, wl_callback,
-            wl_display, wl_registry,
+            JayCompositor, JayCompositorId, JayDamageTracking, JayDamageTrackingId, JayToplevelId,
+            JayWorkspaceId, WlCallbackId, WlRegistryId, WlSeatId, jay_compositor,
+            jay_select_toplevel, jay_select_workspace, jay_toplevel, wl_callback, wl_display,
+            wl_registry,
         },
     },
     ahash::AHashMap,
@@ -360,6 +361,53 @@ impl ToolClient {
         });
         self.jay_damage_tracking.set(Some(Some(id)));
         Some(id)
+    }
+
+    pub async fn select_workspace(self: &Rc<Self>) -> JayWorkspaceId {
+        let id = self.id();
+        self.send(jay_compositor::SelectWorkspace {
+            self_id: self.jay_compositor().await,
+            id,
+            seat: WlSeatId::NONE,
+        });
+        let ae = Rc::new(AsyncEvent::default());
+        let ws = Rc::new(Cell::new(JayWorkspaceId::NONE));
+        jay_select_workspace::Cancelled::handle(self, id, ae.clone(), |ae, _event| {
+            ae.trigger();
+        });
+        jay_select_workspace::Selected::handle(
+            self,
+            id,
+            (ae.clone(), ws.clone()),
+            |(ae, ws), event| {
+                ws.set(event.id);
+                ae.trigger();
+            },
+        );
+        ae.triggered().await;
+        ws.get()
+    }
+
+    pub async fn select_toplevel(self: &Rc<Self>) -> JayToplevelId {
+        let id = self.id();
+        self.send(jay_compositor::SelectToplevel {
+            self_id: self.jay_compositor().await,
+            id,
+            seat: WlSeatId::NONE,
+        });
+        let ae = Rc::new(AsyncEvent::default());
+        let toplevel = Rc::new(Cell::new(JayToplevelId::NONE));
+        jay_select_toplevel::Done::handle(
+            self,
+            id,
+            (ae.clone(), toplevel.clone()),
+            |(ae, toplevel), event| {
+                toplevel.set(event.id);
+                ae.trigger();
+            },
+        );
+        ae.triggered().await;
+        toplevel.get()
     }
 
     pub async fn select_toplevel_client(self: &Rc<Self>) -> u64 {
