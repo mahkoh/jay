@@ -189,6 +189,7 @@ impl Renderer<'_> {
             if ws.render_highlight.get() > 0 {
                 let color = self.state.theme.colors.highlight.get();
                 let bounds = ws.position.get().at_point(x, y + th + 1);
+                self.base.ops.push(GfxApiOpt::Sync);
                 self.base.fill_boxes(&[bounds], &color, srgb);
             }
         }
