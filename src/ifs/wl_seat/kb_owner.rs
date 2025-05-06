@@ -65,6 +65,10 @@ impl KbOwner for DefaultKbOwner {
         if old.node_id() == node.node_id() {
             return;
         }
+        if let Some(output) = old.node_output() {
+            seat.prev_keyboard_node_output
+                .set(output.global.opt.clone());
+        }
         // log::info!("unfocus {}", old.node_id());
         if old.node_is_xwayland_surface() && !node.node_is_xwayland_surface() {
             seat.state.xwayland.queue.push(XWaylandEvent::ActivateRoot);

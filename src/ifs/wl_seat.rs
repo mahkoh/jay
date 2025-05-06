@@ -43,7 +43,7 @@ use {
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
-            wl_output::WlOutputGlobal,
+            wl_output::{OutputGlobalOpt, WlOutputGlobal},
             wl_seat::{
                 gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
@@ -94,6 +94,7 @@ use {
         wire_ei::EiSeatId,
     },
     ahash::AHashMap,
+    jay_config::input::FallbackOutputMode,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -162,6 +163,7 @@ pub struct WlSeatGlobal {
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
+    prev_keyboard_node_output: CloneCell<Rc<OutputGlobalOpt>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
@@ -206,6 +208,7 @@ pub struct WlSeatGlobal {
     input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
+    fallback_output_mode: Cell<FallbackOutputMode>,
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
     pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
@@ -240,6 +243,7 @@ impl WlSeatGlobal {
             pointer_stack: RefCell::new(vec![]),
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
+            prev_keyboard_node_output: Default::default(),
             keyboard_node: CloneCell::new(state.root.clone()),
             keyboard_node_serial: Default::default(),
             bindings: Default::default(),
@@ -280,6 +284,7 @@ impl WlSeatGlobal {
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
+            fallback_output_mode: Cell::new(FallbackOutputMode::Cursor),
             swipe_bindings: Default::default(),
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
@@ -397,12 +402,24 @@ impl WlSeatGlobal {
         self.data_control_devices.remove(&device.id());
     }
 
-    pub fn get_output(&self) -> Rc<OutputNode> {
+    pub fn get_cursor_output(&self) -> Rc<OutputNode> {
         self.cursor_user_group.latest_output()
     }
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
+    }
+
+    pub fn get_output(&self) -> Rc<OutputNode> {
+        if self.fallback_output_mode.get() == FallbackOutputMode::Focus {
+            if let Some(output) = self.get_keyboard_output() {
+                return output;
+            }
+            if let Some(output) = self.prev_keyboard_node_output.get().node() {
+                return output;
+            }
+        }
+        self.get_cursor_output()
     }
 
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -1023,6 +1040,10 @@ impl WlSeatGlobal {
 
     pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
         self.focus_follows_mouse.set(focus_follows_mouse);
+    }
+
+    pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
+        self.fallback_output_mode.set(fallback_output_mode);
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {

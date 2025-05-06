@@ -135,7 +135,7 @@ impl XdgToplevelDragV1 {
     pub fn finish_drag(&self, seat: &Rc<WlSeatGlobal>) {
         if self.source.data.was_used() {
             if let Some(tl) = self.toplevel.get() {
-                let output = seat.get_output();
+                let output = seat.get_cursor_output();
                 let (x, y) = seat.pointer_cursor().position();
                 tl.drag.take();
                 tl.after_toplevel_drag(
