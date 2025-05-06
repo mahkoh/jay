@@ -24,7 +24,8 @@ use {
         wheel::{Wheel, WheelError},
         wire::{
             JayCompositor, JayCompositorId, JayDamageTracking, JayDamageTrackingId, WlCallbackId,
-            WlRegistryId, wl_callback, wl_display, wl_registry,
+            WlRegistryId, WlSeatId, jay_compositor, jay_select_toplevel, jay_toplevel, wl_callback,
+            wl_display, wl_registry,
         },
     },
     ahash::AHashMap,
@@ -63,8 +64,8 @@ pub enum ToolClientError {
     UnalignedMessage,
     #[error(transparent)]
     BufFdError(#[from] BufFdError),
-    #[error("The size of the message is not a multiple of 4")]
-    Parsing(&'static str, MsgParserError),
+    #[error("Could not parse a message of type {}", .0)]
+    Parsing(&'static str, #[source] MsgParserError),
     #[error("Could not read from the compositor")]
     Read(#[source] BufFdError),
     #[error("Could not write to the compositor")]
@@ -195,6 +196,7 @@ impl ToolClient {
             fatal!("The compositor returned a fatal error: {}", val.message);
         });
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
+            tc.handlers.borrow_mut().remove(&ObjectId::from_raw(val.id));
             tc.obj_ids.borrow_mut().release(val.id);
         });
         slf.incoming.set(Some(
@@ -332,7 +334,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(17),
+            version: s.jay_compositor.1.min(18),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -358,6 +360,41 @@ impl ToolClient {
         });
         self.jay_damage_tracking.set(Some(Some(id)));
         Some(id)
+    }
+
+    pub async fn select_toplevel_client(self: &Rc<Self>) -> u64 {
+        let id = self.id();
+        self.send(jay_compositor::SelectToplevel {
+            self_id: self.jay_compositor().await,
+            id,
+            seat: WlSeatId::NONE,
+        });
+        let ae = Rc::new(AsyncEvent::default());
+        let client_id = Rc::new(Cell::new(0));
+        jay_select_toplevel::Done::handle(
+            self,
+            id,
+            (self.clone(), ae.clone(), client_id.clone()),
+            |(tc, ae, client_id), event| {
+                if event.id.is_some() {
+                    jay_toplevel::ClientId::handle(
+                        tc,
+                        event.id,
+                        client_id.clone(),
+                        |client_id, event| {
+                            client_id.set(event.id);
+                        },
+                    );
+                    jay_toplevel::Done::handle(tc, event.id, ae.clone(), |ae, _event| {
+                        ae.trigger();
+                    });
+                } else {
+                    ae.trigger();
+                }
+            },
+        );
+        ae.triggered().await;
+        client_id.get()
     }
 }
 

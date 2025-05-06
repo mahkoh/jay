@@ -109,6 +109,14 @@ request reexec (since = 17) {
     id: id(jay_reexec),
 }
 
+request create_client_query (since = 18) {
+    id: id(jay_client_query),
+}
+
+request kill_client (since = 18) {
+    id: pod(u64),
+}
+
 # events
 
 event client_id {

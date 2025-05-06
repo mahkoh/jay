@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::{
-            jay_toplevel::{ID_SINCE, JayToplevel},
+            jay_toplevel::{CLIENT_ID_SINCE, ID_SINCE, JayToplevel},
             wl_seat::ToplevelSelector,
         },
         leaks::Tracker,
@@ -78,6 +78,9 @@ impl JaySelectToplevel {
                 self.send_done(jtl.id);
                 if jtl.version >= ID_SINCE {
                     jtl.send_id();
+                    if jtl.version >= CLIENT_ID_SINCE {
+                        jtl.send_client_id();
+                    }
                     jtl.send_done();
                 }
             }
