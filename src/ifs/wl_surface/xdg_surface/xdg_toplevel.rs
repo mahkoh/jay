@@ -34,6 +34,7 @@ use {
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
     ahash::{AHashMap, AHashSet},
+    jay_config::window::TileState,
     num_derive::FromPrimitive,
     std::{
         cell::{Cell, RefCell},
@@ -381,6 +382,31 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 }
 
 impl XdgToplevel {
+    fn map(
+        self: &Rc<Self>,
+        parent: Option<&XdgToplevel>,
+        pos: Option<(&Rc<OutputNode>, i32, i32)>,
+    ) {
+        if let Some(state) = self.state.initial_tile_state(&self.toplevel_data) {
+            match state {
+                TileState::Floating => {
+                    let mut ws = None;
+                    if let Some(parent) = parent {
+                        ws = parent.xdg.workspace.get();
+                    }
+                    let ws = ws.unwrap_or_else(|| self.state.ensure_map_workspace(None));
+                    self.map_floating(&ws, pos.map(|p| (p.1, p.2)));
+                }
+                _ => self.map_tiled(),
+            }
+            return;
+        }
+        match parent {
+            None => self.map_tiled(),
+            Some(p) => self.map_child(p, pos),
+        }
+    }
+
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
@@ -474,11 +500,7 @@ impl XdgToplevel {
             }
             self.state.tree_changed();
         } else {
-            if let Some(parent) = self.parent.get() {
-                self.map_child(&parent, pos);
-            } else {
-                self.map_tiled();
-            }
+            self.map(self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();

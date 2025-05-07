@@ -28,7 +28,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
-        window::WindowType,
+        window::{TileState, WindowType},
         xwayland::XScalingMode,
     },
     std::{
@@ -249,6 +249,7 @@ pub struct WindowRule {
     pub action: Option<Action>,
     pub latch: Option<Action>,
     pub auto_focus: Option<bool>,
+    pub initial_tile_state: Option<TileState>,
 }
 
 #[derive(Default, Debug, Clone)]

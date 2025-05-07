@@ -41,6 +41,16 @@ bitflags! {
     }
 }
 
+/// The tile state of a window.
+#[non_exhaustive]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum TileState {
+    /// The window is tiled.
+    Tiled,
+    /// The window is floating.
+    Floating,
+}
+
 /// A window created by a client.
 ///
 /// This is the same as `XDG_TOPLEVEL | X_WINDOW`.
@@ -306,6 +316,17 @@ impl WindowCriterion<'_> {
     pub fn set_auto_focus(self, auto_focus: bool) {
         self.to_matcher().set_auto_focus(auto_focus);
     }
+
+    /// Sets whether newly mapped windows that match this matcher are mapped tiling or
+    /// floating.
+    ///
+    /// If multiple such window matchers match a window, the used tile state is
+    /// unspecified.
+    ///
+    /// This leaks the matcher.
+    pub fn set_initial_tile_state(self, tile_state: TileState) {
+        self.to_matcher().set_initial_tile_state(tile_state);
+    }
 }
 
 impl WindowMatcher {
@@ -329,6 +350,15 @@ impl WindowMatcher {
     /// automatically focused.
     pub fn set_auto_focus(self, auto_focus: bool) {
         get!().set_window_matcher_auto_focus(self, auto_focus);
+    }
+
+    /// Sets whether newly mapped windows that match this matcher are mapped tiling or
+    /// floating.
+    ///
+    /// If multiple such window matchers match a window, the used tile state is
+    /// unspecified.
+    pub fn set_initial_tile_state(self, tile_state: TileState) {
+        get!().set_window_matcher_initial_tile_state(self, tile_state);
     }
 }
 

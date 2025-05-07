@@ -82,8 +82,8 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
-            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
-            ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
+            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelData,
+            ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -112,6 +112,7 @@ use {
     jay_config::{
         PciId,
         video::{GfxApi, Transform},
+        window::TileState,
     },
     std::{
         cell::{Cell, RefCell},
@@ -662,6 +663,16 @@ impl State {
         }
     }
 
+    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+        seat.cloned()
+            .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
+            .map(|s| s.get_output())
+            .or_else(|| self.root.outputs.lock().values().next().cloned())
+            .or_else(|| self.dummy_output.get())
+            .unwrap()
+            .ensure_workspace()
+    }
+
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
         self.do_map_tiled(seat.as_deref(), node.clone());
@@ -669,12 +680,7 @@ impl State {
     }
 
     fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
-        let output = seat
-            .map(|s| s.get_output())
-            .or_else(|| self.root.outputs.lock().values().next().cloned())
-            .or_else(|| self.dummy_output.get())
-            .unwrap();
-        let ws = output.ensure_workspace();
+        let ws = self.ensure_map_workspace(seat);
         self.map_tiled_on(node, &ws);
     }
 
@@ -1383,6 +1389,10 @@ impl State {
             return false;
         };
         ctx.supports_color_management()
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        self.config.get()?.initial_tile_state(data)
     }
 }
 

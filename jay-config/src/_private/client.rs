@@ -32,7 +32,7 @@ use {
             Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
-        window::{MatchedWindow, Window, WindowCriterion, WindowMatcher, WindowType},
+        window::{MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -1705,6 +1705,17 @@ impl ConfigClient {
         self.send(&ClientMessage::SetWindowMatcherAutoFocus {
             matcher,
             auto_focus,
+        });
+    }
+
+    pub fn set_window_matcher_initial_tile_state(
+        &self,
+        matcher: WindowMatcher,
+        tile_state: TileState,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialTileState {
+            matcher,
+            tile_state,
         });
     }
 

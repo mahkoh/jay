@@ -3376,6 +3376,10 @@ WindowRule:
        
         If a window matches any rule for which this is false, the window will not be
         automatically focused.
+    initial-tile-state:
+      ref: TileState
+      required: false
+      description: Specifies if the window is initially mapped tiled or floating.
 
 
 WindowMatch:
@@ -3602,3 +3606,13 @@ WindowTypeMask:
       description: An array of masks that are OR'd.
       items:
         ref: WindowTypeMask
+
+
+TileState:
+  description: Whether a window is tiled or floating.
+  kind: string
+  values:
+    - value: tiled
+      description: The window is tiled.
+    - value: floating
+      description: The window is floating.

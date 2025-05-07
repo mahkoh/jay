@@ -37,6 +37,7 @@ pub mod shortcuts;
 mod status;
 mod tearing;
 mod theme;
+mod tile_state;
 mod ui_drag;
 mod vrr;
 mod window_match;

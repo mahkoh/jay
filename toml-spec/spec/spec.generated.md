@@ -3710,6 +3710,25 @@ The table has the following fields:
   The value of this field should be a string.
 
 
+<a name="types-TileState"></a>
+### `TileState`
+
+Whether a window is tiled or floating.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `tiled`:
+
+  The window is tiled.
+
+- `floating`:
+
+  The window is floating.
+
+
+
 <a name="types-TransferFunction"></a>
 ### `TransferFunction`
 
@@ -4211,6 +4230,12 @@ The table has the following fields:
   automatically focused.
 
   The value of this field should be a boolean.
+
+- `initial-tile-state` (optional):
+
+  Specifies if the window is initially mapped tiled or floating.
+
+  The value of this field should be a [TileState](#types-TileState).
 
 
 <a name="types-WindowTypeMask"></a>

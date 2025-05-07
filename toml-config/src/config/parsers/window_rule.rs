@@ -7,6 +7,7 @@ use {
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::{ActionParser, ActionParserError},
+                tile_state::TileStateParser,
                 window_match::{WindowMatchParser, WindowMatchParserError},
             },
             spanned::SpannedErrorExt,
@@ -47,13 +48,15 @@ impl Parser for WindowRuleParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, match_val, action_val, latch_val, auto_focus) = ext.extract((
-            opt(str("name")),
-            opt(val("match")),
-            opt(val("action")),
-            opt(val("latch")),
-            recover(opt(bol("auto-focus"))),
-        ))?;
+        let (name, match_val, action_val, latch_val, auto_focus, initial_tile_state_val) = ext
+            .extract((
+                opt(str("name")),
+                opt(val("match")),
+                opt(val("action")),
+                opt(val("latch")),
+                recover(opt(bol("auto-focus"))),
+                opt(val("initial-tile-state")),
+            ))?;
         let mut action = None;
         if let Some(value) = action_val {
             action = Some(
@@ -70,6 +73,18 @@ impl Parser for WindowRuleParser<'_> {
                     .map_spanned_err(WindowRuleParserError::Latch)?,
             );
         }
+        let mut initial_tile_state = None;
+        if let Some(value) = initial_tile_state_val {
+            match value.parse(&mut TileStateParser) {
+                Ok(v) => initial_tile_state = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the initial tile state: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         let match_ = match match_val {
             None => WindowMatch::default(),
             Some(m) => m.parse_map(&mut WindowMatchParser(self.0))?,
@@ -80,6 +95,7 @@ impl Parser for WindowRuleParser<'_> {
             action,
             latch,
             auto_focus: auto_focus.despan(),
+            initial_tile_state,
         })
     }
 }

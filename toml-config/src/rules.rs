@@ -336,6 +336,9 @@ impl Rule for WindowRule {
         if let Some(auto_focus) = self.auto_focus {
             matcher.set_auto_focus(auto_focus);
         }
+        if let Some(tile_state) = self.initial_tile_state {
+            matcher.set_initial_tile_state(tile_state);
+        }
     }
 
     fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {

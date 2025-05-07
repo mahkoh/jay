@@ -15,7 +15,7 @@ use {
             ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
             Transform, VrrMode, connector_type::ConnectorType,
         },
-        window::{Window, WindowMatcher, WindowType},
+        window::{TileState, Window, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -701,6 +701,10 @@ pub enum ClientMessage<'a> {
     SetWindowMatcherAutoFocus {
         matcher: WindowMatcher,
         auto_focus: bool,
+    },
+    SetWindowMatcherInitialTileState {
+        matcher: WindowMatcher,
+        tile_state: TileState,
     },
 }
 

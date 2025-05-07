@@ -66,7 +66,7 @@ use {
             TearingMode as ConfigTearingMode, TransferFunction as ConfigTransferFunction,
             Transform, VrrMode as ConfigVrrMode,
         },
-        window::{Window, WindowMatcher},
+        window::{TileState, Window, WindowMatcher},
         xwayland::XScalingMode,
     },
     libloading::Library,
@@ -126,6 +126,13 @@ pub(super) struct ConfigProxyHandler {
     pub window_matcher_std_kinds: Rc<TlmUpstreamNode>,
     pub window_matcher_no_auto_focus:
         CopyHashMap<WindowMatcher, Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>>,
+    pub window_matcher_initial_tile_state: CopyHashMap<
+        WindowMatcher,
+        (
+            Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
+            TileState,
+        ),
+    >,
 }
 
 pub struct Pollable {
@@ -2030,6 +2037,7 @@ impl ConfigProxyHandler {
         self.window_matchers.remove(&matcher);
         self.window_matcher_leafs.remove(&matcher);
         self.window_matcher_no_auto_focus.remove(&matcher);
+        self.window_matcher_initial_tile_state.remove(&matcher);
     }
 
     fn handle_enable_window_matcher_events(
@@ -2070,6 +2078,17 @@ impl ConfigProxyHandler {
             let m = self.get_window_matcher(matcher)?;
             self.window_matcher_no_auto_focus.set(matcher, m);
         }
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_tile_state(
+        &self,
+        matcher: WindowMatcher,
+        tile_state: TileState,
+    ) -> Result<(), CphError> {
+        let m = self.get_window_matcher(matcher)?;
+        self.window_matcher_initial_tile_state
+            .set(matcher, (m, tile_state));
         Ok(())
     }
 
@@ -2884,6 +2903,12 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_matcher_auto_focus(matcher, auto_focus)
                 .wrn("set_window_matcher_auto_focus")?,
+            ClientMessage::SetWindowMatcherInitialTileState {
+                matcher,
+                tile_state,
+            } => self
+                .handle_set_window_matcher_initial_tile_state(matcher, tile_state)
+                .wrn("set_window_matcher_initial_tile_state")?,
         }
         Ok(())
     }
@@ -2895,6 +2920,15 @@ impl ConfigProxyHandler {
             }
         }
         true
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        for (matcher, state) in self.window_matcher_initial_tile_state.lock().values() {
+            if matcher.node.pull(data) {
+                return Some(*state);
+            }
+        }
+        None
     }
 }
 

@@ -21,6 +21,7 @@ use {
         xwayland::XWaylandEvent,
     },
     bstr::BString,
+    jay_config::window::TileState,
     std::{
         cell::{Cell, RefCell},
         ops::{Deref, Not},
@@ -266,6 +267,14 @@ impl Xwindow {
     pub fn map_status_changed(self: &Rc<Self>) {
         let map_change = self.map_change();
         let override_redirect = self.data.info.override_redirect.get();
+        let map_floating = match self
+            .toplevel_data
+            .state
+            .initial_tile_state(&self.toplevel_data)
+        {
+            None => self.data.info.wants_floating.get(),
+            Some(m) => m == TileState::Floating,
+        };
         match map_change {
             Change::None => return,
             Change::Unmap => {
@@ -282,7 +291,7 @@ impl Xwindow {
                     Some(self.data.state.root.stacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
-            Change::Map if self.data.info.wants_floating.get() => {
+            Change::Map if map_floating => {
                 let ws = self.data.state.float_map_ws();
                 let ext = self.data.info.pending_extents.get();
                 self.data

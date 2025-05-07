@@ -1664,6 +1664,14 @@
       },
       "required": []
     },
+    "TileState": {
+      "type": "string",
+      "description": "Whether a window is tiled or floating.",
+      "enum": [
+        "tiled",
+        "floating"
+      ]
+    },
     "TransferFunction": {
       "type": "string",
       "description": "The transfer function of an output.\n",
@@ -1908,6 +1916,10 @@
         "auto-focus": {
           "type": "boolean",
           "description": "Whether newly mapped windows that match this rule get the keyboard focus.\n\nIf a window matches any rule for which this is false, the window will not be\nautomatically focused.\n"
+        },
+        "initial-tile-state": {
+          "description": "Specifies if the window is initially mapped tiled or floating.",
+          "$ref": "#/$defs/TileState"
         }
       },
       "required": []
