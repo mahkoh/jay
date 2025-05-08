@@ -28,6 +28,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
+        window::{TileState, WindowType},
         xwayland::XScalingMode,
     },
     std::{
@@ -53,15 +54,20 @@ pub enum SimpleCommand {
     ReloadConfigToml,
     Split(Axis),
     ToggleFloating,
+    SetFloating(bool),
     ToggleFullscreen,
+    SetFullscreen(bool),
     ToggleMono,
+    SetMono(bool),
     ToggleSplit,
+    SetSplit(Axis),
     Forward(bool),
     EnableWindowManagement(bool),
     SetFloatAboveFullscreen(bool),
     ToggleFloatAboveFullscreen,
     SetFloatPinned(bool),
     ToggleFloatPinned,
+    KillClient,
 }
 
 #[derive(Debug, Clone)]
@@ -192,6 +198,85 @@ pub enum OutputMatch {
         manufacturer: Option<String>,
         model: Option<String>,
     },
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct GenericMatch<Match> {
+    pub name: Option<String>,
+    pub not: Option<Box<Match>>,
+    pub all: Option<Vec<Match>>,
+    pub any: Option<Vec<Match>>,
+    pub exactly: Option<MatchExactly<Match>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchExactly<Match> {
+    pub num: usize,
+    pub list: Vec<Match>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientRule {
+    pub name: Option<String>,
+    pub match_: ClientMatch,
+    pub action: Option<Action>,
+    pub latch: Option<Action>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ClientMatch {
+    pub generic: GenericMatch<Self>,
+    pub sandbox_engine: Option<String>,
+    pub sandbox_engine_regex: Option<String>,
+    pub sandbox_app_id: Option<String>,
+    pub sandbox_app_id_regex: Option<String>,
+    pub sandbox_instance_id: Option<String>,
+    pub sandbox_instance_id_regex: Option<String>,
+    pub sandboxed: Option<bool>,
+    pub uid: Option<i32>,
+    pub pid: Option<i32>,
+    pub is_xwayland: Option<bool>,
+    pub comm: Option<String>,
+    pub comm_regex: Option<String>,
+    pub exe: Option<String>,
+    pub exe_regex: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowRule {
+    pub name: Option<String>,
+    pub match_: WindowMatch,
+    pub action: Option<Action>,
+    pub latch: Option<Action>,
+    pub auto_focus: Option<bool>,
+    pub initial_tile_state: Option<TileState>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct WindowMatch {
+    pub generic: GenericMatch<Self>,
+    pub types: Option<WindowType>,
+    pub client: Option<ClientMatch>,
+    pub title: Option<String>,
+    pub title_regex: Option<String>,
+    pub app_id: Option<String>,
+    pub app_id_regex: Option<String>,
+    pub floating: Option<bool>,
+    pub visible: Option<bool>,
+    pub urgent: Option<bool>,
+    pub focused: Option<bool>,
+    pub fullscreen: Option<bool>,
+    pub just_mapped: Option<bool>,
+    pub tag: Option<String>,
+    pub tag_regex: Option<String>,
+    pub x_class: Option<String>,
+    pub x_class_regex: Option<String>,
+    pub x_instance: Option<String>,
+    pub x_instance_regex: Option<String>,
+    pub x_role: Option<String>,
+    pub x_role_regex: Option<String>,
+    pub workspace: Option<String>,
+    pub workspace_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -391,6 +476,8 @@ pub struct Config {
     pub float: Option<Float>,
     pub named_actions: Vec<NamedAction>,
     pub max_action_depth: u64,
+    pub client_rules: Vec<ClientRule>,
+    pub window_rules: Vec<WindowRule>,
 }
 
 #[derive(Debug, Error)]

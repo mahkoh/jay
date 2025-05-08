@@ -1,7 +1,8 @@
 use {
     crate::{
-        _private::{PollableId, WireMode},
+        _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode},
         Axis, Direction, PciId, Workspace,
+        client::{Client, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
             capability::Capability,
@@ -14,6 +15,7 @@ use {
             ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
             Transform, VrrMode, connector_type::ConnectorType,
         },
+        window::{TileState, Window, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -92,6 +94,22 @@ pub enum ServerMessage {
         input_device: InputDevice,
         event: SwitchEvent,
     },
+    ClientMatcherMatched {
+        matcher: ClientMatcher,
+        client: Client,
+    },
+    ClientMatcherUnmatched {
+        matcher: ClientMatcher,
+        client: Client,
+    },
+    WindowMatcherMatched {
+        matcher: WindowMatcher,
+        window: Window,
+    },
+    WindowMatcherUnmatched {
+        matcher: WindowMatcher,
+        window: Window,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -129,20 +147,20 @@ pub enum ClientMessage<'a> {
         rate: i32,
         delay: i32,
     },
-    GetSplit {
+    GetSeatSplit {
         seat: Seat,
     },
     SetStatus {
         status: &'a str,
     },
-    SetSplit {
+    SetSeatSplit {
         seat: Seat,
         axis: Axis,
     },
-    GetMono {
+    GetSeatMono {
         seat: Seat,
     },
-    SetMono {
+    SetSeatMono {
         seat: Seat,
         mono: bool,
     },
@@ -168,11 +186,11 @@ pub enum ClientMessage<'a> {
         args: Vec<String>,
         env: Vec<(String, String)>,
     },
-    Focus {
+    SeatFocus {
         seat: Seat,
         direction: Direction,
     },
-    Move {
+    SeatMove {
         seat: Seat,
         direction: Direction,
     },
@@ -196,20 +214,20 @@ pub enum ClientMessage<'a> {
         colorable: Colorable,
         color: Color,
     },
-    CreateSplit {
+    CreateSeatSplit {
         seat: Seat,
         axis: Axis,
     },
-    Close {
+    SeatClose {
         seat: Seat,
     },
-    FocusParent {
+    FocusSeatParent {
         seat: Seat,
     },
-    GetFloating {
+    GetSeatFloating {
         seat: Seat,
     },
-    SetFloating {
+    SetSeatFloating {
         seat: Seat,
         floating: bool,
     },
@@ -261,7 +279,7 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         workspace: Workspace,
     },
-    SetWorkspace {
+    SetSeatWorkspace {
         seat: Seat,
         workspace: Workspace,
     },
@@ -280,11 +298,11 @@ pub enum ClientMessage<'a> {
         key: &'a str,
         val: &'a str,
     },
-    SetFullscreen {
+    SetSeatFullscreen {
         seat: Seat,
         fullscreen: bool,
     },
-    GetFullscreen {
+    GetSeatFullscreen {
         seat: Seat,
     },
     GetDeviceConnectors {
@@ -546,10 +564,10 @@ pub enum ClientMessage<'a> {
         above: bool,
     },
     GetFloatAboveFullscreen,
-    GetFloatPinned {
+    GetSeatFloatPinned {
         seat: Seat,
     },
-    SetFloatPinned {
+    SetSeatFloatPinned {
         seat: Seat,
         pinned: bool,
     },
@@ -564,6 +582,129 @@ pub enum ClientMessage<'a> {
     },
     GetConnectorWorkspaces {
         connector: Connector,
+    },
+    GetClients,
+    ClientExists {
+        client: Client,
+    },
+    ClientKill {
+        client: Client,
+    },
+    ClientIsXwayland {
+        client: Client,
+    },
+    WindowExists {
+        window: Window,
+    },
+    GetWindowClient {
+        window: Window,
+    },
+    GetWorkspaceWindow {
+        workspace: Workspace,
+    },
+    GetSeatKeyboardWindow {
+        seat: Seat,
+    },
+    SeatFocusWindow {
+        seat: Seat,
+        window: Window,
+    },
+    GetWindowTitle {
+        window: Window,
+    },
+    GetWindowType {
+        window: Window,
+    },
+    GetWindowId {
+        window: Window,
+    },
+    GetWindowIsVisible {
+        window: Window,
+    },
+    GetWindowParent {
+        window: Window,
+    },
+    GetWindowWorkspace {
+        window: Window,
+    },
+    GetWindowChildren {
+        window: Window,
+    },
+    GetWindowSplit {
+        window: Window,
+    },
+    SetWindowSplit {
+        window: Window,
+        axis: Axis,
+    },
+    GetWindowMono {
+        window: Window,
+    },
+    SetWindowMono {
+        window: Window,
+        mono: bool,
+    },
+    WindowMove {
+        window: Window,
+        direction: Direction,
+    },
+    CreateWindowSplit {
+        window: Window,
+        axis: Axis,
+    },
+    WindowClose {
+        window: Window,
+    },
+    GetWindowFloating {
+        window: Window,
+    },
+    SetWindowFloating {
+        window: Window,
+        floating: bool,
+    },
+    SetWindowWorkspace {
+        window: Window,
+        workspace: Workspace,
+    },
+    SetWindowFullscreen {
+        window: Window,
+        fullscreen: bool,
+    },
+    GetWindowFullscreen {
+        window: Window,
+    },
+    GetWindowFloatPinned {
+        window: Window,
+    },
+    SetWindowFloatPinned {
+        window: Window,
+        pinned: bool,
+    },
+    CreateClientMatcher {
+        criterion: ClientCriterionIpc,
+    },
+    DestroyClientMatcher {
+        matcher: ClientMatcher,
+    },
+    EnableClientMatcherEvents {
+        matcher: ClientMatcher,
+    },
+    CreateWindowMatcher {
+        criterion: WindowCriterionIpc,
+    },
+    DestroyWindowMatcher {
+        matcher: WindowMatcher,
+    },
+    EnableWindowMatcherEvents {
+        matcher: WindowMatcher,
+    },
+    SetWindowMatcherAutoFocus {
+        matcher: WindowMatcher,
+        auto_focus: bool,
+    },
+    SetWindowMatcherInitialTileState {
+        matcher: WindowMatcher,
+        tile_state: TileState,
     },
 }
 
@@ -727,6 +868,69 @@ pub enum Response {
     },
     GetConnectorWorkspaces {
         workspaces: Vec<Workspace>,
+    },
+    GetClients {
+        clients: Vec<Client>,
+    },
+    ClientExists {
+        exists: bool,
+    },
+    ClientIsXwayland {
+        is_xwayland: bool,
+    },
+    WindowExists {
+        exists: bool,
+    },
+    GetWindowClient {
+        client: Client,
+    },
+    GetSeatKeyboardWindow {
+        window: Window,
+    },
+    GetWorkspaceWindow {
+        window: Window,
+    },
+    GetWindowParent {
+        window: Window,
+    },
+    GetWindowChildren {
+        windows: Vec<Window>,
+    },
+    GetWindowTitle {
+        title: String,
+    },
+    GetWindowType {
+        kind: WindowType,
+    },
+    GetWindowId {
+        id: String,
+    },
+    GetWindowWorkspace {
+        workspace: Workspace,
+    },
+    GetWindowFloating {
+        floating: bool,
+    },
+    GetWindowSplit {
+        axis: Axis,
+    },
+    GetWindowMono {
+        mono: bool,
+    },
+    GetWindowFullscreen {
+        fullscreen: bool,
+    },
+    GetWindowFloatPinned {
+        pinned: bool,
+    },
+    GetWindowIsVisible {
+        visible: bool,
+    },
+    CreateClientMatcher {
+        matcher: ClientMatcher,
+    },
+    CreateWindowMatcher {
+        matcher: WindowMatcher,
     },
 }
 

@@ -2,6 +2,10 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{error::LookupError, objects::Objects},
+        criteria::{
+            CritDestroyListener, CritMatcherId,
+            clm::{CL_CHANGED_DESTROYED, CL_CHANGED_NEW, ClMatcherChange},
+        },
         ifs::{
             wl_display::WlDisplay,
             wl_registry::WlRegistry,
@@ -9,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
+        security_context_acceptor::AcceptorMetadata,
         state::State,
         utils::{
             activation_token::ActivationToken,
@@ -19,6 +24,7 @@ use {
             numcell::NumCell,
             pending_serial::PendingSerial,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
+            pidfd_send_signal::pidfd_send_signal,
         },
         wire::WlRegistryId,
     },
@@ -30,7 +36,7 @@ use {
         fmt::{Debug, Display, Formatter},
         mem,
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     uapi::{OwnedFd, c},
 };
@@ -105,7 +111,6 @@ impl Clients {
         ClientId(self.next_client_id.fetch_add(1))
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn get(&self, id: ClientId) -> Result<Rc<Client>, ClientError> {
         let clients = self.clients.borrow();
         match clients.get(&id) {
@@ -121,6 +126,7 @@ impl Clients {
         socket: Rc<OwnedFd>,
         effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
+        acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<(), ClientError> {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
             return Ok(());
@@ -134,6 +140,7 @@ impl Clients {
             effective_caps,
             bounding_caps,
             false,
+            acceptor,
         )?;
         Ok(())
     }
@@ -148,6 +155,7 @@ impl Clients {
         effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
         is_xwayland: bool,
+        acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new_cyclic(|slf| Client {
             id,
@@ -177,6 +185,9 @@ impl Clients {
             )),
             wire_scale: Default::default(),
             focus_stealing_serial: Default::default(),
+            changed_properties: Default::default(),
+            destroyed: Default::default(),
+            acceptor: acceptor.clone(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -196,6 +207,7 @@ impl Clients {
             data.pid_info.comm,
             effective_caps,
         );
+        client.data.property_changed(CL_CHANGED_NEW);
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
     }
@@ -251,6 +263,14 @@ impl Drop for ClientHolder {
         self.data.surfaces_by_xwayland_serial.clear();
         self.data.remove_activation_tokens();
         self.data.commit_timelines.clear();
+        self.data.property_changed(CL_CHANGED_DESTROYED);
+        if self.data.is_xwayland {
+            if let Some(pidfd) = self.data.state.xwayland.pidfd.get() {
+                if let Err(e) = pidfd_send_signal(&pidfd, c::SIGKILL) {
+                    log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
+                }
+            }
+        }
     }
 }
 
@@ -289,6 +309,9 @@ pub struct Client {
     pub commit_timelines: Rc<CommitTimelines>,
     pub wire_scale: Cell<Option<i32>>,
     pub focus_stealing_serial: Cell<Option<u64>>,
+    pub changed_properties: Cell<ClMatcherChange>,
+    pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
+    pub acceptor: Rc<AcceptorMetadata>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -492,6 +515,14 @@ impl Client {
     fn remove_activation_tokens(&self) {
         for token in &*self.activation_tokens.borrow() {
             self.state.activation_tokens.remove(token);
+        }
+    }
+
+    pub fn property_changed(self: &Rc<Self>, change: ClMatcherChange) {
+        let props = self.changed_properties.get();
+        self.changed_properties.set(props | change);
+        if props.is_none() && change.is_some() {
+            self.state.cl_matcher_manager.changed(self);
         }
     }
 }

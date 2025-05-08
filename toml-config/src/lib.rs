@@ -1,17 +1,27 @@
-#![allow(clippy::len_zero, clippy::single_char_pattern, clippy::collapsible_if)]
+#![allow(
+    clippy::len_zero,
+    clippy::single_char_pattern,
+    clippy::collapsible_if,
+    clippy::collapsible_else_if
+)]
 
 mod config;
+mod rules;
 mod toml;
 
 use {
-    crate::config::{
-        Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap, ConnectorMatch,
-        DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut, SimpleCommand,
-        Status, Theme, parse_config,
+    crate::{
+        config::{
+            Action, ClientRule, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
+            ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
+            SimpleCommand, Status, Theme, WindowRule, parse_config,
+        },
+        rules::{MatcherTemp, RuleMapper},
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
     jay_config::{
+        client::Client,
         config, config_dir,
         exec::{Command, set_env, unset_env},
         get_workspace,
@@ -37,6 +47,7 @@ use {
             on_new_connector, on_new_drm_device, set_direct_scanout_enabled, set_gfx_api,
             set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
         },
+        window::Window,
         xwayland::set_x_scaling_mode,
     },
     run_on_drop::on_drop,
@@ -79,21 +90,50 @@ impl Action {
     }
 
     fn into_fn_impl<B: FnBuilder>(self, state: &Rc<State>) -> B {
+        macro_rules! client_action {
+            ($name:ident, $opt:expr) => {{
+                let state = state.clone();
+                B::new(move || {
+                    if let Some($name) = state.client.get() {
+                        $opt
+                    }
+                })
+            }};
+        }
         let s = state.persistent.seat;
+        macro_rules! window_or_seat {
+            ($name:ident, $expr:expr) => {{
+                let state = state.clone();
+                B::new(move || {
+                    if let Some($name) = state.window.get() {
+                        if let Some($name) = $name {
+                            $expr;
+                        }
+                    } else {
+                        let $name = s;
+                        $expr;
+                    }
+                })
+            }};
+        }
         match self {
             Action::SimpleCommand { cmd } => match cmd {
                 SimpleCommand::Focus(dir) => B::new(move || s.focus(dir)),
-                SimpleCommand::Move(dir) => B::new(move || s.move_(dir)),
-                SimpleCommand::Split(axis) => B::new(move || s.create_split(axis)),
-                SimpleCommand::ToggleSplit => B::new(move || s.toggle_split()),
-                SimpleCommand::ToggleMono => B::new(move || s.toggle_mono()),
-                SimpleCommand::ToggleFullscreen => B::new(move || s.toggle_fullscreen()),
+                SimpleCommand::Move(dir) => window_or_seat!(s, s.move_(dir)),
+                SimpleCommand::Split(axis) => window_or_seat!(s, s.create_split(axis)),
+                SimpleCommand::ToggleSplit => window_or_seat!(s, s.toggle_split()),
+                SimpleCommand::SetSplit(b) => window_or_seat!(s, s.set_split(b)),
+                SimpleCommand::ToggleMono => window_or_seat!(s, s.toggle_mono()),
+                SimpleCommand::SetMono(b) => window_or_seat!(s, s.set_mono(b)),
+                SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),
+                SimpleCommand::SetFullscreen(b) => window_or_seat!(s, s.set_fullscreen(b)),
                 SimpleCommand::FocusParent => B::new(move || s.focus_parent()),
-                SimpleCommand::Close => B::new(move || s.close()),
+                SimpleCommand::Close => window_or_seat!(s, s.close()),
                 SimpleCommand::DisablePointerConstraint => {
                     B::new(move || s.disable_pointer_constraint())
                 }
-                SimpleCommand::ToggleFloating => B::new(move || s.toggle_floating()),
+                SimpleCommand::ToggleFloating => window_or_seat!(s, s.toggle_floating()),
+                SimpleCommand::SetFloating(b) => window_or_seat!(s, s.set_floating(b)),
                 SimpleCommand::Quit => B::new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
@@ -109,8 +149,11 @@ impl Action {
                     B::new(move || set_float_above_fullscreen(bool))
                 }
                 SimpleCommand::ToggleFloatAboveFullscreen => B::new(toggle_float_above_fullscreen),
-                SimpleCommand::SetFloatPinned(pinned) => B::new(move || s.set_float_pinned(pinned)),
-                SimpleCommand::ToggleFloatPinned => B::new(move || s.toggle_float_pinned()),
+                SimpleCommand::SetFloatPinned(pinned) => {
+                    window_or_seat!(s, s.set_float_pinned(pinned))
+                }
+                SimpleCommand::ToggleFloatPinned => window_or_seat!(s, s.toggle_float_pinned()),
+                SimpleCommand::KillClient => client_action!(c, c.kill()),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -128,7 +171,7 @@ impl Action {
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                B::new(move || s.set_workspace(workspace))
+                window_or_seat!(s, s.set_workspace(workspace))
             }
             Action::ConfigureConnector { con } => B::new(move || {
                 for c in connectors() {
@@ -662,6 +705,10 @@ struct State {
 
     action_depth_max: u64,
     action_depth: Cell<u64>,
+
+    client: Cell<Option<Client>>,
+
+    window: Cell<Option<Option<Window>>>,
 }
 
 impl Drop for State {
@@ -867,6 +914,26 @@ impl State {
             }
         }
     }
+
+    fn with_client(&self, client: Client, check: bool, f: impl FnOnce()) {
+        let mut opt = Some(client);
+        if client.0 == 0 || (check && client.does_not_exist()) {
+            opt = None;
+        }
+        self.client.set(opt);
+        f();
+        self.client.set(None);
+    }
+
+    fn with_window(&self, window: Window, check: bool, f: impl FnOnce()) {
+        let mut w = Some(window);
+        if check && !window.exists() {
+            w = None;
+        }
+        self.window.set(Some(w));
+        f();
+        self.window.set(None);
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -883,6 +950,9 @@ struct PersistentState {
     binds: RefCell<AHashSet<ModifiedKeySym>>,
     #[expect(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
+    client_rules: Cell<Vec<MatcherTemp<ClientRule>>>,
+    client_rule_mapper: RefCell<Option<RuleMapper<ClientRule>>>,
+    window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -963,7 +1033,14 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         io_outputs: Default::default(),
         action_depth_max: config.max_action_depth,
         action_depth: Cell::new(0),
+        client: Default::default(),
+        window: Default::default(),
     });
+    let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
+    persistent.client_rules.set(client_rules);
+    *state.persistent.client_rule_mapper.borrow_mut() = Some(client_rule_mapper);
+    let (window_rules, _) = state.create_rules(&config.window_rules);
+    persistent.window_rules.set(window_rules);
     state.set_status(&config.status);
     persistent.actions.borrow_mut().clear();
     for a in config.named_actions {
@@ -1186,10 +1263,16 @@ pub fn configure() {
         seat: default_seat(),
         binds: Default::default(),
         actions: Default::default(),
+        client_rules: Default::default(),
+        client_rule_mapper: Default::default(),
+        window_rules: Default::default(),
     });
     {
         let p = persistent.clone();
-        on_unload(move || p.actions.borrow_mut().clear());
+        on_unload(move || {
+            p.actions.borrow_mut().clear();
+            p.client_rule_mapper.borrow_mut().take();
+        });
     }
     load_config(true, &persistent);
 }

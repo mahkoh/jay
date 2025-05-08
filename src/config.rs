@@ -8,9 +8,10 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
+        tree::ToplevelData,
         utils::{
-            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt, unlink_on_drop::UnlinkOnDrop,
-            xrd::xrd,
+            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt,
+            toplevel_identifier::ToplevelIdentifier, unlink_on_drop::UnlinkOnDrop, xrd::xrd,
         },
     },
     bincode::Options,
@@ -22,6 +23,7 @@ use {
         input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
+        window::{self, TileState},
     },
     libloading::Library,
     std::{cell::Cell, io, mem, ptr, rc::Rc},
@@ -151,6 +153,26 @@ impl ConfigProxy {
             event,
         });
     }
+
+    pub fn toplevel_removed(&self, id: ToplevelIdentifier) {
+        let Some(handler) = self.handler.get() else {
+            return;
+        };
+        if let Some(win) = handler.windows_from_tl_id.remove(&id) {
+            handler.windows_to_tl_id.remove(&win);
+        }
+    }
+
+    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
+        let Some(handler) = self.handler.get() else {
+            return true;
+        };
+        handler.auto_focus(data)
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        self.handler.get()?.initial_tile_state(data)
+    }
 }
 
 impl Drop for ConfigProxy {
@@ -202,6 +224,20 @@ impl ConfigProxy {
             timers_by_id: Default::default(),
             pollable_id: Default::default(),
             pollables: Default::default(),
+            window_ids: NumCell::new(1),
+            windows_from_tl_id: Default::default(),
+            windows_to_tl_id: Default::default(),
+            client_matcher_ids: NumCell::new(1),
+            client_matchers: Default::default(),
+            client_matcher_cache: Default::default(),
+            client_matcher_leafs: Default::default(),
+            window_matcher_ids: NumCell::new(1),
+            window_matchers: Default::default(),
+            window_matcher_cache: Default::default(),
+            window_matcher_leafs: Default::default(),
+            window_matcher_std_kinds: state.tl_matcher_manager.kind(window::CLIENT_WINDOW),
+            window_matcher_no_auto_focus: Default::default(),
+            window_matcher_initial_tile_state: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

@@ -15,6 +15,13 @@ use {
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
         cpu_worker::{CpuWorker, CpuWorkerError},
+        criteria::{
+            CritMatcherIds,
+            clm::{ClMatcherManager, handle_cl_changes, handle_cl_leaf_events},
+            tlm::{
+                TlMatcherManager, handle_tl_changes, handle_tl_just_mapped, handle_tl_leaf_events,
+            },
+        },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
         ei::ei_client::EiClients,
@@ -156,6 +163,7 @@ fn start_compositor2(
     scales.add(Scale::from_int(1));
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let color_manager = ColorManager::new();
+    let crit_ids = Rc::new(CritMatcherIds::default());
     let state = Rc::new(State {
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -218,11 +226,13 @@ fn start_compositor2(
         run_args,
         xwayland: XWaylandState {
             enabled: Cell::new(true),
+            pidfd: Default::default(),
             handler: Default::default(),
             queue: Default::default(),
             ipc_device_ids: Default::default(),
             use_wire_scale: Default::default(),
             wire_scale: Default::default(),
+            windows: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),
@@ -292,6 +302,8 @@ fn start_compositor2(
         float_above_fullscreen: Cell::new(false),
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
+        cl_matcher_manager: ClMatcherManager::new(&crit_ids),
+        tl_matcher_manager: TlMatcherManager::new(&crit_ids),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -463,6 +475,21 @@ fn start_global_event_handlers(
         eng.spawn(
             "workspace manager done",
             workspace_manager_done(state.clone()),
+        ),
+        eng.spawn("cl matcher manager", handle_cl_changes(state.clone())),
+        eng.spawn(
+            "cl matcher leaf events",
+            handle_cl_leaf_events(state.clone()),
+        ),
+        eng.spawn("tl matcher manager", handle_tl_changes(state.clone())),
+        eng.spawn(
+            "tl matcher leaf events",
+            handle_tl_leaf_events(state.clone()),
+        ),
+        eng.spawn2(
+            "tl matcher just mapped",
+            Phase::Layout,
+            handle_tl_just_mapped(state.clone()),
         ),
     ]
 }

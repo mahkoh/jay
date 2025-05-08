@@ -104,12 +104,20 @@ impl ActionParser<'_> {
             "split-horizontal" => Split(Horizontal),
             "split-vertical" => Split(Vertical),
             "toggle-split" => ToggleSplit,
+            "tile-horizontal" => SetSplit(Horizontal),
+            "tile-vertical" => SetSplit(Vertical),
             "toggle-mono" => ToggleMono,
+            "show-single" => SetMono(true),
+            "show-all" => SetMono(false),
             "toggle-fullscreen" => ToggleFullscreen,
+            "enter-fullscreen" => SetFullscreen(true),
+            "exit-fullscreen" => SetFullscreen(false),
             "focus-parent" => FocusParent,
             "close" => Close,
             "disable-pointer-constraint" => DisablePointerConstraint,
             "toggle-floating" => ToggleFloating,
+            "float" => SetFloating(true),
+            "tile" => SetFloating(false),
             "quit" => Quit,
             "reload-config-toml" => ReloadConfigToml,
             "reload-config-so" => ReloadConfigSo,
@@ -124,6 +132,7 @@ impl ActionParser<'_> {
             "pin-float" => SetFloatPinned(true),
             "unpin-float" => SetFloatPinned(false),
             "toggle-float-pinned" => ToggleFloatPinned,
+            "kill-client" => KillClient,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

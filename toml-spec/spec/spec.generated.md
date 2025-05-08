@@ -700,6 +700,294 @@ The string should have one of the following values:
 The brightness in cd/m^2.
 
 
+<a name="types-ClientMatch"></a>
+### `ClientMatch`
+
+Criteria for matching clients.
+
+If no fields are set, all clients are matched. If multiple fields are set, all fields
+must match the client.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  Matches if the client rule with this name matches.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+  
+    # Matches the same clients as the previous rule.
+    [[clients]]
+    match.name = "spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `not` (optional):
+
+  Matches if the contained criteria don't match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "not-spotify"
+    match.not.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
+- `all` (optional):
+
+  Matches if all of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.all = [
+      { sandbox-app-id = "com.spotify.Client" },
+      { sandbox-engine = "org.flatpak" },
+    ]
+    ```
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+- `any` (optional):
+
+  Matches if any of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.any = [
+      { sandbox-app-id = "com.spotify.Client" },
+      { sandbox-app-id = "com.valvesoftware.Steam" },
+    ]
+    ```
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+- `exactly` (optional):
+
+  Matches if a specific number of contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    # Matches any client that is either steam or sandboxed by flatpak but not both.
+    [[clients]]
+    match.exactly.num = 1
+    match.exactly.list = [
+      { sandbox-engine = "org.flatpak" },
+      { sandbox-app-id = "com.valvesoftware.Steam" },
+    ]
+    ```
+
+  The value of this field should be a [ClientMatchExactly](#types-ClientMatchExactly).
+
+- `sandboxed` (optional):
+
+  Matches if the client is/isn't sandboxed.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandboxed = true
+    ```
+
+  The value of this field should be a boolean.
+
+- `sandbox-engine` (optional):
+
+  Matches the engine name of the client's sandbox verbatim.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-engine = "org.flatpak"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-engine-regex` (optional):
+
+  Matches the engine name of the client's sandbox with a regular expression.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-engine = "flatpak"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-app-id` (optional):
+
+  Matches the app id of the client's sandbox verbatim.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-app-id-regex` (optional):
+
+  Matches the app id of the client's sandbox with a regular expression.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    match.sandbox-app-id-regex = "(?i)spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `sandbox-instance-id` (optional):
+
+  Matches the instance id of the client's sandbox verbatim.
+
+  The value of this field should be a string.
+
+- `sandbox-instance-id-regex` (optional):
+
+  Matches the instance id of the client's sandbox with a regular expression.
+
+  The value of this field should be a string.
+
+- `uid` (optional):
+
+  Matches the user ID of the client.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `pid` (optional):
+
+  Matches the process ID of the client.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `is-xwayland` (optional):
+
+  Matches if the client is/isn't Xwayland.
+
+  The value of this field should be a boolean.
+
+- `comm` (optional):
+
+  Matches the `/proc/pid/comm` of the client verbatim.
+
+  The value of this field should be a string.
+
+- `comm-regex` (optional):
+
+  Matches the `/proc/pid/comm` of the client with a regular expression.
+
+  The value of this field should be a string.
+
+- `exe` (optional):
+
+  Matches the `/proc/pid/exe` of the client verbatim.
+
+  The value of this field should be a string.
+
+- `exe-regex` (optional):
+
+  Matches the `/proc/pid/exe` of the client with a regular expression.
+
+  The value of this field should be a string.
+
+
+<a name="types-ClientMatchExactly"></a>
+### `ClientMatchExactly`
+
+Criterion for matching a specific number of client criteria.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `num` (required):
+
+  The number of criteria that must match.
+
+  The value of this field should be a number.
+
+- `list` (required):
+
+  The list of criteria.
+
+  The value of this field should be an array of [ClientMatchs](#types-ClientMatch).
+
+
+<a name="types-ClientRule"></a>
+### `ClientRule`
+
+A client rule.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  The name of this rule.
+  
+  This name can be referenced in other rules.
+  
+  - Example
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+  
+    [[clients]]
+    match.name = "spotify"
+    action = "kill-client"
+    ```
+
+  The value of this field should be a string.
+
+- `match` (optional):
+
+  The criteria that select the client that this rule applies to.
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
+- `action` (optional):
+
+  An action to execute when a client matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `latch` (optional):
+
+  An action to execute when a client no longer matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+
 <a name="types-Color"></a>
 ### `Color`
 
@@ -1416,6 +1704,39 @@ The table has the following fields:
   The numbers should be integers.
 
   The numbers should be greater than or equal to 0.
+
+- `clients` (optional):
+
+  An array of client rules.
+  
+  These rules can be used to give names to clients and to manipulate them.
+  
+  - Example:
+  
+    ```toml
+    [[clients]]
+    name = "spotify"
+    match.sandbox-app-id = "com.spotify.Client"
+    ```
+
+  The value of this field should be an array of [ClientRules](#types-ClientRule).
+
+- `windows` (optional):
+
+  An array of window rules.
+  
+  These rules can be used to give names to windows and to manipulate them.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+    action = { type = "move-to-workspace", name = "music" }
+    ```
+
+  The value of this field should be an array of [WindowRules](#types-WindowRule).
 
 
 <a name="types-Connector"></a>
@@ -2931,6 +3252,33 @@ The table has the following fields:
 
 The name of a `simple` Action.
 
+When used inside a window rule, the following actions apply to the matched window
+instead fo the focused window:
+
+- `move-left`
+- `move-down`
+- `move-up`
+- `move-right`
+- `split-horizontal`
+- `split-vertical`
+- `toggle-split`
+- `tile-horizontal`
+- `tile-vertical`
+- `toggle-split`
+- `show-single`
+- `show-all`
+- `toggle-fullscreen`
+- `enter-fullscreen`
+- `exit-fullscreen`
+- `close`
+- `toggle-floating`
+- `float`
+- `tile`
+- `toggle-float-pinned`
+- `pin-float`
+- `unpin-float`
+
+
 - Example:
 
   ```toml
@@ -2991,13 +3339,37 @@ The string should have one of the following values:
   Toggle the split of the currently focused container between vertical and
   horizontal.
 
+- `tile-horizontal`:
+
+  Sets the split of the currently focused container to horizontal.
+
+- `tile-vertical`:
+
+  Sets the split of the currently focused container to vertical.
+
 - `toggle-mono`:
 
   Toggle the currently focused container between showing a single and all children.
 
+- `show-single`:
+
+  Makes the currently focused container show a single child.
+
+- `show-all`:
+
+  Makes the currently focused container show all children.
+
 - `toggle-fullscreen`:
 
   Toggle the currently focused window between fullscreen and windowed.
+
+- `enter-fullscreen`:
+
+  Makes the currently focused window fullscreen.
+
+- `exit-fullscreen`:
+
+  Makes the currently focused window windowed.
 
 - `focus-parent`:
 
@@ -3017,6 +3389,14 @@ The string should have one of the following values:
 - `toggle-floating`:
 
   Toggle the currently focused window between floating and tiled.
+
+- `float`:
+
+  Makes the currently focused window floating.
+
+- `tile`:
+
+  Makes the currently focused window tiled.
 
 - `quit`:
 
@@ -3096,6 +3476,13 @@ The string should have one of the following values:
 - `toggle-float-pinned`:
 
   Toggles whether the currently focused floating window is pinned.
+
+- `kill-client`:
+
+  Kills a client.
+  
+  Within a window rule, it applies to the client of the window. Within a client rule
+  it applies to the matched client. Has no effect otherwise.
 
 
 
@@ -3323,6 +3710,25 @@ The table has the following fields:
   The value of this field should be a string.
 
 
+<a name="types-TileState"></a>
+### `TileState`
+
+Whether a window is tiled or floating.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `tiled`:
+
+  The window is tiled.
+
+- `floating`:
+
+  The window is floating.
+
+
+
 <a name="types-TransferFunction"></a>
 ### `TransferFunction`
 
@@ -3515,6 +3921,366 @@ The string should have one of the following values:
 
   VRR is enabled when a single game or video is displayed fullscreen.
 
+
+
+<a name="types-WindowMatch"></a>
+### `WindowMatch`
+
+Criteria for matching windows.
+
+If no fields are set, all windows are matched. If multiple fields are set, all fields
+must match the window.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  Matches if the window rule with this name matches.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+  
+    # Matches the same windows as the previous rule.
+    [[windows]]
+    match.name = "spotify"
+    ```
+
+  The value of this field should be a string.
+
+- `not` (optional):
+
+  Matches if the contained criteria don't match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    name = "not-spotify"
+    match.not.title-regex = "Spotify"
+    ```
+
+  The value of this field should be a [WindowMatch](#types-WindowMatch).
+
+- `all` (optional):
+
+  Matches if all of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    match.all = [
+      { title-regex = "Spotify" },
+      { title-regex = "Premium" },
+    ]
+    ```
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+- `any` (optional):
+
+  Matches if any of the contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    match.any = [
+      { title-regex = "Spotify" },
+      { title-regex = "Alacritty" },
+    ]
+    ```
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+- `exactly` (optional):
+
+  Matches if a specific number of contained criteria match.
+  
+  - Example:
+  
+    ```toml
+    # Matches any window that is either Alacritty or on workspace 3 but not both.
+    [[windows]]
+    match.exactly.num = 1
+    match.exactly.list = [
+      { workspace = "3" },
+      { title-regex = "Alacritty" },
+    ]
+    ```
+
+  The value of this field should be a [WindowMatchExactly](#types-WindowMatchExactly).
+
+- `types` (optional):
+
+  Matches windows whose type is contained in the mask.
+
+  The value of this field should be a [WindowTypeMask](#types-WindowTypeMask).
+
+- `client` (optional):
+
+  Matches if the window's client matches the client criterion.
+
+  The value of this field should be a [ClientMatch](#types-ClientMatch).
+
+- `title` (optional):
+
+  Matches the title of the window verbatim.
+
+  The value of this field should be a string.
+
+- `title-regex` (optional):
+
+  Matches the title of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `app-id` (optional):
+
+  Matches the app-id of the window verbatim.
+
+  The value of this field should be a string.
+
+- `app-id-regex` (optional):
+
+  Matches the app-id of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `floating` (optional):
+
+  Matches if the window is/isn't floating.
+
+  The value of this field should be a boolean.
+
+- `visible` (optional):
+
+  Matches if the window is/isn't visible.
+
+  The value of this field should be a boolean.
+
+- `urgent` (optional):
+
+  Matches if the window has/hasn't the urgency flag set.
+
+  The value of this field should be a boolean.
+
+- `focused` (optional):
+
+  Matches if the window has/hasn't the keyboard focus.
+
+  The value of this field should be a boolean.
+
+- `fullscreen` (optional):
+
+  Matches if the window is/isn't fullscreen.
+
+  The value of this field should be a boolean.
+
+- `just-mapped` (optional):
+
+  Matches if the window has/hasn't just been mapped.
+  
+  This is true for one iteration of the compositor's main loop immediately after the
+  window has been mapped.
+
+  The value of this field should be a boolean.
+
+- `tag` (optional):
+
+  Matches the toplevel-tag of the window verbatim.
+
+  The value of this field should be a string.
+
+- `tag-regex` (optional):
+
+  Matches the toplevel-tag of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `x-class` (optional):
+
+  Matches the X class of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-class-regex` (optional):
+
+  Matches the X class of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `x-instance` (optional):
+
+  Matches the X instance of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-instance-regex` (optional):
+
+  Matches the X instance of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `x-role` (optional):
+
+  Matches the X role of the window verbatim.
+
+  The value of this field should be a string.
+
+- `x-role-regex` (optional):
+
+  Matches the X role of the window with a regular expression.
+
+  The value of this field should be a string.
+
+- `workspace` (optional):
+
+  Matches the workspace of the window verbatim.
+
+  The value of this field should be a string.
+
+- `workspace-regex` (optional):
+
+  Matches the workspace of the window with a regular expression.
+
+  The value of this field should be a string.
+
+
+<a name="types-WindowMatchExactly"></a>
+### `WindowMatchExactly`
+
+Criterion for matching a specific number of window criteria.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `num` (required):
+
+  The number of criteria that must match.
+
+  The value of this field should be a number.
+
+- `list` (required):
+
+  The list of criteria.
+
+  The value of this field should be an array of [WindowMatchs](#types-WindowMatch).
+
+
+<a name="types-WindowRule"></a>
+### `WindowRule`
+
+A window rule.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `name` (optional):
+
+  The name of this rule.
+  
+  This name can be referenced in other rules.
+  
+  - Example
+  
+    ```toml
+    [[windows]]
+    name = "spotify"
+    match.title-regex = "Spotify"
+  
+    [[windows]]
+    match.name = "spotify"
+    action = "enter-fullscreen"
+    ```
+
+  The value of this field should be a string.
+
+- `match` (optional):
+
+  The criteria that select the window that this rule applies to.
+
+  The value of this field should be a [WindowMatch](#types-WindowMatch).
+
+- `action` (optional):
+
+  An action to execute when a window matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `latch` (optional):
+
+  An action to execute when a window no longer matches the criteria.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `auto-focus` (optional):
+
+  Whether newly mapped windows that match this rule get the keyboard focus.
+  
+  If a window matches any rule for which this is false, the window will not be
+  automatically focused.
+
+  The value of this field should be a boolean.
+
+- `initial-tile-state` (optional):
+
+  Specifies if the window is initially mapped tiled or floating.
+
+  The value of this field should be a [TileState](#types-TileState).
+
+
+<a name="types-WindowTypeMask"></a>
+### `WindowTypeMask`
+
+A mask of window types.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+A named mask.
+
+The string should have one of the following values:
+
+- `none`:
+
+  The empty mask.
+
+- `any`:
+
+  The mask containing every possible type.
+
+- `container`:
+
+  The mask matching a container.
+
+- `xdg-toplevel`:
+
+  The mask matching an XDG toplevel.
+
+- `x-window`:
+
+  The mask matching an X window.
+
+- `client-window`:
+
+  The mask matching any type of client window.
+
+
+#### An array
+
+An array of masks that are OR'd.
+
+Each element of this array should be a [WindowTypeMask](#types-WindowTypeMask).
 
 
 <a name="types-XScalingMode"></a>

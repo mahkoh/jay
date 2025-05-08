@@ -1,0 +1,49 @@
+request destroy { }
+
+request execute { }
+
+request add_all { }
+
+request add_id {
+    id: pod(u64),
+}
+
+event done { }
+
+event start {
+    id: pod(u64),
+}
+
+event end { }
+
+event sandboxed { }
+
+event sandbox_engine {
+    engine: str,
+}
+
+event sandbox_app_id {
+    app_id: str,
+}
+
+event sandbox_instance_id {
+    instance_id: str,
+}
+
+event uid {
+    uid: pod(uapi::c::uid_t),
+}
+
+event pid {
+    pid: pod(uapi::c::pid_t),
+}
+
+event is_xwayland { }
+
+event comm {
+    comm: str,
+}
+
+event exe {
+    exe: str,
+}

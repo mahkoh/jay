@@ -1,9 +1,10 @@
 use {
     crate::{
         cli::CliLogLevel,
-        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
+        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError, ClientId},
         globals::{Global, GlobalName},
         ifs::{
+            jay_client_query::JayClientQuery,
             jay_color_management::JayColorManagement,
             jay_ei_session_builder::JayEiSessionBuilder,
             jay_idle::JayIdle,
@@ -19,6 +20,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
             jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
+            jay_tree_query::JayTreeQuery,
             jay_workspace_watcher::JayWorkspaceWatcher,
             jay_xwayland::JayXwayland,
         },
@@ -26,7 +28,10 @@ use {
         object::{Object, Version},
         screenshoter::take_screenshot,
         utils::{errorfmt::ErrorFmt, toplevel_identifier::ToplevelIdentifier},
-        wire::{JayCompositorId, JayScreenshotId, jay_compositor::*},
+        wire::{
+            JayCompositorId, JayScreenshotId,
+            jay_compositor::{self, *},
+        },
     },
     bstr::ByteSlice,
     log::Level,
@@ -74,7 +79,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        17
+        18
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -223,7 +228,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn get_client_id(&self, _req: GetClientId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.event(ClientId {
+        self.client.event(jay_compositor::ClientId {
             self_id: self.id,
             client_id: self.client.id.raw(),
         });
@@ -367,7 +372,6 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn select_toplevel(&self, req: SelectToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let seat = self.client.lookup(req.seat)?;
         let obj = JaySelectToplevel::new(&self.client, req.id, self.version);
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
@@ -375,12 +379,22 @@ impl JayCompositorRequestHandler for JayCompositor {
             tl: Default::default(),
             jst: obj.clone(),
         };
-        seat.global.select_toplevel(selector);
+        let seat = if req.seat.is_none() {
+            match self.client.state.seat_queue.last() {
+                Some(s) => s.deref().clone(),
+                None => {
+                    obj.done(None);
+                    return Ok(());
+                }
+            }
+        } else {
+            self.client.lookup(req.seat)?.global.clone()
+        };
+        seat.select_toplevel(selector);
         Ok(())
     }
 
     fn select_workspace(&self, req: SelectWorkspace, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let seat = self.client.lookup(req.seat)?;
         let obj = Rc::new(JaySelectWorkspace {
             id: req.id,
             client: self.client.clone(),
@@ -393,7 +407,15 @@ impl JayCompositorRequestHandler for JayCompositor {
             ws: Default::default(),
             jsw: obj.clone(),
         };
-        seat.global.select_workspace(selector);
+        let seat = if req.seat.is_none() {
+            match self.client.state.seat_queue.last() {
+                Some(s) => s.deref().clone(),
+                None => return Ok(()),
+            }
+        } else {
+            self.client.lookup(req.seat)?.global.clone()
+        };
+        seat.select_workspace(selector);
         Ok(())
     }
 
@@ -466,6 +488,29 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
             args: Default::default(),
         });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn create_client_query(
+        &self,
+        req: CreateClientQuery,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayClientQuery::new(&self.client, req.id, self.version));
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn kill_client(&self, req: KillClient, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.state.clients.kill(ClientId::from_raw(req.id));
+        Ok(())
+    }
+
+    fn create_tree_query(&self, req: CreateTreeQuery, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayTreeQuery::new(&self.client, req.id, self.version));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         Ok(())

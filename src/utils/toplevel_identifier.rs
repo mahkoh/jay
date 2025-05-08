@@ -1,5 +1,8 @@
 use {
-    crate::utils::opaque::{OPAQUE_LEN, Opaque, OpaqueError, opaque},
+    crate::utils::{
+        clonecell::UnsafeCellCloneSafe,
+        opaque::{OPAQUE_LEN, Opaque, OpaqueError, opaque},
+    },
     arrayvec::ArrayString,
     std::{
         fmt::{Display, Formatter},
@@ -9,6 +12,8 @@ use {
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub struct ToplevelIdentifier(Opaque);
+
+unsafe impl UnsafeCellCloneSafe for ToplevelIdentifier {}
 
 pub fn toplevel_identifier() -> ToplevelIdentifier {
     ToplevelIdentifier(opaque())

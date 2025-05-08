@@ -7,6 +7,7 @@ use {
     crate::{
         async_engine::AsyncEngine,
         io_uring::{
+            debounce::Debouncer,
             ops::{
                 accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
                 poll::PollTask, poll_external::PollExternalTask, read_write::ReadWriteTask,
@@ -29,6 +30,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             mmap::{Mmapped, mmap},
+            numcell::NumCell,
             oserror::OsError,
             ptr_ext::{MutPtrExt, PtrExt},
             stack::Stack,
@@ -42,6 +44,7 @@ use {
             AtomicU32,
             Ordering::{Acquire, Relaxed, Release},
         },
+        task::Waker,
     },
     thiserror::Error,
     uapi::{
@@ -61,6 +64,7 @@ macro_rules! map_err {
     }};
 }
 
+mod debounce;
 mod ops;
 mod pending_result;
 mod sys;
@@ -242,6 +246,8 @@ impl IoUring {
             cached_connects: Default::default(),
             cached_accepts: Default::default(),
             fd_ids_scratch: Default::default(),
+            iteration: Default::default(),
+            yields: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
     }
@@ -258,6 +264,15 @@ impl IoUring {
 
     pub fn cancel(&self, id: IoUringTaskId) {
         self.ring.cancel_task(id);
+    }
+
+    pub fn debouncer(&self, max: u64) -> Debouncer {
+        Debouncer {
+            cur: Default::default(),
+            max,
+            iteration: Cell::new(self.ring.iteration.get()),
+            ring: self.ring.clone(),
+        }
     }
 }
 
@@ -306,6 +321,9 @@ struct IoUringData {
     cached_accepts: Stack<Box<AcceptTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
+
+    iteration: NumCell<u64>,
+    yields: SyncQueue<Waker>,
 }
 
 unsafe trait Task {
@@ -326,6 +344,10 @@ impl IoUringData {
     fn run(&self) -> Result<(), IoUringError> {
         let mut to_submit = 0;
         loop {
+            self.iteration.fetch_add(1);
+            while let Some(ev) = self.yields.pop() {
+                ev.wake();
+            }
             loop {
                 self.eng.dispatch();
                 if self.destroyed.get() {
@@ -336,12 +358,18 @@ impl IoUringData {
                 }
             }
             to_submit += self.encode();
-            let res = if to_submit == 0 {
-                io_uring_enter(self.fd.raw(), 0, 1, IORING_ENTER_GETEVENTS)
-            } else if self.to_encode.is_empty() {
-                io_uring_enter(self.fd.raw(), to_submit as _, 1, IORING_ENTER_GETEVENTS)
-            } else {
-                io_uring_enter(self.fd.raw(), !0, 0, 0)
+            let res = {
+                let (to_submit, mut min_complete, flags) = if to_submit == 0 {
+                    (0, 1, IORING_ENTER_GETEVENTS)
+                } else if self.to_encode.is_empty() {
+                    (to_submit as _, 1, IORING_ENTER_GETEVENTS)
+                } else {
+                    (!0, 0, 0)
+                };
+                if self.yields.is_not_empty() {
+                    min_complete = 0;
+                }
+                io_uring_enter(self.fd.raw(), to_submit, min_complete, flags)
             };
             let mut submitted_any = false;
             match res {

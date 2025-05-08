@@ -3,13 +3,16 @@
 use {
     crate::{
         _private::{
-            Config, ConfigEntry, ConfigEntryGen, PollableId, VERSION, WireMode, bincode_ops,
+            ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
+            GenericCriterionIpc, PollableId, VERSION, WindowCriterionIpc,
+            WindowCriterionStringField, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
             },
             logging,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
+        client::{Client, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
@@ -29,6 +32,7 @@ use {
             Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
+        window::{MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -81,7 +85,7 @@ struct KeyHandler {
     latched: Vec<Box<dyn FnOnce()>>,
 }
 
-pub(crate) struct Client {
+pub(crate) struct ConfigClient {
     configure: extern "C" fn(),
     srv_data: *const u8,
     srv_unref: unsafe extern "C" fn(data: *const u8),
@@ -110,8 +114,20 @@ pub(crate) struct Client {
     status_task: Cell<Vec<JoinHandle<()>>>,
     i3bar_separator: RefCell<Option<Rc<String>>>,
     pressed_keysym: Cell<Option<KeySym>>,
+    client_match_handlers: RefCell<HashMap<ClientMatcher, ClientMatchHandler>>,
+    window_match_handlers: RefCell<HashMap<WindowMatcher, WindowMatchHandler>>,
 
     feat_mod_mask: Cell<bool>,
+}
+
+struct ClientMatchHandler {
+    cb: Callback<MatchedClient>,
+    latched: HashMap<Client, Box<dyn FnOnce()>>,
+}
+
+struct WindowMatchHandler {
+    cb: Callback<MatchedWindow>,
+    latched: HashMap<Window, Box<dyn FnOnce()>>,
 }
 
 struct Interest {
@@ -145,7 +161,7 @@ struct Task {
     waker: Waker,
 }
 
-impl Drop for Client {
+impl Drop for ConfigClient {
     fn drop(&mut self) {
         unsafe {
             (self.srv_unref)(self.srv_data);
@@ -154,13 +170,13 @@ impl Drop for Client {
 }
 
 thread_local! {
-    pub(crate) static CLIENT: Cell<*const Client> = const { Cell::new(ptr::null()) };
+    pub(crate) static CLIENT: Cell<*const ConfigClient> = const { Cell::new(ptr::null()) };
 }
 
-unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
+unsafe fn with_client<T, F: FnOnce(&ConfigClient) -> T>(data: *const u8, f: F) -> T {
     struct Reset<'a> {
-        cell: &'a Cell<*const Client>,
-        val: *const Client,
+        cell: &'a Cell<*const ConfigClient>,
+        val: *const ConfigClient,
     }
     impl Drop for Reset<'_> {
         fn drop(&mut self) {
@@ -168,7 +184,7 @@ unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
         }
     }
     CLIENT.with(|cell| unsafe {
-        let client = data as *const Client;
+        let client = data as *const ConfigClient;
         Rc::increment_strong_count(client);
         let client = Rc::from_raw(client);
         let old = cell.replace(client.deref());
@@ -214,7 +230,7 @@ pub unsafe extern "C" fn init(
     size: usize,
     f: extern "C" fn(),
 ) -> *const u8 {
-    let client = Rc::new(Client {
+    let client = Rc::new(ConfigClient {
         configure: f,
         srv_data,
         srv_unref,
@@ -243,6 +259,8 @@ pub unsafe extern "C" fn init(
         status_task: Default::default(),
         i3bar_separator: Default::default(),
         pressed_keysym: Cell::new(None),
+        client_match_handlers: Default::default(),
+        window_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
@@ -251,7 +269,7 @@ pub unsafe extern "C" fn init(
 }
 
 pub unsafe extern "C" fn unref(data: *const u8) {
-    let client = data as *const Client;
+    let client = data as *const ConfigClient;
     unsafe {
         drop(Rc::from_raw(client));
     }
@@ -278,7 +296,17 @@ macro_rules! get_response {
     }
 }
 
-impl Client {
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+enum GenericCriterion<'a, Crit, Matcher> {
+    Matcher(Matcher),
+    Not(&'a Crit),
+    All(&'a [Crit]),
+    Any(&'a [Crit]),
+    Exactly(usize, &'a [Crit]),
+}
+
+impl ConfigClient {
     fn send(&self, msg: &ClientMessage) {
         let mut buf = self.bufs.borrow_mut().pop().unwrap_or_default();
         buf.clear();
@@ -333,12 +361,80 @@ impl Client {
         self.send(&ClientMessage::GrabKb { kb, grab });
     }
 
-    pub fn focus(&self, seat: Seat, direction: Direction) {
-        self.send(&ClientMessage::Focus { seat, direction });
+    pub fn seat_focus(&self, seat: Seat, direction: Direction) {
+        self.send(&ClientMessage::SeatFocus { seat, direction });
     }
 
-    pub fn move_(&self, seat: Seat, direction: Direction) {
-        self.send(&ClientMessage::Move { seat, direction });
+    pub fn seat_move(&self, seat: Seat, direction: Direction) {
+        self.send(&ClientMessage::SeatMove { seat, direction });
+    }
+
+    pub fn window_move(&self, window: Window, direction: Direction) {
+        self.send(&ClientMessage::WindowMove { window, direction });
+    }
+
+    pub fn window_exists(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::WindowExists { window });
+        get_response!(res, false, WindowExists { exists });
+        exists
+    }
+
+    pub fn window_client(&self, window: Window) -> Client {
+        let res = self.send_with_response(&ClientMessage::GetWindowClient { window });
+        get_response!(res, Client(0), GetWindowClient { client });
+        client
+    }
+
+    pub fn get_workspace_window(&self, workspace: Workspace) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceWindow { workspace });
+        get_response!(res, Window(0), GetWorkspaceWindow { window });
+        window
+    }
+
+    pub fn get_seat_keyboard_window(&self, seat: Seat) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWindow { seat });
+        get_response!(res, Window(0), GetSeatKeyboardWindow { window });
+        window
+    }
+
+    pub fn focus_window(&self, seat: Seat, window: Window) {
+        self.send(&ClientMessage::SeatFocusWindow { seat, window });
+    }
+
+    pub fn window_title(&self, window: Window) -> String {
+        let res = self.send_with_response(&ClientMessage::GetWindowTitle { window });
+        get_response!(res, String::new(), GetWindowTitle { title });
+        title
+    }
+
+    pub fn window_type(&self, window: Window) -> WindowType {
+        let res = self.send_with_response(&ClientMessage::GetWindowType { window });
+        get_response!(res, WindowType(0), GetWindowType { kind });
+        kind
+    }
+
+    pub fn window_id(&self, window: Window) -> String {
+        let res = self.send_with_response(&ClientMessage::GetWindowId { window });
+        get_response!(res, String::new(), GetWindowId { id });
+        id
+    }
+
+    pub fn window_parent(&self, window: Window) -> Window {
+        let res = self.send_with_response(&ClientMessage::GetWindowParent { window });
+        get_response!(res, Window(0), GetWindowParent { window });
+        window
+    }
+
+    pub fn window_children(&self, window: Window) -> Vec<Window> {
+        let res = self.send_with_response(&ClientMessage::GetWindowChildren { window });
+        get_response!(res, vec![], GetWindowChildren { windows });
+        windows
+    }
+
+    pub fn window_is_visible(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowIsVisible { window });
+        get_response!(res, false, GetWindowIsVisible { visible });
+        visible
     }
 
     pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
@@ -367,9 +463,15 @@ impl Client {
         seats
     }
 
-    pub fn mono(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetMono { seat });
+    pub fn seat_mono(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatMono { seat });
         get_response!(res, false, GetMono { mono });
+        mono
+    }
+
+    pub fn window_mono(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowMono { window });
+        get_response!(res, false, GetWindowMono { mono });
         mono
     }
 
@@ -420,6 +522,12 @@ impl Client {
         workspace
     }
 
+    pub fn get_window_workspace(&self, window: Window) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetWindowWorkspace { window });
+        get_response!(res, Workspace(0), GetWindowWorkspace { workspace });
+        workspace
+    }
+
     pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWorkspace { seat });
         get_response!(res, Workspace(0), GetSeatKeyboardWorkspace { workspace });
@@ -450,13 +558,23 @@ impl Client {
         self.send(&ClientMessage::ShowWorkspace { seat, workspace });
     }
 
-    pub fn set_workspace(&self, seat: Seat, workspace: Workspace) {
-        self.send(&ClientMessage::SetWorkspace { seat, workspace });
+    pub fn set_seat_workspace(&self, seat: Seat, workspace: Workspace) {
+        self.send(&ClientMessage::SetSeatWorkspace { seat, workspace });
     }
 
-    pub fn split(&self, seat: Seat) -> Axis {
-        let res = self.send_with_response(&ClientMessage::GetSplit { seat });
+    pub fn set_window_workspace(&self, window: Window, workspace: Workspace) {
+        self.send(&ClientMessage::SetWindowWorkspace { window, workspace });
+    }
+
+    pub fn seat_split(&self, seat: Seat) -> Axis {
+        let res = self.send_with_response(&ClientMessage::GetSeatSplit { seat });
         get_response!(res, Axis::Horizontal, GetSplit { axis });
+        axis
+    }
+
+    pub fn window_split(&self, window: Window) -> Axis {
+        let res = self.send_with_response(&ClientMessage::GetWindowSplit { window });
+        get_response!(res, Axis::Horizontal, GetWindowSplit { axis });
         axis
     }
 
@@ -471,13 +589,23 @@ impl Client {
         });
     }
 
-    pub fn set_fullscreen(&self, seat: Seat, fullscreen: bool) {
-        self.send(&ClientMessage::SetFullscreen { seat, fullscreen });
+    pub fn set_seat_fullscreen(&self, seat: Seat, fullscreen: bool) {
+        self.send(&ClientMessage::SetSeatFullscreen { seat, fullscreen });
     }
 
-    pub fn get_fullscreen(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFullscreen { seat });
+    pub fn get_seat_fullscreen(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatFullscreen { seat });
         get_response!(res, false, GetFullscreen { fullscreen });
+        fullscreen
+    }
+
+    pub fn set_window_fullscreen(&self, window: Window, fullscreen: bool) {
+        self.send(&ClientMessage::SetWindowFullscreen { window, fullscreen });
+    }
+
+    pub fn get_window_fullscreen(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFullscreen { window });
+        get_response!(res, false, GetWindowFullscreen { fullscreen });
         fullscreen
     }
 
@@ -495,18 +623,28 @@ impl Client {
         font
     }
 
-    pub fn get_floating(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFloating { seat });
+    pub fn get_seat_floating(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatFloating { seat });
         get_response!(res, false, GetFloating { floating });
         floating
     }
 
-    pub fn set_floating(&self, seat: Seat, floating: bool) {
-        self.send(&ClientMessage::SetFloating { seat, floating });
+    pub fn set_seat_floating(&self, seat: Seat, floating: bool) {
+        self.send(&ClientMessage::SetSeatFloating { seat, floating });
     }
 
-    pub fn toggle_floating(&self, seat: Seat) {
-        self.set_floating(seat, !self.get_floating(seat));
+    pub fn toggle_seat_floating(&self, seat: Seat) {
+        self.set_seat_floating(seat, !self.get_seat_floating(seat));
+    }
+
+    pub fn get_window_floating(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFloating { window });
+        get_response!(res, false, GetWindowFloating { floating });
+        floating
+    }
+
+    pub fn set_window_floating(&self, window: Window, floating: bool) {
+        self.send(&ClientMessage::SetWindowFloating { window, floating });
     }
 
     pub fn reset_colors(&self) {
@@ -548,8 +686,12 @@ impl Client {
         self.send(&ClientMessage::SetSize { sized, size })
     }
 
-    pub fn set_mono(&self, seat: Seat, mono: bool) {
-        self.send(&ClientMessage::SetMono { seat, mono });
+    pub fn set_seat_mono(&self, seat: Seat, mono: bool) {
+        self.send(&ClientMessage::SetSeatMono { seat, mono });
+    }
+
+    pub fn set_window_mono(&self, window: Window, mono: bool) {
+        self.send(&ClientMessage::SetWindowMono { window, mono });
     }
 
     pub fn set_env(&self, key: &str, val: &str) {
@@ -582,20 +724,32 @@ impl Client {
         self.i3bar_separator.borrow().clone()
     }
 
-    pub fn set_split(&self, seat: Seat, axis: Axis) {
-        self.send(&ClientMessage::SetSplit { seat, axis });
+    pub fn set_seat_split(&self, seat: Seat, axis: Axis) {
+        self.send(&ClientMessage::SetSeatSplit { seat, axis });
     }
 
-    pub fn create_split(&self, seat: Seat, axis: Axis) {
-        self.send(&ClientMessage::CreateSplit { seat, axis });
+    pub fn set_window_split(&self, window: Window, axis: Axis) {
+        self.send(&ClientMessage::SetWindowSplit { window, axis });
     }
 
-    pub fn close(&self, seat: Seat) {
-        self.send(&ClientMessage::Close { seat });
+    pub fn create_seat_split(&self, seat: Seat, axis: Axis) {
+        self.send(&ClientMessage::CreateSeatSplit { seat, axis });
     }
 
-    pub fn focus_parent(&self, seat: Seat) {
-        self.send(&ClientMessage::FocusParent { seat });
+    pub fn create_window_split(&self, window: Window, axis: Axis) {
+        self.send(&ClientMessage::CreateWindowSplit { window, axis });
+    }
+
+    pub fn seat_close(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatClose { seat });
+    }
+
+    pub fn close_window(&self, window: Window) {
+        self.send(&ClientMessage::WindowClose { window });
+    }
+
+    pub fn focus_seat_parent(&self, seat: Seat) {
+        self.send(&ClientMessage::FocusSeatParent { seat });
     }
 
     pub fn get_seat(&self, name: &str) -> Seat {
@@ -792,13 +946,23 @@ impl Client {
     }
 
     pub fn get_pinned(&self, seat: Seat) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetFloatPinned { seat });
+        let res = self.send_with_response(&ClientMessage::GetSeatFloatPinned { seat });
         get_response!(res, false, GetFloatPinned { pinned });
         pinned
     }
 
     pub fn set_pinned(&self, seat: Seat, pinned: bool) {
-        self.send(&ClientMessage::SetFloatPinned { seat, pinned });
+        self.send(&ClientMessage::SetSeatFloatPinned { seat, pinned });
+    }
+
+    pub fn get_window_pinned(&self, window: Window) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWindowFloatPinned { window });
+        get_response!(res, false, GetWindowFloatPinned { pinned });
+        pinned
+    }
+
+    pub fn set_window_pinned(&self, window: Window, pinned: bool) {
+        self.send(&ClientMessage::SetWindowFloatPinned { window, pinned });
     }
 
     pub fn connector_connected(&self, connector: Connector) -> bool {
@@ -1259,6 +1423,319 @@ impl Client {
         }
     }
 
+    pub fn clients(&self) -> Vec<Client> {
+        let res = self.send_with_response(&ClientMessage::GetClients);
+        get_response!(res, vec!(), GetClients { clients });
+        clients
+    }
+
+    pub fn client_exists(&self, client: Client) -> bool {
+        let res = self.send_with_response(&ClientMessage::ClientExists { client });
+        get_response!(res, false, ClientExists { exists });
+        exists
+    }
+
+    pub fn client_is_xwayland(&self, client: Client) -> bool {
+        let res = self.send_with_response(&ClientMessage::ClientIsXwayland { client });
+        get_response!(res, false, ClientIsXwayland { is_xwayland });
+        is_xwayland
+    }
+
+    pub fn client_kill(&self, client: Client) {
+        self.send(&ClientMessage::ClientKill { client });
+    }
+
+    fn create_generic_matcher<Crit, Matcher>(
+        &self,
+        criterion: GenericCriterion<'_, Crit, Matcher>,
+        child: bool,
+        create_child_matcher: impl Fn(Crit) -> (Matcher, bool),
+        create_matcher: impl Fn(GenericCriterionIpc<Matcher>) -> Matcher,
+        destroy_matcher: impl Fn(Matcher),
+    ) -> (Matcher, bool)
+    where
+        Crit: Copy,
+        Matcher: Copy,
+    {
+        let mut ad_hoc = vec![];
+        let mut create_child_matcher = |c: Crit| {
+            let (m, original) = create_child_matcher(c);
+            if original {
+                ad_hoc.push(m);
+            }
+            m
+        };
+        let mut create_vec = |l: &[Crit]| {
+            let mut list = Vec::with_capacity(l.len());
+            for c in l {
+                list.push(create_child_matcher(*c));
+            }
+            list
+        };
+        let criterion = match criterion {
+            GenericCriterion::Matcher(m) => {
+                if child {
+                    return (m, false);
+                }
+                GenericCriterionIpc::Matcher(m)
+            }
+            GenericCriterion::Not(c) => GenericCriterionIpc::Not(create_child_matcher(*c)),
+            GenericCriterion::All(l) => GenericCriterionIpc::List {
+                list: create_vec(l),
+                all: true,
+            },
+            GenericCriterion::Any(l) => GenericCriterionIpc::List {
+                list: create_vec(l),
+                all: false,
+            },
+            GenericCriterion::Exactly(num, l) => GenericCriterionIpc::Exactly {
+                list: create_vec(l),
+                num,
+            },
+        };
+        let matcher = create_matcher(criterion);
+        for matcher in ad_hoc {
+            destroy_matcher(matcher);
+        }
+        (matcher, true)
+    }
+
+    pub fn create_client_matcher(&self, criterion: ClientCriterion<'_>) -> ClientMatcher {
+        self.create_client_matcher_(criterion, false).0
+    }
+
+    fn create_client_matcher_(
+        &self,
+        criterion: ClientCriterion<'_>,
+        child: bool,
+    ) -> (ClientMatcher, bool) {
+        macro_rules! string {
+            ($t:expr, $field:ident, $regex:expr) => {
+                ClientCriterionIpc::String {
+                    string: $t.to_string(),
+                    field: ClientCriterionStringField::$field,
+                    regex: $regex,
+                }
+            };
+        }
+        let create_matcher = |criterion| {
+            let res = self.send_with_response(&ClientMessage::CreateClientMatcher {
+                criterion: ClientCriterionIpc::Generic(criterion),
+            });
+            get_response!(res, ClientMatcher(0), CreateClientMatcher { matcher });
+            matcher
+        };
+        let destroy_matcher = |matcher| {
+            self.send(&ClientMessage::DestroyClientMatcher { matcher });
+        };
+        let generic = |crit: GenericCriterion<ClientCriterion, ClientMatcher>| {
+            self.create_generic_matcher::<ClientCriterion, ClientMatcher>(
+                crit,
+                child,
+                |c| self.create_client_matcher_(c, true),
+                create_matcher,
+                destroy_matcher,
+            )
+        };
+        let criterion = match criterion {
+            ClientCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
+            ClientCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
+            ClientCriterion::All(c) => return generic(GenericCriterion::All(c)),
+            ClientCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
+            ClientCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
+            ClientCriterion::SandboxEngine(t) => string!(t, SandboxEngine, false),
+            ClientCriterion::SandboxEngineRegex(t) => string!(t, SandboxEngine, true),
+            ClientCriterion::SandboxAppId(t) => string!(t, SandboxAppId, false),
+            ClientCriterion::SandboxAppIdRegex(t) => string!(t, SandboxAppId, true),
+            ClientCriterion::SandboxInstanceId(t) => string!(t, SandboxInstanceId, false),
+            ClientCriterion::SandboxInstanceIdRegex(t) => string!(t, SandboxInstanceId, true),
+            ClientCriterion::Sandboxed => ClientCriterionIpc::Sandboxed,
+            ClientCriterion::Uid(p) => ClientCriterionIpc::Uid(p),
+            ClientCriterion::Pid(p) => ClientCriterionIpc::Pid(p),
+            ClientCriterion::IsXwayland => ClientCriterionIpc::IsXwayland,
+            ClientCriterion::Comm(t) => string!(t, Comm, false),
+            ClientCriterion::CommRegex(t) => string!(t, Comm, true),
+            ClientCriterion::Exe(t) => string!(t, Exe, false),
+            ClientCriterion::ExeRegex(t) => string!(t, Exe, true),
+        };
+        let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
+        get_response!(
+            res,
+            (ClientMatcher(0), false),
+            CreateClientMatcher { matcher }
+        );
+        (matcher, true)
+    }
+
+    pub fn set_client_matcher_handler(
+        &self,
+        matcher: ClientMatcher,
+        cb: impl FnMut(MatchedClient) + 'static,
+    ) {
+        let cb = Rc::new(RefCell::new(cb));
+        let handlers = &mut *self.client_match_handlers.borrow_mut();
+        let handler = handlers.entry(matcher).or_insert_with(|| {
+            self.send(&ClientMessage::EnableClientMatcherEvents { matcher });
+            ClientMatchHandler {
+                cb: cb.clone(),
+                latched: Default::default(),
+            }
+        });
+        handler.cb = cb.clone();
+    }
+
+    pub fn set_client_matcher_latch_handler(
+        &self,
+        matcher: ClientMatcher,
+        client: Client,
+        cb: impl FnOnce() + 'static,
+    ) {
+        let handlers = &mut *self.client_match_handlers.borrow_mut();
+        if let Some(handler) = handlers.get_mut(&matcher) {
+            handler.latched.insert(client, Box::new(cb));
+        }
+    }
+
+    pub fn destroy_client_matcher(&self, matcher: ClientMatcher) {
+        self.send(&ClientMessage::DestroyClientMatcher { matcher });
+        self.client_match_handlers.borrow_mut().remove(&matcher);
+    }
+
+    pub fn create_window_matcher(&self, criterion: WindowCriterion) -> WindowMatcher {
+        self.create_window_matcher_(criterion, false).0
+    }
+
+    fn create_window_matcher_(
+        &self,
+        criterion: WindowCriterion,
+        child: bool,
+    ) -> (WindowMatcher, bool) {
+        macro_rules! string {
+            ($t:expr, $field:ident, $regex:expr) => {
+                WindowCriterionIpc::String {
+                    string: $t.to_string(),
+                    field: WindowCriterionStringField::$field,
+                    regex: $regex,
+                }
+            };
+        }
+        let create_matcher = |criterion| {
+            let res = self.send_with_response(&ClientMessage::CreateWindowMatcher {
+                criterion: WindowCriterionIpc::Generic(criterion),
+            });
+            get_response!(res, WindowMatcher(0), CreateWindowMatcher { matcher });
+            matcher
+        };
+        let destroy_matcher = |matcher| {
+            self.send(&ClientMessage::DestroyWindowMatcher { matcher });
+        };
+        let generic = |crit: GenericCriterion<WindowCriterion, WindowMatcher>| {
+            self.create_generic_matcher(
+                crit,
+                child,
+                |c| self.create_window_matcher_(c, true),
+                create_matcher,
+                destroy_matcher,
+            )
+        };
+        let _destroy_client_matcher;
+        let criterion = match criterion {
+            WindowCriterion::Matcher(m) => return generic(GenericCriterion::Matcher(m)),
+            WindowCriterion::Not(c) => return generic(GenericCriterion::Not(c)),
+            WindowCriterion::All(c) => return generic(GenericCriterion::All(c)),
+            WindowCriterion::Any(c) => return generic(GenericCriterion::Any(c)),
+            WindowCriterion::Exactly(n, c) => return generic(GenericCriterion::Exactly(n, c)),
+            WindowCriterion::Types(t) => WindowCriterionIpc::Types(t),
+            WindowCriterion::Client(c) => {
+                let (matcher, original) = self.create_client_matcher_(*c, true);
+                if original {
+                    _destroy_client_matcher = on_drop(move || matcher.destroy());
+                }
+                WindowCriterionIpc::Client(matcher)
+            }
+            WindowCriterion::Title(t) => string!(t, Title, false),
+            WindowCriterion::TitleRegex(t) => string!(t, Title, true),
+            WindowCriterion::AppId(t) => string!(t, AppId, false),
+            WindowCriterion::AppIdRegex(t) => string!(t, AppId, true),
+            WindowCriterion::Floating => WindowCriterionIpc::Floating,
+            WindowCriterion::Visible => WindowCriterionIpc::Visible,
+            WindowCriterion::Urgent => WindowCriterionIpc::Urgent,
+            WindowCriterion::Focus(seat) => WindowCriterionIpc::SeatFocus(seat),
+            WindowCriterion::Fullscreen => WindowCriterionIpc::Fullscreen,
+            WindowCriterion::JustMapped => WindowCriterionIpc::JustMapped,
+            WindowCriterion::Tag(t) => string!(t, Tag, false),
+            WindowCriterion::TagRegex(t) => string!(t, Tag, true),
+            WindowCriterion::XClass(t) => string!(t, XClass, false),
+            WindowCriterion::XClassRegex(t) => string!(t, XClass, true),
+            WindowCriterion::XInstance(t) => string!(t, XInstance, false),
+            WindowCriterion::XInstanceRegex(t) => string!(t, XInstance, true),
+            WindowCriterion::XRole(t) => string!(t, XRole, false),
+            WindowCriterion::XRoleRegex(t) => string!(t, XRole, true),
+            WindowCriterion::Workspace(t) => WindowCriterionIpc::Workspace(t),
+            WindowCriterion::WorkspaceName(t) => string!(t, Workspace, false),
+            WindowCriterion::WorkspaceNameRegex(t) => string!(t, Workspace, true),
+        };
+        let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
+        get_response!(
+            res,
+            (WindowMatcher(0), false),
+            CreateWindowMatcher { matcher }
+        );
+        (matcher, true)
+    }
+
+    pub fn set_window_matcher_handler(
+        &self,
+        matcher: WindowMatcher,
+        cb: impl FnMut(MatchedWindow) + 'static,
+    ) {
+        let cb = Rc::new(RefCell::new(cb));
+        let handlers = &mut *self.window_match_handlers.borrow_mut();
+        let handler = handlers.entry(matcher).or_insert_with(|| {
+            self.send(&ClientMessage::EnableWindowMatcherEvents { matcher });
+            WindowMatchHandler {
+                cb: cb.clone(),
+                latched: Default::default(),
+            }
+        });
+        handler.cb = cb.clone();
+    }
+
+    pub fn set_window_matcher_auto_focus(&self, matcher: WindowMatcher, auto_focus: bool) {
+        self.send(&ClientMessage::SetWindowMatcherAutoFocus {
+            matcher,
+            auto_focus,
+        });
+    }
+
+    pub fn set_window_matcher_initial_tile_state(
+        &self,
+        matcher: WindowMatcher,
+        tile_state: TileState,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialTileState {
+            matcher,
+            tile_state,
+        });
+    }
+
+    pub fn set_window_matcher_latch_handler(
+        &self,
+        matcher: WindowMatcher,
+        window: Window,
+        cb: impl FnOnce() + 'static,
+    ) {
+        let handlers = &mut *self.window_match_handlers.borrow_mut();
+        if let Some(handler) = handlers.get_mut(&matcher) {
+            handler.latched.insert(window, Box::new(cb));
+        }
+    }
+
+    pub fn destroy_window_matcher(&self, matcher: WindowMatcher) {
+        self.send(&ClientMessage::DestroyWindowMatcher { matcher });
+        self.window_match_handlers.borrow_mut().remove(&matcher);
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();
@@ -1520,6 +1997,54 @@ impl Client {
                 if let Some(cb) = cb {
                     run_cb("switch event", &cb, event);
                 }
+            }
+            ServerMessage::ClientMatcherMatched { matcher, client } => {
+                let cb = {
+                    let handlers = self.client_match_handlers.borrow();
+                    let Some(handler) = handlers.get(&matcher) else {
+                        return;
+                    };
+                    handler.cb.clone()
+                };
+                let matched = MatchedClient { matcher, client };
+                cb.borrow_mut()(matched);
+            }
+            ServerMessage::ClientMatcherUnmatched { matcher, client } => {
+                let cb = {
+                    let mut handlers = self.client_match_handlers.borrow_mut();
+                    let Some(handler) = handlers.get_mut(&matcher) else {
+                        return;
+                    };
+                    let Some(cb) = handler.latched.remove(&client) else {
+                        return;
+                    };
+                    cb
+                };
+                cb();
+            }
+            ServerMessage::WindowMatcherMatched { matcher, window } => {
+                let cb = {
+                    let handlers = self.window_match_handlers.borrow();
+                    let Some(handler) = handlers.get(&matcher) else {
+                        return;
+                    };
+                    handler.cb.clone()
+                };
+                let matched = MatchedWindow { matcher, window };
+                cb.borrow_mut()(matched);
+            }
+            ServerMessage::WindowMatcherUnmatched { matcher, window } => {
+                let cb = {
+                    let mut handlers = self.window_match_handlers.borrow_mut();
+                    let Some(handler) = handlers.get_mut(&matcher) else {
+                        return;
+                    };
+                    let Some(cb) = handler.latched.remove(&window) else {
+                        return;
+                    };
+                    cb
+                };
+                cb();
             }
         }
     }

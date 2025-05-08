@@ -10,6 +10,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability},
         keyboard::{Keymap, mods::Modifiers},
         video::Connector,
+        window::Window,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -259,12 +260,12 @@ impl Seat {
 
     /// Moves the keyboard focus of the seat in the specified direction.
     pub fn focus(self, direction: Direction) {
-        get!().focus(self, direction)
+        get!().seat_focus(self, direction)
     }
 
     /// Moves the focused window in the specified direction.
     pub fn move_(self, direction: Direction) {
-        get!().move_(self, direction)
+        get!().seat_move(self, direction)
     }
 
     /// Sets the keymap of the seat.
@@ -287,12 +288,12 @@ impl Seat {
 
     /// Returns whether the parent-container of the currently focused window is in mono-mode.
     pub fn mono(self) -> bool {
-        get!(false).mono(self)
+        get!(false).seat_mono(self)
     }
 
     /// Sets whether the parent-container of the currently focused window is in mono-mode.
     pub fn set_mono(self, mono: bool) {
-        get!().set_mono(self, mono)
+        get!().set_seat_mono(self, mono)
     }
 
     /// Toggles whether the parent-container of the currently focused window is in mono-mode.
@@ -302,12 +303,12 @@ impl Seat {
 
     /// Returns the split axis of the parent-container of the currently focused window.
     pub fn split(self) -> Axis {
-        get!(Axis::Horizontal).split(self)
+        get!(Axis::Horizontal).seat_split(self)
     }
 
     /// Sets the split axis of the parent-container of the currently focused window.
     pub fn set_split(self, axis: Axis) {
-        get!().set_split(self, axis)
+        get!().set_seat_split(self, axis)
     }
 
     /// Toggles the split axis of the parent-container of the currently focused window.
@@ -322,33 +323,33 @@ impl Seat {
 
     /// Creates a new container with the specified split in place of the currently focused window.
     pub fn create_split(self, axis: Axis) {
-        get!().create_split(self, axis);
+        get!().create_seat_split(self, axis);
     }
 
     /// Focuses the parent node of the currently focused window.
     pub fn focus_parent(self) {
-        get!().focus_parent(self);
+        get!().focus_seat_parent(self);
     }
 
     /// Requests the currently focused window to be closed.
     pub fn close(self) {
-        get!().close(self);
+        get!().seat_close(self);
     }
 
     /// Returns whether the currently focused window is floating.
     pub fn get_floating(self) -> bool {
-        get!().get_floating(self)
+        get!().get_seat_floating(self)
     }
     /// Sets whether the currently focused window is floating.
     pub fn set_floating(self, floating: bool) {
-        get!().set_floating(self, floating);
+        get!().set_seat_floating(self, floating);
     }
 
     /// Toggles whether the currently focused window is floating.
     ///
     /// You can do the same by double-clicking on the header.
     pub fn toggle_floating(self) {
-        get!().toggle_floating(self);
+        get!().toggle_seat_floating(self);
     }
 
     /// Returns the workspace that is currently active on the output that contains the seat's
@@ -377,22 +378,22 @@ impl Seat {
 
     /// Moves the currently focused window to the workspace.
     pub fn set_workspace(self, workspace: Workspace) {
-        get!().set_workspace(self, workspace)
+        get!().set_seat_workspace(self, workspace)
     }
 
     /// Toggles whether the currently focused window is fullscreen.
     pub fn toggle_fullscreen(self) {
         let c = get!();
-        c.set_fullscreen(self, !c.get_fullscreen(self));
+        c.set_seat_fullscreen(self, !c.get_seat_fullscreen(self));
     }
     /// Returns whether the currently focused window is fullscreen.
     pub fn fullscreen(self) -> bool {
-        get!(false).get_fullscreen(self)
+        get!(false).get_seat_fullscreen(self)
     }
 
     /// Sets whether the currently focused window is fullscreen.
     pub fn set_fullscreen(self, fullscreen: bool) {
-        get!().set_fullscreen(self, fullscreen)
+        get!().set_seat_fullscreen(self, fullscreen)
     }
 
     /// Disables the currently active pointer constraint on this seat.
@@ -477,6 +478,20 @@ impl Seat {
     /// Toggles whether the currently focused window is pinned.
     pub fn toggle_float_pinned(self) {
         self.set_float_pinned(!self.float_pinned());
+    }
+
+    /// Returns the focused window.
+    ///
+    /// If no window is focused, [`Window::exists`] returns false.
+    pub fn window(self) -> Window {
+        get!(Window(0)).get_seat_keyboard_window(self)
+    }
+
+    /// Puts the keyboard focus on the window.
+    ///
+    /// This has no effect if the window is not visible.
+    pub fn focus_window(self, window: Window) {
+        get!().focus_window(self, window)
     }
 }
 

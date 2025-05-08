@@ -79,7 +79,8 @@ use {
         state::{DeviceHandlerData, State},
         tree::{
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, OutputNode, ToplevelNode,
-            WorkspaceNode, generic_node_visitor,
+            WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
@@ -401,6 +402,10 @@ impl WlSeatGlobal {
         self.cursor_user_group.latest_output()
     }
 
+    pub fn get_keyboard_node(&self) -> Rc<dyn Node> {
+        self.keyboard_node.get()
+    }
+
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
     }
@@ -410,38 +415,7 @@ impl WlSeatGlobal {
             Some(tl) => tl,
             _ => return,
         };
-        if tl.tl_data().is_fullscreen.get() {
-            return;
-        }
-        let old_ws = match tl.tl_data().workspace.get() {
-            Some(ws) => ws,
-            _ => return,
-        };
-        if old_ws.id == ws.id {
-            return;
-        }
-        let cn = match tl.tl_data().parent.get() {
-            Some(cn) => cn,
-            _ => return,
-        };
-        let kb_foci = collect_kb_foci(tl.clone());
-        cn.cnode_remove_child2(&*tl, true);
-        if !ws.visible.get() {
-            for focus in kb_foci {
-                old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
-            }
-        }
-        if tl.tl_data().is_floating.get() {
-            self.state.map_floating(
-                tl.clone(),
-                tl.tl_data().float_width.get(),
-                tl.tl_data().float_height.get(),
-                ws,
-                None,
-            );
-        } else {
-            self.state.map_tiled_on(tl, ws);
-        }
+        toplevel_set_workspace(&self.state, tl, ws);
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {
@@ -556,11 +530,7 @@ impl WlSeatGlobal {
 
     pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            if let Some(parent) = tl.tl_data().parent.get() {
-                if let Some(container) = parent.node_into_container() {
-                    return Some(container);
-                }
-            }
+            return toplevel_parent_container(&*tl);
         }
         None
     }
@@ -595,21 +565,7 @@ impl WlSeatGlobal {
             Some(tl) => tl,
             _ => return,
         };
-        if tl.tl_data().is_fullscreen.get() {
-            return;
-        }
-        let ws = match tl.tl_data().workspace.get() {
-            Some(ws) => ws,
-            _ => return,
-        };
-        let pn = match tl.tl_data().parent.get() {
-            Some(pn) => pn,
-            _ => return,
-        };
-        if let Some(pn) = pn.node_into_containing_node() {
-            let cn = ContainerNode::new(&self.state, &ws, tl.clone(), axis);
-            pn.cnode_replace_child(&*tl, cn);
-        }
+        toplevel_create_split(&self.state, tl, axis);
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
@@ -634,29 +590,7 @@ impl WlSeatGlobal {
             Some(tl) => tl,
             _ => return,
         };
-        self.set_tl_floating(tl, floating);
-    }
-
-    pub fn set_tl_floating(self: &Rc<Self>, tl: Rc<dyn ToplevelNode>, floating: bool) {
-        let data = tl.tl_data();
-        if data.is_fullscreen.get() {
-            return;
-        }
-        if data.is_floating.get() == floating {
-            return;
-        }
-        let parent = match data.parent.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        if !floating {
-            parent.cnode_remove_child2(&*tl, true);
-            self.state.map_tiled(tl);
-        } else if let Some(ws) = data.workspace.get() {
-            parent.cnode_remove_child2(&*tl, true);
-            let (width, height) = data.float_size(&ws);
-            self.state.map_floating(tl, width, height, &ws, None);
-        }
+        toplevel_set_floating(&self.state, tl, floating);
     }
 
     pub fn get_rate(&self) -> (i32, i32) {

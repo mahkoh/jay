@@ -1,14 +1,25 @@
 use {
     crate::{
         client::{Client, ClientId},
+        criteria::{
+            CritDestroyListener, CritMatcherId,
+            tlm::{
+                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING,
+                TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE, TL_CHANGED_URGENT,
+                TL_CHANGED_VISIBLE, TL_CHANGED_WORKSPACE, TlMatcherChange,
+            },
+        },
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{NodeSeatState, collect_kb_foci, collect_kb_foci2},
-            wl_surface::WlSurface,
+            wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
+            wl_surface::{
+                WlSurface, x_surface::xwindow::XwindowData,
+                xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
+            },
         },
         rect::Rect,
         state::State,
@@ -30,6 +41,7 @@ use {
             JayToplevelId,
         },
     },
+    jay_config::{window, window::WindowType},
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -87,12 +99,22 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 .clone_from(&title);
             data.placeholder.tl_title_changed();
         }
+        data.property_changed(TL_CHANGED_TITLE);
     }
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
-        data.parent.set(Some(parent.clone()));
-        data.is_floating.set(parent.node_is_float());
+        let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
+        if parent_was_none {
+            data.mapped_during_iteration.set(data.state.eng.iteration());
+            data.property_changed(TL_CHANGED_NEW);
+        }
+        let was_floating = data.is_floating.get();
+        let is_floating = parent.node_is_float();
+        if was_floating != is_floating {
+            data.property_changed(TL_CHANGED_FLOATING);
+        }
+        data.is_floating.set(is_floating);
         self.tl_set_workspace(&parent.cnode_workspace());
     }
 
@@ -109,6 +131,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         let prev = data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
+        self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
         let prev_id = prev.map(|p| p.output.get().id);
         let new_id = Some(ws.output.get().id);
         if prev_id != new_id {
@@ -254,7 +277,27 @@ impl ToplevelOpt {
     }
 }
 
+pub enum ToplevelType {
+    Container,
+    Placeholder(Option<ToplevelIdentifier>),
+    XdgToplevel(Rc<XdgToplevelToplevelData>),
+    XWindow(Rc<XwindowData>),
+}
+
+impl ToplevelType {
+    pub fn to_window_type(&self) -> WindowType {
+        match self {
+            ToplevelType::Container => window::CONTAINER,
+            ToplevelType::Placeholder { .. } => window::PLACEHOLDER,
+            ToplevelType::XdgToplevel { .. } => window::XDG_TOPLEVEL,
+            ToplevelType::XWindow { .. } => window::X_WINDOW,
+        }
+    }
+}
+
 pub struct ToplevelData {
+    pub node_id: NodeId,
+    pub kind: ToplevelType,
     pub self_active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
@@ -269,6 +312,7 @@ pub struct ToplevelData {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
+    pub mapped_during_iteration: Cell<u64>,
     pub pos: Cell<Rect>,
     pub desired_extents: Cell<Rect>,
     pub seat_state: NodeSeatState,
@@ -284,6 +328,10 @@ pub struct ToplevelData {
     pub ext_copy_sessions:
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
     pub slf: Weak<dyn ToplevelNode>,
+    pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<ToplevelData>>>,
+    pub changed_properties: Cell<TlMatcherChange>,
+    pub just_mapped_scheduled: Cell<bool>,
+    pub seat_foci: CopyHashMap<SeatId, ()>,
 }
 
 impl ToplevelData {
@@ -291,11 +339,16 @@ impl ToplevelData {
         state: &Rc<State>,
         title: String,
         client: Option<Rc<Client>>,
+        kind: ToplevelType,
+        node_id: impl Into<NodeId>,
         slf: &Weak<T>,
     ) -> Self {
+        let node_id = node_id.into();
         let id = toplevel_identifier();
         state.toplevels.set(id, slf.clone());
         Self {
+            node_id,
+            kind,
             self_active: Cell::new(false),
             client,
             state: state.clone(),
@@ -310,6 +363,7 @@ impl ToplevelData {
             workspace: Default::default(),
             title: RefCell::new(title),
             parent: Default::default(),
+            mapped_during_iteration: Cell::new(0),
             pos: Default::default(),
             desired_extents: Default::default(),
             seat_state: Default::default(),
@@ -323,6 +377,10 @@ impl ToplevelData {
             jay_screencasts: Default::default(),
             ext_copy_sessions: Default::default(),
             slf: slf.clone(),
+            destroyed: Default::default(),
+            changed_properties: Default::default(),
+            just_mapped_scheduled: Cell::new(false),
+            seat_foci: Default::default(),
         }
     }
 
@@ -359,6 +417,20 @@ impl ToplevelData {
         (width, height)
     }
 
+    pub fn property_changed(&self, change: TlMatcherChange) {
+        let mgr = &self.state.tl_matcher_manager;
+        let props = self.changed_properties.get();
+        if props.is_none() && mgr.has_no_interest(self, change) {
+            return;
+        }
+        self.changed_properties.set(props | change);
+        if props.is_none() && change.is_some() {
+            if let Some(node) = self.slf.upgrade() {
+                mgr.changed(node);
+            }
+        }
+    }
+
     pub fn destroy_node(&self, node: &dyn Node) {
         for jay_tl in self.jay_toplevels.lock().drain_values() {
             jay_tl.destroy();
@@ -372,7 +444,7 @@ impl ToplevelData {
         {
             let id = toplevel_identifier();
             let prev = self.identifier.replace(id);
-            self.state.toplevels.remove(&prev);
+            self.state.remove_toplevel_id(prev);
             self.state.toplevels.set(id, self.slf.clone());
         }
         {
@@ -382,6 +454,7 @@ impl ToplevelData {
             }
         }
         self.detach_node(node);
+        self.property_changed(TL_CHANGED_DESTROYED);
     }
 
     pub fn detach_node(&self, node: &dyn Node) {
@@ -444,11 +517,16 @@ impl ToplevelData {
     }
 
     pub fn set_app_id(&self, app_id: &str) {
-        *self.app_id.borrow_mut() = app_id.to_string();
+        let dst = &mut *self.app_id.borrow_mut();
+        if *dst == app_id {
+            return;
+        }
+        *dst = app_id.to_string();
         for handle in self.handles.lock().values() {
             handle.send_app_id(app_id);
             handle.send_done();
         }
+        self.property_changed(TL_CHANGED_APP_ID)
     }
 
     pub fn set_fullscreen(
@@ -510,6 +588,7 @@ impl ToplevelData {
         });
         drop(data);
         self.is_fullscreen.set(true);
+        self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
         node.clone()
@@ -532,6 +611,7 @@ impl ToplevelData {
             }
         };
         self.is_fullscreen.set(false);
+        self.property_changed(TL_CHANGED_FULLSCREEN);
         match fd.workspace.fullscreen.get() {
             None => {
                 log::error!(
@@ -552,7 +632,7 @@ impl ToplevelData {
             state.map_tiled(node);
             return;
         }
-        let parent = fd.placeholder.tl_data().parent.get().unwrap();
+        let parent = fd.placeholder.tl_data().parent.take().unwrap();
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
         if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
@@ -560,13 +640,13 @@ impl ToplevelData {
                 node.clone().node_do_focus(&seat, Direction::Unspecified);
             }
         }
-        fd.placeholder
-            .node_seat_state()
-            .destroy_node(fd.placeholder.deref());
+        fd.placeholder.tl_destroy();
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
-        self.visible.set(visible);
+        if self.visible.replace(visible) != visible {
+            self.property_changed(TL_CHANGED_VISIBLE);
+        }
         self.seat_state.set_visible(node, visible);
         for sc in self.jay_screencasts.lock().values() {
             sc.update_latch_listener();
@@ -580,7 +660,7 @@ impl ToplevelData {
         if !self.requested_attention.replace(false) {
             return;
         }
-        self.wants_attention.set(false);
+        self.set_wants_attention(false);
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, false);
         }
@@ -593,9 +673,15 @@ impl ToplevelData {
         if self.requested_attention.replace(true) {
             return;
         }
-        self.wants_attention.set(true);
+        self.set_wants_attention(true);
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, true);
+        }
+    }
+
+    pub fn set_wants_attention(&self, value: bool) {
+        if self.wants_attention.replace(value) != value {
+            self.property_changed(TL_CHANGED_URGENT);
         }
     }
 
@@ -618,11 +704,15 @@ impl ToplevelData {
         };
         (0, 0)
     }
+
+    pub fn just_mapped(&self) -> bool {
+        self.mapped_during_iteration.get() == self.state.eng.iteration()
+    }
 }
 
 impl Drop for ToplevelData {
     fn drop(&mut self) {
-        self.state.toplevels.remove(&self.identifier.get());
+        self.state.remove_toplevel_id(self.identifier.get());
     }
 }
 
@@ -662,5 +752,84 @@ pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: Cont
     match split {
         ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
         ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+    }
+}
+
+pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNode>> {
+    if let Some(parent) = tl.tl_data().parent.get() {
+        if let Some(container) = parent.node_into_container() {
+            return Some(container);
+        }
+    }
+    None
+}
+
+pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {
+    if tl.tl_data().is_fullscreen.get() {
+        return;
+    }
+    let ws = match tl.tl_data().workspace.get() {
+        Some(ws) => ws,
+        _ => return,
+    };
+    let pn = match tl.tl_data().parent.get() {
+        Some(pn) => pn,
+        _ => return,
+    };
+    if let Some(pn) = pn.node_into_containing_node() {
+        let cn = ContainerNode::new(state, &ws, tl.clone(), axis);
+        pn.cnode_replace_child(&*tl, cn);
+    }
+}
+
+pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floating: bool) {
+    let data = tl.tl_data();
+    if data.is_fullscreen.get() {
+        return;
+    }
+    if data.is_floating.get() == floating {
+        return;
+    }
+    let parent = match data.parent.get() {
+        Some(p) => p,
+        _ => return,
+    };
+    if !floating {
+        parent.cnode_remove_child2(&*tl, true);
+        state.map_tiled(tl);
+    } else if let Some(ws) = data.workspace.get() {
+        parent.cnode_remove_child2(&*tl, true);
+        let (width, height) = data.float_size(&ws);
+        state.map_floating(tl, width, height, &ws, None);
+    }
+}
+
+pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+    if tl.tl_data().is_fullscreen.get() {
+        return;
+    }
+    let old_ws = match tl.tl_data().workspace.get() {
+        Some(ws) => ws,
+        _ => return,
+    };
+    if old_ws.id == ws.id {
+        return;
+    }
+    let cn = match tl.tl_data().parent.get() {
+        Some(cn) => cn,
+        _ => return,
+    };
+    let kb_foci = collect_kb_foci(tl.clone());
+    cn.cnode_remove_child2(&*tl, true);
+    if !ws.visible.get() {
+        for focus in kb_foci {
+            old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
+        }
+    }
+    if tl.tl_data().is_floating.get() {
+        let (width, height) = tl.tl_data().float_size(ws);
+        state.map_floating(tl.clone(), width, height, ws, None);
+    } else {
+        state.map_tiled_on(tl, ws);
     }
 }

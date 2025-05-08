@@ -19,7 +19,8 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             OutputNode, TddType, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            WorkspaceNode, default_tile_drag_bounds, walker::NodeVisitor,
+            ToplevelType, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -212,8 +213,9 @@ impl ContainerNode {
         let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(child.node_id(), child_node);
+        let id = state.node_ids.next();
         let slf = Rc::new_cyclic(|weak| Self {
-            id: state.node_ids.next(),
+            id,
             split: Cell::new(split),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
@@ -237,7 +239,14 @@ impl ContainerNode {
             state: state.clone(),
             render_data: Default::default(),
             scroller: Default::default(),
-            toplevel_data: ToplevelData::new(state, Default::default(), None, weak),
+            toplevel_data: ToplevelData::new(
+                state,
+                Default::default(),
+                None,
+                ToplevelType::Container,
+                id,
+                weak,
+            ),
             attention_requests: Default::default(),
         });
         child.tl_set_parent(slf.clone());
@@ -998,6 +1007,9 @@ impl ContainerNode {
             if let Some(parent) = self.toplevel_data.parent.get() {
                 if !self.toplevel_data.is_fullscreen.get() && parent.cnode_accepts_child(&*child) {
                     parent.cnode_replace_child(self.deref(), child.clone());
+                    self.toplevel_data.parent.take();
+                    self.child_nodes.borrow_mut().clear();
+                    self.tl_destroy();
                 }
             }
             return;
@@ -1140,7 +1152,7 @@ impl ContainerNode {
     fn mod_attention_requests(&self, set: bool) {
         let propagate = self.attention_requests.adj(set);
         if set || propagate {
-            self.toplevel_data.wants_attention.set(set);
+            self.toplevel_data.set_wants_attention(set);
         }
         if propagate {
             if let Some(parent) = self.toplevel_data.parent.get() {
@@ -1236,7 +1248,7 @@ impl ContainerNode {
                 && kind == SeatOpKind::Move
             {
                 drop(seat_datas);
-                seat.set_tl_floating(child.node.clone(), true);
+                toplevel_set_floating(&self.state, child.node.clone(), true);
                 return;
             }
             seat_data.op = Some(SeatOp {

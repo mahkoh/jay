@@ -2,6 +2,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{CAPS_DEFAULT, ClientCaps},
+        security_context_acceptor::AcceptorMetadata,
         state::State,
         utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
     },
@@ -170,6 +171,7 @@ impl Acceptor {
 }
 
 async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, effective_caps: ClientCaps) {
+    let metadata = Rc::new(AcceptorMetadata::default());
     loop {
         let fd = match state.ring.accept(&fd, c::SOCK_CLOEXEC).await {
             Ok(fd) => fd,
@@ -179,9 +181,10 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, effective_caps: ClientCaps) {
             }
         };
         let id = state.clients.id();
-        if let Err(e) = state
-            .clients
-            .spawn(id, &state, fd, effective_caps, ClientCaps::all())
+        if let Err(e) =
+            state
+                .clients
+                .spawn(id, &state, fd, effective_caps, ClientCaps::all(), &metadata)
         {
             log::error!("Could not spawn a client: {}", ErrorFmt(e));
             break;

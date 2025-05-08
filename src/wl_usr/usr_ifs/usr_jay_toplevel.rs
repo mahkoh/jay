@@ -36,6 +36,10 @@ impl JayToplevelEventHandler for UsrJayToplevel {
         Ok(())
     }
 
+    fn client_id(&self, _ev: ClientId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn done(&self, _ev: Done, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.done(slf);

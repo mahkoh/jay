@@ -382,6 +382,10 @@ impl StackedNode for XdgPopup {
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         false
     }
+
+    fn stacked_is_xdg_popup(&self) -> bool {
+        true
+    }
 }
 
 impl XdgSurfaceExt for XdgPopup {

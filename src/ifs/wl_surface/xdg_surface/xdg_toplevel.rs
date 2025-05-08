@@ -27,12 +27,14 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelNodeId, WorkspaceNode, default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelNodeId, ToplevelType, WorkspaceNode,
+            default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
     ahash::{AHashMap, AHashSet},
+    jay_config::window::TileState,
     num_derive::FromPrimitive,
     std::{
         cell::{Cell, RefCell},
@@ -91,6 +93,11 @@ pub enum Decoration {
     Server,
 }
 
+#[derive(Debug)]
+pub struct XdgToplevelToplevelData {
+    pub tag: RefCell<String>,
+}
+
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub state: Rc<State>,
@@ -111,6 +118,7 @@ pub struct XdgToplevel {
     is_mapped: Cell<bool>,
     dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
     extents_set: Cell<bool>,
+    pub data: Rc<XdgToplevelToplevelData>,
 }
 
 impl Debug for XdgToplevel {
@@ -133,11 +141,15 @@ impl XdgToplevel {
             states.insert(STATE_CONSTRAINED_BOTTOM);
         }
         let state = &surface.surface.client.state;
+        let node_id = state.node_ids.next();
+        let data = Rc::new(XdgToplevelToplevelData {
+            tag: Default::default(),
+        });
         Self {
             id,
             state: state.clone(),
             xdg: surface.clone(),
-            node_id: state.node_ids.next(),
+            node_id,
             parent: Default::default(),
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
@@ -152,12 +164,15 @@ impl XdgToplevel {
                 state,
                 String::new(),
                 Some(surface.surface.client.clone()),
+                ToplevelType::XdgToplevel(data.clone()),
+                node_id,
                 slf,
             ),
             drag: Default::default(),
             is_mapped: Cell::new(false),
             dialog: Default::default(),
             extents_set: Cell::new(false),
+            data,
         }
     }
 
@@ -367,6 +382,31 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 }
 
 impl XdgToplevel {
+    fn map(
+        self: &Rc<Self>,
+        parent: Option<&XdgToplevel>,
+        pos: Option<(&Rc<OutputNode>, i32, i32)>,
+    ) {
+        if let Some(state) = self.state.initial_tile_state(&self.toplevel_data) {
+            match state {
+                TileState::Floating => {
+                    let mut ws = None;
+                    if let Some(parent) = parent {
+                        ws = parent.xdg.workspace.get();
+                    }
+                    let ws = ws.unwrap_or_else(|| self.state.ensure_map_workspace(None));
+                    self.map_floating(&ws, pos.map(|p| (p.1, p.2)));
+                }
+                _ => self.map_tiled(),
+            }
+            return;
+        }
+        match parent {
+            None => self.map_tiled(),
+            Some(p) => self.map_child(p, pos),
+        }
+    }
+
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
@@ -460,11 +500,7 @@ impl XdgToplevel {
             }
             self.state.tree_changed();
         } else {
-            if let Some(parent) = self.parent.get() {
-                self.map_child(&parent, pos);
-            } else {
-                self.map_tiled();
-            }
+            self.map(self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();

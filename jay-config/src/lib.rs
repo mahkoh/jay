@@ -46,7 +46,9 @@
 #[expect(unused_imports)]
 use crate::input::Seat;
 use {
-    crate::{_private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector},
+    crate::{
+        _private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector, window::Window,
+    },
     serde::{Deserialize, Serialize},
     std::{
         fmt::{Debug, Display, Formatter},
@@ -58,6 +60,7 @@ use {
 mod macros;
 #[doc(hidden)]
 pub mod _private;
+pub mod client;
 pub mod embedded;
 pub mod exec;
 pub mod input;
@@ -69,6 +72,7 @@ pub mod tasks;
 pub mod theme;
 pub mod timer;
 pub mod video;
+pub mod window;
 pub mod xwayland;
 
 /// A planar direction.
@@ -172,6 +176,13 @@ impl Workspace {
     /// This has no effect if the workspace is not currently being shown.
     pub fn move_to_output(self, output: Connector) {
         get!().move_to_output(WorkspaceSource::Explicit(self), output);
+    }
+
+    /// Returns the root container of this workspace.
+    ///
+    /// If no such container exists, [`Window::exists`] returns false.
+    pub fn window(self) -> Window {
+        get!(Window(0)).get_workspace_window(self)
     }
 }
 

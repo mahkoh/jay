@@ -500,6 +500,142 @@
         }
       ]
     },
+    "ClientMatch": {
+      "description": "Criteria for matching clients.\n\nIf no fields are set, all clients are matched. If multiple fields are set, all fields\nmust match the client.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Matches if the client rule with this name matches.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n\n  # Matches the same clients as the previous rule.\n  [[clients]]\n  match.name = \"spotify\"\n  ```\n"
+        },
+        "not": {
+          "description": "Matches if the contained criteria don't match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"not-spotify\"\n  match.not.sandbox-app-id = \"com.spotify.Client\"\n  ```\n",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "all": {
+          "type": "array",
+          "description": "Matches if all of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.all = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-engine = \"org.flatpak\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "any": {
+          "type": "array",
+          "description": "Matches if any of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.any = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "exactly": {
+          "description": "Matches if a specific number of contained criteria match.\n\n- Example:\n\n  ```toml\n  # Matches any client that is either steam or sandboxed by flatpak but not both.\n  [[clients]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { sandbox-engine = \"org.flatpak\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "$ref": "#/$defs/ClientMatchExactly"
+        },
+        "sandboxed": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't sandboxed.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandboxed = true\n  ```\n"
+        },
+        "sandbox-engine": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"org.flatpak\"\n  ```\n"
+        },
+        "sandbox-engine-regex": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"flatpak\"\n  ```\n"
+        },
+        "sandbox-app-id": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id = \"com.spotify.Client\"\n  ```\n"
+        },
+        "sandbox-app-id-regex": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id-regex = \"(?i)spotify\"\n  ```\n"
+        },
+        "sandbox-instance-id": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox verbatim.\n"
+        },
+        "sandbox-instance-id-regex": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox with a regular expression.\n"
+        },
+        "uid": {
+          "type": "integer",
+          "description": "Matches the user ID of the client."
+        },
+        "pid": {
+          "type": "integer",
+          "description": "Matches the process ID of the client."
+        },
+        "is-xwayland": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't Xwayland."
+        },
+        "comm": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client verbatim."
+        },
+        "comm-regex": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client with a regular expression."
+        },
+        "exe": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/exe` of the client verbatim."
+        },
+        "exe-regex": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/exe` of the client with a regular expression."
+        }
+      },
+      "required": []
+    },
+    "ClientMatchExactly": {
+      "description": "Criterion for matching a specific number of client criteria.\n",
+      "type": "object",
+      "properties": {
+        "num": {
+          "type": "number",
+          "description": "The number of criteria that must match."
+        },
+        "list": {
+          "type": "array",
+          "description": "The list of criteria.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        }
+      },
+      "required": [
+        "num",
+        "list"
+      ]
+    },
+    "ClientRule": {
+      "description": "A client rule.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of this rule.\n\nThis name can be referenced in other rules.\n\n- Example\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n\n  [[clients]]\n  match.name = \"spotify\"\n  action = \"kill-client\"\n  ```\n"
+        },
+        "match": {
+          "description": "The criteria that select the client that this rule applies to.",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "action": {
+          "description": "An action to execute when a client matches the criteria.",
+          "$ref": "#/$defs/Action"
+        },
+        "latch": {
+          "description": "An action to execute when a client no longer matches the criteria.",
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": []
+    },
     "Color": {
       "type": "string",
       "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
@@ -714,6 +850,22 @@
           "type": "integer",
           "description": "The maximum call depth of named actions. This setting prevents infinite recursion\nwhen using named actions. Setting this value to 0 or less disables named actions\ncompletely. The default is `16`.\n",
           "minimum": 0.0
+        },
+        "clients": {
+          "type": "array",
+          "description": "An array of client rules.\n\nThese rules can be used to give names to clients and to manipulate them.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientRule"
+          }
+        },
+        "windows": {
+          "type": "array",
+          "description": "An array of window rules.\n\nThese rules can be used to give names to windows and to manipulate them.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  name = \"spotify\"\n  match.title-regex = \"Spotify\"\n  action = { type = \"move-to-workspace\", name = \"music\" }\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/WindowRule"
+          }
         }
       },
       "required": []
@@ -1343,7 +1495,7 @@
     },
     "SimpleActionName": {
       "type": "string",
-      "description": "The name of a `simple` Action.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead fo the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `toggle-split`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
       "enum": [
         "focus-left",
         "focus-down",
@@ -1357,12 +1509,20 @@
         "split-horizontal",
         "split-vertical",
         "toggle-split",
+        "tile-horizontal",
+        "tile-vertical",
         "toggle-mono",
+        "show-single",
+        "show-all",
         "toggle-fullscreen",
+        "enter-fullscreen",
+        "exit-fullscreen",
         "focus-parent",
         "close",
         "disable-pointer-constraint",
         "toggle-floating",
+        "float",
+        "tile",
         "quit",
         "reload-config-toml",
         "reload-config-to",
@@ -1376,7 +1536,8 @@
         "toggle-float-above-fullscreen",
         "pin-float",
         "unpin-float",
-        "toggle-float-pinned"
+        "toggle-float-pinned",
+        "kill-client"
       ]
     },
     "Status": {
@@ -1503,6 +1664,14 @@
       },
       "required": []
     },
+    "TileState": {
+      "type": "string",
+      "description": "Whether a window is tiled or floating.",
+      "enum": [
+        "tiled",
+        "floating"
+      ]
+    },
     "TransferFunction": {
       "type": "string",
       "description": "The transfer function of an output.\n",
@@ -1577,6 +1746,207 @@
         "variant1",
         "variant2",
         "variant3"
+      ]
+    },
+    "WindowMatch": {
+      "description": "Criteria for matching windows.\n\nIf no fields are set, all windows are matched. If multiple fields are set, all fields\nmust match the window.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Matches if the window rule with this name matches.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  name = \"spotify\"\n  match.title-regex = \"Spotify\"\n\n  # Matches the same windows as the previous rule.\n  [[windows]]\n  match.name = \"spotify\"\n  ```\n"
+        },
+        "not": {
+          "description": "Matches if the contained criteria don't match.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  name = \"not-spotify\"\n  match.not.title-regex = \"Spotify\"\n  ```\n",
+          "$ref": "#/$defs/WindowMatch"
+        },
+        "all": {
+          "type": "array",
+          "description": "Matches if all of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.all = [\n    { title-regex = \"Spotify\" },\n    { title-regex = \"Premium\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/WindowMatch"
+          }
+        },
+        "any": {
+          "type": "array",
+          "description": "Matches if any of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.any = [\n    { title-regex = \"Spotify\" },\n    { title-regex = \"Alacritty\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/WindowMatch"
+          }
+        },
+        "exactly": {
+          "description": "Matches if a specific number of contained criteria match.\n\n- Example:\n\n  ```toml\n  # Matches any window that is either Alacritty or on workspace 3 but not both.\n  [[windows]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { workspace = \"3\" },\n    { title-regex = \"Alacritty\" },\n  ]\n  ```\n",
+          "$ref": "#/$defs/WindowMatchExactly"
+        },
+        "types": {
+          "description": "Matches windows whose type is contained in the mask.",
+          "$ref": "#/$defs/WindowTypeMask"
+        },
+        "client": {
+          "description": "Matches if the window's client matches the client criterion.",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "title": {
+          "type": "string",
+          "description": "Matches the title of the window verbatim."
+        },
+        "title-regex": {
+          "type": "string",
+          "description": "Matches the title of the window with a regular expression."
+        },
+        "app-id": {
+          "type": "string",
+          "description": "Matches the app-id of the window verbatim."
+        },
+        "app-id-regex": {
+          "type": "string",
+          "description": "Matches the app-id of the window with a regular expression."
+        },
+        "floating": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't floating."
+        },
+        "visible": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't visible."
+        },
+        "urgent": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't the urgency flag set."
+        },
+        "focused": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't the keyboard focus."
+        },
+        "fullscreen": {
+          "type": "boolean",
+          "description": "Matches if the window is/isn't fullscreen."
+        },
+        "just-mapped": {
+          "type": "boolean",
+          "description": "Matches if the window has/hasn't just been mapped.\n\nThis is true for one iteration of the compositor's main loop immediately after the\nwindow has been mapped.\n"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Matches the toplevel-tag of the window verbatim."
+        },
+        "tag-regex": {
+          "type": "string",
+          "description": "Matches the toplevel-tag of the window with a regular expression."
+        },
+        "x-class": {
+          "type": "string",
+          "description": "Matches the X class of the window verbatim."
+        },
+        "x-class-regex": {
+          "type": "string",
+          "description": "Matches the X class of the window with a regular expression."
+        },
+        "x-instance": {
+          "type": "string",
+          "description": "Matches the X instance of the window verbatim."
+        },
+        "x-instance-regex": {
+          "type": "string",
+          "description": "Matches the X instance of the window with a regular expression."
+        },
+        "x-role": {
+          "type": "string",
+          "description": "Matches the X role of the window verbatim."
+        },
+        "x-role-regex": {
+          "type": "string",
+          "description": "Matches the X role of the window with a regular expression."
+        },
+        "workspace": {
+          "type": "string",
+          "description": "Matches the workspace of the window verbatim."
+        },
+        "workspace-regex": {
+          "type": "string",
+          "description": "Matches the workspace of the window with a regular expression."
+        }
+      },
+      "required": []
+    },
+    "WindowMatchExactly": {
+      "description": "Criterion for matching a specific number of window criteria.\n",
+      "type": "object",
+      "properties": {
+        "num": {
+          "type": "number",
+          "description": "The number of criteria that must match."
+        },
+        "list": {
+          "type": "array",
+          "description": "The list of criteria.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/WindowMatch"
+          }
+        }
+      },
+      "required": [
+        "num",
+        "list"
+      ]
+    },
+    "WindowRule": {
+      "description": "A window rule.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of this rule.\n\nThis name can be referenced in other rules.\n\n- Example\n\n  ```toml\n  [[windows]]\n  name = \"spotify\"\n  match.title-regex = \"Spotify\"\n\n  [[windows]]\n  match.name = \"spotify\"\n  action = \"enter-fullscreen\"\n  ```\n"
+        },
+        "match": {
+          "description": "The criteria that select the window that this rule applies to.",
+          "$ref": "#/$defs/WindowMatch"
+        },
+        "action": {
+          "description": "An action to execute when a window matches the criteria.",
+          "$ref": "#/$defs/Action"
+        },
+        "latch": {
+          "description": "An action to execute when a window no longer matches the criteria.",
+          "$ref": "#/$defs/Action"
+        },
+        "auto-focus": {
+          "type": "boolean",
+          "description": "Whether newly mapped windows that match this rule get the keyboard focus.\n\nIf a window matches any rule for which this is false, the window will not be\nautomatically focused.\n"
+        },
+        "initial-tile-state": {
+          "description": "Specifies if the window is initially mapped tiled or floating.",
+          "$ref": "#/$defs/TileState"
+        }
+      },
+      "required": []
+    },
+    "WindowTypeMask": {
+      "description": "A mask of window types.\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "A named mask.",
+          "enum": [
+            "none",
+            "any",
+            "container",
+            "xdg-toplevel",
+            "x-window",
+            "client-window"
+          ]
+        },
+        {
+          "type": "array",
+          "description": "An array of masks that are OR'd.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/WindowTypeMask"
+          }
+        }
       ]
     },
     "XScalingMode": {

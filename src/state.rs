@@ -15,6 +15,7 @@ use {
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         cpu_worker::CpuWorker,
+        criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         damage::DamageVisualizer,
@@ -56,6 +57,7 @@ use {
                 NoneSurfaceExt,
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
+                x_surface::xwindow::{Xwindow, XwindowId},
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -80,8 +82,8 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
-            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
-            ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
+            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelData,
+            ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -110,6 +112,7 @@ use {
     jay_config::{
         PciId,
         video::{GfxApi, Transform},
+        window::TileState,
     },
     std::{
         cell::{Cell, RefCell},
@@ -121,6 +124,7 @@ use {
         time::Duration,
     },
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub struct State {
@@ -240,6 +244,8 @@ pub struct State {
     pub float_above_fullscreen: Cell<bool>,
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
+    pub cl_matcher_manager: ClMatcherManager,
+    pub tl_matcher_manager: TlMatcherManager,
 }
 
 // impl Drop for State {
@@ -261,11 +267,13 @@ pub struct ScreenlockState {
 
 pub struct XWaylandState {
     pub enabled: Cell<bool>,
+    pub pidfd: CloneCell<Option<Rc<OwnedFd>>>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
     pub ipc_device_ids: XIpcDeviceIds,
     pub use_wire_scale: Cell<bool>,
     pub wire_scale: Cell<Option<i32>>,
+    pub windows: CopyHashMap<XwindowId, Rc<Xwindow>>,
 }
 
 pub struct IdleState {
@@ -655,23 +663,24 @@ impl State {
         }
     }
 
-    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
-        let seat = self.seat_queue.last();
-        self.do_map_tiled(seat.as_deref(), node.clone());
-        if node.node_visible() {
-            if let Some(seat) = seat {
-                node.node_do_focus(&seat, Direction::Unspecified);
-            }
-        }
-    }
-
-    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
-        let output = seat
+    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+        seat.cloned()
+            .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
-            .unwrap();
-        let ws = output.ensure_workspace();
+            .unwrap()
+            .ensure_workspace()
+    }
+
+    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
+        let seat = self.seat_queue.last();
+        self.do_map_tiled(seat.as_deref(), node.clone());
+        self.focus_after_map(node, seat.as_deref());
+    }
+
+    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
+        let ws = self.ensure_map_workspace(seat);
         self.map_tiled_on(node, &ws);
     }
 
@@ -732,11 +741,22 @@ impl State {
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
         FloatNode::new(self, workspace, position, node.clone());
-        if node.node_visible() {
-            if let Some(seat) = self.seat_queue.last() {
-                node.node_do_focus(&seat, Direction::Unspecified);
+        self.focus_after_map(node, self.seat_queue.last().as_deref());
+    }
+
+    fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
+        if !node.node_visible() {
+            return;
+        }
+        let Some(seat) = seat else {
+            return;
+        };
+        if let Some(config) = self.config.get() {
+            if !config.auto_focus(node.tl_data()) {
+                return;
             }
         }
+        node.node_do_focus(&seat, Direction::Unspecified);
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
@@ -947,6 +967,15 @@ impl State {
         self.slow_ei_clients.clear();
         self.toplevels.clear();
         self.workspace_managers.clear();
+        self.cl_matcher_manager.clear();
+        self.tl_matcher_manager.clear();
+    }
+
+    pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
+        self.toplevels.remove(&id);
+        if let Some(config) = self.config.get() {
+            config.toplevel_removed(id);
+        }
     }
 
     pub fn damage_hardware_cursors(&self, render: bool) {
@@ -1360,6 +1389,10 @@ impl State {
             return false;
         };
         ctx.supports_color_management()
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        self.config.get()?.initial_tile_state(data)
     }
 }
 
