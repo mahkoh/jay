@@ -100,11 +100,9 @@ pub fn double_fork() -> Result<Option<OwnedFd>, ForkerError> {
                     Forked::Parent { pidfd, .. } => {
                         let pidfd = pidfd.raw();
                         let mut buf = [MaybeUninit::uninit(); 128];
-                        let hdr = c::cmsghdr {
-                            cmsg_len: 0,
-                            cmsg_level: c::SOL_SOCKET,
-                            cmsg_type: c::SCM_RIGHTS,
-                        };
+                        let mut hdr: c::cmsghdr = uapi::pod_zeroed();
+                        hdr.cmsg_level = c::SOL_SOCKET;
+                        hdr.cmsg_type = c::SCM_RIGHTS;
                         let _ = uapi::cmsg_write(&mut &mut buf[..], hdr, &pidfd);
                         let iov: &[&[u8]] = &[];
                         let msghdr = Msghdr {

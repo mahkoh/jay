@@ -11,6 +11,7 @@ pub mod bufio;
 pub mod cell_ext;
 pub mod clone3;
 pub mod clonecell;
+pub mod compat;
 pub mod copyhashmap;
 pub mod debug_fn;
 pub mod double_buffered;

@@ -1,5 +1,9 @@
 use {
-    crate::{format::Format, utils::oserror::OsError, video::Modifier},
+    crate::{
+        format::Format,
+        utils::{compat::IoctlNumber, oserror::OsError},
+        video::Modifier,
+    },
     arrayvec::ArrayVec,
     std::rc::Rc,
     uapi::{_IOW, _IOWR, OwnedFd, c::ioctl},
@@ -74,8 +78,10 @@ struct dma_buf_import_sync_file {
 pub const DMA_BUF_SYNC_READ: u32 = 1 << 0;
 pub const DMA_BUF_SYNC_WRITE: u32 = 1 << 1;
 
-const DMA_BUF_IOCTL_EXPORT_SYNC_FILE: u64 = _IOWR::<dma_buf_export_sync_file>(DMA_BUF_BASE, 2);
-const DMA_BUF_IOCTL_IMPORT_SYNC_FILE: u64 = _IOW::<dma_buf_import_sync_file>(DMA_BUF_BASE, 3);
+const DMA_BUF_IOCTL_EXPORT_SYNC_FILE: IoctlNumber =
+    _IOWR::<dma_buf_export_sync_file>(DMA_BUF_BASE, 2) as IoctlNumber;
+const DMA_BUF_IOCTL_IMPORT_SYNC_FILE: IoctlNumber =
+    _IOW::<dma_buf_import_sync_file>(DMA_BUF_BASE, 3) as IoctlNumber;
 
 pub fn dma_buf_export_sync_file(dmabuf: &OwnedFd, flags: u32) -> Result<OwnedFd, OsError> {
     let mut data = dma_buf_export_sync_file { flags, fd: -1 };
