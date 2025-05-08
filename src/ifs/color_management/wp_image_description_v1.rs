@@ -31,7 +31,7 @@ impl WpImageDescriptionV1 {
     pub fn send_ready(&self) {
         self.client.event(Ready {
             self_id: self.id,
-            identity: self.description.as_ref().unwrap().id.raw(),
+            identity: self.description.as_ref().unwrap().id.raw() as u32,
         });
     }
 }

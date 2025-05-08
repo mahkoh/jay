@@ -185,6 +185,7 @@ macro_rules! linear_ids {
         linear_ids!($(#[$attr1])* $ids, $id, u32);
     };
     ($(#[$attr1:meta])* $ids:ident, $id:ident, $ty:ty $(,)?) => {
+        #[derive(Debug)]
         pub struct $ids {
             next: crate::utils::numcell::NumCell<$ty>,
         }
