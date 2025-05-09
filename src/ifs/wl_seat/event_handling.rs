@@ -50,7 +50,7 @@ use {
         input::SwitchEvent,
         keyboard::{
             mods::{CAPS, Modifiers, NUM, RELEASE},
-            syms::{KeySym, SYM_Escape},
+            syms::KeySym,
         },
     },
     kbvm::{ModifierMask, state_machine::Event},
@@ -836,7 +836,7 @@ impl WlSeatGlobal {
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
                     let sym = props.keysym().0;
-                    if sym == SYM_Escape.0 && mods == 0 {
+                    if sym == self.revert_key.get().0 && mods == 0 {
                         revert_pointer_to_default = true;
                     }
                     if !self.state.lock.locked.get() {

@@ -4,6 +4,7 @@ use {
             Action, Config, Libei, Theme, UiDrag,
             context::Context,
             extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, str, val},
+            keysyms::KEYSYMS,
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -129,6 +130,7 @@ impl Parser for ConfigParser<'_> {
                 max_action_depth_val,
                 client_rules_val,
                 window_rules_val,
+                pointer_revert_key_str,
             ),
         ) = ext.extract((
             (
@@ -174,6 +176,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(int("max-action-depth"))),
                 opt(val("clients")),
                 opt(val("windows")),
+                recover(opt(str("pointer-revert-key"))),
             ),
         ))?;
         let mut keymap = None;
@@ -444,6 +447,13 @@ impl Parser for ConfigParser<'_> {
                 Err(e) => log::warn!("Could not parse the window rules: {}", self.0.error(e)),
             }
         }
+        let mut pointer_revert_key = None;
+        if let Some(value) = pointer_revert_key_str {
+            match KEYSYMS.get(value.value) {
+                Some(s) => pointer_revert_key = Some(*s),
+                None => log::warn!("Unknown keysym: {}", self.0.error3(value.span)),
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -480,6 +490,7 @@ impl Parser for ConfigParser<'_> {
             max_action_depth,
             client_rules,
             window_rules,
+            pointer_revert_key,
         })
     }
 }

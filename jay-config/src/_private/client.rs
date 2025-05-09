@@ -1736,6 +1736,10 @@ impl ConfigClient {
         self.window_match_handlers.borrow_mut().remove(&matcher);
     }
 
+    pub fn set_pointer_revert_key(&self, seat: Seat, key: KeySym) {
+        self.send(&ClientMessage::SetPointerRevertKey { seat, key });
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();

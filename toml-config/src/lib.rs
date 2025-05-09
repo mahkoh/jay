@@ -1235,6 +1235,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             set_show_float_pin_icon(show);
         }
     }
+    if let Some(key) = config.pointer_revert_key {
+        persistent.seat.set_pointer_revert_key(key);
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {

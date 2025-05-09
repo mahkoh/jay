@@ -8,7 +8,7 @@ use {
         _private::{DEFAULT_SEAT_NAME, ipc::WorkspaceSource},
         Axis, Direction, ModifiedKeySym, Workspace,
         input::{acceleration::AccelProfile, capability::Capability},
-        keyboard::{Keymap, mods::Modifiers},
+        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         video::Connector,
         window::Window,
     },
@@ -492,6 +492,16 @@ impl Seat {
     /// This has no effect if the window is not visible.
     pub fn focus_window(self, window: Window) {
         get!().focus_window(self, window)
+    }
+
+    /// Sets the key that can be used to revert the pointer to the default state.
+    ///
+    /// Pressing this key cancels any grabs, drags, selections, etc.
+    ///
+    /// The default is `SYM_Escape`. Setting this to `SYM_NoSymbol` effectively disables
+    /// this functionality.
+    pub fn set_pointer_revert_key(self, sym: KeySym) {
+        get!().set_pointer_revert_key(self, sym);
     }
 }
 

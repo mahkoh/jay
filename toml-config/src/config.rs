@@ -23,7 +23,7 @@ use {
     jay_config::{
         Axis, Direction, Workspace,
         input::{SwitchEvent, acceleration::AccelProfile},
-        keyboard::{Keymap, ModifiedKeySym, mods::Modifiers},
+        keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
@@ -478,6 +478,7 @@ pub struct Config {
     pub max_action_depth: u64,
     pub client_rules: Vec<ClientRule>,
     pub window_rules: Vec<WindowRule>,
+    pub pointer_revert_key: Option<KeySym>,
 }
 
 #[derive(Debug, Error)]
