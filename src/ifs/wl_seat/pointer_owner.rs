@@ -14,6 +14,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         rect::Rect,
+        time::Time,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
             PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination, WorkspaceNode,
@@ -437,7 +438,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
         match state {
             KeyState::Released => {
-                self.buttons.remove(&button);
+                if self.buttons.remove(&button).is_none() {
+                    return;
+                }
                 if self.buttons.is_empty() {
                     self.node.node_seat_state().remove_pointer_grab(seat);
                     // log::info!("button");
@@ -446,7 +449,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
                 }
             }
             KeyState::Pressed => {
-                self.buttons.insert(button, ());
+                if self.buttons.insert(button, ()).is_some() {
+                    return;
+                }
             }
         }
         let serial = seat.state.next_serial(self.node.node_client().as_deref());
@@ -480,6 +485,17 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     }
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        let serial = seat.state.next_serial(self.node.node_client().as_deref());
+        let time_usec = Time::now_unchecked().usec();
+        for (button, _) in &self.buttons {
+            seat.handle_node_button(
+                self.node.clone(),
+                time_usec,
+                button,
+                KeyState::Released,
+                serial,
+            );
+        }
         self.node.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
     }
