@@ -95,6 +95,7 @@ use {
         wire_ei::EiSeatId,
     },
     ahash::AHashMap,
+    jay_config::keyboard::syms::{KeySym, SYM_Escape},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -215,6 +216,7 @@ pub struct WlSeatGlobal {
     ui_drag_highlight: Cell<Option<Rect>>,
     keyboard_node_serial: Cell<u64>,
     tray_popups: CopyHashMap<(TrayItemId, XdgPopupId), Rc<dyn DynTrayItem>>,
+    revert_key: Cell<KeySym>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -288,6 +290,7 @@ impl WlSeatGlobal {
             ei_seats: Default::default(),
             ui_drag_highlight: Default::default(),
             tray_popups: Default::default(),
+            revert_key: Cell::new(SYM_Escape),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -1070,6 +1073,10 @@ impl WlSeatGlobal {
             return;
         };
         tl.tl_set_pinned(true, pinned);
+    }
+
+    pub fn set_pointer_revert_key(&self, key: KeySym) {
+        self.revert_key.set(key);
     }
 }
 

@@ -706,6 +706,10 @@ pub enum ClientMessage<'a> {
         matcher: WindowMatcher,
         tile_state: TileState,
     },
+    SetPointerRevertKey {
+        seat: Seat,
+        key: KeySym,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

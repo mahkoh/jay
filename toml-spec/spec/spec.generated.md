@@ -1738,6 +1738,28 @@ The table has the following fields:
 
   The value of this field should be an array of [WindowRules](#types-WindowRule).
 
+- `pointer-revert-key` (optional):
+
+  Sets the keysym that can be used to revert the pointer to the default state.
+  
+  Pressing this key cancels any grabs, drags, selections, etc.
+  
+  The default is `Escape`. Setting this to `NoSymbol` effectively disables
+  this functionality.
+  
+  The value of the string should be the name of a keysym. The authoritative location
+  for these names is [1] with the `XKB_KEY_` prefix removed.
+  
+  [1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h
+  
+  - Example:
+  
+    ```toml
+    pointer-revert-key = "NoSymbol"
+    ```
+
+  The value of this field should be a string.
+
 
 <a name="types-Connector"></a>
 ### `Connector`

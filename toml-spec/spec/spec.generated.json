@@ -866,6 +866,10 @@
             "description": "",
             "$ref": "#/$defs/WindowRule"
           }
+        },
+        "pointer-revert-key": {
+          "type": "string",
+          "description": "Sets the keysym that can be used to revert the pointer to the default state.\n\nPressing this key cancels any grabs, drags, selections, etc.\n\nThe default is `Escape`. Setting this to `NoSymbol` effectively disables\nthis functionality.\n\nThe value of the string should be the name of a keysym. The authoritative location\nfor these names is [1] with the `XKB_KEY_` prefix removed.\n\n[1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h\n\n- Example:\n\n  ```toml\n  pointer-revert-key = \"NoSymbol\"\n  ```\n"
         }
       },
       "required": []

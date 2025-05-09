@@ -2091,6 +2091,10 @@ impl ConfigProxyHandler {
             .set(matcher, (m, tile_state));
         Ok(())
     }
+    fn handle_set_pointer_revert_key(&self, seat: Seat, key: KeySym) -> Result<(), CphError> {
+        self.get_seat(seat)?.set_pointer_revert_key(key);
+        Ok(())
+    }
 
     fn spaces_change(&self) {
         struct V;
@@ -2909,6 +2913,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_matcher_initial_tile_state(matcher, tile_state)
                 .wrn("set_window_matcher_initial_tile_state")?,
+            ClientMessage::SetPointerRevertKey { seat, key } => self
+                .handle_set_pointer_revert_key(seat, key)
+                .wrn("set_pointer_revert_key")?,
         }
         Ok(())
     }
