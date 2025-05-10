@@ -790,7 +790,7 @@ SimpleActionName:
       description: Terminate the compositor.
     - value: reload-config-toml
       description: Reload the `config.toml`.
-    - value: reload-config-to
+    - value: reload-config-so
       description: Reload the `config.so`.
     - value: consume
       description: |

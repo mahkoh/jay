@@ -1529,7 +1529,7 @@
         "tile",
         "quit",
         "reload-config-toml",
-        "reload-config-to",
+        "reload-config-so",
         "consume",
         "forward",
         "none",
