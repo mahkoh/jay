@@ -1,6 +1,7 @@
 use {
     crate::{
         forker::ForkerError,
+        pr_caps::drop_all_pr_caps,
         utils::{errorfmt::ErrorFmt, on_drop::OnDrop, process_name::set_process_name},
     },
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
@@ -161,6 +162,7 @@ pub fn ensure_reaper() -> c::pid_t {
         set_deathsig();
         return reaper_pid;
     };
+    drop_all_pr_caps();
     set_process_name("jay reaper");
     while let Ok((pid, status)) = uapi::wait() {
         if pid == main_process_id {

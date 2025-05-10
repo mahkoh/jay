@@ -28,6 +28,7 @@ pub mod line_logger;
 pub mod linkedlist;
 pub mod log_on_drop;
 pub mod mmap;
+pub mod nice;
 pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;

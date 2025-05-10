@@ -234,7 +234,9 @@ impl ValueEnum for &'static Format {
 
 pub fn main() {
     let cli = Jay::parse();
-    drop_all_pr_caps();
+    if not_matches!(cli.command, Cmd::Run(_)) {
+        drop_all_pr_caps();
+    }
     match cli.command {
         Cmd::Run(a) => start_compositor(cli.global, a),
         Cmd::GenerateCompletion(g) => generate::main(g),

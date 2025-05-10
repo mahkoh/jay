@@ -1,16 +1,51 @@
 use {
     crate::{
         pr_caps::sys::{
-            _LINUX_CAPABILITY_U32S_3, _LINUX_CAPABILITY_VERSION_3, cap_user_data_t,
+            _LINUX_CAPABILITY_U32S_3, _LINUX_CAPABILITY_VERSION_3, CAP_SYS_NICE, cap_user_data_t,
             cap_user_header_t,
         },
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, oserror::OsError},
     },
     uapi::{
-        c::{SYS_capset, syscall},
+        c::{SYS_capget, SYS_capset, syscall},
         map_err,
     },
 };
+
+pub struct PrCaps {
+    effective: u64,
+    permitted: u64,
+    inheritable: u64,
+}
+
+pub struct PrCompCaps {
+    caps: PrCaps,
+}
+
+pub fn pr_caps() -> PrCaps {
+    let mut hdr = cap_user_header_t {
+        version: _LINUX_CAPABILITY_VERSION_3,
+        pid: 0,
+    };
+    let mut caps = [cap_user_data_t::default(); _LINUX_CAPABILITY_U32S_3];
+    let ret = unsafe { syscall(SYS_capget, &mut hdr, &mut caps) };
+    if let Err(e) = map_err!(ret) {
+        eprintln!(
+            "Could not get process capabilities: {}",
+            ErrorFmt(OsError(e.0))
+        );
+        return PrCaps {
+            effective: 0,
+            permitted: 0,
+            inheritable: 0,
+        };
+    }
+    PrCaps {
+        effective: caps[0].effective as u64 | ((caps[1].effective as u64) << 32),
+        permitted: caps[0].permitted as u64 | ((caps[1].permitted as u64) << 32),
+        inheritable: caps[0].inheritable as u64 | ((caps[1].inheritable as u64) << 32),
+    }
+}
 
 pub fn drop_all_pr_caps() {
     let mut hdr = cap_user_header_t {
@@ -24,6 +59,55 @@ pub fn drop_all_pr_caps() {
             "Could not get drop capabilities: {}",
             ErrorFmt(OsError(e.0))
         );
+    }
+}
+
+impl PrCaps {
+    pub fn into_comp(mut self) -> PrCompCaps {
+        let mut caps = 0;
+        macro_rules! add_cap {
+            ($name:ident) => {
+                if self.permitted.contains(1 << $name) {
+                    caps |= 1 << $name;
+                }
+            };
+        }
+        add_cap!(CAP_SYS_NICE);
+        let mut hdr = cap_user_header_t {
+            version: _LINUX_CAPABILITY_VERSION_3,
+            pid: 0,
+        };
+        let caps_hi = (caps >> 32) as u32;
+        let caps_lo = caps as u32;
+        let mut data = [cap_user_data_t::default(); _LINUX_CAPABILITY_U32S_3];
+        data[0].effective = caps_lo;
+        data[1].effective = caps_hi;
+        data[0].permitted = caps_lo;
+        data[1].permitted = caps_hi;
+        let ret = unsafe { syscall(SYS_capset, &mut hdr, &data) };
+        if let Err(e) = map_err!(ret) {
+            eprintln!(
+                "Could not get set compositor capabilities: {}",
+                ErrorFmt(OsError(e.0))
+            );
+            return PrCompCaps { caps: self };
+        }
+        self.effective = caps;
+        self.permitted = caps;
+        self.inheritable = 0;
+        PrCompCaps { caps: self }
+    }
+}
+
+impl PrCompCaps {
+    pub fn has_nice(&self) -> bool {
+        self.caps.effective.contains(1 << CAP_SYS_NICE)
+    }
+}
+
+impl Drop for PrCaps {
+    fn drop(&mut self) {
+        drop_all_pr_caps();
     }
 }
 

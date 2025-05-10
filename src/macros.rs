@@ -760,3 +760,15 @@ macro_rules! client_wire_scale_to_logical {
         }
     };
 }
+
+macro_rules! not_matches {
+    ($($tt:tt)*) => {
+        !matches!($($tt)*)
+    };
+}
+
+macro_rules! jay_allow_realtime_config_so {
+    () => {
+        "JAY_ALLOW_REALTIME_CONFIG_SO"
+    };
+}

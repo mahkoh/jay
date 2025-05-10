@@ -39,6 +39,7 @@ use {
         logger::Logger,
         output_schedule::OutputSchedule,
         portal::{self, PortalStartup},
+        pr_caps::pr_caps,
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -51,9 +52,17 @@ use {
         },
         user_session::import_environment,
         utils::{
-            clone3::ensure_reaper, clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            numcell::NumCell, oserror::OsError, queue::AsyncQueue, refcounted::RefCounted,
-            run_toplevel::RunToplevel, tri::Try,
+            clone3::ensure_reaper,
+            clonecell::CloneCell,
+            errorfmt::ErrorFmt,
+            fdcloser::FdCloser,
+            nice::{did_elevate_scheduler, elevate_scheduler},
+            numcell::NumCell,
+            oserror::OsError,
+            queue::AsyncQueue,
+            refcounted::RefCounted,
+            run_toplevel::RunToplevel,
+            tri::Try,
         },
         version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
@@ -72,6 +81,11 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
+    let caps = pr_caps().into_comp();
+    if caps.has_nice() {
+        elevate_scheduler();
+    }
+    drop(caps);
     let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();
@@ -146,6 +160,9 @@ fn start_compositor2(
 ) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
     log::info!("version = {VERSION}");
+    if did_elevate_scheduler() {
+        log::info!("Running with elevated scheduler: SCHED_RR");
+    }
     init_fd_limit();
     leaks::init();
     clientmem::init()?;
@@ -680,7 +697,7 @@ fn create_dummy_output(state: &Rc<State>) {
     state.dummy_output.set(Some(dummy_output));
 }
 
-fn config_dir() -> Option<String> {
+pub fn config_dir() -> Option<String> {
     if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
         Some(format!("{}/jay", xdg))
     } else if let Ok(home) = env::var("HOME") {
