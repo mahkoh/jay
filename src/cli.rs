@@ -28,6 +28,7 @@ use {
         compositor::start_compositor,
         format::{Format, ref_formats},
         portal,
+        pr_caps::drop_all_pr_caps,
     },
     ::log::Level,
     clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
@@ -233,6 +234,7 @@ impl ValueEnum for &'static Format {
 
 pub fn main() {
     let cli = Jay::parse();
+    drop_all_pr_caps();
     match cli.command {
         Cmd::Run(a) => start_compositor(cli.global, a),
         Cmd::GenerateCompletion(g) => generate::main(g),

@@ -88,6 +88,7 @@ mod output_schedule;
 mod pango;
 mod pipewire;
 mod portal;
+mod pr_caps;
 mod rect;
 mod renderer;
 mod scale;
