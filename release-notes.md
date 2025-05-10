@@ -31,6 +31,9 @@
   [window-and-client-rules.md](./docs/window-and-client-rules.md).
 - Add client and tree CLI subcommands to inspect clients and windows, primarily
   to facilitate the writing of window and client rules.
+- Jay now supports being started with CAP_SYS_NICE capabilities to improve
+  responsiveness under high system load. This is described in detail in
+  [setup.md](docs/setup.md).
 
 # 1.10.0 (2025-04-22)
 
