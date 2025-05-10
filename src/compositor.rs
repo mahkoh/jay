@@ -39,7 +39,7 @@ use {
         logger::Logger,
         output_schedule::OutputSchedule,
         portal::{self, PortalStartup},
-        pr_caps::pr_caps,
+        pr_caps::{PrCapsThread, pr_caps},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -82,10 +82,13 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
     let caps = pr_caps().into_comp();
-    if caps.has_nice() {
+    let caps_thread = if caps.has_nice() {
         elevate_scheduler();
-    }
-    drop(caps);
+        Some(caps.into_thread())
+    } else {
+        drop(caps);
+        None
+    };
     let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();
@@ -97,7 +100,14 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
             None
         }
     };
-    let res = start_compositor2(Some(forker), portal, Some(logger.clone()), args, None);
+    let res = start_compositor2(
+        Some(forker),
+        portal,
+        Some(logger.clone()),
+        args,
+        None,
+        caps_thread,
+    );
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
@@ -111,7 +121,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future));
+    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
     leaks::log_leaked();
     res
 }
@@ -157,6 +167,7 @@ fn start_compositor2(
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
     test_future: Option<TestFuture>,
+    caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
     log::info!("version = {VERSION}");
@@ -321,6 +332,7 @@ fn start_compositor2(
         show_pin_icon: Cell::new(false),
         cl_matcher_manager: ClMatcherManager::new(&crit_ids),
         tl_matcher_manager: TlMatcherManager::new(&crit_ids),
+        caps_thread,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

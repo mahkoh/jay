@@ -74,6 +74,7 @@ use {
         keyboard::KeyboardStateIds,
         leaks::Tracker,
         logger::Logger,
+        pr_caps::PrCapsThread,
         rect::{Rect, Region},
         renderer::Renderer,
         scale::Scale,
@@ -246,6 +247,7 @@ pub struct State {
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: ClMatcherManager,
     pub tl_matcher_manager: TlMatcherManager,
+    pub caps_thread: Option<PrCapsThread>,
 }
 
 // impl Drop for State {
@@ -446,6 +448,7 @@ impl State {
             &self.ring,
             drm,
             api.unwrap_or(self.default_gfx_api.get()),
+            self.caps_thread.as_ref(),
         )
     }
 

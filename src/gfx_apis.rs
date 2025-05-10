@@ -4,6 +4,7 @@ use {
         async_engine::AsyncEngine,
         gfx_api::{GfxContext, GfxError},
         io_uring::IoUring,
+        pr_caps::PrCapsThread,
         utils::errorfmt::ErrorFmt,
         video::drm::Drm,
     },
@@ -19,12 +20,13 @@ pub fn create_gfx_context(
     ring: &Rc<IoUring>,
     drm: &Drm,
     api: GfxApi,
+    caps_thread: Option<&PrCapsThread>,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     let mut apis = [GfxApi::OpenGl, GfxApi::Vulkan];
     apis.sort_by_key(|&a| if a == api { -1 } else { a as i32 });
     let mut last_err = None;
     for api in apis {
-        let res = create_gfx_context_(eng, ring, drm, api);
+        let res = create_gfx_context_(eng, ring, drm, api, caps_thread);
         match res {
             Ok(_) => return res,
             Err(e) => {
@@ -41,10 +43,11 @@ fn create_gfx_context_(
     ring: &Rc<IoUring>,
     drm: &Drm,
     api: GfxApi,
+    caps_thread: Option<&PrCapsThread>,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     match api {
         GfxApi::OpenGl => gl::create_gfx_context(drm),
-        GfxApi::Vulkan => vulkan::create_graphics_context(eng, ring, drm),
+        GfxApi::Vulkan => vulkan::create_graphics_context(eng, ring, drm, caps_thread),
         _ => unreachable!(),
     }
 }

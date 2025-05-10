@@ -6,6 +6,13 @@ use {
         },
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, oserror::OsError},
     },
+    opera::PhantomNotSend,
+    parking_lot::{Condvar, Mutex},
+    std::{
+        mem,
+        sync::Arc,
+        thread::{self, JoinHandle},
+    },
     uapi::{
         c::{SYS_capget, SYS_capset, syscall},
         map_err,
@@ -20,6 +27,24 @@ pub struct PrCaps {
 
 pub struct PrCompCaps {
     caps: PrCaps,
+}
+
+pub struct PrCapsThread {
+    thread: Option<JoinHandle<()>>,
+    data: Arc<ThreadData>,
+    _no_send: PhantomNotSend,
+}
+
+#[derive(Default)]
+struct ThreadData {
+    cond: Condvar,
+    mutex: Mutex<MutData>,
+}
+
+#[derive(Default)]
+struct MutData {
+    exit: bool,
+    fun: Option<Box<dyn FnOnce() + Send>>,
 }
 
 pub fn pr_caps() -> PrCaps {
@@ -103,11 +128,83 @@ impl PrCompCaps {
     pub fn has_nice(&self) -> bool {
         self.caps.effective.contains(1 << CAP_SYS_NICE)
     }
+
+    pub fn into_thread(self) -> PrCapsThread {
+        let data = Arc::new(ThreadData::default());
+        let data2 = data.clone();
+        let jh = thread::Builder::new()
+            .name("SYS_nice thread".to_string())
+            .spawn(move || {
+                let data2 = data2;
+                let mut lock = data2.mutex.lock();
+                loop {
+                    if lock.exit {
+                        return;
+                    }
+                    if let Some(f) = lock.fun.take() {
+                        f();
+                    }
+                    data2.cond.wait(&mut lock);
+                }
+            })
+            .expect("Could not spawn SYS_nice thread");
+        PrCapsThread {
+            thread: Some(jh),
+            data,
+            _no_send: Default::default(),
+        }
+    }
+}
+
+impl PrCapsThread {
+    pub unsafe fn run<T, F>(&self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        struct AssertSend<T>(T);
+        unsafe impl<T> Send for AssertSend<T> {}
+        struct Data<T> {
+            cond: Condvar,
+            mutex: Mutex<Option<AssertSend<T>>>,
+        }
+        let data = Arc::new(Data {
+            cond: Default::default(),
+            mutex: Default::default(),
+        });
+        let data2 = data.clone();
+        let f = AssertSend(f);
+        let fun = Box::new(move || {
+            let f = f;
+            let t = f.0();
+            *data2.mutex.lock() = Some(AssertSend(t));
+            data2.cond.notify_all();
+        });
+        let fun = unsafe {
+            mem::transmute::<Box<dyn FnOnce() + Send + '_>, Box<dyn FnOnce() + Send>>(fun)
+        };
+        self.data.mutex.lock().fun = Some(fun);
+        self.data.cond.notify_all();
+        let mut lock = data.mutex.lock();
+        loop {
+            if let Some(t) = lock.take() {
+                return t.0;
+            }
+            data.cond.wait(&mut lock);
+        }
+    }
 }
 
 impl Drop for PrCaps {
     fn drop(&mut self) {
         drop_all_pr_caps();
+    }
+}
+
+impl Drop for PrCapsThread {
+    fn drop(&mut self) {
+        self.data.mutex.lock().exit = true;
+        self.data.cond.notify_all();
+        let _ = self.thread.take().unwrap().join();
     }
 }
 
