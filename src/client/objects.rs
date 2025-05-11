@@ -40,13 +40,7 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
-            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
-            JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
-            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
-            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
+            ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id, ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id
         },
     },
     std::{cell::RefCell, rc::Rc},

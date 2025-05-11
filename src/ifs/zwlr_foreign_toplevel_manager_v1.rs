@@ -3,12 +3,12 @@ use std::rc::Rc;
 use thiserror::Error;
 
 use crate::{
-    client::{CAP_FOREIGN_TOPLEVEL_MANAGER, Client, ClientCaps, ClientError},
+    client::{Client, ClientCaps, ClientError, CAP_FOREIGN_TOPLEVEL_MANAGER},
     globals::{Global, GlobalName},
     leaks::Tracker,
     object::{Object, Version},
     tree::{NodeVisitorBase, ToplevelOpt},
-    wire::{ZwlrForeignToplevelManagerV1Id, zwlr_foreign_toplevel_manager_v1::*},
+    wire::{zwlr_foreign_toplevel_manager_v1::*, ZwlrForeignToplevelManagerV1Id},
 };
 
 use super::{
@@ -88,7 +88,7 @@ impl ZwlrForeignToplevelManagerV1 {
 
     pub fn publish_toplevel(
         &self,
-        toplevel: ToplevelOpt,
+        tl: ToplevelOpt,
     ) -> Option<Rc<ZwlrForeignToplevelHandleV1>> {
         let id = match self.client.new_id() {
             Ok(id) => id,
@@ -103,11 +103,11 @@ impl ZwlrForeignToplevelManagerV1 {
             client: self.client.clone(),
             tracker: Default::default(),
             version: self.version,
-            toplevel: toplevel.clone(),
+            toplevel: tl,
         });
 
         track!(self.client, handle);
-
+        self.client.add_server_obj(&handle);
         self.send_handle(&handle);
 
         Some(handle)
