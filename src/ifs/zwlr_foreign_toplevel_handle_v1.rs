@@ -57,11 +57,11 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
         Ok(())
     }
 
-    fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn activate(&self, _req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            let seat = self.client.objects.seats.get(&req.seat);
+            let seat = self.client.state.seat_queue.first();
             if let Some(seat) = seat {
-                seat.global.focus_node(toplevel);
+                seat.focus_node(toplevel);
             }
         }
         Ok(())
