@@ -110,7 +110,7 @@ impl ZwlrForeignToplevelHandleV1 {
         let new_bindings = new.global.bindings.borrow();
         if let Some(bindings) = new_bindings.get(&self.client.id) {
             for binding in bindings {
-                self.send_output_leave(binding.1.to_owned());
+                self.send_output_enter(binding.1.to_owned());
             }
         }
     }
@@ -183,6 +183,8 @@ impl Object for ZwlrForeignToplevelHandleV1 {
         self.detach();
     }
 }
+
+simple_add_obj!(ZwlrForeignToplevelHandleV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrForeignToplevelHandleV1Error {
