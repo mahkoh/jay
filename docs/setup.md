@@ -52,6 +52,33 @@ cargo build --release
 
 The binary is then available under `./target/release/jay`.
 
+## Running with CAP_SYS_NICE
+
+Jay supports being started with CAP_SYS_NICE capabilities. For example, such
+capabilities can be added to the binary via
+
+```shell
+~# setcap cap_sys_nice=p jay
+```
+
+If CAP_SYS_NICE is available, Jay will, by default, elevate its scheduler to
+SCHED_RR and create Vulkan queues with the highest available priority. This can
+improve responsiveness if the CPU or GPU are under high load.
+
+If Jay is started with the environment variable `JAY_NO_REALTIME=1` or a
+`config.so` exists, then Jay will not elevate its scheduler but will still
+create elevated Vulkan queues.
+
+Jay will drop all capabilities almost immediately after being started. Before
+that, it will spawn a dedicated thread that retains the CAP_SYS_NICE capability
+to create elevated Vulkan queues later.
+
+If Jay has elevated its scheduler to SCHED_RR, then it will refuse to load
+`config.so` configurations. Otherwise unprivileged applications would be able
+to run arbitrary code with SCHED_RR by crafting a dedicated `config.so`. This
+behavior can be overridden by compiling Jay with
+`JAY_ALLOW_REALTIME_CONFIG_SO=1`.
+
 # Setup
 
 ## Configuration

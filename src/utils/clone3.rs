@@ -1,6 +1,7 @@
 use {
     crate::{
         forker::ForkerError,
+        pr_caps::drop_all_pr_caps,
         utils::{errorfmt::ErrorFmt, on_drop::OnDrop, process_name::set_process_name},
     },
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
@@ -135,6 +136,7 @@ pub fn ensure_reaper() -> c::pid_t {
     if let Ok(id) = env::var(REAPER_VAR) {
         if let Ok(id) = c::pid_t::from_str(&id) {
             if uapi::getppid() == id {
+                set_deathsig();
                 return id;
             }
         }
@@ -157,8 +159,10 @@ pub fn ensure_reaper() -> c::pid_t {
         unsafe {
             env::set_var(REAPER_VAR, reaper_pid.to_string());
         }
+        set_deathsig();
         return reaper_pid;
     };
+    drop_all_pr_caps();
     set_process_name("jay reaper");
     while let Ok((pid, status)) = uapi::wait() {
         if pid == main_process_id {
@@ -166,4 +170,10 @@ pub fn ensure_reaper() -> c::pid_t {
         }
     }
     process::exit(1);
+}
+
+fn set_deathsig() {
+    unsafe {
+        c::prctl(c::PR_SET_PDEATHSIG, c::SIGKILL as c::c_ulong);
+    }
 }

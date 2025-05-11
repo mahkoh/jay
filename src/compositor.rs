@@ -39,6 +39,7 @@ use {
         logger::Logger,
         output_schedule::OutputSchedule,
         portal::{self, PortalStartup},
+        pr_caps::{PrCapsThread, pr_caps},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -51,9 +52,17 @@ use {
         },
         user_session::import_environment,
         utils::{
-            clone3::ensure_reaper, clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            numcell::NumCell, oserror::OsError, queue::AsyncQueue, refcounted::RefCounted,
-            run_toplevel::RunToplevel, tri::Try,
+            clone3::ensure_reaper,
+            clonecell::CloneCell,
+            errorfmt::ErrorFmt,
+            fdcloser::FdCloser,
+            nice::{did_elevate_scheduler, elevate_scheduler},
+            numcell::NumCell,
+            oserror::OsError,
+            queue::AsyncQueue,
+            refcounted::RefCounted,
+            run_toplevel::RunToplevel,
+            tri::Try,
         },
         version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
@@ -72,6 +81,14 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
+    let caps = pr_caps().into_comp();
+    let caps_thread = if caps.has_nice() {
+        elevate_scheduler();
+        Some(caps.into_thread())
+    } else {
+        drop(caps);
+        None
+    };
     let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();
@@ -83,7 +100,14 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
             None
         }
     };
-    let res = start_compositor2(Some(forker), portal, Some(logger.clone()), args, None);
+    let res = start_compositor2(
+        Some(forker),
+        portal,
+        Some(logger.clone()),
+        args,
+        None,
+        caps_thread,
+    );
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
@@ -97,7 +121,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future));
+    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
     leaks::log_leaked();
     res
 }
@@ -143,9 +167,13 @@ fn start_compositor2(
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
     test_future: Option<TestFuture>,
+    caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
     log::info!("version = {VERSION}");
+    if did_elevate_scheduler() {
+        log::info!("Running with elevated scheduler: SCHED_RR");
+    }
     init_fd_limit();
     leaks::init();
     clientmem::init()?;
@@ -304,6 +332,7 @@ fn start_compositor2(
         show_pin_icon: Cell::new(false),
         cl_matcher_manager: ClMatcherManager::new(&crit_ids),
         tl_matcher_manager: TlMatcherManager::new(&crit_ids),
+        caps_thread,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -680,7 +709,7 @@ fn create_dummy_output(state: &Rc<State>) {
     state.dummy_output.set(Some(dummy_output));
 }
 
-fn config_dir() -> Option<String> {
+pub fn config_dir() -> Option<String> {
     if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
         Some(format!("{}/jay", xdg))
     } else if let Ok(home) = env::var("HOME") {

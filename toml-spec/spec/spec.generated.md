@@ -3428,7 +3428,7 @@ The string should have one of the following values:
 
   Reload the `config.toml`.
 
-- `reload-config-to`:
+- `reload-config-so`:
 
   Reload the `config.so`.
 
