@@ -283,7 +283,7 @@ impl Xwindow {
             Change::Map => {
                 self.data.state.map_tiled(self.clone());
                 if self.data.info.fullscreen.get() {
-                    self.clone().tl_set_fullscreen(true);
+                    self.clone().tl_set_fullscreen(true, None);
                 }
                 self.data.title_changed();
             }

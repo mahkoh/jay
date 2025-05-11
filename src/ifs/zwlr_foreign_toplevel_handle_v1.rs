@@ -7,9 +7,13 @@ use {
         tree::{OutputNode, ToplevelOpt},
         wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
+    arrayvec::ArrayVec,
     std::rc::Rc,
     thiserror::Error,
 };
+
+const STATE_ACTIVATED: u32 = 2;
+const STATE_FULLSCREEN: u32 = 3;
 
 pub struct ZwlrForeignToplevelHandleV1 {
     pub id: ZwlrForeignToplevelHandleV1Id,
@@ -34,7 +38,6 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
-        self.client.remove_obj(self)?;
         Ok(())
     }
 
@@ -77,28 +80,15 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn set_fullscreen(&self, req: SetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            let workspaces = self.client.state.workspaces.lock();
-            let ws = workspaces.values().find(|ws| {
-                let ws_output_node = ws.output.get();
-                let ws_bindigs = ws_output_node.global.bindings.borrow();
-                let ws_outputs = ws_bindigs.get(&self.client.id).map(|hm| hm.values());
-
-                ws_outputs
-                    .map(|mut os| os.any(|o| o.id == req.output))
-                    .unwrap_or(false)
-            });
-
-            if let Some(ws) = ws {
-                toplevel.tl_set_workspace(ws);
-                toplevel.tl_set_fullscreen(true);
-            }
+            let output = self.client.objects.outputs.get(&req.output);
+            toplevel.tl_set_fullscreen(true, output);
         }
         Ok(())
     }
 
     fn unset_fullscreen(&self, _req: UnsetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            toplevel.tl_set_fullscreen(false);
+            toplevel.tl_set_fullscreen(false, None);
         }
         Ok(())
     }
@@ -106,33 +96,21 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
 impl ZwlrForeignToplevelHandleV1 {
     pub fn handle_output_changed(&self, prev: Option<Rc<OutputNode>>, new: Rc<OutputNode>) {
-        let prev_bindings = prev.clone().map(|o| o.global.bindings.borrow().clone());
+        if let Some(prev) = prev {
+            if prev.id == new.id {
+                return;
+            }
+            let prev_bindings = prev.global.bindings.borrow();
+            if let Some(bindings) = prev_bindings.get(&self.client.id) {
+                for binding in bindings {
+                    self.send_output_leave(binding.1.to_owned());
+                }
+            }
+        }
         let new_bindings = new.global.bindings.borrow();
-        let new_outputs: Option<Vec<&Rc<WlOutput>>> = new_bindings
-            .get(&self.client.id)
-            .map(|b| b.values().collect());
-        if let Some(new_outputs) = new_outputs {
-            if let Some(prev_bindings) = prev_bindings {
-                let prev_outputs: Option<Vec<&Rc<WlOutput>>> = prev_bindings
-                    .get(&self.client.id)
-                    .map(|b| b.values().collect());
-                if let Some(prev_outputs) = prev_outputs {
-                    for output in prev_outputs.clone() {
-                        if !new_outputs.iter().any(|o| o.id == output.id) {
-                            self.send_output_leave(output.clone());
-                        }
-                    }
-
-                    for output in new_outputs {
-                        if !prev_outputs.iter().any(|o| o.id == output.id) {
-                            self.send_output_enter(output.clone());
-                        }
-                    }
-                }
-            } else {
-                for output in new_outputs {
-                    self.send_output_enter(output.clone());
-                }
+        if let Some(bindings) = new_bindings.get(&self.client.id) {
+            for binding in bindings {
+                self.send_output_leave(binding.1.to_owned());
             }
         }
     }
@@ -158,26 +136,21 @@ impl ZwlrForeignToplevelHandleV1 {
         });
     }
 
-    pub fn send_state(&self, maximized: bool, minimized: bool, activated: bool, fullscreen: bool) {
-        let mut state: Vec<u32> = vec![];
-        if maximized {
-            state.push(0);
-        }
-        if minimized {
-            state.push(1);
-        }
+    pub fn send_state(&self, activated: bool, fullscreen: bool) {
+        let mut state: ArrayVec<u32, 2> = ArrayVec::new();
         if activated {
-            state.push(2);
+            state.push(STATE_ACTIVATED);
         }
         if fullscreen {
-            state.push(3);
+            state.push(STATE_FULLSCREEN);
         }
         self.client.event(State {
             self_id: self.id,
-            state: &state,
+            state: &state.as_slice(),
         });
     }
 
+    #[expect(dead_code)]
     pub fn send_parent(&self, parent: Rc<ZwlrForeignToplevelHandleV1>) {
         self.client.event(Parent {
             self_id: self.id,
@@ -210,12 +183,6 @@ impl Object for ZwlrForeignToplevelHandleV1 {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    ZwlrForeignToplevelHandleV1,
-    ZwlrForeignToplevelHandleV1Id,
-    zwlr_foreign_toplevel_handles
-);
 
 #[derive(Debug, Error)]
 pub enum ZwlrForeignToplevelHandleV1Error {

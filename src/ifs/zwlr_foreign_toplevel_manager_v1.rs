@@ -107,7 +107,6 @@ impl ZwlrForeignToplevelManagerV1 {
         });
 
         track!(self.client, handle);
-        self.client.add_server_obj(&handle);
 
         self.send_handle(&handle);
 
@@ -137,7 +136,7 @@ impl Global for ZwlrForeignToplevelManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        3
     }
 
     fn required_caps(&self) -> ClientCaps {

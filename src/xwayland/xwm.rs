@@ -2441,7 +2441,7 @@ impl Wm {
         }
         if fullscreen != data.info.fullscreen.get() {
             if let Some(w) = data.window.get() {
-                w.tl_set_fullscreen(fullscreen);
+                w.tl_set_fullscreen(fullscreen, None);
             }
         }
         data.info.fullscreen.set(fullscreen);
