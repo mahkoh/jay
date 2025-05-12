@@ -5,7 +5,7 @@ use {
         client::{Client, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability,
+            capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -709,6 +709,14 @@ pub enum ClientMessage<'a> {
     SetPointerRevertKey {
         seat: Seat,
         key: KeySym,
+    },
+    SetClickMethod {
+        device: InputDevice,
+        method: ClickMethod,
+    },
+    SetMiddleButtonEmulationEnabled {
+        device: InputDevice,
+        enabled: bool,
     },
 }
 

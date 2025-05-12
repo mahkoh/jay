@@ -229,6 +229,14 @@ pub trait InputDevice {
         None
     }
     fn set_natural_scrolling_enabled(&self, enabled: bool);
+    fn click_method(&self) -> Option<InputDeviceClickMethod> {
+        None
+    }
+    fn set_click_method(&self, method: InputDeviceClickMethod);
+    fn middle_button_emulation_enabled(&self) -> Option<bool> {
+        None
+    }
+    fn set_middle_button_emulation_enabled(&self, enabled: bool);
     fn tablet_info(&self) -> Option<Box<TabletInit>> {
         None
     }
@@ -267,6 +275,13 @@ impl InputDeviceCapability {
 pub enum InputDeviceAccelProfile {
     Flat,
     Adaptive,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InputDeviceClickMethod {
+    None,
+    ButtonAreas,
+    Clickfinger,
 }
 
 pub enum BackendEvent {

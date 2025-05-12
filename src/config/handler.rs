@@ -3,7 +3,7 @@ use {
         async_engine::SpawnedFuture,
         backend::{
             self, BackendColorSpace, BackendTransferFunction, ConnectorId, DrmDeviceId,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
         },
         client::{Client, ClientId},
         cmm::cmm_transfer_function::TransferFunction,
@@ -55,6 +55,9 @@ use {
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
                 CAP_TABLET_TOOL, CAP_TOUCH, Capability,
+            },
+            clickmethod::{
+                CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE, ClickMethod,
             },
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
@@ -825,6 +828,32 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         dev.device.set_calibration_matrix(matrix);
+        Ok(())
+    }
+
+    fn handle_set_click_method(
+        &self,
+        device: InputDevice,
+        click_method: ClickMethod,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        let method = match click_method {
+            CLICK_METHOD_NONE => InputDeviceClickMethod::None,
+            CLICK_METHOD_BUTTON_AREAS => InputDeviceClickMethod::ButtonAreas,
+            CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
+            _ => return Err(CphError::UnknownClickMethod(click_method)),
+        };
+        dev.device.set_click_method(method);
+        Ok(())
+    }
+
+    fn handle_set_middle_button_emulation_enabled(
+        &self,
+        device: InputDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_middle_button_emulation_enabled(enabled);
         Ok(())
     }
 
@@ -2916,6 +2945,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetPointerRevertKey { seat, key } => self
                 .handle_set_pointer_revert_key(seat, key)
                 .wrn("set_pointer_revert_key")?,
+            ClientMessage::SetClickMethod { device, method } => self
+                .handle_set_click_method(device, method)
+                .wrn("set_click_method")?,
+            ClientMessage::SetMiddleButtonEmulationEnabled { device, enabled } => self
+                .handle_set_middle_button_emulation_enabled(device, enabled)
+                .wrn("set_middle_button_emulation_enabled")?,
         }
         Ok(())
     }
@@ -2945,6 +2980,8 @@ enum CphError {
     UnknownAccelProfile(AccelProfile),
     #[error("Queried unknown capability: {}", (.0).0)]
     UnknownCapability(Capability),
+    #[error("Tried to set an unknown click method: {}", (.0).0)]
+    UnknownClickMethod(ClickMethod),
     #[error("The sized {} is outside the valid range [{}, {}] for component {}", .0, .1.min(), .1.max(), .1.name())]
     InvalidSize(i32, ThemeSized),
     #[error("The ol' forker is not available")]

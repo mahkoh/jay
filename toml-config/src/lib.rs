@@ -546,6 +546,12 @@ impl Input {
         if let Some(v) = self.calibration_matrix {
             c.set_calibration_matrix(v);
         }
+        if let Some(v) = self.click_method {
+            c.set_click_method(v);
+        }
+        if let Some(v) = self.middle_button_emulation {
+            c.set_middle_button_emulation_enabled(v);
+        }
     }
 }
 

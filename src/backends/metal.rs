@@ -8,7 +8,8 @@ use {
         async_engine::SpawnedFuture,
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, TransformMatrix,
+            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState,
+            TransformMatrix,
         },
         backends::metal::video::{
             MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
@@ -26,9 +27,10 @@ use {
         libinput::{
             LibInput, LibInputAdapter, LibInputError,
             consts::{
-                AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_DEVICE_CAP_TABLET_PAD,
-                LIBINPUT_DEVICE_CAP_TABLET_TOOL,
+                AccelProfile, ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
+                LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
+                LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL,
             },
             device::{LibInputDevice, RegisteredDevice},
         },
@@ -400,6 +402,8 @@ struct InputDeviceProperties {
     drag_lock_enabled: Cell<Option<bool>>,
     natural_scrolling_enabled: Cell<Option<bool>>,
     calibration_matrix: Cell<Option<[[f32; 3]; 2]>>,
+    click_method: Cell<Option<ConfigClickMethod>>,
+    middle_button_emulation_enabled: Cell<Option<bool>>,
 }
 
 #[derive(Clone)]
@@ -463,6 +467,12 @@ impl MetalInputDevice {
         if let Some(lh) = self.desired.calibration_matrix.get() {
             self.set_calibration_matrix(lh);
         }
+        if let Some(method) = self.desired.click_method.get() {
+            self.set_click_method_(method);
+        }
+        if let Some(enabled) = self.desired.middle_button_emulation_enabled.get() {
+            self.set_middle_button_emulation_enabled(enabled);
+        }
         self.fetch_effective();
     }
 
@@ -497,6 +507,14 @@ impl MetalInputDevice {
                 .calibration_matrix
                 .set(Some(device.get_calibration_matrix()));
         }
+        if device.has_click_methods() {
+            self.effective.click_method.set(Some(device.click_method()));
+        }
+        if device.middle_button_emulation_available() {
+            self.effective
+                .middle_button_emulation_enabled
+                .set(Some(device.middle_button_emulation_enabled()));
+        }
     }
 
     fn pre_pause(&self) {
@@ -525,6 +543,18 @@ impl MetalInputDevice {
                 self.effective
                     .accel_profile
                     .set(Some(dev.device().accel_profile()));
+            }
+        }
+    }
+
+    fn set_click_method_(&self, method: ConfigClickMethod) {
+        self.desired.click_method.set(Some(method));
+        if let Some(dev) = self.inputdev.get() {
+            if dev.device().has_click_methods() {
+                dev.device().set_click_method(method);
+                self.effective
+                    .click_method
+                    .set(Some(dev.device().click_method()));
             }
         }
     }
@@ -701,6 +731,44 @@ impl InputDevice for MetalInputDevice {
                 self.effective
                     .natural_scrolling_enabled
                     .set(Some(dev.device().natural_scrolling_enabled()));
+            }
+        }
+    }
+
+    fn click_method(&self) -> Option<InputDeviceClickMethod> {
+        let p = self.effective.click_method.get()?;
+        let p = match p {
+            LIBINPUT_CONFIG_CLICK_METHOD_NONE => InputDeviceClickMethod::None,
+            LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS => InputDeviceClickMethod::ButtonAreas,
+            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
+            _ => return None,
+        };
+        Some(p)
+    }
+
+    fn set_click_method(&self, method: InputDeviceClickMethod) {
+        let method = match method {
+            InputDeviceClickMethod::None => LIBINPUT_CONFIG_CLICK_METHOD_NONE,
+            InputDeviceClickMethod::ButtonAreas => LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
+            InputDeviceClickMethod::Clickfinger => LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER,
+        };
+        self.set_click_method_(method);
+    }
+
+    fn middle_button_emulation_enabled(&self) -> Option<bool> {
+        self.effective.middle_button_emulation_enabled.get()
+    }
+
+    fn set_middle_button_emulation_enabled(&self, enabled: bool) {
+        self.desired
+            .middle_button_emulation_enabled
+            .set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            if dev.device().middle_button_emulation_available() {
+                dev.device().set_middle_button_emulation_enabled(enabled);
+                self.effective
+                    .middle_button_emulation_enabled
+                    .set(Some(dev.device().middle_button_emulation_enabled()));
             }
         }
     }

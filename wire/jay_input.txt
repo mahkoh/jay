@@ -124,6 +124,16 @@ request set_calibration_matrix (since = 4) {
     m12: pod(f32),
 }
 
+request set_click_method (since = 19) {
+    id: u32,
+    method: i32,
+}
+
+request set_middle_button_emulation (since = 19) {
+    id: u32,
+    enabled: u32,
+}
+
 # events
 
 event seat {
@@ -176,4 +186,12 @@ event calibration_matrix (since = 4) {
     m10: pod(f32),
     m11: pod(f32),
     m12: pod(f32),
+}
+
+event click_method (since = 19) {
+    click_method: i32,
+}
+
+event middle_button_emulation (since = 19) {
+    middle_button_emulation_enabled: u32,
 }

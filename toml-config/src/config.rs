@@ -22,7 +22,7 @@ use {
     ahash::AHashMap,
     jay_config::{
         Axis, Direction, Workspace,
-        input::{SwitchEvent, acceleration::AccelProfile},
+        input::{SwitchEvent, acceleration::AccelProfile, clickmethod::ClickMethod},
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
@@ -362,6 +362,8 @@ pub struct Input {
     pub tap_drag_lock_enabled: Option<bool>,
     pub left_handed: Option<bool>,
     pub natural_scrolling: Option<bool>,
+    pub click_method: Option<ClickMethod>,
+    pub middle_button_emulation: Option<bool>,
     pub px_per_wheel_scroll: Option<f64>,
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub keymap: Option<ConfigKeymap>,

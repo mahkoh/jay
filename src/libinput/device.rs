@@ -2,9 +2,11 @@ use {
     crate::libinput::{
         LibInput,
         consts::{
-            AccelProfile, ConfigDragLockState, ConfigDragState, ConfigTapState, DeviceCapability,
+            AccelProfile, ConfigClickMethod, ConfigDragLockState, ConfigDragState,
+            ConfigMiddleEmulationState, ConfigTapState, DeviceCapability,
             LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
             LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
+            LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED, LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
             LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED,
         },
         sys::{
@@ -13,9 +15,14 @@ use {
             libinput_device_config_accel_set_profile, libinput_device_config_accel_set_speed,
             libinput_device_config_calibration_get_matrix,
             libinput_device_config_calibration_has_matrix,
-            libinput_device_config_calibration_set_matrix, libinput_device_config_left_handed_get,
+            libinput_device_config_calibration_set_matrix, libinput_device_config_click_get_method,
+            libinput_device_config_click_get_methods, libinput_device_config_click_set_method,
+            libinput_device_config_left_handed_get,
             libinput_device_config_left_handed_is_available,
             libinput_device_config_left_handed_set,
+            libinput_device_config_middle_emulation_get_enabled,
+            libinput_device_config_middle_emulation_is_available,
+            libinput_device_config_middle_emulation_set_enabled,
             libinput_device_config_scroll_get_natural_scroll_enabled,
             libinput_device_config_scroll_has_natural_scroll,
             libinput_device_config_scroll_set_natural_scroll_enabled,
@@ -207,6 +214,46 @@ impl<'a> LibInputDevice<'a> {
 
     pub fn has_natural_scrolling(&self) -> bool {
         unsafe { libinput_device_config_scroll_has_natural_scroll(self.dev) != 0 }
+    }
+
+    pub fn has_click_methods(&self) -> bool {
+        unsafe { libinput_device_config_click_get_methods(self.dev) != 0 }
+    }
+
+    pub fn click_method(&self) -> ConfigClickMethod {
+        unsafe { ConfigClickMethod(libinput_device_config_click_get_method(self.dev)) }
+    }
+
+    pub fn set_click_method(&self, method: ConfigClickMethod) {
+        unsafe {
+            libinput_device_config_click_set_method(self.dev, method.raw() as _);
+        }
+    }
+
+    pub fn set_middle_button_emulation_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
+            false => LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_middle_emulation_set_enabled(self.dev, enabled.raw() as _);
+        }
+    }
+
+    pub fn middle_button_emulation_enabled(&self) -> bool {
+        let enabled = unsafe {
+            ConfigMiddleEmulationState(libinput_device_config_middle_emulation_get_enabled(
+                self.dev,
+            ))
+        };
+        match enabled {
+            LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED => true,
+            _ => false,
+        }
+    }
+
+    pub fn middle_button_emulation_available(&self) -> bool {
+        unsafe { libinput_device_config_middle_emulation_is_available(self.dev) != 0 }
     }
 
     pub fn device_group(&self) -> LibInputDeviceGroup<'_> {
