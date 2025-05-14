@@ -24,12 +24,12 @@ use {
             physical_device_drm, queue_family_foreign,
         },
         khr::{
-            driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
+            self, driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
             push_descriptor,
         },
         vk::{
-            self, DeviceCreateInfo, DeviceQueueCreateInfo, DeviceSize, DriverId,
-            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
+            self, DeviceCreateInfo, DeviceQueueCreateInfo, DeviceQueueGlobalPriorityCreateInfoKHR,
+            DeviceSize, DriverId, ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
             ExternalSemaphoreProperties, MAX_MEMORY_TYPES, MemoryPropertyFlags, MemoryType,
             PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
             PhysicalDeviceDescriptorBufferFeaturesEXT, PhysicalDeviceDescriptorBufferPropertiesEXT,
@@ -39,7 +39,7 @@ use {
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
             PhysicalDeviceTimelineSemaphoreFeatures,
             PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
-            Queue, QueueFlags,
+            Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
         },
     },
     isnt::std_1::collections::IsntHashMap2Ext,
@@ -50,6 +50,7 @@ use {
         sync::Arc,
     },
     uapi::Ustr,
+    vk::QueueFamilyGlobalPriorityPropertiesKHR,
 };
 
 pub struct VulkanDevice {
@@ -210,20 +211,42 @@ impl VulkanInstance {
     fn find_queues(
         &self,
         phy_dev: PhysicalDevice,
-    ) -> Result<(u32, Option<(u32, u32, u32)>), VulkanError> {
-        let props = unsafe {
+    ) -> Result<
+        (
+            u32,
+            Option<(u32, u32, u32)>,
+            QueueGlobalPriorityKHR,
+            QueueGlobalPriorityKHR,
+        ),
+        VulkanError,
+    > {
+        let len = unsafe {
             self.instance
-                .get_physical_device_queue_family_properties(phy_dev)
+                .get_physical_device_queue_family_properties2_len(phy_dev)
         };
+        let mut priority_props = vec![QueueFamilyGlobalPriorityPropertiesKHR::default(); len];
+        let mut props: Vec<_> = priority_props
+            .iter_mut()
+            .map(|p| QueueFamilyProperties2::default().push_next(p))
+            .collect();
+        unsafe {
+            self.instance
+                .get_physical_device_queue_family_properties2(phy_dev, &mut props[..])
+        }
         let gfx_queue = props
             .iter()
-            .position(|p| p.queue_flags.contains(QueueFlags::GRAPHICS))
+            .position(|p| {
+                p.queue_family_properties
+                    .queue_flags
+                    .contains(QueueFlags::GRAPHICS)
+            })
             .ok_or(VulkanError::NoGraphicsQueue)?;
         let transfer_queue = 'transfer: {
             let mut transfer_only = None;
             let mut compute_only = None;
             let mut separate_gfx = None;
             for (idx, props) in props.iter().enumerate() {
+                let props = &props.queue_family_properties;
                 if idx == gfx_queue {
                     continue;
                 }
@@ -244,7 +267,7 @@ impl VulkanInstance {
             if let Some(idx) = transfer_only.or(compute_only).or(separate_gfx) {
                 break 'transfer Some(idx);
             }
-            if props[gfx_queue].queue_count > 1 {
+            if props[gfx_queue].queue_family_properties.queue_count > 1 {
                 break 'transfer Some(gfx_queue);
             }
             None
@@ -252,13 +275,27 @@ impl VulkanInstance {
         let mut width_mask = 0;
         let mut height_mask = 0;
         if let Some(idx) = transfer_queue {
-            let g = &props[idx].min_image_transfer_granularity;
+            let g = &props[idx]
+                .queue_family_properties
+                .min_image_transfer_granularity;
             width_mask = g.width.wrapping_sub(1);
             height_mask = g.height.wrapping_sub(1);
         }
+        let get_priority = |idx: usize| {
+            let props = &priority_props[idx];
+            if props.priority_count > 0 {
+                props.priorities[props.priority_count as usize - 1]
+            } else {
+                QueueGlobalPriorityKHR::MEDIUM
+            }
+        };
         Ok((
             gfx_queue as _,
             transfer_queue.map(|v| (v as _, width_mask, height_mask)),
+            get_priority(gfx_queue),
+            transfer_queue
+                .map(get_priority)
+                .unwrap_or(QueueGlobalPriorityKHR::MEDIUM),
         ))
     }
 
@@ -275,7 +312,11 @@ impl VulkanInstance {
             .contains(ExternalSemaphoreFeatureFlags::IMPORTABLE)
     }
 
-    pub fn create_device(self: &Rc<Self>, drm: &Drm) -> Result<Rc<VulkanDevice>, VulkanError> {
+    pub fn create_device(
+        self: &Rc<Self>,
+        drm: &Drm,
+        mut high_priority: bool,
+    ) -> Result<Rc<VulkanDevice>, VulkanError> {
         let render_node = drm
             .get_render_node()
             .map_err(VulkanError::FetchRenderNode)?
@@ -293,7 +334,17 @@ impl VulkanInstance {
         if !supports_descriptor_buffer {
             log::warn!("Vulkan device does not support descriptor buffers");
         }
-        let (graphics_queue_family_idx, transfer_queue_family) = self.find_queues(phy_dev)?;
+        let supports_queue_priority = extensions.contains_key(khr::global_priority::NAME);
+        if !supports_queue_priority && high_priority {
+            high_priority = false;
+            log::warn!("Vulkan device does not support queue priorities");
+        }
+        let (
+            graphics_queue_family_idx,
+            transfer_queue_family,
+            max_graphics_priority,
+            max_transfer_priority,
+        ) = self.find_queues(phy_dev)?;
         let mut distinct_transfer_queue_family_idx = None;
         let mut transfer_granularity_mask = (0, 0);
         if let Some((idx, width_mask, height_mask)) = transfer_queue_family {
@@ -325,18 +376,31 @@ impl VulkanInstance {
         let mut uniform_buffer_standard_layout_features =
             PhysicalDeviceUniformBufferStandardLayoutFeatures::default()
                 .uniform_buffer_standard_layout(true);
+        let mut gfx_queue_device_queue_global_priority_create_info =
+            DeviceQueueGlobalPriorityCreateInfoKHR::default()
+                .global_priority(max_graphics_priority);
+        let mut trn_queue_device_queue_global_priority_create_info =
+            DeviceQueueGlobalPriorityCreateInfoKHR::default()
+                .global_priority(max_transfer_priority);
         let mut queue_create_infos = ArrayVec::<_, 2>::new();
-        queue_create_infos.push(
-            DeviceQueueCreateInfo::default()
-                .queue_family_index(graphics_queue_family_idx)
-                .queue_priorities(&[1.0]),
-        );
+        let queue_create_info = |idx, priority_info| {
+            let mut info = DeviceQueueCreateInfo::default()
+                .queue_family_index(idx)
+                .queue_priorities(&[1.0]);
+            if high_priority {
+                info = info.push_next(priority_info);
+            }
+            info
+        };
+        queue_create_infos.push(queue_create_info(
+            graphics_queue_family_idx,
+            &mut gfx_queue_device_queue_global_priority_create_info,
+        ));
         if let Some((tq, _, _)) = transfer_queue_family {
-            queue_create_infos.push(
-                DeviceQueueCreateInfo::default()
-                    .queue_family_index(tq)
-                    .queue_priorities(&[1.0]),
-            );
+            queue_create_infos.push(queue_create_info(
+                tq,
+                &mut trn_queue_device_queue_global_priority_create_info,
+            ));
         }
         let mut device_create_info = DeviceCreateInfo::default()
             .push_next(&mut semaphore_features)
@@ -433,6 +497,11 @@ impl VulkanInstance {
             };
             unsafe { device.get_device_queue(family_idx, queue_idx) }
         });
+        if high_priority {
+            log::info!(
+                "Created queues with priorities {max_graphics_priority:?}/{max_transfer_priority:?}",
+            );
+        }
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,

@@ -22,6 +22,7 @@ use {
     jay_config::input::{
         SwitchEvent,
         acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
+        clickmethod::{CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE},
     },
     thiserror::Error,
 };
@@ -87,7 +88,9 @@ impl Parser for InputParser<'_> {
                 output_val,
                 remove_mapping,
                 calibration_matrix,
+                click_method,
             ),
+            (middle_button_emulation,),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -111,7 +114,9 @@ impl Parser for InputParser<'_> {
                 opt(val("output")),
                 recover(opt(bol("remove-mapping"))),
                 recover(opt(val("calibration-matrix"))),
+                recover(opt(str("click-method"))),
             ),
+            (recover(opt(bol("middle-button-emulation"))),),
         ))?;
         let accel_profile = match accel_profile {
             None => None,
@@ -120,6 +125,18 @@ impl Parser for InputParser<'_> {
                 "adaptive" => Some(ACCEL_PROFILE_ADAPTIVE),
                 v => {
                     log::warn!("Unknown accel-profile {v}: {}", self.cx.error3(p.span));
+                    None
+                }
+            },
+        };
+        let click_method = match click_method {
+            None => None,
+            Some(p) => match p.value.to_ascii_lowercase().as_str() {
+                "none" => Some(CLICK_METHOD_NONE),
+                "button-areas" => Some(CLICK_METHOD_BUTTON_AREAS),
+                "clickfinger" => Some(CLICK_METHOD_CLICKFINGER),
+                v => {
+                    log::warn!("Unknown click-method {v}: {}", self.cx.error3(p.span));
                     None
                 }
             },
@@ -242,6 +259,8 @@ impl Parser for InputParser<'_> {
             tap_drag_lock_enabled: tap_drag_lock_enabled.despan(),
             left_handed: left_handed.despan(),
             natural_scrolling: natural_scrolling.despan(),
+            middle_button_emulation: middle_button_emulation.despan(),
+            click_method,
             px_per_wheel_scroll: px_per_wheel_scroll.despan(),
             transform_matrix,
             keymap,

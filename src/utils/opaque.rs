@@ -1,6 +1,6 @@
 use {
     arrayvec::ArrayString,
-    rand::{Rng, thread_rng},
+    rand::{Rng, rng},
     serde::{Deserialize, Deserializer, Serialize, Serializer, de},
     std::{
         fmt::{Debug, Display, Formatter},
@@ -17,10 +17,10 @@ pub struct Opaque {
 }
 
 pub fn opaque() -> Opaque {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     Opaque {
-        lo: rng.r#gen(),
-        hi: rng.r#gen(),
+        lo: rng.random(),
+        hi: rng.random(),
     }
 }
 

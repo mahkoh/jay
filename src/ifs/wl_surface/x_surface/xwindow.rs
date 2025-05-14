@@ -13,7 +13,7 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, WorkspaceNode, default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -21,6 +21,7 @@ use {
         xwayland::XWaylandEvent,
     },
     bstr::BString,
+    jay_config::window::TileState,
     std::{
         cell::{Cell, RefCell},
         ops::{Deref, Not},
@@ -90,10 +91,10 @@ pub struct XwindowInfo {
     pub override_redirect: Cell<bool>,
     pub extents: Cell<Rect>,
     pub pending_extents: Cell<Rect>,
-    pub instance: RefCell<Option<BString>>,
-    pub class: RefCell<Option<BString>>,
+    pub instance: RefCell<Option<String>>,
+    pub class: RefCell<Option<String>>,
     pub title: RefCell<Option<String>>,
-    pub role: RefCell<Option<BString>>,
+    pub role: RefCell<Option<String>>,
     pub protocols: CopyHashMap<u32, ()>,
     pub window_types: CopyHashMap<u32, ()>,
     pub never_focus: Cell<bool>,
@@ -205,16 +206,19 @@ impl Xwindow {
         if xsurface.xwindow.is_some() {
             return Err(XWindowError::AlreadyAttached);
         }
+        let id = data.state.node_ids.next();
         let slf = Rc::new_cyclic(|weak| {
             let tld = ToplevelData::new(
                 &data.state,
                 data.info.title.borrow_mut().clone().unwrap_or_default(),
                 Some(surface.client.clone()),
+                ToplevelType::XWindow(data.clone()),
+                id,
                 weak,
             );
             tld.pos.set(surface.extents.get());
             Self {
-                id: data.state.node_ids.next(),
+                id,
                 data: data.clone(),
                 display_link: Default::default(),
                 toplevel_data: tld,
@@ -235,6 +239,13 @@ impl Xwindow {
         self.tl_destroy();
         self.x.surface.set_toplevel(None);
         self.x.xwindow.set(None);
+        self.x
+            .surface
+            .client
+            .state
+            .xwayland
+            .windows
+            .remove(&self.id);
     }
 
     pub fn is_mapped(&self) -> bool {
@@ -256,6 +267,14 @@ impl Xwindow {
     pub fn map_status_changed(self: &Rc<Self>) {
         let map_change = self.map_change();
         let override_redirect = self.data.info.override_redirect.get();
+        let map_floating = match self
+            .toplevel_data
+            .state
+            .initial_tile_state(&self.toplevel_data)
+        {
+            None => self.data.info.wants_floating.get(),
+            Some(m) => m == TileState::Floating,
+        };
         match map_change {
             Change::None => return,
             Change::Unmap => {
@@ -272,7 +291,7 @@ impl Xwindow {
                     Some(self.data.state.root.stacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
-            Change::Map if self.data.info.wants_floating.get() => {
+            Change::Map if map_floating => {
                 let ws = self.data.state.float_map_ws();
                 let ext = self.data.info.pending_extents.get();
                 self.data

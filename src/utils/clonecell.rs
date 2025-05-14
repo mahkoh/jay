@@ -1,9 +1,12 @@
 use {
-    crate::utils::{
-        linkedlist::NodeRef,
-        ptr_ext::{MutPtrExt, PtrExt},
+    crate::{
+        tree::NodeId,
+        utils::{
+            linkedlist::NodeRef,
+            ptr_ext::{MutPtrExt, PtrExt},
+        },
     },
-    jay_config::keyboard::mods::Modifiers,
+    jay_config::{keyboard::mods::Modifiers, window::Window},
     std::{
         cell::UnsafeCell,
         fmt::{Debug, Formatter},
@@ -97,3 +100,7 @@ unsafe impl UnsafeCellCloneSafe for usize {}
 unsafe impl<A: UnsafeCellCloneSafe, B: UnsafeCellCloneSafe> UnsafeCellCloneSafe for (A, B) {}
 
 unsafe impl UnsafeCellCloneSafe for Modifiers {}
+
+unsafe impl UnsafeCellCloneSafe for NodeId {}
+
+unsafe impl UnsafeCellCloneSafe for Window {}

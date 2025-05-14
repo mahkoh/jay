@@ -8,6 +8,8 @@ use {
 
 pub mod action;
 mod actions;
+mod client_match;
+mod client_rule;
 mod color;
 pub mod color_management;
 pub mod config;
@@ -35,8 +37,12 @@ pub mod shortcuts;
 mod status;
 mod tearing;
 mod theme;
+mod tile_state;
 mod ui_drag;
 mod vrr;
+mod window_match;
+mod window_rule;
+mod window_type;
 mod xwayland;
 
 #[derive(Debug, Error)]

@@ -15,6 +15,13 @@ use {
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
         cpu_worker::{CpuWorker, CpuWorkerError},
+        criteria::{
+            CritMatcherIds,
+            clm::{ClMatcherManager, handle_cl_changes, handle_cl_leaf_events},
+            tlm::{
+                TlMatcherManager, handle_tl_changes, handle_tl_just_mapped, handle_tl_leaf_events,
+            },
+        },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
         ei::ei_client::EiClients,
@@ -32,6 +39,7 @@ use {
         logger::Logger,
         output_schedule::OutputSchedule,
         portal::{self, PortalStartup},
+        pr_caps::{PrCapsThread, pr_caps},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -44,9 +52,17 @@ use {
         },
         user_session::import_environment,
         utils::{
-            clone3::ensure_reaper, clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            numcell::NumCell, oserror::OsError, queue::AsyncQueue, refcounted::RefCounted,
-            run_toplevel::RunToplevel, tri::Try,
+            clone3::ensure_reaper,
+            clonecell::CloneCell,
+            errorfmt::ErrorFmt,
+            fdcloser::FdCloser,
+            nice::{did_elevate_scheduler, elevate_scheduler},
+            numcell::NumCell,
+            oserror::OsError,
+            queue::AsyncQueue,
+            refcounted::RefCounted,
+            run_toplevel::RunToplevel,
+            tri::Try,
         },
         version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
@@ -65,6 +81,14 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
+    let caps = pr_caps().into_comp();
+    let caps_thread = if caps.has_nice() {
+        elevate_scheduler();
+        Some(caps.into_thread())
+    } else {
+        drop(caps);
+        None
+    };
     let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level.into());
     enable_profiler();
@@ -76,7 +100,14 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
             None
         }
     };
-    let res = start_compositor2(Some(forker), portal, Some(logger.clone()), args, None);
+    let res = start_compositor2(
+        Some(forker),
+        portal,
+        Some(logger.clone()),
+        args,
+        None,
+        caps_thread,
+    );
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
@@ -90,7 +121,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future));
+    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
     leaks::log_leaked();
     res
 }
@@ -136,9 +167,13 @@ fn start_compositor2(
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
     test_future: Option<TestFuture>,
+    caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
     log::info!("version = {VERSION}");
+    if did_elevate_scheduler() {
+        log::info!("Running with elevated scheduler: SCHED_RR");
+    }
     init_fd_limit();
     leaks::init();
     clientmem::init()?;
@@ -156,6 +191,7 @@ fn start_compositor2(
     scales.add(Scale::from_int(1));
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let color_manager = ColorManager::new();
+    let crit_ids = Rc::new(CritMatcherIds::default());
     let state = Rc::new(State {
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -218,11 +254,13 @@ fn start_compositor2(
         run_args,
         xwayland: XWaylandState {
             enabled: Cell::new(true),
+            pidfd: Default::default(),
             handler: Default::default(),
             queue: Default::default(),
             ipc_device_ids: Default::default(),
             use_wire_scale: Default::default(),
             wire_scale: Default::default(),
+            windows: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),
@@ -292,6 +330,9 @@ fn start_compositor2(
         float_above_fullscreen: Cell::new(false),
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
+        cl_matcher_manager: ClMatcherManager::new(&crit_ids),
+        tl_matcher_manager: TlMatcherManager::new(&crit_ids),
+        caps_thread,
         toplevel_managers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
@@ -464,6 +505,21 @@ fn start_global_event_handlers(
         eng.spawn(
             "workspace manager done",
             workspace_manager_done(state.clone()),
+        ),
+        eng.spawn("cl matcher manager", handle_cl_changes(state.clone())),
+        eng.spawn(
+            "cl matcher leaf events",
+            handle_cl_leaf_events(state.clone()),
+        ),
+        eng.spawn("tl matcher manager", handle_tl_changes(state.clone())),
+        eng.spawn(
+            "tl matcher leaf events",
+            handle_tl_leaf_events(state.clone()),
+        ),
+        eng.spawn2(
+            "tl matcher just mapped",
+            Phase::Layout,
+            handle_tl_just_mapped(state.clone()),
         ),
     ]
 }
@@ -654,7 +710,7 @@ fn create_dummy_output(state: &Rc<State>) {
     state.dummy_output.set(Some(dummy_output));
 }
 
-fn config_dir() -> Option<String> {
+pub fn config_dir() -> Option<String> {
     if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
         Some(format!("{}/jay", xdg))
     } else if let Ok(home) = env::var("HOME") {

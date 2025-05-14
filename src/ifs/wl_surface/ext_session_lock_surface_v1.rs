@@ -55,6 +55,11 @@ impl ExtSessionLockSurfaceV1 {
             height: height as _,
         });
     }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
+        self.seat_state.set_visible(self, visible);
+    }
 }
 
 impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {

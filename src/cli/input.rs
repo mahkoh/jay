@@ -1,10 +1,12 @@
 use {
     crate::{
-        backend::{InputDeviceAccelProfile, InputDeviceCapability},
+        backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod},
         cli::GlobalArgs,
         clientmem::ClientMem,
         libinput::consts::{
-            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+            ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
+            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
         },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{errorfmt::ErrorFmt, string_ext::StringExt},
@@ -133,6 +135,10 @@ pub enum DeviceCommand {
     RemoveMapping,
     /// Set the calibration matrix.
     SetCalibrationMatrix(SetCalibrationMatrixArgs),
+    /// Set the click method.
+    SetClickMethod(SetClickMethodArgs),
+    /// Set whether the device uses middle button emulation.
+    SetMiddleButtonEmulation(SetMiddleButtonEmulationArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -212,6 +218,26 @@ pub struct SetCalibrationMatrixArgs {
     pub m12: f32,
 }
 
+#[derive(ValueEnum, Debug, Clone)]
+pub enum ClickMethod {
+    None,
+    ButtonAreas,
+    Clickfinger,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetClickMethodArgs {
+    /// The method.
+    pub method: ClickMethod,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetMiddleButtonEmulationArgs {
+    /// Whether middle button emulation is enabled.
+    #[arg(action = clap::ArgAction::Set)]
+    pub middle_button_emulation: bool,
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct MapToOutputArgs {
     /// The output to map to.
@@ -286,6 +312,8 @@ struct InputDevice {
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub output: Option<String>,
     pub calibration_matrix: Option<[[f32; 3]; 2]>,
+    pub click_method: Option<InputDeviceClickMethod>,
+    pub middle_button_emulation_enabled: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -626,6 +654,34 @@ impl Input {
                     m12: a.m12,
                 });
             }
+            DeviceCommand::SetClickMethod(a) => {
+                let method = match a.method {
+                    ClickMethod::None => LIBINPUT_CONFIG_CLICK_METHOD_NONE.0,
+                    ClickMethod::ButtonAreas => LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS.0,
+                    ClickMethod::Clickfinger => LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER.0,
+                };
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set the click method: {}", e);
+                });
+                tc.send(jay_input::SetClickMethod {
+                    self_id: input,
+                    id: args.device,
+                    method,
+                });
+            }
+            DeviceCommand::SetMiddleButtonEmulation(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!(
+                        "Could not modify the middle-button-emulation setting: {}",
+                        e
+                    );
+                });
+                tc.send(jay_input::SetMiddleButtonEmulation {
+                    self_id: input,
+                    id: args.device,
+                    enabled: a.middle_button_emulation as _,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -762,6 +818,17 @@ impl Input {
         if let Some(v) = &device.calibration_matrix {
             println!("{prefix}  calibration matrix: {:?}", v);
         }
+        if let Some(v) = &device.click_method {
+            let name = match v {
+                InputDeviceClickMethod::None => "none",
+                InputDeviceClickMethod::ButtonAreas => "button-areas",
+                InputDeviceClickMethod::Clickfinger => "clickfinger",
+            };
+            println!("{prefix}  click method: {}", name);
+        }
+        if let Some(v) = &device.middle_button_emulation_enabled {
+            println!("{prefix}  middle button emulation: {}", v);
+        }
     }
 
     async fn get(self: &Rc<Self>, input: JayInputId) -> Data {
@@ -827,6 +894,8 @@ impl Input {
                 transform_matrix: uapi::pod_read(msg.transform_matrix).ok(),
                 output: None,
                 calibration_matrix: None,
+                click_method: None,
+                middle_button_emulation_enabled: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
@@ -840,6 +909,29 @@ impl Input {
             if let Some(last) = data.input_device.last_mut() {
                 last.calibration_matrix =
                     Some([[msg.m00, msg.m01, msg.m02], [msg.m10, msg.m11, msg.m12]]);
+            }
+        });
+        jay_input::ClickMethod::handle(tc, input, data.clone(), |data, msg| {
+            let click_method = match ConfigClickMethod(msg.click_method) {
+                LIBINPUT_CONFIG_CLICK_METHOD_NONE => Some(InputDeviceClickMethod::None),
+                LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS => {
+                    Some(InputDeviceClickMethod::ButtonAreas)
+                }
+                LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER => {
+                    Some(InputDeviceClickMethod::Clickfinger)
+                }
+                _ => None,
+            };
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.click_method = click_method;
+            }
+        });
+        jay_input::MiddleButtonEmulation::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.middle_button_emulation_enabled =
+                    Some(msg.middle_button_emulation_enabled != 0);
             }
         });
         tc.round_trip().await;

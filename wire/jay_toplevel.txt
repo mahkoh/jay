@@ -8,5 +8,9 @@ event id (since = 12) {
     id: str,
 }
 
+event client_id (since = 18) {
+    id: pod(u64),
+}
+
 event done (since = 12) {
 }

@@ -185,17 +185,22 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
             }
         }
         if render_ctx.is_none() {
-            let ctx =
-                match create_gfx_context(&self.state.eng, &self.state.ring, &drm, GfxApi::OpenGl) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::error!(
-                            "Could not create render context from drm device: {}",
-                            ErrorFmt(e)
-                        );
-                        return;
-                    }
-                };
+            let ctx = match create_gfx_context(
+                &self.state.eng,
+                &self.state.ring,
+                &drm,
+                GfxApi::OpenGl,
+                None,
+            ) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::error!(
+                        "Could not create render context from drm device: {}",
+                        ErrorFmt(e)
+                    );
+                    return;
+                }
+            };
             let ctx = Rc::new(PortalRenderCtx {
                 _dev_id: dev_id,
                 ctx,

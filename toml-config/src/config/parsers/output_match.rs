@@ -28,7 +28,7 @@ pub struct OutputMatchParser<'a>(pub &'a Context<'a>);
 impl Parser for OutputMatchParser<'_> {
     type Value = OutputMatch;
     type Error = OutputMatchParserError;
-    const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Table];
+    const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];
 
     fn parse_array(&mut self, _span: Span, array: &[Spanned<Value>]) -> ParseResult<Self> {
         let mut res = vec![];

@@ -1,0 +1,102 @@
+request destroy { }
+
+request execute { }
+
+request set_root_display { }
+
+request set_recursive {
+    recursive: u32,
+}
+
+request set_root_workspace {
+    workspace: id(jay_workspace),
+}
+
+request set_root_workspace_name {
+    workspace: str,
+}
+
+request set_root_toplevel {
+    toplevel: id(jay_toplevel),
+}
+
+request set_root_window_id {
+    id: str,
+}
+
+event done { }
+
+event not_found { }
+
+event start {
+    ty: u32,
+}
+
+event end { }
+
+event position {
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+}
+
+event workspace_name {
+    name: str,
+}
+
+event output_name {
+    name: str,
+}
+
+event toplevel_id {
+    id: str,
+}
+
+event client_id {
+    id: pod(u64),
+}
+
+event title {
+    title: str,
+}
+
+event app_id {
+    app_id: str,
+}
+
+event floating { }
+
+event visible { }
+
+event urgent { }
+
+event focused {
+    global: u32,
+}
+
+event fullscreen { }
+
+event tag {
+    tag: str,
+}
+
+event x_class {
+    class: str,
+}
+
+event x_instance {
+    instance: str,
+}
+
+event x_role {
+    role: str,
+}
+
+event workspace {
+    name: str,
+}
+
+event placeholder_for {
+    id: str,
+}

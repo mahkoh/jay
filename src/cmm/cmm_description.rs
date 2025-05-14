@@ -7,35 +7,13 @@ use {
             cmm_transfer_function::TransferFunction,
             cmm_transform::{ColorMatrix, Local, Xyz, bradford_adjustment},
         },
-        utils::{free_list::FreeList, ordered_float::F64},
+        utils::ordered_float::F64,
     },
     std::rc::Rc,
 };
 
 linear_ids!(LinearColorDescriptionIds, LinearColorDescriptionId, u64);
-
-pub type ColorDescriptionIds = FreeList<ColorDescriptionId, 3>;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct ColorDescriptionId(u32);
-
-impl ColorDescriptionId {
-    pub fn raw(self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for ColorDescriptionId {
-    fn from(value: u32) -> Self {
-        Self(value)
-    }
-}
-
-impl From<ColorDescriptionId> for u32 {
-    fn from(value: ColorDescriptionId) -> Self {
-        value.0
-    }
-}
+linear_ids!(ColorDescriptionIds, ColorDescriptionId, u64);
 
 #[derive(Debug)]
 pub struct LinearColorDescription {
@@ -102,6 +80,5 @@ impl Drop for LinearColorDescription {
 impl Drop for ColorDescription {
     fn drop(&mut self) {
         self.shared.dead_complete.fetch_add(1);
-        self.shared.complete_ids.release(self.id);
     }
 }

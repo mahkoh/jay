@@ -1,9 +1,11 @@
 use {
     crate::{
         client::{Client, ClientError},
+        criteria::tlm::TL_CHANGED_TAG,
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
+        tree::ToplevelNodeBase,
         wire::{XdgToplevelTagManagerV1Id, xdg_toplevel_tag_manager_v1::*},
     },
     std::rc::Rc,
@@ -72,9 +74,17 @@ impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {
 
     fn set_toplevel_tag(
         &self,
-        _req: SetToplevelTag<'_>,
+        req: SetToplevelTag<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        let tl = self.client.lookup(req.toplevel)?;
+        let tag = &mut *tl.data.tag.borrow_mut();
+        if tag == req.tag {
+            return Ok(());
+        }
+        tag.clear();
+        tag.push_str(req.tag);
+        tl.tl_data().property_changed(TL_CHANGED_TAG);
         Ok(())
     }
 

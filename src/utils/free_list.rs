@@ -41,6 +41,7 @@ impl<T, const N: usize> FreeList<T, N> {
         unsafe { self.levels.get().deref_mut() }
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn release(&self, n: T)
     where
         T: Into<u32>,
@@ -58,6 +59,7 @@ impl<T, const N: usize> FreeList<T, N> {
         }
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn acquire(&self) -> T
     where
         u32: Into<T>,

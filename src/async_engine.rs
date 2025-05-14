@@ -105,7 +105,6 @@ impl AsyncEngine {
                 break;
             }
             self.now.take();
-            self.iteration.fetch_add(1);
             let mut phase = 0;
             while phase < NUM_PHASES {
                 self.queues[phase].swap(&mut *stash);
@@ -121,6 +120,7 @@ impl AsyncEngine {
                     }
                 }
             }
+            self.iteration.fetch_add(1);
             self.yields.swap(&mut *yield_stash);
             while let Some(waker) = yield_stash.pop_front() {
                 waker.wake();
@@ -153,7 +153,7 @@ impl AsyncEngine {
         self.yields.push(waker);
     }
 
-    fn iteration(&self) -> u64 {
+    pub fn iteration(&self) -> u64 {
         self.iteration.get()
     }
 

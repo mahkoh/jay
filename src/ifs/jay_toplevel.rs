@@ -11,6 +11,7 @@ use {
 };
 
 pub const ID_SINCE: Version = Version(12);
+pub const CLIENT_ID_SINCE: Version = Version(18);
 
 pub struct JayToplevel {
     pub id: JayToplevelId,
@@ -45,6 +46,15 @@ impl JayToplevel {
             self_id: self.id,
             id: &s,
         })
+    }
+
+    pub fn send_client_id(&self) {
+        if let Some(cl) = &self.toplevel.tl_data().client {
+            self.client.event(ClientId {
+                self_id: self.id,
+                id: cl.id.raw(),
+            })
+        }
     }
 
     pub fn send_done(&self) {

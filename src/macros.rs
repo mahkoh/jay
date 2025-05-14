@@ -181,10 +181,11 @@ macro_rules! shared_ids {
 }
 
 macro_rules! linear_ids {
-    ($ids:ident, $id:ident $(,)?) => {
-        linear_ids!($ids, $id, u32);
+    ($(#[$attr1:meta])* $ids:ident, $id:ident $(,)?) => {
+        linear_ids!($(#[$attr1])* $ids, $id, u32);
     };
-    ($ids:ident, $id:ident, $ty:ty $(,)?) => {
+    ($(#[$attr1:meta])* $ids:ident, $id:ident, $ty:ty $(,)?) => {
+        #[derive(Debug)]
         pub struct $ids {
             next: crate::utils::numcell::NumCell<$ty>,
         }
@@ -197,6 +198,7 @@ macro_rules! linear_ids {
             }
         }
 
+        $(#[$attr1])*
         impl $ids {
             pub fn next(&self) -> $id {
                 $id(self.next.fetch_add(1))
@@ -472,6 +474,10 @@ macro_rules! bitflags {
 
             pub fn is_some(self) -> bool {
                 self.0 != 0
+            }
+
+            pub fn is_none(self) -> bool {
+                self.0 == 0
             }
 
             pub fn all() -> Self {
@@ -752,5 +758,17 @@ macro_rules! client_wire_scale_to_logical {
                 )+
             }
         }
+    };
+}
+
+macro_rules! not_matches {
+    ($($tt:tt)*) => {
+        !matches!($($tt)*)
+    };
+}
+
+macro_rules! jay_allow_realtime_config_so {
+    () => {
+        "JAY_ALLOW_REALTIME_CONFIG_SO"
     };
 }
