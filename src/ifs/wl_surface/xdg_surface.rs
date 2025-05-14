@@ -140,6 +140,10 @@ impl XdgPopupParent for Popup {
         }
     }
 
+    fn visible(&self) -> bool {
+        self.parent.surface.visible.get()
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.clone().tray_item()
     }
