@@ -44,6 +44,7 @@ pub trait XdgPopupParent {
     fn output(&self) -> Rc<OutputNode>;
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
+    fn visible(&self) -> bool;
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
@@ -369,6 +370,13 @@ impl StackedNode for XdgPopup {
     }
 
     fn stacked_set_visible(&self, visible: bool) {
+        if visible {
+            if let Some(parent) = self.parent.get() {
+                if !parent.visible() {
+                    return;
+                }
+            }
+        }
         self.set_visible(visible);
     }
 
