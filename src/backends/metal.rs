@@ -559,6 +559,10 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
+    fn left_handed(&self) -> Option<bool> {
+        self.effective.left_handed.get()
+    }
+
     fn set_left_handed(&self, left_handed: bool) {
         self.desired.left_handed.set(Some(left_handed));
         if let Some(dev) = self.inputdev.get() {
@@ -571,12 +575,26 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
+    fn accel_profile(&self) -> Option<InputDeviceAccelProfile> {
+        let p = self.effective.accel_profile.get()?;
+        let p = match p {
+            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT => InputDeviceAccelProfile::Flat,
+            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
+            _ => return None,
+        };
+        Some(p)
+    }
+
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
         let profile = match profile {
             InputDeviceAccelProfile::Flat => LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
             InputDeviceAccelProfile::Adaptive => LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
         };
         self.set_accel_profile_(profile);
+    }
+
+    fn accel_speed(&self) -> Option<f64> {
+        self.effective.accel_speed.get()
     }
 
     fn set_accel_speed(&self, speed: f64) {
@@ -591,8 +609,28 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
+    fn transform_matrix(&self) -> Option<TransformMatrix> {
+        self.transform_matrix.get()
+    }
+
     fn set_transform_matrix(&self, matrix: TransformMatrix) {
         self.transform_matrix.set(Some(matrix));
+    }
+
+    fn calibration_matrix(&self) -> Option<[[f32; 3]; 2]> {
+        self.effective.calibration_matrix.get()
+    }
+
+    fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
+        self.desired.calibration_matrix.set(Some(m));
+        if let Some(dev) = self.inputdev.get() {
+            if dev.device().has_calibration_matrix() {
+                dev.device().set_calibration_matrix(m);
+                self.effective
+                    .calibration_matrix
+                    .set(Some(dev.device().get_calibration_matrix()));
+            }
+        }
     }
 
     fn name(&self) -> Rc<String> {
@@ -601,6 +639,10 @@ impl InputDevice for MetalInputDevice {
 
     fn dev_t(&self) -> Option<c::dev_t> {
         Some(self.devnum)
+    }
+
+    fn tap_enabled(&self) -> Option<bool> {
+        self.effective.tap_enabled.get()
     }
 
     fn set_tap_enabled(&self, enabled: bool) {
@@ -615,6 +657,10 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
+    fn drag_enabled(&self) -> Option<bool> {
+        self.effective.drag_enabled.get()
+    }
+
     fn set_drag_enabled(&self, enabled: bool) {
         self.desired.drag_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
@@ -625,6 +671,10 @@ impl InputDevice for MetalInputDevice {
                     .set(Some(dev.device().drag_enabled()));
             }
         }
+    }
+
+    fn drag_lock_enabled(&self) -> Option<bool> {
+        self.effective.drag_lock_enabled.get()
     }
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
@@ -639,6 +689,10 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
+    fn natural_scrolling_enabled(&self) -> Option<bool> {
+        self.effective.natural_scrolling_enabled.get()
+    }
+
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         self.desired.natural_scrolling_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
@@ -649,44 +703,6 @@ impl InputDevice for MetalInputDevice {
                     .set(Some(dev.device().natural_scrolling_enabled()));
             }
         }
-    }
-
-    fn left_handed(&self) -> Option<bool> {
-        self.effective.left_handed.get()
-    }
-
-    fn accel_profile(&self) -> Option<InputDeviceAccelProfile> {
-        let p = self.effective.accel_profile.get()?;
-        let p = match p {
-            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT => InputDeviceAccelProfile::Flat,
-            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
-            _ => return None,
-        };
-        Some(p)
-    }
-
-    fn accel_speed(&self) -> Option<f64> {
-        self.effective.accel_speed.get()
-    }
-
-    fn transform_matrix(&self) -> Option<TransformMatrix> {
-        self.transform_matrix.get()
-    }
-
-    fn tap_enabled(&self) -> Option<bool> {
-        self.effective.tap_enabled.get()
-    }
-
-    fn drag_enabled(&self) -> Option<bool> {
-        self.effective.drag_enabled.get()
-    }
-
-    fn drag_lock_enabled(&self) -> Option<bool> {
-        self.effective.drag_lock_enabled.get()
-    }
-
-    fn natural_scrolling_enabled(&self) -> Option<bool> {
-        self.effective.natural_scrolling_enabled.get()
     }
 
     fn tablet_info(&self) -> Option<Box<TabletInit>> {
@@ -756,22 +772,6 @@ impl InputDevice for MetalInputDevice {
             dials,
             groups,
         }))
-    }
-
-    fn calibration_matrix(&self) -> Option<[[f32; 3]; 2]> {
-        self.effective.calibration_matrix.get()
-    }
-
-    fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
-        self.desired.calibration_matrix.set(Some(m));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().has_calibration_matrix() {
-                dev.device().set_calibration_matrix(m);
-                self.effective
-                    .calibration_matrix
-                    .set(Some(dev.device().get_calibration_matrix()));
-            }
-        }
     }
 }
 
