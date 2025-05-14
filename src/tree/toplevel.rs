@@ -7,7 +7,6 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_output::WlOutput,
             wl_seat::{NodeSeatState, collect_kb_foci, collect_kb_foci2},
             wl_surface::WlSurface,
             zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
@@ -45,7 +44,7 @@ tree_id!(ToplevelNodeId);
 
 pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_surface_active_changed(&self, active: bool);
-    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, output: Option<Rc<WlOutput>>);
+    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, output: Option<Rc<OutputNode>>);
     fn tl_title_changed(&self);
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>);
     fn tl_extents_changed(&self);
@@ -66,16 +65,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         });
     }
 
-    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, output: Option<Rc<WlOutput>>) {
+    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, output: Option<Rc<OutputNode>>) {
         let data = self.tl_data();
         if fullscreen {
             let ws = {
                 if let Some(output) = output {
-                    if let Some(node) = output.global.node.get() {
-                        node.workspace.get()
-                    } else {
-                        data.workspace.get()
-                    }
+                    output.workspace.get()
                 } else {
                     data.workspace.get()
                 }
