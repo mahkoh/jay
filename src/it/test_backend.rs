@@ -5,8 +5,8 @@ use {
         backend::{
             AxisSource, Backend, BackendColorSpace, BackendEvent, BackendTransferFunction,
             Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState,
-            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
+            InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
         },
         cmm::cmm_primaries::Primaries,
         compositor::TestFuture,
@@ -543,6 +543,14 @@ trait TestInputDevice: InputDevice {
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_click_method(&self, method: InputDeviceClickMethod) {
+        let _ = method;
+    }
+
+    fn set_middle_button_emulation_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -608,5 +616,13 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_natural_scrolling_enabled(self, enabled)
+    }
+
+    fn set_click_method(&self, method: InputDeviceClickMethod) {
+        <Self as TestInputDevice>::set_click_method(self, method)
+    }
+
+    fn set_middle_button_emulation_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_middle_button_emulation_enabled(self, enabled)
     }
 }

@@ -500,6 +500,15 @@
         }
       ]
     },
+    "ClickMethod": {
+      "type": "string",
+      "description": "The click method to apply to an input device.\n\nSee the libinput documentation for more details.\n",
+      "enum": [
+        "none",
+        "button-areas",
+        "clickfinger"
+      ]
+    },
     "ClientMatch": {
       "description": "Criteria for matching clients.\n\nIf no fields are set, all clients are matched. If multiple fields are set, all fields\nmust match the client.\n",
       "type": "object",
@@ -1172,6 +1181,14 @@
         "natural-scrolling": {
           "type": "boolean",
           "description": "Whether the device uses natural scrolling.\n\nSee the libinput documentation for more details.\n"
+        },
+        "middle-button-emulation": {
+          "type": "boolean",
+          "description": "Converts a simultaneous left and right button click into a middle button click.\n\nSee the libinput documentation for more details.\n"
+        },
+        "click-method": {
+          "description": "Defines how button events are triggered on a clickable touchpad.\n\nSee the libinput documentation for more details.\n",
+          "$ref": "#/$defs/ClickMethod"
         },
         "px-per-wheel-scroll": {
           "type": "boolean",

@@ -16,7 +16,7 @@ use {
         exec::Command,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability,
+            capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{
             Keymap,
@@ -1172,6 +1172,14 @@ impl ConfigClient {
 
     pub fn set_input_drag_lock_enabled(&self, device: InputDevice, enabled: bool) {
         self.send(&ClientMessage::SetDragLockEnabled { device, enabled })
+    }
+
+    pub fn set_input_click_method(&self, device: InputDevice, method: ClickMethod) {
+        self.send(&ClientMessage::SetClickMethod { device, method })
+    }
+
+    pub fn set_input_middle_button_emulation_enabled(&self, device: InputDevice, enabled: bool) {
+        self.send(&ClientMessage::SetMiddleButtonEmulationEnabled { device, enabled })
     }
 
     pub fn device_name(&self, device: InputDevice) -> String {

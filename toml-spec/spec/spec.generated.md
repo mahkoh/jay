@@ -700,6 +700,32 @@ The string should have one of the following values:
 The brightness in cd/m^2.
 
 
+<a name="types-ClickMethod"></a>
+### `ClickMethod`
+
+The click method to apply to an input device.
+
+See the libinput documentation for more details.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `none`:
+
+  No click method handling.
+
+- `button-areas`:
+
+  Bottom area of the touchpad is divided into a left, middle and right button area.
+
+- `clickfinger`:
+
+  Number of fingers on the touchpad decide the button type.
+  Clicking with 1, 2, 3 fingers triggers a left, right, or middle click, respectively.
+
+
+
 <a name="types-ClientMatch"></a>
 ### `ClientMatch`
 
@@ -2454,6 +2480,22 @@ The table has the following fields:
   See the libinput documentation for more details.
 
   The value of this field should be a boolean.
+
+- `middle-button-emulation` (optional):
+
+  Converts a simultaneous left and right button click into a middle button click.
+  
+  See the libinput documentation for more details.
+
+  The value of this field should be a boolean.
+
+- `click-method` (optional):
+
+  Defines how button events are triggered on a clickable touchpad.
+  
+  See the libinput documentation for more details.
+
+  The value of this field should be a [ClickMethod](#types-ClickMethod).
 
 - `px-per-wheel-scroll` (optional):
 

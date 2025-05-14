@@ -2,12 +2,13 @@
 
 pub mod acceleration;
 pub mod capability;
+pub mod clickmethod;
 
 use {
     crate::{
         _private::{DEFAULT_SEAT_NAME, ipc::WorkspaceSource},
         Axis, Direction, ModifiedKeySym, Workspace,
-        input::{acceleration::AccelProfile, capability::Capability},
+        input::{acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod},
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         video::Connector,
         window::Window,
@@ -131,6 +132,20 @@ impl InputDevice {
     /// See <https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html>
     pub fn set_natural_scrolling_enabled(self, enabled: bool) {
         get!().set_input_natural_scrolling_enabled(self, enabled);
+    }
+
+    /// Sets the click method of the device.
+    ///
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/configuration.html#click-method>
+    pub fn set_click_method(self, method: ClickMethod) {
+        get!().set_input_click_method(self, method);
+    }
+
+    /// Sets whether middle button emulation is enabled for this device.
+    ///
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/configuration.html#middle-button-emulation>
+    pub fn set_middle_button_emulation_enabled(self, enabled: bool) {
+        get!().set_input_middle_button_emulation_enabled(self, enabled);
     }
 
     /// Returns the syspath of this device.

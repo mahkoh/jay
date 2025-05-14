@@ -1373,6 +1373,20 @@ Input:
         Whether the device uses natural scrolling.
         
         See the libinput documentation for more details.
+    middle-button-emulation:
+      kind: boolean
+      required: false
+      description: |
+        Converts a simultaneous left and right button click into a middle button click.
+        
+        See the libinput documentation for more details.
+    click-method:
+      ref: ClickMethod
+      required: false
+      description: |
+        Defines how button events are triggered on a clickable touchpad.
+        
+        See the libinput documentation for more details.
     px-per-wheel-scroll:
       kind: boolean
       required: false
@@ -1520,6 +1534,23 @@ AccelProfile:
       description: The adaptive profile.
   description: |
     The acceleration profile to apply to an input device.
+    
+    See the libinput documentation for more details.
+
+
+ClickMethod:
+  kind: string
+  values:
+    - value: none
+      description: No click method handling.
+    - value: button-areas
+      description: Bottom area of the touchpad is divided into a left, middle and right button area.
+    - value: clickfinger
+      description: |
+        Number of fingers on the touchpad decide the button type.
+        Clicking with 1, 2, 3 fingers triggers a left, right, or middle click, respectively.
+  description: |
+    The click method to apply to an input device.
     
     See the libinput documentation for more details.
 
