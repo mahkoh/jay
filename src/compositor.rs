@@ -333,6 +333,7 @@ fn start_compositor2(
         cl_matcher_manager: ClMatcherManager::new(&crit_ids),
         tl_matcher_manager: TlMatcherManager::new(&crit_ids),
         caps_thread,
+        toplevel_managers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
