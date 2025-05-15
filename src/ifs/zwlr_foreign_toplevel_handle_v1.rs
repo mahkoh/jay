@@ -4,7 +4,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, ToplevelOpt},
+        tree::{Direction, OutputNode, ToplevelOpt},
         wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
     arrayvec::ArrayVec,
@@ -38,6 +38,7 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
@@ -57,11 +58,14 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
         Ok(())
     }
 
-    fn activate(&self, _req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            let seat = self.client.state.seat_queue.first();
-            if let Some(seat) = seat {
-                seat.focus_node(toplevel);
+            if !toplevel.node_visible() {
+                return Ok(());
+            }
+            let seat = self.client.lookup(req.seat);
+            if let Ok(seat) = seat {
+                toplevel.node_do_focus(&seat.global, Direction::Unspecified);
             }
         }
         Ok(())
@@ -80,8 +84,11 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn set_fullscreen(&self, req: SetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            let output = self.client.objects.outputs.get(&req.output);
-            toplevel.tl_set_fullscreen(true, output);
+            let output = self.client.lookup(req.output);
+            if let Ok(output) = output {
+                let node = output.global.node();
+                toplevel.tl_set_fullscreen(true, node);
+            }
         }
         Ok(())
     }

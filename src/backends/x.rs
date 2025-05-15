@@ -6,7 +6,8 @@ use {
             AXIS_120, AxisSource, Backend, BackendColorSpace, BackendDrmDevice, BackendEvent,
             BackendTransferFunction, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
             DrmDeviceId, DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
+            ScrollAxis, TransformMatrix,
         },
         cmm::cmm_primaries::Primaries,
         fixed::Fixed,
@@ -1219,6 +1220,14 @@ impl InputDevice for XSeatKeyboard {
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_click_method(&self, method: InputDeviceClickMethod) {
+        let _ = method;
+    }
+
+    fn set_middle_button_emulation_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1286,6 +1295,14 @@ impl InputDevice for XSeatMouse {
     }
 
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_click_method(&self, method: InputDeviceClickMethod) {
+        let _ = method;
+    }
+
+    fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
 }

@@ -45,7 +45,7 @@ impl WpColorManagementSurfaceFeedbackV1 {
     pub fn send_preferred_changed(&self, cd: &ColorDescription) {
         self.client.event(PreferredChanged {
             self_id: self.id,
-            identity: cd.id.raw(),
+            identity: cd.id.raw() as u32,
         });
     }
 }

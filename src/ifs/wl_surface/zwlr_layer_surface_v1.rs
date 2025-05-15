@@ -210,6 +210,12 @@ impl ZwlrLayerSurfaceV1 {
             m.layer_surface.get_or_insert_default_ext()
         })
     }
+
+    pub fn for_each_popup(&self, mut f: impl FnMut(&Rc<XdgPopup>)) {
+        for popup in self.popups.lock().values() {
+            f(&popup.popup);
+        }
+    }
 }
 
 impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {

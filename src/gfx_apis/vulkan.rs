@@ -35,8 +35,9 @@ use {
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
         },
         io_uring::IoUring,
+        pr_caps::PrCapsThread,
         rect::Rect,
-        utils::oserror::OsError,
+        utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::DmaBuf,
             drm::{Drm, DrmError, sync_obj::SyncObjCtx},
@@ -224,16 +225,27 @@ pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     drm: &Drm,
+    caps_thread: Option<&PrCapsThread>,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     let instance = VulkanInstance::new(Level::Info, *VULKAN_VALIDATION)?;
-    let device = instance.create_device(drm)?;
+    let device = 'device: {
+        if let Some(t) = caps_thread {
+            match unsafe { t.run(|| instance.create_device(drm, true)) } {
+                Ok(d) => break 'device d,
+                Err(e) => {
+                    log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
+                }
+            }
+        }
+        instance.create_device(drm, false)?
+    };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
 }
 
 pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
     let instance = VulkanInstance::new(Level::Debug, *VULKAN_VALIDATION)?;
-    let device = instance.create_device(drm)?;
+    let device = instance.create_device(drm, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
 }

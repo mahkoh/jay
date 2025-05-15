@@ -1,14 +1,15 @@
 use {
     crate::{
-        backend::{self, InputDeviceAccelProfile, InputDeviceId},
+        backend::{self, InputDeviceAccelProfile, InputDeviceClickMethod, InputDeviceId},
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
         ifs::wl_seat::WlSeatGlobal,
         kbvm::{KbvmError, KbvmMap},
         leaks::Tracker,
         libinput::consts::{
-            AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+            AccelProfile, ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
+            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
         },
         object::{Object, Version},
         state::{DeviceHandlerData, InputDeviceData},
@@ -28,6 +29,8 @@ pub struct JayInput {
 }
 
 const CALIBRATION_MATRIX_SINCE: Version = Version(4);
+const CLICK_METHOD_SINCE: Version = Version(19);
+const MIDDLE_BUTTON_EMULATION_SINCE: Version = Version(19);
 
 impl JayInput {
     pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
@@ -152,6 +155,30 @@ impl JayInput {
                     m10: m[1][0],
                     m11: m[1][1],
                     m12: m[1][2],
+                });
+            }
+        }
+        if self.version >= CLICK_METHOD_SINCE {
+            if let Some(click_method) = dev.click_method() {
+                self.client.event(ClickMethod {
+                    self_id: self.id,
+                    click_method: match click_method {
+                        InputDeviceClickMethod::None => LIBINPUT_CONFIG_CLICK_METHOD_NONE.0,
+                        InputDeviceClickMethod::Clickfinger => {
+                            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER.0
+                        }
+                        InputDeviceClickMethod::ButtonAreas => {
+                            LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS.0
+                        }
+                    },
+                });
+            }
+        }
+        if self.version >= MIDDLE_BUTTON_EMULATION_SINCE {
+            if let Some(middle_button_emulation) = dev.middle_button_emulation_enabled() {
+                self.client.event(MiddleButtonEmulation {
+                    self_id: self.id,
+                    middle_button_emulation_enabled: middle_button_emulation as _,
                 });
             }
         }
@@ -461,6 +488,33 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_click_method(&self, req: SetClickMethod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            let method = match ConfigClickMethod(req.method) {
+                LIBINPUT_CONFIG_CLICK_METHOD_NONE => InputDeviceClickMethod::None,
+                LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS => InputDeviceClickMethod::ButtonAreas,
+                LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
+                _ => return Err(JayInputError::UnknownClickMethod(req.method)),
+            };
+            dev.device.set_click_method(method);
+            Ok(())
+        })
+    }
+
+    fn set_middle_button_emulation(
+        &self,
+        req: SetMiddleButtonEmulation,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            dev.device
+                .set_middle_button_emulation_enabled(req.enabled != 0);
+            Ok(())
+        })
+    }
 }
 
 object_base! {
@@ -482,6 +536,8 @@ pub enum JayInputError {
     DeviceDoesNotExist(u32),
     #[error("There is no acceleration profile with id {0}")]
     UnknownAccelerationProfile(i32),
+    #[error("There is no click method with id {0}")]
+    UnknownClickMethod(i32),
     #[error("Repeat rate must not be negative")]
     NegativeRepeatRate,
     #[error("Repeat delay must not be negative")]

@@ -1,0 +1,12 @@
+image: archlinux
+sources:
+  - https://github.com/mahkoh/jay
+tasks:
+  - install: |
+      sudo pacman -Syu --noconfirm
+      sudo pacman -S --noconfirm rustup shaderc musl
+      rustup toolchain install stable
+      rustup target install x86_64-unknown-linux-musl
+  - build: |
+      cd jay
+      cargo check --target x86_64-unknown-linux-musl

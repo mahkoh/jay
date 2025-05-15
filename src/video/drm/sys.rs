@@ -3,7 +3,7 @@
 
 use {
     crate::{
-        utils::{bitflags::BitflagsExt, oserror::OsError},
+        utils::{bitflags::BitflagsExt, compat::IoctlNumber, oserror::OsError},
         video::drm::{
             DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
             DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
@@ -23,7 +23,7 @@ use {
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
     let mut ret;
     loop {
-        ret = unsafe { c::ioctl(fd, request, &mut *t) };
+        ret = unsafe { c::ioctl(fd, request as IoctlNumber, &mut *t) };
         if ret != -1 {
             return Ok(ret);
         }

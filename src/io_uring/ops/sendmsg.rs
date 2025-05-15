@@ -6,7 +6,7 @@ use {
             sys::{IORING_OP_SENDMSG, io_uring_sqe},
         },
         time::Time,
-        utils::{buf::Buf, vec_ext::UninitVecExt},
+        utils::{buf::Buf, compat::IovLength, vec_ext::UninitVecExt},
     },
     std::{mem::MaybeUninit, ptr, rc::Rc},
     uapi::{OwnedFd, c},
@@ -44,11 +44,9 @@ impl IoUring {
                 st.cmsg.clear();
                 st.cmsg.reserve(space);
                 st.cmsg.set_len_safe(space);
-                let hdr = c::cmsghdr {
-                    cmsg_len: 0,
-                    cmsg_level: c::SOL_SOCKET,
-                    cmsg_type: c::SCM_RIGHTS,
-                };
+                let mut hdr: c::cmsghdr = uapi::pod_zeroed();
+                hdr.cmsg_level = c::SOL_SOCKET;
+                hdr.cmsg_type = c::SCM_RIGHTS;
                 uapi::cmsg_write(&mut &mut st.cmsg[..], hdr, &fd_ids[..]).unwrap();
                 st.msghdr.msg_control = st.cmsg.as_ptr() as _;
                 st.msghdr.msg_controllen = st.cmsg.len() as _;
@@ -66,7 +64,7 @@ impl IoUring {
                 iov_len: b.len(),
             }));
             st.msghdr.msg_iov = st.iovecs.as_ptr() as _;
-            st.msghdr.msg_iovlen = st.iovecs.len();
+            st.msghdr.msg_iovlen = st.iovecs.len() as IovLength;
             st.data = Some(SendmsgTaskData {
                 _fd: fd.clone(),
                 res: pr.clone(),

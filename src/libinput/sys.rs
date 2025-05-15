@@ -114,6 +114,26 @@ unsafe extern "C" {
         device: *mut libinput_device,
     ) -> c::c_int;
 
+    pub fn libinput_device_config_click_get_methods(device: *mut libinput_device) -> u32;
+    pub fn libinput_device_config_click_get_method(
+        device: *mut libinput_device,
+    ) -> libinput_config_click_method;
+    pub fn libinput_device_config_click_set_method(
+        device: *mut libinput_device,
+        method: libinput_config_click_method,
+    ) -> libinput_config_status;
+
+    pub fn libinput_device_config_middle_emulation_set_enabled(
+        device: *mut libinput_device,
+        enable: libinput_config_middle_emulation_state,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_middle_emulation_get_enabled(
+        device: *mut libinput_device,
+    ) -> libinput_config_middle_emulation_state;
+    pub fn libinput_device_config_middle_emulation_is_available(
+        device: *mut libinput_device,
+    ) -> c::c_int;
+
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;
     pub fn libinput_event_get_device(event: *mut libinput_event) -> *mut libinput_device;

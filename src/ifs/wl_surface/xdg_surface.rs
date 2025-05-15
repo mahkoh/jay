@@ -328,6 +328,12 @@ impl XdgSurface {
             popup.popup.xdg.set_popup_stack(stack);
         }
     }
+
+    pub fn for_each_popup(&self, mut f: impl FnMut(&Rc<XdgPopup>)) {
+        for popup in self.popups.lock().values() {
+            f(&popup.popup);
+        }
+    }
 }
 
 impl XdgSurfaceRequestHandler for XdgSurface {

@@ -976,7 +976,7 @@ impl OutputNode {
         let mut visible = self.state.root_visible();
         if self.state.lock.locked.get() {
             if let Some(surface) = self.lock_surface.get() {
-                surface.surface.set_visible(visible);
+                surface.set_visible(visible);
             }
             visible = false;
         }

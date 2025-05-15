@@ -49,6 +49,10 @@ Commands:
   portal               Run the desktop portal
   randr                Inspect/modify graphics card and connector settings
   input                Inspect/modify input settings
+  xwayland             Inspect/modify xwayland settings
+  color-management     Inspect/modify the color-management settings
+  clients              Inspect/manipulate the connected clients
+  tree                 Inspect the surface tree
   help                 Print this message or the help of the given subcommand(s)
 
 Options:
@@ -137,6 +141,12 @@ Jay uses frame scheduling to achieve input latency as low as 1.5 ms.
 ## Color Management & HDR
 
 Jay supports the color management protocol and HDR10.
+
+## Window and Client Rules
+
+Jay supports powerful window and client rules.
+
+See [window-and-client-rules.md](window-and-client-rules.md) for more details.
 
 ## Protocol Support
 

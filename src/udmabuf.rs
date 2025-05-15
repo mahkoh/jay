@@ -2,7 +2,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
         format::Format,
-        utils::{oserror::OsError, page_size::page_size},
+        utils::{compat::IoctlNumber, oserror::OsError, page_size::page_size},
         video::{
             LINEAR_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
@@ -267,4 +267,4 @@ struct udmabuf_create {
     size: u64,
 }
 
-const UDMABUF_CREATE: u64 = _IOW::<udmabuf_create>(b'u' as u64, 0x42);
+const UDMABUF_CREATE: IoctlNumber = _IOW::<udmabuf_create>(b'u' as u64, 0x42) as IoctlNumber;

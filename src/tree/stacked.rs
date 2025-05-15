@@ -16,6 +16,10 @@ pub trait StackedNode: Node {
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         true
     }
+
+    fn stacked_is_xdg_popup(&self) -> bool {
+        false
+    }
 }
 
 pub trait PinnedNode: StackedNode {

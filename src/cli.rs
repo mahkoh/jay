@@ -1,3 +1,4 @@
+mod clients;
 mod color;
 mod color_management;
 mod damage_tracking;
@@ -13,19 +14,21 @@ mod run_privileged;
 pub mod screenshot;
 mod seat_test;
 mod set_log_level;
+mod tree;
 mod unlock;
 mod xwayland;
 
 use {
     crate::{
         cli::{
-            color_management::ColorManagementArgs, damage_tracking::DamageTrackingArgs,
-            idle::IdleCmd, input::InputArgs, randr::RandrArgs, reexec::ReexecArgs,
-            xwayland::XwaylandArgs,
+            clients::ClientsArgs, color_management::ColorManagementArgs,
+            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
+            reexec::ReexecArgs, tree::TreeArgs, xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
         format::{Format, ref_formats},
         portal,
+        pr_caps::drop_all_pr_caps,
     },
     ::log::Level,
     clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
@@ -86,6 +89,10 @@ pub enum Cmd {
     /// Replace the compositor by another process. (Only for development.)
     #[clap(hide = true)]
     Reexec(ReexecArgs),
+    /// Inspect/manipulate the connected clients.
+    Clients(ClientsArgs),
+    /// Inspect the surface tree.
+    Tree(TreeArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -227,6 +234,9 @@ impl ValueEnum for &'static Format {
 
 pub fn main() {
     let cli = Jay::parse();
+    if not_matches!(cli.command, Cmd::Run(_)) {
+        drop_all_pr_caps();
+    }
     match cli.command {
         Cmd::Run(a) => start_compositor(cli.global, a),
         Cmd::GenerateCompletion(g) => generate::main(g),
@@ -244,6 +254,8 @@ pub fn main() {
         Cmd::DamageTracking(a) => damage_tracking::main(cli.global, a),
         Cmd::Xwayland(a) => xwayland::main(cli.global, a),
         Cmd::ColorManagement(a) => color_management::main(cli.global, a),
+        Cmd::Clients(a) => clients::main(cli.global, a),
+        Cmd::Tree(a) => tree::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
         Cmd::Reexec(a) => reexec::main(cli.global, a),

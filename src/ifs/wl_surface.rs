@@ -1131,6 +1131,7 @@ impl WlSurface {
         if self.destroyed.get() {
             return Ok(());
         }
+        let was_visible = self.visible.get();
         self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
@@ -1392,6 +1393,15 @@ impl WlSurface {
         if fifo_barrier_set {
             self.commit_timeline.set_fifo_barrier();
         }
+        if damage_full && (self.visible.get() || was_visible) {
+            let mut damage = buffer_abs_pos
+                .with_size(max_surface_size.0, max_surface_size.1)
+                .unwrap();
+            if let Some(tl) = self.toplevel.get() {
+                damage = damage.intersect(tl.node_absolute_position());
+            }
+            self.client.state.damage(damage);
+        }
         if self.visible.get() {
             let output = self.output.get();
             if has_new_frame_requests {
@@ -1405,13 +1415,7 @@ impl WlSurface {
                 output.global.connector.damage();
             }
             if damage_full {
-                let mut damage = buffer_abs_pos
-                    .with_size(max_surface_size.0, max_surface_size.1)
-                    .unwrap();
-                if let Some(tl) = self.toplevel.get() {
-                    damage = damage.intersect(tl.node_absolute_position());
-                }
-                self.client.state.damage(damage);
+                // handled above
             } else if pending.has_damage() {
                 self.apply_damage(pending);
                 if has_new_frame_requests {

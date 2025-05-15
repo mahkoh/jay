@@ -513,3 +513,7 @@ The default configuration will try to start [wl-tray-bridge] to give you access 
 icons and menus.
 
 [wl-tray-bridge]: https://github.com/mahkoh/wl-tray-bridge
+
+### Window and Client Rules
+
+This is described in [window-and-client-rules.md](window-and-client-rules.md).

@@ -54,7 +54,7 @@ impl ColorManager {
         let linear_descriptions = CopyHashMap::default();
         let complete_descriptions = CopyHashMap::default();
         let shared = Rc::new(Shared::default());
-        let _ = shared.complete_ids.acquire();
+        let _ = shared.complete_ids.next();
         let srgb_srgb = get_description(
             &shared,
             &linear_descriptions,
@@ -219,7 +219,7 @@ fn get_description(
         transfer_function,
     };
     let d = Rc::new(ColorDescription {
-        id: shared.complete_ids.acquire(),
+        id: shared.complete_ids.next(),
         linear: d,
         named_primaries,
         transfer_function,
@@ -248,7 +248,7 @@ fn get_description2(
         shared.dead_complete.fetch_sub(1);
     }
     let d = Rc::new(ColorDescription {
-        id: shared.complete_ids.acquire(),
+        id: shared.complete_ids.next(),
         linear: ld.clone(),
         named_primaries,
         transfer_function,

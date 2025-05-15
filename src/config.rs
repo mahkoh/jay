@@ -8,8 +8,14 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
+        tree::ToplevelData,
         utils::{
-            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt, unlink_on_drop::UnlinkOnDrop,
+            clonecell::CloneCell,
+            nice::{JAY_NO_REALTIME, dont_allow_config_so},
+            numcell::NumCell,
+            ptr_ext::PtrExt,
+            toplevel_identifier::ToplevelIdentifier,
+            unlink_on_drop::UnlinkOnDrop,
             xrd::xrd,
         },
     },
@@ -22,9 +28,10 @@ use {
         input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
+        window::{self, TileState},
     },
     libloading::Library,
-    std::{cell::Cell, io, mem, ptr, rc::Rc},
+    std::{cell::Cell, io, mem, path::Path, ptr, rc::Rc},
     thiserror::Error,
 };
 
@@ -40,6 +47,8 @@ pub enum ConfigError {
     CopyConfigFile(#[source] io::Error),
     #[error("XDG_RUNTIME_DIR is not set")]
     XrdNotSet,
+    #[error("Custom config.so is not permitted")]
+    NotPermitted,
 }
 
 pub struct ConfigProxy {
@@ -151,6 +160,26 @@ impl ConfigProxy {
             event,
         });
     }
+
+    pub fn toplevel_removed(&self, id: ToplevelIdentifier) {
+        let Some(handler) = self.handler.get() else {
+            return;
+        };
+        if let Some(win) = handler.windows_from_tl_id.remove(&id) {
+            handler.windows_to_tl_id.remove(&win);
+        }
+    }
+
+    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
+        let Some(handler) = self.handler.get() else {
+            return true;
+        };
+        handler.auto_focus(data)
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        self.handler.get()?.initial_tile_state(data)
+    }
 }
 
 impl Drop for ConfigProxy {
@@ -202,6 +231,20 @@ impl ConfigProxy {
             timers_by_id: Default::default(),
             pollable_id: Default::default(),
             pollables: Default::default(),
+            window_ids: NumCell::new(1),
+            windows_from_tl_id: Default::default(),
+            windows_to_tl_id: Default::default(),
+            client_matcher_ids: NumCell::new(1),
+            client_matchers: Default::default(),
+            client_matcher_cache: Default::default(),
+            client_matcher_leafs: Default::default(),
+            window_matcher_ids: NumCell::new(1),
+            window_matchers: Default::default(),
+            window_matcher_cache: Default::default(),
+            window_matcher_leafs: Default::default(),
+            window_matcher_std_kinds: state.tl_matcher_manager.kind(window::CLIENT_WINDOW),
+            window_matcher_no_auto_focus: Default::default(),
+            window_matcher_initial_tile_state: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))
@@ -244,11 +287,24 @@ impl ConfigProxy {
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
+        if dont_allow_config_so() {
+            if have_config_so(state.config_dir.as_deref()) {
+                log::warn!("Not loading config.so because");
+                log::warn!("  1. Jay was started with CAP_SYS_NICE");
+                log::warn!("  2. Jay was not started with {}=1", JAY_NO_REALTIME);
+                log::warn!("  3. The scheduler was elevated to SCHED_RR");
+                log::warn!(
+                    "  4. Jay was not compiled with {}=1",
+                    jay_allow_realtime_config_so!(),
+                );
+            }
+            return Err(ConfigError::NotPermitted);
+        }
         let dir = match state.config_dir.as_deref() {
             Some(d) => d,
             _ => return Err(ConfigError::ConfigDirNotSet),
         };
-        let file = format!("{}/config.so", dir);
+        let file = format!("{}/{CONFIG_SO}", dir);
         unsafe { Self::from_file(&file, state) }
     }
 
@@ -318,4 +374,16 @@ pub struct InvokedShortcut {
     pub unmasked_mods: Modifiers,
     pub effective_mods: Modifiers,
     pub sym: KeySym,
+}
+
+const CONFIG_SO: &str = "config.so";
+
+pub fn have_config_so(config_dir: Option<&str>) -> bool {
+    let Some(dir) = config_dir else {
+        return false;
+    };
+    let mut dir = dir.to_owned();
+    dir.push_str("/");
+    dir.push_str(CONFIG_SO);
+    Path::new(&dir).exists()
 }
