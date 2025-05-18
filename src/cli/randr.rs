@@ -1154,7 +1154,6 @@ impl Randr {
             output.brightness = Some(msg.lux);
         });
         tc.round_trip().await;
-        let x = data.borrow_mut().clone();
-        x
+        data.borrow_mut().clone()
     }
 }
