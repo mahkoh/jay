@@ -30,7 +30,7 @@ enum AsyncError {
 
 impl From<AsyncError> for io::Error {
     fn from(value: AsyncError) -> Self {
-        io::Error::new(ErrorKind::Other, value)
+        io::Error::other(value)
     }
 }
 

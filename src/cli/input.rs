@@ -935,7 +935,6 @@ impl Input {
             }
         });
         tc.round_trip().await;
-        let x = data.borrow_mut().clone();
-        x
+        data.borrow_mut().clone()
     }
 }
