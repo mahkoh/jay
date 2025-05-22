@@ -65,6 +65,7 @@ use {
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
             wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
+            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
@@ -104,7 +105,7 @@ use {
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
-            JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
+            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -240,6 +241,8 @@ pub struct State {
     pub tray_item_ids: TrayItemIds,
     pub data_control_device_ids: DataControlDeviceIds,
     pub workspace_managers: WorkspaceManagerState,
+    pub toplevel_managers:
+        CopyHashMap<(ClientId, ZwlrForeignToplevelManagerV1Id), Rc<ZwlrForeignToplevelManagerV1>>,
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,

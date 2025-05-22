@@ -473,7 +473,7 @@ impl WlSeatGlobal {
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            tl.tl_set_fullscreen(fullscreen);
+            tl.tl_set_fullscreen(fullscreen, None);
         }
     }
 

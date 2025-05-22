@@ -1,0 +1,79 @@
+# requests
+
+request set_maximized {
+
+}
+
+request unset_maximized {
+    
+}
+
+request set_minimized {
+    
+}
+
+request unset_minimized {
+    
+}
+
+request activate {
+    seat: id(wl_seat)
+}
+
+request close {
+    
+}
+
+request set_rectangle {
+    surface: id(wl_surface),
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+request destroy {
+    
+}
+
+request set_fullscreen (since = 2) {
+    output: id(wl_output)
+}
+
+request unset_fullscreen (since = 2) {
+    
+}
+
+# events
+
+event title {
+    title: str,
+}
+
+event app_id {
+    app_id: str,
+}
+
+event output_enter {
+    output: id(wl_output),
+}
+
+event output_leave {
+    output: id(wl_output),
+}
+
+event state {
+    state: array(u32),
+}
+
+event done {
+    
+}
+
+event closed {
+    
+}
+
+event parent (since = 3) {
+    parent: id(zwlr_foreign_toplevel_handle_v1)
+}

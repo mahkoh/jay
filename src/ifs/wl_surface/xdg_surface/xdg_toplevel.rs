@@ -18,6 +18,7 @@ use {
                 },
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
+            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -178,6 +179,10 @@ impl XdgToplevel {
 
     pub fn send_to(self: &Rc<Self>, list: &ExtForeignToplevelListV1) {
         self.toplevel_data.send(self.clone(), list);
+    }
+
+    pub fn manager_send_to(self: &Rc<Self>, manager: &ZwlrForeignToplevelManagerV1) {
+        self.toplevel_data.manager_send(self.clone(), manager);
     }
 
     pub fn send_current_configure(&self) {
