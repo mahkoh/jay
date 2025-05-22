@@ -35,19 +35,21 @@ impl<T> LinkedList<T> {
     }
 
     pub fn append_all(&self, other: &LinkedList<T>) {
-        if other.is_empty() {
+        if other.is_empty() || self.root.data == other.root.data {
             return;
         }
         unsafe {
-            let o_root = other.root.data.as_ref();
-            let o_first = o_root.next.get();
-            let o_last = o_root.prev.get();
+            let o_root = other.root.data;
+            let o_first = o_root.as_ref().next.get();
+            let o_last = o_root.as_ref().prev.get();
             let s_first = self.root.data;
             let s_last = s_first.as_ref().prev.get();
             o_first.as_ref().prev.set(s_last);
             s_last.as_ref().next.set(o_first);
             o_last.as_ref().next.set(s_first);
             s_first.as_ref().prev.set(o_last);
+            o_root.as_ref().next.set(o_root);
+            o_root.as_ref().prev.set(o_root);
         }
     }
 
