@@ -601,8 +601,12 @@ impl ToplevelData {
             None => return,
             Some(handle) => handle,
         };
-        handle.send_app_id(app_id);
-        handle.send_title(title);
+        if !app_id.is_empty() {
+            handle.send_app_id(app_id);
+        }
+        if !title.is_empty() {
+            handle.send_title(title);
+        }
         handle.enter_output(&self.output());
         handle.send_state(activated, fullscreen);
         handle.send_done();
