@@ -65,10 +65,10 @@ pub struct SeatConstraint {
 }
 
 impl SeatConstraint {
-    pub fn deactivate(&self, apply_position_hint: bool) {
+    pub fn deactivate(&self, apply_position_hint: bool, defer: bool) {
         if self.status.get() == SeatConstraintStatus::Active {
             self.seat.constraint.take();
-            self.handle_position_hint(apply_position_hint);
+            self.handle_position_hint(apply_position_hint, defer);
             if let Some(owner) = self.owner.get() {
                 owner.send_disabled();
             }
@@ -80,7 +80,7 @@ impl SeatConstraint {
         }
     }
 
-    fn handle_position_hint(&self, apply: bool) {
+    fn handle_position_hint(&self, apply: bool, defer: bool) {
         let Some((x, y)) = self.position_hint.take() else {
             return;
         };
@@ -96,6 +96,7 @@ impl SeatConstraint {
             self.client.state.now_usec(),
             x.apply_fract(x_int),
             y.apply_fract(y_int),
+            defer,
         );
     }
 
@@ -140,7 +141,7 @@ impl SeatConstraint {
     }
 
     fn detach(&self) {
-        self.deactivate(true);
+        self.deactivate(true, false);
         self.owner.take();
         self.surface.constraints.remove(&self.seat.id);
     }
