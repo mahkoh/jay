@@ -526,7 +526,7 @@ impl WlSeatGlobal {
         let (x, y) = self.set_pointer_cursor_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
-                c.deactivate();
+                c.deactivate(false);
             }
         }
         self.state.for_each_seat_tester(|t| {
@@ -1285,7 +1285,7 @@ impl WlSeatGlobal {
     pub fn leave_surface(&self, n: &WlSurface) {
         let serial = n.client.next_serial();
         for (_, constraint) in &n.constraints {
-            constraint.deactivate();
+            constraint.deactivate(true);
         }
         self.surface_pointer_event(Version::ALL, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
