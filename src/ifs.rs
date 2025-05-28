@@ -81,6 +81,8 @@ pub mod xdg_toplevel_drag_v1;
 pub mod xdg_toplevel_tag_manager_v1;
 pub mod xdg_wm_base;
 pub mod xdg_wm_dialog_v1;
+pub mod zwlr_foreign_toplevel_handle_v1;
+pub mod zwlr_foreign_toplevel_manager_v1;
 pub mod zwlr_layer_shell_v1;
 pub mod zwlr_screencopy_frame_v1;
 pub mod zwlr_screencopy_manager_v1;

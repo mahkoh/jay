@@ -34,6 +34,7 @@
 - Jay now supports being started with CAP_SYS_NICE capabilities to improve
   responsiveness under high system load. This is described in detail in
   [setup.md](docs/setup.md).
+- Implement wlr-foreign-toplevel-management-v1.
 
 # 1.10.0 (2025-04-22)
 

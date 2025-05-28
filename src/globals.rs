@@ -58,6 +58,7 @@ use {
             xdg_toplevel_tag_manager_v1::XdgToplevelTagManagerV1Global,
             xdg_wm_base::XdgWmBaseGlobal,
             xdg_wm_dialog_v1::XdgWmDialogV1Global,
+            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1Global,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
@@ -202,6 +203,7 @@ impl Globals {
         add_singleton!(ZwpIdleInhibitManagerV1Global);
         add_singleton!(ExtIdleNotifierV1Global);
         add_singleton!(XdgToplevelDragManagerV1Global);
+        add_singleton!(ZwlrForeignToplevelManagerV1Global);
         add_singleton!(ZwlrDataControlManagerV1Global);
         add_singleton!(WpAlphaModifierV1Global);
         add_singleton!(ZwpVirtualKeyboardManagerV1Global);

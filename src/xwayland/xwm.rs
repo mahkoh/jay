@@ -1126,6 +1126,11 @@ impl Wm {
         let mut buf = vec![];
         let property_changed = || {
             if let Some(window) = data.window.get() {
+                let class = data.info.class.borrow();
+                for handle in window.toplevel_data.manager_handles.lock().values() {
+                    handle.send_app_id(class.as_deref().unwrap_or_default());
+                    handle.send_done();
+                }
                 window.toplevel_data.property_changed(TL_CHANGED_CLASS_INST);
             }
         };
@@ -2458,7 +2463,7 @@ impl Wm {
         }
         if fullscreen != data.info.fullscreen.get() {
             if let Some(w) = data.window.get() {
-                w.tl_set_fullscreen(fullscreen);
+                w.tl_set_fullscreen(fullscreen, None);
             }
         }
         data.info.fullscreen.set(fullscreen);
