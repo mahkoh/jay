@@ -201,7 +201,7 @@ impl EiDeviceRequestHandler for EiDevice {
         if let Some((x, y)) = self.absolute_motion.take() {
             let x = Fixed::from_f32(x);
             let y = Fixed::from_f32(y);
-            seat.motion_event_abs(time, x, y);
+            seat.motion_event_abs(time, x, y, false);
         }
         {
             let mut need_frame = false;

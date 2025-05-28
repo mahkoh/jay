@@ -432,7 +432,7 @@ impl WlSeatGlobal {
 
     pub fn disable_pointer_constraint(&self) {
         if let Some(constraint) = self.constraint.get() {
-            constraint.deactivate(true);
+            constraint.deactivate(true, true);
             if constraint.status.get() == SeatConstraintStatus::Inactive {
                 constraint
                     .status
