@@ -61,12 +61,14 @@ pub struct SeatConstraint {
     pub one_shot: bool,
     pub status: Cell<SeatConstraintStatus>,
     pub ty: ConstraintType,
+    pub position_hint: Cell<Option<(Fixed, Fixed)>>,
 }
 
 impl SeatConstraint {
-    pub fn deactivate(&self) {
+    pub fn deactivate(&self, apply_position_hint: bool) {
         if self.status.get() == SeatConstraintStatus::Active {
             self.seat.constraint.take();
+            self.handle_position_hint(apply_position_hint);
             if let Some(owner) = self.owner.get() {
                 owner.send_disabled();
             }
@@ -76,6 +78,25 @@ impl SeatConstraint {
                 self.status.set(SeatConstraintStatus::Inactive);
             }
         }
+    }
+
+    fn handle_position_hint(&self, apply: bool) {
+        let Some((x, y)) = self.position_hint.take() else {
+            return;
+        };
+        if !apply {
+            return;
+        }
+        let buffer = self.surface.buffer_abs_pos.get();
+        let (x_int, y_int) = buffer.translate_inv(x.round_down(), y.round_down());
+        if !buffer.contains(x_int, y_int) {
+            return;
+        }
+        self.seat.motion_event_abs(
+            self.client.state.now_usec(),
+            x.apply_fract(x_int),
+            y.apply_fract(y_int),
+        );
     }
 
     pub fn contains(&self, x: i32, y: i32) -> bool {
@@ -119,7 +140,7 @@ impl SeatConstraint {
     }
 
     fn detach(&self) {
-        self.deactivate();
+        self.deactivate(true);
         self.owner.take();
         self.surface.constraints.remove(&self.seat.id);
     }
@@ -221,6 +242,7 @@ impl ZwpPointerConstraintsV1 {
             one_shot,
             status: Cell::new(SeatConstraintStatus::Inactive),
             ty,
+            position_hint: Default::default(),
         }))
     }
 }

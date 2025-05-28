@@ -30,9 +30,13 @@ impl ZwpLockedPointerV1RequestHandler for ZwpLockedPointerV1 {
 
     fn set_cursor_position_hint(
         &self,
-        _req: SetCursorPositionHint,
+        req: SetCursorPositionHint,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        let mut x = req.surface_x;
+        let mut y = req.surface_y;
+        client_wire_scale_to_logical!(self.constraint.client, x, y);
+        self.constraint.position_hint.set(Some((x, y)));
         Ok(())
     }
 
