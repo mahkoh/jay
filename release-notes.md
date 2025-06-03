@@ -35,6 +35,7 @@
   responsiveness under high system load. This is described in detail in
   [setup.md](docs/setup.md).
 - Implement wlr-foreign-toplevel-management-v1.
+- Implement wlr-output-management-v1.
 
 # 1.10.0 (2025-04-22)
 

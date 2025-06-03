@@ -3,16 +3,13 @@ use {
     crate::{
         backend::transaction::{ConnectorTransaction, PreparedConnectorTransaction},
         client::{Client, ClientError},
-        ifs::{
-            head_management::{
-                Head, HeadCommon, HeadCommonError, HeadMgrState, HeadName, HeadOp,
-                HeadTransactionError,
-                head_management_macros::{HeadExtension, MgrExts, announce_head, bind_extension},
-                jay_head_manager_v1::JayHeadManagerV1,
-                jay_head_transaction_result_v1::JayHeadTransactionResultV1,
-                jay_head_v1::JayHeadV1,
-            },
-            wl_output::PersistentOutputState,
+        ifs::head_management::{
+            Head, HeadCommon, HeadCommonError, HeadMgrState, HeadName, HeadOp,
+            HeadTransactionError,
+            head_management_macros::{HeadExtension, MgrExts, announce_head, bind_extension},
+            jay_head_manager_v1::JayHeadManagerV1,
+            jay_head_transaction_result_v1::JayHeadTransactionResultV1,
+            jay_head_v1::JayHeadV1,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -566,22 +563,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 node.set_brightness(desired.brightness);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
-                let pos = match pos.get(&mi.output_id) {
-                    Some(ps) => ps,
-                    _ => {
-                        let ps = Rc::new(PersistentOutputState {
-                            transform: Default::default(),
-                            scale: Default::default(),
-                            pos: Default::default(),
-                            vrr_mode: Cell::new(&VrrMode::Never),
-                            vrr_cursor_hz: Default::default(),
-                            tearing_mode: Cell::new(&TearingMode::Never),
-                            brightness: Default::default(),
-                        });
-                        pos.set(mi.output_id.clone(), ps.clone());
-                        ps
-                    }
-                };
+                let pos = pos.lock().entry(mi.output_id.clone()).or_default().clone();
                 pos.pos.set(desired.position);
                 pos.scale.set(desired.scale);
                 pos.transform.set(desired.transform);

@@ -1,0 +1,24 @@
+# requests
+
+request create_configuration {
+    id: id(zwlr_output_configuration_v1),
+    serial: u32,
+}
+
+request stop {
+    
+}
+
+# events
+
+event head {
+    head: id(zwlr_output_head_v1)
+}
+
+event done {
+    serial: u32
+}
+
+event finished {
+
+}

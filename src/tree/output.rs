@@ -483,6 +483,9 @@ impl OutputNode {
             .connector
             .head_managers
             .handle_scale_change(scale);
+        for head in self.global.connector.wlr_output_heads.lock().values() {
+            head.handle_new_scale(scale);
+        }
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
@@ -778,6 +781,9 @@ impl OutputNode {
         }
         let rect = pos.at_point(x, y);
         self.change_extents_(&rect);
+        for head in self.global.connector.wlr_output_heads.lock().values() {
+            head.handle_position_change(x, y);
+        }
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
@@ -817,6 +823,9 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_transform_change(transform);
+            for head in self.global.connector.wlr_output_heads.lock().values() {
+                head.hande_transform_change(transform);
+            }
         }
     }
 
@@ -1339,6 +1348,9 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_vrr_mode_change(mode.to_config());
+            for head in self.global.connector.wlr_output_heads.lock().values() {
+                head.handle_vrr_mode_change(mode);
+            }
         }
     }
 

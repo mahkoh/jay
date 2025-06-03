@@ -15,7 +15,8 @@ use {
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, WsMoveConfig, move_ws_to_output},
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
+            asyncevent::AsyncEvent, clonecell::CloneCell, debug_fn::debug_fn,
+            hash_map_ext::HashMapExt, rc_eq::RcEq,
         },
     },
     jay_config::video::Transform,
@@ -76,6 +77,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         handler: Default::default(),
         connected: Cell::new(false),
         name,
+        description: Default::default(),
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
         damaged: Cell::new(false),
@@ -84,6 +86,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage_intersect: Default::default(),
         state: Cell::new(backend_state),
         head_managers: HeadManagers::new(state.head_names.next(), head_state),
+        wlr_output_heads: Default::default(),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -143,6 +146,7 @@ impl ConnectorHandler {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
         self.data.set_state(&self.state, info.state);
+        *self.data.description.borrow_mut() = create_description(&info);
         let name = self.state.globals.name();
         if info.non_desktop_effective {
             self.handle_non_desktop_connected(info).await;
@@ -151,6 +155,9 @@ impl ConnectorHandler {
         }
         self.data.connected.set(false);
         self.data.head_managers.handle_output_disconnected();
+        for head in self.data.wlr_output_heads.lock().drain_values() {
+            head.handle_disconnected();
+        }
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
     }
 
@@ -316,6 +323,7 @@ impl ConnectorHandler {
         self.data
             .head_managers
             .handle_output_connected(&output_data);
+        self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -433,6 +441,7 @@ impl ConnectorHandler {
         self.data
             .head_managers
             .handle_output_connected(&output_data);
+        self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -450,4 +459,23 @@ impl ConnectorHandler {
             config.connector_disconnected(self.id);
         }
     }
+}
+
+fn create_description(info: &MonitorInfo) -> String {
+    debug_fn(|f| {
+        let mut needs_space = false;
+        let id = &info.output_id;
+        for s in [&id.manufacturer, &id.model, &id.serial_number] {
+            if s.is_empty() {
+                continue;
+            }
+            if needs_space {
+                f.write_str(" ")?;
+            }
+            needs_space = true;
+            f.write_str(s)?;
+        }
+        Ok(())
+    })
+    .to_string()
 }

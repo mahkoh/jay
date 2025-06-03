@@ -11,7 +11,6 @@ use {
 };
 
 pub const NAME_SINCE: Version = Version(2);
-#[expect(dead_code)]
 pub const DESCRIPTION_SINCE: Version = Version(2);
 pub const NO_DONE_SINCE: Version = Version(3);
 
@@ -53,7 +52,6 @@ impl ZxdgOutputV1 {
         });
     }
 
-    #[expect(dead_code)]
     pub fn send_description(&self, description: &str) {
         self.client.event(Description {
             self_id: self.id,
@@ -70,6 +68,9 @@ impl ZxdgOutputV1 {
         self.send_logical_size(pos.width(), pos.height());
         if self.version >= NAME_SINCE {
             self.send_name(&global.connector.name);
+        }
+        if self.version >= DESCRIPTION_SINCE {
+            self.send_description(&global.connector.description.borrow());
         }
         if self.version >= NO_DONE_SINCE {
             if self.output.version >= SEND_DONE_SINCE {
