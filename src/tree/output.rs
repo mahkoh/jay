@@ -10,8 +10,9 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
-            output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1,
-            output_manager::zwlr_output_manager_v1::OutputManagerId,
+            output_manager::{
+                zwlr_output_head_v1::ZwlrOutputHeadV1, zwlr_output_manager_v1::OutputManagerId,
+            },
             wl_buffer::WlBufferStorage,
             wl_output::WlOutputGlobal,
             wl_seat::{

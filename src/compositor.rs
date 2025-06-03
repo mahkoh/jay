@@ -1,4 +1,3 @@
-use crate::ifs::output_manager::output_manager_done;
 #[cfg(feature = "it")]
 use crate::it::test_backend::TestBackend;
 use {
@@ -30,6 +29,7 @@ use {
         globals::Globals,
         ifs::{
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
+            output_manager::output_manager_done,
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             workspace_manager::workspace_manager_done,
