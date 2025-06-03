@@ -304,6 +304,13 @@ impl ZwlrOutputHeadV1 {
             manager.schedule_done();
         }
     }
+
+    pub fn handle_destroyed(&self) {
+        if let Some(manager) = self.manager.get() {
+            self.send_finished();
+            manager.schedule_done();
+        }
+    }
 }
 
 impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {

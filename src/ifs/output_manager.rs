@@ -31,6 +31,7 @@ impl OutputManagerState {
     pub fn clear(&self) {
         self.managers.clear();
         self.configurations.clear();
+        self.queue.clear();
     }
 
     pub fn announce_head(&self, on: &OutputNode) {

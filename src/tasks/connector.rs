@@ -305,6 +305,9 @@ impl ConnectorHandler {
         for sc in on.ext_copy_sessions.lock().drain_values() {
             sc.stop();
         }
+        for head in on.zwlr_output_heads.lock().drain_values() {
+            head.handle_destroyed();
+        }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
