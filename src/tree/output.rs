@@ -10,6 +10,8 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
+            output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1,
+            output_manager::zwlr_output_manager_v1::OutputManagerId,
             wl_buffer::WlBufferStorage,
             wl_output::WlOutputGlobal,
             wl_seat::{
@@ -103,6 +105,7 @@ pub struct OutputNode {
     pub tray_start_rel: Cell<i32>,
     pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
+    pub zwlr_output_heads: CopyHashMap<OutputManagerId, Rc<ZwlrOutputHeadV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
 }
 
@@ -451,6 +454,9 @@ impl OutputNode {
         if self.global.legacy_scale.replace(legacy_scale) != legacy_scale {
             self.global.send_mode();
         }
+        for head in self.zwlr_output_heads.lock().values() {
+            head.handle_new_scale(scale);
+        }
         self.state.remove_output_scale(old_scale);
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
@@ -758,6 +764,10 @@ impl OutputNode {
         }
         let rect = pos.at_point(x, y);
         self.change_extents_(&rect);
+
+        for head in self.zwlr_output_heads.lock().values() {
+            head.handle_new_position(x, y);
+        }
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
@@ -775,10 +785,12 @@ impl OutputNode {
             return;
         }
         let (old_width, old_height) = self.global.pixel_size();
+        let old_refresh = old_mode.refresh_rate_millihz;
         self.global.mode.set(mode);
         self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
         let (new_width, new_height) = self.global.pixel_size();
+        let new_refresh = self.global.mode.get().refresh_rate_millihz;
         self.change_extents_(&self.calculate_extents());
 
         if (old_width, old_height) != (new_width, new_height) {
@@ -788,11 +800,23 @@ impl OutputNode {
             for sc in self.ext_copy_sessions.lock().values() {
                 sc.buffer_size_changed();
             }
+            for head in self.zwlr_output_heads.lock().values() {
+                head.handle_new_mode(old_mode, mode);
+            }
+        }
+
+        if old_refresh != new_refresh {
+            for head in self.zwlr_output_heads.lock().values() {
+                head.handle_new_mode(old_mode, mode);
+            }
         }
 
         if transform != old_transform {
             self.state.refresh_hardware_cursors();
             self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
+            for head in self.zwlr_output_heads.lock().values() {
+                head.hande_new_transform(transform);
+            }
         }
     }
 
@@ -1068,6 +1092,9 @@ impl OutputNode {
             }
         };
         self.global.connector.connector.set_vrr_enabled(enabled);
+        for head in self.zwlr_output_heads.lock().values() {
+            head.handle_new_adaptive_sync_state(enabled);
+        }
     }
 
     fn update_tearing(&self) {

@@ -1,0 +1,25 @@
+
+# requests
+
+request release {
+
+}
+
+# events
+
+event size {
+    width: i32,
+    height: i32,
+}
+
+event refresh {
+    refresh: i32,
+}
+
+event preferred {
+
+}
+
+event finished {
+
+}

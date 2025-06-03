@@ -196,6 +196,7 @@ impl ConnectorHandler {
             tray_items: Default::default(),
             ext_workspace_groups: Default::default(),
             pinned: Default::default(),
+            zwlr_output_heads: Default::default(),
         });
         on.update_visible();
         on.update_rects();
@@ -259,6 +260,7 @@ impl ConnectorHandler {
         self.state.tree_changed();
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
+        self.state.output_managers.announce_head(&on);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
