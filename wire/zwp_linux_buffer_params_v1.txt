@@ -7,8 +7,7 @@ request add {
     plane_idx: u32,
     offset: u32,
     stride: u32,
-    modifier_hi: u32,
-    modifier_lo: u32,
+    modifier: u64,
 }
 
 request create {

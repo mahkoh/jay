@@ -13,13 +13,11 @@ event type {
 }
 
 event hardware_serial {
-    hardware_serial_hi: u32,
-    hardware_serial_lo: u32,
+    hardware_serial: u64,
 }
 
 event hardware_id_wacom {
-    hardware_id_hi: u32,
-    hardware_id_lo: u32,
+    hardware_id: u64,
 }
 
 event capability {

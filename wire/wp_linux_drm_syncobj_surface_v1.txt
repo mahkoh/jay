@@ -6,12 +6,10 @@ request destroy {
 
 request set_acquire_point {
     timeline: id(wp_linux_drm_syncobj_timeline_v1),
-    point_hi: u32,
-    point_lo: u32,
+    point: u64,
 }
 
 request set_release_point {
     timeline: id(wp_linux_drm_syncobj_timeline_v1),
-    point_hi: u32,
-    point_lo: u32,
+    point: u64,
 }

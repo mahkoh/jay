@@ -52,6 +52,18 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
+    pub fn u64(&mut self) -> Result<u64, MsgParserError> {
+        let hi = self.uint()?;
+        let lo = self.uint()?;
+        Ok(((hi as u64) << 32) | lo as u64)
+    }
+
+    pub fn u64_rev(&mut self) -> Result<u64, MsgParserError> {
+        let lo = self.uint()?;
+        let hi = self.uint()?;
+        Ok(((hi as u64) << 32) | lo as u64)
+    }
+
     pub fn object<T>(&mut self) -> Result<T, MsgParserError>
     where
         ObjectId: Into<T>,

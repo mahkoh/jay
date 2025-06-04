@@ -57,22 +57,18 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
     }
 
     fn set_acquire_point(&self, req: SetAcquirePoint, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let point = point(req.point_hi, req.point_lo);
+        let point = SyncObjPoint(req.point);
         let timeline = self.client.lookup(req.timeline)?;
         self.surface.pending.borrow_mut().acquire_point = Some((timeline.sync_obj.clone(), point));
         Ok(())
     }
 
     fn set_release_point(&self, req: SetReleasePoint, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let point = point(req.point_hi, req.point_lo);
+        let point = SyncObjPoint(req.point);
         let timeline = self.client.lookup(req.timeline)?;
         self.surface.pending.borrow_mut().release_point = Some((timeline.sync_obj.clone(), point));
         Ok(())
     }
-}
-
-fn point(hi: u32, lo: u32) -> SyncObjPoint {
-    SyncObjPoint(((hi as u64) << 32) | (lo as u64))
 }
 
 object_base! {

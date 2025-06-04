@@ -1,8 +1,7 @@
 # requests
 
 request set_serial {
-    serial_lo: u32,
-    serial_hi: u32,
+    serial: u64_rev,
 }
 
 request destroy { }

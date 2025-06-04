@@ -211,6 +211,8 @@ enum Type {
     Id(String),
     U32,
     I32,
+    U64,
+    U64Rev,
     Str,
     OptStr,
     BStr,
@@ -475,6 +477,8 @@ impl<'a> Parser<'a> {
                 })?;
                 Type::Pod(ty.val)
             }
+            b"u64" => Type::U64,
+            b"u64_rev" => Type::U64Rev,
             b"u32" => Type::U32,
             b"i32" => Type::I32,
             b"str" => Type::Str,
@@ -495,6 +499,8 @@ impl<'a> Parser<'a> {
                         Type::Id(_) => {}
                         Type::U32 => {}
                         Type::I32 => {}
+                        Type::U64 => {}
+                        Type::U64Rev => {}
                         Type::Fixed => {}
                         Type::Pod(..) => {}
                         _ => {
@@ -561,6 +567,8 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
         Type::Id(id) => write!(f, "{}Id", id)?,
         Type::U32 => write!(f, "u32")?,
         Type::I32 => write!(f, "i32")?,
+        Type::U64 => write!(f, "u64")?,
+        Type::U64Rev => write!(f, "u64")?,
         Type::Str => write!(f, "&'a str")?,
         Type::OptStr => write!(f, "Option<&'a str>")?,
         Type::BStr => write!(f, "&'a BStr")?,
@@ -662,6 +670,8 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
             Type::Id(_) => "object",
             Type::U32 => "uint",
             Type::I32 => "int",
+            Type::U64 => "u64",
+            Type::U64Rev => "u64_rev",
             Type::OptStr => "optstr",
             Type::Str => "str",
             Type::Fixed => "fixed",
@@ -687,6 +697,8 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
             Type::Id(_) => "object",
             Type::U32 => "uint",
             Type::I32 => "int",
+            Type::U64 => "u64",
+            Type::U64Rev => "u64_rev",
             Type::OptStr => "optstr",
             Type::Str | Type::BStr => "string",
             Type::Fixed => "fixed",

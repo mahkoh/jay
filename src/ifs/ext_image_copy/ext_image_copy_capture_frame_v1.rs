@@ -270,8 +270,7 @@ impl ExtImageCopyCaptureFrameV1 {
         }
         self.client.event(PresentationTime {
             self_id: self.id,
-            tv_sec_hi: (tv_sec >> 32) as u32,
-            tv_sec_lo: tv_sec as u32,
+            tv_sec,
             tv_nsec,
         });
         self.client.event(Ready { self_id: self.id });

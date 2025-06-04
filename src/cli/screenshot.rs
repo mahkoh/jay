@@ -67,7 +67,7 @@ async fn run(screenshot: Rc<Screenshot>) {
             width: ev.width as _,
             height: ev.height as _,
             format: XRGB8888,
-            modifier: ((ev.modifier_hi as u64) << 32) | (ev.modifier_lo as u64),
+            modifier: ev.modifier,
             planes,
         };
         res.push(Ok((buf, Some(ev.drm_dev))));

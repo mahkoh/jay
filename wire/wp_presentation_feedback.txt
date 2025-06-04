@@ -5,12 +5,10 @@ event sync_output {
 }
 
 event presented {
-    tv_sec_hi   : u32,
-    tv_sec_lo   : u32,
+    tv_sec      : u64,
     tv_nsec     : u32,
     refresh     : u32,
-    seq_hi      : u32,
-    seq_lo      : u32,
+    seq         : u64,
     flags       : u32,
 }
 

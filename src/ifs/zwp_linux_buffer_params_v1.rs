@@ -133,7 +133,7 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
     }
 
     fn add(&self, req: Add, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let modifier = ((req.modifier_hi as u64) << 32) | req.modifier_lo as u64;
+        let modifier = req.modifier;
         match self.modifier.get() {
             Some(m) if m != modifier => {
                 return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m));

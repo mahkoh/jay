@@ -37,12 +37,10 @@ impl WpPresentationFeedback {
     pub fn send_presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
         self.client.event(Presented {
             self_id: self.id,
-            tv_sec_hi: (tv_sec >> 32) as u32,
-            tv_sec_lo: tv_sec as u32,
+            tv_sec,
             tv_nsec,
             refresh,
-            seq_hi: (seq >> 32) as u32,
-            seq_lo: seq as u32,
+            seq,
             flags,
         });
     }
