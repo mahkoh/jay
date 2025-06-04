@@ -2,14 +2,24 @@ use {
     super::zwlr_output_configuration_head::ZwlrOutputConfigurationHeadV1,
     crate::{
         client::{Client, ClientError},
-        ifs::output_manager::zwlr_output_manager_v1::{OutputManagerId, ZwlrOutputManagerV1},
+        ifs::output_manager::{
+            zwlr_output_configuration_head::OutputConfig,
+            zwlr_output_head_v1::ZwlrOutputHeadV1,
+            zwlr_output_manager_v1::{OutputManagerId, ZwlrOutputManagerV1},
+        },
         leaks::Tracker,
         object::{Object, Version},
+        rect::Rect,
         scale::Scale,
+        tree::VrrMode,
         utils::opt::Opt,
         wire::{ZwlrOutputConfigurationV1Id, zwlr_output_configuration_v1::*},
     },
-    std::{cell::Cell, rc::Rc},
+    jay_algorithms::rect::NoTag,
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -24,7 +34,6 @@ pub struct ZwlrOutputConfigurationV1 {
     pub serial: u32,
     pub manager_id: OutputManagerId,
     pub manager: Rc<Opt<ZwlrOutputManagerV1>>,
-    pub applying: Cell<bool>,
     pub used: Cell<bool>,
 }
 
@@ -53,6 +62,65 @@ impl ZwlrOutputConfigurationV1 {
     pub fn send_cancelled(&self) {
         self.client.event(Cancelled { self_id: self.id });
     }
+
+    fn reverse_changes(&self, old: Vec<(Rc<ZwlrOutputHeadV1>, Rc<RefCell<OutputConfig>>)>) {
+        let mut changed = false;
+        for (head, config) in old {
+            let node = match head.output.node() {
+                Some(node) => node,
+                None => return,
+            };
+            let connector = match head.output.get() {
+                Some(o) => o.connector.connector.clone(),
+                None => return,
+            };
+
+            let enabled = match head.configuration_heads.get(&self.configuration_id) {
+                Some((enabled, _)) => enabled,
+                None => continue,
+            };
+
+            connector.set_enabled(*enabled);
+
+            if !*enabled {
+                continue;
+            }
+
+            let config = config.borrow();
+            if config.x.is_some() || config.y.is_some() {
+                let (old_x, old_y) = node.global.position().position();
+                let x = config.x.unwrap_or(old_x);
+                let y = config.y.unwrap_or(old_y);
+                node.set_position(x, y);
+                changed = true;
+            }
+            if let Some(scale) = config.scale {
+                node.set_preferred_scale(Scale::from_f64(scale));
+            }
+            if let Some(transform) = config.transform {
+                node.update_transform(transform);
+                changed = true;
+            }
+            if let Some(mode) = config.mode {
+                connector.set_mode(mode);
+            }
+            if let Some(enabled) = config.vrr_enabled {
+                let vrr_mode = if enabled {
+                    VrrMode::VARIANT_1
+                } else {
+                    VrrMode::NEVER
+                };
+                node.global.persistent.vrr_mode.set(&vrr_mode);
+                node.update_presentation_type();
+                changed = true;
+            }
+        }
+        if let Some(manager) = self.manager.get() {
+            if changed {
+                manager.schedule_done();
+            }
+        }
+    }
 }
 
 impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
@@ -73,13 +141,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 version: self.version,
                 client: self.client.clone(),
                 head: head.opt.clone(),
-                transform: Default::default(),
-                scale: Default::default(),
-                vrr_enabled: Default::default(),
-                x: Default::default(),
-                y: Default::default(),
-                mode: Default::default(),
-                custom_mode: Default::default(),
+                config: Default::default(),
                 tracker: Default::default(),
             });
 
@@ -118,7 +180,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
         let manager = match self.manager.get() {
             Some(manager) => manager,
             None => {
-                self.send_cancelled();
+                self.send_failed();
                 return Ok(());
             }
         };
@@ -129,7 +191,6 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
         }
 
         self.used.set(true);
-        self.applying.set(true);
 
         if self.client.state.root.outputs.lock().values().any(|o| {
             !o.zwlr_output_heads
@@ -141,11 +202,20 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
         }
 
         let mut changed = false;
-        for head in self.client.objects.zwlr_output_heads.lock().values() {
+        let mut old_configs = vec![];
+        for head in self
+            .client
+            .state
+            .root
+            .outputs
+            .lock()
+            .values()
+            .filter_map(|on| on.zwlr_output_heads.get(&self.manager_id))
+        {
             let node = match head.output.node() {
                 Some(node) => node,
                 None => {
-                    println!("sending failed for head none");
+                    self.reverse_changes(old_configs);
                     self.send_failed();
                     return Ok(());
                 }
@@ -153,15 +223,22 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
             let connector = match head.output.get() {
                 Some(o) => o.connector.connector.clone(),
                 None => {
+                    self.reverse_changes(old_configs);
                     self.send_failed();
                     return Ok(());
                 }
             };
+            let change: Rc<RefCell<OutputConfig>> = Rc::new(RefCell::new(Default::default()));
+            old_configs.push((head.clone(), change.clone()));
 
-            let (enabled, configuration) = head
-                .configuration_heads
-                .get(&self.configuration_id)
-                .unwrap();
+            let (enabled, configuration) =
+                match head.configuration_heads.get(&self.configuration_id) {
+                    Some((enabled, configuration)) => match configuration {
+                        Some(c) => (enabled, c),
+                        None => continue,
+                    },
+                    None => continue,
+                };
 
             connector.set_enabled(*enabled);
 
@@ -169,25 +246,29 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 continue;
             }
 
-            let configuration = configuration.unwrap();
+            let config = configuration.config.borrow();
 
-            if configuration.x.get().is_some() || configuration.y.get().is_some() {
+            if config.x.is_some() || config.y.is_some() {
                 let (old_x, old_y) = node.global.position().position();
-                node.set_position(
-                    configuration.x.get().unwrap_or(old_x),
-                    configuration.y.get().unwrap_or(old_y),
-                );
+                let x = config.x.unwrap_or(old_x);
+                let y = config.y.unwrap_or(old_y);
+                change.borrow_mut().x = Some(old_x);
+                change.borrow_mut().y = Some(old_y);
+                node.set_position(x, y);
                 changed = true;
             }
-            if let Some(scale) = configuration.scale.get() {
+            if let Some(scale) = config.scale {
+                change.borrow_mut().scale = Some(node.global.persistent.scale.get().to_f64());
                 node.set_preferred_scale(Scale::from_f64(scale));
                 changed = true;
             }
-            if let Some(transform) = configuration.transform.get() {
+            if let Some(transform) = config.transform {
+                change.borrow_mut().transform = Some(node.global.persistent.transform.get());
                 node.update_transform(transform);
                 changed = true;
             }
-            if let Some(mode) = configuration.mode.get() {
+            if let Some(mode) = config.mode {
+                change.borrow_mut().mode = Some(node.global.mode.get());
                 let modes = &node.global.modes;
                 let current_mode = node.global.mode.get();
                 let m = modes.iter().find(|m| {
@@ -206,6 +287,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                             || current_mode.height != mode.height
                             || current_mode.refresh_rate_millihz != mode.refresh_rate_millihz
                         {
+                            self.reverse_changes(old_configs);
                             self.send_failed();
                             return Ok(());
                         } else {
@@ -219,8 +301,15 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                     }
                 }
             }
-            if let Some(enabled) = configuration.vrr_enabled.get() {
-                connector.set_vrr_enabled(enabled);
+            if let Some(enabled) = config.vrr_enabled {
+                change.borrow_mut().vrr_enabled = Some(node.schedule.vrr_enabled());
+                let vrr_mode = if enabled {
+                    VrrMode::VARIANT_1
+                } else {
+                    VrrMode::NEVER
+                };
+                node.global.persistent.vrr_mode.set(&vrr_mode);
+                node.update_presentation_type();
                 changed = true;
             }
         }
@@ -257,7 +346,15 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 
         self.used.set(true);
 
-        for head in self.client.objects.zwlr_output_heads.lock().values() {
+        for head in self
+            .client
+            .state
+            .root
+            .outputs
+            .lock()
+            .values()
+            .filter_map(|on| on.zwlr_output_heads.get(&self.manager_id))
+        {
             let node = match head.output.node() {
                 Some(node) => node,
                 None => {
@@ -273,18 +370,22 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 }
             };
 
-            let (enabled, configuration) = head
-                .configuration_heads
-                .get(&self.configuration_id)
-                .unwrap();
+            let (enabled, configuration) =
+                match head.configuration_heads.get(&self.configuration_id) {
+                    Some((enabled, configuration)) => match configuration {
+                        Some(c) => (enabled, c),
+                        None => continue,
+                    },
+                    None => continue,
+                };
 
             if !*enabled {
                 continue;
             }
 
-            let configuration = configuration.unwrap();
+            let config = configuration.config.borrow();
 
-            if let Some(mode) = configuration.mode.get() {
+            if let Some(mode) = config.mode {
                 let modes = &node.global.modes;
                 let m = modes.iter().find(|m| {
                     if m.width != mode.width

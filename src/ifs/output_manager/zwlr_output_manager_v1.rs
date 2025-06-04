@@ -104,7 +104,6 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
             serial: self.serial.get(),
             manager: self.opt.clone(),
             manager_id: self.manager_id,
-            applying: Cell::new(false),
             used: Cell::new(false),
         });
 

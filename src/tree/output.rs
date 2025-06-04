@@ -93,7 +93,7 @@ pub struct OutputNode {
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
-    pub title_visible: Cell<bool>,
+    pub title_visible: Cellnon_exclusive_rect<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,

@@ -234,7 +234,7 @@ impl ZwlrOutputHeadV1 {
         if let Some(manager) = self.manager.get() {
             let mut manager_done = false;
             let modes = self.modes.lock();
-            let current_mode = self.current_mode.get().unwrap();
+
             let old_output_mode = modes.values().find(|m| {
                 let head_mode = backend::Mode {
                     width: m.width.get(),
@@ -256,14 +256,16 @@ impl ZwlrOutputHeadV1 {
                 manager_done = true;
             } else {
                 if let Some(output_mode) = old_output_mode {
-                    if current_mode.id == output_mode.id {
-                        if (new.width, new.height) != (old.width, old.height) {
-                            output_mode.send_size(new.width, new.height);
+                    if let Some(current_mode) = self.current_mode.get() {
+                        if current_mode.id == output_mode.id {
+                            if (new.width, new.height) != (old.width, old.height) {
+                                output_mode.send_size(new.width, new.height);
+                            }
+                            if old.refresh_rate_millihz != new.refresh_rate_millihz {
+                                output_mode.send_refresh(new.refresh_rate_millihz as i32);
+                            }
+                            manager_done = true;
                         }
-                        if old.refresh_rate_millihz != new.refresh_rate_millihz {
-                            output_mode.send_refresh(new.refresh_rate_millihz as i32);
-                        }
-                        manager_done = true;
                     }
                 }
             }
