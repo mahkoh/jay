@@ -29,6 +29,7 @@ use {
         globals::Globals,
         ifs::{
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
+            output_manager::output_manager_done,
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             workspace_manager::workspace_manager_done,
@@ -237,6 +238,7 @@ fn start_compositor2(
         logger: logger.clone(),
         connectors: Default::default(),
         outputs: Default::default(),
+        output_managers: Default::default(),
         drm_devs: Default::default(),
         status: Default::default(),
         idle: IdleState {
@@ -462,6 +464,7 @@ fn start_global_event_handlers(
             Phase::PostLayout,
             output_render_data(state.clone()),
         ),
+        eng.spawn("output manager done", output_manager_done(state.clone())),
         eng.spawn2("float layout", Phase::Layout, float_layout(state.clone())),
         eng.spawn2(
             "float titles",
@@ -678,6 +681,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tray_start_rel: Default::default(),
         tray_items: Default::default(),
         ext_workspace_groups: Default::default(),
+        zwlr_output_heads: Default::default(),
         pinned: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {

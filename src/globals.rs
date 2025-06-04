@@ -21,6 +21,7 @@ use {
             jay_compositor::JayCompositorGlobal,
             jay_damage_tracking::JayDamageTrackingGlobal,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
+            output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global,
             wl_compositor::WlCompositorGlobal,
             wl_fixes::WlFixesGlobal,
             wl_output::WlOutputGlobal,
@@ -185,6 +186,7 @@ impl Globals {
         add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
         add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
         add_singleton!(ZwlrLayerShellV1Global);
+        add_singleton!(ZwlrOutputManagerV1Global);
         add_singleton!(ZxdgOutputManagerV1Global);
         add_singleton!(JayCompositorGlobal);
         add_singleton!(ZwlrScreencopyManagerV1Global);
