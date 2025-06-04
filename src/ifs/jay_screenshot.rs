@@ -35,8 +35,7 @@ impl JayScreenshot {
             height: height as _,
             offset,
             stride,
-            modifier_lo: modifier as u32,
-            modifier_hi: (modifier >> 32) as u32,
+            modifier,
         });
     }
 

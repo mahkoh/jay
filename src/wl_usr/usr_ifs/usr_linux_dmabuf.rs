@@ -55,10 +55,7 @@ impl ZwpLinuxDmabufV1EventHandler for UsrLinuxDmabuf {
     fn modifier(&self, ev: Modifier, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             if let Some(format) = formats().get(&ev.format) {
-                owner.modifier(
-                    format,
-                    ((ev.modifier_hi as u64) << 32) | (ev.modifier_lo as u64),
-                );
+                owner.modifier(format, ev.modifier);
             }
         }
         Ok(())

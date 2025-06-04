@@ -27,8 +27,7 @@ impl TestSyncobjSurface {
         self.tran.send(SetAcquirePoint {
             self_id: self.id,
             timeline: tl.id,
-            point_hi: (point >> 32) as _,
-            point_lo: point as _,
+            point,
         })?;
         Ok(())
     }
@@ -37,8 +36,7 @@ impl TestSyncobjSurface {
         self.tran.send(SetReleasePoint {
             self_id: self.id,
             timeline: tl.id,
-            point_hi: (point >> 32) as _,
-            point_lo: point as _,
+            point,
         })?;
         Ok(())
     }

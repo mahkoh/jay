@@ -63,16 +63,14 @@ impl ZwpTabletToolV2 {
     pub fn send_hardware_serial(&self, serial: u64) {
         self.client.event(HardwareSerial {
             self_id: self.id,
-            hardware_serial_hi: (serial >> 32) as _,
-            hardware_serial_lo: serial as _,
+            hardware_serial: serial,
         });
     }
 
     pub fn send_hardware_id_wacom(&self, id: u64) {
         self.client.event(HardwareIdWacom {
             self_id: self.id,
-            hardware_id_hi: (id >> 32) as _,
-            hardware_id_lo: id as _,
+            hardware_id: id,
         });
     }
 

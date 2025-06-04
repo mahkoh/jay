@@ -94,8 +94,7 @@ impl ZwpLinuxDmabufV1 {
         self.client.event(Modifier {
             self_id: self.id,
             format,
-            modifier_hi: (modifier >> 32) as _,
-            modifier_lo: modifier as _,
+            modifier,
         })
     }
 

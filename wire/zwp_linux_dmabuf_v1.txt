@@ -23,6 +23,5 @@ event format {
 
 event modifier (since = 3) {
     format: u32,
-    modifier_hi: u32,
-    modifier_lo: u32,
+    modifier: u64,
 }

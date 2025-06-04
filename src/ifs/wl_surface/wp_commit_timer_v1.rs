@@ -48,7 +48,8 @@ impl WpCommitTimerV1RequestHandler for WpCommitTimerV1 {
         if req.tv_nsec >= 1_000_000_000 {
             return Err(WpCommitTimerV1Error::InvalidNsec);
         }
-        let nsec = (((req.tv_sec_hi as u64) << 32) | (req.tv_sec_lo as u64))
+        let nsec = req
+            .tv_sec
             .checked_mul(1_000_000_000)
             .and_then(|n| n.checked_add(req.tv_nsec as u64));
         let Some(nsec) = nsec else {

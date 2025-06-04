@@ -33,8 +33,7 @@ impl UsrLinuxBufferParams {
                 plane_idx: idx as _,
                 offset: plane.offset,
                 stride: plane.stride,
-                modifier_hi: (buf.modifier >> 32) as _,
-                modifier_lo: buf.modifier as _,
+                modifier: buf.modifier,
             });
         }
         self.con.request(Create {

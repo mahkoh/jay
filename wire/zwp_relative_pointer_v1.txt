@@ -7,8 +7,7 @@ request destroy {
 # events
 
 event relative_motion {
-    utime_hi: u32,
-    utime_lo: u32,
+    utime: u64,
     dx: fixed,
     dy: fixed,
     dx_unaccelerated: fixed,

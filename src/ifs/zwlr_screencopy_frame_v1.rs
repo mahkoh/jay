@@ -38,8 +38,7 @@ impl ZwlrScreencopyFrameV1 {
     pub fn send_ready(&self, tv_sec: u64, tv_nsec: u32) {
         self.client.event(Ready {
             self_id: self.id,
-            tv_sec_hi: (tv_sec >> 32) as u32,
-            tv_sec_lo: tv_sec as u32,
+            tv_sec,
             tv_nsec,
         });
     }

@@ -43,6 +43,16 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
+    pub fn u64(&mut self, int: u64) -> &mut Self {
+        self.uint((int >> 32) as u32);
+        self.uint(int as u32)
+    }
+
+    pub fn u64_rev(&mut self, int: u64) -> &mut Self {
+        self.uint(int as u32);
+        self.uint((int >> 32) as u32)
+    }
+
     pub fn fixed(&mut self, fixed: Fixed) -> &mut Self {
         self.write(uapi::as_bytes(&fixed.0));
         self

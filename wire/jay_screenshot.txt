@@ -7,8 +7,7 @@ event dmabuf {
     height: u32,
     offset: u32,
     stride: u32,
-    modifier_lo: u32,
-    modifier_hi: u32,
+    modifier: u64_rev,
 }
 
 event error {

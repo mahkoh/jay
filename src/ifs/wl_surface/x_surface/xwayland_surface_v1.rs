@@ -26,7 +26,7 @@ impl XwaylandSurfaceV1RequestHandler for XwaylandSurfaceV1 {
         if self.x.surface.xwayland_serial.is_some() {
             return Err(XwaylandSurfaceV1Error::SerialAlreadySet);
         }
-        let serial = req.serial_lo as u64 | ((req.serial_hi as u64) << 32);
+        let serial = req.serial;
         if self.client.last_xwayland_serial.get() >= serial {
             return Err(XwaylandSurfaceV1Error::NonMonotonicSerial);
         }
