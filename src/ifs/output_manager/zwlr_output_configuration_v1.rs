@@ -11,11 +11,10 @@ use {
         object::{Object, Version},
         rect::Rect,
         scale::Scale,
-        tree::VrrMode,
+        tree::{Node, VrrMode},
         utils::opt::Opt,
         wire::{ZwlrOutputConfigurationV1Id, zwlr_output_configuration_v1::*},
     },
-    jay_algorithms::rect::NoTag,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -252,6 +251,18 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 let (old_x, old_y) = node.global.position().position();
                 let x = config.x.unwrap_or(old_x);
                 let y = config.y.unwrap_or(old_y);
+                let (width, height) = node.global.pixel_size();
+                let new_rect = Rect::new(x, y, width, height).unwrap();
+                for output in self.client.state.root.outputs.lock().values() {
+                    if output.node_id() == node.node_id() {
+                        continue;
+                    }
+                    if output.global.pos.get().intersects(&new_rect) {
+                        self.send_failed();
+                        self.reverse_changes(old_configs);
+                        return Ok(());
+                    }
+                }
                 change.borrow_mut().x = Some(old_x);
                 change.borrow_mut().y = Some(old_y);
                 node.set_position(x, y);
@@ -287,8 +298,8 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                             || current_mode.height != mode.height
                             || current_mode.refresh_rate_millihz != mode.refresh_rate_millihz
                         {
-                            self.reverse_changes(old_configs);
                             self.send_failed();
+                            self.reverse_changes(old_configs);
                             return Ok(());
                         } else {
                             connector.set_mode(current_mode);
