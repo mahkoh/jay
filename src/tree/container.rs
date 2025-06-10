@@ -1626,6 +1626,7 @@ impl Node for ContainerNode {
         state: KeyState,
         _serial: u64,
     ) {
+        println!("container button");
         let id = CursorType::Seat(seat.id());
         self.button(id, seat, time_usec, state == KeyState::Pressed, button);
     }
