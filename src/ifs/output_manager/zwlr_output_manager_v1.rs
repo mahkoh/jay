@@ -92,9 +92,6 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
         req: CreateConfiguration,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        if req.serial != self.serial.get() {
-            return Ok(());
-        }
         let configuration = Rc::new(ZwlrOutputConfigurationV1 {
             id: req.id,
             configuration_id: self.client.state.output_managers.configiuration_ids.next(),
