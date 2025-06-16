@@ -91,6 +91,7 @@ impl ZwlrOutputConfigurationV1 {
                 let x = config.x.unwrap_or(old_x);
                 let y = config.y.unwrap_or(old_y);
                 node.set_position(x, y);
+                node.global.update_damage_matrix();
                 changed = true;
             }
             if let Some(scale) = config.scale {
@@ -98,6 +99,7 @@ impl ZwlrOutputConfigurationV1 {
             }
             if let Some(transform) = config.transform {
                 node.update_transform(transform);
+                node.global.update_damage_matrix();
                 changed = true;
             }
             if let Some(mode) = config.mode {
@@ -202,14 +204,11 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 
         let mut changed = false;
         let mut old_configs = vec![];
-        for head in self
-            .client
-            .state
-            .root
-            .outputs
-            .lock()
+        let outputs = self.client.state.root.outputs.lock();
+        for head in outputs
             .values()
             .filter_map(|on| on.zwlr_output_heads.get(&self.manager_id))
+            .clone()
         {
             let node = match head.output.node() {
                 Some(node) => node,
@@ -247,27 +246,6 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 
             let config = configuration.config.borrow();
 
-            if config.x.is_some() || config.y.is_some() {
-                let (old_x, old_y) = node.global.position().position();
-                let x = config.x.unwrap_or(old_x);
-                let y = config.y.unwrap_or(old_y);
-                let (width, height) = node.global.pixel_size();
-                let new_rect = Rect::new(x, y, width, height).unwrap();
-                for output in self.client.state.root.outputs.lock().values() {
-                    if output.node_id() == node.node_id() {
-                        continue;
-                    }
-                    if output.global.pos.get().intersects(&new_rect) {
-                        self.send_failed();
-                        self.reverse_changes(old_configs);
-                        return Ok(());
-                    }
-                }
-                change.borrow_mut().x = Some(old_x);
-                change.borrow_mut().y = Some(old_y);
-                node.set_position(x, y);
-                changed = true;
-            }
             if let Some(scale) = config.scale {
                 change.borrow_mut().scale = Some(node.global.persistent.scale.get().to_f64());
                 node.set_preferred_scale(Scale::from_f64(scale));
@@ -276,6 +254,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
             if let Some(transform) = config.transform {
                 change.borrow_mut().transform = Some(node.global.persistent.transform.get());
                 node.update_transform(transform);
+                node.global.update_damage_matrix();
                 changed = true;
             }
             if let Some(mode) = config.mode {
@@ -312,10 +291,25 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                     }
                 }
             }
+            if config.x.is_some() || config.y.is_some() {
+                let (old_x, old_y) = node.global.position().position();
+                change.borrow_mut().x = Some(old_x);
+                change.borrow_mut().y = Some(old_y);
+                let x = config.x.unwrap_or(old_x);
+                let y = config.y.unwrap_or(old_y);
+                node.set_position(x, y);
+                node.global.update_damage_matrix();
+                changed = true;
+            }
             if let Some(enabled) = config.vrr_enabled {
                 change.borrow_mut().vrr_enabled = Some(node.schedule.vrr_enabled());
                 let vrr_mode = if enabled {
-                    VrrMode::VARIANT_1
+                    let default_mode = self.client.state.default_vrr_mode.get();
+                    if default_mode == VrrMode::NEVER {
+                        VrrMode::VARIANT_1
+                    } else {
+                        default_mode
+                    }
                 } else {
                     VrrMode::NEVER
                 };
@@ -324,10 +318,43 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 changed = true;
             }
         }
+        for output in outputs.values() {
+            let (x, y) = output.global.position().position();
+            let scale = output.global.persistent.scale.get().to_f64();
+            let (width, height) = output.global.pixel_size();
+            let new_rect = Rect::new_sized(
+                x,
+                y,
+                (width as f64 / scale).round() as i32,
+                (height as f64 / scale).round() as i32,
+            )
+            .unwrap();
+            for other in outputs.values() {
+                if other.node_id() == output.node_id() {
+                    continue;
+                }
+                let scale = other.global.persistent.scale.get().to_f64();
+                let (x, y) = other.global.position().position();
+                let (width, height) = other.global.pixel_size();
+                let rect = Rect::new_sized(
+                    x,
+                    y,
+                    (width as f64 / scale).round() as i32,
+                    (height as f64 / scale).round() as i32,
+                )
+                .unwrap();
+                if rect.intersects(&new_rect) {
+                    self.send_failed();
+                    self.reverse_changes(old_configs);
+                    return Ok(());
+                }
+            }
+        }
 
         self.send_succeeded();
         if changed {
-            manager.schedule_done();
+            let serial = manager.serial.get() + 1;
+            manager.send_done(serial);
         }
 
         Ok(())

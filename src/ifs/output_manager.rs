@@ -45,8 +45,10 @@ pub async fn output_manager_done(state: Rc<State>) {
     loop {
         let manager = state.output_managers.queue.pop().await;
         if let Some(manager) = manager.get() {
-            let serial = manager.serial.get() + 1;
-            manager.send_done(serial);
+            if manager.done_scheduled.get() {
+                let serial = manager.serial.get() + 1;
+                manager.send_done(serial);
+            }
         }
     }
 }
