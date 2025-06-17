@@ -1,0 +1,21 @@
+request destroy {
+
+}
+
+event outside {
+
+}
+
+event position {
+    x: i32,
+    y: i32,
+}
+
+event size {
+    width: i32,
+    height: i32,
+}
+
+event transform {
+    transform: u32,
+}

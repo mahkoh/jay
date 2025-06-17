@@ -1,0 +1,11 @@
+request destroy {
+
+}
+
+request enable {
+    transaction: id(jay_head_transaction_v1),
+}
+
+request disable {
+    transaction: id(jay_head_transaction_v1),
+}

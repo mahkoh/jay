@@ -39,6 +39,9 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
+            head_management::{
+                HeadManagers, HeadName, HeadNames, jay_head_manager_v1::JayHeadManagerV1,
+            },
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
                 x_data_device::XIpcDeviceIds,
@@ -104,8 +107,9 @@ use {
         },
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
-            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerV1Id,
+            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
+            ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -251,6 +255,9 @@ pub struct State {
     pub cl_matcher_manager: ClMatcherManager,
     pub tl_matcher_manager: TlMatcherManager,
     pub caps_thread: Option<PrCapsThread>,
+    pub head_names: HeadNames,
+    pub head_managers: CopyHashMap<(ClientId, JayHeadManagerV1Id), Rc<JayHeadManagerV1>>,
+    pub head_managers_done: AsyncQueue<Rc<JayHeadManagerV1>>,
 }
 
 // impl Drop for State {
@@ -362,6 +369,7 @@ pub struct DeviceHandlerData {
 }
 
 pub struct ConnectorData {
+    pub id: ConnectorId,
     pub connector: Rc<dyn Connector>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
@@ -372,6 +380,8 @@ pub struct ConnectorData {
     pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
+    pub head_name: HeadName,
+    pub head_managers: HeadManagers,
 }
 
 pub struct OutputData {
@@ -397,6 +407,15 @@ impl ConnectorData {
     pub fn damage(&self) {
         if !self.damaged.replace(true) {
             self.connector.damage();
+        }
+    }
+
+    pub fn set_enabled(&self, enabled: bool) {
+        let enabled_old = self.connector.enabled();
+        self.connector.set_enabled(enabled);
+        let enabled_new = self.connector.enabled();
+        if enabled_new != enabled_old {
+            self.head_managers.handle_enabled_change(enabled_new);
         }
     }
 }
@@ -975,6 +994,8 @@ impl State {
         self.workspace_managers.clear();
         self.cl_matcher_manager.clear();
         self.tl_matcher_manager.clear();
+        self.head_managers.clear();
+        self.head_managers_done.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

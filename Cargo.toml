@@ -13,7 +13,7 @@ name = "jay"
 path = "src/main.rs"
 
 [workspace]
-members = ["jay-config", "toml-config", "algorithms", "toml-spec"]
+members = ["jay-config", "toml-config", "algorithms", "toml-spec", "wire-to-xml"]
 
 [profile.release]
 panic = "abort"
@@ -66,6 +66,7 @@ tiny-skia = { version = "0.11.4", default-features = false, features = ["std"] }
 regex = "1.11.1"
 cfg-if = "1.0.0"
 opera = "1.0.1"
+with_builtin_macros = "0.1.0"
 
 [build-dependencies]
 repc = "0.1.1"

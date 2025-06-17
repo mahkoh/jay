@@ -1,0 +1,19 @@
+request destroy {
+
+}
+
+event serial_out_of_date {
+
+}
+
+event removed_head {
+    unique_name: u64,
+}
+
+event extension {
+    name: u32,
+}
+
+event done {
+
+}

@@ -378,7 +378,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        c.connector.set_enabled(req.enabled != 0);
+        c.set_enabled(req.enabled != 0);
         Ok(())
     }
 

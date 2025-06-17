@@ -1,0 +1,7 @@
+request destroy {
+
+}
+
+event head {
+    head: id(jay_head_ext_connector_settings_v1) (new),
+}

@@ -1448,7 +1448,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
-        connector.connector.set_enabled(enabled);
+        connector.set_enabled(enabled);
         Ok(())
     }
 

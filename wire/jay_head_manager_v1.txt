@@ -1,0 +1,49 @@
+request destroy {
+
+}
+
+event extension {
+    name: u32,
+    interface: str,
+    version: u32,
+}
+
+event extensions_done {
+
+}
+
+request bind_extension {
+    name: u32,
+    interface: str,
+    version: u32,
+    id: id(object) (new),
+}
+
+request stop {
+
+}
+
+event stopped {
+
+}
+
+request start {
+
+}
+
+event head_start {
+    head: id(jay_head_v1) (new),
+    name: u64,
+}
+
+event head_complete {
+}
+
+event done {
+    serial: u64,
+}
+
+request create_transaction {
+    transaction: id(jay_head_transaction_v1) (new),
+    serial: u64,
+}

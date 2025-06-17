@@ -1,0 +1,11 @@
+request destroy {
+
+}
+
+request apply {
+    result: id(jay_head_transaction_result_v1) (new),
+}
+
+request test {
+    result: id(jay_head_transaction_result_v1) (new),
+}

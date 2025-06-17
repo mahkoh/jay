@@ -793,6 +793,10 @@ impl OutputNode {
         if transform != old_transform {
             self.state.refresh_hardware_cursors();
             self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
+            self.global
+                .connector
+                .head_managers
+                .handle_transform_change(transform);
         }
     }
 
@@ -840,6 +844,10 @@ impl OutputNode {
             seat.cursor_group().output_pos_changed(self)
         }
         self.state.tree_changed();
+        self.global
+            .connector
+            .head_managers
+            .handle_position_size_change(rect);
     }
 
     pub fn update_btf_and_bcs(&self, btf: BackendTransferFunction, bcs: BackendColorSpace) {
