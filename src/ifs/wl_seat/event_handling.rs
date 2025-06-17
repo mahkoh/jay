@@ -17,7 +17,7 @@ use {
                 },
             },
             wl_seat::{
-                CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, SeatId, WlSeat, WlSeatGlobal,
+                BTN_LEFT, CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, SeatId, WlSeat, WlSeatGlobal,
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::WlKeyboard,
@@ -1173,6 +1173,11 @@ impl WlSeatGlobal {
             if let Some(node) = surface.get_focus_node() {
                 self.focus_node_with_serial(node, serial);
             }
+            if button == BTN_LEFT {
+                if let Some(toplevel) = surface.get_toplevel() {
+                    toplevel.tl_restack();
+                }
+            }
         }
     }
 }
@@ -1392,6 +1397,9 @@ impl WlSeatGlobal {
         });
         if let Some(node) = surface.get_focus_node() {
             self.focus_node_with_serial(node, serial);
+        }
+        if let Some(toplevel) = surface.get_toplevel() {
+            toplevel.tl_restack();
         }
     }
 

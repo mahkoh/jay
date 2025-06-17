@@ -67,6 +67,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_destroy(&self);
     fn tl_pinned(&self) -> bool;
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
+    fn tl_restack(&self);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -206,6 +207,27 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             return;
         };
         parent.cnode_set_pinned(pinned);
+    }
+
+    fn tl_restack(&self) {
+        let data = self.tl_data();
+        if data.is_floating.get() {
+            let float = data.parent.get().unwrap().node_into_float().unwrap();
+            let last_float = data
+                .state
+                .root
+                .stacked
+                .rev_iter()
+                .find(|s| s.node_is_float())
+                .unwrap();
+            if last_float.node_id() != float.node_id() {
+                float.restack();
+                let pos = float.position.get();
+                if float.visible.get() {
+                    data.state.damage(pos)
+                }
+            };
+        }
     }
 }
 
