@@ -12,14 +12,14 @@ use {
 };
 
 pub struct ZwlrOutputModeV1 {
-    pub id: ZwlrOutputModeV1Id,
-    pub version: Version,
-    pub client: Rc<Client>,
-    pub head: Rc<Opt<ZwlrOutputHeadV1>>,
-    pub refresh: Cell<Option<i32>>,
-    pub width: Cell<i32>,
-    pub height: Cell<i32>,
-    pub tracker: Tracker<Self>,
+    pub(super) id: ZwlrOutputModeV1Id,
+    pub(super) version: Version,
+    pub(super) client: Rc<Client>,
+    pub(super) head: Rc<Opt<ZwlrOutputHeadV1>>,
+    pub(super) refresh: Cell<Option<i32>>,
+    pub(super) width: Cell<i32>,
+    pub(super) height: Cell<i32>,
+    pub(super) tracker: Tracker<Self>,
 }
 
 impl ZwlrOutputModeV1 {

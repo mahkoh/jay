@@ -42,18 +42,18 @@ pub const ADAPTIVE_SYNC_STATE_DISABLED: u32 = 0;
 pub const ADAPTIVE_SYNC_STATE_ENABLED: u32 = 1;
 
 pub struct ZwlrOutputHeadV1 {
-    pub id: ZwlrOutputHeadV1Id,
-    pub version: Version,
-    pub client: Rc<Client>,
-    pub manager_id: OutputManagerId,
-    pub manager: Rc<Opt<ZwlrOutputManagerV1>>,
-    pub output: Rc<OutputGlobalOpt>,
-    pub configuration_heads:
+    pub(super) id: ZwlrOutputHeadV1Id,
+    pub(super) version: Version,
+    pub(super) client: Rc<Client>,
+    pub(super) manager_id: OutputManagerId,
+    pub(super) manager: Rc<Opt<ZwlrOutputManagerV1>>,
+    pub(super) output: Rc<OutputGlobalOpt>,
+    pub(super) configuration_heads:
         CopyHashMap<OutputConfigurationId, (Rc<bool>, Option<Rc<ZwlrOutputConfigurationHeadV1>>)>,
-    pub current_mode: Rc<Opt<ZwlrOutputModeV1>>,
-    pub modes: CopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
-    pub opt: Rc<Opt<ZwlrOutputHeadV1>>,
-    pub tracker: Tracker<Self>,
+    pub(super) current_mode: Rc<Opt<ZwlrOutputModeV1>>,
+    pub(super) modes: CopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
+    pub(super) opt: Rc<Opt<ZwlrOutputHeadV1>>,
+    pub(super) tracker: Tracker<Self>,
 }
 
 impl ZwlrOutputHeadV1 {

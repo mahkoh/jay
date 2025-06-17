@@ -27,14 +27,14 @@ pub struct ZwlrOutputManagerV1Global {
 }
 
 pub struct ZwlrOutputManagerV1 {
-    pub id: ZwlrOutputManagerV1Id,
-    pub manager_id: OutputManagerId,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub serial: Rc<Cell<u32>>,
-    pub opt: Rc<Opt<ZwlrOutputManagerV1>>,
-    pub done_scheduled: Cell<bool>,
-    pub version: Version,
+    pub(super) id: ZwlrOutputManagerV1Id,
+    pub(super) manager_id: OutputManagerId,
+    pub(super) client: Rc<Client>,
+    pub(super) tracker: Tracker<Self>,
+    pub(super) serial: Rc<Cell<u32>>,
+    pub(super) opt: Rc<Opt<ZwlrOutputManagerV1>>,
+    pub(super) done_scheduled: Cell<bool>,
+    pub(super) version: Version,
 }
 
 impl ZwlrOutputManagerV1 {

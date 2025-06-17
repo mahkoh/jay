@@ -16,23 +16,23 @@ use {
 };
 
 pub struct ZwlrOutputConfigurationHeadV1 {
-    pub id: ZwlrOutputConfigurationHeadV1Id,
-    pub version: Version,
-    pub client: Rc<Client>,
-    pub head: Rc<Opt<ZwlrOutputHeadV1>>,
-    pub config: Rc<RefCell<OutputConfig>>,
-    pub tracker: Tracker<Self>,
+    pub(super) id: ZwlrOutputConfigurationHeadV1Id,
+    pub(super) version: Version,
+    pub(super) client: Rc<Client>,
+    pub(super) head: Rc<Opt<ZwlrOutputHeadV1>>,
+    pub(super) config: Rc<RefCell<OutputConfig>>,
+    pub(super) tracker: Tracker<Self>,
 }
 
 #[derive(Default)]
 pub struct OutputConfig {
-    pub transform: Option<Transform>,
-    pub scale: Option<f64>,
-    pub vrr_enabled: Option<bool>,
-    pub x: Option<i32>,
-    pub y: Option<i32>,
-    pub mode: Option<Mode>,
-    pub custom_mode: Option<Mode>,
+    pub(super) transform: Option<Transform>,
+    pub(super) scale: Option<f64>,
+    pub(super) vrr_enabled: Option<bool>,
+    pub(super) x: Option<i32>,
+    pub(super) y: Option<i32>,
+    pub(super) mode: Option<Mode>,
+    pub(super) custom_mode: Option<Mode>,
 }
 
 impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHeadV1 {

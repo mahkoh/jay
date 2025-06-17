@@ -25,15 +25,15 @@ use {
 linear_ids!(OutputConfigurationIds, OutputConfigurationId, u64);
 
 pub struct ZwlrOutputConfigurationV1 {
-    pub id: ZwlrOutputConfigurationV1Id,
-    pub configuration_id: OutputConfigurationId,
-    pub version: Version,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub serial: u32,
-    pub manager_id: OutputManagerId,
-    pub manager: Rc<Opt<ZwlrOutputManagerV1>>,
-    pub used: Cell<bool>,
+    pub(super) id: ZwlrOutputConfigurationV1Id,
+    pub(super) configuration_id: OutputConfigurationId,
+    pub(super) version: Version,
+    pub(super) client: Rc<Client>,
+    pub(super) tracker: Tracker<Self>,
+    pub(super) serial: u32,
+    pub(super) manager_id: OutputManagerId,
+    pub(super) manager: Rc<Opt<ZwlrOutputManagerV1>>,
+    pub(super) used: Cell<bool>,
 }
 
 impl ZwlrOutputConfigurationV1 {
