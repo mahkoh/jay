@@ -1,0 +1,19 @@
+request destroy {
+
+}
+
+event enabled {
+
+}
+
+event disabled {
+
+}
+
+event connected {
+
+}
+
+event disconnected {
+
+}

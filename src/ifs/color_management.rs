@@ -8,10 +8,10 @@ pub mod wp_image_description_creator_params_v1;
 pub mod wp_image_description_info_v1;
 pub mod wp_image_description_v1;
 
-const PRIMARIES_MUL: f64 = 1_000_000.0;
+pub const PRIMARIES_MUL: f64 = 1_000_000.0;
 const PRIMARIES_MUL_INV: f64 = 1.0 / PRIMARIES_MUL;
 
-const MIN_LUM_MUL: f64 = 10_000.0;
+pub(crate) const MIN_LUM_MUL: f64 = 10_000.0;
 const MIN_LUM_MUL_INV: f64 = 1.0 / MIN_LUM_MUL;
 
 #[expect(dead_code)]

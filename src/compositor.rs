@@ -28,6 +28,7 @@ use {
         forker,
         globals::Globals,
         ifs::{
+            head_management::jay_head_manager_v1::handle_jay_head_manager_done,
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
@@ -337,6 +338,9 @@ fn start_compositor2(
         toplevel_managers: Default::default(),
         node_at_tree: Default::default(),
         position_hint_requests: Default::default(),
+        head_names: Default::default(),
+        head_managers: Default::default(),
+        head_managers_done: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -528,6 +532,11 @@ fn start_global_event_handlers(
             "position hint requests",
             handle_position_hint_requests(state.clone()),
         ),
+        eng.spawn2(
+            "jay head manager send done",
+            Phase::Layout,
+            handle_jay_head_manager_done(state.clone()),
+        ),
     ]
 }
 
@@ -607,10 +616,10 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing_mode: Cell::new(&TearingMode::Never),
         brightness: Cell::new(None),
     });
-    let connector = Rc::new(DummyOutput {
-        id: state.connector_ids.next(),
-    }) as Rc<dyn Connector>;
+    let id = state.connector_ids.next();
+    let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
     let connector_data = Rc::new(ConnectorData {
+        id,
         connector,
         handler: Cell::new(None),
         connected: Cell::new(true),
@@ -621,6 +630,8 @@ fn create_dummy_output(state: &Rc<State>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
+        head_name: state.head_names.next(),
+        head_managers: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,

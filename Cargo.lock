@@ -627,6 +627,7 @@ dependencies = [
  "tiny-skia",
  "tracy-client-sys",
  "uapi",
+ "with_builtin_macros",
 ]
 
 [[package]]
@@ -1010,6 +1011,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60946a68e5f9d28b0dc1c21bb8a97ee7d018a8b322fa57838ba31cc878e22d99"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.37.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -1714,12 +1724,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
+name = "wire-to-xml"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "quick-xml",
+]
+
+[[package]]
 name = "wit-bindgen-rt"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags 2.8.0",
+]
+
+[[package]]
+name = "with_builtin_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24deb3cd6e530e7617b12b1f0f1ce160a3a71d92feb351c4db5156d1d10e398a"
+dependencies = [
+ "with_builtin_macros-proc_macros",
+]
+
+[[package]]
+name = "with_builtin_macros-proc_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2259ae9b1285596f1ee52ce8f627013c65853d4d7f271cb10bfe2d048769804a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

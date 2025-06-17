@@ -24,6 +24,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     }
     let id = connector.id();
     let data = Rc::new(ConnectorData {
+        id,
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
@@ -34,6 +35,8 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
+        head_name: state.head_names.next(),
+        head_managers: Default::default(),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -45,6 +48,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
+    for mgr in state.head_managers.lock().values() {
+        mgr.announce(&data);
+    }
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
     }
@@ -83,6 +89,7 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
+        self.data.head_managers.handle_removed();
     }
 
     async fn handle_connected(&self, info: MonitorInfo) {
@@ -95,6 +102,7 @@ impl ConnectorHandler {
             self.handle_desktop_connected(info, name).await;
         }
         self.data.connected.set(false);
+        self.data.head_managers.handle_output_disconnected();
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
     }
 
@@ -207,7 +215,7 @@ impl ConnectorHandler {
             node: Some(on.clone()),
             lease_connectors: Default::default(),
         });
-        self.state.outputs.set(self.id, output_data);
+        self.state.outputs.set(self.id, output_data.clone());
         on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.output_extents_changed();
@@ -259,6 +267,9 @@ impl ConnectorHandler {
         self.state.tree_changed();
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -379,6 +390,9 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {

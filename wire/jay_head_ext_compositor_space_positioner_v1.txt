@@ -1,0 +1,16 @@
+request destroy {
+
+}
+
+request set_position {
+    transaction: id(jay_head_transaction_v1),
+    x: i32,
+    y: i32,
+}
+
+event range {
+    x_min: i32,
+    y_min: i32,
+    x_max: i32,
+    y_max: i32,
+}
