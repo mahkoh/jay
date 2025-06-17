@@ -73,7 +73,11 @@ object_base! {
     version = self.version;
 }
 
-impl Object for ZwlrOutputModeV1 {}
+impl Object for ZwlrOutputModeV1 {
+    fn break_loops(&self) {
+        self.detach();
+    }
+}
 
 dedicated_add_obj!(ZwlrOutputModeV1, ZwlrOutputModeV1Id, zwlr_output_modes);
 

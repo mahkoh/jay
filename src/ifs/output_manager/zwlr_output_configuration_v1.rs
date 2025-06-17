@@ -96,6 +96,7 @@ impl ZwlrOutputConfigurationV1 {
             }
             if let Some(scale) = config.scale {
                 node.set_preferred_scale(Scale::from_f64(scale));
+                changed = true;
             }
             if let Some(transform) = config.transform {
                 node.update_transform(transform);
@@ -107,7 +108,12 @@ impl ZwlrOutputConfigurationV1 {
             }
             if let Some(enabled) = config.vrr_enabled {
                 let vrr_mode = if enabled {
-                    VrrMode::VARIANT_1
+                    let default_mode = self.client.state.default_vrr_mode.get();
+                    if default_mode == VrrMode::NEVER {
+                        VrrMode::VARIANT_1
+                    } else {
+                        default_mode
+                    }
                 } else {
                     VrrMode::NEVER
                 };
@@ -322,7 +328,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
             let (x, y) = output.global.position().position();
             let scale = output.global.persistent.scale.get().to_f64();
             let (width, height) = output.global.pixel_size();
-            let new_rect = Rect::new_sized(
+            let output_rect = Rect::new_sized(
                 x,
                 y,
                 (width as f64 / scale).round() as i32,
@@ -336,14 +342,14 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                 let scale = other.global.persistent.scale.get().to_f64();
                 let (x, y) = other.global.position().position();
                 let (width, height) = other.global.pixel_size();
-                let rect = Rect::new_sized(
+                let other_rect = Rect::new_sized(
                     x,
                     y,
                     (width as f64 / scale).round() as i32,
                     (height as f64 / scale).round() as i32,
                 )
                 .unwrap();
-                if rect.intersects(&new_rect) {
+                if output_rect.intersects(&other_rect) {
                     self.send_failed();
                     self.reverse_changes(old_configs);
                     return Ok(());
@@ -353,8 +359,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 
         self.send_succeeded();
         if changed {
-            let serial = manager.serial.get() + 1;
-            manager.send_done(serial);
+            manager.schedule_done();
         }
 
         Ok(())
@@ -368,7 +373,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
         let manager = match self.manager.get() {
             Some(manager) => manager,
             None => {
-                self.send_cancelled();
+                self.send_failed();
                 return Ok(());
             }
         };
@@ -384,12 +389,9 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 
         self.used.set(true);
 
-        for head in self
-            .client
-            .state
-            .root
-            .outputs
-            .lock()
+        let outputs = self.client.state.root.outputs.lock();
+
+        for head in outputs
             .values()
             .filter_map(|on| on.zwlr_output_heads.get(&self.manager_id))
         {
@@ -443,6 +445,58 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
                     _ => {}
                 }
             }
+            let (old_x, old_y) = node.global.position().position();
+            let x = config.x.unwrap_or(old_x);
+            let y = config.y.unwrap_or(old_y);
+            let (width, height) = config
+                .mode
+                .map(|m| (m.width, m.height))
+                .unwrap_or(node.global.pixel_size());
+            let scale = node.global.persistent.scale.get().to_f64();
+            let node_rect = Rect::new_sized(
+                x,
+                y,
+                (width as f64 / scale).round() as i32,
+                (height as f64 / scale).round() as i32,
+            )
+            .unwrap();
+            for other in outputs.values() {
+                if node.id == other.id {
+                    continue;
+                }
+                let head = other.zwlr_output_heads.get(&self.manager_id).unwrap();
+                let (_, configuration) = match head.configuration_heads.get(&self.configuration_id)
+                {
+                    Some((enabled, configuration)) => match configuration {
+                        Some(c) => (enabled, c),
+                        None => continue,
+                    },
+                    None => continue,
+                };
+
+                let config = configuration.config.borrow();
+
+                let (old_x, old_y) = other.global.position().position();
+                let x = config.x.unwrap_or(old_x);
+                let y = config.y.unwrap_or(old_y);
+                let (width, height) = config
+                    .mode
+                    .map(|m| (m.width, m.height))
+                    .unwrap_or(other.global.pixel_size());
+                let scale = other.global.persistent.scale.get().to_f64();
+                let other_rect = Rect::new_sized(
+                    x,
+                    y,
+                    (width as f64 / scale).round() as i32,
+                    (height as f64 / scale).round() as i32,
+                )
+                .unwrap();
+
+                if node_rect.intersects(&other_rect) {
+                    self.send_failed();
+                    return Ok(());
+                }
+            }
         }
         self.send_succeeded();
         Ok(())
@@ -460,7 +514,11 @@ object_base! {
     version = self.version;
 }
 
-impl Object for ZwlrOutputConfigurationV1 {}
+impl Object for ZwlrOutputConfigurationV1 {
+    fn break_loops(&self) {
+        self.detach();
+    }
+}
 
 simple_add_obj!(ZwlrOutputConfigurationV1);
 

@@ -98,7 +98,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            serial: self.serial.get(),
+            serial: req.serial,
             manager: self.opt.clone(),
             manager_id: self.manager_id,
             used: Cell::new(false),
@@ -292,7 +292,11 @@ object_base! {
 
 simple_add_obj!(ZwlrOutputManagerV1);
 
-impl Object for ZwlrOutputManagerV1 {}
+impl Object for ZwlrOutputManagerV1 {
+    fn break_loops(&self) {
+        self.detach();
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ZwlrOutputManagerV1Error {

@@ -35,8 +35,6 @@ pub struct OutputConfig {
     pub custom_mode: Option<Mode>,
 }
 
-impl ZwlrOutputConfigurationHeadV1 {}
-
 impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHeadV1 {
     type Error = ZwlrOutputConfigurationHeadV1Error;
 

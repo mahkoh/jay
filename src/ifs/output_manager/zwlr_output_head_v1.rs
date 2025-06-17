@@ -331,7 +331,11 @@ object_base! {
     version = self.version;
 }
 
-impl Object for ZwlrOutputHeadV1 {}
+impl Object for ZwlrOutputHeadV1 {
+    fn break_loops(&self) {
+        self.detach();
+    }
+}
 
 dedicated_add_obj!(ZwlrOutputHeadV1, ZwlrOutputHeadV1Id, zwlr_output_heads);
 
