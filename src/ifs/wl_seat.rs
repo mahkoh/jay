@@ -1156,7 +1156,26 @@ impl WlSeatRequestHandler for WlSeat {
         let p = Rc::new(WlPointer::new(req.id, slf));
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
-        self.pointers.set(req.id, p);
+        self.pointers.set(req.id, p.clone());
+        let surface = self
+            .global
+            .pointer_node()
+            .and_then(|n| n.node_into_surface());
+        if let Some(surface) = surface {
+            if surface.client.id == self.client.id {
+                let (x, y) = self.global.pointer_cursor.position();
+                let (x_int, y_int) = surface
+                    .buffer_abs_pos
+                    .get()
+                    .translate(x.round_down(), y.round_down());
+                p.send_enter(
+                    self.client.next_serial(),
+                    surface.id,
+                    x.apply_fract(x_int),
+                    y.apply_fract(y_int),
+                );
+            }
+        }
         Ok(())
     }
 
