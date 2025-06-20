@@ -47,6 +47,7 @@ use {
             jay_screencast::JayScreencast,
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
+            output_manager::OutputManagerState,
             wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
@@ -177,6 +178,7 @@ pub struct State {
     pub logger: Option<Arc<Logger>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
+    pub output_managers: OutputManagerState,
     pub drm_devs: CopyHashMap<DrmDeviceId, Rc<DrmDevData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
@@ -932,6 +934,7 @@ impl State {
         for output in self.root.outputs.lock().values() {
             output.clear();
         }
+        self.output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout.clear();
         self.pending_container_render_positions.clear();

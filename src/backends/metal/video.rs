@@ -859,6 +859,11 @@ impl Connector for MetalConnector {
         if self.enabled.replace(enabled) != enabled {
             if self.display.borrow_mut().connection == ConnectorStatus::Connected {
                 if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
+                    if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
+                        for head in node.zwlr_output_heads.lock().values() {
+                            head.handle_enabled_change(enabled);
+                        }
+                    }
                     if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
                         dev.unprocessed_change.set(true);
                         log::error!("Could not dis/enable connector: {}", ErrorFmt(e));
