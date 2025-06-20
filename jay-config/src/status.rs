@@ -181,8 +181,11 @@ async fn handle_i3bar(name: String, mut read: BufReader<Async<OwnedFd>>) {
     let mut status = String::new();
     loop {
         read_line!();
-        let mut line = line.as_str();
+        let mut line = line.trim();
         if let Some(l) = line.strip_prefix(",") {
+            line = l;
+        }
+        if let Some(l) = line.strip_suffix(",") {
             line = l;
         }
         let components = match serde_json::from_str::<Vec<Component>>(line) {
