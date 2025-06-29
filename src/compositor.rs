@@ -759,6 +759,7 @@ fn create_dummy_output(state: &Rc<State>) {
         output_link: Default::default(),
         visible: Default::default(),
         fullscreen: Default::default(),
+        focused_queue: Default::default(),
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),

@@ -897,6 +897,7 @@ impl State {
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
+        println!("mapping float");
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_output();
             if !output.is_dummy {

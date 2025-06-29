@@ -670,6 +670,15 @@ impl OutputNode {
                 return false;
             }
             collect_kb_foci2(old.clone(), &mut seats);
+            for stacked in old
+                .stacked
+                .iter()
+                .filter_map(|s| (*s).clone().node_into_float())
+            {
+                if let Some(child) = stacked.child.get() {
+                    collect_kb_foci2(child, &mut seats);
+                }
+            }
             for pinned in self.pinned.iter() {
                 pinned.deref().clone().set_workspace(ws, false);
             }
@@ -716,6 +725,7 @@ impl OutputNode {
             output_link: Default::default(),
             visible: Cell::new(false),
             fullscreen: Default::default(),
+            focused_queue: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),

@@ -62,11 +62,14 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            if !toplevel.node_visible() {
-                return Ok(());
-            }
             let seat = self.client.lookup(req.seat)?;
-            toplevel.node_do_focus(&seat.global, Direction::Unspecified);
+            let data = toplevel.tl_data();
+            if let Some(ws) = data.workspace.get() {
+                data.output().show_workspace(&ws);
+            }
+            toplevel
+                .clone()
+                .node_do_focus(&seat.global, Direction::Unspecified);
         }
         Ok(())
     }
