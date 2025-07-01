@@ -4,8 +4,8 @@ use {
         ifs::wl_output::WlOutput,
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Direction, OutputNode, ToplevelOpt},
-        wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
+        tree::{Direction, Node, OutputNode, ToplevelOpt},
+        wire::{zwlr_foreign_toplevel_handle_v1::*, ZwlrForeignToplevelHandleV1Id},
     },
     arrayvec::ArrayVec,
     std::rc::Rc,
@@ -65,7 +65,11 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
             let seat = self.client.lookup(req.seat)?;
             let data = toplevel.tl_data();
             if let Some(ws) = data.workspace.get() {
-                data.output().show_workspace(&ws);
+                let output = data.output();
+                if output.workspace.get().map(|ws| ws.node_id()) != Some(ws.node_id()) {
+                    output.show_workspace(&ws);
+                    output.schedule_update_render_data();
+                }
             }
 
             if !toplevel.node_visible() {
