@@ -965,7 +965,7 @@ impl XBackend {
             output.events.push(ConnectorEvent::ModeChanged(Mode {
                 width,
                 height,
-                refresh_rate_millihz: 60, // TODO
+                refresh_rate_millihz: 60_000, // TODO
             }));
             output.changed();
         }
