@@ -184,7 +184,7 @@ impl<'a> Parser<'a, '_> {
                                     if let Ok(n) = u32::from_str_radix(s, 16) {
                                         if let Some(c) = char::from_u32(n) {
                                             pos += len;
-                                            let _ = write!(res, "{}", c);
+                                            let _ = write!(res, "{c}");
                                             break 'unicode;
                                         }
                                     }

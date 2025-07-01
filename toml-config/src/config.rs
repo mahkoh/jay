@@ -304,7 +304,7 @@ impl Display for Mode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} x {}", self.width, self.height)?;
         if let Some(rr) = self.refresh_rate {
-            write!(f, " @ {}", rr)?;
+            write!(f, " @ {rr}")?;
         }
         Ok(())
     }
