@@ -547,21 +547,11 @@ impl PointerOwner for DndPointerOwner {
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pointer_cursor.position();
-        let (x_int, y_int) = (x.round_down(), y.round_down());
-        let (node, x_int, y_int) = {
-            let mut found_tree = seat.found_tree.borrow_mut();
-            found_tree.push(FoundNode {
-                node: seat.state.root.clone(),
-                x: x_int,
-                y: y_int,
-            });
-            seat.state
-                .root
-                .node_find_tree_at(x_int, y_int, &mut found_tree, FindTreeUsecase::None);
-            let FoundNode { node, x, y } = found_tree.pop().unwrap();
-            found_tree.clear();
-            (node, x, y)
-        };
+        let FoundNode {
+            node,
+            x: x_int,
+            y: y_int,
+        } = seat.state.node_at(x.round_down(), y.round_down());
         let (x, y) = (x.apply_fract(x_int), y.apply_fract(y_int));
         let mut target = self.target.get();
         if node.node_id() != target.node_id() {

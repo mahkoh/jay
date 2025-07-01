@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             wl_seat::{
-                WlSeatGlobal,
+                PositionHintRequest, WlSeatGlobal,
                 zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1,
             },
             wl_surface::WlSurface,
@@ -65,10 +65,10 @@ pub struct SeatConstraint {
 }
 
 impl SeatConstraint {
-    pub fn deactivate(&self, apply_position_hint: bool, defer: bool) {
+    pub fn deactivate(&self, apply_position_hint: bool) {
         if self.status.get() == SeatConstraintStatus::Active {
             self.seat.constraint.take();
-            self.handle_position_hint(apply_position_hint, defer);
+            self.handle_position_hint(apply_position_hint);
             if let Some(owner) = self.owner.get() {
                 owner.send_disabled();
             }
@@ -80,7 +80,7 @@ impl SeatConstraint {
         }
     }
 
-    fn handle_position_hint(&self, apply: bool, defer: bool) {
+    fn handle_position_hint(&self, apply: bool) {
         let Some((x, y)) = self.position_hint.take() else {
             return;
         };
@@ -89,15 +89,15 @@ impl SeatConstraint {
         }
         let buffer = self.surface.buffer_abs_pos.get();
         let (x_int, y_int) = buffer.translate_inv(x.round_down(), y.round_down());
-        if !buffer.contains(x_int, y_int) {
-            return;
-        }
-        self.seat.motion_event_abs(
-            self.client.state.now_usec(),
-            x.apply_fract(x_int),
-            y.apply_fract(y_int),
-            defer,
-        );
+        self.client
+            .state
+            .position_hint_requests
+            .push(PositionHintRequest {
+                seat: self.seat.clone(),
+                node: self.surface.node_id.into(),
+                old_pos: self.seat.pointer_cursor.position(),
+                new_pos: (x.apply_fract(x_int), y.apply_fract(y_int)),
+            });
     }
 
     pub fn contains(&self, x: i32, y: i32) -> bool {
@@ -141,7 +141,7 @@ impl SeatConstraint {
     }
 
     fn detach(&self) {
-        self.deactivate(true, false);
+        self.deactivate(true);
         self.owner.take();
         self.surface.constraints.remove(&self.seat.id);
     }

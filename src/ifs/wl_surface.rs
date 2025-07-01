@@ -1630,7 +1630,7 @@ impl WlSurface {
 
     pub fn detach_node(&self, set_invisible: bool) {
         for (_, constraint) in &self.constraints {
-            constraint.deactivate(true, true);
+            constraint.deactivate(true);
         }
         for (_, inhibitor) in &self.idle_inhibitors {
             inhibitor.deactivate();

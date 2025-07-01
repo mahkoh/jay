@@ -78,9 +78,9 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, OutputNode, ToplevelNode,
-            WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, OutputNode,
+            ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
@@ -432,7 +432,7 @@ impl WlSeatGlobal {
 
     pub fn disable_pointer_constraint(&self) {
         if let Some(constraint) = self.constraint.get() {
-            constraint.deactivate(true, true);
+            constraint.deactivate(true);
             if constraint.status.get() == SeatConstraintStatus::Inactive {
                 constraint
                     .status
@@ -1346,5 +1346,28 @@ impl DeviceHandlerData {
             }
         }
         state.root.extents.get()
+    }
+}
+
+pub struct PositionHintRequest {
+    seat: Rc<WlSeatGlobal>,
+    node: NodeId,
+    old_pos: (Fixed, Fixed),
+    new_pos: (Fixed, Fixed),
+}
+
+pub async fn handle_position_hint_requests(state: Rc<State>) {
+    loop {
+        let req = state.position_hint_requests.pop().await;
+        let (x, y) = (req.new_pos.0.round_down(), req.new_pos.1.round_down());
+        if state.node_at(x, y).node.node_id() != req.node {
+            continue;
+        }
+        let current_pos = req.seat.pointer_cursor.position();
+        let (x, y) = (
+            req.new_pos.0 + (current_pos.0 - req.old_pos.0),
+            req.new_pos.1 + (current_pos.1 - req.old_pos.1),
+        );
+        req.seat.motion_event_abs(state.now_usec(), x, y, false);
     }
 }
