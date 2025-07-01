@@ -749,10 +749,7 @@ impl Input {
         println!("{prefix}{}:", device.id);
         println!("{prefix}  name: {}", device.name);
         if print_seat {
-            let seat = match device.seat.as_deref() {
-                Some(s) => s,
-                _ => "<detached>",
-            };
+            let seat = device.seat.as_deref().unwrap_or("<detached>");
             println!("{prefix}  seat: {}", seat);
         }
         if let Some(v) = &device.syspath {

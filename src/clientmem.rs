@@ -117,7 +117,7 @@ impl ClientMem {
     }
 
     pub fn len(&self) -> usize {
-        unsafe { (*self.data).len() }
+        self.data.len()
     }
 
     pub fn offset(self: &Rc<Self>, offset: usize) -> ClientMemOffset {

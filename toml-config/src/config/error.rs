@@ -34,12 +34,12 @@ impl<E: Error> Display for SpannedError<'_, E> {
         if let Some(cause) = &self.cause {
             write!(f, "{}: ", Report::new(cause))?;
         }
-        writeln!(f, "At line {}, column {}:", line_num, col_num)?;
+        writeln!(f, "At line {line_num}, column {col_num}:")?;
         for _ in 0..=gutter {
             write!(f, " ")?;
         }
         writeln!(f, "|")?;
-        write!(f, "{} | ", line_num)?;
+        write!(f, "{line_num} | ")?;
         writeln!(f, "{}", content.as_bstr())?;
         for _ in 0..=gutter {
             write!(f, " ")?;
