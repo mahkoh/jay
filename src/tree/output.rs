@@ -725,7 +725,7 @@ impl OutputNode {
             output_link: Default::default(),
             visible: Cell::new(false),
             fullscreen: Default::default(),
-            focused_queue: Default::default(),
+            focus_history: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),

@@ -152,8 +152,8 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             if prev.node_id() != ws.node_id() {
                 data.detach_focus_link();
                 if let Some(node) = data.slf.upgrade() {
-                    let link = ws.focused_queue.add_last(node);
-                    data.linked_node.set(Some(link));
+                    let link = ws.focus_history.add_last(node);
+                    data.focus_link.set(Some(link));
                 }
             }
         }
@@ -381,7 +381,7 @@ pub struct ToplevelData {
     pub changed_properties: Cell<TlMatcherChange>,
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
-    pub linked_node: Cell<Option<LinkedNode<Rc<dyn ToplevelNode>>>>,
+    pub focus_link: Cell<Option<LinkedNode<Rc<dyn ToplevelNode>>>>,
 }
 
 impl ToplevelData {
@@ -433,7 +433,7 @@ impl ToplevelData {
             changed_properties: Default::default(),
             just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
-            linked_node: Default::default(),
+            focus_link: Default::default(),
         }
     }
 
@@ -457,15 +457,15 @@ impl ToplevelData {
             if active_new {
                 if let Some(workspace) = self.workspace.get() {
                     let link = workspace
-                        .focused_queue
+                        .focus_history
                         .iter()
                         .find(|lf| lf.node_id() == tl.node_id());
                     if let Some(link) = link {
-                        workspace.focused_queue.add_last_existing(&link);
+                        workspace.focus_history.add_last_existing(&link);
                     } else {
                         if let Some(node) = self.slf.upgrade() {
-                            let link = workspace.focused_queue.add_last(node);
-                            self.linked_node.set(Some(link));
+                            let link = workspace.focus_history.add_last(node);
+                            self.focus_link.set(Some(link));
                         }
                     }
                 }
@@ -551,7 +551,7 @@ impl ToplevelData {
     }
 
     pub fn detach_focus_link(&self) {
-        let link = self.linked_node.take();
+        let link = self.focus_link.take();
         if let Some(link) = link {
             link.detach();
         }
