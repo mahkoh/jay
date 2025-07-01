@@ -67,6 +67,11 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
             if let Some(ws) = data.workspace.get() {
                 data.output().show_workspace(&ws);
             }
+
+            if !toplevel.node_visible() {
+                return Ok(());
+            }
+
             toplevel
                 .clone()
                 .node_do_focus(&seat.global, Direction::Unspecified);

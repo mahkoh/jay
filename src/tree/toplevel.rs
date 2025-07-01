@@ -150,10 +150,10 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let prev = data.workspace.set(Some(ws.clone()));
         if let Some(prev) = &prev {
             if prev.node_id() != ws.node_id() {
-                data.detach_focus_link();
+                data.focus_link.take();
                 if let Some(node) = data.slf.upgrade() {
                     let link = ws.focus_history.add_last(node);
-                    data.focus_link.set(Some(link));
+                    *data.focus_link.borrow_mut() = Some(link);
                 }
             }
         }
@@ -381,7 +381,7 @@ pub struct ToplevelData {
     pub changed_properties: Cell<TlMatcherChange>,
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
-    pub focus_link: Cell<Option<LinkedNode<Rc<dyn ToplevelNode>>>>,
+    pub focus_link: RefCell<Option<LinkedNode<Rc<dyn ToplevelNode>>>>,
 }
 
 impl ToplevelData {
@@ -456,16 +456,13 @@ impl ToplevelData {
             }
             if active_new {
                 if let Some(workspace) = self.workspace.get() {
-                    let link = workspace
-                        .focus_history
-                        .iter()
-                        .find(|lf| lf.node_id() == tl.node_id());
-                    if let Some(link) = link {
-                        workspace.focus_history.add_last_existing(&link);
+                    let mut focus_link = self.focus_link.borrow_mut();
+                    if let Some(link) = focus_link.as_ref() {
+                        workspace.focus_history.add_last_existing(link);
                     } else {
                         if let Some(node) = self.slf.upgrade() {
                             let link = workspace.focus_history.add_last(node);
-                            self.focus_link.set(Some(link));
+                            *focus_link = Some(link);
                         }
                     }
                 }
@@ -547,14 +544,7 @@ impl ToplevelData {
         self.float.take();
         self.workspace.take();
         self.seat_state.destroy_node(node);
-        self.detach_focus_link();
-    }
-
-    pub fn detach_focus_link(&self) {
-        let link = self.focus_link.take();
-        if let Some(link) = link {
-            link.detach();
-        }
+        self.focus_link.take();
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
