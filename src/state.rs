@@ -83,9 +83,10 @@ use {
         theme::{Color, Theme},
         time::Time,
         tree::{
-            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, LatchListener, Node,
-            NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelData,
-            ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode, generic_node_visitor,
+            ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
+            FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
+            TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode,
+            generic_node_visitor,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -251,6 +252,7 @@ pub struct State {
     pub cl_matcher_manager: ClMatcherManager,
     pub tl_matcher_manager: TlMatcherManager,
     pub caps_thread: Option<PrCapsThread>,
+    pub node_at_tree: RefCell<Vec<FoundNode>>,
 }
 
 // impl Drop for State {
@@ -975,6 +977,7 @@ impl State {
         self.workspace_managers.clear();
         self.cl_matcher_manager.clear();
         self.tl_matcher_manager.clear();
+        self.node_at_tree.borrow_mut().clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1399,6 +1402,20 @@ impl State {
 
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
         self.config.get()?.initial_tile_state(data)
+    }
+
+    pub fn node_at(&self, x: i32, y: i32) -> FoundNode {
+        let mut found_tree = self.node_at_tree.borrow_mut();
+        found_tree.push(FoundNode {
+            node: self.root.clone(),
+            x,
+            y,
+        });
+        self.root
+            .node_find_tree_at(x, y, &mut found_tree, FindTreeUsecase::None);
+        let node = found_tree.pop().unwrap();
+        found_tree.clear();
+        node
     }
 }
 

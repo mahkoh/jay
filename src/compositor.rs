@@ -334,6 +334,7 @@ fn start_compositor2(
         tl_matcher_manager: TlMatcherManager::new(&crit_ids),
         caps_thread,
         toplevel_managers: Default::default(),
+        node_at_tree: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

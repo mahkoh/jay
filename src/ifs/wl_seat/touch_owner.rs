@@ -2,7 +2,7 @@ use {
     crate::{
         fixed::Fixed,
         ifs::wl_seat::WlSeatGlobal,
-        tree::{FindTreeUsecase, FoundNode, Node},
+        tree::Node,
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::rc::Rc,
@@ -69,29 +69,14 @@ trait TouchOwner {
 
 impl TouchOwner for DefaultTouchOwner {
     fn down(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
-        let mut found_tree = seat.found_tree.borrow_mut();
-        let x_int = x.round_down();
-        let y_int = y.round_down();
-        found_tree.push(FoundNode {
-            node: seat.state.root.clone(),
-            x: x_int,
-            y: y_int,
+        let node = seat.state.node_at(x.round_down(), y.round_down());
+        node.node.node_seat_state().touch_begin(seat);
+        let owner = Rc::new(GrabTouchOwner {
+            node: node.node,
+            down_ids: Default::default(),
         });
-        seat.state
-            .root
-            .node_find_tree_at(x_int, y_int, &mut found_tree, FindTreeUsecase::None);
-        let node = found_tree.pop();
-        found_tree.clear();
-        drop(found_tree);
-        if let Some(node) = node {
-            node.node.node_seat_state().touch_begin(seat);
-            let owner = Rc::new(GrabTouchOwner {
-                node: node.node,
-                down_ids: Default::default(),
-            });
-            seat.touch_owner.owner.set(owner.clone());
-            owner.down(seat, time_usec, id, x, y);
-        }
+        seat.touch_owner.owner.set(owner.clone());
+        owner.down(seat, time_usec, id, x, y);
     }
 
     fn up(&self, _seat: &Rc<WlSeatGlobal>, _time_usec: u64, _id: i32) {
