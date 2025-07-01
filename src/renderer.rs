@@ -86,6 +86,7 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
+            render_layer!(output.layers[2]);
             let non_exclusive_rect = output.non_exclusive_rect_rel.get();
             let (x, y) = non_exclusive_rect.translate_inv(x, y);
             {
@@ -182,7 +183,6 @@ impl Renderer<'_> {
             };
         }
         render_stacked!(self.state.root.stacked);
-        render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
         render_stacked!(self.state.root.stacked_above_layers);
         if let Some(ws) = output.workspace.get()
