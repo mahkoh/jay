@@ -4,7 +4,7 @@ use {
         ifs::wl_output::WlOutput,
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Direction, OutputNode, ToplevelOpt},
+        tree::{Direction, Node, OutputNode, ToplevelOpt},
         wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
     arrayvec::ArrayVec,
@@ -62,11 +62,23 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
+            let seat = self.client.lookup(req.seat)?;
+            let data = toplevel.tl_data();
+            if let Some(ws) = data.workspace.get() {
+                let output = data.output();
+                if output.workspace.get().map(|ws| ws.node_id()) != Some(ws.node_id()) {
+                    output.show_workspace(&ws);
+                    output.schedule_update_render_data();
+                }
+            }
+
             if !toplevel.node_visible() {
                 return Ok(());
             }
-            let seat = self.client.lookup(req.seat)?;
-            toplevel.node_do_focus(&seat.global, Direction::Unspecified);
+
+            toplevel
+                .clone()
+                .node_do_focus(&seat.global, Direction::Unspecified);
         }
         Ok(())
     }

@@ -34,6 +34,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
+            linkedlist::LinkedNode,
             numcell::NumCell,
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{ToplevelIdentifier, toplevel_identifier},
@@ -43,7 +44,7 @@ use {
             JayToplevelId, ZwlrForeignToplevelHandleV1Id,
         },
     },
-    jay_config::{window, window::WindowType},
+    jay_config::window::{self, WindowType},
     std::{
         borrow::Borrow,
         cell::{Cell, RefCell},
@@ -133,6 +134,20 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
         let prev = data.workspace.set(Some(ws.clone()));
+        if let Some(prev) = &prev {
+            if prev.node_id() != ws.node_id() {
+                data.focus_link.take();
+                if let Some(node) = data.slf.upgrade() {
+                    let link = ws.focus_history.add_last(node.clone());
+                    *data.focus_link.borrow_mut() = Some(link);
+                    if data.active() {
+                        for seat in collect_kb_foci(node) {
+                            prev.focus_last_toplevel(&seat, Direction::Unspecified);
+                        }
+                    }
+                }
+            }
+        }
         self.tl_set_workspace_ext(ws);
         self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
         let prev_output = match &prev {
@@ -347,6 +362,7 @@ pub struct ToplevelData {
     pub changed_properties: Cell<TlMatcherChange>,
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
+    pub focus_link: RefCell<Option<LinkedNode<Rc<dyn ToplevelNode>>>>,
 }
 
 impl ToplevelData {
@@ -397,6 +413,7 @@ impl ToplevelData {
             changed_properties: Default::default(),
             just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
+            focus_link: Default::default(),
         }
     }
 
@@ -416,6 +433,19 @@ impl ToplevelData {
             for handle in self.manager_handles.borrow().lock().values() {
                 handle.send_state(active_new, self.is_fullscreen.get());
                 handle.send_done();
+            }
+            if active_new {
+                if let Some(workspace) = self.workspace.get() {
+                    let mut focus_link = self.focus_link.borrow_mut();
+                    if let Some(link) = focus_link.as_ref() {
+                        workspace.focus_history.add_last_existing(link);
+                    } else {
+                        if let Some(node) = self.slf.upgrade() {
+                            let link = workspace.focus_history.add_last(node);
+                            *focus_link = Some(link);
+                        }
+                    }
+                }
             }
         }
     }
@@ -493,6 +523,7 @@ impl ToplevelData {
         }
         self.workspace.take();
         self.seat_state.destroy_node(node);
+        self.focus_link.take();
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
