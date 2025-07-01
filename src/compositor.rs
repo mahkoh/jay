@@ -30,6 +30,7 @@ use {
         ifs::{
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_seat::handle_position_hint_requests,
             wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             workspace_manager::workspace_manager_done,
         },
@@ -335,6 +336,7 @@ fn start_compositor2(
         caps_thread,
         toplevel_managers: Default::default(),
         node_at_tree: Default::default(),
+        position_hint_requests: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -521,6 +523,10 @@ fn start_global_event_handlers(
             "tl matcher just mapped",
             Phase::Layout,
             handle_tl_just_mapped(state.clone()),
+        ),
+        eng.spawn(
+            "position hint requests",
+            handle_position_hint_requests(state.clone()),
         ),
     ]
 }

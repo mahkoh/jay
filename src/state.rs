@@ -50,7 +50,8 @@ use {
             wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
-                PhysicalKeyboardId, PhysicalKeyboardIds, SeatIds, WlSeatGlobal,
+                PhysicalKeyboardId, PhysicalKeyboardIds, PositionHintRequest, SeatIds,
+                WlSeatGlobal,
                 tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
             },
             wl_surface::{
@@ -253,6 +254,7 @@ pub struct State {
     pub tl_matcher_manager: TlMatcherManager,
     pub caps_thread: Option<PrCapsThread>,
     pub node_at_tree: RefCell<Vec<FoundNode>>,
+    pub position_hint_requests: AsyncQueue<PositionHintRequest>,
 }
 
 // impl Drop for State {
@@ -978,6 +980,7 @@ impl State {
         self.cl_matcher_manager.clear();
         self.tl_matcher_manager.clear();
         self.node_at_tree.borrow_mut().clear();
+        self.position_hint_requests.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
