@@ -2,7 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         cmm::cmm_description::ColorDescription,
-        ifs::color_management::wp_image_description_info_v1::WpImageDescriptionInfoV1,
+        ifs::color_management::{
+            wp_color_management_surface_feedback_v1::UNIQUE_CM_IDS_SINCE,
+            wp_image_description_info_v1::WpImageDescriptionInfoV1,
+        },
         leaks::Tracker,
         object::{Object, Version},
         wire::{WpImageDescriptionV1Id, wp_image_description_v1::*},
@@ -29,10 +32,19 @@ impl WpImageDescriptionV1 {
     }
 
     pub fn send_ready(&self) {
-        self.client.event(Ready {
-            self_id: self.id,
-            identity: self.description.as_ref().unwrap().id.raw() as u32,
-        });
+        let id = self.description.as_ref().unwrap().id.raw();
+        if self.version >= UNIQUE_CM_IDS_SINCE {
+            self.client.event(Ready2 {
+                self_id: self.id,
+                identity_hi: (id >> 32) as u32,
+                identity_lo: id as u32,
+            });
+        } else {
+            self.client.event(Ready {
+                self_id: self.id,
+                identity: id as u32,
+            });
+        }
     }
 }
 
