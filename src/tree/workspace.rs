@@ -57,7 +57,7 @@ pub struct WorkspaceNode {
     pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
-    pub focused_queue: LinkedList<Rc<dyn ToplevelNode>>,
+    pub focus_history: LinkedList<Rc<dyn ToplevelNode>>,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
@@ -312,7 +312,7 @@ impl Node for WorkspaceNode {
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(fs) = self.fullscreen.get() {
             fs.node_do_focus(seat, direction);
-        } else if let Some(last_focused) = self.focused_queue.last().as_deref() {
+        } else if let Some(last_focused) = self.focus_history.last().as_deref() {
             last_focused.clone().node_do_focus(seat, direction);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
