@@ -72,11 +72,11 @@ impl XdgToplevelDragV1 {
     }
 
     pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {
-        if let Some(tl) = self.toplevel.get() {
-            if tl.xdg.surface.buffer.get().is_some() {
-                let (x, y) = cursor_rect.translate(x - self.x_off.get(), y - self.y_off.get());
-                renderer.render_xdg_surface(&tl.xdg, x, y, None)
-            }
+        if let Some(tl) = self.toplevel.get()
+            && tl.xdg.surface.buffer.get().is_some()
+        {
+            let (x, y) = cursor_rect.translate(x - self.x_off.get(), y - self.y_off.get());
+            renderer.render_xdg_surface(&tl.xdg, x, y, None)
         }
     }
 }
@@ -133,17 +133,17 @@ impl XdgToplevelDragV1 {
     }
 
     pub fn finish_drag(&self, seat: &Rc<WlSeatGlobal>) {
-        if self.source.data.was_used() {
-            if let Some(tl) = self.toplevel.get() {
-                let output = seat.get_output();
-                let (x, y) = seat.pointer_cursor().position();
-                tl.drag.take();
-                tl.after_toplevel_drag(
-                    &output,
-                    x.round_down() - self.x_off.get(),
-                    y.round_down() - self.y_off.get(),
-                );
-            }
+        if self.source.data.was_used()
+            && let Some(tl) = self.toplevel.get()
+        {
+            let output = seat.get_output();
+            let (x, y) = seat.pointer_cursor().position();
+            tl.drag.take();
+            tl.after_toplevel_drag(
+                &output,
+                x.round_down() - self.x_off.get(),
+                y.round_down() - self.y_off.get(),
+            );
         }
         self.detach();
     }

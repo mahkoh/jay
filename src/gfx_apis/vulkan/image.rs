@@ -558,15 +558,15 @@ impl GfxFramebuffer for VulkanImage {
     ) -> Result<Option<SyncFile>, GfxError> {
         let mut blend_buffer =
             blend_buffer.map(|b| b.clone().into_vk(&self.renderer.device.device));
-        if let Some(bb) = &blend_buffer {
-            if bb.size() != self.size() {
-                log::error!(
-                    "Blend buffer has invalid size: {:?} != {:?}",
-                    bb.size(),
-                    self.size()
-                );
-                blend_buffer = None;
-            }
+        if let Some(bb) = &blend_buffer
+            && bb.size() != self.size()
+        {
+            log::error!(
+                "Blend buffer has invalid size: {:?} != {:?}",
+                bb.size(),
+                self.size()
+            );
+            blend_buffer = None;
         }
         self.renderer
             .execute(

@@ -248,12 +248,12 @@ impl<T: TrayItem> SurfaceExt for T {
             }
             if data.surface.buffer.is_some() {
                 data.surface.set_visible(data.visible.get());
-                if let Some(node) = data.output.node() {
-                    if !data.attached.replace(true) {
-                        let link = node.tray_items.add_last(self.clone());
-                        data.linked_node.set(Some(link));
-                        node.update_tray_positions();
-                    }
+                if let Some(node) = data.output.node()
+                    && !data.attached.replace(true)
+                {
+                    let link = node.tray_items.add_last(self.clone());
+                    data.linked_node.set(Some(link));
+                    node.update_tray_positions();
                 }
             }
         }

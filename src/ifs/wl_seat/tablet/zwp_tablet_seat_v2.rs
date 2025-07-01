@@ -57,10 +57,10 @@ impl ZwpTabletSeatV2 {
         obj.send_name(&tablet.name);
         obj.send_id(tablet.vid, tablet.pid);
         obj.send_path(&tablet.path);
-        if obj.version >= BUSTYPE_SINCE {
-            if let Some(bustype) = tablet.bustype {
-                obj.send_bustype(bustype);
-            }
+        if obj.version >= BUSTYPE_SINCE
+            && let Some(bustype) = tablet.bustype
+        {
+            obj.send_bustype(bustype);
         }
         obj.send_done();
         tablet.bindings.add(self, &obj);

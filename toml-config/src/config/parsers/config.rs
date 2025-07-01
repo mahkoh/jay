@@ -340,10 +340,10 @@ impl Parser for ConfigParser<'_> {
             }
         }
         let mut window_management_key = None;
-        if let Some(value) = window_management_key_val {
-            if let Some(key) = parse_modified_keysym_str(self.0, value.span, value.value) {
-                window_management_key = Some(key);
-            }
+        if let Some(value) = window_management_key_val
+            && let Some(key) = parse_modified_keysym_str(self.0, value.span, value.value)
+        {
+            window_management_key = Some(key);
         }
         let mut vrr = None;
         if let Some(value) = vrr_val {

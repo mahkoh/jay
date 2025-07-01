@@ -216,10 +216,10 @@ impl JayRandr {
     fn get_device(&self, name: &str) -> Option<Rc<DrmDevData>> {
         let mut candidates = vec![];
         for dev in self.client.state.drm_devs.lock().values() {
-            if let Some(node) = &dev.devnode {
-                if node.ends_with(name) {
-                    candidates.push(dev.clone());
-                }
+            if let Some(node) = &dev.devnode
+                && node.ends_with(name)
+            {
+                candidates.push(dev.clone());
             }
         }
         if candidates.len() == 1 {

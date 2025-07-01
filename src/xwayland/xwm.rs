@@ -185,10 +185,10 @@ impl<T: XIpc> SelectionData<T> {
     }
 
     fn seat_removed(&self, id: SeatId) {
-        if let Some(offer) = self.active_offer.get() {
-            if offer.offer.get_seat().id() == id {
-                self.active_offer.take();
-            }
+        if let Some(offer) = self.active_offer.get()
+            && offer.offer.get_seat().id() == id
+        {
+            self.active_offer.take();
         }
         self.offers.remove(&id);
         self.sources.remove(&id);
@@ -782,10 +782,10 @@ impl Wm {
             destroy_data_offer::<T>(&offer);
             return;
         }
-        if !enhanced.active.replace(true) {
-            if let Some(old) = sd.active_offer.set(Some(enhanced)) {
-                old.active.set(false);
-            }
+        if !enhanced.active.replace(true)
+            && let Some(old) = sd.active_offer.set(Some(enhanced))
+        {
+            old.active.set(false);
         }
         let so = SetSelectionOwner {
             owner: sd.win.get(),
@@ -895,11 +895,11 @@ impl Wm {
         seat: SeatId,
         source: DataSourceId,
     ) {
-        if let Some(cur) = sd.sources.get(&seat) {
-            if cur.source_data().id == source {
-                sd.sources.remove(&seat);
-                destroy_data_source::<T>(&cur);
-            }
+        if let Some(cur) = sd.sources.get(&seat)
+            && cur.source_data().id == source
+        {
+            sd.sources.remove(&seat);
+            destroy_data_source::<T>(&cur);
         }
     }
 
@@ -1010,12 +1010,12 @@ impl Wm {
             // log::info!("xwm or => return");
             return;
         }
-        if initiator == Initiator::X {
-            if let Some(window) = window.window.get() {
-                let seats = self.state.globals.seats.lock();
-                for seat in seats.values() {
-                    seat.focus_toplevel(window.clone());
-                }
+        if initiator == Initiator::X
+            && let Some(window) = window.window.get()
+        {
+            let seats = self.state.globals.seats.lock();
+            for seat in seats.values() {
+                seat.focus_toplevel(window.clone());
             }
         }
         if send_to_x {
@@ -1237,15 +1237,15 @@ impl Wm {
         if let Some(old) = data.parent.take() {
             old.children.remove(&data.window_id);
         }
-        if let Some(w) = buf.first() {
-            if let Some(w) = self.windows.get(w) {
-                if data.is_ancestor_of(w.clone()) {
-                    log::error!("Cannot set WM_TRANSIENT_FOR because it would create a cycle");
-                    return;
-                }
-                w.children.set(data.window_id, data.clone());
-                data.parent.set(Some(w.clone()));
+        if let Some(w) = buf.first()
+            && let Some(w) = self.windows.get(w)
+        {
+            if data.is_ancestor_of(w.clone()) {
+                log::error!("Cannot set WM_TRANSIENT_FOR because it would create a cycle");
+                return;
             }
+            w.children.set(data.window_id, data.clone());
+            data.parent.set(Some(w.clone()));
         }
     }
 
@@ -1506,11 +1506,11 @@ impl Wm {
             };
             if let Ok(res) = self.c.call(&c).await {
                 for id in res.get().ids.iter() {
-                    if id.spec.mask.contains(RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID) {
-                        if let Some(first) = id.value.first() {
-                            data.info.pid.set(Some(*first));
-                            break;
-                        }
+                    if id.spec.mask.contains(RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID)
+                        && let Some(first) = id.value.first()
+                    {
+                        data.info.pid.set(Some(*first));
+                        break;
                     }
                 }
             }
@@ -1886,21 +1886,20 @@ impl Wm {
         let new_window = self.windows.get(&event.event);
         let mut focus_window = self.focus_window.as_ref();
         let mut send_to_x = true;
-        if let Some(window) = new_window {
-            if let Some(w) = window.window.get() {
-                if let Some(prev) = focus_window {
-                    let prev_pid = prev.info.pid.get();
-                    let new_pid = window.info.pid.get();
-                    if prev_pid.is_some()
-                        && prev_pid == new_pid
-                        && revent.serial() >= self.last_input_serial
-                        && w.x.surface.node_visible()
-                    {
-                        // log::info!("xwm ACCEPT");
-                        focus_window = new_window;
-                        send_to_x = false;
-                    }
-                }
+        if let Some(window) = new_window
+            && let Some(w) = window.window.get()
+            && let Some(prev) = focus_window
+        {
+            let prev_pid = prev.info.pid.get();
+            let new_pid = window.info.pid.get();
+            if prev_pid.is_some()
+                && prev_pid == new_pid
+                && revent.serial() >= self.last_input_serial
+                && w.x.surface.node_visible()
+            {
+                // log::info!("xwm ACCEPT");
+                focus_window = new_window;
+                send_to_x = false;
             }
         }
         let fw = focus_window.cloned();
@@ -2132,13 +2131,12 @@ impl Wm {
 
     fn update_override_redirect(&self, data: &Rc<XwindowData>, or: u8) {
         let or = or != 0;
-        if data.info.override_redirect.replace(or) != or {
-            // log::info!("xwin {} or {}", data.window_id, or);
-            if let Some(window) = data.window.get() {
-                window.tl_destroy();
-                window.update_toplevel();
-                window.map_status_changed();
-            }
+        if data.info.override_redirect.replace(or) != or
+            && let Some(window) = data.window.get()
+        {
+            window.tl_destroy();
+            window.update_toplevel();
+            window.map_status_changed();
         }
     }
 
@@ -2283,10 +2281,10 @@ impl Wm {
             Some(d) => d,
             _ => return Ok(()),
         };
-        if let Some(window) = data.window.get() {
-            if window.is_mapped() {
-                return Ok(());
-            }
+        if let Some(window) = data.window.get()
+            && window.is_mapped()
+        {
+            return Ok(());
         }
         let de = data.info.pending_extents.get();
         let mut x1 = de.x1();
@@ -2346,11 +2344,11 @@ impl Wm {
     }
 
     async fn handle_minimize_requested(&self, data: &Rc<XwindowData>) -> bool {
-        if let Some(w) = data.window.get() {
-            if w.toplevel_data.active_surfaces.active() {
-                self.set_wm_state(data, ICCCM_WM_STATE_NORMAL).await;
-                return false;
-            }
+        if let Some(w) = data.window.get()
+            && w.toplevel_data.active_surfaces.active()
+        {
+            self.set_wm_state(data, ICCCM_WM_STATE_NORMAL).await;
+            return false;
         }
         self.set_wm_state(data, ICCCM_WM_STATE_ICONIC).await;
         true
@@ -2461,10 +2459,10 @@ impl Wm {
                 minimized = self.handle_minimize_requested(data).await;
             }
         }
-        if fullscreen != data.info.fullscreen.get() {
-            if let Some(w) = data.window.get() {
-                w.tl_set_fullscreen(fullscreen, None);
-            }
+        if fullscreen != data.info.fullscreen.get()
+            && let Some(w) = data.window.get()
+        {
+            w.tl_set_fullscreen(fullscreen, None);
         }
         data.info.fullscreen.set(fullscreen);
         data.info.maximized_horz.set(maximized_horz);

@@ -1367,15 +1367,15 @@ impl Node for OutputNode {
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
         if self.state.lock.locked.get() {
-            if usecase != FindTreeUsecase::SelectToplevel {
-                if let Some(ls) = self.lock_surface.get() {
-                    tree.push(FoundNode {
-                        node: ls.clone(),
-                        x,
-                        y,
-                    });
-                    return ls.node_find_tree_at(x, y, tree, usecase);
-                }
+            if usecase != FindTreeUsecase::SelectToplevel
+                && let Some(ls) = self.lock_surface.get()
+            {
+                tree.push(FoundNode {
+                    node: ls.clone(),
+                    x,
+                    y,
+                });
+                return ls.node_find_tree_at(x, y, tree, usecase);
             }
             return FindTreeResult::AcceptsInput;
         }

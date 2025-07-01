@@ -252,11 +252,11 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
         }
         let con = self.connection.get();
         if let Some(val) = pending.cursor_rect {
-            if state.cursor_rectangle != val {
-                if let Some(con) = &con {
-                    for (_, popup) in &con.input_method.popups {
-                        popup.schedule_positioning();
-                    }
+            if state.cursor_rectangle != val
+                && let Some(con) = &con
+            {
+                for (_, popup) in &con.input_method.popups {
+                    popup.schedule_positioning();
                 }
             }
             state.cursor_rectangle = val;
@@ -282,10 +282,8 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
             }
             state.surrounding_text = val;
         }
-        if sent_any {
-            if let Some(con) = &con {
-                con.input_method.send_done();
-            }
+        if sent_any && let Some(con) = &con {
+            con.input_method.send_done();
         }
         Ok(())
     }

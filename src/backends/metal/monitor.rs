@@ -345,10 +345,10 @@ impl MetalBackend {
             let id = &slf.device_holder.devices;
             let mut slots = slf.device_holder.input_devices.borrow_mut();
             let dev = 'dev: {
-                if let Some(dev) = slots[slot].clone() {
-                    if dev.id == device_id {
-                        break 'dev dev;
-                    }
+                if let Some(dev) = slots[slot].clone()
+                    && dev.id == device_id
+                {
+                    break 'dev dev;
                 }
                 return;
             };

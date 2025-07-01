@@ -136,18 +136,18 @@ impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if let Some(manager) = self.manager.get() {
-            if let Some(node) = self.output.node() {
-                let mut sent_any = false;
-                for ws in node.workspaces.iter() {
-                    if let Some(ws) = ws.ext_workspaces.get(&self.manager_id) {
-                        self.send_workspace_leave(&ws);
-                        sent_any = true;
-                    }
+        if let Some(manager) = self.manager.get()
+            && let Some(node) = self.output.node()
+        {
+            let mut sent_any = false;
+            for ws in node.workspaces.iter() {
+                if let Some(ws) = ws.ext_workspaces.get(&self.manager_id) {
+                    self.send_workspace_leave(&ws);
+                    sent_any = true;
                 }
-                if sent_any {
-                    manager.schedule_done();
-                }
+            }
+            if sent_any {
+                manager.schedule_done();
             }
         }
         self.detach();

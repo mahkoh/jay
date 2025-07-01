@@ -426,10 +426,8 @@ impl FloatNode {
         if update_visible {
             self.stacked_set_visible(ws.float_visible());
         }
-        if update_pinned {
-            if let Some(pl) = &*self.pinned_link.borrow_mut() {
-                ws.output.get().pinned.add_last_existing(pl);
-            }
+        if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
+            ws.output.get().pinned.add_last_existing(pl);
         }
     }
 
@@ -588,10 +586,10 @@ impl FloatNode {
             if !pressed {
                 return;
             }
-            if cursor_data.op_type == OpType::Move {
-                if let Some(tl) = self.child.get() {
-                    tl.node_do_focus(seat, Direction::Unspecified);
-                }
+            if cursor_data.op_type == OpType::Move
+                && let Some(tl) = self.child.get()
+            {
+                tl.node_do_focus(seat, Direction::Unspecified);
             }
             if cursor_data.double_click_state.click(
                 &self.state,
@@ -600,12 +598,11 @@ impl FloatNode {
                 cursor_data.y,
             ) && cursor_data.op_type == OpType::Move
                 && !is_icon_press
+                && let Some(tl) = self.child.get()
             {
-                if let Some(tl) = self.child.get() {
-                    drop(cursors);
-                    toplevel_set_floating(&self.state, tl, false);
-                    return;
-                }
+                drop(cursors);
+                toplevel_set_floating(&self.state, tl, false);
+                return;
             }
             cursor_data.op_active = true;
             let pos = self.position.get();
@@ -830,16 +827,16 @@ impl Node for FloatNode {
         y: Fixed,
     ) {
         self.pointer_move(CursorType::TabletTool(tool.id), tool.cursor(), x, y, false);
-        if let Some(changes) = changes {
-            if let Some(pressed) = changes.down {
-                self.button(
-                    CursorType::TabletTool(tool.id),
-                    tool.cursor(),
-                    tool.seat(),
-                    time_usec,
-                    pressed,
-                );
-            }
+        if let Some(changes) = changes
+            && let Some(pressed) = changes.down
+        {
+            self.button(
+                CursorType::TabletTool(tool.id),
+                tool.cursor(),
+                tool.seat(),
+                time_usec,
+                pressed,
+            );
         }
     }
 

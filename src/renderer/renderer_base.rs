@@ -199,10 +199,10 @@ impl RendererBase<'_> {
         let mut target_x = [x, x + twidth];
         let mut target_y = [y, y + theight];
 
-        if let Some(bounds) = bounds {
-            if bound_target(&mut target_x, &mut target_y, &mut texcoord, bounds) {
-                return;
-            }
+        if let Some(bounds) = bounds
+            && bound_target(&mut target_x, &mut target_y, &mut texcoord, bounds)
+        {
+            return;
         }
 
         let target = FramebufferRect::new(

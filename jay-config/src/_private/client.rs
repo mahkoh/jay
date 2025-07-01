@@ -1857,22 +1857,22 @@ impl ConfigClient {
             run_cb("shortcut", &handler, ());
         }
         self.pressed_keysym.set(None);
-        if was_latched {
-            if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, ms)) {
-                let o = oe.get_mut();
-                if o.latched.is_empty() {
-                    if o.cb.is_none() {
-                        self.send(&ClientMessage::RemoveShortcut { seat, mods, sym });
-                        oe.remove();
-                    } else if o.cb_mask != o.registered_mask {
-                        o.registered_mask = o.cb_mask;
-                        self.send(&ClientMessage::AddShortcut2 {
-                            seat,
-                            mods: ms.mods,
-                            mod_mask: o.cb_mask,
-                            sym: ms.sym,
-                        });
-                    }
+        if was_latched
+            && let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, ms))
+        {
+            let o = oe.get_mut();
+            if o.latched.is_empty() {
+                if o.cb.is_none() {
+                    self.send(&ClientMessage::RemoveShortcut { seat, mods, sym });
+                    oe.remove();
+                } else if o.cb_mask != o.registered_mask {
+                    o.registered_mask = o.cb_mask;
+                    self.send(&ClientMessage::AddShortcut2 {
+                        seat,
+                        mods: ms.mods,
+                        mod_mask: o.cb_mask,
+                        sym: ms.sym,
+                    });
                 }
             }
         }

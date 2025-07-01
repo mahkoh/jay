@@ -384,10 +384,10 @@ impl ZwlrLayerSurfaceV1 {
                 _ => {}
             }
         }
-        if self.exclusive_size.replace(exclusive_size) != exclusive_size {
-            if let Some(output) = self.output.node.get() {
-                output.update_exclusive_zones();
-            }
+        if self.exclusive_size.replace(exclusive_size) != exclusive_size
+            && let Some(output) = self.output.node.get()
+        {
+            output.update_exclusive_zones();
         }
     }
 
@@ -422,10 +422,10 @@ impl ZwlrLayerSurfaceV1 {
         if height == 0 && !anchor.contains(TOP | BOTTOM) {
             return Err(ZwlrLayerSurfaceV1Error::HeightZero);
         }
-        if let Some(ee) = self.exclusive_edge.get() {
-            if !self.anchor.get().contains(ee) {
-                return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
-            }
+        if let Some(ee) = self.exclusive_edge.get()
+            && !self.anchor.get().contains(ee)
+        {
+            return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
         }
         self.configure();
         Ok(())
@@ -539,10 +539,10 @@ impl ZwlrLayerSurfaceV1 {
         self.seat_state.destroy_node(self);
         self.client.state.tree_changed();
         self.last_configure.take();
-        if self.exclusive_size.take().is_not_empty() {
-            if let Some(node) = self.output.node() {
-                node.update_exclusive_zones();
-            }
+        if self.exclusive_size.take().is_not_empty()
+            && let Some(node) = self.output.node()
+        {
+            node.update_exclusive_zones();
         }
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();

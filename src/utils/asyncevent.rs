@@ -30,10 +30,10 @@ impl AsyncEvent {
     }
 
     pub fn trigger(&self) {
-        if self.triggers.fetch_add(1) == 0 {
-            if let Some(waker) = self.waker.take() {
-                waker.wake();
-            }
+        if self.triggers.fetch_add(1) == 0
+            && let Some(waker) = self.waker.take()
+        {
+            waker.wake();
         }
     }
 

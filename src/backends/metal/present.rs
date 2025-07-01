@@ -200,13 +200,13 @@ impl MetalConnector {
             present_fb = Some(fb);
         }
         self.perform_screencopies(&present_fb, &node, &cd);
-        if let Some(sync_file) = self.cursor_sync_file.take() {
-            if let Err(e) = self.state.ring.readable(&sync_file).await {
-                log::error!(
-                    "Could not wait for cursor sync file to complete: {}",
-                    ErrorFmt(e)
-                );
-            }
+        if let Some(sync_file) = self.cursor_sync_file.take()
+            && let Err(e) = self.state.ring.readable(&sync_file).await
+        {
+            log::error!(
+                "Could not wait for cursor sync file to complete: {}",
+                ErrorFmt(e)
+            );
         }
         self.await_present_fb(present_fb.as_mut()).await;
         let mut res = self.program_connector(
@@ -216,36 +216,36 @@ impl MetalConnector {
             cursor_programming.as_ref(),
             present_fb.as_ref(),
         );
-        if res.is_err() {
-            if let Some(dsd_id) = direct_scanout_id {
-                let fb = self.prepare_present_fb(
-                    &cd,
-                    &linear_cd,
-                    buffer,
-                    &plane,
-                    latched.as_ref().unwrap(),
-                    false,
-                )?;
-                present_fb = Some(fb);
-                self.await_present_fb(present_fb.as_mut()).await;
-                res = self.program_connector(
-                    version,
-                    &crtc,
-                    &plane,
-                    cursor_programming.as_ref(),
-                    present_fb.as_ref(),
-                );
-                if res.is_ok() {
-                    let mut cache = self.scanout_buffers.borrow_mut();
-                    if let Some(buffer) = cache.remove(&dsd_id) {
-                        cache.insert(
-                            dsd_id,
-                            DirectScanoutCache {
-                                tex: buffer.tex,
-                                fb: None,
-                            },
-                        );
-                    }
+        if res.is_err()
+            && let Some(dsd_id) = direct_scanout_id
+        {
+            let fb = self.prepare_present_fb(
+                &cd,
+                &linear_cd,
+                buffer,
+                &plane,
+                latched.as_ref().unwrap(),
+                false,
+            )?;
+            present_fb = Some(fb);
+            self.await_present_fb(present_fb.as_mut()).await;
+            res = self.program_connector(
+                version,
+                &crtc,
+                &plane,
+                cursor_programming.as_ref(),
+                present_fb.as_ref(),
+            );
+            if res.is_ok() {
+                let mut cache = self.scanout_buffers.borrow_mut();
+                if let Some(buffer) = cache.remove(&dsd_id) {
+                    cache.insert(
+                        dsd_id,
+                        DirectScanoutCache {
+                            tex: buffer.tex,
+                            fb: None,
+                        },
+                    );
                 }
             }
         }
@@ -369,20 +369,22 @@ impl MetalConnector {
                 change!(c, plane.crtc_y, crtc_y);
                 change!(c, plane.crtc_w, crtc_w);
                 change!(c, plane.crtc_h, crtc_h);
-                if !try_async_flip && !self.dev.is_nvidia {
-                    if let Some(sf) = self.backend.signaled_sync_file.get() {
-                        c.change(plane.in_fence_fd, sf.0.raw() as u64);
-                    }
+                if !try_async_flip
+                    && !self.dev.is_nvidia
+                    && let Some(sf) = self.backend.signaled_sync_file.get()
+                {
+                    c.change(plane.in_fence_fd, sf.0.raw() as u64);
                 }
             });
         } else {
-            if self.dev.is_amd && crtc.vrr_enabled.value.get() {
-                // Work around https://gitlab.freedesktop.org/drm/amd/-/issues/2186
-                if let Some(fb) = &*self.active_framebuffer.borrow() {
-                    changes.change_object(plane.id, |c| {
-                        c.change(plane.fb_id, fb.fb.id().0 as _);
-                    });
-                }
+            // Work around https://gitlab.freedesktop.org/drm/amd/-/issues/2186
+            if self.dev.is_amd
+                && crtc.vrr_enabled.value.get()
+                && let Some(fb) = &*self.active_framebuffer.borrow()
+            {
+                changes.change_object(plane.id, |c| {
+                    c.change(plane.fb_id, fb.fb.id().0 as _);
+                });
             }
         }
         if let Some(cursor) = cursor {
@@ -408,10 +410,10 @@ impl MetalConnector {
                         c.change(plane.src_y.id, 0);
                         c.change(plane.src_w.id, (*width as u64) << 16);
                         c.change(plane.src_h.id, (*height as u64) << 16);
-                        if !self.dev.is_nvidia {
-                            if let Some(sf) = self.backend.signaled_sync_file.get() {
-                                c.change(plane.in_fence_fd, sf.0.raw() as u64);
-                            }
+                        if !self.dev.is_nvidia
+                            && let Some(sf) = self.backend.signaled_sync_file.get()
+                        {
+                            c.change(plane.in_fence_fd, sf.0.raw() as u64);
                         }
                     });
                 }
@@ -606,11 +608,11 @@ impl MetalConnector {
                     }
                 }
             }
-            if let Some(clear) = pass.clear {
-                if clear != Color::SOLID_BLACK {
-                    // Background could be visible.
-                    return None;
-                }
+            if let Some(clear) = pass.clear
+                && clear != Color::SOLID_BLACK
+            {
+                // Background could be visible.
+                return None;
             }
             ct
         };
@@ -683,10 +685,10 @@ impl MetalConnector {
                 break 'format f;
             }
             // Try opaque format if possible.
-            if let Some(opaque) = dmabuf.format.opaque {
-                if let Some(f) = plane.formats.get(&opaque.drm) {
-                    break 'format f;
-                }
+            if let Some(opaque) = dmabuf.format.opaque
+                && let Some(f) = plane.formats.get(&opaque.drm)
+            {
+                break 'format f;
             }
             return None;
         };

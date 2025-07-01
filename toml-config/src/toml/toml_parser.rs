@@ -179,16 +179,14 @@ impl<'a> Parser<'a, '_> {
                                 b'u' => 4,
                                 _ => 8,
                             };
-                            if s.len() - pos >= len {
-                                if let Ok(s) = std::str::from_utf8(&s[pos..pos + len]) {
-                                    if let Ok(n) = u32::from_str_radix(s, 16) {
-                                        if let Some(c) = char::from_u32(n) {
-                                            pos += len;
-                                            let _ = write!(res, "{c}");
-                                            break 'unicode;
-                                        }
-                                    }
-                                }
+                            if s.len() - pos >= len
+                                && let Ok(s) = std::str::from_utf8(&s[pos..pos + len])
+                                && let Ok(n) = u32::from_str_radix(s, 16)
+                                && let Some(c) = char::from_u32(n)
+                            {
+                                pos += len;
+                                let _ = write!(res, "{c}");
+                                break 'unicode;
                             }
                             res.extend_from_slice(&s[pos - 2..]);
                         }
@@ -322,11 +320,11 @@ impl<'a> Parser<'a, '_> {
     fn parse_table_header(&mut self) -> Result<(Spanned<Key>, bool), Spanned<ParserError>> {
         let lo = self.next(false)?.span.lo;
         let mut append = false;
-        if let Some(token) = self.lexer.peek(false) {
-            if token.value == Token::LeftBracket {
-                let _ = self.next(false);
-                append = true;
-            }
+        if let Some(token) = self.lexer.peek(false)
+            && token.value == Token::LeftBracket
+        {
+            let _ = self.next(false);
+            append = true;
         }
         let key = self.parse_key()?;
         let mut hi = self.parse_exact(Token::RightBracket, false)?.hi;
@@ -366,21 +364,19 @@ impl<'a> Parser<'a, '_> {
             if let RawEntryMut::Occupied(mut old) =
                 dst.raw_entry_mut_v1().from_key(key.value.as_str())
             {
-                if append_last {
-                    if let Value::Array(array) = &mut old.get_mut().value {
-                        array.push(value);
-                        return;
-                    }
+                if append_last && let Value::Array(array) = &mut old.get_mut().value {
+                    array.push(value);
+                    return;
                 }
-                if let Value::Table(old) = &mut old.get_mut().value {
-                    if let Value::Table(new) = value.value {
-                        for (k, v) in new {
-                            let mut keys = Key::new();
-                            keys.push_back(k);
-                            self.insert(old, &mut keys, v, false, false);
-                        }
-                        return;
+                if let Value::Table(old) = &mut old.get_mut().value
+                    && let Value::Table(new) = value.value
+                {
+                    for (k, v) in new {
+                        let mut keys = Key::new();
+                        keys.push_back(k);
+                        self.insert(old, &mut keys, v, false, false);
                     }
+                    return;
                 }
                 self.error_handler
                     .redefinition(ParserError::Redefined.spanned(key.span), old.key().span);

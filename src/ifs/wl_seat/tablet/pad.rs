@@ -97,17 +97,16 @@ impl WlSeatGlobal {
         group_idx: u32,
         mode: u32,
     ) {
-        if let Some(pad) = self.tablet.pads.get(&pad) {
-            if let Some(group) = pad.groups.get(group_idx as usize) {
-                if group.mode.replace(mode) != mode {
-                    self.state.for_each_seat_tester(|t| {
-                        t.send_tablet_pad_mode_switch(self.id, pad.dev, time_usec, group_idx, mode)
-                    });
-                    if pad.tablet.is_some() {
-                        let node = pad.node.get();
-                        node.node_on_tablet_pad_mode_switch(&pad, group, time_usec, mode);
-                    }
-                }
+        if let Some(pad) = self.tablet.pads.get(&pad)
+            && let Some(group) = pad.groups.get(group_idx as usize)
+            && group.mode.replace(mode) != mode
+        {
+            self.state.for_each_seat_tester(|t| {
+                t.send_tablet_pad_mode_switch(self.id, pad.dev, time_usec, group_idx, mode)
+            });
+            if pad.tablet.is_some() {
+                let node = pad.node.get();
+                node.node_on_tablet_pad_mode_switch(&pad, group, time_usec, mode);
             }
         }
     }
@@ -141,11 +140,11 @@ impl WlSeatGlobal {
             self.state.for_each_seat_tester(|t| {
                 t.send_tablet_pad_ring(self.id, pad.dev, time_usec, ring, source, angle)
             });
-            if pad.tablet.is_some() {
-                if let Some(ring) = pad.rings.get(ring as usize) {
-                    let node = self.keyboard_node.get();
-                    node.node_on_tablet_pad_ring(&pad, ring, source, angle, time_usec);
-                }
+            if pad.tablet.is_some()
+                && let Some(ring) = pad.rings.get(ring as usize)
+            {
+                let node = self.keyboard_node.get();
+                node.node_on_tablet_pad_ring(&pad, ring, source, angle, time_usec);
             }
         }
     }
@@ -162,11 +161,11 @@ impl WlSeatGlobal {
             self.state.for_each_seat_tester(|t| {
                 t.send_tablet_pad_strip(self.id, pad.dev, time_usec, strip, source, position)
             });
-            if pad.tablet.is_some() {
-                if let Some(strip) = pad.strips.get(strip as usize) {
-                    let node = pad.node.get();
-                    node.node_on_tablet_pad_strip(&pad, strip, source, position, time_usec);
-                }
+            if pad.tablet.is_some()
+                && let Some(strip) = pad.strips.get(strip as usize)
+            {
+                let node = pad.node.get();
+                node.node_on_tablet_pad_strip(&pad, strip, source, position, time_usec);
             }
         }
     }
@@ -182,11 +181,11 @@ impl WlSeatGlobal {
             self.state.for_each_seat_tester(|t| {
                 t.send_tablet_pad_dial(self.id, pad.dev, time_usec, value120, dial)
             });
-            if pad.tablet.is_some() {
-                if let Some(dial) = pad.dials.get(dial as usize) {
-                    let node = self.keyboard_node.get();
-                    node.node_on_tablet_pad_dial(&pad, dial, value120, time_usec);
-                }
+            if pad.tablet.is_some()
+                && let Some(dial) = pad.dials.get(dial as usize)
+            {
+                let node = self.keyboard_node.get();
+                node.node_on_tablet_pad_dial(&pad, dial, value120, time_usec);
             }
         }
     }

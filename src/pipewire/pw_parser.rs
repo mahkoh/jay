@@ -177,13 +177,14 @@ impl<'a> PwParser<'a> {
 
     pub fn read_value(&mut self) -> Result<PwPod<'a>, PwParserError> {
         let mut v = self.read_pod();
-        if let Ok(PwPod::Choice(v)) = &mut v {
-            if v.ty == PW_CHOICE_None && v.elements.n_elements > 0 {
-                return v
-                    .elements
-                    .elements
-                    .read_pod_body_packed(v.elements.ty, v.elements.child_len);
-            }
+        if let Ok(PwPod::Choice(v)) = &mut v
+            && v.ty == PW_CHOICE_None
+            && v.elements.n_elements > 0
+        {
+            return v
+                .elements
+                .elements
+                .read_pod_body_packed(v.elements.ty, v.elements.child_len);
         }
         v
     }

@@ -79,10 +79,10 @@ where
     }
 
     pub fn remove(&self, target_id: Target::Id) {
-        if let Some(node) = self.data.borrow_mut().remove(&target_id) {
-            if let Some(node) = node.node.upgrade() {
-                node.data().destroyed().remove(&self.id);
-            }
+        if let Some(node) = self.data.borrow_mut().remove(&target_id)
+            && let Some(node) = node.node.upgrade()
+        {
+            node.data().destroyed().remove(&self.id);
         }
     }
 

@@ -595,13 +595,12 @@ fn struct_needs_lt(s: &Struct, protocols: &Protocols) -> Result<bool> {
     }
     let mut needs_lt = false;
     for field in &s.fields {
-        if let Field::Real(f) = field {
-            if f.value.is_none() {
-                if needs_lifetime(&f.ty, protocols)? {
-                    needs_lt = true;
-                    break;
-                }
-            }
+        if let Field::Real(f) = field
+            && f.value.is_none()
+            && needs_lifetime(&f.ty, protocols)?
+        {
+            needs_lt = true;
+            break;
         }
     }
     s.needs_lt.set(Some(needs_lt));
@@ -674,11 +673,11 @@ fn struct_has_fds(s: &Struct, protocols: &Protocols) -> Result<bool> {
     }
     let mut has_fds = false;
     for field in &s.fields {
-        if let Field::Real(f) = field {
-            if type_has_fds(&f.ty, protocols)? {
-                has_fds = true;
-                break;
-            }
+        if let Field::Real(f) = field
+            && type_has_fds(&f.ty, protocols)?
+        {
+            has_fds = true;
+            break;
         }
     }
     s.has_fds.set(Some(has_fds));
@@ -1519,10 +1518,10 @@ fn format_struct<F: Write>(
             }
             writeln!(f, "        Ok(Self {{")?;
             for field in &s.fields {
-                if let Field::Real(rf) = field {
-                    if rf.value.is_none() {
-                        writeln!(f, "            {},", rf.name)?;
-                    }
+                if let Field::Real(rf) = field
+                    && rf.value.is_none()
+                {
+                    writeln!(f, "            {},", rf.name)?;
                 }
             }
             writeln!(f, "        }})")?;

@@ -325,11 +325,11 @@ impl<'a> Debug for PwPodObject<'a> {
         s.field("type", &self.ty);
         let name;
         let mut id: &dyn Debug = &self.id;
-        if let Some(d) = debugger {
-            if let Some(n) = d.id_name(self.id) {
-                name = n;
-                id = &name;
-            }
+        if let Some(d) = debugger
+            && let Some(n) = d.id_name(self.id)
+        {
+            name = n;
+            id = &name;
         }
         s.field("id", id);
         s.field(

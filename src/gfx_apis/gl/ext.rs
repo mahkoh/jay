@@ -19,10 +19,10 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
     let ext = unsafe { CStr::from_ptr(ext).to_bytes() };
     for part in ext.split_str(" ") {
         let name = part.trim_ascii();
-        if name.len() > 0 {
-            if let Ok(s) = str::from_utf8(name) {
-                res.insert(s.to_string());
-            }
+        if name.len() > 0
+            && let Ok(s) = str::from_utf8(name)
+        {
+            res.insert(s.to_string());
         }
     }
     Some(res)

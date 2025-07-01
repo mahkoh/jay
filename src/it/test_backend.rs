@@ -249,17 +249,17 @@ where
     }
     let node = 'node: {
         for f in &files {
-            if let Some(file) = f.file_name() {
-                if file.as_bytes().starts_with_str("renderD") {
-                    break 'node f;
-                }
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("renderD")
+            {
+                break 'node f;
             }
         }
         for f in &files {
-            if let Some(file) = f.file_name() {
-                if file.as_bytes().starts_with_str("card") {
-                    break 'node f;
-                }
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("card")
+            {
+                break 'node f;
             }
         }
         return Err(TestBackendError::NoDrmNode);

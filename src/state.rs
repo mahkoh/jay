@@ -500,20 +500,20 @@ impl State {
         }
         if self.render_ctx.is_none() {
             for dev in self.drm_devs.lock().values() {
-                if let Ok(version) = dev.dev.version() {
-                    if version.name.contains_str("nvidia") {
-                        continue;
-                    }
+                if let Ok(version) = dev.dev.version()
+                    && version.name.contains_str("nvidia")
+                {
+                    continue;
                 }
                 dev.make_render_device();
                 if self.render_ctx.is_some() {
                     break;
                 }
             }
-            if self.render_ctx.is_none() {
-                if let Some(dev) = self.drm_devs.lock().values().next() {
-                    dev.make_render_device();
-                }
+            if self.render_ctx.is_none()
+                && let Some(dev) = self.drm_devs.lock().values().next()
+            {
+                dev.make_render_device();
             }
         }
     }
@@ -600,20 +600,21 @@ impl State {
             cursor_user_groups.render_ctx_changed();
         }
 
-        if let Some(ctx) = &ctx {
-            if !self.render_ctx_ever_initialized.replace(true) {
-                self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
-                self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
-                if let Some(ctx) = ctx.sync_obj_ctx() {
-                    if ctx.supports_async_wait() && self.explicit_sync_enabled.get() {
-                        self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
-                            self.globals.name(),
-                        )));
-                    }
-                }
-                if let Some(config) = self.config.get() {
-                    config.graphics_initialized();
-                }
+        if let Some(ctx) = &ctx
+            && !self.render_ctx_ever_initialized.replace(true)
+        {
+            self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
+            self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
+            if let Some(ctx) = ctx.sync_obj_ctx()
+                && ctx.supports_async_wait()
+                && self.explicit_sync_enabled.get()
+            {
+                self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
+                    self.globals.name(),
+                )));
+            }
+            if let Some(config) = self.config.get() {
+                config.graphics_initialized();
             }
         }
 
@@ -761,10 +762,10 @@ impl State {
         let Some(seat) = seat else {
             return;
         };
-        if let Some(config) = self.config.get() {
-            if !config.auto_focus(node.tl_data()) {
-                return;
-            }
+        if let Some(config) = self.config.get()
+            && !config.auto_focus(node.tl_data())
+        {
+            return;
         }
         node.node_do_focus(&seat, Direction::Unspecified);
     }
@@ -856,11 +857,11 @@ impl State {
         if let Some(client) = client {
             'update_range: {
                 let mut serials = client.serials.borrow_mut();
-                if let Some(last) = serials.back_mut() {
-                    if last.hi.wrapping_add(1) == serial {
-                        last.hi = serial;
-                        break 'update_range;
-                    }
+                if let Some(last) = serials.back_mut()
+                    && last.hi.wrapping_add(1) == serial
+                {
+                    last.hi = serial;
+                    break 'update_range;
                 }
                 if serials.len() >= NUM_CACHED_SERIAL_RANGES {
                     serials.pop_front();
@@ -1002,11 +1003,11 @@ impl State {
     }
 
     pub fn refresh_hardware_cursors(&self) {
-        if let Some(g) = self.cursor_user_group_hardware_cursor.get() {
-            if let Some(u) = g.active() {
-                u.update_hardware_cursor();
-                return;
-            }
+        if let Some(g) = self.cursor_user_group_hardware_cursor.get()
+            && let Some(u) = g.active()
+        {
+            u.update_hardware_cursor();
+            return;
         }
         self.damage_hardware_cursors(false)
     }
@@ -1122,17 +1123,15 @@ impl State {
             false,
             src_cd,
         );
-        if render_hardware_cursors {
-            if let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get() {
-                if let Some(cursor_user) = cursor_user_group.active() {
-                    if let Some(cursor) = cursor_user.get() {
-                        let (mut x, mut y) = cursor_user.position();
-                        x = x + x_off - Fixed::from_int(position.x1());
-                        y = y + y_off - Fixed::from_int(position.y1());
-                        cursor.render(&mut renderer, x, y);
-                    }
-                }
-            }
+        if render_hardware_cursors
+            && let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get()
+            && let Some(cursor_user) = cursor_user_group.active()
+            && let Some(cursor) = cursor_user.get()
+        {
+            let (mut x, mut y) = cursor_user.position();
+            x = x + x_off - Fixed::from_int(position.x1());
+            y = y + y_off - Fixed::from_int(position.y1());
+            cursor.render(&mut renderer, x, y);
         }
         target.render(
             target_acquire_sync,

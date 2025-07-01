@@ -533,23 +533,23 @@ impl PwClientNode {
         if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_size.0)? {
             format.video_size = Some(mt.pod.get_rectangle()?);
         }
-        if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_format.0)? {
-            if let Some(fmt) = pw_formats().get(&SpaVideoFormat(mt.pod.get_id()?)) {
-                format.format = Some(*fmt);
-            }
+        if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_format.0)?
+            && let Some(fmt) = pw_formats().get(&SpaVideoFormat(mt.pod.get_id()?))
+        {
+            format.format = Some(*fmt);
         }
-        if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_modifier.0)? {
-            if let PwPod::Choice(mods) = mt.pod {
-                let mut p1 = mods.elements.elements;
-                p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
-                while p1.len() > 0 {
-                    let modifier = p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
-                    if let PwPod::Long(modifier) = modifier {
-                        format
-                            .modifiers
-                            .get_or_insert_default_ext()
-                            .push(modifier as u64);
-                    }
+        if let Some(mt) = obj.get_param(SPA_FORMAT_VIDEO_modifier.0)?
+            && let PwPod::Choice(mods) = mt.pod
+        {
+            let mut p1 = mods.elements.elements;
+            p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
+            while p1.len() > 0 {
+                let modifier = p1.read_pod_body_packed(PW_TYPE_Long, 8)?;
+                if let PwPod::Long(modifier) = modifier {
+                    format
+                        .modifiers
+                        .get_or_insert_default_ext()
+                        .push(modifier as u64);
                 }
             }
         }

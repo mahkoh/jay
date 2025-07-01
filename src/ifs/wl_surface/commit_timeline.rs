@@ -604,10 +604,10 @@ fn schedule_async_upload(
     };
     let back = surface.shm_textures.back();
     let mut back_tex_opt = back.tex.get();
-    if let Some(back_tex) = &back_tex_opt {
-        if !back_tex.compatible_with(buf.format, buf.rect.width(), buf.rect.height(), *stride) {
-            back_tex_opt = None;
-        }
+    if let Some(back_tex) = &back_tex_opt
+        && !back_tex.compatible_with(buf.format, buf.rect.width(), buf.rect.height(), *stride)
+    {
+        back_tex_opt = None;
     }
     let damage_full = || {
         back.damage.clear();
@@ -643,10 +643,10 @@ fn schedule_async_upload(
         }
     };
     let mut staging_opt = surface.shm_staging.get();
-    if let Some(staging) = &staging_opt {
-        if staging.size() != back_tex.staging_size() {
-            staging_opt = None;
-        }
+    if let Some(staging) = &staging_opt
+        && staging.size() != back_tex.staging_size()
+    {
+        staging_opt = None;
     }
     let staging = match staging_opt {
         Some(s) => s,
@@ -682,11 +682,11 @@ impl CommitDataCollector {
             if buffer.is_shm() {
                 self.shm_uploads += 1;
             }
-            if !pending.explicit_sync {
-                if let Some(dmabuf) = &buffer.dmabuf {
-                    for plane in &dmabuf.planes {
-                        self.implicit_dmabufs.push(plane.fd.clone());
-                    }
+            if !pending.explicit_sync
+                && let Some(dmabuf) = &buffer.dmabuf
+            {
+                for plane in &dmabuf.planes {
+                    self.implicit_dmabufs.push(plane.fd.clone());
                 }
             }
         }

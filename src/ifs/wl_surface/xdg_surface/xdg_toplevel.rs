@@ -433,11 +433,9 @@ impl XdgToplevel {
     fn map_tiled(self: &Rc<Self>) {
         self.state.map_tiled(self.clone());
         let fullscreen = self.states.borrow().contains(&STATE_FULLSCREEN);
-        if fullscreen {
-            if let Some(ws) = self.xdg.workspace.get() {
-                self.toplevel_data
-                    .set_fullscreen2(&self.state, self.clone(), &ws);
-            }
+        if fullscreen && let Some(ws) = self.xdg.workspace.get() {
+            self.toplevel_data
+                .set_fullscreen2(&self.state, self.clone(), &ws);
         }
     }
 
@@ -470,26 +468,26 @@ impl XdgToplevel {
         }
         let surface = &self.xdg.surface;
         let should_be_mapped = surface.buffer.is_some();
-        if let Some(drag) = self.drag.get() {
-            if drag.is_ongoing() {
-                if should_be_mapped {
-                    if !self.is_mapped.replace(true) {
-                        if let Some(seat) = drag.source.data.seat.get() {
-                            self.xdg.set_output(&seat.get_output());
-                        }
-                        self.toplevel_data.broadcast(self.clone());
-                        self.tl_set_visible(self.state.root_visible());
-                        self.xdg.damage();
+        if let Some(drag) = self.drag.get()
+            && drag.is_ongoing()
+        {
+            if should_be_mapped {
+                if !self.is_mapped.replace(true) {
+                    if let Some(seat) = drag.source.data.seat.get() {
+                        self.xdg.set_output(&seat.get_output());
                     }
-                    self.extents_changed();
-                } else {
-                    if self.is_mapped.replace(false) {
-                        self.tl_set_visible(false);
-                        self.xdg.damage();
-                    }
+                    self.toplevel_data.broadcast(self.clone());
+                    self.tl_set_visible(self.state.root_visible());
+                    self.xdg.damage();
                 }
-                return;
+                self.extents_changed();
+            } else {
+                if self.is_mapped.replace(false) {
+                    self.tl_set_visible(false);
+                    self.xdg.damage();
+                }
             }
+            return;
         }
         if self.is_mapped.replace(should_be_mapped) == should_be_mapped {
             return;

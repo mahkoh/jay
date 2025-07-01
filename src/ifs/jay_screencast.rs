@@ -655,10 +655,8 @@ impl JayScreencastRequestHandler for JayScreencast {
             slf.schedule_realloc_or_reconfigure();
         }
 
-        if capture_rules_changed {
-            if let Some(Target::Output(o)) = self.target.get() {
-                o.screencast_changed();
-            }
+        if capture_rules_changed && let Some(Target::Output(o)) = self.target.get() {
+            o.screencast_changed();
         }
 
         if self.running.get() {

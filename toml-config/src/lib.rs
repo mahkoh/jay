@@ -387,35 +387,35 @@ impl DrmDeviceMatch {
                         return false;
                     }
                 }
-                if let Some(syspath) = syspath {
-                    if d.syspath() != *syspath {
-                        return false;
-                    }
+                if let Some(syspath) = syspath
+                    && d.syspath() != *syspath
+                {
+                    return false;
                 }
-                if let Some(devnode) = devnode {
-                    if d.devnode() != *devnode {
-                        return false;
-                    }
+                if let Some(devnode) = devnode
+                    && d.devnode() != *devnode
+                {
+                    return false;
                 }
-                if let Some(model) = model_name {
-                    if d.model() != *model {
-                        return false;
-                    }
+                if let Some(model) = model_name
+                    && d.model() != *model
+                {
+                    return false;
                 }
-                if let Some(vendor) = vendor_name {
-                    if d.vendor() != *vendor {
-                        return false;
-                    }
+                if let Some(vendor) = vendor_name
+                    && d.vendor() != *vendor
+                {
+                    return false;
                 }
-                if let Some(vendor) = vendor {
-                    if d.pci_id().vendor != *vendor {
-                        return false;
-                    }
+                if let Some(vendor) = vendor
+                    && d.pci_id().vendor != *vendor
+                {
+                    return false;
                 }
-                if let Some(model) = model {
-                    if d.pci_id().model != *model {
-                        return false;
-                    }
+                if let Some(model) = model
+                    && d.pci_id().model != *model
+                {
+                    return false;
                 }
                 true
             }
@@ -449,10 +449,10 @@ impl InputMatch {
                 is_gesture,
                 is_switch,
             } => {
-                if let Some(name) = name {
-                    if d.name() != *name {
-                        return false;
-                    }
+                if let Some(name) = name
+                    && d.name() != *name
+                {
+                    return false;
                 }
                 if let Some(tag) = tag {
                     let matches = apply_recursive_match(
@@ -466,22 +466,22 @@ impl InputMatch {
                         return false;
                     }
                 }
-                if let Some(syspath) = syspath {
-                    if d.syspath() != *syspath {
-                        return false;
-                    }
+                if let Some(syspath) = syspath
+                    && d.syspath() != *syspath
+                {
+                    return false;
                 }
-                if let Some(devnode) = devnode {
-                    if d.devnode() != *devnode {
-                        return false;
-                    }
+                if let Some(devnode) = devnode
+                    && d.devnode() != *devnode
+                {
+                    return false;
                 }
                 macro_rules! check_cap {
                     ($is:expr, $cap:ident) => {
-                        if let Some(is) = *$is {
-                            if d.has_capability(jay_config::input::capability::$cap) != is {
-                                return false;
-                            }
+                        if let Some(is) = *$is
+                            && d.has_capability(jay_config::input::capability::$cap) != is
+                        {
+                            return false;
                         }
                     };
                 }
@@ -527,10 +527,10 @@ impl Input {
         if let Some(v) = self.transform_matrix {
             c.set_transform_matrix(v);
         }
-        if let Some(v) = &self.keymap {
-            if let Some(km) = state.get_keymap(v) {
-                c.set_keymap(km);
-            }
+        if let Some(v) = &self.keymap
+            && let Some(km) = state.get_keymap(v)
+        {
+            c.set_keymap(km);
         }
         if let Some(output) = &self.output {
             if let Some(output) = output {
@@ -590,25 +590,25 @@ impl OutputMatch {
                         return false;
                     }
                 }
-                if let Some(connector) = &connector {
-                    if c.name() != *connector {
-                        return false;
-                    }
+                if let Some(connector) = &connector
+                    && c.name() != *connector
+                {
+                    return false;
                 }
-                if let Some(serial_number) = &serial_number {
-                    if c.serial_number() != *serial_number {
-                        return false;
-                    }
+                if let Some(serial_number) = &serial_number
+                    && c.serial_number() != *serial_number
+                {
+                    return false;
                 }
-                if let Some(manufacturer) = &manufacturer {
-                    if c.manufacturer() != *manufacturer {
-                        return false;
-                    }
+                if let Some(manufacturer) = &manufacturer
+                    && c.manufacturer() != *manufacturer
+                {
+                    return false;
                 }
-                if let Some(model) = &model {
-                    if c.model() != *model {
-                        return false;
-                    }
+                if let Some(model) = &model
+                    && c.model() != *model
+                {
+                    return false;
                 }
                 true
             }
@@ -624,10 +624,10 @@ impl ConnectorMatch {
         match self {
             ConnectorMatch::Any(m) => m.iter().any(|m| m.matches(c)),
             ConnectorMatch::All { connector } => {
-                if let Some(connector) = &connector {
-                    if c.name() != *connector {
-                        return false;
-                    }
+                if let Some(connector) = &connector
+                    && c.name() != *connector
+                {
+                    return false;
                 }
                 true
             }
@@ -679,10 +679,10 @@ impl Output {
                 c.set_vrr_cursor_hz(hz);
             }
         }
-        if let Some(tearing) = &self.tearing {
-            if let Some(mode) = tearing.mode {
-                c.set_tearing_mode(mode);
-            }
+        if let Some(tearing) = &self.tearing
+            && let Some(mode) = tearing.mode
+        {
+            c.set_tearing_mode(mode);
         }
         if let Some(format) = self.format {
             c.set_format(format);
@@ -858,10 +858,10 @@ impl State {
         let actions = actions.clone();
         dev.on_switch_event(move |ev| {
             for (match_, actions) in &*actions {
-                if match_.matches(dev, &state) {
-                    if let Some(action) = actions.get(&ev) {
-                        action();
-                    }
+                if match_.matches(dev, &state)
+                    && let Some(action) = actions.get(&ev)
+                {
+                    action();
                 }
             }
         });
@@ -1214,10 +1214,10 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             set_vrr_cursor_hz(hz);
         }
     }
-    if let Some(tearing) = config.tearing {
-        if let Some(mode) = tearing.mode {
-            set_tearing_mode(mode);
-        }
+    if let Some(tearing) = config.tearing
+        && let Some(mode) = tearing.mode
+    {
+        set_tearing_mode(mode);
     }
     set_libei_socket_enabled(config.libei.enable_socket.unwrap_or(false));
     if let Some(enabled) = config.ui_drag.enabled {
@@ -1226,20 +1226,20 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     if let Some(threshold) = config.ui_drag.threshold {
         set_ui_drag_threshold(threshold);
     }
-    if let Some(xwayland) = config.xwayland {
-        if let Some(mode) = xwayland.scaling_mode {
-            set_x_scaling_mode(mode);
-        }
+    if let Some(xwayland) = config.xwayland
+        && let Some(mode) = xwayland.scaling_mode
+    {
+        set_x_scaling_mode(mode);
     }
-    if let Some(cm) = config.color_management {
-        if let Some(enabled) = cm.enabled {
-            set_color_management_enabled(enabled);
-        }
+    if let Some(cm) = config.color_management
+        && let Some(enabled) = cm.enabled
+    {
+        set_color_management_enabled(enabled);
     }
-    if let Some(float) = config.float {
-        if let Some(show) = float.show_pin_icon {
-            set_show_float_pin_icon(show);
-        }
+    if let Some(float) = config.float
+        && let Some(show) = float.show_pin_icon
+    {
+        set_show_float_pin_icon(show);
     }
     if let Some(key) = config.pointer_revert_key {
         persistent.seat.set_pointer_revert_key(key);

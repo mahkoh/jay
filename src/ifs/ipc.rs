@@ -414,10 +414,9 @@ pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
         if src_data.offers.is_empty()
             && src_data.role.get() == Role::Dnd
             && data.shared.state.get().contains(OFFER_STATE_DROPPED)
+            && let Some(seat) = src_data.seat.take()
         {
-            if let Some(seat) = src_data.seat.take() {
-                T::unset(&seat, data.shared.role.get());
-            }
+            T::unset(&seat, data.shared.role.get());
         }
     }
 }

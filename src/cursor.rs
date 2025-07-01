@@ -46,10 +46,10 @@ const HOME: &str = "HOME";
 const HEADER_SIZE: u32 = 16;
 
 pub static DEFAULT_CURSOR_SIZE: Lazy<u32> = Lazy::new(|| {
-    if let Ok(size) = env::var(XCURSOR_SIZE) {
-        if let Ok(val) = size.parse() {
-            return val;
-        }
+    if let Ok(size) = env::var(XCURSOR_SIZE)
+        && let Ok(val) = size.parse()
+    {
+        return val;
     }
     24
 });

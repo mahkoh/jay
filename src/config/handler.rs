@@ -200,10 +200,10 @@ impl ConfigProxyHandler {
         self.window_matcher_leafs.clear();
         self.window_matchers.clear();
 
-        if let Some(path) = &self.path {
-            if let Err(e) = uapi::unlink(path.as_str()) {
-                log::error!("Could not unlink {}: {}", path, ErrorFmt(OsError(e.0)));
-            }
+        if let Some(path) = &self.path
+            && let Err(e) = uapi::unlink(path.as_str())
+        {
+            log::error!("Could not unlink {}: {}", path, ErrorFmt(OsError(e.0)));
         }
     }
 
@@ -963,10 +963,10 @@ impl ConfigProxyHandler {
         let seat = self.get_seat(seat)?;
         let output = seat.get_output();
         let mut workspace = Workspace(0);
-        if !output.is_dummy {
-            if let Some(ws) = output.workspace.get() {
-                workspace = self.get_workspace_by_name(&ws.name);
-            }
+        if !output.is_dummy
+            && let Some(ws) = output.workspace.get()
+        {
+            workspace = self.get_workspace_by_name(&ws.name);
         }
         self.respond(Response::GetSeatWorkspace { workspace });
         Ok(())
@@ -975,12 +975,11 @@ impl ConfigProxyHandler {
     fn handle_get_seat_keyboard_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let mut workspace = Workspace(0);
-        if let Some(output) = seat.get_keyboard_output() {
-            if !output.is_dummy {
-                if let Some(ws) = output.workspace.get() {
-                    workspace = self.get_workspace_by_name(&ws.name);
-                }
-            }
+        if let Some(output) = seat.get_keyboard_output()
+            && !output.is_dummy
+            && let Some(ws) = output.workspace.get()
+        {
+            workspace = self.get_workspace_by_name(&ws.name);
         }
         self.respond(Response::GetSeatKeyboardWorkspace { workspace });
         Ok(())
@@ -1900,12 +1899,12 @@ impl ConfigProxyHandler {
         }
         let id = ClientMatcher(self.client_matcher_ids.fetch_add(1));
         let cache = &self.client_matcher_cache;
-        if let Some(matcher) = cache.get(&criterion) {
-            if let Some(matcher) = matcher.upgrade() {
-                self.client_matchers.set(id, matcher);
-                self.respond(Response::CreateClientMatcher { matcher: id });
-                return Ok(());
-            }
+        if let Some(matcher) = cache.get(&criterion)
+            && let Some(matcher) = matcher.upgrade()
+        {
+            self.client_matchers.set(id, matcher);
+            self.respond(Response::CreateClientMatcher { matcher: id });
+            return Ok(());
         }
         let mgr = &self.state.cl_matcher_manager;
         let mut upstream = vec![];
@@ -2000,12 +1999,12 @@ impl ConfigProxyHandler {
         }
         let id = WindowMatcher(self.window_matcher_ids.fetch_add(1));
         let cache = &self.window_matcher_cache;
-        if let Some(matcher) = cache.get(&criterion) {
-            if let Some(matcher) = matcher.upgrade() {
-                self.window_matchers.set(id, matcher);
-                self.respond(Response::CreateWindowMatcher { matcher: id });
-                return Ok(());
-            }
+        if let Some(matcher) = cache.get(&criterion)
+            && let Some(matcher) = matcher.upgrade()
+        {
+            self.window_matchers.set(id, matcher);
+            self.respond(Response::CreateWindowMatcher { matcher: id });
+            return Ok(());
         }
         let mgr = &self.state.tl_matcher_manager;
         let mut upstream = vec![];

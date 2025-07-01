@@ -76,21 +76,18 @@ impl ClientMem {
         flags: c::c_int,
     ) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
-        if let Ok(seals) = uapi::fcntl_get_seals(fd.raw()) {
-            if seals & c::F_SEAL_SHRINK != 0 {
-                if let Ok(stat) = uapi::fstat(fd.raw()) {
-                    sigbus_impossible = stat.st_size as u64 >= len as u64;
-                }
-            }
+        if let Ok(seals) = uapi::fcntl_get_seals(fd.raw())
+            && seals & c::F_SEAL_SHRINK != 0
+            && let Ok(stat) = uapi::fstat(fd.raw())
+        {
+            sigbus_impossible = stat.st_size as u64 >= len as u64;
         }
-        if !sigbus_impossible {
-            if let Some(client) = client {
-                log::debug!(
-                    "Client {} ({}) has created a shm buffer that might cause SIGBUS",
-                    client.pid_info.comm,
-                    client.id,
-                );
-            }
+        if !sigbus_impossible && let Some(client) = client {
+            log::debug!(
+                "Client {} ({}) has created a shm buffer that might cause SIGBUS",
+                client.pid_info.comm,
+                client.id,
+            );
         }
         let data = if len == 0 {
             &mut [][..]

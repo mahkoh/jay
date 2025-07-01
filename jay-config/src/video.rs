@@ -441,10 +441,10 @@ impl ToConnectorId for &'_ str {
             ("USB-", CON_USB),
         ];
         for (prefix, ty) in pairs {
-            if let Some(suffix) = self.strip_prefix(prefix) {
-                if let Ok(idx) = u32::from_str(suffix) {
-                    return Ok((ty, idx));
-                }
+            if let Some(suffix) = self.strip_prefix(prefix)
+                && let Ok(idx) = u32::from_str(suffix)
+            {
+                return Ok((ty, idx));
             }
         }
         Err(format!("`{}` is not a valid connector identifier", self))

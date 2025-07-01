@@ -504,10 +504,10 @@ impl CpuJob for RenderJob {
             data.complete(Ok(()));
             return;
         }
-        if let Some(t) = &tex {
-            if !t.compatible_with(ARGB8888, rt.width, rt.height, rt.stride) {
-                tex = None;
-            }
+        if let Some(t) = &tex
+            && !t.compatible_with(ARGB8888, rt.width, rt.height, rt.stride)
+        {
+            tex = None;
         }
         let tex = match tex {
             Some(t) => t,
@@ -527,10 +527,10 @@ impl CpuJob for RenderJob {
             }
         };
         let mut staging_opt = data.staging.take();
-        if let Some(staging) = &staging_opt {
-            if staging.size() != tex.staging_size() {
-                staging_opt = None;
-            }
+        if let Some(staging) = &staging_opt
+            && staging.size() != tex.staging_size()
+        {
+            staging_opt = None;
         }
         let staging = match staging_opt {
             Some(s) => s,

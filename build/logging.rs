@@ -17,12 +17,11 @@ fn create_bridge() -> anyhow::Result<()> {
 
 fn create_version() -> anyhow::Result<()> {
     let mut version_string = env!("CARGO_PKG_VERSION").to_string();
-    if let Ok(output) = Command::new("git").arg("rev-parse").arg("HEAD").output() {
-        if output.status.success() {
-            if let Ok(commit) = std::str::from_utf8(&output.stdout) {
-                write!(version_string, " ({})", commit.trim())?;
-            }
-        }
+    if let Ok(output) = Command::new("git").arg("rev-parse").arg("HEAD").output()
+        && output.status.success()
+        && let Ok(commit) = std::str::from_utf8(&output.stdout)
+    {
+        write!(version_string, " ({})", commit.trim())?;
     }
     let mut f = open("version.rs")?;
     writeln!(f, "pub const VERSION: &str = \"{}\";", version_string)?;

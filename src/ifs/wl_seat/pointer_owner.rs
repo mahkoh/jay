@@ -530,10 +530,8 @@ impl PointerOwner for DndPointerOwner {
         }
         target.node_on_dnd_leave(&self.dnd);
         target.node_seat_state().remove_dnd_target(seat);
-        if !should_drop {
-            if let Some(src) = &self.dnd.src {
-                ipc::detach_seat(&**src, seat);
-            }
+        if !should_drop && let Some(src) = &self.dnd.src {
+            ipc::detach_seat(&**src, seat);
         }
         if let Some(icon) = self.icon.get() {
             icon.disable();
