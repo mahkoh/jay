@@ -1099,6 +1099,15 @@ impl OutputNode {
             return;
         };
         self.show_workspace(&ws);
+
+        if let PointerType::Seat(s) = id {
+            if let Some(seat) = self.state.seat_queue.iter().find(|sr| sr.id() == s) {
+                if let Some(ws) = self.workspace.get() {
+                    ws.focus_last_toplevel(&seat, Direction::Unspecified);
+                }
+            }
+        }
+
         ws.flush_jay_workspaces();
         self.schedule_update_render_data();
         self.state.tree_changed();

@@ -152,8 +152,13 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             if prev.node_id() != ws.node_id() {
                 data.focus_link.take();
                 if let Some(node) = data.slf.upgrade() {
-                    let link = ws.focus_history.add_last(node);
+                    let link = ws.focus_history.add_last(node.clone());
                     *data.focus_link.borrow_mut() = Some(link);
+                    if data.active() {
+                        for seat in collect_kb_foci(node) {
+                            prev.focus_last_toplevel(&seat, Direction::Unspecified);
+                        }
+                    }
                 }
             }
         }

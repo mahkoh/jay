@@ -5,7 +5,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         tree::{Direction, Node, OutputNode, ToplevelOpt},
-        wire::{zwlr_foreign_toplevel_handle_v1::*, ZwlrForeignToplevelHandleV1Id},
+        wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
     arrayvec::ArrayVec,
     std::rc::Rc,
