@@ -252,6 +252,25 @@ impl WorkspaceNode {
         }
     }
 
+    pub fn focus_last_toplevel(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(fs) = self.fullscreen.get() {
+            fs.node_do_focus(seat, direction);
+        }
+        if let Some(last_focused) = self.focus_history.last().as_deref() {
+            last_focused.clone().node_do_focus(&seat, direction);
+        } else if let Some(container) = self.container.get() {
+            container.node_do_focus(seat, direction);
+        } else if let Some(float) = self
+            .stacked
+            .rev_iter()
+            .find_map(|node| (*node).clone().node_into_float())
+        {
+            if let Some(child) = float.child.get() {
+                child.node_do_focus(seat, direction);
+            }
+        }
+    }
+
     fn pull_child_properties(&self, child: &dyn ToplevelNode) {
         if child.tl_data().wants_attention.get() {
             self.mod_attention_requested(true);
@@ -310,21 +329,7 @@ impl Node for WorkspaceNode {
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(fs) = self.fullscreen.get() {
-            fs.node_do_focus(seat, direction);
-        } else if let Some(last_focused) = self.focus_history.last().as_deref() {
-            last_focused.clone().node_do_focus(seat, direction);
-        } else if let Some(container) = self.container.get() {
-            container.node_do_focus(seat, direction);
-        } else if let Some(float) = self
-            .stacked
-            .rev_iter()
-            .find_map(|node| (*node).clone().node_into_float())
-        {
-            if let Some(child) = float.child.get() {
-                child.node_do_focus(seat, direction);
-            }
-        }
+        self.focus_last_toplevel(&seat, direction);
     }
 
     fn node_find_tree_at(
