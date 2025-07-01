@@ -102,13 +102,12 @@ impl ExtImageCopyCaptureFrameV1 {
         let mut shm_staging = self.session.shm_staging.take();
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                if let Some(b) = &shm_bridge {
-                    if b.physical_size() != buffer.rect.size()
+                if let Some(b) = &shm_bridge
+                    && (b.physical_size() != buffer.rect.size()
                         || b.format() != buffer.format
-                        || b.stride() != *stride
-                    {
-                        shm_bridge = None;
-                    }
+                        || b.stride() != *stride)
+                {
+                    shm_bridge = None;
                 }
                 let bridge = match shm_bridge {
                     Some(b) => b,
@@ -129,10 +128,10 @@ impl ExtImageCopyCaptureFrameV1 {
                         }
                     }
                 };
-                if let Some(s) = &shm_staging {
-                    if s.size() != bridge.staging_size() {
-                        shm_staging = None;
-                    }
+                if let Some(s) = &shm_staging
+                    && s.size() != bridge.staging_size()
+                {
+                    shm_staging = None;
                 }
                 let staging = match shm_staging {
                     Some(s) => s,

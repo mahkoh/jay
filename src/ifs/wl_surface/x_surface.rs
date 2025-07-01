@@ -59,10 +59,10 @@ impl SurfaceExt for XSurface {
     }
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
-        if let Some(xwindow) = self.xwindow.get() {
-            if xwindow.tl_accepts_keyboard_focus() {
-                return Some(xwindow.x.surface.clone());
-            }
+        if let Some(xwindow) = self.xwindow.get()
+            && xwindow.tl_accepts_keyboard_focus()
+        {
+            return Some(xwindow.x.surface.clone());
         }
         None
     }

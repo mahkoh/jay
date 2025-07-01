@@ -45,11 +45,11 @@ impl TlmMatchClient {
     }
 
     pub fn handle(&self, node: &ToplevelData) {
-        if let Some(client) = &node.client {
-            if self.node.get(client) {
-                let data = self.downstream.get_or_create(node);
-                self.downstream.update_matched(node, data, true, false);
-            }
+        if let Some(client) = &node.client
+            && self.node.get(client)
+        {
+            let data = self.downstream.get_or_create(node);
+            self.downstream.update_matched(node, data, true, false);
         }
     }
 }

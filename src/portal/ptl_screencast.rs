@@ -353,18 +353,18 @@ impl StartedScreencast {
             return Err(BufferAllocationError::NoRenderContext);
         };
         let mut usage = BO_USE_RENDERING;
-        if let Some(sf) = &ctx.server_formats {
-            if let Some(format) = sf.get(&format.drm) {
-                let no_render_usage = modifiers.iter().all(|m| {
-                    format
-                        .write_modifiers
-                        .get(m)
-                        .map(|w| !w.needs_render_usage)
-                        .unwrap_or(false)
-                });
-                if no_render_usage {
-                    usage = BufferUsage::none();
-                }
+        if let Some(sf) = &ctx.server_formats
+            && let Some(format) = sf.get(&format.drm)
+        {
+            let no_render_usage = modifiers.iter().all(|m| {
+                format
+                    .write_modifiers
+                    .get(m)
+                    .map(|w| !w.needs_render_usage)
+                    .unwrap_or(false)
+            });
+            if no_render_usage {
+                usage = BufferUsage::none();
             }
         }
         let buffer = ctx.ctx.ctx.allocator().create_bo(

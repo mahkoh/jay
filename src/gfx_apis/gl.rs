@@ -296,12 +296,11 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
         };
         let user = fb.ctx.buffer_resv_user;
         for op in ops {
-            if let GfxApiOpt::CopyTexture(ct) = op {
-                if ct.release_sync == ReleaseSync::Explicit {
-                    if let Some(resv) = &ct.buffer_resv {
-                        resv.set_sync_file(user, &file);
-                    }
-                }
+            if let GfxApiOpt::CopyTexture(ct) = op
+                && ct.release_sync == ReleaseSync::Explicit
+                && let Some(resv) = &ct.buffer_resv
+            {
+                resv.set_sync_file(user, &file);
             }
         }
         return Some(file);
@@ -429,10 +428,10 @@ fn handle_explicit_sync(ctx: &GlRenderContext, img: Option<&Rc<EglImage>>, sync:
         };
         sync.wait();
     } else {
-        if let Some(img) = img {
-            if let Err(e) = img.dmabuf.import_sync_file(DMA_BUF_SYNC_READ, &sync_file) {
-                log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
-            }
+        if let Some(img) = img
+            && let Err(e) = img.dmabuf.import_sync_file(DMA_BUF_SYNC_READ, &sync_file)
+        {
+            log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
         }
     }
 }

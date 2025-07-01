@@ -247,13 +247,13 @@ impl Backend for MetalBackend {
         for device in devices.values() {
             let mut change = device.dev.master.change();
             for connector in device.connectors.lock().values() {
-                if let Some(crtc) = connector.crtc.get() {
-                    if idle == crtc.active.value.get() {
-                        crtc.active.value.set(!idle);
-                        change.change_object(crtc.id, |c| {
-                            c.change(crtc.active.id, (!idle) as _);
-                        });
-                    }
+                if let Some(crtc) = connector.crtc.get()
+                    && idle == crtc.active.value.get()
+                {
+                    crtc.active.value.set(!idle);
+                    change.change_object(crtc.id, |c| {
+                        c.change(crtc.active.id, (!idle) as _);
+                    });
                 }
             }
             if let Err(e) = change.commit(DRM_MODE_ATOMIC_ALLOW_MODESET, 0) {
@@ -283,10 +283,10 @@ impl Backend for MetalBackend {
     fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
         let mut res = vec![];
         for dev in &*self.device_holder.input_devices.borrow() {
-            if let Some(dev) = dev {
-                if let Some(fd) = dev.fd.get() {
-                    res.push(fd);
-                }
+            if let Some(dev) = dev
+                && let Some(fd) = dev.fd.get()
+            {
+                res.push(fd);
             }
         }
         res
@@ -428,11 +428,11 @@ impl LibInputAdapter for DeviceHolder {
             Ok(s) => s,
             Err(e) => return Err(LibInputError::Stat(e.into())),
         };
-        if let Some(MetalDevice::Input(d)) = self.devices.get(&stat.st_rdev) {
-            if let Some(fd) = d.fd.get() {
-                return uapi::fcntl_dupfd_cloexec(fd.raw(), 0)
-                    .map_err(|e| LibInputError::DupFd(e.into()));
-            }
+        if let Some(MetalDevice::Input(d)) = self.devices.get(&stat.st_rdev)
+            && let Some(fd) = d.fd.get()
+        {
+            return uapi::fcntl_dupfd_cloexec(fd.raw(), 0)
+                .map_err(|e| LibInputError::DupFd(e.into()));
         }
         Err(LibInputError::DeviceUnavailable)
     }
@@ -537,25 +537,25 @@ impl MetalInputDevice {
 
     fn set_accel_profile_(&self, profile: AccelProfile) {
         self.desired.accel_profile.set(Some(profile));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().accel_available() {
-                dev.device().set_accel_profile(profile);
-                self.effective
-                    .accel_profile
-                    .set(Some(dev.device().accel_profile()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().accel_available()
+        {
+            dev.device().set_accel_profile(profile);
+            self.effective
+                .accel_profile
+                .set(Some(dev.device().accel_profile()));
         }
     }
 
     fn set_click_method_(&self, method: ConfigClickMethod) {
         self.desired.click_method.set(Some(method));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().has_click_methods() {
-                dev.device().set_click_method(method);
-                self.effective
-                    .click_method
-                    .set(Some(dev.device().click_method()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().has_click_methods()
+        {
+            dev.device().set_click_method(method);
+            self.effective
+                .click_method
+                .set(Some(dev.device().click_method()));
         }
     }
 }
@@ -595,13 +595,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_left_handed(&self, left_handed: bool) {
         self.desired.left_handed.set(Some(left_handed));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().left_handed_available() {
-                dev.device().set_left_handed(left_handed);
-                self.effective
-                    .left_handed
-                    .set(Some(dev.device().left_handed()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().left_handed_available()
+        {
+            dev.device().set_left_handed(left_handed);
+            self.effective
+                .left_handed
+                .set(Some(dev.device().left_handed()));
         }
     }
 
@@ -629,13 +629,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_accel_speed(&self, speed: f64) {
         self.desired.accel_speed.set(Some(speed));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().accel_available() {
-                dev.device().set_accel_speed(speed);
-                self.effective
-                    .accel_speed
-                    .set(Some(dev.device().accel_speed()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().accel_available()
+        {
+            dev.device().set_accel_speed(speed);
+            self.effective
+                .accel_speed
+                .set(Some(dev.device().accel_speed()));
         }
     }
 
@@ -653,13 +653,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
         self.desired.calibration_matrix.set(Some(m));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().has_calibration_matrix() {
-                dev.device().set_calibration_matrix(m);
-                self.effective
-                    .calibration_matrix
-                    .set(Some(dev.device().get_calibration_matrix()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().has_calibration_matrix()
+        {
+            dev.device().set_calibration_matrix(m);
+            self.effective
+                .calibration_matrix
+                .set(Some(dev.device().get_calibration_matrix()));
         }
     }
 
@@ -677,13 +677,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_tap_enabled(&self, enabled: bool) {
         self.desired.tap_enabled.set(Some(enabled));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().tap_available() {
-                dev.device().set_tap_enabled(enabled);
-                self.effective
-                    .tap_enabled
-                    .set(Some(dev.device().tap_enabled()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().tap_available()
+        {
+            dev.device().set_tap_enabled(enabled);
+            self.effective
+                .tap_enabled
+                .set(Some(dev.device().tap_enabled()));
         }
     }
 
@@ -693,13 +693,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_drag_enabled(&self, enabled: bool) {
         self.desired.drag_enabled.set(Some(enabled));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().tap_available() {
-                dev.device().set_drag_enabled(enabled);
-                self.effective
-                    .drag_enabled
-                    .set(Some(dev.device().drag_enabled()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().tap_available()
+        {
+            dev.device().set_drag_enabled(enabled);
+            self.effective
+                .drag_enabled
+                .set(Some(dev.device().drag_enabled()));
         }
     }
 
@@ -709,13 +709,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
         self.desired.drag_lock_enabled.set(Some(enabled));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().tap_available() {
-                dev.device().set_drag_lock_enabled(enabled);
-                self.effective
-                    .drag_lock_enabled
-                    .set(Some(dev.device().drag_lock_enabled()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().tap_available()
+        {
+            dev.device().set_drag_lock_enabled(enabled);
+            self.effective
+                .drag_lock_enabled
+                .set(Some(dev.device().drag_lock_enabled()));
         }
     }
 
@@ -725,13 +725,13 @@ impl InputDevice for MetalInputDevice {
 
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         self.desired.natural_scrolling_enabled.set(Some(enabled));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().has_natural_scrolling() {
-                dev.device().set_natural_scrolling_enabled(enabled);
-                self.effective
-                    .natural_scrolling_enabled
-                    .set(Some(dev.device().natural_scrolling_enabled()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().has_natural_scrolling()
+        {
+            dev.device().set_natural_scrolling_enabled(enabled);
+            self.effective
+                .natural_scrolling_enabled
+                .set(Some(dev.device().natural_scrolling_enabled()));
         }
     }
 
@@ -763,13 +763,13 @@ impl InputDevice for MetalInputDevice {
         self.desired
             .middle_button_emulation_enabled
             .set(Some(enabled));
-        if let Some(dev) = self.inputdev.get() {
-            if dev.device().middle_button_emulation_available() {
-                dev.device().set_middle_button_emulation_enabled(enabled);
-                self.effective
-                    .middle_button_emulation_enabled
-                    .set(Some(dev.device().middle_button_emulation_enabled()));
-            }
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().middle_button_emulation_available()
+        {
+            dev.device().set_middle_button_emulation_enabled(enabled);
+            self.effective
+                .middle_button_emulation_enabled
+                .set(Some(dev.device().middle_button_emulation_enabled()));
         }
     }
 

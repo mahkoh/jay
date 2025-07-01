@@ -265,12 +265,11 @@ impl Drop for ClientHolder {
         self.data.remove_activation_tokens();
         self.data.commit_timelines.clear();
         self.data.property_changed(CL_CHANGED_DESTROYED);
-        if self.data.is_xwayland {
-            if let Some(pidfd) = self.data.state.xwayland.pidfd.get() {
-                if let Err(e) = pidfd_send_signal(&pidfd, c::SIGKILL) {
-                    log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
-                }
-            }
+        if self.data.is_xwayland
+            && let Some(pidfd) = self.data.state.xwayland.pidfd.get()
+            && let Err(e) = pidfd_send_signal(&pidfd, c::SIGKILL)
+        {
+            log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
         }
     }
 }

@@ -33,10 +33,10 @@ impl VulkanRenderer {
         let height = height as u32;
         let cached = &mut *self.blend_buffers.borrow_mut();
         let cached = cached.entry((width, height));
-        if let Entry::Occupied(entry) = &cached {
-            if let Some(buffer) = entry.get().upgrade() {
-                return Ok(buffer);
-            }
+        if let Entry::Occupied(entry) = &cached
+            && let Some(buffer) = entry.get().upgrade()
+        {
+            return Ok(buffer);
         }
         let limits = self.device.blend_limits;
         if width > limits.max_width || height > limits.max_height {

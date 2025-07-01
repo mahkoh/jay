@@ -55,11 +55,11 @@ impl JaySelectToplevelEventHandler for UsrJaySelectToplevel {
             Some(tl)
         };
         'send: {
-            if self.version >= ID_SINCE {
-                if let Some(tl) = tl {
-                    tl.owner.set(Some(slf.clone()));
-                    break 'send;
-                }
+            if self.version >= ID_SINCE
+                && let Some(tl) = tl
+            {
+                tl.owner.set(Some(slf.clone()));
+                break 'send;
             }
             self.send(tl);
         }

@@ -90,13 +90,13 @@ impl WlDataOffer {
     }
 
     pub fn send_source_actions(&self) {
-        if let Some(src) = self.data.source.get() {
-            if let Some(source_actions) = src.source_data().actions.get() {
-                self.client.event(SourceActions {
-                    self_id: self.id,
-                    source_actions,
-                })
-            }
+        if let Some(src) = self.data.source.get()
+            && let Some(source_actions) = src.source_data().actions.get()
+        {
+            self.client.event(SourceActions {
+                self_id: self.id,
+                source_actions,
+            })
         }
     }
 

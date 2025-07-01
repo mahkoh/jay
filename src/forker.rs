@@ -243,12 +243,12 @@ impl ForkerProxy {
             true => Ok((io.pop_fd().unwrap(), pid)),
             _ => Err(ForkerError::PidfdForkFailed),
         };
-        if let Some(handoff) = self.pending_pidfds.remove(&id) {
-            if let Some(handoff) = handoff.upgrade() {
-                handoff.pidfd.set(Some(res));
-                if let Some(w) = handoff.waiter.take() {
-                    w.wake();
-                }
+        if let Some(handoff) = self.pending_pidfds.remove(&id)
+            && let Some(handoff) = handoff.upgrade()
+        {
+            handoff.pidfd.set(Some(res));
+            if let Some(w) = handoff.waiter.take() {
+                w.wake();
             }
         }
     }

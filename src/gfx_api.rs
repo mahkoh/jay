@@ -937,24 +937,23 @@ pub fn create_render_pass(
             }
             if render_cursor {
                 let cursor_user_group = seat.cursor_group();
-                if render_hardware_cursor || !cursor_user_group.hardware_cursor() {
-                    if let Some(cursor_user) = cursor_user_group.active() {
-                        if let Some(cursor) = cursor_user.get() {
-                            cursor.tick();
-                            let (mut x, mut y) = cursor_user.position();
-                            x -= Fixed::from_int(rect.x1());
-                            y -= Fixed::from_int(rect.y1());
-                            cursor.render(&mut renderer, x, y);
-                        }
-                    }
+                if (render_hardware_cursor || !cursor_user_group.hardware_cursor())
+                    && let Some(cursor_user) = cursor_user_group.active()
+                    && let Some(cursor) = cursor_user.get()
+                {
+                    cursor.tick();
+                    let (mut x, mut y) = cursor_user.position();
+                    x -= Fixed::from_int(rect.x1());
+                    y -= Fixed::from_int(rect.y1());
+                    cursor.render(&mut renderer, x, y);
                 }
             }
         }
     }
-    if let Some(visualizer) = visualizer {
-        if let Some(cursor_rect) = cursor_rect {
-            visualizer.render(&cursor_rect, &mut renderer.base);
-        }
+    if let Some(visualizer) = visualizer
+        && let Some(cursor_rect) = cursor_rect
+    {
+        visualizer.render(&cursor_rect, &mut renderer.base);
     }
     let c = match black_background {
         true => Color::SOLID_BLACK,

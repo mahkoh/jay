@@ -55,10 +55,10 @@ impl XdgActivationTokenV1RequestHandler for XdgActivationTokenV1 {
         let token = activation_token();
         self.client.state.activation_tokens.set(token, ());
         let mut tokens = self.client.activation_tokens.borrow_mut();
-        if tokens.len() >= MAX_TOKENS_PER_CLIENT {
-            if let Some(oldest) = tokens.pop_front() {
-                self.client.state.activation_tokens.remove(&oldest);
-            }
+        if tokens.len() >= MAX_TOKENS_PER_CLIENT
+            && let Some(oldest) = tokens.pop_front()
+        {
+            self.client.state.activation_tokens.remove(&oldest);
         }
         tokens.push_back(token);
         self.send_done(token);

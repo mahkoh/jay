@@ -136,51 +136,51 @@ impl JayInput {
                 .map(uapi::as_bytes)
                 .unwrap_or_default(),
         });
-        if let Some(output) = data.data.output.get() {
-            if let Some(output) = output.get() {
-                self.client.event(InputDeviceOutput {
-                    self_id: self.id,
-                    id: data.id.raw(),
-                    output: &output.connector.name,
-                });
-            }
+        if let Some(output) = data.data.output.get()
+            && let Some(output) = output.get()
+        {
+            self.client.event(InputDeviceOutput {
+                self_id: self.id,
+                id: data.id.raw(),
+                output: &output.connector.name,
+            });
         }
-        if self.version >= CALIBRATION_MATRIX_SINCE {
-            if let Some(m) = dev.calibration_matrix() {
-                self.client.event(CalibrationMatrix {
-                    self_id: self.id,
-                    m00: m[0][0],
-                    m01: m[0][1],
-                    m02: m[0][2],
-                    m10: m[1][0],
-                    m11: m[1][1],
-                    m12: m[1][2],
-                });
-            }
+        if self.version >= CALIBRATION_MATRIX_SINCE
+            && let Some(m) = dev.calibration_matrix()
+        {
+            self.client.event(CalibrationMatrix {
+                self_id: self.id,
+                m00: m[0][0],
+                m01: m[0][1],
+                m02: m[0][2],
+                m10: m[1][0],
+                m11: m[1][1],
+                m12: m[1][2],
+            });
         }
-        if self.version >= CLICK_METHOD_SINCE {
-            if let Some(click_method) = dev.click_method() {
-                self.client.event(ClickMethod {
-                    self_id: self.id,
-                    click_method: match click_method {
-                        InputDeviceClickMethod::None => LIBINPUT_CONFIG_CLICK_METHOD_NONE.0,
-                        InputDeviceClickMethod::Clickfinger => {
-                            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER.0
-                        }
-                        InputDeviceClickMethod::ButtonAreas => {
-                            LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS.0
-                        }
-                    },
-                });
-            }
+        if self.version >= CLICK_METHOD_SINCE
+            && let Some(click_method) = dev.click_method()
+        {
+            self.client.event(ClickMethod {
+                self_id: self.id,
+                click_method: match click_method {
+                    InputDeviceClickMethod::None => LIBINPUT_CONFIG_CLICK_METHOD_NONE.0,
+                    InputDeviceClickMethod::Clickfinger => {
+                        LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER.0
+                    }
+                    InputDeviceClickMethod::ButtonAreas => {
+                        LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS.0
+                    }
+                },
+            });
         }
-        if self.version >= MIDDLE_BUTTON_EMULATION_SINCE {
-            if let Some(middle_button_emulation) = dev.middle_button_emulation_enabled() {
-                self.client.event(MiddleButtonEmulation {
-                    self_id: self.id,
-                    middle_button_emulation_enabled: middle_button_emulation as _,
-                });
-            }
+        if self.version >= MIDDLE_BUTTON_EMULATION_SINCE
+            && let Some(middle_button_emulation) = dev.middle_button_emulation_enabled()
+        {
+            self.client.event(MiddleButtonEmulation {
+                self_id: self.id,
+                middle_button_emulation_enabled: middle_button_emulation as _,
+            });
         }
     }
 
@@ -404,10 +404,10 @@ impl JayInputRequestHandler for JayInput {
             let seat = self.seat(req.name)?;
             self.send_seat(&seat);
             for dev in self.client.state.input_device_handlers.borrow().values() {
-                if let Some(attached) = dev.data.seat.get() {
-                    if attached.id() == seat.id() {
-                        self.send_input_device(dev);
-                    }
+                if let Some(attached) = dev.data.seat.get()
+                    && attached.id() == seat.id()
+                {
+                    self.send_input_device(dev);
                 }
             }
             Ok(())

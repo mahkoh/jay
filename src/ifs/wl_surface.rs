@@ -854,10 +854,10 @@ impl WlSurface {
                 ss.surface.set_toplevel(tl.clone());
             }
         }
-        if self.seat_state.is_active() {
-            if let Some(tl) = &tl {
-                tl.tl_surface_active_changed(true);
-            }
+        if self.seat_state.is_active()
+            && let Some(tl) = &tl
+        {
+            tl.tl_surface_active_changed(true);
         }
         self.toplevel.set(tl);
     }
@@ -977,14 +977,14 @@ impl WlSurface {
         if let Some(fs) = self.fractional_scale.get() {
             fs.send_preferred_scale();
         }
-        if let Some(xsurface) = self.ext.get().into_xsurface() {
-            if let Some(window) = xsurface.xwindow.get() {
-                self.client
-                    .state
-                    .xwayland
-                    .queue
-                    .push(XWaylandEvent::Configure(window));
-            }
+        if let Some(xsurface) = self.ext.get().into_xsurface()
+            && let Some(window) = xsurface.xwindow.get()
+        {
+            self.client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::Configure(window));
         }
     }
 }
@@ -1152,14 +1152,12 @@ impl WlSurface {
             viewport_changed = true;
             self.src_rect.set(src_rect);
         }
-        if viewport_changed {
-            if let Some(rect) = self.src_rect.get() {
-                if self.dst_size.is_none() {
-                    if !rect[2].is_integer() || !rect[3].is_integer() {
-                        return Err(WlSurfaceError::NonIntegerViewportSize);
-                    }
-                }
-            }
+        if viewport_changed
+            && let Some(rect) = self.src_rect.get()
+            && self.dst_size.is_none()
+            && (!rect[2].is_integer() || !rect[3].is_integer())
+        {
+            return Err(WlSurfaceError::NonIntegerViewportSize);
         }
         let mut color_description_changed = false;
         if let Some(desc) = pending.color_description.take() {
@@ -1360,10 +1358,10 @@ impl WlSurface {
             self.is_opaque.set(is_opaque);
         }
         let mut tearing_changed = false;
-        if let Some(tearing) = pending.tearing.take() {
-            if self.tearing.replace(tearing) != tearing {
-                tearing_changed = true;
-            }
+        if let Some(tearing) = pending.tearing.take()
+            && self.tearing.replace(tearing) != tearing
+        {
+            tearing_changed = true;
         }
         if let Some(content_type) = pending.content_type.take() {
             self.content_type.set(content_type);
@@ -1437,12 +1435,11 @@ impl WlSurface {
         pending.surface_damage.clear();
         pending.damage_full = false;
         pending.fifo_barrier_wait = false;
-        if tearing_changed {
-            if let Some(tl) = self.toplevel.get() {
-                if tl.tl_data().is_fullscreen.get() {
-                    self.output.get().update_presentation_type();
-                }
-            }
+        if tearing_changed
+            && let Some(tl) = self.toplevel.get()
+            && tl.tl_data().is_fullscreen.get()
+        {
+            self.output.get().update_presentation_type();
         }
         self.commit_version.fetch_add(1);
         Ok(())
@@ -1878,14 +1875,14 @@ impl Node for WlSurface {
     }
 
     fn node_on_focus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        if let Some(xsurface) = self.ext.get().into_xsurface() {
-            if let Some(window) = xsurface.xwindow.get() {
-                self.client
-                    .state
-                    .xwayland
-                    .queue
-                    .push(XWaylandEvent::Activate(window.data.clone()));
-            }
+        if let Some(xsurface) = self.ext.get().into_xsurface()
+            && let Some(window) = xsurface.xwindow.get()
+        {
+            self.client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::Activate(window.data.clone()));
         }
         seat.focus_surface(&self);
     }

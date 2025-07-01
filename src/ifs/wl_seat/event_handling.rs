@@ -524,10 +524,10 @@ impl WlSeatGlobal {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
         let (x, y) = self.set_pointer_cursor_position(x, y);
-        if let Some(c) = self.constraint.get() {
-            if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
-                c.deactivate(false);
-            }
+        if let Some(c) = self.constraint.get()
+            && (c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()))
+        {
+            c.deactivate(false);
         }
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
@@ -839,16 +839,16 @@ impl WlSeatGlobal {
                     if sym == self.revert_key.get().0 && mods == 0 {
                         revert_pointer_to_default = true;
                     }
-                    if !self.state.lock.locked.get() {
-                        if let Some(key_mods) = scs.get(&sym) {
-                            for (key_mods, mask) in key_mods {
-                                if mods & mask == key_mods {
-                                    shortcuts.push(InvokedShortcut {
-                                        unmasked_mods: Modifiers(mods),
-                                        effective_mods: Modifiers(key_mods),
-                                        sym: KeySym(sym),
-                                    });
-                                }
+                    if !self.state.lock.locked.get()
+                        && let Some(key_mods) = scs.get(&sym)
+                    {
+                        for (key_mods, mask) in key_mods {
+                            if mods & mask == key_mods {
+                                shortcuts.push(InvokedShortcut {
+                                    unmasked_mods: Modifiers(mods),
+                                    effective_mods: Modifiers(key_mods),
+                                    sym: KeySym(sym),
+                                });
                             }
                         }
                     }
@@ -1169,10 +1169,8 @@ impl WlSeatGlobal {
             p.send_button(serial, time, button, state)
         });
         self.surface_pointer_frame(surface);
-        if pressed {
-            if let Some(node) = surface.get_focus_node() {
-                self.focus_node_with_serial(node, serial);
-            }
+        if pressed && let Some(node) = surface.get_focus_node() {
+            self.focus_node_with_serial(node, serial);
         }
     }
 }
@@ -1225,10 +1223,10 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         'send_motion: {
-            if let Some(constraint) = self.constraint.get() {
-                if constraint.ty == ConstraintType::Lock {
-                    break 'send_motion;
-                }
+            if let Some(constraint) = self.constraint.get()
+                && constraint.ty == ConstraintType::Lock
+            {
+                break 'send_motion;
             }
             let time = (self.pos_time_usec.get() / 1000) as u32;
             self.surface_pointer_event(Version::ALL, n, |p| p.send_motion(time, x, y));
@@ -1299,10 +1297,10 @@ impl WlSeatGlobal {
 // Unfocus callbacks
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
-        if let Some(ti) = self.text_input.take() {
-            if let Some(con) = ti.connection.get() {
-                con.disconnect(TextDisconnectReason::FocusLost);
-            }
+        if let Some(ti) = self.text_input.take()
+            && let Some(con) = ti.connection.get()
+        {
+            con.disconnect(TextDisconnectReason::FocusLost);
         }
         if let Some(tis) = self.text_inputs.borrow().get(&surface.client.id) {
             for ti in tis.lock().values() {

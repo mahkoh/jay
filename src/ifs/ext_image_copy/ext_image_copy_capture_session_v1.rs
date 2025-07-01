@@ -125,10 +125,10 @@ impl ExtImageCopyCaptureSessionV1 {
     }
 
     fn stop_pending_frame(&self) {
-        if let Some(frame) = self.frame.get() {
-            if let FrameStatus::Capturing | FrameStatus::Captured = self.status.get() {
-                frame.fail(FrameFailureReason::Stopped);
-            }
+        if let Some(frame) = self.frame.get()
+            && let FrameStatus::Capturing | FrameStatus::Captured = self.status.get()
+        {
+            frame.fail(FrameFailureReason::Stopped);
         }
     }
 
@@ -223,22 +223,22 @@ impl ExtImageCopyCaptureSessionV1 {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        if self.status.get() == FrameStatus::Capturing {
-            if let Some(frame) = self.frame.get() {
-                frame.copy_texture(
-                    on,
-                    texture,
-                    cd,
-                    resv,
-                    acquire_sync,
-                    release_sync,
-                    render_hardware_cursors,
-                    x_off,
-                    y_off,
-                    size,
-                );
-                return;
-            }
+        if self.status.get() == FrameStatus::Capturing
+            && let Some(frame) = self.frame.get()
+        {
+            frame.copy_texture(
+                on,
+                texture,
+                cd,
+                resv,
+                acquire_sync,
+                release_sync,
+                render_hardware_cursors,
+                x_off,
+                y_off,
+                size,
+            );
+            return;
         }
         self.force_capture.set(true);
     }

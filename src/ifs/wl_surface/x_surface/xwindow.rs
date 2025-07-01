@@ -183,10 +183,10 @@ impl XwindowData {
 
     pub fn title_changed(&self) {
         let title = self.info.title.borrow_mut();
-        if let Some(w) = self.window.get() {
-            if let Some(p) = w.toplevel_data.parent.get() {
-                p.node_child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
-            }
+        if let Some(w) = self.window.get()
+            && let Some(p) = w.toplevel_data.parent.get()
+        {
+            p.node_child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
         }
     }
 }

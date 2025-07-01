@@ -79,13 +79,12 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
 
 impl ExtSessionLockSurfaceV1 {
     pub fn destroy_node(&self) {
-        if let Some(output) = &self.output.node() {
-            if let Some(ls) = output.lock_surface.get() {
-                if ls.node_id == self.node_id {
-                    output.set_lock_surface(None);
-                    self.client.state.tree_changed();
-                }
-            }
+        if let Some(output) = &self.output.node()
+            && let Some(ls) = output.lock_surface.get()
+            && ls.node_id == self.node_id
+        {
+            output.set_lock_surface(None);
+            self.client.state.tree_changed();
         }
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);

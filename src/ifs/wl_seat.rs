@@ -442,14 +442,14 @@ impl WlSeatGlobal {
     }
 
     fn maybe_constrain_pointer_node(&self) {
-        if let Some(pn) = self.pointer_node() {
-            if let Some(surface) = pn.node_into_surface() {
-                let (mut x, mut y) = self.pointer_cursor.position();
-                let (sx, sy) = surface.buffer_abs_pos.get().position();
-                x -= Fixed::from_int(sx);
-                y -= Fixed::from_int(sy);
-                self.maybe_constrain(&surface, x, y);
-            }
+        if let Some(pn) = self.pointer_node()
+            && let Some(surface) = pn.node_into_surface()
+        {
+            let (mut x, mut y) = self.pointer_cursor.position();
+            let (sx, sy) = surface.buffer_abs_pos.get().position();
+            x -= Fixed::from_int(sx);
+            y -= Fixed::from_int(sy);
+            self.maybe_constrain(&surface, x, y);
         }
     }
 
@@ -513,10 +513,10 @@ impl WlSeatGlobal {
     }
 
     pub fn get_kb_state(&self, keymap: &Rc<KbvmMap>) -> Rc<RefCell<KbvmState>> {
-        if let Some(weak) = self.kb_states.get(&keymap.id) {
-            if let Some(state) = weak.upgrade() {
-                return state;
-            }
+        if let Some(weak) = self.kb_states.get(&keymap.id)
+            && let Some(state) = weak.upgrade()
+        {
+            return state;
         }
         self.kb_states
             .lock()
@@ -548,13 +548,12 @@ impl WlSeatGlobal {
     }
 
     pub fn set_mono(&self, mono: bool) {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            if let Some(parent) = tl.tl_data().parent.get() {
-                if let Some(container) = parent.node_into_container() {
-                    let node = if mono { Some(tl.deref()) } else { None };
-                    container.set_mono(node);
-                }
-            }
+        if let Some(tl) = self.keyboard_node.get().node_toplevel()
+            && let Some(parent) = tl.tl_data().parent.get()
+            && let Some(container) = parent.node_into_container()
+        {
+            let node = if mono { Some(tl.deref()) } else { None };
+            container.set_mono(node);
         }
     }
 
@@ -573,12 +572,11 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            if let Some(parent) = tl.tl_data().parent.get() {
-                if let Some(tl) = parent.node_toplevel() {
-                    self.focus_node(tl);
-                }
-            }
+        if let Some(tl) = self.keyboard_node.get().node_toplevel()
+            && let Some(parent) = tl.tl_data().parent.get()
+            && let Some(tl) = parent.node_toplevel()
+        {
+            self.focus_node(tl);
         }
     }
 
@@ -642,12 +640,11 @@ impl WlSeatGlobal {
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
-        if let Some(tl) = kb_node.node_toplevel() {
-            if let Some(parent) = tl.tl_data().parent.get() {
-                if let Some(c) = parent.node_into_container() {
-                    c.move_child(tl, direction);
-                }
-            }
+        if let Some(tl) = kb_node.node_toplevel()
+            && let Some(parent) = tl.tl_data().parent.get()
+            && let Some(c) = parent.node_into_container()
+        {
+            c.move_child(tl, direction);
         }
     }
 
@@ -662,10 +659,10 @@ impl WlSeatGlobal {
         X: ipc::IpcVtable<Device = XIpcDevice>,
         S: DynDataSource,
     {
-        if let (Some(new), Some(old)) = (&src, &field.get()) {
-            if new.source_data().id == old.source_data().id {
-                return Ok(());
-            }
+        if let (Some(new), Some(old)) = (&src, &field.get())
+            && new.source_data().id == old.source_data().id
+        {
+            return Ok(());
         }
         if let Some(new) = &src {
             ipc::attach_seat(&**new, self, ipc::Role::Selection)?;
@@ -753,10 +750,10 @@ impl WlSeatGlobal {
         if let Some(serial) = serial {
             self.selection_serial.set(serial);
         }
-        if let Some(selection) = &selection {
-            if selection.toplevel_drag.is_some() {
-                return Err(WlSeatError::OfferHasDrag);
-            }
+        if let Some(selection) = &selection
+            && selection.toplevel_drag.is_some()
+        {
+            return Err(WlSeatError::OfferHasDrag);
         }
         self.set_selection(selection)
     }
@@ -784,10 +781,10 @@ impl WlSeatGlobal {
     }
 
     pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: Option<u64>) -> bool {
-        if let Some(serial) = serial {
-            if serial < self.primary_selection_serial.get() {
-                return false;
-            }
+        if let Some(serial) = serial
+            && serial < self.primary_selection_serial.get()
+        {
+            return false;
         }
         self.keyboard_node.get().node_client_id() == Some(client.id)
             || self.pointer_node().and_then(|n| n.node_client_id()) == Some(client.id)
@@ -935,10 +932,10 @@ impl WlSeatGlobal {
         if let Some(icon) = self.dnd_icon() {
             icon.surface().set_visible(visible);
         }
-        if let Some(tl_drag) = self.toplevel_drag() {
-            if let Some(tl) = tl_drag.toplevel.get() {
-                tl.tl_set_visible(visible);
-            }
+        if let Some(tl_drag) = self.toplevel_drag()
+            && let Some(tl) = tl_drag.toplevel.get()
+        {
+            tl.tl_set_visible(visible);
         }
         if let Some(im) = self.input_method.get() {
             for (_, popup) in &im.popups {
@@ -1086,10 +1083,10 @@ impl CursorUserOwner for WlSeatGlobal {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
             dnd.surface().set_output(output);
         }
-        if let Some(drag) = self.pointer_owner.toplevel_drag() {
-            if let Some(tl) = drag.toplevel.get() {
-                tl.xdg.set_output(output);
-            }
+        if let Some(drag) = self.pointer_owner.toplevel_drag()
+            && let Some(tl) = drag.toplevel.get()
+        {
+            tl.xdg.set_output(output);
         }
     }
 }
@@ -1161,20 +1158,20 @@ impl WlSeatRequestHandler for WlSeat {
             .global
             .pointer_node()
             .and_then(|n| n.node_into_surface());
-        if let Some(surface) = surface {
-            if surface.client.id == self.client.id {
-                let (x, y) = self.global.pointer_cursor.position();
-                let (x_int, y_int) = surface
-                    .buffer_abs_pos
-                    .get()
-                    .translate(x.round_down(), y.round_down());
-                p.send_enter(
-                    self.client.next_serial(),
-                    surface.id,
-                    x.apply_fract(x_int),
-                    y.apply_fract(y_int),
-                );
-            }
+        if let Some(surface) = surface
+            && surface.client.id == self.client.id
+        {
+            let (x, y) = self.global.pointer_cursor.position();
+            let (x_int, y_int) = surface
+                .buffer_abs_pos
+                .get()
+                .translate(x.round_down(), y.round_down());
+            p.send_enter(
+                self.client.next_serial(),
+                surface.id,
+                x.apply_fract(x_int),
+                y.apply_fract(y_int),
+            );
         }
         Ok(())
     }
@@ -1184,14 +1181,14 @@ impl WlSeatRequestHandler for WlSeat {
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
-        if let Some(surface) = self.global.keyboard_node.get().node_into_surface() {
-            if surface.client.id == self.client.id {
-                p.enter(
-                    self.client.next_serial(),
-                    surface.id,
-                    &self.global.seat_kb_state.get().borrow().kb_state,
-                );
-            }
+        if let Some(surface) = self.global.keyboard_node.get().node_into_surface()
+            && surface.client.id == self.client.id
+        {
+            p.enter(
+                self.client.next_serial(),
+                surface.id,
+                &self.global.seat_kb_state.get().borrow().kb_state,
+            );
         }
         if self.version >= REPEAT_INFO_SINCE {
             let (rate, delay) = self.global.repeat_rate.get();
@@ -1277,10 +1274,10 @@ pub fn collect_kb_foci(node: Rc<dyn Node>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
 impl DeviceHandlerData {
     pub fn set_seat(&self, seat: Option<Rc<WlSeatGlobal>>) {
         if let Some(new) = &seat {
-            if let Some(old) = self.seat.get() {
-                if old.id() == new.id() {
-                    return;
-                }
+            if let Some(old) = self.seat.get()
+                && old.id() == new.id()
+            {
+                return;
             }
         } else {
             if self.seat.is_none() {
@@ -1340,10 +1337,10 @@ impl DeviceHandlerData {
     }
 
     pub fn get_rect(&self, state: &State) -> Rect {
-        if let Some(output) = self.output.get() {
-            if let Some(output) = output.get() {
-                return output.pos.get();
-            }
+        if let Some(output) = self.output.get()
+            && let Some(output) = output.get()
+        {
+            return output.pos.get();
         }
         state.root.extents.get()
     }

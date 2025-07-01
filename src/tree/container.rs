@@ -593,12 +593,12 @@ impl ContainerNode {
         if let Some(op) = &seat_state.op {
             match op.kind {
                 SeatOpKind::Move => {
-                    if let CursorType::Seat(_) = id {
-                        if self.state.ui_drag_threshold_reached((x, y), (op.x, op.y)) {
-                            let node = op.child.node.clone();
-                            drop(seats);
-                            seat.start_tile_drag(&node);
-                        }
+                    if let CursorType::Seat(_) = id
+                        && self.state.ui_drag_threshold_reached((x, y), (op.x, op.y))
+                    {
+                        let node = op.child.node.clone();
+                        drop(seats);
+                        seat.start_tile_drag(&node);
                     }
                 }
                 SeatOpKind::Resize {
@@ -1004,13 +1004,14 @@ impl ContainerNode {
     pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
-            if let Some(parent) = self.toplevel_data.parent.get() {
-                if !self.toplevel_data.is_fullscreen.get() && parent.cnode_accepts_child(&*child) {
-                    parent.cnode_replace_child(self.deref(), child.clone());
-                    self.toplevel_data.parent.take();
-                    self.child_nodes.borrow_mut().clear();
-                    self.tl_destroy();
-                }
+            if let Some(parent) = self.toplevel_data.parent.get()
+                && !self.toplevel_data.is_fullscreen.get()
+                && parent.cnode_accepts_child(&*child)
+            {
+                parent.cnode_replace_child(self.deref(), child.clone());
+                self.toplevel_data.parent.take();
+                self.child_nodes.borrow_mut().clear();
+                self.tl_destroy();
             }
             return;
         }
@@ -1028,17 +1029,17 @@ impl ContainerNode {
                 false => cc.next(),
             };
             if let Some(neighbor) = neighbor {
-                if let Some(cn) = neighbor.node.clone().node_into_container() {
-                    if cn.cnode_accepts_child(&*child) {
-                        if let Some(mc) = self.mono_child.get() {
-                            if mc.node.node_id() == child.node_id() {
-                                self.activate_child2(&neighbor, true);
-                            }
-                        }
-                        self.cnode_remove_child2(&*child, true);
-                        cn.insert_child(child, direction);
-                        return;
+                if let Some(cn) = neighbor.node.clone().node_into_container()
+                    && cn.cnode_accepts_child(&*child)
+                {
+                    if let Some(mc) = self.mono_child.get()
+                        && mc.node.node_id() == child.node_id()
+                    {
+                        self.activate_child2(&neighbor, true);
                     }
+                    self.cnode_remove_child2(&*child, true);
+                    cn.insert_child(child, direction);
+                    return;
                 }
                 match prev {
                     true => neighbor.prepend_existing(&cc),
@@ -1118,11 +1119,11 @@ impl ContainerNode {
         let rect = Rect::new(0, 0, width, height).unwrap();
         node.content.set(rect);
         node.position_content();
-        if let Some(mono) = self.mono_child.get() {
-            if mono.node.node_id() == node.node.node_id() {
-                let body = self.mono_body.get();
-                self.mono_content.set(rect.at_point(body.x1(), body.y1()));
-            }
+        if let Some(mono) = self.mono_child.get()
+            && mono.node.node_id() == node.node.node_id()
+        {
+            let body = self.mono_body.get();
+            self.mono_content.set(rect.at_point(body.x1(), body.y1()));
         }
     }
 
@@ -1154,10 +1155,8 @@ impl ContainerNode {
         if set || propagate {
             self.toplevel_data.set_wants_attention(set);
         }
-        if propagate {
-            if let Some(parent) = self.toplevel_data.parent.get() {
-                parent.cnode_child_attention_request_changed(self, set);
-            }
+        if propagate && let Some(parent) = self.toplevel_data.parent.get() {
+            parent.cnode_child_attention_request_changed(self, set);
         }
     }
 
@@ -1751,10 +1750,10 @@ impl Node for ContainerNode {
     ) {
         let id = CursorType::TabletTool(tool.id);
         self.pointer_move(tool.seat(), id, tool.cursor(), x, y, false);
-        if let Some(changes) = changes {
-            if let Some(pressed) = changes.down {
-                self.button(id, tool.seat(), time_usec, pressed, BTN_LEFT);
-            }
+        if let Some(changes) = changes
+            && let Some(pressed) = changes.down
+        {
+            self.button(id, tool.seat(), time_usec, pressed, BTN_LEFT);
         }
     }
 
@@ -2047,14 +2046,13 @@ impl ContainingNode for ContainerNode {
         if bottom_outside {
             y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + th + 1));
         }
-        if (x1.is_some() && x1 != Some(pos.x1()))
+        if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))
             || (y1.is_some() && y1 != Some(pos.y1()))
-            || (y2.is_some() && y2 != Some(pos.y2()))
+            || (y2.is_some() && y2 != Some(pos.y2())))
+            && let Some(parent) = self.toplevel_data.parent.get()
         {
-            if let Some(parent) = self.toplevel_data.parent.get() {
-                parent.cnode_resize_child(&*self, x1, y1, x2, y2);
-            }
+            parent.cnode_resize_child(&*self, x1, y1, x2, y2);
         }
     }
 

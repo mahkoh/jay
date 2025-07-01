@@ -37,15 +37,15 @@ impl ZwpLinuxDmabufV1Global {
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
-        if version < FEEDBACK_SINCE_VERSION {
-            if let Some(ctx) = client.state.render_ctx.get() {
-                let formats = ctx.formats();
-                for format in formats.values() {
-                    obj.send_format(format.format.drm);
-                    if version >= MODIFIERS_SINCE_VERSION {
-                        for &modifier in &format.read_modifiers {
-                            obj.send_modifier(format.format.drm, modifier);
-                        }
+        if version < FEEDBACK_SINCE_VERSION
+            && let Some(ctx) = client.state.render_ctx.get()
+        {
+            let formats = ctx.formats();
+            for format in formats.values() {
+                obj.send_format(format.format.drm);
+                if version >= MODIFIERS_SINCE_VERSION {
+                    for &modifier in &format.read_modifiers {
+                        obj.send_modifier(format.format.drm, modifier);
                     }
                 }
             }

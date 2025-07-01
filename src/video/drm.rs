@@ -165,10 +165,8 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
             break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
         }
-        if !need_primary {
-            if let Ok(path) = render_node_name(fd) {
-                break 'path path;
-            }
+        if !need_primary && let Ok(path) = render_node_name(fd) {
+            break 'path path;
         }
         device_node_name(fd)?
     };
@@ -441,10 +439,10 @@ impl DrmMaster {
             Err(e) => return Err(DrmError::GemHandle(e)),
         };
         let mut handles = self.gem_handles.borrow_mut();
-        if let Some(h) = handles.get(&handle) {
-            if let Some(h) = h.upgrade() {
-                return Ok(h);
-            }
+        if let Some(h) = handles.get(&handle)
+            && let Some(h) = h.upgrade()
+        {
+            return Ok(h);
         }
         let h = Rc::new(GemHandle {
             master: self.clone(),

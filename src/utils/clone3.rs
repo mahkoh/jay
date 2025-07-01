@@ -133,13 +133,12 @@ pub fn double_fork() -> Result<Option<OwnedFd>, ForkerError> {
 }
 
 pub fn ensure_reaper() -> c::pid_t {
-    if let Ok(id) = env::var(REAPER_VAR) {
-        if let Ok(id) = c::pid_t::from_str(&id) {
-            if uapi::getppid() == id {
-                set_deathsig();
-                return id;
-            }
-        }
+    if let Ok(id) = env::var(REAPER_VAR)
+        && let Ok(id) = c::pid_t::from_str(&id)
+        && uapi::getppid() == id
+    {
+        set_deathsig();
+        return id;
     }
     let reaper_pid = uapi::getpid();
     unsafe {

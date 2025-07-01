@@ -64,17 +64,17 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         track!(new.client, new);
         new.install()?;
         self.client.add_client_obj(&new)?;
-        if !self.finished.get() {
-            if let Some(node) = output.global.node() {
-                if node.lock_surface.is_some() {
-                    return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
-                }
-                node.set_lock_surface(Some(new.clone()));
-                let pos = node.global.pos.get();
-                new.change_extents(pos);
-                new.surface.set_output(&node);
-                self.client.state.tree_changed();
+        if !self.finished.get()
+            && let Some(node) = output.global.node()
+        {
+            if node.lock_surface.is_some() {
+                return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
             }
+            node.set_lock_surface(Some(new.clone()));
+            let pos = node.global.pos.get();
+            new.change_extents(pos);
+            new.surface.set_output(&node);
+            self.client.state.tree_changed();
         }
         Ok(())
     }

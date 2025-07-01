@@ -78,14 +78,14 @@ impl CursorUserGroup {
     }
 
     fn damage_active(&self) {
-        if let Some(active) = self.active.get() {
-            if let Some(cursor) = active.cursor.get() {
-                let (x, y) = active.pos.get();
-                let x_int = x.round_down();
-                let y_int = y.round_down();
-                let extents = cursor.extents_at_scale(Scale::default());
-                self.state.damage2(true, extents.move_(x_int, y_int));
-            }
+        if let Some(active) = self.active.get()
+            && let Some(cursor) = active.cursor.get()
+        {
+            let (x, y) = active.pos.get();
+            let x_int = x.round_down();
+            let y_int = y.round_down();
+            let extents = cursor.extents_at_scale(Scale::default());
+            self.state.damage2(true, extents.move_(x_int, y_int));
         }
     }
 
@@ -136,10 +136,10 @@ impl CursorUserGroup {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        if let Some(user) = self.active.get() {
-            if let Some(cursor) = user.cursor.get() {
-                cursor.set_visible(visible);
-            }
+        if let Some(user) = self.active.get()
+            && let Some(cursor) = user.cursor.get()
+        {
+            cursor.set_visible(visible);
         }
     }
 
@@ -369,11 +369,11 @@ impl CursorUser {
 
     fn set_cursor2(&self, cursor: Option<Rc<dyn Cursor>>) {
         if let Some(old) = self.cursor.get() {
-            if let Some(new) = cursor.as_ref() {
-                if rc_eq(&old, new) {
-                    self.update_hardware_cursor();
-                    return;
-                }
+            if let Some(new) = cursor.as_ref()
+                && rc_eq(&old, new)
+            {
+                self.update_hardware_cursor();
+                return;
             }
             old.handle_unset();
             if self.software_cursor() {
@@ -409,17 +409,17 @@ impl CursorUser {
             x = x.apply_fract(x_tmp);
             y = y.apply_fract(y_tmp);
         }
-        if self.software_cursor() {
-            if let Some(cursor) = self.cursor.get() {
-                let (old_x, old_y) = self.pos.get();
-                let old_x_int = old_x.round_down();
-                let old_y_int = old_y.round_down();
-                let extents = cursor.extents_at_scale(Scale::default());
-                self.group
-                    .state
-                    .damage2(true, extents.move_(old_x_int, old_y_int));
-                self.group.state.damage2(true, extents.move_(x_int, y_int));
-            }
+        if self.software_cursor()
+            && let Some(cursor) = self.cursor.get()
+        {
+            let (old_x, old_y) = self.pos.get();
+            let old_x_int = old_x.round_down();
+            let old_y_int = old_y.round_down();
+            let extents = cursor.extents_at_scale(Scale::default());
+            self.group
+                .state
+                .damage2(true, extents.move_(old_x_int, old_y_int));
+            self.group.state.damage2(true, extents.move_(x_int, y_int));
         }
         self.pos.set((x, y));
         self.update_hardware_cursor_(false);

@@ -444,10 +444,11 @@ impl ToplevelData {
             return;
         }
         self.changed_properties.set(props | change);
-        if props.is_none() && change.is_some() {
-            if let Some(node) = self.slf.upgrade() {
-                mgr.changed(node);
-            }
+        if props.is_none()
+            && change.is_some()
+            && let Some(node) = self.slf.upgrade()
+        {
+            mgr.changed(node);
         }
     }
 
@@ -878,10 +879,10 @@ pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: Cont
 }
 
 pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNode>> {
-    if let Some(parent) = tl.tl_data().parent.get() {
-        if let Some(container) = parent.node_into_container() {
-            return Some(container);
-        }
+    if let Some(parent) = tl.tl_data().parent.get()
+        && let Some(container) = parent.node_into_container()
+    {
+        return Some(container);
     }
     None
 }

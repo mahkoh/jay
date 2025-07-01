@@ -102,13 +102,13 @@ impl Incoming {
                     Some(e) => XconError::ExtensionError(e, code),
                     _ => XconError::CoreError(code),
                 };
-                if let Some(first) = reply_handlers.front() {
-                    if first.serial() == serial {
-                        let handler = reply_handlers.pop_front().unwrap();
-                        drop(reply_handlers);
-                        handler.handle_error(e);
-                        break 'handle_error;
-                    }
+                if let Some(first) = reply_handlers.front()
+                    && first.serial() == serial
+                {
+                    let handler = reply_handlers.pop_front().unwrap();
+                    drop(reply_handlers);
+                    handler.handle_error(e);
+                    break 'handle_error;
                 }
                 log::error!(
                     "Received an error with no corresponding handler: {}",
@@ -116,36 +116,32 @@ impl Incoming {
                 );
             }
             1 => {
-                if let Some(first) = reply_handlers.front() {
-                    if first.serial() == serial {
-                        let handler = reply_handlers.pop_front().unwrap();
-                        drop(reply_handlers);
-                        let mut fds = vec![];
-                        if handler.has_fds() {
-                            let num_fds = msg_buf[1] as usize;
-                            if self.incoming.fds.len() < num_fds {
-                                return Err(XconError::MissingFds);
-                            }
-                            fds.extend(self.incoming.fds.drain(..num_fds));
+                if let Some(first) = reply_handlers.front()
+                    && first.serial() == serial
+                {
+                    let handler = reply_handlers.pop_front().unwrap();
+                    drop(reply_handlers);
+                    let mut fds = vec![];
+                    if handler.has_fds() {
+                        let num_fds = msg_buf[1] as usize;
+                        if self.incoming.fds.len() < num_fds {
+                            return Err(XconError::MissingFds);
                         }
-                        let length =
-                            u32::from_ne_bytes([msg_buf[4], msg_buf[5], msg_buf[6], msg_buf[7]])
-                                as usize;
-                        if length > MAX_LENGTH_UNITS {
-                            return Err(XconError::ExcessiveMessageSize);
-                        }
-                        let length = length * 4;
-                        self.incoming.fill_msg_buf(length, &mut msg_buf).await?;
-                        let mut parser = unsafe {
-                            let msg_buf = mem::transmute::<&[u8], &'static [u8]>(&msg_buf[..]);
-                            Parser::new(msg_buf, fds)
-                        };
-                        handler.handle_result(
-                            &self.socket,
-                            &mut parser,
-                            mem::take(&mut msg_buf),
-                        )?;
+                        fds.extend(self.incoming.fds.drain(..num_fds));
                     }
+                    let length =
+                        u32::from_ne_bytes([msg_buf[4], msg_buf[5], msg_buf[6], msg_buf[7]])
+                            as usize;
+                    if length > MAX_LENGTH_UNITS {
+                        return Err(XconError::ExcessiveMessageSize);
+                    }
+                    let length = length * 4;
+                    self.incoming.fill_msg_buf(length, &mut msg_buf).await?;
+                    let mut parser = unsafe {
+                        let msg_buf = mem::transmute::<&[u8], &'static [u8]>(&msg_buf[..]);
+                        Parser::new(msg_buf, fds)
+                    };
+                    handler.handle_result(&self.socket, &mut parser, mem::take(&mut msg_buf))?;
                 }
             }
             ev => 'handle_event: {

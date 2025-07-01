@@ -77,10 +77,10 @@ impl ExtWorkspaceHandleV1 {
         };
         let mut state = 0;
         let output = ws.output.get();
-        if let Some(active) = output.workspace.get() {
-            if active.id == ws.id {
-                state |= STATE_ACTIVE;
-            }
+        if let Some(active) = output.workspace.get()
+            && active.id == ws.id
+        {
+            state |= STATE_ACTIVE;
         }
         if ws.attention_requests.active() {
             state |= STATE_URGENT;

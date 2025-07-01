@@ -107,13 +107,13 @@ where
     pub fn run(self) {
         let n = self.node;
         n.needs_event.set(true);
-        if n.new_data != n.data {
-            if let Some(on_unmatch) = n.on_unmatch.take() {
-                if n.leaf.strong_count() == 0 {
-                    return;
-                }
-                on_unmatch();
+        if n.new_data != n.data
+            && let Some(on_unmatch) = n.on_unmatch.take()
+        {
+            if n.leaf.strong_count() == 0 {
+                return;
             }
+            on_unmatch();
         }
         n.data.set(n.new_data.get());
         if n.data.is_some() != n.on_unmatch.is_some() {

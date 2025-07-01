@@ -45,10 +45,10 @@ impl VulkanShmImage {
         damage: Option<&[Rect]>,
     ) -> Result<(), VulkanError> {
         img.renderer.check_defunct()?;
-        if let Some(damage) = damage {
-            if damage.is_empty() {
-                return Ok(());
-            }
+        if let Some(damage) = damage
+            && damage.is_empty()
+        {
+            return Ok(());
         }
         let copy = |full: bool, off, x, y, width, height| {
             let mut builder = BufferImageCopy2::default()
@@ -169,10 +169,10 @@ impl VulkanShmImage {
                 .dst_stage_mask(dsm)
         };
         let mut transfer_queue_family_idx = img.renderer.device.graphics_queue_idx;
-        if use_transfer_queue {
-            if let Some(idx) = img.renderer.device.distinct_transfer_queue_family_idx {
-                transfer_queue_family_idx = idx;
-            }
+        if use_transfer_queue
+            && let Some(idx) = img.renderer.device.distinct_transfer_queue_family_idx
+        {
+            transfer_queue_family_idx = idx;
         }
         let mut initial_image_barrier = image_barrier()
             .image(img.image)

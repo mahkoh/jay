@@ -670,11 +670,12 @@ impl VulkanRenderer {
                             for pos in &memory.fill_targets[f.range.clone()] {
                                 memory.data_buffer.extend_from_slice(uapi::as_bytes(pos));
                             }
-                            if let Some(VulkanOp::Fill(p)) = mops.last_mut() {
-                                if p.color == f.color && idx > 0 {
-                                    p.instances += f.instances;
-                                    continue;
-                                }
+                            if let Some(VulkanOp::Fill(p)) = mops.last_mut()
+                                && p.color == f.color
+                                && idx > 0
+                            {
+                                p.instances += f.instances;
+                                continue;
                             }
                             mops.push(VulkanOp::Fill(f));
                         }
@@ -874,10 +875,10 @@ impl VulkanRenderer {
         })?;
         for ops in memory.ops.values_mut() {
             for op in ops {
-                if let VulkanOp::Tex(c) = op {
-                    if let Some(addr) = &mut c.color_management_data_address {
-                        *addr += buffer.buffer.address;
-                    }
+                if let VulkanOp::Tex(c) = op
+                    && let Some(addr) = &mut c.color_management_data_address
+                {
+                    *addr += buffer.buffer.address;
                 }
             }
         }
@@ -1037,28 +1038,28 @@ impl VulkanRenderer {
         let mut load_clear = None;
         let mut manual_clear = None;
         let clear_rects = &memory.clear_rects[pass];
-        if let Some(clear) = clear {
-            if clear_rects.is_not_empty() {
-                let color = memory
-                    .color_transforms
-                    .apply_to_color(clear_cd, target_cd, *clear);
-                let clear_value = ClearValue {
-                    color: ClearColorValue {
-                        float32: color.to_array(target_cd.transfer_function),
-                    },
-                };
-                let use_load_clear = clear_rects.len() == 1 && {
-                    let rect = &clear_rects[0].rect;
-                    rect.offset.x == 0
-                        && rect.offset.y == 0
-                        && rect.extent.width == target.width
-                        && rect.extent.height == target.height
-                };
-                if use_load_clear {
-                    load_clear = Some(clear_value);
-                } else {
-                    manual_clear = Some(clear_value);
-                }
+        if let Some(clear) = clear
+            && clear_rects.is_not_empty()
+        {
+            let color = memory
+                .color_transforms
+                .apply_to_color(clear_cd, target_cd, *clear);
+            let clear_value = ClearValue {
+                color: ClearColorValue {
+                    float32: color.to_array(target_cd.transfer_function),
+                },
+            };
+            let use_load_clear = clear_rects.len() == 1 && {
+                let rect = &clear_rects[0].rect;
+                rect.offset.x == 0
+                    && rect.offset.y == 0
+                    && rect.extent.width == target.width
+                    && rect.extent.height == target.height
+            };
+            if use_load_clear {
+                load_clear = Some(clear_value);
+            } else {
+                manual_clear = Some(clear_value);
             }
         }
         let mut rendering_attachment_info = RenderingAttachmentInfo::default()
@@ -1560,11 +1561,11 @@ impl VulkanRenderer {
                 if let Some(resv) = resv {
                     resv.set_sync_file(self.buffer_resv_user, sync_file);
                 } else if sync == ReleaseSync::Implicit {
-                    if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                        if let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file) {
-                            log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
-                            log::warn!("Relying on implicit sync");
-                        }
+                    if let VulkanImageMemory::DmaBuf(buf) = &img.ty
+                        && let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file)
+                    {
+                        log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
+                        log::warn!("Relying on implicit sync");
                     }
                 }
             };
@@ -1577,20 +1578,18 @@ impl VulkanRenderer {
                 texture.resv.take(),
                 DMA_BUF_SYNC_READ,
             );
-            if attach_async_shm_sync_file {
-                if let VulkanImageMemory::Internal(shm) = &texture.tex.ty {
-                    if let Some(data) = &shm.async_data {
-                        data.last_gfx_use.set(Some(sync_file.clone()));
-                    }
-                }
+            if attach_async_shm_sync_file
+                && let VulkanImageMemory::Internal(shm) = &texture.tex.ty
+                && let Some(data) = &shm.async_data
+            {
+                data.last_gfx_use.set(Some(sync_file.clone()));
             }
         }
-        if attach_async_shm_sync_file {
-            if let VulkanImageMemory::Internal(shm) = &fb.ty {
-                if let Some(data) = &shm.async_data {
-                    data.last_gfx_use.set(Some(sync_file.clone()));
-                }
-            }
+        if attach_async_shm_sync_file
+            && let VulkanImageMemory::Internal(shm) = &fb.ty
+            && let Some(data) = &shm.async_data
+        {
+            data.last_gfx_use.set(Some(sync_file.clone()));
         }
         import(fb, fb_release_sync, None, DMA_BUF_SYNC_WRITE);
     }
@@ -1750,10 +1749,10 @@ impl VulkanRenderer {
                 GfxApiOpt::FillRect(f) => (f.effective_color().is_opaque(), f.rect),
                 GfxApiOpt::CopyTexture(c) => {
                     let opaque = 'opaque: {
-                        if let Some(a) = c.alpha {
-                            if a < 1.0 {
-                                break 'opaque false;
-                            }
+                        if let Some(a) = c.alpha
+                            && a < 1.0
+                        {
+                            break 'opaque false;
                         }
                         if !c.opaque {
                             let tex = c.tex.as_vk(&self.device.device);

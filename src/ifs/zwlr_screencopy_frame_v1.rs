@@ -111,16 +111,14 @@ impl ZwlrScreencopyFrameV1 {
             return Err(ZwlrScreencopyFrameV1Error::InvalidBufferFormat);
         }
         buffer.update_framebuffer()?;
-        if let Some(WlBufferStorage::Shm { stride, .. }) = buffer.storage.borrow_mut().deref() {
-            if *stride != self.rect.width() * 4 {
-                return Err(ZwlrScreencopyFrameV1Error::InvalidBufferStride);
-            }
+        if let Some(WlBufferStorage::Shm { stride, .. }) = buffer.storage.borrow_mut().deref()
+            && *stride != self.rect.width() * 4
+        {
+            return Err(ZwlrScreencopyFrameV1Error::InvalidBufferStride);
         }
         self.buffer.set(Some(buffer));
-        if !with_damage {
-            if let Some(global) = self.output.get() {
-                global.connector.damage();
-            }
+        if !with_damage && let Some(global) = self.output.get() {
+            global.connector.damage();
         }
         self.with_damage.set(with_damage);
         node.screencopies

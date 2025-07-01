@@ -179,10 +179,10 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         };
         let dev_id = drm.dev();
         let mut render_ctx = None;
-        if let Some(ctx) = self.state.render_ctxs.get(&dev_id) {
-            if let Some(ctx) = ctx.upgrade() {
-                render_ctx = Some(ctx);
-            }
+        if let Some(ctx) = self.state.render_ctxs.get(&dev_id)
+            && let Some(ctx) = ctx.upgrade()
+        {
+            render_ctx = Some(ctx);
         }
         if render_ctx.is_none() {
             let ctx = match create_gfx_context(
@@ -553,10 +553,10 @@ pub(super) async fn watch_displays(state: Rc<PortalState>) {
             }
         };
         for event in events {
-            if event.mask.contains(c::IN_CREATE) {
-                if let Ok(s) = std::str::from_utf8(event.name().as_ustr().as_bytes()) {
-                    maybe_add_display(&state, s).await;
-                }
+            if event.mask.contains(c::IN_CREATE)
+                && let Ok(s) = std::str::from_utf8(event.name().as_ustr().as_bytes())
+            {
+                maybe_add_display(&state, s).await;
             }
         }
     }

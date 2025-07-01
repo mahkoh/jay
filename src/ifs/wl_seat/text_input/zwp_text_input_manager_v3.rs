@@ -87,11 +87,11 @@ impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
             .entry(self.client.id)
             .or_default()
             .set(req.id, ti.clone());
-        if let Some(surface) = seat.global.keyboard_node.get().node_into_surface() {
-            if surface.client.id == self.client.id {
-                ti.send_enter(&surface);
-                ti.send_done();
-            }
+        if let Some(surface) = seat.global.keyboard_node.get().node_into_surface()
+            && surface.client.id == self.client.id
+        {
+            ti.send_enter(&surface);
+            ti.send_done();
         }
         Ok(())
     }

@@ -669,10 +669,10 @@ impl VulkanBoMapping {
 
 impl Drop for VulkanBoMapping {
     fn drop(&mut self) {
-        if self.upload {
-            if let Err(e) = self.upload() {
-                log::error!("Could not upload to image: {}", ErrorFmt(e));
-            }
+        if self.upload
+            && let Err(e) = self.upload()
+        {
+            log::error!("Could not upload to image: {}", ErrorFmt(e));
         }
     }
 }
@@ -721,10 +721,10 @@ fn validate_modifier(
     if disjoint && !modifier.features.contains(FormatFeatureFlags::DISJOINT) {
         return false;
     }
-    if let Some(plane_count) = plane_count {
-        if plane_count != modifier.planes {
-            return false;
-        }
+    if let Some(plane_count) = plane_count
+        && plane_count != modifier.planes
+    {
+        return false;
     }
     let Some(limits) = modifier.transfer_limits else {
         return false;

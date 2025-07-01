@@ -56,10 +56,10 @@ impl Renderer<'_> {
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         if self.state.lock.locked.get() {
-            if let Some(surface) = output.lock_surface.get() {
-                if surface.surface.buffer.is_some() {
-                    self.render_surface(&surface.surface, x, y, None);
-                }
+            if let Some(surface) = output.lock_surface.get()
+                && surface.surface.buffer.is_some()
+            {
+                self.render_surface(&surface.surface, x, y, None);
             }
             return;
         }
@@ -134,25 +134,25 @@ impl Renderer<'_> {
                         self.state.color_manager.srgb_srgb(),
                     );
                 }
-                if let Some(status) = &rd.status {
-                    if let Some(texture) = status.tex.texture() {
-                        let (x, y) = self.base.scale_point(x + status.tex_x, y);
-                        self.base.render_texture(
-                            &texture,
-                            None,
-                            x,
-                            y,
-                            None,
-                            None,
-                            scale,
-                            Some(&bar_bg),
-                            None,
-                            AcquireSync::None,
-                            ReleaseSync::None,
-                            false,
-                            srgb_srgb,
-                        );
-                    }
+                if let Some(status) = &rd.status
+                    && let Some(texture) = status.tex.texture()
+                {
+                    let (x, y) = self.base.scale_point(x + status.tex_x, y);
+                    self.base.render_texture(
+                        &texture,
+                        None,
+                        x,
+                        y,
+                        None,
+                        None,
+                        scale,
+                        Some(&bar_bg),
+                        None,
+                        AcquireSync::None,
+                        ReleaseSync::None,
+                        false,
+                        srgb_srgb,
+                    );
                 }
                 for item in output.tray_items.iter() {
                     let data = item.data();
@@ -185,13 +185,13 @@ impl Renderer<'_> {
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
         render_stacked!(self.state.root.stacked_above_layers);
-        if let Some(ws) = output.workspace.get() {
-            if ws.render_highlight.get() > 0 {
-                let color = self.state.theme.colors.highlight.get();
-                let bounds = ws.position.get().at_point(x, y + th + 1);
-                self.base.ops.push(GfxApiOpt::Sync);
-                self.base.fill_boxes(&[bounds], &color, srgb);
-            }
+        if let Some(ws) = output.workspace.get()
+            && ws.render_highlight.get() > 0
+        {
+            let color = self.state.theme.colors.highlight.get();
+            let bounds = ws.position.get().at_point(x, y + th + 1);
+            self.base.ops.push(GfxApiOpt::Sync);
+            self.base.fill_boxes(&[bounds], &color, srgb);
         }
     }
 
@@ -214,27 +214,27 @@ impl Renderer<'_> {
             &Color::from_srgba_straight(20, 20, 20, 255),
             &self.state.color_manager.srgb_srgb().linear,
         );
-        if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale) {
-            if let Some(texture) = tex.texture() {
-                let (tex_width, tex_height) = texture.size();
-                let x = x + (pos.width() - tex_width) / 2;
-                let y = y + (pos.height() - tex_height) / 2;
-                self.base.render_texture(
-                    &texture,
-                    None,
-                    x,
-                    y,
-                    None,
-                    None,
-                    self.base.scale,
-                    bounds,
-                    None,
-                    AcquireSync::None,
-                    ReleaseSync::None,
-                    false,
-                    self.state.color_manager.srgb_srgb(),
-                );
-            }
+        if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale)
+            && let Some(texture) = tex.texture()
+        {
+            let (tex_width, tex_height) = texture.size();
+            let x = x + (pos.width() - tex_width) / 2;
+            let y = y + (pos.height() - tex_height) / 2;
+            self.base.render_texture(
+                &texture,
+                None,
+                x,
+                y,
+                None,
+                None,
+                self.base.scale,
+                bounds,
+                None,
+                AcquireSync::None,
+                ReleaseSync::None,
+                false,
+                self.state.color_manager.srgb_srgb(),
+            );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
     }
@@ -560,25 +560,25 @@ impl Renderer<'_> {
             }
             x1 += th;
         }
-        if let Some(title) = floating.title_textures.borrow().get(&self.base.scale) {
-            if let Some(texture) = title.texture() {
-                let (x, y) = self.base.scale_point(x1, y1);
-                self.base.render_texture(
-                    &texture,
-                    None,
-                    x,
-                    y,
-                    None,
-                    None,
-                    self.base.scale,
-                    Some(&bounds),
-                    None,
-                    AcquireSync::None,
-                    ReleaseSync::None,
-                    false,
-                    srgb_srgb,
-                );
-            }
+        if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
+            && let Some(texture) = title.texture()
+        {
+            let (x, y) = self.base.scale_point(x1, y1);
+            self.base.render_texture(
+                &texture,
+                None,
+                x,
+                y,
+                None,
+                None,
+                self.base.scale,
+                Some(&bounds),
+                None,
+                AcquireSync::None,
+                ReleaseSync::None,
+                false,
+                srgb_srgb,
+            );
         }
         let body = Rect::new_sized(
             x + bw,

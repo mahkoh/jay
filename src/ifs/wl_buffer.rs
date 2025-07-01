@@ -158,10 +158,8 @@ impl WlBuffer {
             return;
         }
         let had_texture = self.reset_gfx_objects(surface);
-        if had_texture {
-            if let Some(surface) = surface {
-                self.update_texture_or_log(surface, true);
-            }
+        if had_texture && let Some(surface) = surface {
+            self.update_texture_or_log(surface, true);
         }
     }
 
@@ -234,19 +232,17 @@ impl WlBuffer {
         };
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                if sync_shm {
-                    if let Some(ctx) = self.client.state.render_ctx.get() {
-                        let tex = ctx.async_shmem_texture(
-                            self.format,
-                            self.width,
-                            self.height,
-                            *stride,
-                            &self.client.state.cpu_worker,
-                        )?;
-                        mem.access(|mem| tex.clone().sync_upload(mem, Region::new2(self.rect)))??;
-                        surface.shm_textures.front().tex.set(Some(tex));
-                        surface.shm_textures.front().damage.clear();
-                    }
+                if sync_shm && let Some(ctx) = self.client.state.render_ctx.get() {
+                    let tex = ctx.async_shmem_texture(
+                        self.format,
+                        self.width,
+                        self.height,
+                        *stride,
+                        &self.client.state.cpu_worker,
+                    )?;
+                    mem.access(|mem| tex.clone().sync_upload(mem, Region::new2(self.rect)))??;
+                    surface.shm_textures.front().tex.set(Some(tex));
+                    surface.shm_textures.front().damage.clear();
                 }
             }
             WlBufferStorage::Dmabuf { img, tex, .. } => {

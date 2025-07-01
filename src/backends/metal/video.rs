@@ -759,13 +759,13 @@ impl MetalConnector {
             }
             if let Err(e) = self.master.queue_sequence(crtc.id) {
                 log::error!("Could not queue a CRTC sequence: {}", ErrorFmt(&e));
-                if let DrmError::QueueSequence(OsError(c::EOPNOTSUPP)) = e {
-                    if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
-                        log::warn!("{}: Switching to vblank emulation", self.kernel_id());
-                        crtc.needs_vblank_emulation.set(true);
-                        node.global.connector.needs_vblank_emulation.set(true);
-                        node.vblank();
-                    }
+                if let DrmError::QueueSequence(OsError(c::EOPNOTSUPP)) = e
+                    && let Some(node) = self.state.root.outputs.get(&self.connector_id)
+                {
+                    log::warn!("{}: Switching to vblank emulation", self.kernel_id());
+                    crtc.needs_vblank_emulation.set(true);
+                    node.global.connector.needs_vblank_emulation.set(true);
+                    node.vblank();
                 }
             } else {
                 crtc.have_queued_sequence.set(true);
@@ -856,15 +856,13 @@ impl Connector for MetalConnector {
     }
 
     fn set_enabled(&self, enabled: bool) {
-        if self.enabled.replace(enabled) != enabled {
-            if self.display.borrow_mut().connection == ConnectorStatus::Connected {
-                if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
-                    if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
-                        dev.unprocessed_change.set(true);
-                        log::error!("Could not dis/enable connector: {}", ErrorFmt(e));
-                    }
-                }
-            }
+        if self.enabled.replace(enabled) != enabled
+            && self.display.borrow_mut().connection == ConnectorStatus::Connected
+            && let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum)
+            && let Err(e) = self.backend.handle_drm_change_(&dev, true)
+        {
+            dev.unprocessed_change.set(true);
+            log::error!("Could not dis/enable connector: {}", ErrorFmt(e));
         }
     }
 
@@ -930,11 +928,11 @@ impl Connector for MetalConnector {
         }
         dd.non_desktop_effective = non_desktop_effective;
         drop(dd);
-        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
-            if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
-                dev.unprocessed_change.set(true);
-                log::error!("Could not override non-desktop setting: {}", ErrorFmt(e));
-            }
+        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum)
+            && let Err(e) = self.backend.handle_drm_change_(&dev, true)
+        {
+            dev.unprocessed_change.set(true);
+            log::error!("Could not override non-desktop setting: {}", ErrorFmt(e));
         }
     }
 
@@ -991,11 +989,11 @@ impl Connector for MetalConnector {
             }
             self.try_switch_format.set(true);
         }
-        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
-            if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
-                dev.unprocessed_change.set(true);
-                log::error!("Could not change format: {}", ErrorFmt(e));
-            }
+        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum)
+            && let Err(e) = self.backend.handle_drm_change_(&dev, true)
+        {
+            dev.unprocessed_change.set(true);
+            log::error!("Could not change format: {}", ErrorFmt(e));
         }
     }
 
@@ -1376,10 +1374,10 @@ fn create_connector_display_data(
                 }
             }
             for desc in &edid.base_block.descriptors {
-                if let Some(desc) = desc {
-                    if let Descriptor::DisplayRangeLimitsAndAdditionalTiming(timings) = desc {
-                        break 'fetch_min_hz timings.vertical_field_rate_min as u64;
-                    }
+                if let Some(desc) = desc
+                    && let Descriptor::DisplayRangeLimitsAndAdditionalTiming(timings) = desc
+                {
+                    break 'fetch_min_hz timings.vertical_field_rate_min as u64;
                 }
             }
             0
@@ -1450,11 +1448,11 @@ fn create_connector_display_data(
         }
     };
     let mut mode_opt = desired_state.mode.borrow_mut();
-    if let Some(mode) = &*mode_opt {
-        if !info.modes.contains(mode) {
-            log::warn!("Discarding previously desired mode");
-            *mode_opt = None;
-        }
+    if let Some(mode) = &*mode_opt
+        && !info.modes.contains(mode)
+    {
+        log::warn!("Discarding previously desired mode");
+        *mode_opt = None;
     }
     if mode_opt.is_none() {
         *mode_opt = info.modes.first().cloned();
@@ -1854,12 +1852,11 @@ impl MetalBackend {
         for c in removed_connectors {
             dev.futures.remove(&c);
             if let Some(c) = dev.connectors.remove(&c) {
-                if let Some(lease_id) = c.lease.get() {
-                    if let Some(lease) = dev.dev.leases.remove(&lease_id) {
-                        if !lease.try_revoke() {
-                            dev.dev.leases_to_break.set(lease_id, lease);
-                        }
-                    }
+                if let Some(lease_id) = c.lease.get()
+                    && let Some(lease) = dev.dev.leases.remove(&lease_id)
+                    && !lease.try_revoke()
+                {
+                    dev.dev.leases_to_break.set(lease_id, lease);
                 }
                 match c.frontend_state.get() {
                     FrontState::Removed | FrontState::Disconnected => {}
@@ -1908,12 +1905,11 @@ impl MetalBackend {
                     }
                     if disconnect {
                         c.tearing_requested.set(false);
-                        if let Some(lease_id) = c.lease.get() {
-                            if let Some(lease) = dev.dev.leases.remove(&lease_id) {
-                                if !lease.try_revoke() {
-                                    dev.dev.leases_to_break.set(lease_id, lease);
-                                }
-                            }
+                        if let Some(lease_id) = c.lease.get()
+                            && let Some(lease) = dev.dev.leases.remove(&lease_id)
+                            && !lease.try_revoke()
+                        {
+                            dev.dev.leases_to_break.set(lease_id, lease);
                         }
                         c.send_event(ConnectorEvent::Disconnected);
                     } else if preserve_any {
@@ -2493,13 +2489,13 @@ impl MetalBackend {
                     log::warn!("Cannot preserve connector whose crtc is inactive");
                     fail!(c.id);
                 }
-                if let Some(plane) = c.primary_plane.get() {
-                    if plane.crtc_id.value.get() != crtc.id {
-                        log::warn!(
-                            "Cannot preserve connector whose primary plane is attached to a different crtc"
-                        );
-                        fail!(c.id);
-                    }
+                if let Some(plane) = c.primary_plane.get()
+                    && plane.crtc_id.value.get() != crtc.id
+                {
+                    log::warn!(
+                        "Cannot preserve connector whose primary plane is attached to a different crtc"
+                    );
+                    fail!(c.id);
                 }
                 if let Some(plane) = c.cursor_plane.get() {
                     let crtc_id = plane.crtc_id.value.get();
@@ -2510,11 +2506,11 @@ impl MetalBackend {
                         fail!(c.id);
                     }
                 }
-                if let Some(m) = &dd.colorspace {
-                    if m.value.get() != dd.persistent.color_space.get().to_drm() {
-                        log::debug!("Connector has wrong colorspace");
-                        fail!(c.id);
-                    }
+                if let Some(m) = &dd.colorspace
+                    && m.value.get() != dd.persistent.color_space.get().to_drm()
+                {
+                    log::debug!("Connector has wrong colorspace");
+                    fail!(c.id);
                 }
                 if let Some(diff) = self.compare_hdr_metadata(&dev.dev, &dd) {
                     log::debug!("{}", diff);
@@ -2541,23 +2537,22 @@ impl MetalBackend {
     }
 
     fn make_render_device(&self, dev: &MetalDrmDevice, force: bool) {
-        if !force {
-            if let Some(ctx) = self.ctx.get() {
-                if ctx.dev_id == dev.id {
-                    return;
-                }
-            }
+        if !force
+            && let Some(ctx) = self.ctx.get()
+            && ctx.dev_id == dev.id
+        {
+            return;
         }
         let ctx = dev.ctx.get();
-        if self.signaled_sync_file.is_none() {
-            if let Some(sync) = ctx.gfx.sync_obj_ctx() {
-                match sync.create_signaled_sync_file() {
-                    Ok(sf) => {
-                        self.signaled_sync_file.set(Some(sf));
-                    }
-                    Err(e) => {
-                        log::warn!("Could not create signaled sync file: {}", ErrorFmt(e));
-                    }
+        if self.signaled_sync_file.is_none()
+            && let Some(sync) = ctx.gfx.sync_obj_ctx()
+        {
+            match sync.create_signaled_sync_file() {
+                Ok(sf) => {
+                    self.signaled_sync_file.set(Some(sf));
+                }
+                Err(e) => {
+                    log::warn!("Could not create signaled sync file: {}", ErrorFmt(e));
                 }
             }
         }
@@ -2675,32 +2670,31 @@ impl MetalBackend {
             flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
             self.reset_connectors_and_crtcs(dev, &mut changes, preserve);
             for connector in dev.connectors.lock().values() {
-                if !preserve.connectors.contains(&connector.id) {
-                    if let Err(e) = self.assign_connector_crtc(connector, &mut changes) {
-                        log::error!("Could not assign a crtc: {}", ErrorFmt(e));
-                    }
+                if !preserve.connectors.contains(&connector.id)
+                    && let Err(e) = self.assign_connector_crtc(connector, &mut changes)
+                {
+                    log::error!("Could not assign a crtc: {}", ErrorFmt(e));
                 }
             }
         }
         self.reset_planes(dev, &mut changes, preserve);
         let mut old_buffers = vec![];
         for connector in dev.connectors.lock().values() {
-            if !preserve.connectors.contains(&connector.id) {
-                if let Err(e) =
+            if !preserve.connectors.contains(&connector.id)
+                && let Err(e) =
                     self.assign_connector_planes(connector, &mut changes, &ctx, &mut old_buffers)
-                {
-                    log::error!("Could not assign a plane: {}", ErrorFmt(e));
-                }
+            {
+                log::error!("Could not assign a plane: {}", ErrorFmt(e));
             }
         }
         let res = loop {
             let res = changes.commit(flags, 0);
-            if let Err(e) = &res {
-                if flags.not_contains(DRM_MODE_ATOMIC_ALLOW_MODESET) {
-                    log::warn!("Fast commit failed, retrying with modeset: {}", ErrorFmt(e));
-                    flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
-                    continue;
-                }
+            if let Err(e) = &res
+                && flags.not_contains(DRM_MODE_ATOMIC_ALLOW_MODESET)
+            {
+                log::warn!("Fast commit failed, retrying with modeset: {}", ErrorFmt(e));
+                flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+                continue;
             }
             break res;
         };
@@ -2775,11 +2769,11 @@ impl MetalBackend {
             if dd.should_enable_vrr() {
                 vrr_crtcs.insert(crtc_id);
             }
-            if let Some(m) = &dd.colorspace {
-                if m.value.get() != dd.persistent.color_space.get().to_drm() {
-                    log::debug!("Connector has wrong colorspace");
-                    return false;
-                }
+            if let Some(m) = &dd.colorspace
+                && m.value.get() != dd.persistent.color_space.get().to_drm()
+            {
+                log::debug!("Connector has wrong colorspace");
+                return false;
             }
             if let Some(diff) = self.compare_hdr_metadata(&dev.dev, &dd) {
                 log::debug!("{}", diff);
@@ -3139,10 +3133,9 @@ impl MetalBackend {
                     if plane.ty == PlaneType::Primary
                         && !plane.assigned.get()
                         && plane.lease.is_none()
+                        && let Some(format) = plane.formats.get(&format.drm)
                     {
-                        if let Some(format) = plane.formats.get(&format.drm) {
-                            break 'primary_plane (plane.clone(), &format.modifiers);
-                        }
+                        break 'primary_plane (plane.clone(), &format.modifiers);
                     }
                 }
                 return Err(MetalError::NoPrimaryPlaneForConnector);
@@ -3189,12 +3182,11 @@ impl MetalBackend {
                 && !plane.assigned.get()
                 && plane.lease.is_none()
                 && plane.formats.contains_key(&ARGB8888.drm)
+                && let Some(format) = plane.formats.get(&ARGB8888.drm)
             {
-                if let Some(format) = plane.formats.get(&ARGB8888.drm) {
-                    cursor_plane = Some(plane.clone());
-                    cursor_modifiers = &format.modifiers;
-                    break;
-                }
+                cursor_plane = Some(plane.clone());
+                cursor_modifiers = &format.modifiers;
+                break;
             }
         }
         let mut cursor_buffers = None;

@@ -71,11 +71,11 @@ impl PwCore {
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;
         let seq = p2.read_uint()?;
-        if let Some(obj) = self.con.objects.get(&id) {
-            if obj.data().sync_id.get() <= seq {
-                obj.data().sync_id.set(seq);
-                obj.done();
-            }
+        if let Some(obj) = self.con.objects.get(&id)
+            && obj.data().sync_id.get() <= seq
+        {
+            obj.data().sync_id.set(seq);
+            obj.done();
         }
         Ok(())
     }

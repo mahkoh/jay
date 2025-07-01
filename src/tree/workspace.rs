@@ -228,10 +228,10 @@ impl WorkspaceNode {
         } else {
             node.tl_set_visible(false);
         }
-        if let Some(surface) = node.tl_scanout_surface() {
-            if let Some(fb) = self.output.get().global.connector.connector.drm_feedback() {
-                surface.send_feedback(&fb);
-            }
+        if let Some(surface) = node.tl_scanout_surface()
+            && let Some(fb) = self.output.get().global.connector.connector.drm_feedback()
+        {
+            surface.send_feedback(&fb);
         }
         self.output.get().update_presentation_type();
     }
@@ -242,10 +242,10 @@ impl WorkspaceNode {
             if self.visible.get() {
                 self.output.get().fullscreen_changed();
             }
-            if let Some(surface) = node.tl_scanout_surface() {
-                if let Some(fb) = surface.client.state.drm_feedback.get() {
-                    surface.send_feedback(&fb);
-                }
+            if let Some(surface) = node.tl_scanout_surface()
+                && let Some(fb) = surface.client.state.drm_feedback.get()
+            {
+                surface.send_feedback(&fb);
             }
             self.output.get().update_presentation_type();
         }
@@ -376,36 +376,36 @@ impl Node for WorkspaceNode {
 
 impl ContainingNode for WorkspaceNode {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        if let Some(container) = self.container.get() {
-            if container.node_id() == old.node_id() {
-                let new = match new.node_into_container() {
-                    Some(c) => c,
-                    _ => {
-                        log::error!("cnode_replace_child called with non-container new");
-                        return;
-                    }
-                };
-                self.set_container(&new);
-                return;
-            }
+        if let Some(container) = self.container.get()
+            && container.node_id() == old.node_id()
+        {
+            let new = match new.node_into_container() {
+                Some(c) => c,
+                _ => {
+                    log::error!("cnode_replace_child called with non-container new");
+                    return;
+                }
+            };
+            self.set_container(&new);
+            return;
         }
         log::error!("Trying to replace child that's not a child");
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
-        if let Some(container) = self.container.get() {
-            if container.node_id() == child.node_id() {
-                self.discard_child_properties(&*container);
-                self.container.set(None);
-                self.state.damage(self.position.get());
-                return;
-            }
+        if let Some(container) = self.container.get()
+            && container.node_id() == child.node_id()
+        {
+            self.discard_child_properties(&*container);
+            self.container.set(None);
+            self.state.damage(self.position.get());
+            return;
         }
-        if let Some(fs) = self.fullscreen.get() {
-            if fs.node_id() == child.node_id() {
-                self.remove_fullscreen_node();
-                return;
-            }
+        if let Some(fs) = self.fullscreen.get()
+            && fs.node_id() == child.node_id()
+        {
+            self.remove_fullscreen_node();
+            return;
         }
         log::error!("Trying to remove child that's not a child");
     }
@@ -436,10 +436,10 @@ pub fn move_ws_to_output(
     config: WsMoveConfig,
 ) {
     let source = ws.output.get();
-    if let Some(visible) = source.workspace.get() {
-        if visible.id == ws.id {
-            source.workspace.take();
-        }
+    if let Some(visible) = source.workspace.get()
+        && visible.id == ws.id
+    {
+        source.workspace.take();
     }
     let mut new_source_ws = None;
     if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
@@ -459,11 +459,11 @@ pub fn move_ws_to_output(
     }
     ws.set_output(&target);
     'link: {
-        if let Some(before) = config.before {
-            if let Some(link) = &*before.output_link.borrow() {
-                link.prepend_existing(ws);
-                break 'link;
-            }
+        if let Some(before) = config.before
+            && let Some(link) = &*before.output_link.borrow()
+        {
+            link.prepend_existing(ws);
+            break 'link;
         }
         target.workspaces.add_last_existing(&ws);
     }

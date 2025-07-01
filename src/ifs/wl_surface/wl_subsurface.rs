@@ -260,10 +260,10 @@ impl WlSubsurface {
     fn on_desync(&self) -> Result<(), WlSurfaceError> {
         let committed = &mut *self.parent.pending.borrow_mut();
         let committed = committed.subsurfaces.get_mut(&self.unique_id);
-        if let Some(ps) = committed {
-            if let Some(mut state) = ps.pending.state.take() {
-                self.surface.apply_state(&mut state)?;
-            }
+        if let Some(ps) = committed
+            && let Some(mut state) = ps.pending.state.take()
+        {
+            self.surface.apply_state(&mut state)?;
         }
         Ok(())
     }

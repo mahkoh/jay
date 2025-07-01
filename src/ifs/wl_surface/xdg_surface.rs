@@ -110,12 +110,12 @@ impl XdgPopupParent for Popup {
         let state = &surface.client.state;
         if surface.buffer.is_some() {
             let mut any_set = false;
-            if wl.is_none() {
-                if let Some(ws) = self.parent.workspace.get() {
-                    self.popup.xdg.set_workspace(&ws);
-                    *wl = Some(ws.stacked.add_last(self.popup.clone()));
-                    any_set = true;
-                }
+            if wl.is_none()
+                && let Some(ws) = self.parent.workspace.get()
+            {
+                self.popup.xdg.set_workspace(&ws);
+                *wl = Some(ws.stacked.add_last(self.popup.clone()));
+                any_set = true;
             }
             if dl.is_none() {
                 *dl = Some(
@@ -453,10 +453,10 @@ impl XdgSurface {
             new_extents = new_extents.intersect(geometry);
         }
         self.extents.set(new_extents);
-        if old_extents != new_extents {
-            if let Some(ext) = self.ext.get() {
-                ext.extents_changed();
-            }
+        if old_extents != new_extents
+            && let Some(ext) = self.ext.get()
+        {
+            ext.extents_changed();
         }
     }
 
@@ -518,22 +518,22 @@ impl SurfaceExt for XdgSurface {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        if !self.have_initial_commit.get() {
-            if let Some(ext) = self.ext.get() {
-                ext.initial_configure()?;
-                self.do_send_configure();
-                self.have_initial_commit.set(true);
-            }
+        if !self.have_initial_commit.get()
+            && let Some(ext) = self.ext.get()
+        {
+            ext.initial_configure()?;
+            self.do_send_configure();
+            self.have_initial_commit.set(true);
         }
-        if let Some(pending) = &mut pending.xdg_surface {
-            if let Some(geometry) = pending.geometry.take() {
-                let prev = self.geometry.replace(Some(geometry));
-                if prev != Some(geometry) {
-                    self.update_extents();
-                    self.update_surface_position();
-                    if let Some(ext) = self.ext.get() {
-                        ext.geometry_changed();
-                    }
+        if let Some(pending) = &mut pending.xdg_surface
+            && let Some(geometry) = pending.geometry.take()
+        {
+            let prev = self.geometry.replace(Some(geometry));
+            if prev != Some(geometry) {
+                self.update_extents();
+                self.update_surface_position();
+                if let Some(ext) = self.ext.get() {
+                    ext.geometry_changed();
                 }
             }
         }
