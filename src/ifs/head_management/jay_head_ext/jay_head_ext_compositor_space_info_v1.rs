@@ -2,11 +2,13 @@ use {
     crate::{
         client::ClientError,
         ifs::head_management::HeadCommonError,
+        scale::Scale,
         state::ConnectorData,
+        tree::OutputNode,
         utils::transform_ext::TransformExt,
         wire::{
             jay_head_ext_compositor_space_info_v1::{
-                JayHeadExtCompositorSpaceInfoV1RequestHandler, Outside, Position, Size,
+                JayHeadExtCompositorSpaceInfoV1RequestHandler, Outside, Position, Scaling, Size,
             },
             jay_head_manager_ext_compositor_space_info_v1::JayHeadManagerExtCompositorSpaceInfoV1RequestHandler,
         },
@@ -26,16 +28,21 @@ impl JayHeadExtCompositorSpaceInfoV1 {
     fn after_announce(&self, connector: &ConnectorData) {
         if let Some(output) = self.client.state.outputs.get(&connector.id) {
             if let Some(node) = &output.node {
-                let pos = node.global.pos.get();
-                self.send_position(pos.x1(), pos.y1());
-                self.send_size(pos.width(), pos.height());
-                self.send_transform(node.global.persistent.transform.get());
+                self.send_inside(node);
             }
         }
     }
 
     pub fn send_outside(&self) {
         self.client.event(Outside { self_id: self.id });
+    }
+
+    pub fn send_inside(&self, node: &OutputNode) {
+        let pos = node.global.pos.get();
+        self.send_position(pos.x1(), pos.y1());
+        self.send_size(pos.width(), pos.height());
+        self.send_transform(node.global.persistent.transform.get());
+        self.send_scaling(node.global.persistent.scale.get());
     }
 
     pub fn send_position(&self, x: i32, y: i32) {
@@ -61,6 +68,13 @@ impl JayHeadExtCompositorSpaceInfoV1 {
                 transform: transform.to_wl() as _,
             },
         );
+    }
+
+    pub fn send_scaling(&self, scale: Scale) {
+        self.client.event(Scaling {
+            self_id: self.id,
+            scaling: scale.to_wl(),
+        });
     }
 }
 

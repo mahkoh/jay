@@ -15,6 +15,7 @@ use {
             jay_head_v1::JayHeadV1,
         },
         rect::Rect,
+        scale::Scale,
         state::OutputData,
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt},
         wire::JayHeadManagerV1Id,
@@ -151,10 +152,7 @@ impl HeadManagers {
             }
             if let Some(node) = &output.node {
                 if let Some(ext) = &mgr.compositor_space_info_v1 {
-                    let pos = node.global.pos.get();
-                    ext.send_position(pos.x1(), pos.y1());
-                    ext.send_size(pos.width(), pos.height());
-                    ext.send_transform(node.global.persistent.transform.get());
+                    ext.send_inside(node);
                     mgr.mgr.schedule_done();
                 }
                 if let Some(ext) = &mgr.core_info_v1 {
@@ -213,6 +211,16 @@ impl HeadManagers {
                 } else {
                     ext.send_disabled();
                 }
+                mgr.mgr.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_scale_change(&self, scale: Scale) {
+        for mgr in self.managers.lock().values() {
+            if let Some(ext) = &mgr.compositor_space_info_v1 {
+                ext.send_scaling(scale);
+                mgr.mgr.schedule_done();
             }
         }
     }

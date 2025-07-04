@@ -19,3 +19,7 @@ event size {
 event transform {
     transform: u32,
 }
+
+event scaling {
+    scaling: u32,
+}

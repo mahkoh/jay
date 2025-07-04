@@ -1,7 +1,7 @@
 use {
     crate::parser::{Type, parse_messages},
     clap::Parser,
-    quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
+    quick_xml::events::{BytesDecl, BytesText, Event},
     std::{io, os::unix::ffi::OsStrExt, path::PathBuf},
 };
 

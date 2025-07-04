@@ -463,6 +463,10 @@ impl OutputNode {
             }
         }
         self.schedule_update_render_data();
+        self.global
+            .connector
+            .head_managers
+            .handle_scale_change(scale);
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
