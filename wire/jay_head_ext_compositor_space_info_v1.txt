@@ -2,6 +2,10 @@ request destroy {
 
 }
 
+event inside {
+
+}
+
 event outside {
 
 }

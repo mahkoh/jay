@@ -2,8 +2,7 @@ use {
     crate::{
         client::ClientError,
         compositor::MAX_EXTENTS,
-        ifs::head_management::HeadCommonError,
-        state::ConnectorData,
+        ifs::head_management::{HeadCommonError, HeadOp, HeadState},
         wire::{
             jay_head_ext_compositor_space_positioner_v1::{
                 JayHeadExtCompositorSpacePositionerV1RequestHandler, Range, SetPosition,
@@ -22,7 +21,7 @@ ext! {
 }
 
 impl JayHeadExtCompositorSpacePositionerV1 {
-    fn after_announce(&self, _connector: &ConnectorData) {
+    fn after_announce(&self, _shared: &HeadState) {
         self.send_range();
     }
 
@@ -51,9 +50,11 @@ impl JayHeadExtCompositorSpacePositionerV1RequestHandler for JayHeadExtComposito
     head_common_req!(compositor_space_positioner_v1);
 
     fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let tran = self.client.lookup(req.transaction)?;
-        let mut head = tran.tran.get_or_create(self.common.name);
-        head.position = Some((req.x, req.y));
+        self.common.assert_in_transaction()?;
+        self.common
+            .pending
+            .borrow_mut()
+            .push(HeadOp::SetPosition(req.x, req.y));
         Ok(())
     }
 }

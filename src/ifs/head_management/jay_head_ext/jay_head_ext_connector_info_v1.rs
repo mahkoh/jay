@@ -1,8 +1,7 @@
 use {
     crate::{
         client::ClientError,
-        ifs::head_management::HeadCommonError,
-        state::ConnectorData,
+        ifs::head_management::{HeadCommonError, HeadState},
         wire::{
             jay_head_ext_connector_info_v1::{
                 Connected, Disabled, Disconnected, Enabled, JayHeadExtConnectorInfoV1RequestHandler,
@@ -21,29 +20,25 @@ ext! {
 }
 
 impl JayHeadExtConnectorInfoV1 {
-    fn after_announce(&self, connector: &ConnectorData) {
-        if connector.connector.enabled() {
-            self.send_enabled();
+    fn after_announce(&self, shared: &HeadState) {
+        self.send_enabled(shared);
+        self.send_connected(shared);
+    }
+
+    pub fn send_enabled(&self, shared: &HeadState) {
+        if shared.connector_enabled {
+            self.client.event(Enabled { self_id: self.id });
+        } else {
+            self.client.event(Disabled { self_id: self.id });
         }
-        if connector.connected.get() {
-            self.send_connected();
+    }
+
+    pub fn send_connected(&self, shared: &HeadState) {
+        if shared.connected {
+            self.client.event(Connected { self_id: self.id });
+        } else {
+            self.client.event(Disconnected { self_id: self.id });
         }
-    }
-
-    pub fn send_enabled(&self) {
-        self.client.event(Enabled { self_id: self.id });
-    }
-
-    pub fn send_disabled(&self) {
-        self.client.event(Disabled { self_id: self.id });
-    }
-
-    pub fn send_connected(&self) {
-        self.client.event(Connected { self_id: self.id });
-    }
-
-    pub fn send_disconnected(&self) {
-        self.client.event(Disconnected { self_id: self.id });
     }
 }
 

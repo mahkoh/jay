@@ -1,8 +1,7 @@
 use {
     crate::{
         client::ClientError,
-        ifs::head_management::HeadCommonError,
-        state::ConnectorData,
+        ifs::head_management::{HeadCommonError, HeadOp, HeadState},
         utils::transform_ext::TransformExt,
         wire::{
             jay_head_ext_compositor_space_transformer_v1::{
@@ -24,7 +23,7 @@ ext! {
 }
 
 impl JayHeadExtCompositorSpaceTransformerV1 {
-    fn after_announce(&self, _connector: &ConnectorData) {
+    fn after_announce(&self, _shared: &HeadState) {
         self.send_supported_transform(Transform::None);
         self.send_supported_transform(Transform::Rotate90);
         self.send_supported_transform(Transform::Rotate180);
@@ -59,13 +58,16 @@ impl JayHeadExtCompositorSpaceTransformerV1RequestHandler
     head_common_req!(compositor_space_transformer_v1);
 
     fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.common.assert_in_transaction()?;
         let Some(transform) = Transform::from_wl(req.transform as _) else {
             return Err(
                 JayHeadExtCompositorSpaceTransformerV1Error::UnknownTransform(req.transform),
             );
         };
-        tran!(self, req, tran);
-        tran.transform = Some(transform);
+        self.common
+            .pending
+            .borrow_mut()
+            .push(HeadOp::SetTransform(transform));
         Ok(())
     }
 }

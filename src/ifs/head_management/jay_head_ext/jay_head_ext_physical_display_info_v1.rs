@@ -1,9 +1,8 @@
 use {
     crate::{
-        backend::{self, MonitorInfo},
+        backend::{self},
         client::ClientError,
-        ifs::head_management::HeadCommonError,
-        state::ConnectorData,
+        ifs::head_management::{HeadCommonError, HeadState},
         wire::{
             jay_head_ext_physical_display_info_v1::{
                 JayHeadExtPhysicalDisplayInfoV1RequestHandler, Manufacturer, Mode, Model,
@@ -23,32 +22,30 @@ ext! {
 }
 
 impl JayHeadExtPhysicalDisplayInfoV1 {
-    fn after_announce(&self, connector: &ConnectorData) {
-        let Some(output) = self.client.state.outputs.get(&connector.id) else {
-            return;
-        };
-        let mi = &output.monitor_info;
-        self.connected(mi);
+    fn after_announce(&self, shared: &HeadState) {
+        self.send_info(shared);
     }
 
-    pub fn connected(&self, mi: &MonitorInfo) {
+    pub fn send_info(&self, state: &HeadState) {
         self.send_reset();
-        for mode in &mi.modes {
-            self.send_mode(mode);
-        }
-        self.send_manufacturer(&mi.output_id.manufacturer);
-        self.send_model(&mi.output_id.model);
-        self.send_serial_number(&mi.output_id.serial_number);
-        self.send_physical_size(mi.width_mm, mi.height_mm);
-        if mi.non_desktop {
-            self.send_non_desktop();
-        }
-        if mi.vrr_capable {
-            self.send_vrr_capable();
+        if let Some(mi) = &state.monitor_info {
+            for mode in &mi.modes {
+                self.send_mode(mode);
+            }
+            self.send_manufacturer(&mi.output_id.manufacturer);
+            self.send_model(&mi.output_id.model);
+            self.send_serial_number(&mi.output_id.serial_number);
+            self.send_physical_size(mi.width_mm, mi.height_mm);
+            if mi.non_desktop {
+                self.send_non_desktop();
+            }
+            if mi.vrr_capable {
+                self.send_vrr_capable();
+            }
         }
     }
 
-    pub fn send_reset(&self) {
+    fn send_reset(&self) {
         self.client.event(Reset { self_id: self.id });
     }
 

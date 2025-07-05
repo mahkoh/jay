@@ -1,19 +1,16 @@
 use {
     crate::{
         client::ClientError,
-        ifs::head_management::HeadCommonError,
-        scale::Scale,
-        state::ConnectorData,
-        tree::OutputNode,
+        ifs::head_management::{HeadCommonError, HeadState},
         utils::transform_ext::TransformExt,
         wire::{
             jay_head_ext_compositor_space_info_v1::{
-                JayHeadExtCompositorSpaceInfoV1RequestHandler, Outside, Position, Scaling, Size,
+                Inside, JayHeadExtCompositorSpaceInfoV1RequestHandler, Outside, Position, Scaling,
+                Size,
             },
             jay_head_manager_ext_compositor_space_info_v1::JayHeadManagerExtCompositorSpaceInfoV1RequestHandler,
         },
     },
-    jay_config::video::Transform,
     std::rc::Rc,
 };
 
@@ -25,55 +22,51 @@ ext! {
 }
 
 impl JayHeadExtCompositorSpaceInfoV1 {
-    fn after_announce(&self, connector: &ConnectorData) {
-        if let Some(output) = self.client.state.outputs.get(&connector.id) {
-            if let Some(node) = &output.node {
-                self.send_inside(node);
-            }
+    fn after_announce(&self, shared: &HeadState) {
+        self.send_inside_outside(shared);
+    }
+
+    pub fn send_inside_outside(&self, state: &HeadState) {
+        if state.in_compositor_space {
+            self.client.event(Inside { self_id: self.id });
+            self.send_position(state);
+            self.send_size(state);
+            self.send_transform(state);
+            self.send_scale(state);
+        } else {
+            self.client.event(Outside { self_id: self.id });
         }
     }
 
-    pub fn send_outside(&self) {
-        self.client.event(Outside { self_id: self.id });
-    }
-
-    pub fn send_inside(&self, node: &OutputNode) {
-        let pos = node.global.pos.get();
-        self.send_position(pos.x1(), pos.y1());
-        self.send_size(pos.width(), pos.height());
-        self.send_transform(node.global.persistent.transform.get());
-        self.send_scaling(node.global.persistent.scale.get());
-    }
-
-    pub fn send_position(&self, x: i32, y: i32) {
+    pub fn send_position(&self, state: &HeadState) {
         self.client.event(Position {
             self_id: self.id,
-            x,
-            y,
+            x: state.position.0,
+            y: state.position.1,
         });
     }
 
-    pub fn send_size(&self, width: i32, height: i32) {
+    pub fn send_size(&self, state: &HeadState) {
         self.client.event(Size {
             self_id: self.id,
-            width,
-            height,
+            width: state.size.0,
+            height: state.size.1,
         });
     }
 
-    pub fn send_transform(&self, transform: Transform) {
+    pub fn send_transform(&self, state: &HeadState) {
         self.client.event(
             crate::wire::jay_head_ext_compositor_space_info_v1::Transform {
                 self_id: self.id,
-                transform: transform.to_wl() as _,
+                transform: state.transform.to_wl() as _,
             },
         );
     }
 
-    pub fn send_scaling(&self, scale: Scale) {
+    pub fn send_scale(&self, state: &HeadState) {
         self.client.event(Scaling {
             self_id: self.id,
-            scaling: scale.to_wl(),
+            scaling: state.scale.to_wl(),
         });
     }
 }

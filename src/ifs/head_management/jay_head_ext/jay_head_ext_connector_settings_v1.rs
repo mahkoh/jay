@@ -1,7 +1,7 @@
 use {
     crate::{
         client::ClientError,
-        ifs::head_management::HeadCommonError,
+        ifs::head_management::{HeadCommonError, HeadOp},
         wire::{
             jay_head_ext_connector_settings_v1::{
                 Disable, Enable, JayHeadExtConnectorSettingsV1RequestHandler,
@@ -29,15 +29,21 @@ impl JayHeadExtConnectorSettingsV1RequestHandler for JayHeadExtConnectorSettings
 
     head_common_req!(connector_settings_v1);
 
-    fn enable(&self, req: Enable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        tran!(self, req, tran);
-        tran.connector_enabled = Some(true);
+    fn enable(&self, _req: Enable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.common.assert_in_transaction()?;
+        self.common
+            .pending
+            .borrow_mut()
+            .push(HeadOp::SetConnectorEnabled(true));
         Ok(())
     }
 
-    fn disable(&self, req: Disable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        tran!(self, req, tran);
-        tran.connector_enabled = Some(false);
+    fn disable(&self, _req: Disable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.common.assert_in_transaction()?;
+        self.common
+            .pending
+            .borrow_mut()
+            .push(HeadOp::SetConnectorEnabled(false));
         Ok(())
     }
 }

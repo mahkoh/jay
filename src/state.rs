@@ -40,7 +40,8 @@ use {
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
             head_management::{
-                HeadManagers, HeadName, HeadNames, jay_head_manager_v1::JayHeadManagerV1,
+                HeadManagers, HeadNames,
+                jay_head_manager_session_v1::{HeadManagerEvent, JayHeadManagerSessionV1},
             },
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
@@ -109,7 +110,7 @@ use {
         },
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerSessionV1Id,
             JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
         },
@@ -260,8 +261,9 @@ pub struct State {
     pub node_at_tree: RefCell<Vec<FoundNode>>,
     pub position_hint_requests: AsyncQueue<PositionHintRequest>,
     pub head_names: HeadNames,
-    pub head_managers: CopyHashMap<(ClientId, JayHeadManagerV1Id), Rc<JayHeadManagerV1>>,
-    pub head_managers_done: AsyncQueue<Rc<JayHeadManagerV1>>,
+    pub head_managers:
+        CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
+    pub head_managers_async: AsyncQueue<HeadManagerEvent>,
 }
 
 // impl Drop for State {
@@ -373,24 +375,23 @@ pub struct DeviceHandlerData {
 }
 
 pub struct ConnectorData {
-    pub id: ConnectorId,
+    pub _id: ConnectorId,
     pub connector: Rc<dyn Connector>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
-    pub name: String,
+    pub name: Rc<String>,
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
     pub damaged: Cell<bool>,
     pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
-    pub head_name: HeadName,
     pub head_managers: HeadManagers,
 }
 
 pub struct OutputData {
     pub connector: Rc<ConnectorData>,
-    pub monitor_info: MonitorInfo,
+    pub monitor_info: Rc<MonitorInfo>,
     pub node: Option<Rc<OutputNode>>,
     pub lease_connectors: Rc<Bindings<WpDrmLeaseConnectorV1>>,
 }
@@ -1002,7 +1003,7 @@ impl State {
         self.node_at_tree.borrow_mut().clear();
         self.position_hint_requests.clear();
         self.head_managers.clear();
-        self.head_managers_done.clear();
+        self.head_managers_async.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

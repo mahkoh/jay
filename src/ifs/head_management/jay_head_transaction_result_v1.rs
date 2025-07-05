@@ -1,12 +1,12 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::head_management::jay_head_error_v1::JayHeadErrorV1,
+        ifs::head_management::{HeadTransactionResult, jay_head_error_v1::JayHeadErrorV1},
         leaks::Tracker,
         object::{Object, Version},
         wire::{JayHeadTransactionResultV1Id, jay_head_transaction_result_v1::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -15,14 +15,23 @@ pub struct JayHeadTransactionResultV1 {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub version: Version,
+    pub result: HeadTransactionResult,
+    pub destroyed: Cell<bool>,
 }
 
 impl JayHeadTransactionResultV1 {
-    pub(super) fn send_success(&self) {
+    pub(super) fn send(&self) {
+        match self.result {
+            HeadTransactionResult::Success => self.send_success(),
+            _ => self.send_failed(),
+        }
+    }
+
+    fn send_success(&self) {
         self.client.event(Success { self_id: self.id });
     }
 
-    pub(super) fn send_failed(&self) {
+    fn send_failed(&self) {
         self.client.event(Failed { self_id: self.id });
     }
 }
@@ -32,6 +41,7 @@ impl JayHeadTransactionResultV1RequestHandler for JayHeadTransactionResultV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
+        self.destroyed.set(true);
         Ok(())
     }
 

@@ -1,9 +1,7 @@
 use {
     crate::{
         client::ClientError,
-        globals::GlobalName,
-        ifs::head_management::HeadCommonError,
-        state::ConnectorData,
+        ifs::head_management::{HeadCommonError, HeadState},
         wire::{jay_head_ext_core_info_v1::*, jay_head_manager_ext_core_info_v1::*},
     },
     std::rc::Rc,
@@ -17,31 +15,30 @@ ext! {
 }
 
 impl JayHeadExtCoreInfoV1 {
-    fn after_announce(&self, connector: &ConnectorData) {
-        self.send_name(Some(&connector.name));
-        if let Some(output) = self.client.state.outputs.get(&connector.id) {
-            if let Some(node) = &output.node {
-                self.send_wl_output(node.global.name);
-            }
-        }
+    fn after_announce(&self, shared: &HeadState) {
+        self.send_name(shared);
+        self.send_wl_output(shared);
     }
 
-    pub fn send_name(&self, name: Option<&str>) {
+    pub fn send_name(&self, state: &HeadState) {
         self.client.event(Name {
             self_id: self.id,
-            name,
+            name: Some(&**state.name),
         });
     }
 
-    pub fn send_wl_output(&self, name: GlobalName) {
-        self.client.event(WlOutput {
-            self_id: self.id,
-            global_name: name.raw(),
-        });
-    }
-
-    pub fn send_no_wl_output(&self) {
-        self.client.event(NoWlOutput { self_id: self.id });
+    pub fn send_wl_output(&self, state: &HeadState) {
+        match state.wl_output {
+            None => {
+                self.client.event(NoWlOutput { self_id: self.id });
+            }
+            Some(name) => {
+                self.client.event(WlOutput {
+                    self_id: self.id,
+                    global_name: name.raw(),
+                });
+            }
+        }
     }
 }
 

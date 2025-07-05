@@ -3,7 +3,6 @@ request destroy {
 }
 
 request set_position {
-    transaction: id(jay_head_transaction_v1),
     x: i32,
     y: i32,
 }

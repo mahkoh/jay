@@ -85,10 +85,10 @@ macro_rules! head_ext {
             pub fn after_announce_wrapper(
                 &self,
                 #[allow(unused_variables)]
-                connector: &crate::state::ConnectorData,
+                shared: &super::super::HeadState,
             ) {
                 $(
-                    self.$after_announce(connector);
+                    self.$after_announce(shared);
                 )?
             }
         }
@@ -163,13 +163,6 @@ macro_rules! error {
             }
             efrom!(#{concat_idents!(JayHeadExt, $camel, Error)}, ClientError);
         }
-    };
-}
-
-macro_rules! tran {
-    ($slf:expr, $req:expr, $tran:ident) => {
-        let tran = $slf.client.lookup($req.transaction)?;
-        let mut $tran = tran.tran.get_or_create($slf.common.name);
     };
 }
 

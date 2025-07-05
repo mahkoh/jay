@@ -3,6 +3,7 @@ use {
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         globals::GlobalName,
         ifs::{
+            head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
             wl_output::{PersistentOutputState, WlOutputGlobal},
         },
@@ -11,6 +12,7 @@ use {
         tree::{OutputNode, WsMoveConfig, move_ws_to_output},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
+    jay_config::video::Transform,
     std::{cell::Cell, collections::VecDeque, rc::Rc},
 };
 
@@ -23,20 +25,33 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         };
     }
     let id = connector.id();
+    let name = Rc::new(connector.kernel_id().to_string());
+    let head_state = HeadState {
+        name: name.clone(),
+        position: (0, 0),
+        size: (0, 0),
+        connector_enabled: connector.enabled(),
+        connected: false,
+        transform: Transform::None,
+        scale: Default::default(),
+        wl_output: None,
+        in_compositor_space: false,
+        mode: Default::default(),
+        monitor_info: None,
+    };
     let data = Rc::new(ConnectorData {
-        id,
+        _id: id,
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
-        name: connector.kernel_id().to_string(),
+        name,
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
         damaged: Cell::new(false),
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
-        head_name: state.head_names.next(),
-        head_managers: Default::default(),
+        head_managers: HeadManagers::new(state.head_names.next(), head_state),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -211,7 +226,7 @@ impl ConnectorHandler {
             .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info: info,
+            monitor_info: Rc::new(info),
             node: Some(on.clone()),
             lease_connectors: Default::default(),
         });
@@ -365,7 +380,7 @@ impl ConnectorHandler {
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info,
+            monitor_info: Rc::new(monitor_info),
             node: None,
             lease_connectors: Default::default(),
         });
