@@ -7,6 +7,7 @@ use {
             jay_head_ext::{
                 jay_head_ext_compositor_space_info_v1::JayHeadExtCompositorSpaceInfoV1,
                 jay_head_ext_compositor_space_positioner_v1::JayHeadExtCompositorSpacePositionerV1,
+                jay_head_ext_compositor_space_scaler_v1::JayHeadExtCompositorSpaceScalerV1,
                 jay_head_ext_compositor_space_transformer_v1::JayHeadExtCompositorSpaceTransformerV1,
                 jay_head_ext_connector_info_v1::JayHeadExtConnectorInfoV1,
                 jay_head_ext_connector_settings_v1::JayHeadExtConnectorSettingsV1,
@@ -46,6 +47,7 @@ enum HeadExtension {
     CompositorSpaceInfoV1,
     CompositorSpacePositionerV1,
     CompositorSpaceTransformerV1,
+    CompositorSpaceScalerV1,
     ConnectorInfoV1,
     ConnectorSettingsV1,
     PhysicalDisplayInfoV1,
@@ -59,6 +61,7 @@ pub struct Head {
     pub compositor_space_info_v1: Option<Rc<JayHeadExtCompositorSpaceInfoV1>>,
     pub compositor_space_positioner_v1: Option<Rc<JayHeadExtCompositorSpacePositionerV1>>,
     pub compositor_space_transformer_v1: Option<Rc<JayHeadExtCompositorSpaceTransformerV1>>,
+    pub compositor_space_scaler_v1: Option<Rc<JayHeadExtCompositorSpaceScalerV1>>,
     pub physical_display_info_v1: Option<Rc<JayHeadExtPhysicalDisplayInfoV1>>,
     pub connector_info_v1: Option<Rc<JayHeadExtConnectorInfoV1>>,
     pub connector_settings_v1: Option<Rc<JayHeadExtConnectorSettingsV1>>,
@@ -68,6 +71,7 @@ pub enum HeadTransactionResult {
     Success,
     Failed,
     PositionOutOfBounds,
+    ScaleOutOfBounds,
 }
 
 pub struct HeadCommon {
@@ -100,6 +104,7 @@ pub enum HeadOp {
     SetPosition(i32, i32),
     SetConnectorEnabled(bool),
     SetTransform(Transform),
+    SetScale(Scale),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -132,6 +137,12 @@ impl HeadCommon {
         } else {
             Err(HeadCommonError::NotInTransaction)
         }
+    }
+
+    pub fn push_op(&self, op: HeadOp) -> Result<(), HeadCommonError> {
+        self.assert_in_transaction()?;
+        self.pending.borrow_mut().push(op);
+        Ok(())
     }
 }
 

@@ -30,20 +30,12 @@ impl JayHeadExtConnectorSettingsV1RequestHandler for JayHeadExtConnectorSettings
     head_common_req!(connector_settings_v1);
 
     fn enable(&self, _req: Enable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.common.assert_in_transaction()?;
-        self.common
-            .pending
-            .borrow_mut()
-            .push(HeadOp::SetConnectorEnabled(true));
+        self.common.push_op(HeadOp::SetConnectorEnabled(true))?;
         Ok(())
     }
 
     fn disable(&self, _req: Disable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.common.assert_in_transaction()?;
-        self.common
-            .pending
-            .borrow_mut()
-            .push(HeadOp::SetConnectorEnabled(false));
+        self.common.push_op(HeadOp::SetConnectorEnabled(false))?;
         Ok(())
     }
 }

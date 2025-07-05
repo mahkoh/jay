@@ -50,11 +50,7 @@ impl JayHeadExtCompositorSpacePositionerV1RequestHandler for JayHeadExtComposito
     head_common_req!(compositor_space_positioner_v1);
 
     fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.common.assert_in_transaction()?;
-        self.common
-            .pending
-            .borrow_mut()
-            .push(HeadOp::SetPosition(req.x, req.y));
+        self.common.push_op(HeadOp::SetPosition(req.x, req.y))?;
         Ok(())
     }
 }

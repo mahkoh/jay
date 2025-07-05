@@ -8,6 +8,7 @@ use {
                 jay_head_ext_compositor_space_info_v1::JayHeadManagerExtCompositorSpaceInfoV1,
                 jay_head_ext_compositor_space_positioner_v1::JayHeadManagerExtCompositorSpacePositionerV1,
                 jay_head_ext_compositor_space_transformer_v1::JayHeadManagerExtCompositorSpaceTransformerV1,
+                jay_head_ext_compositor_space_scaler_v1::JayHeadManagerExtCompositorSpaceScalerV1,
                 jay_head_ext_connector_info_v1::JayHeadManagerExtConnectorInfoV1,
                 jay_head_ext_connector_settings_v1::JayHeadManagerExtConnectorSettingsV1,
                 jay_head_ext_core_info_v1::JayHeadManagerExtCoreInfoV1,
@@ -72,6 +73,7 @@ impl JayHeadManagerV1Global {
         ext!(CompositorSpaceInfoV1);
         ext!(CompositorSpacePositionerV1);
         ext!(CompositorSpaceTransformerV1);
+        ext!(CompositorSpaceScalerV1);
         ext!(ConnectorInfoV1);
         ext!(ConnectorSettingsV1);
         ext!(PhysicalDisplayInfoV1);
@@ -160,6 +162,7 @@ impl JayHeadManagerV1RequestHandler for JayHeadManagerV1 {
             compositor_space_info_v1: Default::default(),
             compositor_space_positioner_v1: Default::default(),
             compositor_space_transformer_v1: Default::default(),
+            compositor_space_scaler_v1: Default::default(),
             physical_display_info_v1: Default::default(),
             connector_info_v1: Default::default(),
             connector_settings_v1: Default::default(),

@@ -58,16 +58,12 @@ impl JayHeadExtCompositorSpaceTransformerV1RequestHandler
     head_common_req!(compositor_space_transformer_v1);
 
     fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.common.assert_in_transaction()?;
         let Some(transform) = Transform::from_wl(req.transform as _) else {
             return Err(
                 JayHeadExtCompositorSpaceTransformerV1Error::UnknownTransform(req.transform),
             );
         };
-        self.common
-            .pending
-            .borrow_mut()
-            .push(HeadOp::SetTransform(transform));
+        self.common.push_op(HeadOp::SetTransform(transform))?;
         Ok(())
     }
 }

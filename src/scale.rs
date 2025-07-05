@@ -15,7 +15,7 @@ impl Default for Scale {
 }
 
 impl Scale {
-    pub fn from_int(f: u32) -> Self {
+    pub const fn from_int(f: u32) -> Self {
         Self(f.saturating_mul(BASE))
     }
 

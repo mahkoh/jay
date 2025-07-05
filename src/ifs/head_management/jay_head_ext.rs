@@ -168,6 +168,7 @@ macro_rules! error {
 
 pub mod jay_head_ext_compositor_space_info_v1;
 pub mod jay_head_ext_compositor_space_positioner_v1;
+pub mod jay_head_ext_compositor_space_scaler_v1;
 pub mod jay_head_ext_compositor_space_transformer_v1;
 pub mod jay_head_ext_connector_info_v1;
 pub mod jay_head_ext_connector_settings_v1;

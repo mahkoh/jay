@@ -9,6 +9,7 @@ use {
             jay_head_ext::{
                 jay_head_ext_compositor_space_info_v1::JayHeadManagerExtCompositorSpaceInfoV1,
                 jay_head_ext_compositor_space_positioner_v1::JayHeadManagerExtCompositorSpacePositionerV1,
+                jay_head_ext_compositor_space_scaler_v1::{MAX_SCALE, MIN_SCALE},
                 jay_head_ext_compositor_space_transformer_v1::JayHeadManagerExtCompositorSpaceTransformerV1,
                 jay_head_ext_connector_info_v1::JayHeadManagerExtConnectorInfoV1,
                 jay_head_ext_connector_settings_v1::JayHeadManagerExtConnectorSettingsV1,
@@ -38,6 +39,7 @@ use {
     std::{cell::Cell, mem, rc::Rc},
     thiserror::Error,
 };
+use crate::ifs::head_management::jay_head_ext::jay_head_ext_compositor_space_scaler_v1::JayHeadManagerExtCompositorSpaceScalerV1;
 
 pub struct HeadManagerEvent {
     mgr: Rc<JayHeadManagerSessionV1>,
@@ -100,6 +102,8 @@ pub struct JayHeadManagerSessionV1 {
         CloneCell<Option<Rc<JayHeadManagerExtCompositorSpacePositionerV1>>>,
     pub compositor_space_transformer_v1:
         CloneCell<Option<Rc<JayHeadManagerExtCompositorSpaceTransformerV1>>>,
+    pub compositor_space_scaler_v1:
+        CloneCell<Option<Rc<JayHeadManagerExtCompositorSpaceScalerV1>>>,
     pub physical_display_info_v1: CloneCell<Option<Rc<JayHeadManagerExtPhysicalDisplayInfoV1>>>,
     pub connector_info_v1: CloneCell<Option<Rc<JayHeadManagerExtConnectorInfoV1>>>,
     pub connector_settings_v1: CloneCell<Option<Rc<JayHeadManagerExtConnectorSettingsV1>>>,
@@ -162,6 +166,7 @@ impl JayHeadManagerSessionV1 {
             compositor_space_info_v1,
             compositor_space_positioner_v1,
             compositor_space_transformer_v1,
+            compositor_space_scaler_v1,
             physical_display_info_v1,
             connector_info_v1,
             connector_settings_v1,
@@ -363,6 +368,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             compositor_space_info_v1 = CompositorSpaceInfoV1,
             compositor_space_positioner_v1 = CompositorSpacePositionerV1,
             compositor_space_transformer_v1 = CompositorSpaceTransformerV1,
+            compositor_space_scaler_v1 = CompositorSpaceScalerV1,
             physical_display_info_v1 = PhysicalDisplayInfoV1,
             connector_info_v1 = ConnectorInfoV1,
             connector_settings_v1 = ConnectorSettingsV1,
@@ -502,6 +508,23 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         .size();
                         if let Some(i) = &head.compositor_space_info_v1 {
                             i.send_transform(state);
+                            i.send_size(state);
+                        }
+                    }
+                    HeadOp::SetScale(s) => {
+                        if s < MIN_SCALE || s > MAX_SCALE {
+                            schedule_result!(HeadTransactionResult::ScaleOutOfBounds);
+                        }
+                        state.scale = s;
+                        state.size = OutputNode::calculate_extents_(
+                            state.mode,
+                            state.transform,
+                            state.scale,
+                            state.position,
+                        )
+                        .size();
+                        if let Some(i) = &head.compositor_space_info_v1 {
+                            i.send_scale(state);
                             i.send_size(state);
                         }
                     }
