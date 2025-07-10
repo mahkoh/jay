@@ -956,7 +956,7 @@ impl Connector for MetalConnector {
         };
         let mut change = self.master.change();
         change.change_object(crtc.id, |c| {
-            c.change(crtc.vrr_enabled.id, new_enabled as _);
+            c.change(crtc.vrr_enabled.id, new_enabled);
         });
         if let Err(e) = change.commit(0, 0) {
             log::error!("Could not change vrr mode: {}", ErrorFmt(e));
@@ -2389,8 +2389,8 @@ impl MetalBackend {
             changes.change_object(plane.id, |c| {
                 c.change(plane.crtc_id.id, 0);
                 c.change(plane.fb_id, 0);
-                c.change(plane.in_fence_fd, -1i32 as u64);
-            })
+                c.change(plane.in_fence_fd, -1i32);
+            });
         }
     }
 
@@ -2441,7 +2441,7 @@ impl MetalBackend {
                 c.change(crtc.active.id, 0);
                 c.change(crtc.mode_id.id, 0);
                 c.change(crtc.vrr_enabled.id, 0);
-            })
+            });
         }
     }
 
@@ -2832,7 +2832,7 @@ impl MetalBackend {
                 }
                 let vrr_requested = vrr_crtcs.contains(&crtc.id);
                 if crtc.vrr_enabled.value.get() != vrr_requested {
-                    c.change(crtc.vrr_enabled.id, vrr_requested as _);
+                    c.change(crtc.vrr_enabled.id, vrr_requested);
                     crtc.vrr_enabled.value.set(vrr_requested);
                 }
             });
@@ -3077,9 +3077,9 @@ impl MetalBackend {
         let hdr_blob_id = hdr_blob.as_ref().map(|b| b.id()).unwrap_or_default();
         let mode_blob = mode.create_blob(&connector.master)?;
         changes.change_object(connector.id, |c| {
-            c.change(dd.crtc_id.id, crtc.id.0 as _);
+            c.change(dd.crtc_id.id, crtc.id);
             if let Some(meta) = &dd.hdr_metadata {
-                c.change(meta.id, hdr_blob_id.0 as _);
+                c.change(meta.id, hdr_blob_id);
             }
             if let Some(cs) = &dd.colorspace {
                 c.change(cs.id, dd.persistent.color_space.get().to_drm());
@@ -3087,8 +3087,8 @@ impl MetalBackend {
         });
         changes.change_object(crtc.id, |c| {
             c.change(crtc.active.id, 1);
-            c.change(crtc.mode_id.id, mode_blob.id().0 as _);
-            c.change(crtc.vrr_enabled.id, dd.should_enable_vrr() as _);
+            c.change(crtc.mode_id.id, mode_blob.id());
+            c.change(crtc.vrr_enabled.id, dd.should_enable_vrr());
         });
         connector.crtc.set(Some(crtc.clone()));
         connector.version.fetch_add(1);
@@ -3212,12 +3212,12 @@ impl MetalBackend {
             }
         }
         changes.change_object(primary_plane.id, |c| {
-            c.change(primary_plane.fb_id, buffers[0].drm.id().0 as _);
-            c.change(primary_plane.crtc_id.id, crtc.id.0 as _);
+            c.change(primary_plane.fb_id, buffers[0].drm.id());
+            c.change(primary_plane.crtc_id.id, crtc.id);
             c.change(primary_plane.crtc_x.id, 0);
             c.change(primary_plane.crtc_y.id, 0);
-            c.change(primary_plane.crtc_w.id, mode.hdisplay as _);
-            c.change(primary_plane.crtc_h.id, mode.vdisplay as _);
+            c.change(primary_plane.crtc_w.id, mode.hdisplay);
+            c.change(primary_plane.crtc_h.id, mode.vdisplay);
             c.change(primary_plane.src_x.id, 0);
             c.change(primary_plane.src_y.id, 0);
             c.change(primary_plane.src_w.id, (mode.hdisplay as u64) << 16);

@@ -335,7 +335,7 @@ impl MetalConnector {
         macro_rules! change {
             ($c:expr, $prop:expr, $new:expr) => {{
                 if $prop.value.get() != $new {
-                    $c.change($prop.id, $new as u64);
+                    $c.change($prop.id, $new);
                     try_async_flip = false;
                     $prop.pending_value.set(Some($new));
                 }
@@ -362,7 +362,7 @@ impl MetalConnector {
                     }
                 };
             changes.change_object(plane.id, |c| {
-                c.change(plane.fb_id, fb.fb.id().0 as _);
+                c.change(plane.fb_id, fb.fb.id());
                 change!(c, plane.src_w, (src_width as u32) << 16);
                 change!(c, plane.src_h, (src_height as u32) << 16);
                 change!(c, plane.crtc_x, crtc_x);
@@ -383,7 +383,7 @@ impl MetalConnector {
                 && let Some(fb) = &*self.active_framebuffer.borrow()
             {
                 changes.change_object(plane.id, |c| {
-                    c.change(plane.fb_id, fb.fb.id().0 as _);
+                    c.change(plane.fb_id, fb.fb.id());
                 });
             }
         }
@@ -400,12 +400,12 @@ impl MetalConnector {
                     ..
                 } => {
                     changes.change_object(plane.id, |c| {
-                        c.change(plane.fb_id, fb.id().0 as _);
-                        c.change(plane.crtc_id.id, crtc.id.0 as _);
-                        c.change(plane.crtc_x.id, *x as _);
-                        c.change(plane.crtc_y.id, *y as _);
-                        c.change(plane.crtc_w.id, *width as _);
-                        c.change(plane.crtc_h.id, *height as _);
+                        c.change(plane.fb_id, fb.id());
+                        c.change(plane.crtc_id.id, crtc.id);
+                        c.change(plane.crtc_x.id, *x);
+                        c.change(plane.crtc_y.id, *y);
+                        c.change(plane.crtc_w.id, *width);
+                        c.change(plane.crtc_h.id, *height);
                         c.change(plane.src_x.id, 0);
                         c.change(plane.src_y.id, 0);
                         c.change(plane.src_w.id, (*width as u64) << 16);

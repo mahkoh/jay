@@ -252,7 +252,7 @@ impl Backend for MetalBackend {
                 {
                     crtc.active.value.set(!idle);
                     change.change_object(crtc.id, |c| {
-                        c.change(crtc.active.id, (!idle) as _);
+                        c.change(crtc.active.id, !idle);
                     });
                 }
             }

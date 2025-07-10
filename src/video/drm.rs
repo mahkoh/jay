@@ -1052,9 +1052,9 @@ impl Change {
 }
 
 impl<'a> ObjectChange<'a> {
-    pub fn change(&mut self, property_id: DrmProperty, value: u64) {
+    pub fn change(&mut self, property_id: DrmProperty, value: impl ObjectChangeValue) {
         self.change.props.push(property_id.0);
-        self.change.values.push(value);
+        self.change.values.push(value.into_u64());
     }
 }
 
@@ -1066,6 +1066,36 @@ impl Drop for Change {
             .push(mem::take(&mut self.object_lengths));
         self.master.u32_bufs.push(mem::take(&mut self.props));
         self.master.u64_bufs.push(mem::take(&mut self.values));
+    }
+}
+
+pub trait ObjectChangeValue {
+    fn into_u64(self) -> u64;
+}
+
+macro_rules! num {
+    ($ty:ty) => {
+        impl ObjectChangeValue for $ty {
+            fn into_u64(self) -> u64 {
+                self as u64
+            }
+        }
+    };
+}
+
+num!(u16);
+num!(i32);
+num!(u32);
+num!(i64);
+num!(u64);
+num!(bool);
+
+impl<T> ObjectChangeValue for T
+where
+    T: DrmObject,
+{
+    fn into_u64(self) -> u64 {
+        self.id() as u64
     }
 }
 
