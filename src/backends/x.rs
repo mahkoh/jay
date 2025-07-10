@@ -3,15 +3,19 @@ use {
         allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            AXIS_120, AxisSource, Backend, BackendColorSpace, BackendDrmDevice, BackendEvent,
-            BackendTransferFunction, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            DrmDeviceId, DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScrollAxis, TransformMatrix,
+            AXIS_120, AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
+            Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent,
+            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod,
+            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            transaction::{
+                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
+                BackendConnectorTransactionError, BackendConnectorTransactionType,
+                BackendConnectorTransactionTypeDyn, BackendPreparedConnectorTransaction,
+            },
         },
         cmm::cmm_primaries::Primaries,
         fixed::Fixed,
-        format::XRGB8888,
+        format::{Format, XRGB8888},
         gfx_api::{AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync},
         ifs::wl_output::OutputId,
         state::State,
@@ -51,8 +55,10 @@ use {
             },
         },
     },
+    ahash::AHashMap,
     jay_config::video::GfxApi,
     std::{
+        any::Any,
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -119,6 +125,8 @@ pub enum XBackendError {
     #[error("Render device does not support XRGB8888 format")]
     XRGB8888,
 }
+
+const FORMAT: &Format = XRGB8888;
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
     let c = match Xcon::connect(state).await {
@@ -376,7 +384,7 @@ impl XBackend {
     ) -> Result<[XImage; 2], XBackendError> {
         let mut images = [None, None];
         let formats = self.ctx.formats();
-        let format = match formats.get(&XRGB8888.drm) {
+        let format = match formats.get(&FORMAT.drm) {
             Some(f) => f,
             None => return Err(XBackendError::XRGB8888),
         };
@@ -385,7 +393,7 @@ impl XBackend {
                 &self.state.dma_buf_ids,
                 width,
                 height,
-                XRGB8888,
+                FORMAT,
                 format.write_modifiers.keys(),
                 GBM_BO_USE_RENDERING,
             )?;
@@ -469,6 +477,22 @@ impl XBackend {
             cw.wid
         };
         let images = self.create_images(window_id, WIDTH, HEIGHT).await?;
+        let state = BackendConnectorState {
+            serial: self.state.backend_connector_state_serials.next(),
+            enabled: true,
+            active: true,
+            mode: Mode {
+                width: WIDTH,
+                height: HEIGHT,
+                refresh_rate_millihz: 60_000, // TODO
+            },
+            non_desktop_override: None,
+            vrr: false,
+            tearing: false,
+            format: FORMAT,
+            color_space: Default::default(),
+            transfer_function: Default::default(),
+        };
         let output = Rc::new(XOutput {
             id: self.state.connector_ids.next(),
             backend: self.clone(),
@@ -481,6 +505,7 @@ impl XBackend {
             next_image: Default::default(),
             cb: CloneCell::new(None),
             images,
+            state: Cell::new(state),
         });
         {
             let class = "jay\0jay\0";
@@ -569,21 +594,15 @@ impl XBackend {
                 format!("X-Window-{}", output.window),
                 output.window.to_string(),
             )),
-            initial_mode: Mode {
-                width: output.width.get(),
-                height: output.height.get(),
-                refresh_rate_millihz: 60_000, // TODO
-            },
             width_mm: output.width.get(),
             height_mm: output.height.get(),
             non_desktop: false,
             vrr_capable: false,
             transfer_functions: vec![],
-            transfer_function: BackendTransferFunction::Default,
             color_spaces: vec![],
-            color_space: BackendColorSpace::Default,
             primaries: Primaries::SRGB,
             luminance: None,
+            state: output.state.get(),
         }));
         output.changed();
         self.present(output).await;
@@ -962,11 +981,12 @@ impl XBackend {
                 old.tex.set(new.tex.get());
                 old.pixmap.set(new.pixmap.get());
             }
-            output.events.push(ConnectorEvent::ModeChanged(Mode {
-                width,
-                height,
-                refresh_rate_millihz: 60, // TODO
-            }));
+            let mut state = output.state.get();
+            state.serial = self.state.backend_connector_state_serials.next();
+            state.mode.width = width;
+            state.mode.height = height;
+            output.state.set(state);
+            output.events.push(ConnectorEvent::State(state));
             output.changed();
         }
         Ok(())
@@ -1035,6 +1055,7 @@ struct XOutput {
     next_image: NumCell<usize>,
     images: [XImage; 2],
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
+    state: Cell<BackendConnectorState>,
 }
 
 struct XImage {
@@ -1083,8 +1104,75 @@ impl Connector for XOutput {
         Some(self.backend.drm_device_id)
     }
 
-    fn set_mode(&self, _mode: Mode) {
-        log::warn!("X backend doesn't support changing the connector mode");
+    fn effectively_locked(&self) -> bool {
+        // todo
+        true
+    }
+
+    fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {
+        Box::new(XTransactionType)
+    }
+
+    fn create_transaction(
+        &self,
+    ) -> Result<Box<dyn BackendConnectorTransaction>, BackendConnectorTransactionError> {
+        Ok(Box::new(XTransaction::default()))
+    }
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct XTransactionType;
+impl BackendConnectorTransactionType for XTransactionType {}
+
+#[derive(Default)]
+struct XTransaction {
+    connectors: AHashMap<ConnectorId, Rc<XOutput>>,
+}
+impl XTransaction {
+    fn send_state(&self) {
+        for con in self.connectors.values() {
+            let mut state = con.state.get();
+            state.serial = con.backend.state.backend_connector_state_serials.next();
+            con.events.push(ConnectorEvent::State(state));
+        }
+    }
+}
+impl BackendConnectorTransaction for XTransaction {
+    fn add(
+        &mut self,
+        connector: &Rc<dyn Connector>,
+        _change: BackendConnectorState,
+    ) -> Result<(), BackendConnectorTransactionError> {
+        let con = (connector.clone() as Rc<dyn Any>)
+            .downcast::<XOutput>()
+            .map_err(|_| {
+                BackendConnectorTransactionError::UnsupportedConnectorType(connector.kernel_id())
+            })?;
+        self.connectors.insert(con.id, con.clone());
+        Ok(())
+    }
+    fn prepare(
+        self: Box<Self>,
+    ) -> Result<Box<dyn BackendPreparedConnectorTransaction>, BackendConnectorTransactionError>
+    {
+        Ok(self)
+    }
+}
+impl BackendPreparedConnectorTransaction for XTransaction {
+    fn apply(
+        self: Box<Self>,
+    ) -> Result<Box<dyn BackendAppliedConnectorTransaction>, BackendConnectorTransactionError> {
+        self.send_state();
+        Ok(self)
+    }
+}
+impl BackendAppliedConnectorTransaction for XTransaction {
+    fn commit(self: Box<Self>) {
+        // nothing
+    }
+    fn rollback(self: Box<Self>) -> Result<(), BackendConnectorTransactionError> {
+        self.send_state();
+        Ok(())
     }
 }
 

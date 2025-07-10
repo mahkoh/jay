@@ -147,6 +147,10 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         BinarySearchMapMutIterMut { pos: 0, map: self }
     }
 
+    pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
+        self.iter_mut().map(|(_, v)| v)
+    }
+
     pub fn remove_if<F: FnMut(&K, &V) -> bool>(&mut self, mut f: F) {
         let mut i = 0;
         while i < self.m.len() {

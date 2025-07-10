@@ -710,7 +710,7 @@ pub trait DrmObject {
 macro_rules! drm_obj {
     ($name:ident, $ty:expr) => {
         #[repr(transparent)]
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default, Ord, PartialOrd)]
         pub struct $name(pub u32);
 
         impl DrmObject for $name {
@@ -929,11 +929,6 @@ pub struct hdr_metadata_infoframe {
 }
 
 impl DrmModeInfo {
-    pub fn create_blob(&self, master: &Rc<DrmMaster>) -> Result<PropBlob, DrmError> {
-        let raw = self.to_raw();
-        master.create_blob(&raw)
-    }
-
     pub fn to_raw(&self) -> drm_mode_modeinfo {
         let mut name = [0u8; DRM_DISPLAY_MODE_LEN];
         let len = name.len().min(self.name.len());
@@ -1006,7 +1001,6 @@ pub struct ObjectChange<'a> {
 }
 
 impl Change {
-    #[expect(dead_code)]
     pub fn test(&self, flags: u32) -> Result<(), DrmError> {
         mode_atomic(
             self.master.raw(),
@@ -1031,7 +1025,15 @@ impl Change {
         )
     }
 
-    pub fn change_object<T, F>(&mut self, obj: T, f: F)
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    pub fn change_object<T, F>(&mut self, obj: T, f: F) -> bool
     where
         T: DrmObject,
         F: FnOnce(&mut ObjectChange),
@@ -1047,6 +1049,9 @@ impl Change {
                 self.objects.push(obj.id());
                 self.object_lengths.push(new);
             }
+            true
+        } else {
+            false
         }
     }
 }

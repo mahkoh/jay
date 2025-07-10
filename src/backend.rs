@@ -1,6 +1,10 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
+        backend::transaction::{
+            BackendConnectorTransaction, BackendConnectorTransactionError,
+            BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
+        },
         cmm::cmm_primaries::Primaries,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
@@ -30,10 +34,13 @@ use {
         any::Any,
         error::Error,
         fmt::{Debug, Display, Formatter},
+        hash::Hash,
         rc::Rc,
     },
     uapi::{OwnedFd, c},
 };
+
+pub mod transaction;
 
 linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
@@ -47,10 +54,6 @@ pub trait Backend: Any {
 
     fn switch_to(&self, vtnr: u32) {
         let _ = vtnr;
-    }
-
-    fn set_idle(&self, idle: bool) {
-        let _ = idle;
     }
 
     fn import_environment(&self) -> bool {
@@ -82,21 +85,31 @@ impl Mode {
     }
 }
 
+impl Display for Mode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}x{}@{}",
+            self.width,
+            self.height,
+            self.refresh_rate_millihz as f64 / 1000.0,
+        )
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
     pub modes: Vec<Mode>,
     pub output_id: Rc<OutputId>,
-    pub initial_mode: Mode,
     pub width_mm: i32,
     pub height_mm: i32,
     pub non_desktop: bool,
     pub vrr_capable: bool,
     pub transfer_functions: Vec<BackendTransferFunction>,
-    pub transfer_function: BackendTransferFunction,
     pub color_spaces: Vec<BackendColorSpace>,
-    pub color_space: BackendColorSpace,
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
+    pub state: BackendConnectorState,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -111,41 +124,35 @@ impl Display for ConnectorKernelId {
     }
 }
 
-pub trait Connector {
+pub trait Connector: Any {
     fn id(&self) -> ConnectorId;
     fn kernel_id(&self) -> ConnectorKernelId;
     fn event(&self) -> Option<ConnectorEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
-    fn enabled(&self) -> bool {
-        true
-    }
-    fn set_enabled(&self, enabled: bool) {
-        let _ = enabled;
-    }
+    fn effectively_locked(&self) -> bool;
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         None
-    }
-    fn set_mode(&self, mode: Mode);
-    fn set_non_desktop_override(&self, non_desktop: Option<bool>) {
-        let _ = non_desktop;
     }
     fn drm_object_id(&self) -> Option<DrmConnector> {
         None
     }
-    fn set_vrr_enabled(&self, enabled: bool) {
-        let _ = enabled;
+    fn before_non_desktop_override_update(&self, overrd: Option<bool>) {
+        let _ = overrd;
     }
-    fn set_tearing_enabled(&self, enabled: bool) {
-        let _ = enabled;
+    fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {
+        #[derive(Hash, Eq, PartialEq)]
+        struct UnimplementedConnectorTransactionType;
+        impl BackendConnectorTransactionType for UnimplementedConnectorTransactionType {}
+        Box::new(UnimplementedConnectorTransactionType)
     }
-    fn set_fb_format(&self, format: &'static Format) {
-        let _ = format;
-    }
-    fn set_colors(&self, bcs: BackendColorSpace, btf: BackendTransferFunction) {
-        let _ = bcs;
-        let _ = btf;
+    fn create_transaction(
+        &self,
+    ) -> Result<Box<dyn BackendConnectorTransaction>, BackendConnectorTransactionError> {
+        Err(BackendConnectorTransactionError::TransactionsNotSupported(
+            self.kernel_id(),
+        ))
     }
 }
 
@@ -155,12 +162,10 @@ pub enum ConnectorEvent {
     HardwareCursor(Option<Rc<dyn HardwareCursor>>),
     Disconnected,
     Removed,
-    ModeChanged(Mode),
     Unavailable,
     Available,
-    VrrChanged(bool),
-    FormatsChanged(Rc<Vec<&'static Format>>, &'static Format),
-    ColorsChanged(BackendColorSpace, BackendTransferFunction),
+    State(BackendConnectorState),
+    FormatsChanged(Rc<Vec<&'static Format>>),
 }
 
 pub trait HardwareCursorUpdate {
@@ -569,4 +574,24 @@ impl BackendColorSpace {
             BackendColorSpace::Bt2020 => "bt2020",
         }
     }
+}
+
+linear_ids!(
+    BackendConnectorStateSerials,
+    BackendConnectorStateSerial,
+    u64
+);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct BackendConnectorState {
+    pub serial: BackendConnectorStateSerial,
+    pub enabled: bool,
+    pub active: bool,
+    pub mode: Mode,
+    pub non_desktop_override: Option<bool>,
+    pub vrr: bool,
+    pub tearing: bool,
+    pub format: &'static Format,
+    pub color_space: BackendColorSpace,
+    pub transfer_function: BackendTransferFunction,
 }

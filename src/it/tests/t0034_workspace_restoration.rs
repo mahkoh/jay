@@ -1,10 +1,10 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendEvent, BackendTransferFunction, ConnectorEvent,
-            ConnectorKernelId, Mode, MonitorInfo,
+            BackendConnectorState, BackendEvent, ConnectorEvent, ConnectorKernelId, MonitorInfo,
         },
         cmm::cmm_primaries::Primaries,
+        format::XRGB8888,
         ifs::wl_output::OutputId,
         it::{test_backend::TestConnector, test_error::TestResult, testrun::TestRun},
         video::drm::ConnectorType,
@@ -34,6 +34,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         },
         events: Default::default(),
         feedback: Default::default(),
+        idle: Default::default(),
     });
     let new_monitor_info = MonitorInfo {
         modes: vec![],
@@ -43,21 +44,26 @@ async fn test(run: Rc<TestRun>) -> TestResult {
             model: "jay second connector".to_string(),
             serial_number: "".to_string(),
         }),
-        initial_mode: Mode {
-            width: 400,
-            height: 400,
-            refresh_rate_millihz: 60000,
-        },
         width_mm: 0,
         height_mm: 0,
         non_desktop: false,
         vrr_capable: false,
         transfer_functions: vec![],
-        transfer_function: BackendTransferFunction::Default,
         color_spaces: vec![],
-        color_space: BackendColorSpace::Default,
         primaries: Primaries::SRGB,
         luminance: None,
+        state: BackendConnectorState {
+            serial: run.state.backend_connector_state_serials.next(),
+            enabled: true,
+            active: true,
+            mode: Default::default(),
+            non_desktop_override: None,
+            vrr: false,
+            tearing: false,
+            format: XRGB8888,
+            color_space: Default::default(),
+            transfer_function: Default::default(),
+        },
     };
     run.backend
         .state

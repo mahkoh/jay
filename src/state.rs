@@ -3,9 +3,10 @@ use {
         acceptor::Acceptor,
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
-            Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorId, ConnectorIds,
-            DrmDeviceId, DrmDeviceIds, HardwareCursorUpdate, InputDevice, InputDeviceGroupIds,
-            InputDeviceId, InputDeviceIds, MonitorInfo,
+            Backend, BackendConnectorState, BackendConnectorStateSerials, BackendDrmDevice,
+            BackendEvent, Connector, ConnectorId, ConnectorIds, DrmDeviceId, DrmDeviceIds,
+            HardwareCursorUpdate, InputDevice, InputDeviceGroupIds, InputDeviceId, InputDeviceIds,
+            MonitorInfo, transaction::BackendConnectorTransactionError,
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
@@ -255,6 +256,7 @@ pub struct State {
     pub caps_thread: Option<PrCapsThread>,
     pub node_at_tree: RefCell<Vec<FoundNode>>,
     pub position_hint_requests: AsyncQueue<PositionHintRequest>,
+    pub backend_connector_state_serials: BackendConnectorStateSerials,
 }
 
 // impl Drop for State {
@@ -376,6 +378,7 @@ pub struct ConnectorData {
     pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
+    pub state: Cell<BackendConnectorState>,
 }
 
 pub struct OutputData {
@@ -402,6 +405,31 @@ impl ConnectorData {
         if !self.damaged.replace(true) {
             self.connector.damage();
         }
+    }
+
+    pub fn modify_state(
+        &self,
+        state: &State,
+        f: impl FnOnce(&mut BackendConnectorState),
+    ) -> Result<(), BackendConnectorTransactionError> {
+        let old = self.state.get();
+        let mut s = old;
+        f(&mut s);
+        if old == s {
+            return Ok(());
+        }
+        s.serial = state.backend_connector_state_serials.next();
+        let mut tran = self.connector.create_transaction()?;
+        tran.add(&self.connector, s)?;
+        tran.prepare()?.apply()?.commit();
+        if let Some(output) = state.outputs.get(&self.connector.id())
+            && let Some(node) = &output.node
+        {
+            node.update_state(s);
+        } else {
+            self.state.set(s);
+        }
+        Ok(())
     }
 }
 

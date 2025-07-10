@@ -1,6 +1,7 @@
 mod input;
 mod monitor;
 mod present;
+mod transaction;
 mod video;
 
 use {
@@ -9,7 +10,7 @@ use {
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState,
-            TransformMatrix,
+            TransformMatrix, transaction::BackendConnectorTransactionError,
         },
         backends::metal::video::{
             MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
@@ -47,10 +48,7 @@ use {
             smallmap::SmallMap,
             syncqueue::SyncQueue,
         },
-        video::{
-            drm::{DRM_MODE_ATOMIC_ALLOW_MODESET, DrmError},
-            gbm::GbmError,
-        },
+        video::{drm::DrmError, gbm::GbmError},
     },
     bstr::ByteSlice,
     std::{
@@ -87,12 +85,6 @@ pub enum MetalError {
     UpdateProperties(#[source] DrmError),
     #[error("Could not create a render context")]
     CreateRenderContex(#[source] GfxError),
-    #[error("Cannot initialize connector because no CRTC is available")]
-    NoCrtcForConnector,
-    #[error("Cannot initialize connector because no primary plane is available")]
-    NoPrimaryPlaneForConnector,
-    #[error("Cannot initialize connector because no mode is available")]
-    NoModeForConnector,
     #[error("Could not allocate scanout buffer")]
     ScanoutBuffer(#[source] GbmError),
     #[error("addfb2 failed")]
@@ -104,7 +96,7 @@ pub enum MetalError {
     #[error("Could not import an image into the graphics API")]
     ImportImage(#[source] GfxError),
     #[error("Could not perform modeset")]
-    Modeset(#[source] DrmError),
+    Modeset(#[source] BackendConnectorTransactionError),
     #[error("Could not enable atomic modesetting")]
     AtomicModesetting(#[source] OsError),
     #[error("Could not inspect a plane")]
@@ -137,6 +129,12 @@ pub enum MetalError {
     Clear(#[source] GfxError),
     #[error("The present configuration is out of date")]
     OutOfDate,
+    #[error("Could not add connector to transaction")]
+    AddToTransaction(#[source] BackendConnectorTransactionError),
+    #[error("Could not calculate DRM state")]
+    CalculateDrmState(#[source] BackendConnectorTransactionError),
+    #[error("Could not calculate DRM change set")]
+    CalculateDrmChange(#[source] BackendConnectorTransactionError),
 }
 
 pub struct MetalBackend {
@@ -204,6 +202,7 @@ impl Backend for MetalBackend {
             dev.futures.clear();
             for crtc in dev.dev.crtcs.values() {
                 crtc.connector.take();
+                crtc.pending_flip.take();
             }
             dev.dev.handle_events.handle_events.take();
             dev.dev.on_change.clear();
@@ -240,36 +239,6 @@ impl Backend for MetalBackend {
                 log::error!("Could not switch to VT {}: {}", vtnr, ErrorFmt(e));
             }
         })
-    }
-
-    fn set_idle(&self, idle: bool) {
-        let devices = self.device_holder.drm_devices.lock();
-        for device in devices.values() {
-            let mut change = device.dev.master.change();
-            for connector in device.connectors.lock().values() {
-                if let Some(crtc) = connector.crtc.get()
-                    && idle == crtc.active.value.get()
-                {
-                    crtc.active.value.set(!idle);
-                    change.change_object(crtc.id, |c| {
-                        c.change(crtc.active.id, !idle);
-                    });
-                }
-            }
-            if let Err(e) = change.commit(DRM_MODE_ATOMIC_ALLOW_MODESET, 0) {
-                log::error!("Could not set monitors idle/not idle: {}", ErrorFmt(e));
-                return;
-            }
-        }
-        if idle {
-            self.state.set_backend_idle(true);
-        } else {
-            for device in devices.values() {
-                for connector in device.connectors.lock().values() {
-                    connector.schedule_present();
-                }
-            }
-        }
     }
 
     fn import_environment(&self) -> bool {

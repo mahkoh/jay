@@ -205,7 +205,7 @@ macro_rules! linear_ids {
             }
         }
 
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
         pub struct $id($ty);
 
         impl $id {

@@ -7,9 +7,9 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
-        state::{ConnectorData, DrmDevData, OutputData},
+        state::{ConnectorData, DrmDevData, OutputData, State},
         tree::{OutputNode, TearingMode, VrrMode},
-        utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
+        utils::{errorfmt::ErrorFmt, gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
         wire::{JayRandrId, jay_randr::*},
     },
     jay_config::video::{
@@ -23,6 +23,7 @@ use {
 pub struct JayRandr {
     pub id: JayRandrId,
     pub client: Rc<Client>,
+    pub state: Rc<State>,
     pub tracker: Tracker<Self>,
     pub version: Version,
 }
@@ -39,6 +40,7 @@ impl JayRandr {
         Self {
             id,
             client: client.clone(),
+            state: client.state.clone(),
             tracker: Default::default(),
             version,
         }
@@ -67,6 +69,7 @@ impl JayRandr {
     }
 
     fn send_connector(&self, data: &ConnectorData) {
+        let state = data.state.get();
         self.client.event(Connector {
             self_id: self.id,
             id: data.connector.id().raw() as _,
@@ -75,7 +78,7 @@ impl JayRandr {
                 .as_ref()
                 .map(|d| d.dev.id().raw() as _)
                 .unwrap_or_default(),
-            enabled: data.connector.enabled() as _,
+            enabled: state.enabled as _,
             name: &data.name,
         });
         let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {
@@ -347,14 +350,19 @@ impl JayRandrRequestHandler for JayRandr {
     }
 
     fn set_mode(&self, req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let Some(c) = self.get_output(req.output) else {
+        let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        c.connector.connector.set_mode(backend::Mode {
-            width: req.width,
-            height: req.height,
-            refresh_rate_millihz: req.refresh_rate_millihz,
+        let res = c.modify_state(&self.state, |s| {
+            s.mode = backend::Mode {
+                width: req.width,
+                height: req.height,
+                refresh_rate_millihz: req.refresh_rate_millihz,
+            };
         });
+        if let Err(e) = res {
+            self.send_error(&format!("Could not modify connector mode: {}", ErrorFmt(e)));
+        }
         Ok(())
     }
 
@@ -378,7 +386,10 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        c.connector.set_enabled(req.enabled != 0);
+        let res = c.modify_state(&self.state, |s| s.enabled = req.enabled != 0);
+        if let Err(e) = res {
+            self.send_error(&format!("Could not en/disable connector: {}", ErrorFmt(e)));
+        }
         Ok(())
     }
 
@@ -391,7 +402,13 @@ impl JayRandrRequestHandler for JayRandr {
             1 => Some(false),
             _ => Some(true),
         };
-        c.connector.set_non_desktop_override(non_desktop);
+        c.connector.before_non_desktop_override_update(non_desktop);
+        let res = c.modify_state(&self.state, |s| {
+            s.non_desktop_override = non_desktop;
+        });
+        if let Err(e) = res {
+            self.send_error(&format!("Could not change non-desktop override: {}", e));
+        }
         Ok(())
     }
 
@@ -439,10 +456,13 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(&format) = named_formats().get(req.format) else {
             return Err(JayRandrError::UnknownFormat(req.format.to_string()));
         };
-        let Some(c) = self.get_output_node(req.output) else {
+        let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        c.global.connector.connector.set_fb_format(format);
+        let res = c.modify_state(&self.state, |s| s.format = format);
+        if let Err(e) = res {
+            self.send_error(&format!("Could not modify connector format: {}", e));
+        }
         Ok(())
     }
 
@@ -478,7 +498,16 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        c.connector.set_colors(cs, tf);
+        let res = c.modify_state(&self.state, |s| {
+            s.color_space = cs;
+            s.transfer_function = tf;
+        });
+        if let Err(e) = res {
+            self.send_error(&format!(
+                "Could not modify connector colors: {}",
+                ErrorFmt(e),
+            ));
+        }
         Ok(())
     }
 
