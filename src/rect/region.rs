@@ -327,6 +327,13 @@ impl DamageQueue {
         data.clear();
     }
 
+    pub fn clear_all(&self) {
+        let datas = unsafe { self.datas.get().deref_mut() };
+        for data in datas {
+            data.clear();
+        }
+    }
+
     pub fn get(&self) -> Region {
         let data = unsafe { &self.datas.get().deref()[self.this] };
         Region::from_rects2(data)
