@@ -103,6 +103,7 @@ impl HeadState {
 
 enum HeadOp {
     SetPosition(i32, i32),
+    SetConnectorEnabled(bool),
     SetTransform(Transform),
     SetScale(Scale),
 }

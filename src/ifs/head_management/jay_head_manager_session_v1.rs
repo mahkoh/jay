@@ -262,8 +262,8 @@ impl JayHeadManagerSessionV1 {
                 return Err(HeadTransactionError::HeadRemoved(head.common.id));
             };
             let old = connector.state.get();
-            #[expect(unused_mut)]
             let mut new = old;
+            new.enabled = desired.connector_enabled;
             if old == new {
                 continue;
             }
@@ -385,7 +385,6 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
         }
         for head in self.heads.lock().values() {
             let pending = mem::take(&mut *head.common.pending.borrow_mut());
-            #[expect(unused_variables)]
             let snapshot = &*head.common.snapshot_state.borrow();
             let state = &mut *head.common.transaction_state.borrow_mut();
             let mut to_send = ToSend::default();
@@ -394,6 +393,13 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     HeadOp::SetPosition(x, y) => {
                         state.position = (x, y);
                         to_send |= COMPOSITOR_SPACE_INFO_POS;
+                    }
+                    HeadOp::SetConnectorEnabled(enabled) => {
+                        state.connector_enabled = enabled;
+                        state.update_in_compositor_space(snapshot.wl_output);
+                        to_send |= COMPOSITOR_SPACE_INFO_FULL;
+                        to_send |= COMPOSITOR_SPACE_INFO_ENABLED;
+                        to_send |= CORE_INFO;
                     }
                     HeadOp::SetTransform(t) => {
                         state.transform = t;

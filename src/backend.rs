@@ -139,7 +139,6 @@ pub trait Connector: Any {
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn effectively_locked(&self) -> bool;
-    #[expect(dead_code)]
     fn caps(&self) -> ConnectorCaps {
         ConnectorCaps::none()
     }
