@@ -1013,7 +1013,6 @@ impl MetalDeviceTransactionWithChange {
             mem::swap(o, &mut plane.new);
         }
         for (_, connector) in &mut slf.connectors {
-            let is_enabled;
             let is_connected;
             let is_non_desktop;
             {
@@ -1021,7 +1020,6 @@ impl MetalDeviceTransactionWithChange {
                 mem::swap(&mut dd.drm_state, &mut connector.new);
                 mem::swap(&mut *dd.persistent.state.borrow_mut(), &mut connector.state);
                 dd.update_cached_fields(&slf.dev.dev);
-                is_enabled = dd.persistent.state.borrow().enabled;
                 is_non_desktop = dd.non_desktop_effective;
                 is_connected = dd.connection == ConnectorStatus::Connected;
             }
@@ -1052,7 +1050,7 @@ impl MetalDeviceTransactionWithChange {
                         connector.obj.send_connected();
                     }
                 }
-            } else if is_enabled && is_connected && is_non_desktop {
+            } else if is_connected && is_non_desktop {
                 match connector.obj.frontend_state.get() {
                     FrontState::Removed
                     | FrontState::Unavailable

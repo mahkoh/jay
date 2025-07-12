@@ -388,7 +388,8 @@ impl ConnectorDisplayData {
 
     fn update_non_desktop_effective(&mut self) {
         let state = &*self.persistent.state.borrow();
-        self.non_desktop_effective = state.non_desktop_override.unwrap_or(self.non_desktop);
+        self.non_desktop_effective =
+            !state.enabled || state.non_desktop_override.unwrap_or(self.non_desktop);
     }
 
     pub fn update_cached_fields(&mut self, dev: &MetalDrmDevice) {
@@ -668,8 +669,8 @@ impl MetalConnector {
     }
 
     fn connected(&self) -> bool {
-        let dd = self.display.borrow_mut();
-        dd.persistent.state.borrow().enabled && dd.connection == ConnectorStatus::Connected
+        let dd = self.display.borrow();
+        dd.connection == ConnectorStatus::Connected
     }
 
     pub fn update_drm_feedback(&self) {

@@ -853,10 +853,11 @@ impl Randr {
 
     fn print_connector(&self, connector: &Connector, modes: bool, formats: bool) {
         println!("      {}:", connector.name);
+        if !connector.enabled {
+            println!("        disabled");
+        }
         let Some(o) = &connector.output else {
-            if !connector.enabled {
-                println!("        disabled");
-            } else {
+            if connector.enabled {
                 println!("        disconnected");
             }
             return;
@@ -869,7 +870,9 @@ impl Randr {
             o.width_mm, o.height_mm
         );
         if o.non_desktop {
-            println!("        non-desktop");
+            if connector.enabled {
+                println!("        non-desktop");
+            }
             return;
         }
         println!("        VRR capable: {}", o.vrr_capable);
