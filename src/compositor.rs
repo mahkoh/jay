@@ -76,7 +76,10 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::{_private::DEFAULT_SEAT_NAME, video::GfxApi},
+    jay_config::{
+        _private::DEFAULT_SEAT_NAME,
+        video::{GfxApi, Transform},
+    },
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
@@ -637,7 +640,13 @@ fn create_dummy_output(state: &Rc<State>) {
     let head_name = state.head_names.next();
     let head_state = HeadState {
         name: RcEq(name.clone()),
+        position: (0, 0),
+        size: (0, 0),
+        transform: Transform::None,
+        scale: Default::default(),
         wl_output: None,
+        connector_enabled: true,
+        in_compositor_space: false,
         monitor_info: None,
     };
     let connector_data = Rc::new(ConnectorData {

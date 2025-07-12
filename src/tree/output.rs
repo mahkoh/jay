@@ -470,6 +470,10 @@ impl OutputNode {
             }
         }
         self.schedule_update_render_data();
+        self.global
+            .connector
+            .head_managers
+            .handle_scale_change(scale);
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
@@ -800,6 +804,10 @@ impl OutputNode {
         if transform != old_transform {
             self.state.refresh_hardware_cursors();
             self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
+            self.global
+                .connector
+                .head_managers
+                .handle_transform_change(transform);
         }
     }
 
@@ -847,6 +855,10 @@ impl OutputNode {
             seat.cursor_group().output_pos_changed(self)
         }
         self.state.tree_changed();
+        self.global
+            .connector
+            .head_managers
+            .handle_position_size_change(self);
     }
 
     pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {

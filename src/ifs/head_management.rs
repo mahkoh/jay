@@ -7,10 +7,13 @@ use {
             head_management_macros::HeadExts, jay_head_manager_session_v1::JayHeadManagerSessionV1,
             jay_head_v1::JayHeadV1,
         },
+        scale::Scale,
         state::OutputData,
+        tree::OutputNode,
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
+    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -64,7 +67,31 @@ struct HeadCommon {
 pub struct HeadState {
     pub name: RcEq<String>,
     pub wl_output: Option<GlobalName>,
+    pub connector_enabled: bool,
+    pub in_compositor_space: bool,
+    pub position: (i32, i32),
+    pub size: (i32, i32),
+    pub transform: Transform,
+    pub scale: Scale,
     pub monitor_info: Option<RcEq<MonitorInfo>>,
+}
+
+impl HeadState {
+    fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
+        self.in_compositor_space = false;
+        self.wl_output = None;
+        if !self.connector_enabled {
+            return;
+        }
+        let Some(mi) = &self.monitor_info else {
+            return;
+        };
+        if mi.non_desktop {
+            return;
+        }
+        self.in_compositor_space = true;
+        self.wl_output = wl_output;
+    }
 }
 
 enum HeadOp {}
@@ -164,11 +191,18 @@ impl HeadManagers {
     pub fn handle_output_connected(&self, output: &OutputData) {
         let state = &mut *self.state.borrow_mut();
         state.monitor_info = Some(RcEq(output.monitor_info.clone()));
+        state.update_in_compositor_space(output.node.as_ref().map(|n| n.global.name));
         if let Some(n) = &output.node {
-            state.wl_output = Some(n.global.name);
+            state.position = n.global.pos.get().position();
+            state.size = n.global.pos.get().size();
+            state.transform = n.global.persistent.transform.get();
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_inside_outside(state);
+                head.session.schedule_done();
+            }
             if let Some(ext) = &head.ext.core_info_v1 {
                 ext.send_wl_output(state);
                 head.session.schedule_done();
@@ -178,12 +212,69 @@ impl HeadManagers {
 
     pub fn handle_output_disconnected(&self) {
         let state = &mut *self.state.borrow_mut();
-        state.wl_output = None;
         state.monitor_info = None;
+        state.update_in_compositor_space(None);
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_inside_outside(state);
+                head.session.schedule_done();
+            }
             if let Some(ext) = &head.ext.core_info_v1 {
                 ext.send_wl_output(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_position_size_change(&self, node: &OutputNode) {
+        let state = &mut *self.state.borrow_mut();
+        let pos = node.global.pos.get();
+        state.position = pos.position();
+        state.size = pos.size();
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_position(state);
+                ext.send_size(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_transform_change(&self, transform: Transform) {
+        let state = &mut *self.state.borrow_mut();
+        state.transform = transform;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_transform(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_scale_change(&self, scale: Scale) {
+        let state = &mut *self.state.borrow_mut();
+        state.scale = scale;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_scale(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_enabled_change(&self, enabled: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.connector_enabled = enabled;
+        state.update_in_compositor_space(state.wl_output);
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.compositor_space_info_v1 {
+                ext.send_enabled(state);
+                ext.send_inside_outside(state);
                 head.session.schedule_done();
             }
         }

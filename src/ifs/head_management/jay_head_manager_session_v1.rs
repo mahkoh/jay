@@ -374,7 +374,13 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
         }
         bitflags! {
             ToSend: u32;
-            CORE_INFO = 1 << 0,
+            CORE_INFO                       = 1 << 0,
+            COMPOSITOR_SPACE_INFO_FULL      = 1 << 1,
+            COMPOSITOR_SPACE_INFO_POS       = 1 << 2,
+            COMPOSITOR_SPACE_INFO_SIZE      = 1 << 3,
+            COMPOSITOR_SPACE_INFO_TRANSFORM = 1 << 4,
+            COMPOSITOR_SPACE_INFO_SCALE     = 1 << 5,
+            COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
             let pending = mem::take(&mut *head.common.pending.borrow_mut());
@@ -391,6 +397,27 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 && let Some(i) = &head.ext.core_info_v1
             {
                 i.send_wl_output(state);
+            }
+            if let Some(i) = &head.ext.compositor_space_info_v1 {
+                if to_send.contains(COMPOSITOR_SPACE_INFO_ENABLED) {
+                    i.send_enabled(state);
+                }
+                if to_send.contains(COMPOSITOR_SPACE_INFO_FULL) {
+                    i.send_inside_outside(state);
+                } else {
+                    if to_send.contains(COMPOSITOR_SPACE_INFO_POS) {
+                        i.send_position(state);
+                    }
+                    if to_send.contains(COMPOSITOR_SPACE_INFO_SIZE) {
+                        i.send_size(state);
+                    }
+                    if to_send.contains(COMPOSITOR_SPACE_INFO_TRANSFORM) {
+                        i.send_transform(state);
+                    }
+                    if to_send.contains(COMPOSITOR_SPACE_INFO_SCALE) {
+                        i.send_scale(state);
+                    }
+                }
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

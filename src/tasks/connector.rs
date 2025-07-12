@@ -18,6 +18,7 @@ use {
             asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
         },
     },
+    jay_config::video::Transform,
     std::{cell::Cell, collections::VecDeque, rc::Rc},
 };
 
@@ -45,7 +46,13 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     let name = Rc::new(connector.kernel_id().to_string());
     let head_state = HeadState {
         name: RcEq(name.clone()),
+        position: (0, 0),
+        size: (0, 0),
+        transform: Transform::None,
+        scale: Default::default(),
         wl_output: None,
+        connector_enabled: backend_state.enabled,
+        in_compositor_space: false,
         monitor_info: None,
     };
     let data = Rc::new(ConnectorData {

@@ -443,6 +443,9 @@ impl ConnectorData {
             return;
         }
         self.state.set(s);
+        if old.enabled != s.enabled {
+            self.head_managers.handle_enabled_change(s.enabled);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
