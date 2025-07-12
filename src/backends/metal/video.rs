@@ -4,9 +4,10 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
-            BackendDrmLessee, BackendEvent, BackendLuminance, BackendTransferFunction, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor,
-            HardwareCursorUpdate, Mode, MonitorInfo,
+            BackendDrmLessee, BackendEvent, BackendLuminance, BackendTransferFunction,
+            CONCAP_CONNECTOR, CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY, Connector,
+            ConnectorCaps, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
             transaction::{
                 BackendConnectorTransaction, BackendConnectorTransactionError,
                 BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
@@ -852,6 +853,10 @@ impl Connector for MetalConnector {
             return false;
         };
         fb.locked
+    }
+
+    fn caps(&self) -> ConnectorCaps {
+        CONCAP_CONNECTOR | CONCAP_MODE_SETTING | CONCAP_PHYSICAL_DISPLAY
     }
 
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
