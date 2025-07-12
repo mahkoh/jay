@@ -693,6 +693,7 @@ pub fn mode_getencoder(fd: c::c_int, encoder_id: u32) -> Result<DrmEncoderInfo, 
 pub const DRM_DISPLAY_MODE_LEN: usize = 32;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct drm_mode_modeinfo {
     pub clock: u32,
     pub hdisplay: u16,

@@ -1,6 +1,10 @@
 use {
     crate::{
-        backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
+        backend::{
+            BackendConnectorState, BackendConnectorStateSerial, Connector, ConnectorEvent,
+            ConnectorId, MonitorInfo,
+        },
+        format::XRGB8888,
         globals::GlobalName,
         ifs::{
             jay_tray_v1::JayTrayV1Global,
@@ -22,6 +26,18 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
             _ => panic!("connector's drm device does not exist"),
         };
     }
+    let backend_state = BackendConnectorState {
+        serial: BackendConnectorStateSerial::from_raw(0),
+        enabled: true,
+        active: false,
+        mode: Default::default(),
+        non_desktop_override: None,
+        vrr: false,
+        tearing: false,
+        format: XRGB8888,
+        color_space: Default::default(),
+        transfer_function: Default::default(),
+    };
     let id = connector.id();
     let data = Rc::new(ConnectorData {
         connector: connector.clone(),
@@ -34,6 +50,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
+        state: Cell::new(backend_state),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -88,6 +105,10 @@ impl ConnectorHandler {
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
+        let old_state = self.data.state.get();
+        if old_state.serial < info.state.serial {
+            self.data.state.set(info.state);
+        }
         let name = self.state.globals.name();
         if info.non_desktop {
             self.handle_non_desktop_connected(info).await;
@@ -132,15 +153,12 @@ impl ConnectorHandler {
             &self.state,
             &self.data,
             info.modes.clone(),
-            &info.initial_mode,
             info.width_mm,
             info.height_mm,
             &output_id,
             &desired_state,
             info.transfer_functions.clone(),
-            info.transfer_function,
             info.color_spaces.clone(),
-            info.color_space,
             info.primaries,
             info.luminance,
         ));
@@ -268,18 +286,11 @@ impl ConnectorHandler {
                         on.hardware_cursor.set(hc);
                         self.state.refresh_hardware_cursors();
                     }
-                    ConnectorEvent::ModeChanged(mode) => {
-                        on.update_mode(mode);
-                    }
-                    ConnectorEvent::VrrChanged(enabled) => {
-                        on.schedule.set_vrr_enabled(enabled);
-                    }
-                    ConnectorEvent::FormatsChanged(formats, format) => {
+                    ConnectorEvent::FormatsChanged(formats) => {
                         on.global.formats.set(formats);
-                        on.global.format.set(format);
                     }
-                    ConnectorEvent::ColorsChanged(bcs, btf) => {
-                        on.update_btf_and_bcs(btf, bcs);
+                    ConnectorEvent::State(state) => {
+                        on.update_state(state);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }

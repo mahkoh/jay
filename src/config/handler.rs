@@ -4,6 +4,7 @@ use {
         backend::{
             self, BackendColorSpace, BackendTransferFunction, ConnectorId, DrmDeviceId,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
+            transaction::BackendConnectorTransactionError,
         },
         client::{Client, ClientId},
         cmm::cmm_transfer_function::TransferFunction,
@@ -1141,12 +1142,16 @@ impl ConfigProxyHandler {
         connector: Connector,
         mode: WireMode,
     ) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
-        connector.connector.connector.set_mode(backend::Mode {
-            width: mode.width,
-            height: mode.height,
-            refresh_rate_millihz: mode.refresh_millihz,
-        });
+        let connector = self.get_connector(connector)?;
+        connector
+            .modify_state(&self.state, |s| {
+                s.mode = backend::Mode {
+                    width: mode.width,
+                    height: mode.height,
+                    refresh_rate_millihz: mode.refresh_millihz,
+                };
+            })
+            .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
 
@@ -1265,7 +1270,9 @@ impl ConfigProxyHandler {
             return Err(CphError::UnknownFormat(format));
         };
         let connector = self.get_connector(connector)?;
-        connector.connector.set_fb_format(format);
+        connector
+            .modify_state(&self.state, |s| s.format = format)
+            .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
 
@@ -1286,7 +1293,12 @@ impl ConfigProxyHandler {
             _ => return Err(CphError::UnknownTransferFunction(transfer_function)),
         };
         let connector = self.get_connector(connector)?;
-        connector.connector.set_colors(bcs, btf);
+        connector
+            .modify_state(&self.state, |s| {
+                s.color_space = bcs;
+                s.transfer_function = btf;
+            })
+            .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
 
@@ -1447,7 +1459,11 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
-        connector.connector.set_enabled(enabled);
+        connector
+            .modify_state(&self.state, |s| {
+                s.enabled = enabled;
+            })
+            .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
 
@@ -3057,6 +3073,8 @@ enum CphError {
     InvalidRegex(#[source] regex::Error),
     #[error("Window matcher {0:?} does not exist")]
     WindowMatcherDoesNotExist(WindowMatcher),
+    #[error("Could not modify the connector state")]
+    ModifyConnectorState(#[source] BackendConnectorTransactionError),
 }
 
 trait WithRequestName {

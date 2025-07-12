@@ -1,6 +1,9 @@
 use {
     crate::{
-        backend::{BackendColorSpace, BackendTransferFunction, HardwareCursor, KeyState, Mode},
+        backend::{
+            BackendColorSpace, BackendConnectorState, BackendTransferFunction, HardwareCursor,
+            KeyState, Mode,
+        },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
         cursor::KnownCursor,
@@ -207,9 +210,13 @@ impl OutputNode {
         seq: u64,
         flags: u32,
         vrr: bool,
+        locked: bool,
     ) {
         for listener in self.presentation_event.iter() {
             listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags, vrr);
+        }
+        if locked && let Some(lock) = self.state.lock.lock.get() {
+            lock.check_locked()
         }
     }
 
@@ -842,7 +849,23 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn update_btf_and_bcs(&self, btf: BackendTransferFunction, bcs: BackendColorSpace) {
+    pub fn update_state(self: &Rc<Self>, state: BackendConnectorState) {
+        let old = self.global.connector.state.get();
+        if old.serial >= state.serial {
+            return;
+        }
+        self.global.connector.state.set(state);
+        self.update_btf_and_bcs(state.transfer_function, state.color_space);
+        if old.vrr != state.vrr {
+            self.schedule.set_vrr_enabled(state.vrr);
+        }
+        if old.mode != state.mode {
+            self.update_mode(state.mode);
+        }
+        self.global.format.set(state.format);
+    }
+
+    fn update_btf_and_bcs(&self, btf: BackendTransferFunction, bcs: BackendColorSpace) {
         let old_btf = self.global.btf.replace(btf);
         let old_bcs = self.global.bcs.replace(bcs);
         if (old_btf, old_bcs) == (btf, bcs) {
@@ -1067,7 +1090,13 @@ impl OutputNode {
                 true
             }
         };
-        self.global.connector.connector.set_vrr_enabled(enabled);
+        let res = self
+            .global
+            .connector
+            .modify_state(&self.state, |s| s.vrr = enabled);
+        if let Err(e) = res {
+            log::error!("Could not set vrr mode: {}", e);
+        }
     }
 
     fn update_tearing(&self) {
@@ -1094,7 +1123,13 @@ impl OutputNode {
                 true
             }
         };
-        self.global.connector.connector.set_tearing_enabled(enabled);
+        let res = self
+            .global
+            .connector
+            .modify_state(&self.state, |s| s.tearing = enabled);
+        if let Err(e) = res {
+            log::error!("Could not set tearing mode: {}", e);
+        }
     }
 
     pub fn tile_drag_destination(

@@ -3,15 +3,21 @@ use {
         allocator::{Allocator, AllocatorError},
         async_engine::SpawnedFuture,
         backend::{
-            AxisSource, Backend, BackendColorSpace, BackendEvent, BackendTransferFunction,
-            Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            AxisSource, Backend, BackendConnectorState, BackendEvent, Connector, ConnectorEvent,
+            ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
+            InputDeviceCapability, InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState,
+            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            transaction::{
+                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
+                BackendConnectorTransactionError, BackendConnectorTransactionType,
+                BackendConnectorTransactionTypeDyn, BackendPreparedConnectorTransaction,
+            },
         },
         cmm::cmm_primaries::Primaries,
         compositor::TestFuture,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
+        format::XRGB8888,
         gfx_api::GfxError,
         gfx_apis::create_vulkan_allocator,
         ifs::wl_output::OutputId,
@@ -29,8 +35,9 @@ use {
             gbm::{GbmDevice, GbmError},
         },
     },
+    ahash::AHashMap,
     bstr::ByteSlice,
-    std::{cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
+    std::{any::Any, cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
     thiserror::Error,
     uapi::c,
 };
@@ -63,7 +70,6 @@ pub struct TestBackend {
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
     pub render_context_installed: Cell<bool>,
-    pub idle: TEEH<bool>,
 }
 
 impl TestBackend {
@@ -77,6 +83,7 @@ impl TestBackend {
             },
             events: Default::default(),
             feedback: Default::default(),
+            idle: Default::default(),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -125,17 +132,26 @@ impl TestBackend {
                 model: "TestConnector".to_string(),
                 serial_number: default_connector.id.to_string(),
             }),
-            initial_mode: mode,
             width_mm: 80,
             height_mm: 60,
             non_desktop: false,
             vrr_capable: false,
             transfer_functions: vec![],
-            transfer_function: BackendTransferFunction::Default,
             color_spaces: vec![],
-            color_space: BackendColorSpace::Default,
             primaries: Primaries::SRGB,
             luminance: None,
+            state: BackendConnectorState {
+                serial: state.backend_connector_state_serials.next(),
+                enabled: true,
+                active: true,
+                mode,
+                non_desktop_override: None,
+                vrr: false,
+                tearing: false,
+                format: XRGB8888,
+                color_space: Default::default(),
+                transfer_function: Default::default(),
+            },
         };
         Self {
             state: state.clone(),
@@ -145,7 +161,6 @@ impl TestBackend {
             default_mouse,
             default_kb,
             render_context_installed: Cell::new(false),
-            idle: Rc::new(Default::default()),
         }
     }
 
@@ -291,10 +306,6 @@ impl Backend for TestBackend {
         let _ = vtnr;
     }
 
-    fn set_idle(&self, idle: bool) {
-        self.idle.push(idle);
-    }
-
     fn supports_presentation_feedback(&self) -> bool {
         true
     }
@@ -305,6 +316,7 @@ pub struct TestConnector {
     pub kernel_id: ConnectorKernelId,
     pub events: OnChange<ConnectorEvent>,
     pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
+    pub idle: TEEH<bool>,
 }
 
 impl Connector for TestConnector {
@@ -332,12 +344,69 @@ impl Connector for TestConnector {
         None
     }
 
-    fn set_mode(&self, _mode: Mode) {
+    fn effectively_locked(&self) -> bool {
         // todo
+        true
     }
 
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         self.feedback.get()
+    }
+
+    fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {
+        Box::new(TestBackendTransactionType)
+    }
+
+    fn create_transaction(
+        &self,
+    ) -> Result<Box<dyn BackendConnectorTransaction>, BackendConnectorTransactionError> {
+        Ok(Box::new(TestBackendTransaction::default()))
+    }
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct TestBackendTransactionType;
+impl BackendConnectorTransactionType for TestBackendTransactionType {}
+
+#[derive(Default)]
+struct TestBackendTransaction {
+    connectors: AHashMap<ConnectorId, (Rc<TestConnector>, BackendConnectorState)>,
+}
+impl BackendConnectorTransaction for TestBackendTransaction {
+    fn add(
+        &mut self,
+        connector: &Rc<dyn Connector>,
+        change: BackendConnectorState,
+    ) -> Result<(), BackendConnectorTransactionError> {
+        let c = (connector.clone() as Rc<dyn Any>)
+            .downcast::<TestConnector>()
+            .unwrap();
+        self.connectors.insert(c.id(), (c, change));
+        Ok(())
+    }
+    fn prepare(
+        self: Box<Self>,
+    ) -> Result<Box<dyn BackendPreparedConnectorTransaction>, BackendConnectorTransactionError>
+    {
+        Ok(self)
+    }
+}
+impl BackendPreparedConnectorTransaction for TestBackendTransaction {
+    fn apply(
+        self: Box<Self>,
+    ) -> Result<Box<dyn BackendAppliedConnectorTransaction>, BackendConnectorTransactionError> {
+        for (c, s) in self.connectors.values() {
+            c.idle.push(!s.active);
+        }
+        Ok(self)
+    }
+}
+impl BackendAppliedConnectorTransaction for TestBackendTransaction {
+    fn commit(self: Box<Self>) {
+        // nothing
+    }
+    fn rollback(self: Box<Self>) -> Result<(), BackendConnectorTransactionError> {
+        unimplemented!()
     }
 }
 

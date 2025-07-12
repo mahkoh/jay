@@ -3,6 +3,7 @@ use {
         backend::Connector,
         backends::metal::{
             MetalError,
+            transaction::{DrmConnectorState, DrmPlaneState},
             video::{
                 MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
             },
@@ -22,18 +23,20 @@ use {
             dmabuf::DmaBufId,
             drm::{
                 DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
-                DrmError, DrmFramebuffer,
+                DrmCrtc, DrmError, DrmFb, DrmFramebuffer, DrmObject,
             },
         },
     },
+    arrayvec::ArrayVec,
     std::rc::{Rc, Weak},
-    uapi::c,
+    uapi::{OwnedFd, c},
 };
 
 struct Latched {
     pass: GfxRenderPass,
     damage_count: u64,
     damage: Region,
+    locked: bool,
 }
 
 #[derive(Debug)]
@@ -68,11 +71,18 @@ pub struct PresentFb {
     tex: Rc<dyn GfxTexture>,
     direct_scanout_data: Option<DirectScanoutData>,
     sync_file: Option<SyncFile>,
+    pub locked: bool,
 }
 
-enum CursorProgramming {
+#[derive(Debug)]
+struct CursorProgramming {
+    plane: Rc<MetalPlane>,
+    ty: CursorProgrammingType,
+}
+
+#[derive(Debug)]
+enum CursorProgrammingType {
     Enable {
-        plane: Rc<MetalPlane>,
         fb: Rc<DrmFramebuffer>,
         x: i32,
         y: i32,
@@ -80,9 +90,12 @@ enum CursorProgramming {
         height: i32,
         swap: bool,
     },
-    Disable {
-        plane: Rc<MetalPlane>,
-    },
+    Disable,
+}
+
+struct ChangedPlane {
+    plane: Rc<MetalPlane>,
+    state: DrmPlaneState,
 }
 
 pub const DEFAULT_PRE_COMMIT_MARGIN: u64 = 16_000_000; // 16ms
@@ -101,13 +114,17 @@ impl MetalConnector {
         let mut max = 0;
         loop {
             self.present_trigger.triggered().await;
-            if !self.can_present.get() {
+            if !self.buffers_idle.get() || !self.crtc_idle.get() {
                 continue;
             }
+            let Some(crtc) = self.crtc.get() else {
+                continue;
+            };
             let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
                 continue;
             };
-            let mut expected_sequence = self.sequence.get() + 1;
+            let version = self.version.get();
+            let mut expected_sequence = crtc.sequence.get() + 1;
             let mut start = Time::now_unchecked();
             let use_frame_scheduling = !self.try_async_flip();
             if use_frame_scheduling {
@@ -132,7 +149,11 @@ impl MetalConnector {
                 };
                 node.before_latch(flip).await;
             }
-            if let Err(e) = self.present_once(&node).await {
+            if version != self.version.get() {
+                self.present_trigger.trigger();
+                continue;
+            }
+            if let Err(e) = self.present_once(&node, &crtc).await {
                 log::error!("Could not present: {}", ErrorFmt(e));
                 continue;
             }
@@ -152,19 +173,19 @@ impl MetalConnector {
         }
     }
 
-    async fn present_once(&self, node: &Rc<OutputNode>) -> Result<(), MetalError> {
+    async fn present_once(
+        self: &Rc<Self>,
+        node: &Rc<OutputNode>,
+        crtc: &Rc<MetalCrtc>,
+    ) -> Result<(), MetalError> {
         let version = self.version.get();
-        if !self.can_present.get() {
+        if !self.buffers_idle.get() || !self.crtc_idle.get() {
             return Ok(());
         }
         if !self.backend.check_render_context(&self.dev) {
             return Ok(());
         }
-        let crtc = match self.crtc.get() {
-            Some(crtc) => crtc,
-            _ => return Ok(()),
-        };
-        if !crtc.active.value.get() {
+        if !crtc.drm_state.borrow().active {
             return Ok(());
         }
         let plane = match self.primary_plane.get() {
@@ -175,7 +196,9 @@ impl MetalConnector {
             Some(b) => b,
             _ => return Ok(()),
         };
-        let buffer = &buffers[self.next_buffer.get() % buffers.len()];
+        let mut connector_drm_state = self.display.borrow().drm_state.clone();
+        let next_buffer_idx = ((connector_drm_state.fb_idx + 1) % buffers.len() as u64) as usize;
+        let buffer = &buffers[next_buffer_idx];
 
         let cd = node.global.color_description.get();
         let linear_cd = node.global.linear_color_description.get();
@@ -183,8 +206,8 @@ impl MetalConnector {
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();
         }
-        self.latch_cursor(&node, &cd)?;
-        let cursor_programming = self.compute_cursor_programming();
+        self.latch_cursor(&node, &connector_drm_state, &cd)?;
+        let cursor_programming = self.compute_cursor_programming(&connector_drm_state);
         let latched = self.latch(&node, buffer);
         node.latched(self.try_async_flip());
 
@@ -209,12 +232,15 @@ impl MetalConnector {
             );
         }
         self.await_present_fb(present_fb.as_mut()).await;
+        let mut changed_planes = ArrayVec::new();
         let mut res = self.program_connector(
             version,
             &crtc,
             &plane,
             cursor_programming.as_ref(),
             present_fb.as_ref(),
+            &mut changed_planes,
+            &mut connector_drm_state,
         );
         if res.is_err()
             && let Some(dsd_id) = direct_scanout_id
@@ -235,6 +261,8 @@ impl MetalConnector {
                 &plane,
                 cursor_programming.as_ref(),
                 present_fb.as_ref(),
+                &mut changed_planes,
+                &mut connector_drm_state,
             );
             if res.is_ok() {
                 let mut cache = self.scanout_buffers.borrow_mut();
@@ -265,35 +293,30 @@ impl MetalConnector {
             }
             Err(e)
         } else {
-            macro_rules! apply_change {
-                ($prop:expr) => {
-                    if let Some(v) = $prop.pending_value.take() {
-                        $prop.value.set(v);
-                    }
-                };
+            crtc.pending_flip.set(Some(self.clone()));
+            self.crtc_idle.set(false);
+            self.color_description.set(cd);
+            self.display.borrow_mut().drm_state = connector_drm_state;
+            for plane in changed_planes {
+                *plane.plane.drm_state.borrow_mut() = plane.state;
             }
-            apply_change!(plane.src_w);
-            apply_change!(plane.src_h);
-            apply_change!(plane.crtc_x);
-            apply_change!(plane.crtc_y);
-            apply_change!(plane.crtc_w);
-            apply_change!(plane.crtc_h);
             if let Some(fb) = present_fb {
                 self.presentation_is_zero_copy
                     .set(fb.direct_scanout_data.is_some());
                 if fb.direct_scanout_data.is_none() {
                     buffer.damage_queue.clear();
-                    self.next_buffer.fetch_add(1);
                 } else {
                     reset_damage();
                 }
+                buffer.locked.set(fb.locked);
                 self.next_framebuffer.set(Some(fb));
             }
-            if let Some(CursorProgramming::Enable { swap: true, .. }) = cursor_programming {
+            if let Some(programming) = cursor_programming
+                && let CursorProgrammingType::Enable { swap: true, .. } = &programming.ty
+            {
                 self.cursor_swap_buffer.set(false);
-                self.cursor_front_buffer.fetch_add(1);
             }
-            self.can_present.set(false);
+            self.buffers_idle.set(false);
             if let Some(latched) = latched {
                 self.has_damage.fetch_sub(latched.damage_count);
             }
@@ -318,7 +341,7 @@ impl MetalConnector {
     }
 
     fn try_async_flip(&self) -> bool {
-        self.tearing_requested.get() && self.dev.supports_async_commit
+        self.display.borrow().persistent.state.borrow().tearing && self.dev.supports_async_commit
     }
 
     fn program_connector(
@@ -328,19 +351,15 @@ impl MetalConnector {
         plane: &Rc<MetalPlane>,
         cursor: Option<&CursorProgramming>,
         new_fb: Option<&PresentFb>,
+        changed_planes: &mut ArrayVec<ChangedPlane, 2>,
+        connector_drm_state: &mut DrmConnectorState,
     ) -> Result<(), MetalError> {
         zone!("program_connector");
         let mut changes = self.master.change();
         let mut try_async_flip = self.try_async_flip();
-        macro_rules! change {
-            ($c:expr, $prop:expr, $new:expr) => {{
-                if $prop.value.get() != $new {
-                    $c.change($prop.id, $new as u64);
-                    try_async_flip = false;
-                    $prop.pending_value.set(Some($new));
-                }
-            }};
-        }
+        let mut drm_state = plane.drm_state.borrow().clone();
+        changed_planes.clear();
+        let mut connector_state = connector_drm_state.clone();
         if let Some(fb) = new_fb {
             let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
                 match &fb.direct_scanout_data {
@@ -362,69 +381,90 @@ impl MetalConnector {
                     }
                 };
             changes.change_object(plane.id, |c| {
-                c.change(plane.fb_id, fb.fb.id().0 as _);
-                change!(c, plane.src_w, (src_width as u32) << 16);
-                change!(c, plane.src_h, (src_height as u32) << 16);
-                change!(c, plane.crtc_x, crtc_x);
-                change!(c, plane.crtc_y, crtc_y);
-                change!(c, plane.crtc_w, crtc_w);
-                change!(c, plane.crtc_h, crtc_h);
-                if !try_async_flip
-                    && !self.dev.is_nvidia
-                    && let Some(sf) = self.backend.signaled_sync_file.get()
-                {
-                    c.change(plane.in_fence_fd, sf.0.raw() as u64);
+                c.change(plane.fb_id, fb.fb.id());
+                drm_state.fb_id = fb.fb.id();
+                connector_state.fb = fb.fb.id();
+                connector_state.locked = fb.locked;
+                if fb.direct_scanout_data.is_none() {
+                    connector_state.fb_idx += 1;
                 }
+                macro_rules! change {
+                    ($prop:ident, $new:expr) => {{
+                        if drm_state.$prop != $new {
+                            c.change(plane.$prop, $new as u64);
+                            try_async_flip = false;
+                            drm_state.$prop = $new;
+                        }
+                        connector_state.$prop = drm_state.$prop;
+                    }};
+                }
+                change!(src_w, (src_width as u32) << 16);
+                change!(src_h, (src_height as u32) << 16);
+                change!(crtc_x, crtc_x);
+                change!(crtc_y, crtc_y);
+                change!(crtc_w, crtc_w);
+                change!(crtc_h, crtc_h);
             });
-        } else {
-            // Work around https://gitlab.freedesktop.org/drm/amd/-/issues/2186
-            if self.dev.is_amd
-                && crtc.vrr_enabled.value.get()
-                && let Some(fb) = &*self.active_framebuffer.borrow()
-            {
-                changes.change_object(plane.id, |c| {
-                    c.change(plane.fb_id, fb.fb.id().0 as _);
-                });
-            }
+            changed_planes.push(ChangedPlane {
+                plane: plane.clone(),
+                state: drm_state,
+            });
         }
         if let Some(cursor) = cursor {
+            let plane = &cursor.plane;
+            let mut drm_state = plane.drm_state.borrow().clone();
             try_async_flip = false;
-            match cursor {
-                CursorProgramming::Enable {
-                    plane,
-                    fb,
-                    x,
-                    y,
-                    width,
-                    height,
-                    ..
-                } => {
-                    changes.change_object(plane.id, |c| {
-                        c.change(plane.fb_id, fb.id().0 as _);
-                        c.change(plane.crtc_id.id, crtc.id.0 as _);
-                        c.change(plane.crtc_x.id, *x as _);
-                        c.change(plane.crtc_y.id, *y as _);
-                        c.change(plane.crtc_w.id, *width as _);
-                        c.change(plane.crtc_h.id, *height as _);
-                        c.change(plane.src_x.id, 0);
-                        c.change(plane.src_y.id, 0);
-                        c.change(plane.src_w.id, (*width as u64) << 16);
-                        c.change(plane.src_h.id, (*height as u64) << 16);
+            changes.change_object(plane.id, |c| {
+                macro_rules! change {
+                    ($prop:ident, $new:expr) => {{
+                        c.change(plane.$prop, $new);
+                        drm_state.$prop = $new;
+                    }};
+                }
+                match &cursor.ty {
+                    CursorProgrammingType::Enable {
+                        fb,
+                        x,
+                        y,
+                        width,
+                        height,
+                        swap,
+                    } => {
+                        connector_state.cursor_fb = fb.id();
+                        if *swap {
+                            connector_state.cursor_fb_idx += 1;
+                        }
+                        connector_state.cursor_x = *x;
+                        connector_state.cursor_y = *y;
+                        change!(fb_id, fb.id());
+                        change!(crtc_id, crtc.id);
+                        change!(crtc_x, *x);
+                        change!(crtc_y, *y);
+                        change!(crtc_w, *width);
+                        change!(crtc_h, *height);
+                        change!(src_x, 0);
+                        change!(src_y, 0);
+                        change!(src_w, (*width as u32) << 16);
+                        change!(src_h, (*height as u32) << 16);
                         if !self.dev.is_nvidia
                             && let Some(sf) = self.backend.signaled_sync_file.get()
                         {
                             c.change(plane.in_fence_fd, sf.0.raw() as u64);
                         }
-                    });
+                    }
+                    CursorProgrammingType::Disable => {
+                        connector_state.cursor_fb = DrmFb::NONE;
+                        change!(fb_id, DrmFb::NONE);
+                        change!(crtc_id, DrmCrtc::NONE);
+                    }
                 }
-                CursorProgramming::Disable { plane } => {
-                    changes.change_object(plane.id, |c| {
-                        c.change(plane.fb_id, 0);
-                        c.change(plane.crtc_id.id, 0);
-                    });
-                }
-            }
+            });
+            changed_planes.push(ChangedPlane {
+                plane: plane.clone(),
+                state: drm_state,
+            });
         }
+        let mut out_fd: c::c_int = -1;
         if version != self.version.get() {
             return Err(MetalError::OutOfDate);
         }
@@ -439,7 +479,24 @@ impl MetalConnector {
                 }
             }
             self.presentation_is_sync.set(true);
+            if !self.dev.is_nvidia {
+                if new_fb.is_some()
+                    && let Some(sf) = self.backend.signaled_sync_file.get()
+                {
+                    changes.change_object(plane.id, |c| {
+                        c.change(plane.in_fence_fd, sf.0.raw() as u64);
+                    });
+                }
+                changes.change_object(crtc.id, |c| {
+                    c.change(crtc.out_fence_ptr, &raw mut out_fd as u64);
+                });
+            }
             res = changes.commit(FLAGS, 0);
+        }
+        if res.is_ok() {
+            connector_state.out_fd =
+                (out_fd != -1).then(|| SyncFile(Rc::new(OwnedFd::new(out_fd))));
+            *connector_drm_state = connector_state;
         }
         res.map_err(MetalError::Commit)
     }
@@ -447,6 +504,7 @@ impl MetalConnector {
     fn latch_cursor(
         &self,
         node: &Rc<OutputNode>,
+        connector_drm_state: &DrmConnectorState,
         cd: &Rc<ColorDescription>,
     ) -> Result<(), MetalError> {
         if !self.cursor_damage.take() {
@@ -456,12 +514,13 @@ impl MetalConnector {
             return Ok(());
         }
         let buffers = self.cursor_buffers.get().unwrap();
+        let buffer_idx = ((connector_drm_state.cursor_fb_idx + 1) % buffers.len() as u64) as usize;
         let mut c = MetalHardwareCursorChange {
             cursor_enabled: self.cursor_enabled.get(),
             cursor_swap_buffer: false,
             cursor_x: self.cursor_x.get(),
             cursor_y: self.cursor_y.get(),
-            cursor_buffer: &buffers[(self.cursor_front_buffer.get() + 1) % buffers.len()],
+            cursor_buffer: &buffers[buffer_idx],
             sync_file: None,
             cursor_size: (self.dev.cursor_width as _, self.dev.cursor_height as _),
         };
@@ -484,22 +543,25 @@ impl MetalConnector {
         Ok(())
     }
 
-    fn compute_cursor_programming(&self) -> Option<CursorProgramming> {
+    fn compute_cursor_programming(
+        &self,
+        connector_drm_state: &DrmConnectorState,
+    ) -> Option<CursorProgramming> {
         if !self.cursor_changed.get() {
             return None;
         }
         let plane = self.cursor_plane.get()?;
-        let programming = if self.cursor_enabled.get() {
+        let ty = if self.cursor_enabled.get() {
             let swap = self.cursor_swap_buffer.get();
-            let mut front_buffer = self.cursor_front_buffer.get();
-            if swap {
-                front_buffer = front_buffer.wrapping_add(1);
-            }
             let buffers = self.cursor_buffers.get().unwrap();
-            let buffer = &buffers[front_buffer % buffers.len()];
+            let mut front_buffer = connector_drm_state.cursor_fb_idx;
+            if swap {
+                front_buffer += 1;
+            }
+            let buffer_idx = (front_buffer % buffers.len() as u64) as usize;
+            let buffer = &buffers[buffer_idx];
             let (width, height) = buffer.dev_fb.physical_size();
-            CursorProgramming::Enable {
-                plane,
+            CursorProgrammingType::Enable {
                 fb: buffer.drm.clone(),
                 x: self.cursor_x.get(),
                 y: self.cursor_y.get(),
@@ -508,9 +570,9 @@ impl MetalConnector {
                 swap,
             }
         } else {
-            CursorProgramming::Disable { plane }
+            CursorProgrammingType::Disable
         };
-        Some(programming)
+        Some(CursorProgramming { plane, ty })
     }
 
     fn latch(&self, node: &Rc<OutputNode>, buffer: &RenderBuffer) -> Option<Latched> {
@@ -545,6 +607,7 @@ impl MetalConnector {
             pass,
             damage_count,
             damage,
+            locked: self.state.lock.locked.get(),
         })
     }
 
@@ -797,6 +860,7 @@ impl MetalConnector {
             tex,
             direct_scanout_data,
             sync_file,
+            locked: latched.locked,
         })
     }
 

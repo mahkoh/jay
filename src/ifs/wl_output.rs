@@ -161,22 +161,20 @@ impl WlOutputGlobal {
         state: &Rc<State>,
         connector: &Rc<ConnectorData>,
         modes: Vec<backend::Mode>,
-        mode: &backend::Mode,
         width_mm: i32,
         height_mm: i32,
         output_id: &Rc<OutputId>,
         persistent_state: &Rc<PersistentOutputState>,
         transfer_functions: Vec<BackendTransferFunction>,
-        btf: BackendTransferFunction,
         color_spaces: Vec<BackendColorSpace>,
-        bcs: BackendColorSpace,
         primaries: Primaries,
         luminance: Option<BackendLuminance>,
     ) -> Self {
         let (x, y) = persistent_state.pos.get();
         let scale = persistent_state.scale.get();
+        let connector_state = connector.state.get();
         let (width, height) = calculate_logical_size(
-            (mode.width, mode.height),
+            (connector_state.mode.width, connector_state.mode.height),
             persistent_state.transform.get(),
             scale,
         );
@@ -186,8 +184,8 @@ impl WlOutputGlobal {
             connector: connector.clone(),
             pos: Cell::new(Rect::new_sized(x, y, width, height).unwrap()),
             output_id: output_id.clone(),
-            mode: Cell::new(*mode),
-            refresh_nsec: Cell::new(mode.refresh_nsec()),
+            mode: Cell::new(connector_state.mode),
+            refresh_nsec: Cell::new(connector_state.mode.refresh_nsec()),
             modes,
             formats: CloneCell::new(Rc::new(vec![])),
             format: Cell::new(XRGB8888),
@@ -203,8 +201,8 @@ impl WlOutputGlobal {
             persistent: persistent_state.clone(),
             opt: Default::default(),
             damage_matrix: Default::default(),
-            btf: Cell::new(btf),
-            bcs: Cell::new(bcs),
+            btf: Cell::new(connector_state.transfer_function),
+            bcs: Cell::new(connector_state.color_space),
             color_description: CloneCell::new(state.color_manager.srgb_srgb().clone()),
             linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
             color_description_listeners: Default::default(),

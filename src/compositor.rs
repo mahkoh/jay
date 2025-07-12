@@ -4,7 +4,7 @@ use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
         async_engine::{AsyncEngine, Phase, SpawnedFuture},
-        backend::{self, Backend, BackendColorSpace, BackendTransferFunction, Connector},
+        backend::{self, Backend, BackendConnectorState, BackendConnectorStateSerial, Connector},
         backends::{
             dummy::{DummyBackend, DummyOutput},
             metal, x,
@@ -26,6 +26,7 @@ use {
         dbus::Dbus,
         ei::ei_client::EiClients,
         forker,
+        format::XRGB8888,
         globals::Globals,
         ifs::{
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
@@ -337,6 +338,7 @@ fn start_compositor2(
         toplevel_managers: Default::default(),
         node_at_tree: Default::default(),
         position_hint_requests: Default::default(),
+        backend_connector_state_serials: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -396,7 +398,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     }
     state.update_ei_acceptor();
 
-    let _geh = start_global_event_handlers(&state, &backend);
+    let _geh = start_global_event_handlers(&state);
     state.start_xwayland();
 
     match backend.run().await {
@@ -424,10 +426,7 @@ fn load_config(
     }
 }
 
-fn start_global_event_handlers(
-    state: &Rc<State>,
-    backend: &Rc<dyn Backend>,
-) -> Vec<SpawnedFuture<()>> {
+fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
     let eng = &state.eng;
 
     vec![
@@ -471,11 +470,7 @@ fn start_global_event_handlers(
             Phase::PostLayout,
             float_titles(state.clone()),
         ),
-        eng.spawn2(
-            "idle",
-            Phase::PostLayout,
-            idle(state.clone(), backend.clone()),
-        ),
+        eng.spawn2("idle", Phase::PostLayout, idle(state.clone())),
         eng.spawn2(
             "input, popup positioning",
             Phase::PostLayout,
@@ -610,6 +605,23 @@ fn create_dummy_output(state: &Rc<State>) {
     let connector = Rc::new(DummyOutput {
         id: state.connector_ids.next(),
     }) as Rc<dyn Connector>;
+    let mode = backend::Mode {
+        width: 0,
+        height: 0,
+        refresh_rate_millihz: 40_000,
+    };
+    let backend_state = BackendConnectorState {
+        serial: BackendConnectorStateSerial::from_raw(0),
+        enabled: true,
+        active: false,
+        mode,
+        non_desktop_override: None,
+        vrr: false,
+        tearing: false,
+        format: XRGB8888,
+        color_space: Default::default(),
+        transfer_function: Default::default(),
+    };
     let connector_data = Rc::new(ConnectorData {
         connector,
         handler: Cell::new(None),
@@ -621,6 +633,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
+        state: Cell::new(backend_state),
     });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,
@@ -635,19 +648,12 @@ fn create_dummy_output(state: &Rc<State>) {
             state,
             &connector_data,
             Vec::new(),
-            &backend::Mode {
-                width: 0,
-                height: 0,
-                refresh_rate_millihz: 40_000,
-            },
             0,
             0,
             &output_id,
             &persistent_state,
             Vec::new(),
-            BackendTransferFunction::Default,
             Vec::new(),
-            BackendColorSpace::Default,
             Primaries::SRGB,
             None,
         )),

@@ -205,7 +205,7 @@ macro_rules! linear_ids {
             }
         }
 
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
         pub struct $id($ty);
 
         impl $id {
@@ -770,5 +770,24 @@ macro_rules! not_matches {
 macro_rules! jay_allow_realtime_config_so {
     () => {
         "JAY_ALLOW_REALTIME_CONFIG_SO"
+    };
+}
+
+#[allow(clippy::allow_attributes, unused_macros)]
+macro_rules! dbg {
+    ($val:expr) => {
+        match $val {
+            tmp => {
+                log::warn!(
+                    "[{}:{}:{}] {} = {:#?}",
+                    file!(),
+                    line!(),
+                    column!(),
+                    stringify!($val),
+                    &tmp
+                );
+                tmp
+            }
+        }
     };
 }

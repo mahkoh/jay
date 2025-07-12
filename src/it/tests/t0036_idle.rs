@@ -14,7 +14,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     run.cfg.set_idle(Duration::from_micros(100))?;
     run.cfg.set_idle_grace_period(Duration::from_secs(0))?;
 
-    let idle = run.backend.idle.expect()?;
+    let idle = ds.connector.idle.expect()?;
     tassert!(idle.next().is_err());
 
     run.state.wheel.timeout(3).await?;

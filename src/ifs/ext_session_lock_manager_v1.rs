@@ -60,6 +60,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
             client: self.client.clone(),
             tracker: Default::default(),
             did_lock,
+            awaiting_locked: Cell::new(true),
             finished: Cell::new(false),
             version: self.version,
         });
@@ -75,7 +76,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
             state.lock.lock.set(Some(new.clone()));
             state.tree_changed();
             state.damage(state.root.extents.get());
-            new.send_locked();
+            new.check_locked();
         } else {
             new.finish();
         }

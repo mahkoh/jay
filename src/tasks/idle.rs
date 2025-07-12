@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::Backend,
+        backend::transaction::{BackendConnectorTransactionError, ConnectorTransaction},
         state::State,
         utils::{
             errorfmt::ErrorFmt,
@@ -12,7 +12,7 @@ use {
     uapi::c,
 };
 
-pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
+pub async fn idle(state: Rc<State>) {
     let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
         Ok(t) => t,
         Err(e) => {
@@ -24,7 +24,6 @@ pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
     state.idle.timeout_changed.set(true);
     let mut idle = Idle {
         state,
-        backend,
         timer,
         idle: false,
         dead: false,
@@ -36,7 +35,6 @@ pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
 
 struct Idle {
     state: Rc<State>,
-    backend: Rc<dyn Backend>,
     timer: TimerFd,
     idle: bool,
     dead: bool,
@@ -71,7 +69,7 @@ impl Idle {
                 if let Some(config) = self.state.config.get() {
                     config.idle();
                 }
-                self.backend.set_idle(true);
+                self.set_idle(true);
                 self.idle = true;
             }
         } else if since >= timeout {
@@ -110,7 +108,7 @@ impl Idle {
             self.last_input = now();
             self.set_in_grace_period(false);
             if self.idle {
-                self.backend.set_idle(false);
+                self.set_idle(false);
                 self.idle = false;
                 self.program_timer();
             }
@@ -126,6 +124,27 @@ impl Idle {
             log::error!("Could not program idle timer: {}", ErrorFmt(e));
             self.dead = true;
         }
+    }
+
+    fn set_idle(&self, idle: bool) {
+        if let Err(e) = self.try_set_idle(idle) {
+            log::error!("Could not change idle status of backend: {}", ErrorFmt(e))
+        }
+        if let Some(lock) = self.state.lock.lock.get() {
+            lock.check_locked();
+        }
+    }
+
+    fn try_set_idle(&self, idle: bool) -> Result<(), BackendConnectorTransactionError> {
+        let mut tran = ConnectorTransaction::default();
+        for connector in self.state.connectors.lock().values() {
+            let mut state = connector.state.get();
+            state.active = !idle;
+            tran.add(&connector.connector, state)?;
+        }
+        tran.prepare()?.apply()?.commit();
+        self.state.set_backend_idle(idle);
+        Ok(())
     }
 }
 

@@ -2,6 +2,7 @@ pub mod activation_token;
 pub mod array;
 pub mod array_to_tuple;
 pub mod asyncevent;
+pub mod binary_search_map;
 pub mod bindings;
 pub mod bitfield;
 pub mod bitflags;

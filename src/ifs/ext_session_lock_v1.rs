@@ -17,12 +17,26 @@ pub struct ExtSessionLockV1 {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub did_lock: bool,
+    pub awaiting_locked: Cell<bool>,
     pub finished: Cell<bool>,
     pub version: Version,
 }
 
 impl ExtSessionLockV1 {
-    pub fn send_locked(&self) {
+    pub fn check_locked(&self) {
+        if !self.awaiting_locked.get() {
+            return;
+        }
+        for output in self.client.state.outputs.lock().values() {
+            if !output.connector.connector.effectively_locked() {
+                return;
+            }
+        }
+        self.send_locked();
+        self.awaiting_locked.set(false);
+    }
+
+    fn send_locked(&self) {
         self.client.event(Locked { self_id: self.id })
     }
 
