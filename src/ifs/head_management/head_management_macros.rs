@@ -397,4 +397,5 @@ declare_extensions! {
     connector_info_v1: ConnectorInfoV1,
     mode_info_v1: ModeInfoV1,
     mode_setter_v1: ModeSetterV1,
+    physical_display_info_v1: PhysicalDisplayInfoV1,
 }

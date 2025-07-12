@@ -7,3 +7,4 @@ pub(super) mod jay_head_ext_connector_info_v1;
 pub(super) mod jay_head_ext_core_info_v1;
 pub(super) mod jay_head_ext_mode_info_v1;
 pub(super) mod jay_head_ext_mode_setter_v1;
+pub(super) mod jay_head_ext_physical_display_info_v1;

@@ -219,6 +219,10 @@ impl HeadManagers {
                 ext.send_connected(state);
                 head.session.schedule_done();
             }
+            if let Some(ext) = &head.ext.physical_display_info_v1 {
+                ext.send_info(state);
+                head.session.schedule_done();
+            }
             if let Some(ext) = &head.ext.mode_info_v1 {
                 ext.send_mode(state);
                 head.session.schedule_done();
@@ -255,6 +259,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.core_info_v1 {
                 ext.send_wl_output(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.physical_display_info_v1 {
+                ext.send_info(state);
                 head.session.schedule_done();
             }
         }
