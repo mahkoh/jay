@@ -812,14 +812,22 @@ impl OutputNode {
     }
 
     fn calculate_extents(&self) -> Rect {
-        let mode = self.global.mode.get();
-        let (width, height) = calculate_logical_size(
-            (mode.width, mode.height),
+        Self::calculate_extents_(
+            self.global.mode.get(),
             self.global.persistent.transform.get(),
             self.global.persistent.scale.get(),
-        );
-        let pos = self.global.pos.get();
-        pos.with_size(width, height).unwrap()
+            self.global.pos.get().position(),
+        )
+    }
+
+    pub fn calculate_extents_(
+        mode: Mode,
+        transform: Transform,
+        scale: Scale,
+        pos: (i32, i32),
+    ) -> Rect {
+        let (width, height) = calculate_logical_size((mode.width, mode.height), transform, scale);
+        Rect::new_sized(pos.0, pos.1, width, height).unwrap()
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {

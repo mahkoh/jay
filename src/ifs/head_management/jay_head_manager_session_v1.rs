@@ -395,6 +395,12 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.position = (x, y);
                         to_send |= COMPOSITOR_SPACE_INFO_POS;
                     }
+                    HeadOp::SetScale(s) => {
+                        state.scale = s;
+                        state.update_size();
+                        to_send |= COMPOSITOR_SPACE_INFO_SCALE;
+                        to_send |= COMPOSITOR_SPACE_INFO_SIZE;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -456,6 +462,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 && let Some(node) = &output.node
             {
                 node.set_position(desired.position.0, desired.position.1);
+                node.set_preferred_scale(desired.scale);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -475,6 +482,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     }
                 };
                 pos.pos.set(desired.position);
+                pos.scale.set(desired.scale);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{ConnectorId, MonitorInfo, transaction::BackendConnectorTransactionError},
+        backend::{ConnectorId, Mode, MonitorInfo, transaction::BackendConnectorTransactionError},
         client::ClientId,
         globals::GlobalName,
         ifs::head_management::{
@@ -71,6 +71,7 @@ pub struct HeadState {
     pub in_compositor_space: bool,
     pub position: (i32, i32),
     pub size: (i32, i32),
+    pub mode: Mode,
     pub transform: Transform,
     pub scale: Scale,
     pub monitor_info: Option<RcEq<MonitorInfo>>,
@@ -92,10 +93,17 @@ impl HeadState {
         self.in_compositor_space = true;
         self.wl_output = wl_output;
     }
+
+    fn update_size(&mut self) {
+        self.size =
+            OutputNode::calculate_extents_(self.mode, self.transform, self.scale, self.position)
+                .size();
+    }
 }
 
 enum HeadOp {
     SetPosition(i32, i32),
+    SetScale(Scale),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -196,6 +204,7 @@ impl HeadManagers {
         if let Some(n) = &output.node {
             state.position = n.global.pos.get().position();
             state.size = n.global.pos.get().size();
+            state.mode = n.global.mode.get();
             state.transform = n.global.persistent.transform.get();
         }
         for head in self.managers.lock().values() {
@@ -233,6 +242,7 @@ impl HeadManagers {
         let pos = node.global.pos.get();
         state.position = pos.position();
         state.size = pos.size();
+        state.mode = node.global.mode.get();
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.compositor_space_info_v1 {

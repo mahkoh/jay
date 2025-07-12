@@ -53,6 +53,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         wl_output: None,
         connector_enabled: backend_state.enabled,
         in_compositor_space: false,
+        mode: Default::default(),
         monitor_info: None,
     };
     let data = Rc::new(ConnectorData {
