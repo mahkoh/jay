@@ -395,6 +395,12 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.position = (x, y);
                         to_send |= COMPOSITOR_SPACE_INFO_POS;
                     }
+                    HeadOp::SetTransform(t) => {
+                        state.transform = t;
+                        state.update_size();
+                        to_send |= COMPOSITOR_SPACE_INFO_TRANSFORM;
+                        to_send |= COMPOSITOR_SPACE_INFO_SIZE;
+                    }
                     HeadOp::SetScale(s) => {
                         state.scale = s;
                         state.update_size();
@@ -463,6 +469,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             {
                 node.set_position(desired.position.0, desired.position.1);
                 node.set_preferred_scale(desired.scale);
+                node.update_transform(desired.transform);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -483,6 +490,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 };
                 pos.pos.set(desired.position);
                 pos.scale.set(desired.scale);
+                pos.transform.set(desired.transform);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

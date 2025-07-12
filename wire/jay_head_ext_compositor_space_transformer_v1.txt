@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+request set_transform {
+    transform: u32,
+}
+
+event reset_supported_transforms {
+
+}
+
+event supported_transform {
+    transform: u32,
+}

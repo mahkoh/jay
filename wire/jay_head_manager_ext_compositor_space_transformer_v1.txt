@@ -1,0 +1,7 @@
+request destroy (destructor) {
+
+}
+
+event head {
+    head: id(jay_head_ext_compositor_space_transformer_v1) (new),
+}
