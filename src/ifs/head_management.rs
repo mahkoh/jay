@@ -218,6 +218,10 @@ impl HeadManagers {
                 ext.send_connected(state);
                 head.session.schedule_done();
             }
+            if let Some(ext) = &head.ext.mode_info_v1 {
+                ext.send_mode(state);
+                head.session.schedule_done();
+            }
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
                 ext.send_inside_outside(state);
                 head.session.schedule_done();
@@ -262,6 +266,10 @@ impl HeadManagers {
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
                 ext.send_position(state);
                 ext.send_size(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.mode_info_v1 {
+                ext.send_mode(state);
                 head.session.schedule_done();
             }
         }

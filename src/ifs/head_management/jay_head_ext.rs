@@ -5,3 +5,4 @@ pub(super) mod jay_head_ext_compositor_space_scaler_v1;
 pub(super) mod jay_head_ext_compositor_space_transformer_v1;
 pub(super) mod jay_head_ext_connector_info_v1;
 pub(super) mod jay_head_ext_core_info_v1;
+pub(super) mod jay_head_ext_mode_info_v1;

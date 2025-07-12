@@ -381,6 +381,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             COMPOSITOR_SPACE_INFO_SIZE      = 1 << 3,
             COMPOSITOR_SPACE_INFO_TRANSFORM = 1 << 4,
             COMPOSITOR_SPACE_INFO_SCALE     = 1 << 5,
+            MODE_INFO                       = 1 << 6,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -440,6 +441,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         i.send_scale(state);
                     }
                 }
+            }
+            if to_send.contains(MODE_INFO)
+                && let Some(i) = &head.ext.mode_info_v1
+            {
+                i.send_mode(state);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;
