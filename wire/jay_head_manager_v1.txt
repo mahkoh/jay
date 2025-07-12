@@ -1,0 +1,21 @@
+request destroy (destructor) {
+
+}
+
+event extension {
+    name: u32,
+    interface: str,
+    version: u32,
+}
+
+event extensions_done {
+
+}
+
+request create_session {
+    session: id(jay_head_manager_session_v1) (new),
+}
+
+event done {
+
+}

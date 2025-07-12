@@ -9,6 +9,7 @@ pub mod ext_image_copy;
 pub mod ext_output_image_capture_source_manager_v1;
 pub mod ext_session_lock_manager_v1;
 pub mod ext_session_lock_v1;
+pub mod head_management;
 pub mod ipc;
 pub mod jay_client_query;
 pub mod jay_color_management;

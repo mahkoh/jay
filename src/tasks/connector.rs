@@ -7,13 +7,16 @@ use {
         format::XRGB8888,
         globals::GlobalName,
         ifs::{
+            head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
             wl_output::{PersistentOutputState, WlOutputGlobal},
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, WsMoveConfig, move_ws_to_output},
-        utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
+        utils::{
+            asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
+        },
     },
     std::{cell::Cell, collections::VecDeque, rc::Rc},
 };
@@ -39,11 +42,18 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         transfer_function: Default::default(),
     };
     let id = connector.id();
+    let name = Rc::new(connector.kernel_id().to_string());
+    let head_state = HeadState {
+        name: RcEq(name.clone()),
+        wl_output: None,
+        monitor_info: None,
+    };
     let data = Rc::new(ConnectorData {
+        id,
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
-        name: connector.kernel_id().to_string(),
+        name,
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
         damaged: Cell::new(false),
@@ -51,6 +61,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
         state: Cell::new(backend_state),
+        head_managers: HeadManagers::new(state.head_names.next(), head_state),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -62,6 +73,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
+    for mgr in state.head_managers.lock().values() {
+        mgr.announce(&data);
+    }
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
     }
@@ -100,6 +114,7 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
+        self.data.head_managers.handle_removed();
     }
 
     async fn handle_connected(&self, info: MonitorInfo) {
@@ -113,6 +128,7 @@ impl ConnectorHandler {
             self.handle_desktop_connected(info, name).await;
         }
         self.data.connected.set(false);
+        self.data.head_managers.handle_output_disconnected();
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
     }
 
@@ -218,11 +234,11 @@ impl ConnectorHandler {
             .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info: info,
+            monitor_info: Rc::new(info),
             node: Some(on.clone()),
             lease_connectors: Default::default(),
         });
-        self.state.outputs.set(self.id, output_data);
+        self.state.outputs.set(self.id, output_data.clone());
         on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.output_extents_changed();
@@ -274,6 +290,9 @@ impl ConnectorHandler {
         self.state.tree_changed();
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -362,7 +381,7 @@ impl ConnectorHandler {
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info,
+            monitor_info: Rc::new(monitor_info),
             node: None,
             lease_connectors: Default::default(),
         });
@@ -387,6 +406,9 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {

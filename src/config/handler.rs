@@ -1175,7 +1175,7 @@ impl ConfigProxyHandler {
     fn handle_connector_name(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
         self.respond(Response::GetConnectorName {
-            name: connector.name.clone(),
+            name: connector.name.deref().clone(),
         });
         Ok(())
     }

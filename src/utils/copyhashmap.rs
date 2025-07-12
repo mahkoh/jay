@@ -66,6 +66,14 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         unsafe { self.map.get().deref().contains_key(k) }
     }
 
+    pub fn not_contains<Q>(&self, k: &Q) -> bool
+    where
+        Q: Hash + Eq + ?Sized,
+        K: Borrow<Q>,
+    {
+        !self.contains(k)
+    }
+
     pub fn lock(&self) -> Locked<'_, K, V> {
         Locked {
             source: self,

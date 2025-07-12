@@ -40,6 +40,10 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
+            head_management::{
+                HeadManagers, HeadNames,
+                jay_head_manager_session_v1::{HeadManagerEvent, JayHeadManagerSessionV1},
+            },
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
                 x_data_device::XIpcDeviceIds,
@@ -107,8 +111,9 @@ use {
         },
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
-            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerSessionV1Id,
+            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
+            ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -257,6 +262,10 @@ pub struct State {
     pub node_at_tree: RefCell<Vec<FoundNode>>,
     pub position_hint_requests: AsyncQueue<PositionHintRequest>,
     pub backend_connector_state_serials: BackendConnectorStateSerials,
+    pub head_names: HeadNames,
+    pub head_managers:
+        CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
+    pub head_managers_async: AsyncQueue<HeadManagerEvent>,
 }
 
 // impl Drop for State {
@@ -368,10 +377,11 @@ pub struct DeviceHandlerData {
 }
 
 pub struct ConnectorData {
+    pub id: ConnectorId,
     pub connector: Rc<dyn Connector>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
-    pub name: String,
+    pub name: Rc<String>,
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
     pub damaged: Cell<bool>,
@@ -379,11 +389,12 @@ pub struct ConnectorData {
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
     pub state: Cell<BackendConnectorState>,
+    pub head_managers: HeadManagers,
 }
 
 pub struct OutputData {
     pub connector: Rc<ConnectorData>,
-    pub monitor_info: MonitorInfo,
+    pub monitor_info: Rc<MonitorInfo>,
     pub node: Option<Rc<OutputNode>>,
     pub lease_connectors: Rc<Bindings<WpDrmLeaseConnectorV1>>,
 }
@@ -1017,6 +1028,8 @@ impl State {
         self.tl_matcher_manager.clear();
         self.node_at_tree.borrow_mut().clear();
         self.position_hint_requests.clear();
+        self.head_managers.clear();
+        self.head_managers_async.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
