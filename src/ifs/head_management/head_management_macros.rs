@@ -390,4 +390,5 @@ macro_rules! declare_extensions {
 declare_extensions! {
     core_info_v1: CoreInfoV1,
     compositor_space_info_v1: CompositorSpaceInfoV1,
+    compositor_space_positioner_v1: CompositorSpacePositionerV1,
 }

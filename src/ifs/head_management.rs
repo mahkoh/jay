@@ -94,7 +94,9 @@ impl HeadState {
     }
 }
 
-enum HeadOp {}
+enum HeadOp {
+    SetPosition(i32, i32),
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 enum HeadMgrState {
@@ -128,7 +130,6 @@ impl HeadCommon {
         }
     }
 
-    #[expect(dead_code)]
     fn push_op(&self, op: HeadOp) -> Result<(), HeadCommonError> {
         self.assert_in_transaction()?;
         self.pending.borrow_mut().push(op);

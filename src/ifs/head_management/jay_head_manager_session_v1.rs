@@ -5,7 +5,8 @@ use {
         client::{Client, ClientError},
         ifs::{
             head_management::{
-                Head, HeadCommon, HeadCommonError, HeadMgrState, HeadName, HeadTransactionError,
+                Head, HeadCommon, HeadCommonError, HeadMgrState, HeadName, HeadOp,
+                HeadTransactionError,
                 head_management_macros::{HeadExtension, MgrExts, announce_head, bind_extension},
                 jay_head_manager_v1::JayHeadManagerV1,
                 jay_head_transaction_result_v1::JayHeadTransactionResultV1,
@@ -387,11 +388,14 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             #[expect(unused_variables)]
             let snapshot = &*head.common.snapshot_state.borrow();
             let state = &mut *head.common.transaction_state.borrow_mut();
-            #[expect(unused_mut)]
             let mut to_send = ToSend::default();
-            #[expect(clippy::never_loop)]
             for op in pending {
-                match op {}
+                match op {
+                    HeadOp::SetPosition(x, y) => {
+                        state.position = (x, y);
+                        to_send |= COMPOSITOR_SPACE_INFO_POS;
+                    }
+                }
             }
             if to_send.contains(CORE_INFO)
                 && let Some(i) = &head.ext.core_info_v1
@@ -451,7 +455,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             if let Some(output) = self.client.state.outputs.get(&head.common.id)
                 && let Some(node) = &output.node
             {
-                let _ = node;
+                node.set_position(desired.position.0, desired.position.1);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -470,7 +474,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         ps
                     }
                 };
-                let _ = pos;
+                pos.pos.set(desired.position);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;
