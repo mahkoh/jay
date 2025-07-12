@@ -642,6 +642,8 @@ fn create_dummy_output(state: &Rc<State>) {
         name: RcEq(name.clone()),
         position: (0, 0),
         size: (0, 0),
+        active: false,
+        connected: false,
         transform: Transform::None,
         scale: Default::default(),
         wl_output: None,

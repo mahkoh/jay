@@ -394,4 +394,5 @@ declare_extensions! {
     compositor_space_transformer_v1: CompositorSpaceTransformerV1,
     compositor_space_scaler_v1: CompositorSpaceScalerV1,
     compositor_space_enabler_v1: CompositorSpaceEnablerV1,
+    connector_info_v1: ConnectorInfoV1,
 }

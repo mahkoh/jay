@@ -48,6 +48,8 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         name: RcEq(name.clone()),
         position: (0, 0),
         size: (0, 0),
+        active: backend_state.active,
+        connected: false,
         transform: Transform::None,
         scale: Default::default(),
         wl_output: None,

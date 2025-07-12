@@ -68,6 +68,8 @@ pub struct HeadState {
     pub name: RcEq<String>,
     pub wl_output: Option<GlobalName>,
     pub connector_enabled: bool,
+    pub active: bool,
+    pub connected: bool,
     pub in_compositor_space: bool,
     pub position: (i32, i32),
     pub size: (i32, i32),
@@ -201,6 +203,7 @@ impl HeadManagers {
 
     pub fn handle_output_connected(&self, output: &OutputData) {
         let state = &mut *self.state.borrow_mut();
+        state.connected = true;
         state.monitor_info = Some(RcEq(output.monitor_info.clone()));
         state.update_in_compositor_space(output.node.as_ref().map(|n| n.global.name));
         if let Some(n) = &output.node {
@@ -211,6 +214,10 @@ impl HeadManagers {
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.connector_info_v1 {
+                ext.send_connected(state);
+                head.session.schedule_done();
+            }
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
                 ext.send_inside_outside(state);
                 head.session.schedule_done();
@@ -224,12 +231,17 @@ impl HeadManagers {
 
     pub fn handle_output_disconnected(&self) {
         let state = &mut *self.state.borrow_mut();
+        state.connected = false;
         state.monitor_info = None;
         state.update_in_compositor_space(None);
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
                 ext.send_inside_outside(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.connector_info_v1 {
+                ext.send_connected(state);
                 head.session.schedule_done();
             }
             if let Some(ext) = &head.ext.core_info_v1 {
@@ -288,6 +300,18 @@ impl HeadManagers {
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
                 ext.send_enabled(state);
                 ext.send_inside_outside(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_active_change(&self, active: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.active = active;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.connector_info_v1 {
+                ext.send_active(state);
                 head.session.schedule_done();
             }
         }
