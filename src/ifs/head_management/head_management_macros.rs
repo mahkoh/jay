@@ -396,4 +396,5 @@ declare_extensions! {
     compositor_space_enabler_v1: CompositorSpaceEnablerV1,
     connector_info_v1: ConnectorInfoV1,
     mode_info_v1: ModeInfoV1,
+    mode_setter_v1: ModeSetterV1,
 }

@@ -108,6 +108,7 @@ enum HeadOp {
     SetConnectorEnabled(bool),
     SetTransform(Transform),
     SetScale(Scale),
+    SetMode(usize),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -220,6 +221,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.mode_info_v1 {
                 ext.send_mode(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.mode_setter_v1 {
+                ext.send_modes(state);
                 head.session.schedule_done();
             }
             if let Some(ext) = &head.ext.compositor_space_info_v1 {

@@ -1,0 +1,17 @@
+request destroy (destructor) {
+
+}
+
+request set_mode {
+    idx: u32,
+}
+
+event reset {
+
+}
+
+event mode {
+    width: i32,
+    height: i32,
+    refresh_mhz: u32,
+}
