@@ -9,4 +9,5 @@ pub(super) mod jay_head_ext_mode_info_v1;
 pub(super) mod jay_head_ext_mode_setter_v1;
 pub(super) mod jay_head_ext_non_desktop_info_v1;
 pub(super) mod jay_head_ext_physical_display_info_v1;
+pub(super) mod jay_head_ext_tearing_state_v1;
 pub(super) mod jay_head_ext_vrr_state_v1;

@@ -32,6 +32,7 @@ use {
                 ext_workspace_manager_v1::WorkspaceManagerId,
             },
             wp_content_type_v1::ContentType,
+            wp_presentation_feedback::KIND_VSYNC,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         },
@@ -47,10 +48,10 @@ use {
             WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, event_listener::EventSource, hash_map_ext::HashMapExt,
-            linkedlist::LinkedList, on_drop_event::OnDropEvent, scroller::Scroller,
-            transform_ext::TransformExt,
+            asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, event_listener::EventSource,
+            hash_map_ext::HashMapExt, linkedlist::LinkedList, on_drop_event::OnDropEvent,
+            scroller::Scroller, transform_ext::TransformExt,
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
@@ -107,6 +108,7 @@ pub struct OutputNode {
     pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
+    pub tearing: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -217,6 +219,13 @@ impl OutputNode {
         }
         if locked && let Some(lock) = self.state.lock.lock.get() {
             lock.check_locked()
+        }
+        let tearing = flags.not_contains(KIND_VSYNC);
+        if self.tearing.replace(tearing) != tearing {
+            self.global
+                .connector
+                .head_managers
+                .handle_tearing_active_change(tearing);
         }
     }
 

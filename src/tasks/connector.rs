@@ -60,6 +60,8 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         inherent_non_desktop: false,
         override_non_desktop: backend_state.non_desktop_override,
         vrr: backend_state.vrr,
+        tearing_enabled: backend_state.tearing,
+        tearing_active: false,
     };
     let data = Rc::new(ConnectorData {
         id,
@@ -240,6 +242,7 @@ impl ConnectorHandler {
             tray_items: Default::default(),
             ext_workspace_groups: Default::default(),
             pinned: Default::default(),
+            tearing: Default::default(),
         });
         on.update_visible();
         on.update_rects();

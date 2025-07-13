@@ -80,6 +80,8 @@ pub struct HeadState {
     pub inherent_non_desktop: bool,
     pub override_non_desktop: Option<bool>,
     pub vrr: bool,
+    pub tearing_enabled: bool,
+    pub tearing_active: bool,
 }
 
 impl HeadState {
@@ -376,6 +378,30 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.vrr_state_v1 {
                 ext.send_state(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_tearing_enabled_change(&self, enabled: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.tearing_enabled = enabled;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.tearing_state_v1 {
+                ext.send_enabled(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_tearing_active_change(&self, active: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.tearing_active = active;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.tearing_state_v1 {
+                ext.send_active(state);
                 head.session.schedule_done();
             }
         }

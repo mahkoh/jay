@@ -654,6 +654,8 @@ fn create_dummy_output(state: &Rc<State>) {
         inherent_non_desktop: false,
         override_non_desktop: None,
         vrr: false,
+        tearing_enabled: backend_state.tearing,
+        tearing_active: false,
     };
     let connector_data = Rc::new(ConnectorData {
         id,
@@ -727,6 +729,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tray_items: Default::default(),
         ext_workspace_groups: Default::default(),
         pinned: Default::default(),
+        tearing: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
