@@ -453,6 +453,9 @@ impl ConnectorData {
             self.head_managers
                 .handle_non_desktop_override_changed(s.non_desktop_override);
         }
+        if old.vrr != s.vrr {
+            self.head_managers.handle_vrr_change(s.vrr);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {

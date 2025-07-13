@@ -59,6 +59,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         monitor_info: None,
         inherent_non_desktop: false,
         override_non_desktop: backend_state.non_desktop_override,
+        vrr: backend_state.vrr,
     };
     let data = Rc::new(ConnectorData {
         id,

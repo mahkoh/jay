@@ -79,6 +79,7 @@ pub struct HeadState {
     pub monitor_info: Option<RcEq<MonitorInfo>>,
     pub inherent_non_desktop: bool,
     pub override_non_desktop: Option<bool>,
+    pub vrr: bool,
 }
 
 impl HeadState {
@@ -249,6 +250,10 @@ impl HeadManagers {
                 ext.send_state(state);
                 head.session.schedule_done();
             }
+            if let Some(ext) = &head.ext.vrr_state_v1 {
+                ext.send_state(state);
+                head.session.schedule_done();
+            }
         }
     }
 
@@ -273,6 +278,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.physical_display_info_v1 {
                 ext.send_info(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.vrr_state_v1 {
+                ext.send_state(state);
                 head.session.schedule_done();
             }
         }
@@ -354,6 +363,18 @@ impl HeadManagers {
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.non_desktop_info_v1 {
+                ext.send_state(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_vrr_change(&self, vrr: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.vrr = vrr;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.vrr_state_v1 {
                 ext.send_state(state);
                 head.session.schedule_done();
             }

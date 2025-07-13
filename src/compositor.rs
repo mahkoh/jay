@@ -653,6 +653,7 @@ fn create_dummy_output(state: &Rc<State>) {
         monitor_info: None,
         inherent_non_desktop: false,
         override_non_desktop: None,
+        vrr: false,
     };
     let connector_data = Rc::new(ConnectorData {
         id,
