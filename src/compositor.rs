@@ -656,6 +656,7 @@ fn create_dummy_output(state: &Rc<State>) {
         vrr: false,
         tearing_enabled: backend_state.tearing,
         tearing_active: false,
+        format: XRGB8888,
     };
     let connector_data = Rc::new(ConnectorData {
         id,

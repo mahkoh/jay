@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{ConnectorId, Mode, MonitorInfo, transaction::BackendConnectorTransactionError},
         client::ClientId,
+        format::Format,
         globals::GlobalName,
         ifs::head_management::{
             head_management_macros::HeadExts, jay_head_manager_session_v1::JayHeadManagerSessionV1,
@@ -82,6 +83,7 @@ pub struct HeadState {
     pub vrr: bool,
     pub tearing_enabled: bool,
     pub tearing_active: bool,
+    pub format: &'static Format,
 }
 
 impl HeadState {
@@ -402,6 +404,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.tearing_state_v1 {
                 ext.send_active(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_format_change(&self, format: &'static Format) {
+        let state = &mut *self.state.borrow_mut();
+        state.format = format;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.format_info_v1 {
+                ext.send_format(state);
                 head.session.schedule_done();
             }
         }

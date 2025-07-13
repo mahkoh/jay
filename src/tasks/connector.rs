@@ -62,6 +62,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         vrr: backend_state.vrr,
         tearing_enabled: backend_state.tearing,
         tearing_active: false,
+        format: backend_state.format,
     };
     let data = Rc::new(ConnectorData {
         id,

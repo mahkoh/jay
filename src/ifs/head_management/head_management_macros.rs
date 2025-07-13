@@ -401,4 +401,5 @@ declare_extensions! {
     non_desktop_info_v1: NonDesktopInfoV1,
     vrr_state_v1: VrrStateV1,
     tearing_state_v1: TearingStateV1,
+    format_info_v1: FormatInfoV1,
 }

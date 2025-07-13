@@ -459,6 +459,9 @@ impl ConnectorData {
         if old.tearing != s.tearing {
             self.head_managers.handle_tearing_enabled_change(s.tearing);
         }
+        if old.format != s.format {
+            self.head_managers.handle_format_change(s.format);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
