@@ -105,10 +105,7 @@ impl ConnectorHandler {
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        let old_state = self.data.state.get();
-        if old_state.serial < info.state.serial {
-            self.data.state.set(info.state);
-        }
+        self.data.set_state(&self.state, info.state);
         let name = self.state.globals.name();
         if info.non_desktop {
             self.handle_non_desktop_connected(info).await;
@@ -290,7 +287,7 @@ impl ConnectorHandler {
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {
-                        on.update_state(state);
+                        self.data.set_state(&self.state, state);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }

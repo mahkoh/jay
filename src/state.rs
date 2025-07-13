@@ -422,14 +422,21 @@ impl ConnectorData {
         let mut tran = self.connector.create_transaction()?;
         tran.add(&self.connector, s)?;
         tran.prepare()?.apply()?.commit();
+        self.set_state(state, s);
+        Ok(())
+    }
+
+    pub fn set_state(&self, state: &State, s: BackendConnectorState) {
+        let old = self.state.get();
+        if old.serial >= s.serial {
+            return;
+        }
+        self.state.set(s);
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
-            node.update_state(s);
-        } else {
-            self.state.set(s);
+            node.update_state(old, s);
         }
-        Ok(())
     }
 }
 

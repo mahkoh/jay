@@ -849,12 +849,7 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn update_state(self: &Rc<Self>, state: BackendConnectorState) {
-        let old = self.global.connector.state.get();
-        if old.serial >= state.serial {
-            return;
-        }
-        self.global.connector.state.set(state);
+    pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
         self.update_btf_and_bcs(state.transfer_function, state.color_space);
         if old.vrr != state.vrr {
             self.schedule.set_vrr_enabled(state.vrr);
