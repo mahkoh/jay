@@ -135,6 +135,7 @@ impl TestBackend {
             width_mm: 80,
             height_mm: 60,
             non_desktop: false,
+            non_desktop_effective: false,
             vrr_capable: false,
             transfer_functions: vec![],
             color_spaces: vec![],

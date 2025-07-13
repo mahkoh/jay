@@ -398,4 +398,5 @@ declare_extensions! {
     mode_info_v1: ModeInfoV1,
     mode_setter_v1: ModeSetterV1,
     physical_display_info_v1: PhysicalDisplayInfoV1,
+    non_desktop_info_v1: NonDesktopInfoV1,
 }

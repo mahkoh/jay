@@ -57,6 +57,8 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         in_compositor_space: false,
         mode: Default::default(),
         monitor_info: None,
+        inherent_non_desktop: false,
+        override_non_desktop: backend_state.non_desktop_override,
     };
     let data = Rc::new(ConnectorData {
         id,
@@ -132,7 +134,7 @@ impl ConnectorHandler {
         self.data.connected.set(true);
         self.data.set_state(&self.state, info.state);
         let name = self.state.globals.name();
-        if info.non_desktop {
+        if info.non_desktop_effective {
             self.handle_non_desktop_connected(info).await;
         } else {
             self.handle_desktop_connected(info, name).await;

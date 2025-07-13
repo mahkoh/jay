@@ -77,6 +77,8 @@ pub struct HeadState {
     pub transform: Transform,
     pub scale: Scale,
     pub monitor_info: Option<RcEq<MonitorInfo>>,
+    pub inherent_non_desktop: bool,
+    pub override_non_desktop: Option<bool>,
 }
 
 impl HeadState {
@@ -90,6 +92,9 @@ impl HeadState {
             return;
         };
         if mi.non_desktop {
+            return;
+        }
+        if self.override_non_desktop == Some(true) {
             return;
         }
         self.in_compositor_space = true;
@@ -206,6 +211,7 @@ impl HeadManagers {
         let state = &mut *self.state.borrow_mut();
         state.connected = true;
         state.monitor_info = Some(RcEq(output.monitor_info.clone()));
+        state.inherent_non_desktop = output.monitor_info.non_desktop;
         state.update_in_compositor_space(output.node.as_ref().map(|n| n.global.name));
         if let Some(n) = &output.node {
             state.position = n.global.pos.get().position();
@@ -237,6 +243,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.core_info_v1 {
                 ext.send_wl_output(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.non_desktop_info_v1 {
+                ext.send_state(state);
                 head.session.schedule_done();
             }
         }
@@ -333,6 +343,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.connector_info_v1 {
                 ext.send_active(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_non_desktop_override_changed(&self, overrd: Option<bool>) {
+        let state = &mut *self.state.borrow_mut();
+        state.override_non_desktop = overrd;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.non_desktop_info_v1 {
+                ext.send_state(state);
                 head.session.schedule_done();
             }
         }

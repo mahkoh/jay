@@ -727,7 +727,7 @@ impl MetalConnector {
         match &event {
             ConnectorEvent::Connected(ty) => match state {
                 FrontState::Disconnected => {
-                    let non_desktop = ty.non_desktop;
+                    let non_desktop = ty.non_desktop_effective;
                     self.on_change.send_event(event);
                     set_state(FrontState::Connected { non_desktop });
                 }
@@ -1915,7 +1915,8 @@ impl MetalBackend {
             output_id: dd.output_id.clone(),
             width_mm: dd.mm_width as _,
             height_mm: dd.mm_height as _,
-            non_desktop: dd.non_desktop_effective,
+            non_desktop: dd.non_desktop,
+            non_desktop_effective: dd.non_desktop_effective,
             vrr_capable: dd.vrr_capable,
             transfer_functions,
             color_spaces,

@@ -1,0 +1,31 @@
+request destroy (destructor) {
+
+}
+
+event reset {
+
+}
+
+event inherent_desktop {
+
+}
+
+event inherent_non_desktop {
+
+}
+
+event override_desktop {
+
+}
+
+event override_non_desktop {
+
+}
+
+event effective_desktop {
+
+}
+
+event effective_non_desktop {
+
+}

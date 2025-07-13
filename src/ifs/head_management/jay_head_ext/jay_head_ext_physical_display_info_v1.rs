@@ -50,7 +50,7 @@ impl HeadName {
             self.send_model(&mi.output_id.model);
             self.send_serial_number(&mi.output_id.serial_number);
             self.send_physical_size(mi.width_mm, mi.height_mm);
-            if mi.non_desktop {
+            if mi.non_desktop_effective {
                 self.send_non_desktop();
             }
             if mi.vrr_capable {

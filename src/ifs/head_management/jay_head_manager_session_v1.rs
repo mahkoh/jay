@@ -383,6 +383,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             COMPOSITOR_SPACE_INFO_TRANSFORM = 1 << 4,
             COMPOSITOR_SPACE_INFO_SCALE     = 1 << 5,
             MODE_INFO                       = 1 << 6,
+            NON_DESKTOP_INFO                = 1 << 7,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -453,6 +454,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 && let Some(i) = &head.ext.mode_info_v1
             {
                 i.send_mode(state);
+            }
+            if to_send.contains(NON_DESKTOP_INFO)
+                && let Some(i) = &head.ext.non_desktop_info_v1
+            {
+                i.send_state(state);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

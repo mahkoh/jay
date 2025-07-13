@@ -449,6 +449,10 @@ impl ConnectorData {
         if old.active != s.active {
             self.head_managers.handle_active_change(s.active);
         }
+        if old.non_desktop_override != s.non_desktop_override {
+            self.head_managers
+                .handle_non_desktop_override_changed(s.non_desktop_override);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {

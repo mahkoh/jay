@@ -104,6 +104,7 @@ pub struct MonitorInfo {
     pub width_mm: i32,
     pub height_mm: i32,
     pub non_desktop: bool,
+    pub non_desktop_effective: bool,
     pub vrr_capable: bool,
     pub transfer_functions: Vec<BackendTransferFunction>,
     pub color_spaces: Vec<BackendColorSpace>,
