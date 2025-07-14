@@ -63,6 +63,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         vrr_mode: Default::default(),
         tearing_enabled: backend_state.tearing,
         tearing_active: false,
+        tearing_mode: Default::default(),
         format: backend_state.format,
         color_space: backend_state.color_space,
         transfer_function: backend_state.transfer_function,

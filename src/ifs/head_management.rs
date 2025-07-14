@@ -17,7 +17,7 @@ use {
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
-    jay_config::video::{Transform, VrrMode},
+    jay_config::video::{TearingMode, Transform, VrrMode},
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -87,6 +87,7 @@ pub struct HeadState {
     pub vrr_mode: VrrMode,
     pub tearing_enabled: bool,
     pub tearing_active: bool,
+    pub tearing_mode: TearingMode,
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
     pub transfer_function: BackendTransferFunction,
@@ -231,6 +232,7 @@ impl HeadManagers {
             state.mode = n.global.mode.get();
             state.transform = n.global.persistent.transform.get();
             state.vrr_mode = n.global.persistent.vrr_mode.get().to_config();
+            state.tearing_mode = n.global.persistent.tearing_mode.get().to_config();
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
@@ -267,6 +269,10 @@ impl HeadManagers {
                 head.session.schedule_done();
             }
             if let Some(ext) = &head.ext.jay_vrr_mode_info_v1 {
+                ext.send_mode(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.jay_tearing_mode_info_v1 {
                 ext.send_mode(state);
                 head.session.schedule_done();
             }
@@ -428,6 +434,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.tearing_state_v1 {
                 ext.send_active(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_tearing_mode_change(&self, tearing_mode: TearingMode) {
+        let state = &mut *self.state.borrow_mut();
+        state.tearing_mode = tearing_mode;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.jay_tearing_mode_info_v1 {
+                ext.send_mode(state);
                 head.session.schedule_done();
             }
         }

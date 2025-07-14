@@ -1413,8 +1413,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.global.persistent.tearing_mode.set(mode);
-                connector.update_presentation_type();
+                connector.set_tearing_mode(mode);
             }
             _ => self.state.default_tearing_mode.set(mode),
         }

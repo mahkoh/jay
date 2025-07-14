@@ -1335,6 +1335,17 @@ impl OutputNode {
                 .handle_vrr_mode_change(mode.to_config());
         }
     }
+
+    pub fn set_tearing_mode(&self, mode: &'static TearingMode) {
+        let old = self.global.persistent.tearing_mode.replace(mode);
+        if old != mode {
+            self.update_presentation_type();
+            self.global
+                .connector
+                .head_managers
+                .handle_tearing_mode_change(mode.to_config());
+        }
+    }
 }
 
 pub struct OutputTitle {
@@ -1785,13 +1796,13 @@ impl TearingMode {
         Some(res)
     }
 
-    pub fn to_config(&self) -> ConfigVrrMode {
+    pub fn to_config(&self) -> ConfigTearingMode {
         match self {
-            Self::NEVER => ConfigVrrMode::NEVER,
-            Self::ALWAYS => ConfigVrrMode::ALWAYS,
-            Self::VARIANT_1 => ConfigVrrMode::VARIANT_1,
-            Self::VARIANT_2 => ConfigVrrMode::VARIANT_2,
-            Self::VARIANT_3 => ConfigVrrMode::VARIANT_3,
+            Self::NEVER => ConfigTearingMode::NEVER,
+            Self::ALWAYS => ConfigTearingMode::ALWAYS,
+            Self::VARIANT_1 => ConfigTearingMode::VARIANT_1,
+            Self::VARIANT_2 => ConfigTearingMode::VARIANT_2,
+            Self::VARIANT_3 => ConfigTearingMode::VARIANT_3,
         }
     }
 }

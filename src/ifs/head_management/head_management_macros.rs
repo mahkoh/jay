@@ -405,4 +405,5 @@ declare_extensions! {
     drm_color_space_info_v1: DrmColorSpaceInfoV1,
     non_desktop_override_v1: NonDesktopOverrideV1,
     jay_vrr_mode_info_v1: JayVrrModeInfoV1,
+    jay_tearing_mode_info_v1: JayTearingModeInfoV1,
 }
