@@ -127,6 +127,7 @@ enum HeadOp {
     SetScale(Scale),
     SetMode(usize),
     SetNonDesktopOverride(Option<bool>),
+    SetVrrMode(VrrMode),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]

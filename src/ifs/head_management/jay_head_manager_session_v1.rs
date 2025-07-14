@@ -385,6 +385,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             COMPOSITOR_SPACE_INFO_SCALE     = 1 << 5,
             MODE_INFO                       = 1 << 6,
             NON_DESKTOP_INFO                = 1 << 7,
+            VRR_MODE_INFO                   = 1 << 8,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -430,6 +431,10 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         to_send |= CORE_INFO;
                         to_send |= NON_DESKTOP_INFO;
                     }
+                    HeadOp::SetVrrMode(m) => {
+                        state.vrr_mode = m;
+                        to_send |= VRR_MODE_INFO;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -468,6 +473,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             {
                 i.send_state(state);
             }
+            if to_send.contains(VRR_MODE_INFO)
+                && let Some(i) = &head.ext.jay_vrr_mode_info_v1
+            {
+                i.send_mode(state);
+            }
         }
         slf.schedule_transaction_result(req.result, None)?;
         Ok(())
@@ -503,6 +513,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 node.set_position(desired.position.0, desired.position.1);
                 node.set_preferred_scale(desired.scale);
                 node.update_transform(desired.transform);
+                node.set_vrr_mode(VrrMode::from_config(desired.vrr_mode).unwrap());
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -524,6 +535,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 pos.pos.set(desired.position);
                 pos.scale.set(desired.scale);
                 pos.transform.set(desired.transform);
+                pos.vrr_mode
+                    .set(VrrMode::from_config(desired.vrr_mode).unwrap());
             }
         }
         slf.schedule_transaction_result(req.result, None)?;
