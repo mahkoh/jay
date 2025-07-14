@@ -386,6 +386,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             MODE_INFO                       = 1 << 6,
             NON_DESKTOP_INFO                = 1 << 7,
             VRR_MODE_INFO                   = 1 << 8,
+            TEARING_MODE_INFO               = 1 << 9,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -435,6 +436,10 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.vrr_mode = m;
                         to_send |= VRR_MODE_INFO;
                     }
+                    HeadOp::SetTearingMode(m) => {
+                        state.tearing_mode = m;
+                        to_send |= TEARING_MODE_INFO;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -478,6 +483,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             {
                 i.send_mode(state);
             }
+            if to_send.contains(TEARING_MODE_INFO)
+                && let Some(i) = &head.ext.jay_tearing_mode_info_v1
+            {
+                i.send_mode(state);
+            }
         }
         slf.schedule_transaction_result(req.result, None)?;
         Ok(())
@@ -514,6 +524,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 node.set_preferred_scale(desired.scale);
                 node.update_transform(desired.transform);
                 node.set_vrr_mode(VrrMode::from_config(desired.vrr_mode).unwrap());
+                node.set_tearing_mode(TearingMode::from_config(desired.tearing_mode).unwrap());
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -537,6 +548,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 pos.transform.set(desired.transform);
                 pos.vrr_mode
                     .set(VrrMode::from_config(desired.vrr_mode).unwrap());
+                pos.tearing_mode
+                    .set(TearingMode::from_config(desired.tearing_mode).unwrap());
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

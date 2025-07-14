@@ -407,4 +407,5 @@ declare_extensions! {
     jay_vrr_mode_info_v1: JayVrrModeInfoV1,
     jay_tearing_mode_info_v1: JayTearingModeInfoV1,
     jay_vrr_mode_setter_v1: JayVrrModeSetterV1,
+    jay_tearing_mode_setter_v1: JayTearingModeSetterV1,
 }

@@ -128,6 +128,7 @@ enum HeadOp {
     SetMode(usize),
     SetNonDesktopOverride(Option<bool>),
     SetVrrMode(VrrMode),
+    SetTearingMode(TearingMode),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
