@@ -60,6 +60,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         inherent_non_desktop: false,
         override_non_desktop: backend_state.non_desktop_override,
         vrr: backend_state.vrr,
+        vrr_mode: Default::default(),
         tearing_enabled: backend_state.tearing,
         tearing_active: false,
         format: backend_state.format,

@@ -1375,8 +1375,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.global.persistent.vrr_mode.set(mode);
-                connector.update_presentation_type();
+                connector.set_vrr_mode(mode);
             }
             _ => self.state.default_vrr_mode.set(mode),
         }

@@ -17,7 +17,7 @@ use {
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
-    jay_config::video::Transform,
+    jay_config::video::{Transform, VrrMode},
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -84,6 +84,7 @@ pub struct HeadState {
     pub inherent_non_desktop: bool,
     pub override_non_desktop: Option<bool>,
     pub vrr: bool,
+    pub vrr_mode: VrrMode,
     pub tearing_enabled: bool,
     pub tearing_active: bool,
     pub format: &'static Format,
@@ -229,6 +230,7 @@ impl HeadManagers {
             state.size = n.global.pos.get().size();
             state.mode = n.global.mode.get();
             state.transform = n.global.persistent.transform.get();
+            state.vrr_mode = n.global.persistent.vrr_mode.get().to_config();
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
@@ -262,6 +264,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.vrr_state_v1 {
                 ext.send_state(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.jay_vrr_mode_info_v1 {
+                ext.send_mode(state);
                 head.session.schedule_done();
             }
         }
@@ -386,6 +392,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.vrr_state_v1 {
                 ext.send_state(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_vrr_mode_change(&self, vrr_mode: VrrMode) {
+        let state = &mut *self.state.borrow_mut();
+        state.vrr_mode = vrr_mode;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.jay_vrr_mode_info_v1 {
+                ext.send_mode(state);
                 head.session.schedule_done();
             }
         }

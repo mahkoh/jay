@@ -654,6 +654,7 @@ fn create_dummy_output(state: &Rc<State>) {
         inherent_non_desktop: false,
         override_non_desktop: None,
         vrr: false,
+        vrr_mode: VrrMode::Never.to_config(),
         tearing_enabled: backend_state.tearing,
         tearing_active: false,
         format: XRGB8888,

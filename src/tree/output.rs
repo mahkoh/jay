@@ -1324,6 +1324,17 @@ impl OutputNode {
         }
         self.state.tree_changed();
     }
+
+    pub fn set_vrr_mode(&self, mode: &'static VrrMode) {
+        let old = self.global.persistent.vrr_mode.replace(mode);
+        if old != mode {
+            self.update_presentation_type();
+            self.global
+                .connector
+                .head_managers
+                .handle_vrr_mode_change(mode.to_config());
+        }
+    }
 }
 
 pub struct OutputTitle {

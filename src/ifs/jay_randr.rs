@@ -419,8 +419,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.global.persistent.vrr_mode.set(mode);
-        c.update_presentation_type();
+        c.set_vrr_mode(mode);
         return Ok(());
     }
 
