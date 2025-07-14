@@ -124,6 +124,7 @@ enum HeadOp {
     SetTransform(Transform),
     SetScale(Scale),
     SetMode(usize),
+    SetNonDesktopOverride(Option<bool>),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]

@@ -265,6 +265,7 @@ impl JayHeadManagerSessionV1 {
             let mut new = old;
             new.enabled = desired.connector_enabled;
             new.mode = desired.mode;
+            new.non_desktop_override = desired.override_non_desktop;
             if old == new {
                 continue;
             }
@@ -421,6 +422,13 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.update_size();
                         to_send |= MODE_INFO;
                         to_send |= COMPOSITOR_SPACE_INFO_SIZE;
+                    }
+                    HeadOp::SetNonDesktopOverride(m) => {
+                        state.override_non_desktop = m;
+                        state.update_in_compositor_space(snapshot.wl_output);
+                        to_send |= COMPOSITOR_SPACE_INFO_FULL;
+                        to_send |= CORE_INFO;
+                        to_send |= NON_DESKTOP_INFO;
                     }
                 }
             }

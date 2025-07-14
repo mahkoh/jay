@@ -403,4 +403,5 @@ declare_extensions! {
     tearing_state_v1: TearingStateV1,
     format_info_v1: FormatInfoV1,
     drm_color_space_info_v1: DrmColorSpaceInfoV1,
+    non_desktop_override_v1: NonDesktopOverrideV1,
 }
