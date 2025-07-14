@@ -267,6 +267,8 @@ impl JayHeadManagerSessionV1 {
             new.mode = desired.mode;
             new.non_desktop_override = desired.override_non_desktop;
             new.format = desired.format;
+            new.color_space = desired.color_space;
+            new.transfer_function = desired.transfer_function;
             if old == new {
                 continue;
             }
@@ -389,6 +391,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             VRR_MODE_INFO                   = 1 << 8,
             TEARING_MODE_INFO               = 1 << 9,
             FORMAT_INFO                     = 1 << 10,
+            DRM_COLOR_SPACE_INFO            = 1 << 11,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -446,6 +449,14 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.format = f;
                         to_send |= FORMAT_INFO;
                     }
+                    HeadOp::SetTransferFunction(e) => {
+                        state.transfer_function = e;
+                        to_send |= DRM_COLOR_SPACE_INFO;
+                    }
+                    HeadOp::SetColorSpace(c) => {
+                        state.color_space = c;
+                        to_send |= DRM_COLOR_SPACE_INFO;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -498,6 +509,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 && let Some(i) = &head.ext.format_info_v1
             {
                 i.send_format(state);
+            }
+            if to_send.contains(DRM_COLOR_SPACE_INFO)
+                && let Some(i) = &head.ext.drm_color_space_info_v1
+            {
+                i.send_state(state);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

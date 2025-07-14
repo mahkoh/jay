@@ -409,4 +409,5 @@ declare_extensions! {
     jay_vrr_mode_setter_v1: JayVrrModeSetterV1,
     jay_tearing_mode_setter_v1: JayTearingModeSetterV1,
     format_setter_v1: FormatSetterV1,
+    drm_color_space_setter_v1: DrmColorSpaceSetterV1,
 }

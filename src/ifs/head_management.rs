@@ -131,6 +131,8 @@ enum HeadOp {
     SetVrrMode(VrrMode),
     SetTearingMode(TearingMode),
     SetFormat(&'static Format),
+    SetTransferFunction(BackendTransferFunction),
+    SetColorSpace(BackendColorSpace),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -280,6 +282,10 @@ impl HeadManagers {
                 ext.send_mode(state);
                 head.session.schedule_done();
             }
+            if let Some(ext) = &head.ext.drm_color_space_setter_v1 {
+                ext.send_supported(state);
+                head.session.schedule_done();
+            }
         }
     }
 
@@ -308,6 +314,10 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.vrr_state_v1 {
                 ext.send_state(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.drm_color_space_setter_v1 {
+                ext.send_supported(state);
                 head.session.schedule_done();
             }
         }
