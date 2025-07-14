@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+event reset {
+
+}
+
+event supported_format {
+    format: u32,
+}
+
+request set_format {
+    format: u32,
+}

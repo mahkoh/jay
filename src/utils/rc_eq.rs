@@ -4,6 +4,7 @@ pub fn rc_eq<T: ?Sized>(a: &Rc<T>, b: &Rc<T>) -> bool {
     Rc::as_ptr(a) as *const u8 == Rc::as_ptr(b) as *const u8
 }
 
+#[derive(Default)]
 pub struct RcEq<T>(pub Rc<T>);
 
 impl<T> Clone for RcEq<T> {

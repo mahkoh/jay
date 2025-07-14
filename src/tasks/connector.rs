@@ -67,6 +67,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         format: backend_state.format,
         color_space: backend_state.color_space,
         transfer_function: backend_state.transfer_function,
+        supported_formats: Default::default(),
     };
     let data = Rc::new(ConnectorData {
         id,
@@ -324,6 +325,7 @@ impl ConnectorHandler {
                         self.state.refresh_hardware_cursors();
                     }
                     ConnectorEvent::FormatsChanged(formats) => {
+                        self.data.head_managers.handle_formats_change(&formats);
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {

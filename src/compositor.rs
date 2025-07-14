@@ -661,6 +661,7 @@ fn create_dummy_output(state: &Rc<State>) {
         format: XRGB8888,
         color_space: backend_state.color_space,
         transfer_function: backend_state.transfer_function,
+        supported_formats: Default::default(),
     };
     let connector_data = Rc::new(ConnectorData {
         id,

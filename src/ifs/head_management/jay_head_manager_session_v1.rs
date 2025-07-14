@@ -266,6 +266,7 @@ impl JayHeadManagerSessionV1 {
             new.enabled = desired.connector_enabled;
             new.mode = desired.mode;
             new.non_desktop_override = desired.override_non_desktop;
+            new.format = desired.format;
             if old == new {
                 continue;
             }
@@ -387,6 +388,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             NON_DESKTOP_INFO                = 1 << 7,
             VRR_MODE_INFO                   = 1 << 8,
             TEARING_MODE_INFO               = 1 << 9,
+            FORMAT_INFO                     = 1 << 10,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -440,6 +442,10 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.tearing_mode = m;
                         to_send |= TEARING_MODE_INFO;
                     }
+                    HeadOp::SetFormat(f) => {
+                        state.format = f;
+                        to_send |= FORMAT_INFO;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -487,6 +493,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 && let Some(i) = &head.ext.jay_tearing_mode_info_v1
             {
                 i.send_mode(state);
+            }
+            if to_send.contains(FORMAT_INFO)
+                && let Some(i) = &head.ext.format_info_v1
+            {
+                i.send_format(state);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

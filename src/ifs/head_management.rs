@@ -91,6 +91,7 @@ pub struct HeadState {
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
     pub transfer_function: BackendTransferFunction,
+    pub supported_formats: RcEq<Vec<&'static Format>>,
 }
 
 impl HeadState {
@@ -129,6 +130,7 @@ enum HeadOp {
     SetNonDesktopOverride(Option<bool>),
     SetVrrMode(VrrMode),
     SetTearingMode(TearingMode),
+    SetFormat(&'static Format),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -477,6 +479,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.drm_color_space_info_v1 {
                 ext.send_state(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_formats_change(&self, formats: &Rc<Vec<&'static Format>>) {
+        let state = &mut *self.state.borrow_mut();
+        state.supported_formats.0 = formats.clone();
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.format_setter_v1 {
+                ext.send_supported_formats(state);
                 head.session.schedule_done();
             }
         }
