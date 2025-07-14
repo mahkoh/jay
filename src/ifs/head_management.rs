@@ -134,6 +134,7 @@ enum HeadOp {
     SetFormat(&'static Format),
     SetTransferFunction(BackendTransferFunction),
     SetColorSpace(BackendColorSpace),
+    SetBrightness(Option<f64>),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]

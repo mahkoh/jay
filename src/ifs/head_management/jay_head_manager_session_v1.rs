@@ -459,6 +459,10 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.color_space = c;
                         to_send |= DRM_COLOR_SPACE_INFO;
                     }
+                    HeadOp::SetBrightness(b) => {
+                        state.brightness = b;
+                        to_send |= BRIGHTNESS_INFO;
+                    }
                 }
             }
             if to_send.contains(CORE_INFO)
@@ -517,6 +521,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             {
                 i.send_state(state);
             }
+            if to_send.contains(BRIGHTNESS_INFO)
+                && let Some(i) = &head.ext.brightness_info_v1
+            {
+                i.send_brightness(state);
+            }
         }
         slf.schedule_transaction_result(req.result, None)?;
         Ok(())
@@ -554,6 +563,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 node.update_transform(desired.transform);
                 node.set_vrr_mode(VrrMode::from_config(desired.vrr_mode).unwrap());
                 node.set_tearing_mode(TearingMode::from_config(desired.tearing_mode).unwrap());
+                node.set_brightness(desired.brightness);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
                 let pos = match pos.get(&mi.output_id) {
@@ -579,6 +589,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     .set(VrrMode::from_config(desired.vrr_mode).unwrap());
                 pos.tearing_mode
                     .set(TearingMode::from_config(desired.tearing_mode).unwrap());
+                pos.brightness.set(desired.brightness);
             }
         }
         slf.schedule_transaction_result(req.result, None)?;

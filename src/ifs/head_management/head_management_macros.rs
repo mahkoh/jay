@@ -411,4 +411,5 @@ declare_extensions! {
     format_setter_v1: FormatSetterV1,
     drm_color_space_setter_v1: DrmColorSpaceSetterV1,
     brightness_info_v1: BrightnessInfoV1,
+    brightness_setter_v1: BrightnessSetterV1,
 }
