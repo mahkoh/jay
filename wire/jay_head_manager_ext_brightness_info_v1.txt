@@ -1,0 +1,7 @@
+request destroy (destructor) {
+
+}
+
+event head {
+    head: id(jay_head_ext_brightness_info_v1) (new),
+}

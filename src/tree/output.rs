@@ -913,8 +913,14 @@ impl OutputNode {
     }
 
     pub fn set_brightness(&self, brightness: Option<f64>) {
-        self.global.persistent.brightness.set(brightness);
-        self.update_color_description();
+        let old = self.global.persistent.brightness.replace(brightness);
+        if old != brightness {
+            self.update_color_description();
+            self.global
+                .connector
+                .head_managers
+                .handle_brightness_change(brightness);
+        }
     }
 
     fn find_stacked_at(

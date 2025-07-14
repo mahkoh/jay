@@ -392,6 +392,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             TEARING_MODE_INFO               = 1 << 9,
             FORMAT_INFO                     = 1 << 10,
             DRM_COLOR_SPACE_INFO            = 1 << 11,
+            BRIGHTNESS_INFO                 = 1 << 12,
             COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
         }
         for head in self.heads.lock().values() {
@@ -452,6 +453,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     HeadOp::SetTransferFunction(e) => {
                         state.transfer_function = e;
                         to_send |= DRM_COLOR_SPACE_INFO;
+                        to_send |= BRIGHTNESS_INFO;
                     }
                     HeadOp::SetColorSpace(c) => {
                         state.color_space = c;

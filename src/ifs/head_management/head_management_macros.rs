@@ -410,4 +410,5 @@ declare_extensions! {
     jay_tearing_mode_setter_v1: JayTearingModeSetterV1,
     format_setter_v1: FormatSetterV1,
     drm_color_space_setter_v1: DrmColorSpaceSetterV1,
+    brightness_info_v1: BrightnessInfoV1,
 }

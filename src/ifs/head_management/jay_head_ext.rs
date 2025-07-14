@@ -1,3 +1,4 @@
+pub(super) mod jay_head_ext_brightness_info_v1;
 pub(super) mod jay_head_ext_compositor_space_enabler_v1;
 pub(super) mod jay_head_ext_compositor_space_info_v1;
 pub(super) mod jay_head_ext_compositor_space_positioner_v1;

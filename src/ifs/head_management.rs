@@ -67,7 +67,7 @@ struct HeadCommon {
     pending: RefCell<Vec<HeadOp>>,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct HeadState {
     pub name: RcEq<String>,
     pub wl_output: Option<GlobalName>,
@@ -92,6 +92,7 @@ pub struct HeadState {
     pub color_space: BackendColorSpace,
     pub transfer_function: BackendTransferFunction,
     pub supported_formats: RcEq<Vec<&'static Format>>,
+    pub brightness: Option<f64>,
 }
 
 impl HeadState {
@@ -284,6 +285,11 @@ impl HeadManagers {
             }
             if let Some(ext) = &head.ext.drm_color_space_setter_v1 {
                 ext.send_supported(state);
+                head.session.schedule_done();
+            }
+            if let Some(ext) = &head.ext.brightness_info_v1 {
+                ext.send_implied_default_brightness(state);
+                ext.send_brightness(state);
                 head.session.schedule_done();
             }
         }
@@ -491,6 +497,10 @@ impl HeadManagers {
                 ext.send_state(state);
                 head.session.schedule_done();
             }
+            if let Some(ext) = &head.ext.brightness_info_v1 {
+                ext.send_implied_default_brightness(state);
+                head.session.schedule_done();
+            }
         }
     }
 
@@ -501,6 +511,18 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.format_setter_v1 {
                 ext.send_supported_formats(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_brightness_change(&self, brightness: Option<f64>) {
+        let state = &mut *self.state.borrow_mut();
+        state.brightness = brightness;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.brightness_info_v1 {
+                ext.send_brightness(state);
                 head.session.schedule_done();
             }
         }
