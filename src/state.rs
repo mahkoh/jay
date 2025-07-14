@@ -462,6 +462,10 @@ impl ConnectorData {
         if old.format != s.format {
             self.head_managers.handle_format_change(s.format);
         }
+        if (old.color_space, old.transfer_function) != (s.color_space, s.transfer_function) {
+            self.head_managers
+                .handle_colors_change(s.color_space, s.transfer_function);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {

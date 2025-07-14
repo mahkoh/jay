@@ -1,6 +1,9 @@
 use {
     crate::{
-        backend::{ConnectorId, Mode, MonitorInfo, transaction::BackendConnectorTransactionError},
+        backend::{
+            BackendColorSpace, BackendTransferFunction, ConnectorId, Mode, MonitorInfo,
+            transaction::BackendConnectorTransactionError,
+        },
         client::ClientId,
         format::Format,
         globals::GlobalName,
@@ -84,6 +87,8 @@ pub struct HeadState {
     pub tearing_enabled: bool,
     pub tearing_active: bool,
     pub format: &'static Format,
+    pub color_space: BackendColorSpace,
+    pub transfer_function: BackendTransferFunction,
 }
 
 impl HeadState {
@@ -416,6 +421,23 @@ impl HeadManagers {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.format_info_v1 {
                 ext.send_format(state);
+                head.session.schedule_done();
+            }
+        }
+    }
+
+    pub fn handle_colors_change(
+        &self,
+        color_space: BackendColorSpace,
+        transfer_function: BackendTransferFunction,
+    ) {
+        let state = &mut *self.state.borrow_mut();
+        state.color_space = color_space;
+        state.transfer_function = transfer_function;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
+            if let Some(ext) = &head.ext.drm_color_space_info_v1 {
+                ext.send_state(state);
                 head.session.schedule_done();
             }
         }
