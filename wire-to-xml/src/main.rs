@@ -1,3 +1,19 @@
+#![allow(
+    clippy::len_zero,
+    clippy::needless_lifetimes,
+    clippy::enum_variant_names,
+    clippy::useless_format,
+    clippy::redundant_clone,
+    clippy::collapsible_if,
+    clippy::unnecessary_to_owned,
+    clippy::match_like_matches_macro,
+    clippy::too_many_arguments,
+    clippy::iter_skip_next,
+    clippy::uninlined_format_args,
+    clippy::manual_is_ascii_check,
+    clippy::single_char_pattern
+)]
+
 use {
     crate::parser::{Type, parse_messages},
     clap::Parser,
@@ -34,8 +50,7 @@ fn main() -> anyhow::Result<()> {
                 .with_attribute(("summary", ""))
                 .write_empty()?;
             for f in &cli.files {
-                let res = parse_messages(std::fs::read(f)?.as_slice())
-                    .map_err(|e| io::Error::other(e))?;
+                let res = parse_messages(std::fs::read(f)?.as_slice()).map_err(io::Error::other)?;
                 let if_name = f.file_stem().unwrap();
                 let version = res
                     .events
