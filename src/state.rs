@@ -466,6 +466,9 @@ impl ConnectorData {
             self.head_managers
                 .handle_colors_change(s.color_space, s.transfer_function);
         }
+        if old.mode != s.mode {
+            self.head_managers.handle_mode_change(s.mode);
+        }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {

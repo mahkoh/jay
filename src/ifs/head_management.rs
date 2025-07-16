@@ -335,7 +335,6 @@ impl HeadManagers {
         let pos = node.global.pos.get();
         state.position = pos.position();
         state.size = pos.size();
-        state.mode = node.global.mode.get();
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
@@ -343,6 +342,14 @@ impl HeadManagers {
                 ext.send_size(state);
                 head.session.schedule_done();
             }
+        }
+    }
+
+    pub fn handle_mode_change(&self, mode: Mode) {
+        let state = &mut *self.state.borrow_mut();
+        state.mode = mode;
+        for head in self.managers.lock().values() {
+            skip_in_transaction!(head);
             if let Some(ext) = &head.ext.mode_info_v1 {
                 ext.send_mode(state);
                 head.session.schedule_done();
