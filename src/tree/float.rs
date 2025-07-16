@@ -519,6 +519,7 @@ impl FloatNode {
 
     fn restack(&self) {
         if let Some(dl) = &*self.display_link.borrow() {
+            self.state.damage(self.position.get());
             self.state.root.stacked.add_last_existing(&dl);
             if let Some(tl) = self.child.get() {
                 tl.tl_restack_popups();
