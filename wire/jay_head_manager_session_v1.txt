@@ -1,0 +1,59 @@
+request destroy (destructor) {
+
+}
+
+request bind_extension {
+    name: u32,
+    interface: str,
+    version: u32,
+    id: id(object) (new),
+}
+
+request stop {
+
+}
+
+event stopped {
+
+}
+
+request start {
+
+}
+
+event head_start {
+    head: id(jay_head_v1) (new),
+    name: u64,
+}
+
+event head_complete {
+
+}
+
+request begin_transaction {
+
+}
+
+request rollback_transaction {
+
+}
+
+request apply_changes {
+    result: id(jay_head_transaction_result_v1) (new),
+}
+
+request test_transaction {
+    result: id(jay_head_transaction_result_v1) (new),
+}
+
+request commit_transaction {
+    result: id(jay_head_transaction_result_v1) (new),
+}
+
+event transaction_started {
+
+}
+
+event transaction_ended {
+
+}

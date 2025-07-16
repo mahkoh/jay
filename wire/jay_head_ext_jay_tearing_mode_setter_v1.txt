@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+event reset {
+
+}
+
+event supported_mode {
+    mode: u32,
+}
+
+request set_mode {
+    mode: u32,
+}

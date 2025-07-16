@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+event success {
+
+}
+
+event failed {
+
+}
+
+request get_error {
+    error: id(jay_head_error_v1) (new),
+}

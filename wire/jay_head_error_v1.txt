@@ -1,0 +1,23 @@
+request destroy (destructor) {
+
+}
+
+event message {
+    msg: str,
+}
+
+event already_failed {
+
+}
+
+event out_of_date {
+
+}
+
+event extension {
+    name: u32,
+}
+
+event done {
+
+}

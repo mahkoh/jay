@@ -1,0 +1,38 @@
+request destroy (destructor) {
+
+}
+
+event reset {
+
+}
+
+event mode {
+    width: i32,
+    height: i32,
+    refresh_mhz: u32,
+}
+
+event physical_size {
+    width_mm: i32,
+    height_mm: i32,
+}
+
+event manufacturer {
+    manufacturer: str,
+}
+
+event model {
+    model: str,
+}
+
+event serial_number {
+    serial_number: str,
+}
+
+event non_desktop {
+
+}
+
+event vrr_capable {
+
+}

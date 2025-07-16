@@ -29,6 +29,9 @@ use {
         format::XRGB8888,
         globals::Globals,
         ifs::{
+            head_management::{
+                HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
+            },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
@@ -62,6 +65,7 @@ use {
             numcell::NumCell,
             oserror::OsError,
             queue::AsyncQueue,
+            rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
             tri::Try,
@@ -72,7 +76,10 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::{_private::DEFAULT_SEAT_NAME, video::GfxApi},
+    jay_config::{
+        _private::DEFAULT_SEAT_NAME,
+        video::{GfxApi, Transform},
+    },
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
@@ -339,6 +346,9 @@ fn start_compositor2(
         node_at_tree: Default::default(),
         position_hint_requests: Default::default(),
         backend_connector_state_serials: Default::default(),
+        head_names: Default::default(),
+        head_managers: Default::default(),
+        head_managers_async: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -523,6 +533,11 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "position hint requests",
             handle_position_hint_requests(state.clone()),
         ),
+        eng.spawn2(
+            "jay head manager send done",
+            Phase::Layout,
+            handle_jay_head_manager_done(state.clone()),
+        ),
     ]
 }
 
@@ -602,9 +617,6 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing_mode: Cell::new(&TearingMode::Never),
         brightness: Cell::new(None),
     });
-    let connector = Rc::new(DummyOutput {
-        id: state.connector_ids.next(),
-    }) as Rc<dyn Connector>;
     let mode = backend::Mode {
         width: 0,
         height: 0,
@@ -622,11 +634,42 @@ fn create_dummy_output(state: &Rc<State>) {
         color_space: Default::default(),
         transfer_function: Default::default(),
     };
+    let id = state.connector_ids.next();
+    let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
+    let name = Rc::new("Dummy".to_string());
+    let head_name = state.head_names.next();
+    let head_state = HeadState {
+        name: RcEq(name.clone()),
+        position: (0, 0),
+        size: (0, 0),
+        active: false,
+        connected: false,
+        transform: Transform::None,
+        scale: Default::default(),
+        wl_output: None,
+        connector_enabled: true,
+        in_compositor_space: false,
+        mode: Default::default(),
+        monitor_info: None,
+        inherent_non_desktop: false,
+        override_non_desktop: None,
+        vrr: false,
+        vrr_mode: VrrMode::Never.to_config(),
+        tearing_enabled: backend_state.tearing,
+        tearing_active: false,
+        tearing_mode: TearingMode::Never.to_config(),
+        format: XRGB8888,
+        color_space: backend_state.color_space,
+        transfer_function: backend_state.transfer_function,
+        supported_formats: Default::default(),
+        brightness: None,
+    };
     let connector_data = Rc::new(ConnectorData {
+        id,
         connector,
         handler: Cell::new(None),
         connected: Cell::new(true),
-        name: "Dummy".to_string(),
+        name,
         drm_dev: None,
         async_event: Default::default(),
         damaged: Cell::new(false),
@@ -634,6 +677,7 @@ fn create_dummy_output(state: &Rc<State>) {
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
         state: Cell::new(backend_state),
+        head_managers: HeadManagers::new(head_name, head_state),
     });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,
@@ -692,6 +736,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tray_items: Default::default(),
         ext_workspace_groups: Default::default(),
         pinned: Default::default(),
+        tearing: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+request set_position {
+    x: i32,
+    y: i32,
+}
+
+event range {
+    x_min: i32,
+    y_min: i32,
+    x_max: i32,
+    y_max: i32,
+}

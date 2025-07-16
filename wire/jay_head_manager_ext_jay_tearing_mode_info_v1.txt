@@ -1,0 +1,7 @@
+request destroy (destructor) {
+
+}
+
+event head {
+    head: id(jay_head_ext_jay_tearing_mode_info_v1) (new),
+}

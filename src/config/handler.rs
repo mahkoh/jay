@@ -1175,7 +1175,7 @@ impl ConfigProxyHandler {
     fn handle_connector_name(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
         self.respond(Response::GetConnectorName {
-            name: connector.name.clone(),
+            name: connector.name.deref().clone(),
         });
         Ok(())
     }
@@ -1375,8 +1375,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.global.persistent.vrr_mode.set(mode);
-                connector.update_presentation_type();
+                connector.set_vrr_mode(mode);
             }
             _ => self.state.default_vrr_mode.set(mode),
         }
@@ -1414,8 +1413,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.global.persistent.tearing_mode.set(mode);
-                connector.update_presentation_type();
+                connector.set_tearing_mode(mode);
             }
             _ => self.state.default_tearing_mode.set(mode),
         }

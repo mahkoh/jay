@@ -47,6 +47,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         width_mm: 0,
         height_mm: 0,
         non_desktop: false,
+        non_desktop_effective: false,
         vrr_capable: false,
         transfer_functions: vec![],
         color_spaces: vec![],

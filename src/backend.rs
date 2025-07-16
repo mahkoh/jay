@@ -104,6 +104,7 @@ pub struct MonitorInfo {
     pub width_mm: i32,
     pub height_mm: i32,
     pub non_desktop: bool,
+    pub non_desktop_effective: bool,
     pub vrr_capable: bool,
     pub transfer_functions: Vec<BackendTransferFunction>,
     pub color_spaces: Vec<BackendColorSpace>,
@@ -124,6 +125,13 @@ impl Display for ConnectorKernelId {
     }
 }
 
+bitflags! {
+    ConnectorCaps: u32;
+        CONCAP_CONNECTOR        = 1 << 0,
+        CONCAP_MODE_SETTING     = 1 << 1,
+        CONCAP_PHYSICAL_DISPLAY = 1 << 2,
+}
+
 pub trait Connector: Any {
     fn id(&self) -> ConnectorId;
     fn kernel_id(&self) -> ConnectorKernelId;
@@ -132,6 +140,9 @@ pub trait Connector: Any {
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn effectively_locked(&self) -> bool;
+    fn caps(&self) -> ConnectorCaps {
+        ConnectorCaps::none()
+    }
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         None
     }

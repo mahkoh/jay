@@ -56,7 +56,7 @@ impl WpDrmLeaseDeviceV1Global {
             }
             for c in dev.connectors.lock().keys() {
                 if let Some(o) = client.state.outputs.get(c)
-                    && o.monitor_info.non_desktop
+                    && o.monitor_info.non_desktop_effective
                 {
                     obj.create_connector(&o);
                 }

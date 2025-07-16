@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+event wl_output {
+    global_name: u32,
+}
+
+event no_wl_output {
+
+}
+
+event name {
+    name: optstr,
+}

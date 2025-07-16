@@ -597,6 +597,7 @@ impl XBackend {
             width_mm: output.width.get(),
             height_mm: output.height.get(),
             non_desktop: false,
+            non_desktop_effective: false,
             vrr_capable: false,
             transfer_functions: vec![],
             color_spaces: vec![],

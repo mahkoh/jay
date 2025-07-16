@@ -7,14 +7,18 @@ use {
         format::XRGB8888,
         globals::GlobalName,
         ifs::{
+            head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
             wl_output::{PersistentOutputState, WlOutputGlobal},
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, WsMoveConfig, move_ws_to_output},
-        utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
+        utils::{
+            asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
+        },
     },
+    jay_config::video::Transform,
     std::{cell::Cell, collections::VecDeque, rc::Rc},
 };
 
@@ -39,11 +43,39 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         transfer_function: Default::default(),
     };
     let id = connector.id();
+    let name = Rc::new(connector.kernel_id().to_string());
+    let head_state = HeadState {
+        name: RcEq(name.clone()),
+        position: (0, 0),
+        size: (0, 0),
+        active: backend_state.active,
+        connected: false,
+        transform: Transform::None,
+        scale: Default::default(),
+        wl_output: None,
+        connector_enabled: backend_state.enabled,
+        in_compositor_space: false,
+        mode: Default::default(),
+        monitor_info: None,
+        inherent_non_desktop: false,
+        override_non_desktop: backend_state.non_desktop_override,
+        vrr: backend_state.vrr,
+        vrr_mode: Default::default(),
+        tearing_enabled: backend_state.tearing,
+        tearing_active: false,
+        tearing_mode: Default::default(),
+        format: backend_state.format,
+        color_space: backend_state.color_space,
+        transfer_function: backend_state.transfer_function,
+        supported_formats: Default::default(),
+        brightness: None,
+    };
     let data = Rc::new(ConnectorData {
+        id,
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
-        name: connector.kernel_id().to_string(),
+        name,
         drm_dev: drm_dev.clone(),
         async_event: Rc::new(AsyncEvent::default()),
         damaged: Cell::new(false),
@@ -51,6 +83,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
         state: Cell::new(backend_state),
+        head_managers: HeadManagers::new(state.head_names.next(), head_state),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -62,6 +95,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
+    for mgr in state.head_managers.lock().values() {
+        mgr.announce(&data);
+    }
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
     }
@@ -100,22 +136,21 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
+        self.data.head_managers.handle_removed();
     }
 
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        let old_state = self.data.state.get();
-        if old_state.serial < info.state.serial {
-            self.data.state.set(info.state);
-        }
+        self.data.set_state(&self.state, info.state);
         let name = self.state.globals.name();
-        if info.non_desktop {
+        if info.non_desktop_effective {
             self.handle_non_desktop_connected(info).await;
         } else {
             self.handle_desktop_connected(info, name).await;
         }
         self.data.connected.set(false);
+        self.data.head_managers.handle_output_disconnected();
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
     }
 
@@ -214,6 +249,7 @@ impl ConnectorHandler {
             tray_items: Default::default(),
             ext_workspace_groups: Default::default(),
             pinned: Default::default(),
+            tearing: Default::default(),
         });
         on.update_visible();
         on.update_rects();
@@ -221,11 +257,11 @@ impl ConnectorHandler {
             .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info: info,
+            monitor_info: Rc::new(info),
             node: Some(on.clone()),
             lease_connectors: Default::default(),
         });
-        self.state.outputs.set(self.id, output_data);
+        self.state.outputs.set(self.id, output_data.clone());
         on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.output_extents_changed();
@@ -277,6 +313,9 @@ impl ConnectorHandler {
         self.state.tree_changed();
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -287,10 +326,11 @@ impl ConnectorHandler {
                         self.state.refresh_hardware_cursors();
                     }
                     ConnectorEvent::FormatsChanged(formats) => {
+                        self.data.head_managers.handle_formats_change(&formats);
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {
-                        on.update_state(state);
+                        self.data.set_state(&self.state, state);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
@@ -365,7 +405,7 @@ impl ConnectorHandler {
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
-            monitor_info,
+            monitor_info: Rc::new(monitor_info),
             node: None,
             lease_connectors: Default::default(),
         });
@@ -390,6 +430,9 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        self.data
+            .head_managers
+            .handle_output_connected(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {

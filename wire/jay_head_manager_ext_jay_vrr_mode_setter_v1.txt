@@ -1,0 +1,7 @@
+request destroy (destructor) {
+
+}
+
+event head {
+    head: id(jay_head_ext_jay_vrr_mode_setter_v1) (new),
+}

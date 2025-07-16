@@ -1,0 +1,37 @@
+request destroy (destructor) {
+
+}
+
+event enabled {
+
+}
+
+event disabled {
+
+}
+
+event inside {
+
+}
+
+event outside {
+
+}
+
+event position {
+    x: i32,
+    y: i32,
+}
+
+event size {
+    width: i32,
+    height: i32,
+}
+
+event transform {
+    transform: u32,
+}
+
+event scaling {
+    scaling: u32,
+}

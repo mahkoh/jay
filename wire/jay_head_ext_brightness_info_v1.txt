@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+event implied_default_brightness {
+    lux: u32,
+}
+
+event default_brightness {
+
+}
+
+event brightness {
+    lux: u32,
+}

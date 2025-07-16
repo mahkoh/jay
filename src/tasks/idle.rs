@@ -136,7 +136,7 @@ impl Idle {
     }
 
     fn try_set_idle(&self, idle: bool) -> Result<(), BackendConnectorTransactionError> {
-        let mut tran = ConnectorTransaction::default();
+        let mut tran = ConnectorTransaction::new(&self.state);
         for connector in self.state.connectors.lock().values() {
             let mut state = connector.state.get();
             state.active = !idle;

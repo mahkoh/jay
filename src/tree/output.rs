@@ -32,6 +32,7 @@ use {
                 ext_workspace_manager_v1::WorkspaceManagerId,
             },
             wp_content_type_v1::ContentType,
+            wp_presentation_feedback::KIND_VSYNC,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         },
@@ -47,10 +48,10 @@ use {
             WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, event_listener::EventSource, hash_map_ext::HashMapExt,
-            linkedlist::LinkedList, on_drop_event::OnDropEvent, scroller::Scroller,
-            transform_ext::TransformExt,
+            asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, event_listener::EventSource,
+            hash_map_ext::HashMapExt, linkedlist::LinkedList, on_drop_event::OnDropEvent,
+            scroller::Scroller, transform_ext::TransformExt,
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
@@ -107,6 +108,7 @@ pub struct OutputNode {
     pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
+    pub tearing: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -217,6 +219,13 @@ impl OutputNode {
         }
         if locked && let Some(lock) = self.state.lock.lock.get() {
             lock.check_locked()
+        }
+        let tearing = flags.not_contains(KIND_VSYNC);
+        if self.tearing.replace(tearing) != tearing {
+            self.global
+                .connector
+                .head_managers
+                .handle_tearing_active_change(tearing);
         }
     }
 
@@ -470,6 +479,10 @@ impl OutputNode {
             }
         }
         self.schedule_update_render_data();
+        self.global
+            .connector
+            .head_managers
+            .handle_scale_change(scale);
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
@@ -800,18 +813,30 @@ impl OutputNode {
         if transform != old_transform {
             self.state.refresh_hardware_cursors();
             self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
+            self.global
+                .connector
+                .head_managers
+                .handle_transform_change(transform);
         }
     }
 
     fn calculate_extents(&self) -> Rect {
-        let mode = self.global.mode.get();
-        let (width, height) = calculate_logical_size(
-            (mode.width, mode.height),
+        Self::calculate_extents_(
+            self.global.mode.get(),
             self.global.persistent.transform.get(),
             self.global.persistent.scale.get(),
-        );
-        let pos = self.global.pos.get();
-        pos.with_size(width, height).unwrap()
+            self.global.pos.get().position(),
+        )
+    }
+
+    pub fn calculate_extents_(
+        mode: Mode,
+        transform: Transform,
+        scale: Scale,
+        pos: (i32, i32),
+    ) -> Rect {
+        let (width, height) = calculate_logical_size((mode.width, mode.height), transform, scale);
+        Rect::new_sized(pos.0, pos.1, width, height).unwrap()
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
@@ -847,14 +872,13 @@ impl OutputNode {
             seat.cursor_group().output_pos_changed(self)
         }
         self.state.tree_changed();
+        self.global
+            .connector
+            .head_managers
+            .handle_position_size_change(self);
     }
 
-    pub fn update_state(self: &Rc<Self>, state: BackendConnectorState) {
-        let old = self.global.connector.state.get();
-        if old.serial >= state.serial {
-            return;
-        }
-        self.global.connector.state.set(state);
+    pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
         self.update_btf_and_bcs(state.transfer_function, state.color_space);
         if old.vrr != state.vrr {
             self.schedule.set_vrr_enabled(state.vrr);
@@ -889,8 +913,14 @@ impl OutputNode {
     }
 
     pub fn set_brightness(&self, brightness: Option<f64>) {
-        self.global.persistent.brightness.set(brightness);
-        self.update_color_description();
+        let old = self.global.persistent.brightness.replace(brightness);
+        if old != brightness {
+            self.update_color_description();
+            self.global
+                .connector
+                .head_managers
+                .handle_brightness_change(brightness);
+        }
     }
 
     fn find_stacked_at(
@@ -1299,6 +1329,28 @@ impl OutputNode {
             self.schedule_update_render_data();
         }
         self.state.tree_changed();
+    }
+
+    pub fn set_vrr_mode(&self, mode: &'static VrrMode) {
+        let old = self.global.persistent.vrr_mode.replace(mode);
+        if old != mode {
+            self.update_presentation_type();
+            self.global
+                .connector
+                .head_managers
+                .handle_vrr_mode_change(mode.to_config());
+        }
+    }
+
+    pub fn set_tearing_mode(&self, mode: &'static TearingMode) {
+        let old = self.global.persistent.tearing_mode.replace(mode);
+        if old != mode {
+            self.update_presentation_type();
+            self.global
+                .connector
+                .head_managers
+                .handle_tearing_mode_change(mode.to_config());
+        }
     }
 }
 
@@ -1750,13 +1802,13 @@ impl TearingMode {
         Some(res)
     }
 
-    pub fn to_config(&self) -> ConfigVrrMode {
+    pub fn to_config(&self) -> ConfigTearingMode {
         match self {
-            Self::NEVER => ConfigVrrMode::NEVER,
-            Self::ALWAYS => ConfigVrrMode::ALWAYS,
-            Self::VARIANT_1 => ConfigVrrMode::VARIANT_1,
-            Self::VARIANT_2 => ConfigVrrMode::VARIANT_2,
-            Self::VARIANT_3 => ConfigVrrMode::VARIANT_3,
+            Self::NEVER => ConfigTearingMode::NEVER,
+            Self::ALWAYS => ConfigTearingMode::ALWAYS,
+            Self::VARIANT_1 => ConfigTearingMode::VARIANT_1,
+            Self::VARIANT_2 => ConfigTearingMode::VARIANT_2,
+            Self::VARIANT_3 => ConfigTearingMode::VARIANT_3,
         }
     }
 }

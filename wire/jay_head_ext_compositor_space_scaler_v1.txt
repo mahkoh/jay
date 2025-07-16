@@ -1,0 +1,12 @@
+request destroy (destructor) {
+
+}
+
+request set_scale {
+    scale: u32,
+}
+
+event range {
+    min: u32,
+    max: u32,
+}

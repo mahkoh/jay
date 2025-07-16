@@ -1,0 +1,11 @@
+request destroy (destructor) {
+
+}
+
+request unset_brightness {
+
+}
+
+request set_brightness {
+    lux: u32,
+}

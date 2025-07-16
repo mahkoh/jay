@@ -2,9 +2,10 @@ use {
     crate::{
         backend::{
             BackendColorSpace, BackendConnectorState, BackendTransferFunction, Connector,
-            ConnectorKernelId, Mode,
+            ConnectorId, ConnectorKernelId, Mode,
         },
         backends::metal::MetalError,
+        state::State,
         utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::drm::DrmError,
     },
@@ -149,50 +150,74 @@ pub trait BackendAppliedConnectorTransaction {
     fn rollback(self: Box<Self>) -> Result<(), BackendConnectorTransactionError>;
 }
 
-#[derive(Default)]
+struct Common {
+    state: Rc<State>,
+    states: AHashMap<ConnectorId, BackendConnectorState>,
+}
+
 pub struct ConnectorTransaction {
+    common: Common,
     parts:
         AHashMap<Box<dyn BackendConnectorTransactionTypeDyn>, Box<dyn BackendConnectorTransaction>>,
 }
 
-#[derive(Default)]
 pub struct PreparedConnectorTransaction {
+    common: Common,
     parts: Vec<Box<dyn BackendPreparedConnectorTransaction>>,
 }
 
-#[derive(Default)]
 pub struct AppliedConnectorTransaction {
+    common: Common,
     parts: Vec<Box<dyn BackendAppliedConnectorTransaction>>,
 }
 
 impl ConnectorTransaction {
+    pub fn new(state: &Rc<State>) -> Self {
+        Self {
+            common: Common {
+                state: state.clone(),
+                states: Default::default(),
+            },
+            parts: Default::default(),
+        }
+    }
+
     pub fn add(
         &mut self,
         connector: &Rc<dyn Connector>,
-        change: BackendConnectorState,
+        mut state: BackendConnectorState,
     ) -> Result<(), BackendConnectorTransactionError> {
+        state.serial = self.common.state.backend_connector_state_serials.next();
         let ty = connector.transaction_type();
         let tran = match self.parts.entry(ty) {
             Entry::Occupied(v) => v.into_mut(),
             Entry::Vacant(v) => v.insert(connector.create_transaction()?),
         };
-        tran.add(connector, change)
+        tran.add(connector, state)?;
+        self.common.states.insert(connector.id(), state);
+        Ok(())
     }
 
     pub fn prepare(
-        &mut self,
+        mut self,
     ) -> Result<PreparedConnectorTransaction, BackendConnectorTransactionError> {
         let mut new = vec![];
         for tran in self.parts.drain_values() {
             new.push(tran.prepare()?);
         }
-        Ok(PreparedConnectorTransaction { parts: new })
+        Ok(PreparedConnectorTransaction {
+            common: self.common,
+            parts: new,
+        })
     }
 }
 
 impl PreparedConnectorTransaction {
     pub fn apply(self) -> Result<AppliedConnectorTransaction, BackendConnectorTransactionError> {
-        let mut applied = AppliedConnectorTransaction::default();
+        let mut applied = AppliedConnectorTransaction {
+            common: self.common,
+            parts: vec![],
+        };
         for tran in self.parts {
             applied.parts.push(tran.apply()?);
         }
@@ -204,6 +229,11 @@ impl AppliedConnectorTransaction {
     pub fn commit(mut self) {
         for tran in self.parts.drain(..) {
             tran.commit();
+        }
+        for (connector_id, state) in self.common.states.drain() {
+            if let Some(c) = self.common.state.connectors.get(&connector_id) {
+                c.set_state(&self.common.state, state);
+            }
         }
     }
 }

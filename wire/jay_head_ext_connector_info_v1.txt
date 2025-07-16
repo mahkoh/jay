@@ -1,0 +1,19 @@
+request destroy (destructor) {
+
+}
+
+event connected {
+
+}
+
+event disconnected {
+
+}
+
+event active {
+
+}
+
+event inactive {
+
+}

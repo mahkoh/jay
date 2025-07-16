@@ -1,0 +1,11 @@
+request destroy (destructor) {
+
+}
+
+event hdmi_eotf {
+    eotf: u32,
+}
+
+event colorimetry {
+    colorimetry: u32,
+}
