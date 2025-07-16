@@ -958,6 +958,10 @@ impl ContainingNode for FloatNode {
         }
         self.toggle_pinned();
     }
+
+    fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
+        Some(self)
+    }
 }
 
 impl StackedNode for FloatNode {

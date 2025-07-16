@@ -17,10 +17,10 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            OutputNode, TddType, TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            ToplevelType, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
-            walker::NodeVisitor,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
+            NodeId, OutputNode, TddType, TileDragDestination, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_bounds,
+            toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -2063,6 +2063,10 @@ impl ContainingNode for ContainerNode {
     fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
         self.tl_set_pinned(false, pinned);
     }
+
+    fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
+        self.tl_data().float.get()
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {
@@ -2175,6 +2179,12 @@ impl ToplevelNodeBase for ContainerNode {
             return 0;
         };
         child.node.tl_tile_drag_bounds(split, start) / 2
+    }
+
+    fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
+        for child in self.children.iter() {
+            child.node.tl_set_float(float);
+        }
     }
 }
 

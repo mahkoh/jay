@@ -1,5 +1,5 @@
 use {
-    crate::tree::{Node, ToplevelNode, WorkspaceNode},
+    crate::tree::{FloatNode, Node, ToplevelNode, WorkspaceNode},
     std::rc::Rc,
 };
 
@@ -36,5 +36,8 @@ pub trait ContainingNode: Node {
     }
     fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
         let _ = pinned;
+    }
+    fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
+        None
     }
 }
