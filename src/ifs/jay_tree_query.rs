@@ -197,7 +197,7 @@ impl JayTreeQuery {
                 }
             }
         }
-        if data.is_floating.get() {
+        if data.parent_is_float.get() {
             self.client.event(Floating { self_id: self.id });
         }
         if data.visible.get() {

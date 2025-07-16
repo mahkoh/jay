@@ -582,7 +582,7 @@ impl WlSeatGlobal {
 
     pub fn get_floating(self: &Rc<Self>) -> Option<bool> {
         match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => Some(tl.tl_data().is_floating.get()),
+            Some(tl) => Some(tl.tl_data().parent_is_float.get()),
             _ => None,
         }
     }

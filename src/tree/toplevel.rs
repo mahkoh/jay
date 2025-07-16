@@ -112,12 +112,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             data.mapped_during_iteration.set(data.state.eng.iteration());
             data.property_changed(TL_CHANGED_NEW);
         }
-        let was_floating = data.is_floating.get();
+        let was_floating = data.parent_is_float.get();
         let is_floating = parent.node_is_float();
         if was_floating != is_floating {
             data.property_changed(TL_CHANGED_FLOATING);
         }
-        data.is_floating.set(is_floating);
+        data.parent_is_float.set(is_floating);
         self.tl_set_workspace(&parent.cnode_workspace());
     }
 
@@ -173,7 +173,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 sc.buffer_size_changed();
             }
         }
-        if data.is_floating.get() {
+        if data.parent_is_float.get() {
             data.float_width.set(rect.width());
             data.float_height.set(rect.height());
         }
@@ -316,7 +316,7 @@ pub struct ToplevelData {
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
     pub visible: Cell<bool>,
-    pub is_floating: Cell<bool>,
+    pub parent_is_float: Cell<bool>,
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
     pub pinned: Cell<bool>,
@@ -369,7 +369,7 @@ impl ToplevelData {
             state: state.clone(),
             active_surfaces: Default::default(),
             visible: Cell::new(false),
-            is_floating: Default::default(),
+            parent_is_float: Default::default(),
             float_width: Default::default(),
             float_height: Default::default(),
             pinned: Cell::new(false),
@@ -910,7 +910,7 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     if data.is_fullscreen.get() {
         return;
     }
-    if data.is_floating.get() == floating {
+    if data.parent_is_float.get() == floating {
         return;
     }
     let parent = match data.parent.get() {
@@ -949,7 +949,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
         }
     }
-    if tl.tl_data().is_floating.get() {
+    if tl.tl_data().parent_is_float.get() {
         let (width, height) = tl.tl_data().float_size(ws);
         state.map_floating(tl.clone(), width, height, ws, None);
     } else {
