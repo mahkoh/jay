@@ -71,6 +71,7 @@ impl TouchOwner for DefaultTouchOwner {
     fn down(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
         let node = seat.state.node_at(x.round_down(), y.round_down());
         node.node.node_seat_state().touch_begin(seat);
+        node.node.node_restack();
         let owner = Rc::new(GrabTouchOwner {
             node: node.node,
             down_ids: Default::default(),

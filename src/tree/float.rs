@@ -988,3 +988,13 @@ impl PinnedNode for FloatNode {
         self.set_workspace_(workspace, false, update_visible);
     }
 }
+
+impl dyn Node {
+    pub fn node_restack(self: &Rc<Self>) {
+        if let Some(tl) = self.clone().node_toplevel()
+            && let Some(float) = tl.tl_data().float.get()
+        {
+            float.restack();
+        }
+    }
+}

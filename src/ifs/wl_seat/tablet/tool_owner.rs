@@ -94,9 +94,11 @@ impl ToolOwner for DefaultToolOwner {
         if state == ToolButtonState::Released {
             return;
         }
+        let node = tool.node.get();
+        node.node_restack();
         let owner = Rc::new(GrabToolOwner {
             buttons: Default::default(),
-            node: tool.node.get(),
+            node,
         });
         tool.tool_owner.owner.set(owner.clone());
         owner.button(tool, time_usec, button, state);

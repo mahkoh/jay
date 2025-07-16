@@ -338,6 +338,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
                 node: pn.clone(),
                 serial,
             }));
+        pn.node_restack();
         pn.node_seat_state().add_pointer_grab(seat);
         seat.handle_node_button(pn, time_usec, button, state, serial);
     }
