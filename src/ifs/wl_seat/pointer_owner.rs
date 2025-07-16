@@ -1059,6 +1059,7 @@ where
     }
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        self.tl.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
     }
 
@@ -1072,6 +1073,7 @@ where
     }
 
     fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        self.tl.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.apply_changes();
     }
