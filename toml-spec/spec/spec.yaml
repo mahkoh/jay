@@ -854,6 +854,12 @@ SimpleActionName:
         
         Within a window rule, it applies to the client of the window. Within a client rule
         it applies to the matched client. Has no effect otherwise.
+    - value: show-bar
+      description: Shows the built-in bar.
+    - value: hide-bar
+      description: Hides the built-in bar.
+    - value: toggle-bar
+      description: Toggles the built-in bar.
 
 
 Color:
@@ -2612,6 +2618,13 @@ Config:
       required: false
       description: |
         Configures whether the default seat uses hardware cursors.
+
+        The default is `true`.
+    show-bar:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether the built-in bar is shown.
 
         The default is `true`.
 

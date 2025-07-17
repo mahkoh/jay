@@ -132,6 +132,7 @@ impl Parser for ConfigParser<'_> {
                 window_rules_val,
                 pointer_revert_key_str,
                 use_hardware_cursor,
+                show_bar,
             ),
         ) = ext.extract((
             (
@@ -179,6 +180,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("windows")),
                 recover(opt(str("pointer-revert-key"))),
                 recover(opt(bol("use-hardware-cursor"))),
+                recover(opt(bol("show-bar"))),
             ),
         ))?;
         let mut keymap = None;
@@ -494,6 +496,7 @@ impl Parser for ConfigParser<'_> {
             window_rules,
             pointer_revert_key,
             use_hardware_cursor: use_hardware_cursor.despan(),
+            show_bar: show_bar.despan(),
         })
     }
 }

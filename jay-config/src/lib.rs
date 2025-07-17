@@ -316,6 +316,24 @@ pub fn set_show_float_pin_icon(show: bool) {
     get!().set_show_float_pin_icon(show);
 }
 
+/// Sets whether the built-in bar is shown.
+///
+/// The default is `true`.
+pub fn set_show_bar(show: bool) {
+    get!().set_show_bar(show)
+}
+
+/// Returns whether the built-in bar is shown.
+pub fn get_show_bar() -> bool {
+    get!(true).get_show_bar()
+}
+
+/// Toggles whether the built-in bar is shown.
+pub fn toggle_show_bar() {
+    let get = get!();
+    get.set_show_bar(!get.get_show_bar());
+}
+
 /// Sets a callback to run when this config is unloaded.
 ///
 /// Only one callback can be set at a time. If another callback is already set, it will be

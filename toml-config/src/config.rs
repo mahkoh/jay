@@ -68,6 +68,8 @@ pub enum SimpleCommand {
     SetFloatPinned(bool),
     ToggleFloatPinned,
     KillClient,
+    ShowBar(bool),
+    ToggleBar,
 }
 
 #[derive(Debug, Clone)]
@@ -483,6 +485,7 @@ pub struct Config {
     pub window_rules: Vec<WindowRule>,
     pub pointer_revert_key: Option<KeySym>,
     pub use_hardware_cursor: Option<bool>,
+    pub show_bar: Option<bool>,
 }
 
 #[derive(Debug, Error)]

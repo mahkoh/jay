@@ -496,6 +496,9 @@ impl OutputNode {
 
     fn update_render_data_phase1(self: &Rc<Self>) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
+        if !self.state.show_bar.get() {
+            return on_completed.event();
+        }
         let Some(ctx) = self.state.render_ctx.get() else {
             return on_completed.event();
         };
@@ -556,6 +559,10 @@ impl OutputNode {
         rd.attention_requested_workspaces.clear();
         rd.captured_inactive_workspaces.clear();
         rd.active_workspace = None;
+        if !self.state.show_bar.get() {
+            self.state.damage(rd.full_area);
+            return;
+        }
         let mut pos = 0;
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
@@ -766,7 +773,10 @@ impl OutputNode {
             width,
             height,
         ));
-        let y1 = y1 + th + 1;
+        let mut y1 = y1;
+        if self.state.show_bar.get() {
+            y1 += th + 1;
+        }
         let height = (y2 - y1).max(0);
         self.workspace_rect
             .set(Rect::new_sized_unchecked(x1, y1, width, height));
@@ -1068,6 +1078,9 @@ impl OutputNode {
     }
 
     fn button(self: Rc<Self>, id: PointerType) {
+        if !self.state.show_bar.get() {
+            return;
+        }
         let (x, y) = match self.pointer_positions.get(&id) {
             Some(p) => p,
             _ => return,
@@ -1208,8 +1221,9 @@ impl OutputNode {
         if ws.fullscreen.is_some() {
             return None;
         }
+        let show_bar = self.state.show_bar.get();
         let th = self.state.theme.sizes.title_height.get();
-        if y_abs < rect.y1() + th + 1 {
+        if show_bar && y_abs < rect.y1() + th + 1 {
             let rd = &*self.render_data.borrow();
             let (x, _) = rect.translate(x_abs, y_abs);
             let mut last_x2 = 0;
@@ -1236,8 +1250,11 @@ impl OutputNode {
                 },
             });
         }
-        let thp1 = self.state.theme.sizes.title_height.get() + 1;
-        let rect = Rect::new(rect.x1(), rect.y1() + thp1, rect.x2(), rect.y2())?;
+        let bar_height = match show_bar {
+            true => th + 1,
+            false => 0,
+        };
+        let rect = Rect::new(rect.x1(), rect.y1() + bar_height, rect.x2(), rect.y2())?;
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
@@ -1256,6 +1273,9 @@ impl OutputNode {
         x_abs: i32,
         y_abs: i32,
     ) -> Option<WorkspaceDragDestination> {
+        if !self.state.show_bar.get() {
+            return None;
+        }
         let rect = self.non_exclusive_rect.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
@@ -1478,7 +1498,10 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
-        let bar_height = self.state.theme.sizes.title_height.get() + 1;
+        let bar_height = match self.state.show_bar.get() {
+            true => self.state.theme.sizes.title_height.get() + 1,
+            false => 0,
+        };
         if usecase == FindTreeUsecase::SelectWorkspace {
             if y >= bar_height {
                 y -= bar_height;
