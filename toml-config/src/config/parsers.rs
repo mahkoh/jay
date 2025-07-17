@@ -15,6 +15,7 @@ pub mod color_management;
 pub mod config;
 mod connector;
 mod connector_match;
+mod content_type;
 mod drm_device;
 mod drm_device_match;
 mod env;

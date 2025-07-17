@@ -146,6 +146,17 @@ impl XdgToplevel {
         let data = Rc::new(XdgToplevelToplevelData {
             tag: Default::default(),
         });
+        let toplevel_data = ToplevelData::new(
+            state,
+            String::new(),
+            Some(surface.surface.client.clone()),
+            ToplevelType::XdgToplevel(data.clone()),
+            node_id,
+            slf,
+        );
+        toplevel_data
+            .content_type
+            .set(surface.surface.content_type.get());
         Self {
             id,
             state: state.clone(),
@@ -161,14 +172,7 @@ impl XdgToplevel {
             max_width: Cell::new(None),
             max_height: Cell::new(None),
             tracker: Default::default(),
-            toplevel_data: ToplevelData::new(
-                state,
-                String::new(),
-                Some(surface.surface.client.clone()),
-                ToplevelType::XdgToplevel(data.clone()),
-                node_id,
-                slf,
-            ),
+            toplevel_data,
             drag: Default::default(),
             is_mapped: Cell::new(false),
             dialog: Default::default(),
@@ -518,6 +522,8 @@ impl XdgToplevel {
             self.state.tree_changed();
             self.toplevel_data.broadcast(self.clone());
         }
+        self.toplevel_data
+            .set_content_type(self.xdg.surface.content_type.get());
     }
 }
 

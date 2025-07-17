@@ -1855,6 +1855,47 @@ The table has the following fields:
   The value of this field should be a string.
 
 
+<a name="types-ContentTypeMask"></a>
+### `ContentTypeMask`
+
+A mask of content types.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+A named mask.
+
+The string should have one of the following values:
+
+- `none`:
+
+  The mask matching windows without a content type.
+
+- `any`:
+
+  The mask containing every possible type except `none`.
+
+- `photo`:
+
+  The mask matching photo content.
+
+- `video`:
+
+  The mask matching video content.
+
+- `game`:
+
+  The mask matching game content.
+
+
+#### An array
+
+An array of masks that are OR'd.
+
+Each element of this array should be a [ContentTypeMask](#types-ContentTypeMask).
+
+
 <a name="types-DrmDevice"></a>
 ### `DrmDevice`
 
@@ -4215,6 +4256,12 @@ The table has the following fields:
   Matches the workspace of the window with a regular expression.
 
   The value of this field should be a string.
+
+- `content-types` (optional):
+
+  Matches windows whose content type is contained in the mask.
+
+  The value of this field should be a [ContentTypeMask](#types-ContentTypeMask).
 
 
 <a name="types-WindowMatchExactly"></a>

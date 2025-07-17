@@ -250,10 +250,11 @@ The full specification of window criteria can be found in
 - `focused` - Matches if the window is/isn't focused.
 - `fullscreen` - Matches if the window is/isn't fullscreen.
 - `just-mapped` - Matches if the window has/hasn't just been mapped. This is
-- `just-mapped` - Matches if the window has/hasn't just been mapped. This is
   true for a single frame after the window has been mapped.
 - `tag`, `tag-regex` - Matches the XDG toplevel tag of the window.
 - `x-class`, `x-class-regex` - Matches the X class of the window.
 - `x-instance`, `x-instance-regex` - Matches the X instance of the window.
 - `x-role`, `x-role-regex` - Matches the X role of the window.
 - `workspace`, `workspace-regex` - Matches the workspace of the window.
+- `content-types` - Matches the content type of a window. Currently there are
+  three types: photos, videos, and games.

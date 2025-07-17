@@ -4,9 +4,9 @@ use {
         criteria::{
             CritDestroyListener, CritMatcherId,
             tlm::{
-                TL_CHANGED_APP_ID, TL_CHANGED_DESTROYED, TL_CHANGED_FLOATING,
-                TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE, TL_CHANGED_URGENT,
-                TL_CHANGED_VISIBLE, TL_CHANGED_WORKSPACE, TlMatcherChange,
+                TL_CHANGED_APP_ID, TL_CHANGED_CONTENT_TY, TL_CHANGED_DESTROYED,
+                TL_CHANGED_FLOATING, TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE,
+                TL_CHANGED_URGENT, TL_CHANGED_VISIBLE, TL_CHANGED_WORKSPACE, TlMatcherChange,
             },
         },
         ifs::{
@@ -20,6 +20,7 @@ use {
                 WlSurface, x_surface::xwindow::XwindowData,
                 xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
             },
+            wp_content_type_v1::ContentType,
             zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
         },
@@ -371,6 +372,7 @@ pub struct ToplevelData {
     pub changed_properties: Cell<TlMatcherChange>,
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
+    pub content_type: Cell<Option<ContentType>>,
 }
 
 impl ToplevelData {
@@ -422,6 +424,7 @@ impl ToplevelData {
             changed_properties: Default::default(),
             just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
+            content_type: Default::default(),
         }
     }
 
@@ -856,6 +859,12 @@ impl ToplevelData {
 
     pub fn just_mapped(&self) -> bool {
         self.mapped_during_iteration.get() == self.state.eng.iteration()
+    }
+
+    pub fn set_content_type(&self, content_type: Option<ContentType>) {
+        if self.content_type.replace(content_type) != content_type {
+            self.property_changed(TL_CHANGED_CONTENT_TY);
+        }
     }
 }
 

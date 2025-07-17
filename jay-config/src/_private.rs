@@ -9,7 +9,7 @@ use {
         client::ClientMatcher,
         input::Seat,
         video::Mode,
-        window::{WindowMatcher, WindowType},
+        window::{ContentType, WindowMatcher, WindowType},
     },
     bincode::Options,
     serde::{Deserialize, Serialize},
@@ -119,6 +119,7 @@ pub enum WindowCriterionIpc {
     Fullscreen,
     JustMapped,
     Workspace(Workspace),
+    ContentTypes(ContentType),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

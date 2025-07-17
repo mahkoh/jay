@@ -281,6 +281,9 @@ impl Rule for WindowRule {
             };
             all.push(matcher);
         }
+        if let Some(value) = &match_.content_types {
+            all.push(m(WindowCriterion::ContentTypes(*value)));
+        }
         Some(())
     }
 

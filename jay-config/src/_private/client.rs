@@ -32,7 +32,10 @@ use {
             Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
-        window::{MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher, WindowType},
+        window::{
+            ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
+            WindowType,
+        },
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -410,6 +413,12 @@ impl ConfigClient {
     pub fn window_type(&self, window: Window) -> WindowType {
         let res = self.send_with_response(&ClientMessage::GetWindowType { window });
         get_response!(res, WindowType(0), GetWindowType { kind });
+        kind
+    }
+
+    pub fn content_type(&self, window: Window) -> ContentType {
+        let res = self.send_with_response(&ClientMessage::GetContentType { window });
+        get_response!(res, ContentType(0), GetContentType { kind });
         kind
     }
 
@@ -1682,6 +1691,7 @@ impl ConfigClient {
             WindowCriterion::Workspace(t) => WindowCriterionIpc::Workspace(t),
             WindowCriterion::WorkspaceName(t) => string!(t, Workspace, false),
             WindowCriterion::WorkspaceNameRegex(t) => string!(t, Workspace, true),
+            WindowCriterion::ContentTypes(t) => WindowCriterionIpc::ContentTypes(t),
         };
         let res = self.send_with_response(&ClientMessage::CreateWindowMatcher { criterion });
         get_response!(

@@ -3615,6 +3615,10 @@ WindowMatch:
       kind: string
       required: false
       description: Matches the workspace of the window with a regular expression.
+    content-types:
+      ref: ContentTypeMask
+      required: false
+      description: Matches windows whose content type is contained in the mask.
 
 
 WindowMatchExactly:
@@ -3668,3 +3672,27 @@ TileState:
       description: The window is tiled.
     - value: floating
       description: The window is floating.
+
+
+ContentTypeMask:
+  description: |
+    A mask of content types.
+  kind: variable
+  variants:
+    - kind: string
+      description: A named mask.
+      values:
+        - value: none
+          description: The mask matching windows without a content type.
+        - value: any
+          description: The mask containing every possible type except `none`.
+        - value: photo
+          description: The mask matching photo content.
+        - value: video
+          description: The mask matching video content.
+        - value: game
+          description: The mask matching game content.
+    - kind: array
+      description: An array of masks that are OR'd.
+      items:
+        ref: ContentTypeMask
