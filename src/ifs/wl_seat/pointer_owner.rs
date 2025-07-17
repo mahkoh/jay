@@ -18,7 +18,7 @@ use {
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
             PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination, WorkspaceNode,
-            WsMoveConfig, move_ws_to_output,
+            WsMoveConfig, move_ws_to_output, toplevel_set_workspace,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -963,10 +963,17 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
         let (mut dx, mut dy) = pos.translate(x, y);
         let owner: Rc<dyn PointerOwner> = if button == BTN_LEFT {
             seat.pointer_cursor.set_known(KnownCursor::Move);
-            Rc::new(ToplevelGrabPointerOwner {
-                tl,
-                usecase: MoveToplevelGrabPointerOwner { dx, dy },
-            })
+            if tl.tl_data().is_fullscreen.get() {
+                Rc::new(ToplevelGrabPointerOwner {
+                    tl,
+                    usecase: MoveFullscreenToplevelGrabPointerOwner,
+                })
+            } else {
+                Rc::new(ToplevelGrabPointerOwner {
+                    tl,
+                    usecase: MoveToplevelGrabPointerOwner { dx, dy },
+                })
+            }
         } else if button == BTN_RIGHT {
             let mut top = false;
             let mut right = false;
@@ -1032,7 +1039,16 @@ trait WindowManagementGrabUsecase {
         seat: &Rc<WlSeatGlobal>,
         parent: Rc<dyn ContainingNode>,
         tl: &Rc<dyn ToplevelNode>,
-    );
+    ) {
+        let _ = seat;
+        let _ = parent;
+        let _ = tl;
+    }
+
+    fn on_drop(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        let _ = seat;
+        let _ = tl;
+    }
 }
 
 struct ToplevelGrabPointerOwner<T> {
@@ -1049,6 +1065,7 @@ where
             return;
         }
         self.tl.node_seat_state().remove_pointer_grab(seat);
+        self.usecase.on_drop(seat, &self.tl);
         self.grab_node_removed(seat);
     }
 
@@ -1153,6 +1170,32 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
         if x1.is_some() || x2.is_some() || y1.is_some() || y2.is_some() {
             parent.cnode_resize_child(&**tl, x1, y1, x2, y2);
         }
+    }
+}
+
+struct MoveFullscreenToplevelGrabPointerOwner;
+
+impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
+    const BUTTON: u32 = BTN_LEFT;
+
+    fn on_drop(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        let data = tl.tl_data();
+        if !data.is_fullscreen.get() {
+            return;
+        }
+        let output = 'output: {
+            let (x, y) = seat.pointer_cursor.position_int();
+            let outputs = seat.state.root.outputs.lock();
+            for output in outputs.values() {
+                let pos = output.global.pos.get();
+                if pos.contains(x, y) {
+                    break 'output output.clone();
+                }
+            }
+            return;
+        };
+        let ws = output.ensure_workspace();
+        toplevel_set_workspace(&seat.state, tl.clone(), &ws);
     }
 }
 
