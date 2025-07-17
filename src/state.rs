@@ -67,6 +67,10 @@ use {
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
+            wlr_output_manager::{
+                WlrOutputManagerState, zwlr_output_head_v1::ZwlrOutputHeadV1,
+                zwlr_output_manager_v1::WlrOutputManagerId,
+            },
             workspace_manager::WorkspaceManagerState,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
@@ -185,6 +189,7 @@ pub struct State {
     pub logger: Option<Arc<Logger>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
+    pub wlr_output_managers: WlrOutputManagerState,
     pub drm_devs: CopyHashMap<DrmDeviceId, Rc<DrmDevData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
@@ -382,6 +387,7 @@ pub struct ConnectorData {
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
     pub name: Rc<String>,
+    pub description: RefCell<String>,
     pub drm_dev: Option<Rc<DrmDevData>>,
     pub async_event: Rc<AsyncEvent>,
     pub damaged: Cell<bool>,
@@ -390,6 +396,7 @@ pub struct ConnectorData {
     pub damage_intersect: Cell<Rect>,
     pub state: Cell<BackendConnectorState>,
     pub head_managers: HeadManagers,
+    pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
 }
 
 pub struct OutputData {
@@ -468,6 +475,9 @@ impl ConnectorData {
         }
         if old.mode != s.mode {
             self.head_managers.handle_mode_change(s.mode);
+            for head in self.wlr_output_heads.lock().values() {
+                head.handle_mode_change(s.mode);
+            }
         }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
@@ -1009,6 +1019,7 @@ impl State {
         for output in self.root.outputs.lock().values() {
             output.clear();
         }
+        self.wlr_output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout.clear();
         self.pending_container_render_positions.clear();

@@ -1,0 +1,28 @@
+# requests
+
+request set_mode {
+    mode: id(zwlr_output_mode_v1),
+}
+
+request set_custom_mode {
+    width: i32,
+    height: i32,
+    refresh: i32,
+}
+
+request set_position {
+    x: i32,
+    y: i32,
+}
+
+request set_transform {
+    transform: i32,
+}
+
+request set_scale {
+    scale: fixed,
+}
+
+request set_adaptive_sync {
+    state: u32,
+}

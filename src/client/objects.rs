@@ -29,6 +29,9 @@ use {
                 WlSurface,
                 xdg_surface::{XdgSurface, xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             },
+            wlr_output_manager::{
+                zwlr_output_head_v1::ZwlrOutputHeadV1, zwlr_output_mode_v1::ZwlrOutputModeV1,
+            },
             workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
@@ -47,8 +50,8 @@ use {
             WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
             WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionV1Id,
             WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId, XdgSurfaceId,
-            XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
-            ZwpTabletToolV2Id,
+            XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrOutputHeadV1Id,
+            ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -76,6 +79,8 @@ pub struct Objects {
     pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
     pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
     pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
+    pub zwlr_output_heads: CopyHashMap<ZwlrOutputHeadV1Id, Rc<ZwlrOutputHeadV1>>,
+    pub zwlr_output_modes: CopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
     pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
     pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
     pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
@@ -119,6 +124,8 @@ impl Objects {
             screencasts: Default::default(),
             timelines: Default::default(),
             zwlr_data_sources: Default::default(),
+            zwlr_output_heads: Default::default(),
+            zwlr_output_modes: Default::default(),
             jay_toplevels: Default::default(),
             drm_lease_outputs: Default::default(),
             tablet_tools: Default::default(),
@@ -147,6 +154,8 @@ impl Objects {
         self.registry.clear();
         self.registries.clear();
         self.outputs.clear();
+        self.zwlr_output_heads.clear();
+        self.zwlr_output_modes.clear();
         self.surfaces.clear();
         self.xdg_surfaces.clear();
         self.xdg_toplevel.clear();

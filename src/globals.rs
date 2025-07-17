@@ -42,6 +42,7 @@ use {
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
+            wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global,
             workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global,
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
             wp_commit_timing_manager_v1::WpCommitTimingManagerV1Global,
@@ -186,6 +187,7 @@ impl Globals {
         add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
         add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
         add_singleton!(ZwlrLayerShellV1Global);
+        add_singleton!(ZwlrOutputManagerV1Global);
         add_singleton!(ZxdgOutputManagerV1Global);
         add_singleton!(JayCompositorGlobal);
         add_singleton!(ZwlrScreencopyManagerV1Global);

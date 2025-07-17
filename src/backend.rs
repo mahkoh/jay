@@ -69,7 +69,7 @@ pub trait Backend: Any {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct Mode {
     pub width: i32,
     pub height: i32,

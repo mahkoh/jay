@@ -125,6 +125,20 @@ pub struct PersistentOutputState {
     pub brightness: Cell<Option<f64>>,
 }
 
+impl Default for PersistentOutputState {
+    fn default() -> Self {
+        Self {
+            transform: Default::default(),
+            scale: Default::default(),
+            pos: Default::default(),
+            vrr_mode: Cell::new(&VrrMode::Never),
+            vrr_cursor_hz: Default::default(),
+            tearing_mode: Cell::new(&TearingMode::Never),
+            brightness: Default::default(),
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub struct OutputId {
     pub connector: Option<String>,

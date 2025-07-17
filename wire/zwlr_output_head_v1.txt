@@ -1,0 +1,65 @@
+# requests
+
+request release (since = 3) {
+
+}
+
+# events
+
+event name {
+    name: str,
+}
+
+event description {
+    description: str,
+}
+
+event physical_size {
+    width: i32,
+    height: i32
+}
+
+event mode {
+    mode: id(zwlr_output_mode_v1),
+}
+
+event enabled {
+    enabled: i32,
+}
+
+event current_mode {
+    mode: id(zwlr_output_mode_v1),
+}
+
+event position {
+    x: i32,
+    y: i32,
+}
+
+event transform {
+    transform: i32,
+}
+
+event scale {
+    scale: fixed,
+}
+
+event finished {
+
+}
+
+event make (since = 2) {
+    make: str
+}
+
+event model (since = 2) {
+    model: str
+}
+
+event serial_number (since = 2) {
+    serial_number: str
+}
+
+event adaptive_sync (since = 4) {
+    state: u32,
+}

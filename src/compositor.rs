@@ -36,6 +36,7 @@ use {
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
+            wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
         io_uring::{IoUring, IoUringError},
@@ -246,6 +247,7 @@ fn start_compositor2(
         logger: logger.clone(),
         connectors: Default::default(),
         outputs: Default::default(),
+        wlr_output_managers: Default::default(),
         drm_devs: Default::default(),
         status: Default::default(),
         idle: IdleState {
@@ -474,6 +476,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             Phase::PostLayout,
             output_render_data(state.clone()),
         ),
+        eng.spawn(
+            "wlr output manager done",
+            wlr_output_manager_done(state.clone()),
+        ),
         eng.spawn2("float layout", Phase::Layout, float_layout(state.clone())),
         eng.spawn2(
             "float titles",
@@ -670,6 +676,7 @@ fn create_dummy_output(state: &Rc<State>) {
         handler: Cell::new(None),
         connected: Cell::new(true),
         name,
+        description: Default::default(),
         drm_dev: None,
         async_event: Default::default(),
         damaged: Cell::new(false),
@@ -678,6 +685,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage_intersect: Default::default(),
         state: Cell::new(backend_state),
         head_managers: HeadManagers::new(head_name, head_state),
+        wlr_output_heads: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
         &state.ring,
