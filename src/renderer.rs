@@ -91,6 +91,10 @@ impl Renderer<'_> {
             {
                 let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap();
                 let bar_bg = self.base.scale_rect(bar_bg);
+                let bar_bg_abs = {
+                    let (x, y) = self.base.scale_point(x, y);
+                    bar_bg.move_(x, y)
+                };
                 let c = theme.colors.bar_background.get();
                 self.base
                     .fill_boxes3(slice::from_ref(&bar_bg), &c, None, srgb, x, y, true);
@@ -126,7 +130,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         scale,
-                        Some(&bar_bg),
+                        Some(&bar_bg_abs),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
@@ -146,7 +150,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         scale,
-                        Some(&bar_bg),
+                        Some(&bar_bg_abs),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
