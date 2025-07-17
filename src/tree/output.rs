@@ -1499,8 +1499,16 @@ impl Node for OutputNode {
                 return res;
             }
         }
+        let mut fullscreen = None;
+        if let Some(ws) = self.workspace.get() {
+            fullscreen = ws.fullscreen.get();
+        }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY], tree, usecase);
+            let mut layers = &[OVERLAY, TOP][..];
+            if fullscreen.is_some() {
+                layers = &[OVERLAY];
+            }
+            let res = self.find_layer_surface_at(x, y, layers, tree, usecase);
             if res.accepts_input() {
                 return res;
             }
@@ -1510,10 +1518,6 @@ impl Node for OutputNode {
             if res.accepts_input() {
                 return res;
             }
-        }
-        let mut fullscreen = None;
-        if let Some(ws) = self.workspace.get() {
-            fullscreen = ws.fullscreen.get();
         }
         if let Some(fs) = fullscreen {
             tree.push(FoundNode {
@@ -1561,7 +1565,7 @@ impl Node for OutputNode {
                 }
             }
             if search_layers {
-                self.find_layer_surface_at(x, y, &[TOP, BOTTOM, BACKGROUND], tree, usecase);
+                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
             }
             FindTreeResult::AcceptsInput
         }
