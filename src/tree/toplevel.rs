@@ -970,7 +970,9 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     if old_ws.id == ws.id {
         return;
     }
-    if tl.tl_data().is_fullscreen.get() {
+    let data = tl.tl_data();
+    let fullscreen = data.is_fullscreen.get();
+    if fullscreen {
         if let Some(old) = ws.fullscreen.get() {
             old.tl_set_fullscreen(false, None);
         }
@@ -978,8 +980,9 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             return;
         }
         tl.clone().tl_set_fullscreen(false, None);
-        tl.tl_set_fullscreen(true, Some(ws.clone()));
-        return;
+        if data.is_fullscreen.get() {
+            return;
+        }
     }
     let cn = match tl.tl_data().parent.get() {
         Some(cn) => cn,
@@ -996,6 +999,9 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
         let (width, height) = tl.tl_data().float_size(ws);
         state.map_floating(tl.clone(), width, height, ws, None);
     } else {
-        state.map_tiled_on(tl, ws);
+        state.map_tiled_on(tl.clone(), ws);
+    }
+    if fullscreen {
+        tl.tl_set_fullscreen(true, Some(ws.clone()));
     }
 }
