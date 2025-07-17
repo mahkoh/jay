@@ -963,14 +963,22 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
 }
 
 pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
-    if tl.tl_data().is_fullscreen.get() {
-        return;
-    }
     let old_ws = match tl.tl_data().workspace.get() {
         Some(ws) => ws,
         _ => return,
     };
     if old_ws.id == ws.id {
+        return;
+    }
+    if tl.tl_data().is_fullscreen.get() {
+        if let Some(old) = ws.fullscreen.get() {
+            old.tl_set_fullscreen(false, None);
+        }
+        if ws.fullscreen.is_some() {
+            return;
+        }
+        tl.clone().tl_set_fullscreen(false, None);
+        tl.tl_set_fullscreen(true, Some(ws.clone()));
         return;
     }
     let cn = match tl.tl_data().parent.get() {
