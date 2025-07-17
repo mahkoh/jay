@@ -81,7 +81,7 @@ impl Renderer<'_> {
         let th = theme.sizes.title_height.get();
         let srgb_srgb = self.state.color_manager.srgb_srgb();
         let srgb = &srgb_srgb.linear;
-        if let Some(fs) = fullscreen {
+        if let Some(fs) = &fullscreen {
             fs.node_render(self, x, y, None);
         } else {
             render_layer!(output.layers[0]);
@@ -182,7 +182,9 @@ impl Renderer<'_> {
             };
         }
         render_stacked!(self.state.root.stacked);
-        render_layer!(output.layers[2]);
+        if fullscreen.is_none() {
+            render_layer!(output.layers[2]);
+        }
         render_layer!(output.layers[3]);
         render_stacked!(self.state.root.stacked_above_layers);
         if let Some(ws) = output.workspace.get()

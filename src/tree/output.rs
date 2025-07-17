@@ -1057,13 +1057,13 @@ impl OutputNode {
         self.title_visible.set(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
+        set_layer_visible!(self.layers[2], lower_visible);
         for item in self.tray_items.iter() {
             item.set_visible(lower_visible);
         }
         if let Some(ws) = self.workspace.get() {
             ws.set_visible(visible);
         }
-        set_layer_visible!(self.layers[2], visible);
         set_layer_visible!(self.layers[3], visible);
     }
 
@@ -1499,8 +1499,16 @@ impl Node for OutputNode {
                 return res;
             }
         }
+        let mut fullscreen = None;
+        if let Some(ws) = self.workspace.get() {
+            fullscreen = ws.fullscreen.get();
+        }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
+            let mut layers = &[OVERLAY, TOP][..];
+            if fullscreen.is_some() {
+                layers = &[OVERLAY];
+            }
+            let res = self.find_layer_surface_at(x, y, layers, tree, usecase);
             if res.accepts_input() {
                 return res;
             }
@@ -1510,10 +1518,6 @@ impl Node for OutputNode {
             if res.accepts_input() {
                 return res;
             }
-        }
-        let mut fullscreen = None;
-        if let Some(ws) = self.workspace.get() {
-            fullscreen = ws.fullscreen.get();
         }
         if let Some(fs) = fullscreen {
             tree.push(FoundNode {
