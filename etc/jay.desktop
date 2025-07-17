@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Jay
-Comment=An i3-inspired Wayland Compositor
+Comment=A Wayland Compositor
 Exec=jay run
 Type=Application
 DesktopNames=jay
