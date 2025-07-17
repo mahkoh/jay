@@ -6,6 +6,6 @@ fixed_root_criterion!(TlmMatchFloating, floating);
 
 impl CritFixedRootCriterion<ToplevelData> for TlmMatchFloating {
     fn matches(&self, data: &ToplevelData) -> bool {
-        data.is_floating.get()
+        data.parent_is_float.get()
     }
 }

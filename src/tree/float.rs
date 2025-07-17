@@ -519,6 +519,9 @@ impl FloatNode {
 
     fn restack(&self) {
         if let Some(dl) = &*self.display_link.borrow() {
+            if dl.next().is_none() {
+                return;
+            }
             self.state.damage(self.position.get());
             self.state.root.stacked.add_last_existing(&dl);
             if let Some(tl) = self.child.get() {
@@ -958,6 +961,10 @@ impl ContainingNode for FloatNode {
         }
         self.toggle_pinned();
     }
+
+    fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
+        Some(self)
+    }
 }
 
 impl StackedNode for FloatNode {
@@ -979,5 +986,15 @@ impl StackedNode for FloatNode {
 impl PinnedNode for FloatNode {
     fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool) {
         self.set_workspace_(workspace, false, update_visible);
+    }
+}
+
+impl dyn Node {
+    pub fn node_restack(self: &Rc<Self>) {
+        if let Some(tl) = self.clone().node_toplevel()
+            && let Some(float) = tl.tl_data().float.get()
+        {
+            float.restack();
+        }
     }
 }

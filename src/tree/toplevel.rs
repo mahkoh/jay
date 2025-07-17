@@ -26,8 +26,8 @@ use {
         rect::Rect,
         state::State,
         tree::{
-            ContainerNode, ContainerSplit, ContainingNode, Direction, Node, NodeId, OutputNode,
-            PlaceholderNode, WorkspaceNode,
+            ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
+            OutputNode, PlaceholderNode, WorkspaceNode,
         },
         utils::{
             array_to_tuple::ArrayToTuple,
@@ -35,6 +35,7 @@ use {
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
+            rc_eq::rc_eq,
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{ToplevelIdentifier, toplevel_identifier},
         },
@@ -67,6 +68,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_destroy(&self);
     fn tl_pinned(&self) -> bool;
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
+    fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -112,13 +114,25 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             data.mapped_during_iteration.set(data.state.eng.iteration());
             data.property_changed(TL_CHANGED_NEW);
         }
-        let was_floating = data.is_floating.get();
+        let was_floating = data.parent_is_float.get();
         let is_floating = parent.node_is_float();
         if was_floating != is_floating {
             data.property_changed(TL_CHANGED_FLOATING);
         }
-        data.is_floating.set(is_floating);
-        self.tl_set_workspace(&parent.cnode_workspace());
+        data.parent_is_float.set(is_floating);
+        self.tl_set_workspace(&parent.clone().cnode_workspace());
+        {
+            let float = parent.cnode_get_float();
+            let prev = data.float.set(float.clone());
+            let same = match (&prev, &float) {
+                (None, None) => true,
+                (Some(prev), Some(float)) => rc_eq(prev, float),
+                _ => false,
+            };
+            if !same {
+                self.tl_push_float(float.as_ref());
+            }
+        }
     }
 
     fn tl_extents_changed(&self) {
@@ -173,7 +187,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 sc.buffer_size_changed();
             }
         }
-        if data.is_floating.get() {
+        if data.parent_is_float.get() {
             data.float_width.set(rect.width());
             data.float_height.set(rect.height());
         }
@@ -206,6 +220,11 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             return;
         };
         parent.cnode_set_pinned(pinned);
+    }
+
+    fn tl_set_float(&self, float: Option<&Rc<FloatNode>>) {
+        self.tl_data().float.set(float.cloned());
+        self.tl_push_float(float);
     }
 }
 
@@ -266,6 +285,10 @@ pub trait ToplevelNodeBase: Node {
             .is_some()
             .then_some(self.node_absolute_position())
     }
+
+    fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
+        let _ = float;
+    }
 }
 
 pub struct FullscreenedData {
@@ -316,7 +339,8 @@ pub struct ToplevelData {
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
     pub visible: Cell<bool>,
-    pub is_floating: Cell<bool>,
+    pub parent_is_float: Cell<bool>,
+    pub float: CloneCell<Option<Rc<FloatNode>>>,
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
     pub pinned: Cell<bool>,
@@ -369,7 +393,8 @@ impl ToplevelData {
             state: state.clone(),
             active_surfaces: Default::default(),
             visible: Cell::new(false),
-            is_floating: Default::default(),
+            parent_is_float: Default::default(),
+            float: Default::default(),
             float_width: Default::default(),
             float_height: Default::default(),
             pinned: Cell::new(false),
@@ -491,6 +516,7 @@ impl ToplevelData {
         if let Some(parent) = self.parent.take() {
             parent.cnode_remove_child(node);
         }
+        self.float.take();
         self.workspace.take();
         self.seat_state.destroy_node(node);
     }
@@ -910,7 +936,7 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     if data.is_fullscreen.get() {
         return;
     }
-    if data.is_floating.get() == floating {
+    if data.parent_is_float.get() == floating {
         return;
     }
     let parent = match data.parent.get() {
@@ -949,7 +975,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
         }
     }
-    if tl.tl_data().is_floating.get() {
+    if tl.tl_data().parent_is_float.get() {
         let (width, height) = tl.tl_data().float_size(ws);
         state.map_floating(tl.clone(), width, height, ws, None);
     } else {

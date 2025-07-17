@@ -1741,7 +1741,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_floating(&self, window: Window) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowFloating {
-            floating: window.tl_data().is_floating.get(),
+            floating: window.tl_data().parent_is_float.get(),
         });
         Ok(())
     }
