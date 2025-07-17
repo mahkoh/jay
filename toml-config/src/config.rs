@@ -28,7 +28,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
-        window::{TileState, WindowType},
+        window::{ContentType, TileState, WindowType},
         xwayland::XScalingMode,
     },
     std::{
@@ -277,6 +277,7 @@ pub struct WindowMatch {
     pub x_role_regex: Option<String>,
     pub workspace: Option<String>,
     pub workspace_regex: Option<String>,
+    pub content_types: Option<ContentType>,
 }
 
 #[derive(Debug, Clone)]

@@ -15,7 +15,7 @@ use {
             ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
             Transform, VrrMode, connector_type::ConnectorType,
         },
-        window::{TileState, Window, WindowMatcher, WindowType},
+        window::{ContentType, TileState, Window, WindowMatcher, WindowType},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -718,6 +718,9 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         enabled: bool,
     },
+    GetContentType {
+        window: Window,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -943,6 +946,9 @@ pub enum Response {
     },
     CreateWindowMatcher {
         matcher: WindowMatcher,
+    },
+    GetContentType {
+        kind: ContentType,
     },
 }
 

@@ -924,6 +924,30 @@
         }
       ]
     },
+    "ContentTypeMask": {
+      "description": "A mask of content types.\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "A named mask.",
+          "enum": [
+            "none",
+            "any",
+            "photo",
+            "video",
+            "game"
+          ]
+        },
+        {
+          "type": "array",
+          "description": "An array of masks that are OR'd.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ContentTypeMask"
+          }
+        }
+      ]
+    },
     "DrmDevice": {
       "description": "Describes configuration to apply to a DRM device (graphics card).\n\n- Example: To disable direct scanout on a device:\n\n  ```toml\n  [[drm-devices]]\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  direct-scanout = false\n  ```\n",
       "type": "object",
@@ -1888,6 +1912,10 @@
         "workspace-regex": {
           "type": "string",
           "description": "Matches the workspace of the window with a regular expression."
+        },
+        "content-types": {
+          "description": "Matches windows whose content type is contained in the mask.",
+          "$ref": "#/$defs/ContentTypeMask"
         }
       },
       "required": []

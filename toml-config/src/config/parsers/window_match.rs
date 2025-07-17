@@ -7,6 +7,7 @@ use {
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 client_match::{ClientMatchParser, ClientMatchParserError},
+                content_type::{ContentTypeParser, ContentTypeParserError},
                 window_type::{WindowTypeParser, WindowTypeParserError},
             },
         },
@@ -29,6 +30,8 @@ pub enum WindowMatchParserError {
     WindowTypes(#[from] WindowTypeParserError),
     #[error(transparent)]
     ClientMatchParserError(#[from] ClientMatchParserError),
+    #[error(transparent)]
+    ContentTypes(#[from] ContentTypeParserError),
 }
 
 pub struct WindowMatchParser<'a>(pub &'a Context<'a>);
@@ -77,6 +80,7 @@ impl Parser for WindowMatchParser<'_> {
                 x_role_regex,
                 workspace,
                 workspace_regex,
+                content_types_val,
             ),
         ) = ext.extract((
             (
@@ -111,6 +115,7 @@ impl Parser for WindowMatchParser<'_> {
                 opt(str("x-role-regex")),
                 opt(str("workspace")),
                 opt(str("workspace-regex")),
+                opt(val("content-types")),
             ),
         ))?;
         let mut not = None;
@@ -144,6 +149,10 @@ impl Parser for WindowMatchParser<'_> {
         if let Some(value) = client_val {
             client = Some(value.parse_map(&mut ClientMatchParser(self.0))?);
         }
+        let mut content_types = None;
+        if let Some(value) = content_types_val {
+            content_types = Some(value.parse_map(&mut ContentTypeParser)?);
+        }
         Ok(WindowMatch {
             generic: GenericMatch {
                 name: name.despan_into(),
@@ -174,6 +183,7 @@ impl Parser for WindowMatchParser<'_> {
             workspace_regex: workspace_regex.despan_into(),
             types,
             client,
+            content_types,
         })
     }
 }

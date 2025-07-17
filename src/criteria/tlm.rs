@@ -13,6 +13,7 @@ use {
             crit_matchers::critm_constant::CritMatchConstant,
             tlm::tlm_matchers::{
                 tlmm_client::TlmMatchClient,
+                tlmm_content_type::TlmMatchContentType,
                 tlmm_floating::TlmMatchFloating,
                 tlmm_fullscreen::TlmMatchFullscreen,
                 tlmm_just_mapped::TlmMatchJustMapped,
@@ -34,7 +35,7 @@ use {
             toplevel_identifier::ToplevelIdentifier,
         },
     },
-    jay_config::window::WindowType,
+    jay_config::window::{ContentType, WindowType},
     linearize::static_map,
     std::{
         marker::PhantomData,
@@ -58,6 +59,7 @@ bitflags! {
     TL_CHANGED_CLASS_INST  = 1 << 11,
     TL_CHANGED_ROLE        = 1 << 12,
     TL_CHANGED_WORKSPACE   = 1 << 13,
+    TL_CHANGED_CONTENT_TY  = 1 << 14,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -90,6 +92,7 @@ pub struct RootMatchers {
     instance: TlmRootMatcherMap<TlmMatchInstance>,
     role: TlmRootMatcherMap<TlmMatchRole>,
     workspace: TlmRootMatcherMap<TlmMatchWorkspace>,
+    content_ty: TlmRootMatcherMap<TlmMatchContentType>,
 }
 
 pub async fn handle_tl_changes(state: Rc<State>) {
@@ -222,6 +225,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_CLASS_INST, instance);
         conditional!(TL_CHANGED_ROLE, role);
         conditional!(TL_CHANGED_WORKSPACE, workspace);
+        conditional!(TL_CHANGED_CONTENT_TY, content_ty);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -299,6 +303,7 @@ impl TlMatcherManager {
         conditional!(TL_CHANGED_CLASS_INST, instance);
         conditional!(TL_CHANGED_ROLE, role);
         conditional!(TL_CHANGED_WORKSPACE, workspace);
+        conditional!(TL_CHANGED_CONTENT_TY, content_ty);
         fixed_conditional!(TL_CHANGED_FLOATING, floating);
         fixed_conditional!(TL_CHANGED_VISIBLE, visible);
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
@@ -371,6 +376,10 @@ impl TlMatcherManager {
 
     pub fn workspace(&self, string: CritLiteralOrRegex) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchWorkspace::new(string))
+    }
+
+    pub fn content_type(&self, kind: ContentType) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchContentType::new(kind))
     }
 }
 

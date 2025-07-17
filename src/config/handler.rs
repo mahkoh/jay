@@ -16,7 +16,10 @@ use {
             tlm::{TlmLeafMatcher, TlmUpstreamNode},
         },
         format::config_formats,
-        ifs::wl_seat::{SeatId, WlSeatGlobal},
+        ifs::{
+            wl_seat::{SeatId, WlSeatGlobal},
+            wp_content_type_v1::ContentTypeExt,
+        },
         io_uring::TaskResultExt,
         kbvm::{KbvmError, KbvmMap},
         output_schedule::map_cursor_hz,
@@ -2062,6 +2065,7 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::Workspace(w) => mgr.workspace(CritLiteralOrRegex::Literal(
                 self.get_workspace(*w)?.to_string(),
             )),
+            WindowCriterionIpc::ContentTypes(t) => mgr.content_type(*t),
         };
         let cached = Rc::new(CachedCriterion {
             crit: criterion.clone(),
@@ -2353,6 +2357,17 @@ impl ConfigProxyHandler {
     fn handle_get_window_type(&self, window: Window) -> Result<(), CphError> {
         let kind = self.get_window(window)?.tl_data().kind.to_window_type();
         self.respond(Response::GetWindowType { kind });
+        Ok(())
+    }
+
+    fn handle_get_content_type(&self, window: Window) -> Result<(), CphError> {
+        let kind = self
+            .get_window(window)?
+            .tl_data()
+            .content_type
+            .get()
+            .to_config();
+        self.respond(Response::GetContentType { kind });
         Ok(())
     }
 
@@ -2964,6 +2979,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleButtonEmulationEnabled { device, enabled } => self
                 .handle_set_middle_button_emulation_enabled(device, enabled)
                 .wrn("set_middle_button_emulation_enabled")?,
+            ClientMessage::GetContentType { window } => self
+                .handle_get_content_type(window)
+                .wrn("get_content_type")?,
         }
         Ok(())
     }

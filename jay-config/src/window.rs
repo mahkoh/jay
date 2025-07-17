@@ -41,6 +41,21 @@ bitflags! {
     }
 }
 
+bitflags! {
+    /// The content type of a window.
+    #[derive(Serialize, Deserialize, Copy, Clone, Hash, Eq, PartialEq)]
+    pub struct ContentType(pub u64) {
+        /// No content type.
+        pub const NO_CONTENT_TYPE = 1 << 0,
+        /// Photo content type.
+        pub const PHOTO_CONTENT = 1 << 1,
+        /// Video content type.
+        pub const VIDEO_CONTENT = 1 << 2,
+        /// Game content type.
+        pub const GAME_CONTENT = 1 << 3,
+    }
+}
+
 /// The tile state of a window.
 #[non_exhaustive]
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -84,6 +99,11 @@ impl Window {
     /// Returns the type of the window.
     pub fn type_(self) -> WindowType {
         get!(WindowType(0)).window_type(self)
+    }
+
+    /// Returns the content type of the window.
+    pub fn content_type(self) -> ContentType {
+        get!(ContentType(0)).content_type(self)
     }
 
     /// Returns the identifier of the window.
@@ -292,6 +312,8 @@ pub enum WindowCriterion<'a> {
     WorkspaceName(&'a str),
     /// Matches the workspace name of the window with a regular expression.
     WorkspaceNameRegex(&'a str),
+    /// Matches if the window has one of the content types.
+    ContentTypes(ContentType),
 }
 
 impl WindowCriterion<'_> {

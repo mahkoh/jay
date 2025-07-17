@@ -6,6 +6,10 @@ use {
         object::{Object, Version},
         wire::{WpContentTypeV1Id, wp_content_type_v1::*},
     },
+    jay_config::window::{
+        ContentType as ConfigContentType, GAME_CONTENT, NO_CONTENT_TYPE, PHOTO_CONTENT,
+        VIDEO_CONTENT,
+    },
     std::rc::Rc,
     thiserror::Error,
 };
@@ -20,6 +24,21 @@ pub enum ContentType {
     Photo,
     Video,
     Game,
+}
+
+pub trait ContentTypeExt {
+    fn to_config(&self) -> ConfigContentType;
+}
+
+impl ContentTypeExt for Option<ContentType> {
+    fn to_config(&self) -> ConfigContentType {
+        match self {
+            None => NO_CONTENT_TYPE,
+            Some(ContentType::Photo) => PHOTO_CONTENT,
+            Some(ContentType::Video) => VIDEO_CONTENT,
+            Some(ContentType::Game) => GAME_CONTENT,
+        }
+    }
 }
 
 pub struct WpContentTypeV1 {

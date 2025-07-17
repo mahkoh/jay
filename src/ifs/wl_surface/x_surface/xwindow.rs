@@ -217,6 +217,7 @@ impl Xwindow {
                 weak,
             );
             tld.pos.set(surface.extents.get());
+            tld.content_type.set(surface.content_type.get());
             Self {
                 id,
                 data: data.clone(),
