@@ -482,6 +482,7 @@ pub struct Config {
     pub client_rules: Vec<ClientRule>,
     pub window_rules: Vec<WindowRule>,
     pub pointer_revert_key: Option<KeySym>,
+    pub use_hardware_cursor: Option<bool>,
 }
 
 #[derive(Debug, Error)]

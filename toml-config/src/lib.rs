@@ -1244,6 +1244,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     if let Some(key) = config.pointer_revert_key {
         persistent.seat.set_pointer_revert_key(key);
     }
+    if let Some(v) = config.use_hardware_cursor {
+        persistent.seat.use_hardware_cursor(v);
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {

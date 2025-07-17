@@ -1786,6 +1786,14 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `use-hardware-cursor` (optional):
+
+  Configures whether the default seat uses hardware cursors.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Connector"></a>
 ### `Connector`
