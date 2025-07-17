@@ -34,6 +34,7 @@ use {
                     zwp_input_method_manager_v2::ZwpInputMethodManagerV2Global,
                     zwp_text_input_manager_v3::ZwpTextInputManagerV3Global,
                 },
+                wp_pointer_warp_v1::WpPointerWarpV1Global,
                 zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global,
                 zwp_pointer_gestures_v1::ZwpPointerGesturesV1Global,
                 zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global,
@@ -229,6 +230,7 @@ impl Globals {
         add_singleton!(WpColorManagerV1Global);
         add_singleton!(XdgToplevelTagManagerV1Global);
         add_singleton!(JayHeadManagerV1Global);
+        add_singleton!(WpPointerWarpV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

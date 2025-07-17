@@ -10,6 +10,7 @@ mod touch_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
+pub mod wp_pointer_warp_v1;
 pub mod zwp_pointer_constraints_v1;
 pub mod zwp_pointer_gesture_hold_v1;
 pub mod zwp_pointer_gesture_pinch_v1;
