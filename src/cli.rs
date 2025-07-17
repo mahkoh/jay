@@ -16,6 +16,7 @@ mod seat_test;
 mod set_log_level;
 mod tree;
 mod unlock;
+mod version;
 mod xwayland;
 
 use {
@@ -93,6 +94,8 @@ pub enum Cmd {
     Clients(ClientsArgs),
     /// Inspect the surface tree.
     Tree(TreeArgs),
+    /// Prints the Jay version and exits.
+    Version,
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -256,6 +259,7 @@ pub fn main() {
         Cmd::ColorManagement(a) => color_management::main(cli.global, a),
         Cmd::Clients(a) => clients::main(cli.global, a),
         Cmd::Tree(a) => tree::main(cli.global, a),
+        Cmd::Version => version::main(cli.global),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
         Cmd::Reexec(a) => reexec::main(cli.global, a),
