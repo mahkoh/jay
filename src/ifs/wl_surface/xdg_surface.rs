@@ -203,7 +203,7 @@ impl XdgSurface {
             requested_serial: NumCell::new(1),
             acked_serial: Cell::new(None),
             geometry: Cell::new(None),
-            extents: Cell::new(Default::default()),
+            extents: Cell::new(surface.extents.get()),
             absolute_desired_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),

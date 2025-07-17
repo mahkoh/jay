@@ -157,6 +157,7 @@ impl XdgToplevel {
         toplevel_data
             .content_type
             .set(surface.surface.content_type.get());
+        toplevel_data.pos.set(surface.extents.get());
         Self {
             id,
             state: state.clone(),
