@@ -1057,13 +1057,13 @@ impl OutputNode {
         self.title_visible.set(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
-        set_layer_visible!(self.layers[2], lower_visible);
         for item in self.tray_items.iter() {
             item.set_visible(lower_visible);
         }
         if let Some(ws) = self.workspace.get() {
             ws.set_visible(visible);
         }
+        set_layer_visible!(self.layers[2], visible);
         set_layer_visible!(self.layers[3], visible);
     }
 
@@ -1500,7 +1500,7 @@ impl Node for OutputNode {
             }
         }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY], tree, usecase);
+            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
                 return res;
             }
@@ -1561,7 +1561,7 @@ impl Node for OutputNode {
                 }
             }
             if search_layers {
-                self.find_layer_surface_at(x, y, &[TOP, BOTTOM, BACKGROUND], tree, usecase);
+                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
             }
             FindTreeResult::AcceptsInput
         }
