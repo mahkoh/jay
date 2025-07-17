@@ -1,0 +1,11 @@
+request destroy {
+
+}
+
+request warp_pointer {
+    surface: id(wl_surface),
+    pointer: id(wl_pointer),
+    x: fixed,
+    y: fixed,
+    serial: u32,
+}

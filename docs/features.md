@@ -182,6 +182,7 @@ Jay supports the following wayland protocols:
 | wp_fifo_manager_v1                                   | 1               |               |
 | wp_fractional_scale_manager_v1                       | 1               |               |
 | wp_linux_drm_syncobj_manager_v1                      | 1               |               |
+| wp_pointer_warp_v1                                   | 1               |               |
 | wp_presentation                                      | 2               |               |
 | wp_security_context_manager_v1                       | 1               |               |
 | wp_single_pixel_buffer_manager_v1                    | 1               |               |
@@ -195,6 +196,7 @@ Jay supports the following wayland protocols:
 | zwlr_data_control_manager_v1                         | 2               | Yes           |
 | zwlr_foreign_toplevel_manager_v1                     | 3               | Yes           |
 | zwlr_layer_shell_v1                                  | 5               | No[^lsaccess] |
+| zwlr_output_manager_v1                               | 4               | Yes           |
 | zwlr_screencopy_manager_v1                           | 3               | Yes           |
 | zwp_idle_inhibit_manager_v1                          | 1               |               |
 | zwp_input_method_manager_v2                          | 1               | Yes           |
