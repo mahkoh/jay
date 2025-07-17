@@ -2607,6 +2607,13 @@ Config:
           ```toml
           pointer-revert-key = "NoSymbol"
           ```
+    use-hardware-cursor:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether the default seat uses hardware cursors.
+
+        The default is `true`.
 
 
 Idle:
