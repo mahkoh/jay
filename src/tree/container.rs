@@ -1543,6 +1543,10 @@ impl Node for ContainerNode {
         .unwrap()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel_data.output_opt()
+    }
+
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         if let Some(child) = self.child_nodes.borrow().get(&child.node_id()) {
             self.update_child_title(child, title);
@@ -1675,6 +1679,14 @@ impl Node for ContainerNode {
             .node_do_focus(seat, Direction::Unspecified);
     }
 
+    fn node_on_leave(&self, seat: &WlSeatGlobal) {
+        let mut seats = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = seats.get_mut(&id) {
+            seat_state.op = None;
+        }
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         // log::info!("node_on_pointer_enter");
         self.pointer_move(
@@ -1685,14 +1697,6 @@ impl Node for ContainerNode {
             y,
             false,
         );
-    }
-
-    fn node_on_leave(&self, seat: &WlSeatGlobal) {
-        let mut seats = self.cursors.borrow_mut();
-        let id = CursorType::Seat(seat.id());
-        if let Some(seat_state) = seats.get_mut(&id) {
-            seat_state.op = None;
-        }
     }
 
     fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -1780,10 +1784,6 @@ impl Node for ContainerNode {
 
     fn node_is_container(&self) -> bool {
         true
-    }
-
-    fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel_data.output_opt()
     }
 }
 
