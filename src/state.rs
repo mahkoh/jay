@@ -1069,6 +1069,8 @@ impl State {
         self.head_managers.clear();
         self.head_managers_async.clear();
         self.const_40hz_latch.clear();
+        self.cursor_user_groups.clear();
+        self.cursor_user_group_hardware_cursor.take();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
