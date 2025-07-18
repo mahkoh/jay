@@ -77,6 +77,7 @@ impl WorkspaceNode {
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
         self.opt.set(None);
+        self.title_texture.take();
     }
 
     pub fn update_has_captures(&self) {

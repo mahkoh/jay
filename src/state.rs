@@ -1006,6 +1006,7 @@ impl State {
         self.run_toplevel.clear();
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();
+        self.xwayland.windows.clear();
         self.idle.inhibitors.clear();
         self.idle.change.clear();
         for drm_dev in self.drm_devs.lock().drain_values() {
@@ -1068,6 +1069,11 @@ impl State {
         self.position_hint_requests.clear();
         self.head_managers.clear();
         self.head_managers_async.clear();
+        self.const_40hz_latch.clear();
+        self.cursor_user_groups.clear();
+        self.cursor_user_group_hardware_cursor.take();
+        self.cpu_worker.clear();
+        self.wait_for_sync_obj.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

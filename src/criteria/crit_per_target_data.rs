@@ -56,6 +56,10 @@ where
         }
     }
 
+    pub fn clear(&self) {
+        self.data.borrow_mut().clear();
+    }
+
     pub fn get_or_create(&self, target: &Target, default: impl FnOnce() -> T) -> RefMut<T> {
         RefMut::map(self.data.borrow_mut(), |d| {
             &mut d

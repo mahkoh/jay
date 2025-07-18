@@ -200,6 +200,15 @@ impl Drop for PendingJob {
 }
 
 impl CpuWorkerData {
+    fn clear(&self) {
+        self.jobs_to_enqueue.clear();
+        self.new_jobs.lock().clear();
+        self.completed_jobs_remote.lock().queue.clear();
+        self.completed_jobs_local.borrow_mut().clear();
+        self.pending_jobs.clear();
+        self.pending_job_data_cache.take();
+    }
+
     async fn wait_for_completions(self: Rc<Self>) {
         let mut buf = TypedBuf::<u64>::new();
         loop {
@@ -300,6 +309,10 @@ impl CpuWorker {
             _job_enqueuer: eng.spawn("cpu worker enqueue", data.clone().equeue_jobs()),
             data,
         })
+    }
+
+    pub fn clear(&self) {
+        self.data.clear();
     }
 
     pub fn submit(&self, job: Box<dyn CpuJob>) -> PendingJob {

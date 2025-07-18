@@ -87,6 +87,12 @@ impl WaitForSyncObj {
         }
     }
 
+    pub fn clear(&self) {
+        self.inner.ctx.take();
+        self.inner.busy.clear();
+        self.inner.idle.take();
+    }
+
     pub fn set_ctx(&self, ctx: Option<Rc<SyncObjCtx>>) {
         self.inner.ctx.set(ctx);
         let busy_waiters: Vec<_> = self.inner.busy.lock().drain_values().collect();
@@ -160,13 +166,6 @@ impl WaitForSyncObj {
         waiter.waiter.inner.trigger.trigger();
         self.inner.busy.set(job_id, waiter);
         Ok(())
-    }
-}
-
-impl Drop for WaitForSyncObj {
-    fn drop(&mut self) {
-        self.inner.busy.clear();
-        self.inner.idle.take();
     }
 }
 

@@ -25,6 +25,10 @@ impl<T: ?Sized> Default for EventSource<T> {
 }
 
 impl<T: ?Sized> EventSource<T> {
+    pub fn clear(&self) {
+        self.on_attach.take();
+    }
+
     pub fn iter(&self) -> EventSourceIter<T> {
         EventSourceIter {
             iter: self.listeners.iter(),

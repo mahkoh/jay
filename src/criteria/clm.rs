@@ -63,6 +63,18 @@ pub struct RootMatchers {
     exe: ClmRootMatcherMap<ClmMatchExe>,
 }
 
+impl RootMatchers {
+    fn clear(&self) {
+        self.sandbox_app_id.clear();
+        self.sandbox_engine.clear();
+        self.sandbox_instance_id.clear();
+        self.uid.clear();
+        self.pid.clear();
+        self.comm.clear();
+        self.exe.clear();
+    }
+}
+
 pub async fn handle_cl_changes(state: Rc<State>) {
     let mgr = &state.cl_matcher_manager;
     loop {
@@ -112,6 +124,10 @@ impl ClMatcherManager {
     pub fn clear(&self) {
         self.changes.clear();
         self.leaf_events.clear();
+        self.constant.values().for_each(|c| c.clear());
+        self.sandboxed.values().for_each(|c| c.clear());
+        self.is_xwayland.values().for_each(|c| c.clear());
+        self.matchers.clear();
     }
 
     pub fn rematch_all(&self, state: &Rc<State>) {
