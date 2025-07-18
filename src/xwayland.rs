@@ -203,6 +203,7 @@ async fn run(
         state.ring.readable(&pidfd).await?;
     }
     state.xwayland.queue.clear();
+    state.xwayland.windows.clear();
     stderr_read.await;
     Ok(())
 }

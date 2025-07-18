@@ -1006,6 +1006,7 @@ impl State {
         self.run_toplevel.clear();
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();
+        self.xwayland.windows.clear();
         self.idle.inhibitors.clear();
         self.idle.change.clear();
         for drm_dev in self.drm_devs.lock().drain_values() {
