@@ -814,8 +814,13 @@ impl ContainerNode {
         let abs_y = self.abs_y1.get();
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
-            if self.toplevel_data.visible.get() {
-                self.state.damage(rect.move_(abs_x, abs_y));
+            if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
+                self.state.damage(Rect::new_sized_unchecked(
+                    abs_x,
+                    abs_y + rect.y1(),
+                    cwidth,
+                    rect.height() + 1,
+                ));
             }
             if i > 0 {
                 let rect = if mono {
@@ -851,6 +856,10 @@ impl ContainerNode {
         if mono {
             rd.underline_rects
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
+        }
+        if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
+            self.state
+                .damage(Rect::new_sized_unchecked(abs_x, abs_y, cwidth, th + 1));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
     }

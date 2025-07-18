@@ -883,6 +883,10 @@
         "use-hardware-cursor": {
           "type": "boolean",
           "description": "Configures whether the default seat uses hardware cursors.\n\nThe default is `true`.\n"
+        },
+        "show-bar": {
+          "type": "boolean",
+          "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
         }
       },
       "required": []
@@ -1586,7 +1590,10 @@
         "pin-float",
         "unpin-float",
         "toggle-float-pinned",
-        "kill-client"
+        "kill-client",
+        "show-bar",
+        "hide-bar",
+        "toggle-bar"
       ]
     },
     "Status": {

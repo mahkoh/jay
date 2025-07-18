@@ -133,6 +133,9 @@ impl ActionParser<'_> {
             "unpin-float" => SetFloatPinned(false),
             "toggle-float-pinned" => ToggleFloatPinned,
             "kill-client" => KillClient,
+            "show-bar" => ShowBar(true),
+            "hide-bar" => ShowBar(false),
+            "toggle-bar" => ToggleBar,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

@@ -721,6 +721,10 @@ pub enum ClientMessage<'a> {
     GetContentType {
         window: Window,
     },
+    SetShowBar {
+        show: bool,
+    },
+    GetShowBar,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -949,6 +953,9 @@ pub enum Response {
     },
     GetContentType {
         kind: ContentType,
+    },
+    GetShowBar {
+        show: bool,
     },
 }
 

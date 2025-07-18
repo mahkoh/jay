@@ -271,6 +271,7 @@ pub struct State {
     pub head_managers:
         CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
+    pub show_bar: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -1474,6 +1475,9 @@ impl State {
     }
 
     pub fn tray_icon_size(&self) -> i32 {
+        if !self.show_bar.get() {
+            return 0;
+        }
         (self.theme.sizes.title_height.get() - 2).max(0)
     }
 

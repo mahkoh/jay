@@ -87,8 +87,8 @@ impl Renderer<'_> {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
             let non_exclusive_rect = output.non_exclusive_rect_rel.get();
-            let (x, y) = non_exclusive_rect.translate_inv(x, y);
-            {
+            let (x, mut y) = non_exclusive_rect.translate_inv(x, y);
+            if self.state.show_bar.get() {
                 let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap();
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let bar_bg_abs = {
@@ -166,9 +166,10 @@ impl Renderer<'_> {
                         self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
                     }
                 }
+                y += th + 1;
             }
             if let Some(ws) = output.workspace.get() {
-                self.render_workspace(&ws, x, y + th + 1);
+                self.render_workspace(&ws, x, y);
             }
         }
         macro_rules! render_stacked {

@@ -35,12 +35,12 @@ use {
         logging::set_log_level,
         on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
-        set_idle, set_idle_grace_period, set_show_float_pin_icon, set_ui_drag_enabled,
-        set_ui_drag_threshold,
+        set_idle, set_idle_grace_period, set_show_bar, set_show_float_pin_icon,
+        set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
-        toggle_float_above_fullscreen,
+        toggle_float_above_fullscreen, toggle_show_bar,
         video::{
             ColorSpace, Connector, DrmDevice, TransferFunction, connectors, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
@@ -154,6 +154,8 @@ impl Action {
                 }
                 SimpleCommand::ToggleFloatPinned => window_or_seat!(s, s.toggle_float_pinned()),
                 SimpleCommand::KillClient => client_action!(c, c.kill()),
+                SimpleCommand::ShowBar(show) => B::new(move || set_show_bar(show)),
+                SimpleCommand::ToggleBar => B::new(toggle_show_bar),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1246,6 +1248,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if let Some(v) = config.use_hardware_cursor {
         persistent.seat.use_hardware_cursor(v);
+    }
+    if let Some(v) = config.show_bar {
+        set_show_bar(v);
     }
 }
 

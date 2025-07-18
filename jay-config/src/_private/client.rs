@@ -950,6 +950,16 @@ impl ConfigClient {
         above
     }
 
+    pub fn set_show_bar(&self, show: bool) {
+        self.send(&ClientMessage::SetShowBar { show });
+    }
+
+    pub fn get_show_bar(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetShowBar);
+        get_response!(res, true, GetShowBar { show });
+        show
+    }
+
     pub fn set_show_float_pin_icon(&self, show: bool) {
         self.send(&ClientMessage::SetShowFloatPinIcon { show });
     }

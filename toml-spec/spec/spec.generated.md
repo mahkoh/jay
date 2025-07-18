@@ -1794,6 +1794,14 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `show-bar` (optional):
+
+  Configures whether the built-in bar is shown.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -3596,6 +3604,18 @@ The string should have one of the following values:
   
   Within a window rule, it applies to the client of the window. Within a client rule
   it applies to the matched client. Has no effect otherwise.
+
+- `show-bar`:
+
+  Shows the built-in bar.
+
+- `hide-bar`:
+
+  Hides the built-in bar.
+
+- `toggle-bar`:
+
+  Toggles the built-in bar.
 
 
 
