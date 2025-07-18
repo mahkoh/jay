@@ -170,6 +170,10 @@ impl Node for PlaceholderNode {
         self.toplevel.pos.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel.output_opt()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
@@ -205,16 +209,12 @@ impl Node for PlaceholderNode {
         seat.enter_toplevel(self.clone());
     }
 
-    fn node_is_placeholder(&self) -> bool {
-        true
-    }
-
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
     }
 
-    fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel.output_opt()
+    fn node_is_placeholder(&self) -> bool {
+        true
     }
 }
 
