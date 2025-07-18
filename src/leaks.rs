@@ -272,7 +272,8 @@ mod leaks {
     unsafe impl GlobalAlloc for TracingAllocator {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
             unsafe {
-                let res = c::calloc(layout.size(), 1) as *mut u8;
+                let res = c::aligned_alloc(layout.align(), layout.size()) as *mut u8;
+                c::memset(res.cast(), 0, layout.size());
                 if IN_ALLOCATOR.get() == 0 {
                     IN_ALLOCATOR.set(1);
                     ALLOCATIONS.get().deref_mut().insert(
