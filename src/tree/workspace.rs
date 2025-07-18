@@ -367,7 +367,7 @@ impl Node for WorkspaceNode {
         if self.is_dummy {
             return;
         }
-        self.state.show_workspace2(None, &self);
+        self.state.show_workspace2(None, &self.output.get(), &self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -499,14 +499,13 @@ pub fn move_ws_to_output(
         && (config.make_visible_always
             || (config.make_visible_if_empty && target.workspace.is_none()));
     if make_visible {
-        target.show_workspace(&ws);
+        ws.state.show_workspace2(None, target, &ws);
     } else {
         ws.set_visible(false);
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {
-        source.show_workspace(&ws);
-        ws.flush_jay_workspaces();
+        ws.state.show_workspace2(None, &source, &ws);
     }
     if !target.is_dummy {
         target.schedule_update_render_data();

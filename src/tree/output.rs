@@ -1081,7 +1081,7 @@ impl OutputNode {
         set_layer_visible!(self.layers[3], visible);
     }
 
-    fn button(self: Rc<Self>, id: PointerType) {
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, id: PointerType) {
         if !self.state.show_bar.get() {
             return;
         }
@@ -1105,10 +1105,7 @@ impl OutputNode {
             }
             return;
         };
-        self.show_workspace(&ws);
-        ws.flush_jay_workspaces();
-        self.schedule_update_render_data();
-        self.state.tree_changed();
+        self.state.show_workspace2(Some(seat), &self, &ws);
     }
 
     pub fn update_presentation_type(&self) {
@@ -1628,7 +1625,7 @@ impl Node for OutputNode {
             self.pointer_down.remove(&seat.id());
             return;
         }
-        self.button(PointerType::Seat(seat.id()));
+        self.button(seat, PointerType::Seat(seat.id()));
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
@@ -1658,15 +1655,7 @@ impl Node for OutputNode {
                 None => break,
             };
         }
-        if !self.show_workspace(&ws) {
-            return;
-        }
-        ws.flush_jay_workspaces();
-        ws.deref()
-            .clone()
-            .node_do_focus(seat, Direction::Unspecified);
-        self.schedule_update_render_data();
-        self.state.tree_changed();
+        self.state.show_workspace2(Some(seat), &self, &ws);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {
@@ -1730,7 +1719,7 @@ impl Node for OutputNode {
         self.pointer_move(id, x, y);
         if let Some(changes) = changes {
             if changes.down == Some(true) {
-                self.button(id);
+                self.button(tool.seat(), id);
             }
         }
     }

@@ -853,8 +853,12 @@ impl State {
         node.node_do_focus(&seat, Direction::Unspecified);
     }
 
-    pub fn show_workspace2(&self, seat: Option<&Rc<WlSeatGlobal>>, ws: &Rc<WorkspaceNode>) {
-        let output = ws.output.get();
+    pub fn show_workspace2(
+        &self,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        output: &Rc<OutputNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
         let mut pinned_is_focused = false;
         if let Some(seat) = seat {
             for pinned in output.pinned.iter() {
@@ -876,12 +880,10 @@ impl State {
             return;
         }
         ws.flush_jay_workspaces();
-        output.schedule_update_render_data();
-        self.tree_changed();
-        // let seats = self.globals.seats.lock();
-        // for seat in seats.values() {
-        //     seat.workspace_changed(&output);
-        // }
+        if !output.is_dummy {
+            output.schedule_update_render_data();
+            self.tree_changed();
+        }
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
@@ -896,7 +898,7 @@ impl State {
                 output.create_workspace(name)
             }
         };
-        self.show_workspace2(Some(seat), &ws);
+        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
