@@ -1,7 +1,14 @@
-use std::{ops::Deref, rc::Rc};
+use std::{
+    ops::Deref,
+    rc::{Rc, Weak},
+};
 
 pub fn rc_eq<T: ?Sized>(a: &Rc<T>, b: &Rc<T>) -> bool {
     Rc::as_ptr(a) as *const u8 == Rc::as_ptr(b) as *const u8
+}
+
+pub fn rc_weak_eq<T: ?Sized>(a: &Rc<T>, b: &Weak<T>) -> bool {
+    Rc::as_ptr(a) as *const u8 == b.as_ptr() as *const u8
 }
 
 #[derive(Default)]

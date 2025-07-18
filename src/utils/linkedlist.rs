@@ -97,7 +97,6 @@ impl<T> LinkedList<T> {
         self.root.append_existing(t)
     }
 
-    #[expect(dead_code)]
     pub fn rotate_last(&self, t: &NodeRef<T>) {
         unsafe {
             let root = self.root.data.as_ref();

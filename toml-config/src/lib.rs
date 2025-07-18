@@ -156,6 +156,10 @@ impl Action {
                 SimpleCommand::KillClient => client_action!(c, c.kill()),
                 SimpleCommand::ShowBar(show) => B::new(move || set_show_bar(show)),
                 SimpleCommand::ToggleBar => B::new(toggle_show_bar),
+                SimpleCommand::FocusHistory(timeline) => {
+                    let persistent = state.persistent.clone();
+                    B::new(move || persistent.seat.focus_history(timeline))
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1251,6 +1255,14 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if let Some(v) = config.show_bar {
         set_show_bar(v);
+    }
+    if let Some(v) = config.focus_history {
+        if let Some(v) = v.only_visible {
+            persistent.seat.focus_history_set_only_visible(v);
+        }
+        if let Some(v) = v.same_workspace {
+            persistent.seat.focus_history_set_same_workspace(v);
+        }
     }
 }
 

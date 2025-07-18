@@ -21,6 +21,7 @@ mod drm_device_match;
 mod env;
 pub mod exec;
 pub mod float;
+pub mod focus_history;
 mod format;
 mod gfx_api;
 mod idle;

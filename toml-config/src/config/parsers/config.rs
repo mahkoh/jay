@@ -16,6 +16,7 @@ use {
                 drm_device_match::DrmDeviceMatchParser,
                 env::EnvParser,
                 float::FloatParser,
+                focus_history::FocusHistoryParser,
                 gfx_api::GfxApiParser,
                 idle::IdleParser,
                 input::InputsParser,
@@ -133,6 +134,7 @@ impl Parser for ConfigParser<'_> {
                 pointer_revert_key_str,
                 use_hardware_cursor,
                 show_bar,
+                focus_history_val,
             ),
         ) = ext.extract((
             (
@@ -181,6 +183,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(str("pointer-revert-key"))),
                 recover(opt(bol("use-hardware-cursor"))),
                 recover(opt(bol("show-bar"))),
+                opt(val("focus-history")),
             ),
         ))?;
         let mut keymap = None;
@@ -458,6 +461,18 @@ impl Parser for ConfigParser<'_> {
                 None => log::warn!("Unknown keysym: {}", self.0.error3(value.span)),
             }
         }
+        let mut focus_history = None;
+        if let Some(value) = focus_history_val {
+            match value.parse(&mut FocusHistoryParser(self.0)) {
+                Ok(v) => focus_history = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the focus-history settings: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -497,6 +512,7 @@ impl Parser for ConfigParser<'_> {
             pointer_revert_key,
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
+            focus_history,
         })
     }
 }

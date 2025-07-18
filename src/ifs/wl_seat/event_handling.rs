@@ -40,7 +40,10 @@ use {
         state::DeviceHandlerData,
         tree::{Direction, Node, ToplevelNode},
         utils::{
-            bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap,
+            bitflags::BitflagsExt,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedNode, NodeRef},
+            smallmap::{SmallMap, SmallMapMut},
             syncqueue::SyncQueue,
         },
         wire::WlDataOfferId,
@@ -56,13 +59,20 @@ use {
     kbvm::{ModifierMask, state_machine::Event},
     linearize::LinearizeExt,
     smallvec::SmallVec,
-    std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        collections::hash_map::Entry,
+        mem,
+        rc::{Rc, Weak},
+    },
 };
 
 #[derive(Default)]
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    no_focus_history: Cell<bool>,
+    kb_focus_histories: RefCell<SmallMapMut<SeatId, LinkedNode<FocusHistoryData>, 1>>,
     gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     touch_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
@@ -70,6 +80,11 @@ pub struct NodeSeatState {
     tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
     ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+}
+
+pub struct FocusHistoryData {
+    pub visible: Cell<bool>,
+    pub node: Weak<dyn Node>,
 }
 
 impl NodeSeatState {
@@ -81,7 +96,26 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.id);
     }
 
-    pub(super) fn focus(&self, seat: &Rc<WlSeatGlobal>) -> bool {
+    pub fn disable_focus_history(&self) {
+        self.no_focus_history.set(true);
+    }
+
+    pub(super) fn focus(&self, node: &Rc<dyn Node>, seat: &Rc<WlSeatGlobal>) -> bool {
+        if !self.no_focus_history.get() {
+            let hist = &mut *self.kb_focus_histories.borrow_mut();
+            let hist = hist.get_or_insert_with(seat.id, || {
+                seat.focus_history.add_last(FocusHistoryData {
+                    visible: Cell::new(node.node_visible()),
+                    node: Rc::downgrade(node),
+                })
+            });
+            if seat.focus_history_rotate.is_zero() {
+                seat.last_focus_location.set(node.node_location());
+                seat.focus_history.add_last_existing(hist);
+            } else {
+                seat.focus_history.rotate_last(hist);
+            }
+        }
         self.kb_foci.insert(seat.id, seat.clone());
         self.kb_foci.len() == 1
     }
@@ -179,6 +213,10 @@ impl NodeSeatState {
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
+        for (_, entry) in self.kb_focus_histories.borrow_mut().iter_mut() {
+            entry.visible.set(false);
+            entry.detach();
+        }
         self.destroy_node2(node, true);
     }
 
@@ -223,9 +261,20 @@ impl NodeSeatState {
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
+        for (_, entry) in self.kb_focus_histories.borrow_mut().iter_mut() {
+            entry.visible.set(visible);
+        }
         if !visible {
             self.destroy_node2(node, false);
         }
+    }
+
+    pub(super) fn get_focus_history(
+        &self,
+        seat: &WlSeatGlobal,
+    ) -> Option<NodeRef<FocusHistoryData>> {
+        let hist = &*self.kb_focus_histories.borrow();
+        Some(hist.get(&seat.id)?.to_ref())
     }
 
     pub fn on_seat_remove(&self, seat: &WlSeatGlobal) {

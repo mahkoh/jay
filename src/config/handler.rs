@@ -54,7 +54,7 @@ use {
         Axis, Direction, Workspace,
         client::{Client as ConfigClient, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat,
+            FocusFollowsMouseMode, InputDevice, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -2150,8 +2150,38 @@ impl ConfigProxyHandler {
             .set(matcher, (m, tile_state));
         Ok(())
     }
+
     fn handle_set_pointer_revert_key(&self, seat: Seat, key: KeySym) -> Result<(), CphError> {
         self.get_seat(seat)?.set_pointer_revert_key(key);
+        Ok(())
+    }
+
+    fn handle_seat_focus_history(&self, seat: Seat, timeline: Timeline) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        match timeline {
+            Timeline::Older => seat.focus_prev(),
+            Timeline::Newer => seat.focus_next(),
+        }
+        Ok(())
+    }
+
+    fn handle_seat_focus_history_set_only_visible(
+        &self,
+        seat: Seat,
+        visible: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.focus_history_set_visible(visible);
+        Ok(())
+    }
+
+    fn handle_seat_focus_history_set_same_workspace(
+        &self,
+        seat: Seat,
+        same_workspace: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.focus_history_set_same_workspace(same_workspace);
         Ok(())
     }
 
@@ -2997,6 +3027,18 @@ impl ConfigProxyHandler {
                 .wrn("get_content_type")?,
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
+            ClientMessage::SeatFocusHistory { seat, timeline } => self
+                .handle_seat_focus_history(seat, timeline)
+                .wrn("seat_focus_history")?,
+            ClientMessage::SeatFocusHistorySetOnlyVisible { seat, only_visible } => self
+                .handle_seat_focus_history_set_only_visible(seat, only_visible)
+                .wrn("seat_focus_history_set_only_visible")?,
+            ClientMessage::SeatFocusHistorySetSameWorkspace {
+                seat,
+                same_workspace,
+            } => self
+                .handle_seat_focus_history_set_same_workspace(seat, same_workspace)
+                .wrn("seat_focus_history_set_same_workspace")?,
         }
         Ok(())
     }

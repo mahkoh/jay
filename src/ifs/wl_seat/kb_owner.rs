@@ -87,7 +87,7 @@ impl KbOwner for DefaultKbOwner {
             old.node_active_changed(false);
         }
 
-        if node.node_seat_state().focus(seat) {
+        if node.node_seat_state().focus(&node, seat) {
             node.node_active_changed(true);
         }
         // log::info!("focus {}", node.node_id());

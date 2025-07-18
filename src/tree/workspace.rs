@@ -324,6 +324,10 @@ impl Node for WorkspaceNode {
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(fs) = self.fullscreen.get() {
             fs.node_do_focus(seat, direction);
+        } else if self.stacked.is_not_empty()
+            && let Some(last) = seat.get_last_focus_on_workspace(&self)
+        {
+            seat.focus_node(last);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
         } else if let Some(float) = self

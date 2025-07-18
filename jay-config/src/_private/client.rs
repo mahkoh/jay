@@ -15,8 +15,8 @@ use {
         client::{Client, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability, clickmethod::ClickMethod,
+            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, Timeline,
+            acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{
             Keymap,
@@ -362,6 +362,21 @@ impl ConfigClient {
 
     pub fn grab(&self, kb: InputDevice, grab: bool) {
         self.send(&ClientMessage::GrabKb { kb, grab });
+    }
+
+    pub fn seat_focus_history(&self, seat: Seat, timeline: Timeline) {
+        self.send(&ClientMessage::SeatFocusHistory { seat, timeline });
+    }
+
+    pub fn seat_focus_history_set_only_visible(&self, seat: Seat, only_visible: bool) {
+        self.send(&ClientMessage::SeatFocusHistorySetOnlyVisible { seat, only_visible });
+    }
+
+    pub fn seat_focus_history_set_same_workspace(&self, seat: Seat, same_workspace: bool) {
+        self.send(&ClientMessage::SeatFocusHistorySetSameWorkspace {
+            seat,
+            same_workspace,
+        });
     }
 
     pub fn seat_focus(&self, seat: Seat, direction: Direction) {

@@ -1802,6 +1802,20 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `focus-history` (optional):
+
+  Configures the focus-history settings.
+  
+  - Example:
+  
+    ```toml
+    [focus-history]
+    only-visible: true
+    same-workspace: true
+    ```
+
+  The value of this field should be a [FocusHistory](#types-FocusHistory).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2226,6 +2240,42 @@ The table has the following fields:
 - `show-pin-icon` (optional):
 
   Sets whether floating windows always show a pin icon.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
+
+<a name="types-FocusHistory"></a>
+### `FocusHistory`
+
+Describes settings of the focus history.
+
+- Example:
+
+  ```toml
+  [focus-history]
+  only-visible: true
+  same-workspace: true
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `only-visible` (optional):
+
+  Sets whether the focus history only moves to windows that are already visible.
+  
+  If this is false, then the window will be made visible before focusing it.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
+- `same-workspace` (optional):
+
+  Sets whether the focus history only moves to windows on the same workspace.
   
   The default is `false`.
 
@@ -3616,6 +3666,14 @@ The string should have one of the following values:
 - `toggle-bar`:
 
   Toggles the built-in bar.
+
+- `focus-prev`:
+
+  Focuses the previous window in the focus history.
+
+- `focus-next`:
+
+  Focuses the next window in the focus history.
 
 
 

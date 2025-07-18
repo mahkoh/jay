@@ -887,6 +887,10 @@
         "show-bar": {
           "type": "boolean",
           "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
+        },
+        "focus-history": {
+          "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
+          "$ref": "#/$defs/FocusHistory"
         }
       },
       "required": []
@@ -1090,6 +1094,21 @@
         "show-pin-icon": {
           "type": "boolean",
           "description": "Sets whether floating windows always show a pin icon.\n\nThe default is `false`.\n"
+        }
+      },
+      "required": []
+    },
+    "FocusHistory": {
+      "description": "Describes settings of the focus history.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
+      "type": "object",
+      "properties": {
+        "only-visible": {
+          "type": "boolean",
+          "description": "Sets whether the focus history only moves to windows that are already visible.\n\nIf this is false, then the window will be made visible before focusing it.\n\nThe default is `false`.\n"
+        },
+        "same-workspace": {
+          "type": "boolean",
+          "description": "Sets whether the focus history only moves to windows on the same workspace.\n\nThe default is `false`.\n"
         }
       },
       "required": []
@@ -1593,7 +1612,9 @@
         "kill-client",
         "show-bar",
         "hide-bar",
-        "toggle-bar"
+        "toggle-bar",
+        "focus-prev",
+        "focus-next"
       ]
     },
     "Status": {

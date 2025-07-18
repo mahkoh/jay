@@ -4,8 +4,8 @@ use {
         Axis, Direction, PciId, Workspace,
         client::{Client, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, acceleration::AccelProfile,
-            capability::Capability, clickmethod::ClickMethod,
+            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, Timeline,
+            acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -725,6 +725,18 @@ pub enum ClientMessage<'a> {
         show: bool,
     },
     GetShowBar,
+    SeatFocusHistory {
+        seat: Seat,
+        timeline: Timeline,
+    },
+    SeatFocusHistorySetOnlyVisible {
+        seat: Seat,
+        only_visible: bool,
+    },
+    SeatFocusHistorySetSameWorkspace {
+        seat: Seat,
+        same_workspace: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

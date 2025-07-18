@@ -117,11 +117,8 @@ pub enum FindTreeUsecase {
 
 #[derive(Copy, Clone)]
 pub enum NodeLocation {
-    Workspace(
-        #[expect(dead_code)] OutputNodeId,
-        #[expect(dead_code)] WorkspaceNodeId,
-    ),
-    Output(#[expect(dead_code)] OutputNodeId),
+    Workspace(OutputNodeId, WorkspaceNodeId),
+    Output(OutputNodeId),
 }
 
 pub trait Node: 'static {

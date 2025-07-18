@@ -28,14 +28,16 @@ pub struct DisplayNode {
 
 impl DisplayNode {
     pub fn new(id: NodeId) -> Self {
-        Self {
+        let slf = Self {
             id,
             extents: Default::default(),
             outputs: Default::default(),
             stacked: Default::default(),
             stacked_above_layers: Default::default(),
             seat_state: Default::default(),
-        }
+        };
+        slf.seat_state.disable_focus_history();
+        slf
     }
 
     pub fn clear(&self) {
