@@ -95,6 +95,22 @@ pub struct RootMatchers {
     content_ty: TlmRootMatcherMap<TlmMatchContentType>,
 }
 
+impl RootMatchers {
+    fn clear(&self) {
+        self.kinds.clear();
+        self.clients.clear();
+        self.title.clear();
+        self.tag.clear();
+        self.app_id.clear();
+        self.seat_foci.clear();
+        self.class.clear();
+        self.instance.clear();
+        self.role.clear();
+        self.workspace.clear();
+        self.content_ty.clear();
+    }
+}
+
 pub async fn handle_tl_changes(state: Rc<State>) {
     let mgr = &state.tl_matcher_manager;
     loop {
@@ -159,6 +175,13 @@ impl TlMatcherManager {
         self.changes.clear();
         self.leaf_events.clear();
         self.handle_just_mapped.clear();
+        self.constant.values().for_each(|c| c.clear());
+        self.floating.values().for_each(|c| c.clear());
+        self.visible.values().for_each(|c| c.clear());
+        self.urgent.values().for_each(|c| c.clear());
+        self.fullscreen.values().for_each(|c| c.clear());
+        self.just_mapped.values().for_each(|c| c.clear());
+        self.matchers.clear();
     }
 
     pub fn rematch_all(&self, state: &Rc<State>) {

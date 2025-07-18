@@ -125,6 +125,10 @@ where
         }
     }
 
+    pub fn clear(&self) {
+        self.nodes.clear()
+    }
+
     pub fn update_matched(
         &self,
         target: &Target,
