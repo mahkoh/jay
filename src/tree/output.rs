@@ -439,7 +439,6 @@ impl OutputNode {
         for workspace in workspaces {
             workspace.clear();
         }
-        self.render_data.borrow_mut().titles.clear();
         self.lock_surface.take();
         self.jay_outputs.clear();
         self.screencasts.clear();
@@ -449,6 +448,7 @@ impl OutputNode {
         self.latch_event.clear();
         self.vblank_event.clear();
         self.presentation_event.clear();
+        self.render_data.borrow_mut().clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -1419,6 +1419,13 @@ pub struct OutputRenderData {
     pub captured_inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
     pub status: Option<OutputStatus>,
+}
+
+impl OutputRenderData {
+    fn clear(&mut self) {
+        self.titles.clear();
+        self.status.take();
+    }
 }
 
 impl Debug for OutputNode {
