@@ -866,6 +866,15 @@ impl ToplevelData {
             self.property_changed(TL_CHANGED_CONTENT_TY);
         }
     }
+
+    pub fn make_visible(&self, slf: &dyn Node) {
+        if self.visible.get() {
+            return;
+        }
+        if let Some(parent) = self.parent.get() {
+            parent.cnode_make_visible(slf);
+        }
+    }
 }
 
 impl Drop for ToplevelData {

@@ -1818,6 +1818,12 @@ impl Node for WlSurface {
         self.ext.get().tray_item()
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.node_make_visible();
+        }
+    }
+
     fn node_on_key(
         &self,
         seat: &WlSeatGlobal,

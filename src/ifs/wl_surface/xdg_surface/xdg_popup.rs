@@ -45,6 +45,7 @@ pub trait XdgPopupParent {
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
     fn visible(&self) -> bool;
+    fn make_visible(self: Rc<Self>);
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
@@ -344,6 +345,12 @@ impl Node for XdgPopup {
         Some(self.xdg.surface.client.clone())
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        if let Some(parent) = self.parent.get() {
+            parent.make_visible();
+        }
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.enter_popup(&self);
     }
@@ -429,6 +436,10 @@ impl XdgSurfaceExt for XdgPopup {
 
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.get()?.tray_item()
+    }
+
+    fn make_visible(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

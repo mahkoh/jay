@@ -724,6 +724,10 @@ impl XdgPopupParent for Popup {
     fn visible(&self) -> bool {
         self.parent.node_visible()
     }
+
+    fn make_visible(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 object_base! {

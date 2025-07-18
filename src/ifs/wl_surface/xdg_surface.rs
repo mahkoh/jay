@@ -146,6 +146,12 @@ impl XdgPopupParent for Popup {
         self.parent.surface.visible.get()
     }
 
+    fn make_visible(self: Rc<Self>) {
+        if let Some(ext) = self.parent.ext.get() {
+            ext.make_visible();
+        }
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.clone().tray_item()
     }
@@ -193,6 +199,8 @@ pub trait XdgSurfaceExt: Debug {
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
+
+    fn make_visible(self: Rc<Self>);
 }
 
 impl XdgSurface {

@@ -1636,6 +1636,10 @@ impl Node for ContainerNode {
         Some(self)
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        self.toplevel_data.make_visible(&*self);
+    }
+
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -1917,6 +1921,28 @@ impl ContainingNode for ContainerNode {
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self.workspace.get()
+    }
+
+    fn cnode_make_visible(self: Rc<Self>, child: &dyn Node) {
+        let Some(child) = self
+            .child_nodes
+            .borrow()
+            .get(&child.node_id())
+            .map(|n| n.to_ref())
+        else {
+            return;
+        };
+        self.toplevel_data.make_visible(&*self);
+        if !self.node_visible() {
+            return;
+        }
+        let Some(cur) = self.mono_child.get() else {
+            return;
+        };
+        if cur.node.node_id() == child.node.node_id() {
+            return;
+        }
+        self.activate_child(&child);
     }
 
     fn cnode_set_child_position(self: Rc<Self>, child: &dyn Node, x: i32, y: i32) {

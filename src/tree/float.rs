@@ -752,6 +752,13 @@ impl Node for FloatNode {
         renderer.render_floating(self, x, y)
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        if self.visible.get() {
+            return;
+        }
+        self.workspace.get().cnode_make_visible(&*self);
+    }
+
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -902,6 +909,10 @@ impl ContainingNode for FloatNode {
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self.workspace.get()
+    }
+
+    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
+        self.node_make_visible();
     }
 
     fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {

@@ -193,6 +193,10 @@ pub trait Node: 'static {
         None
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        // nothing
+    }
+
     // EVENT HANDLERS
 
     fn node_on_key(

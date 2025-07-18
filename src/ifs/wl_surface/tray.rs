@@ -212,6 +212,10 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         self.parent.node_visible()
     }
 
+    fn make_visible(self: Rc<Self>) {
+        // nothing
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         Some(self.parent.data().tray_item_id)
     }

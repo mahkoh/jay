@@ -610,6 +610,10 @@ impl Node for XdgToplevel {
         Some(self)
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        self.toplevel_data.make_visible(&*self)
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.enter_toplevel(self.clone());
     }
@@ -779,6 +783,10 @@ impl XdgSurfaceExt for XdgToplevel {
             .client
             .state
             .damage(self.node_absolute_position());
+    }
+
+    fn make_visible(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

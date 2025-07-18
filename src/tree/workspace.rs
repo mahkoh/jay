@@ -359,6 +359,13 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        if self.is_dummy {
+            return;
+        }
+        self.state.show_workspace2(None, &self);
+    }
+
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("workspace focus");
         seat.pointer_cursor().set_known(KnownCursor::Default);
@@ -433,6 +440,10 @@ impl ContainingNode for WorkspaceNode {
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self
+    }
+
+    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
+        self.node_make_visible();
     }
 }
 
