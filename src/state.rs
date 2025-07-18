@@ -1073,6 +1073,7 @@ impl State {
         self.cursor_user_groups.clear();
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
+        self.wait_for_sync_obj.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
