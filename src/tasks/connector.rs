@@ -404,6 +404,7 @@ impl ConnectorHandler {
         }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
+        on.clear();
         let _ = self.state.remove_global(&global);
         let _ = self.state.remove_global(&tray);
         self.state.tree_changed();

@@ -446,6 +446,9 @@ impl OutputNode {
         self.screencopies.clear();
         self.ext_copy_sessions.clear();
         self.ext_workspace_groups.clear();
+        self.latch_event.clear();
+        self.vblank_event.clear();
+        self.presentation_event.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
