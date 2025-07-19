@@ -2084,6 +2084,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
+        self.workspace.set(ws.clone());
         for child in self.children.iter() {
             child.node.clone().tl_set_workspace(ws);
         }
