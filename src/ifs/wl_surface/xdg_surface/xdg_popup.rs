@@ -19,8 +19,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, StackedNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode,
         },
         utils::clonecell::CloneCell,
         wire::{XdgPopupId, xdg_popup::*},
@@ -327,6 +327,10 @@ impl Node for XdgPopup {
 
     fn node_layer(&self) -> NodeLayerLink {
         XdgSurfaceExt::node_layer(self)
+    }
+
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_node(self.xdg.surface.clone());
     }
 
     fn node_find_tree_at(

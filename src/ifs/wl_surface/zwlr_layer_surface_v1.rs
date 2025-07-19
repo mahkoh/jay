@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_output::OutputGlobalOpt,
-            wl_seat::NodeSeatState,
+            wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
@@ -15,8 +15,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, StackedNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode,
         },
         utils::{
             bitflags::BitflagsExt,
@@ -681,6 +681,10 @@ impl Node for ZwlrLayerSurfaceV1 {
 
     fn node_accepts_focus(&self) -> bool {
         self.keyboard_interactivity.get() != KI_NONE
+    }
+
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_node(self.surface.clone())
     }
 
     fn node_find_tree_at(

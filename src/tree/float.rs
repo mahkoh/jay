@@ -727,6 +727,12 @@ impl Node for FloatNode {
         false
     }
 
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(c) = self.child.get() {
+            c.node_do_focus(seat, direction);
+        }
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
