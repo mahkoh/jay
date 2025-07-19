@@ -4,7 +4,7 @@ use {
         Axis, Direction, PciId, Workspace,
         client::{Client, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, Timeline,
+            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
             acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
@@ -736,6 +736,10 @@ pub enum ClientMessage<'a> {
     SeatFocusHistorySetSameWorkspace {
         seat: Seat,
         same_workspace: bool,
+    },
+    SeatFocusLayerRel {
+        seat: Seat,
+        direction: LayerDirection,
     },
 }
 

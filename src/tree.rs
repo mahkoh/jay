@@ -141,22 +141,21 @@ pub enum NodeLayer {
 
 pub enum NodeLayerLink {
     Display,
-    Layer0(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer1(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer0(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer1(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
     Output,
     Workspace,
     Tiled,
     Fullscreen,
-    Stacked(#[expect(dead_code)] NodeRef<Rc<dyn StackedNode>>),
-    Layer2(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer3(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    StackedAboveLayers(#[expect(dead_code)] NodeRef<Rc<dyn StackedNode>>),
+    Stacked(NodeRef<Rc<dyn StackedNode>>),
+    Layer2(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer3(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    StackedAboveLayers(NodeRef<Rc<dyn StackedNode>>),
     Lock,
     InputMethod,
 }
 
 impl NodeLayerLink {
-    #[expect(dead_code)]
     pub fn layer(&self) -> NodeLayer {
         macro_rules! map {
             ($($id:ident,)*) => {
@@ -186,7 +185,6 @@ impl NodeLayerLink {
 }
 
 impl NodeLayer {
-    #[expect(dead_code)]
     pub fn prev(self) -> Self {
         if self == NodeLayer::Display {
             return NodeLayer::InputMethod;
@@ -194,7 +192,6 @@ impl NodeLayer {
         Self::from_linear(self.linearize() - 1).unwrap_or(NodeLayer::InputMethod)
     }
 
-    #[expect(dead_code)]
     pub fn next(self) -> Self {
         Self::from_linear(self.linearize() + 1).unwrap_or(NodeLayer::Display)
     }
@@ -216,7 +213,6 @@ pub trait Node: 'static {
         let _ = title;
     }
 
-    #[expect(dead_code)]
     fn node_accepts_focus(&self) -> bool {
         true
     }

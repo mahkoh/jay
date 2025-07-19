@@ -189,6 +189,13 @@ pub enum Timeline {
     Newer,
 }
 
+/// A direction for layer traversal.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum LayerDirection {
+    Below,
+    Above,
+}
+
 /// A seat.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Seat(pub u64);
@@ -301,6 +308,12 @@ impl Seat {
     /// The default is `false`.
     pub fn focus_history_set_same_workspace(self, same_workspace: bool) {
         get!().seat_focus_history_set_same_workspace(self, same_workspace)
+    }
+
+    /// Moves the keyboard focus of the seat to the layer above or below the current
+    /// layer.
+    pub fn focus_layer_rel(self, direction: LayerDirection) {
+        get!().seat_focus_layer_rel(self, direction)
     }
 
     /// Moves the keyboard focus of the seat in the specified direction.

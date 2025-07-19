@@ -864,6 +864,10 @@ SimpleActionName:
       description: Focuses the previous window in the focus history.
     - value: focus-next
       description: Focuses the next window in the focus history.
+    - value: focus-below
+      description: Focuses the layer below the currently focused layer.
+    - value: focus-above
+      description: Focuses the layer above the currently focused layer.
 
 
 Color:

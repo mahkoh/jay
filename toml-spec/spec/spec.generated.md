@@ -3675,6 +3675,14 @@ The string should have one of the following values:
 
   Focuses the next window in the focus history.
 
+- `focus-below`:
+
+  Focuses the layer below the currently focused layer.
+
+- `focus-above`:
+
+  Focuses the layer above the currently focused layer.
+
 
 
 <a name="types-Status"></a>

@@ -1614,7 +1614,9 @@
         "hide-bar",
         "toggle-bar",
         "focus-prev",
-        "focus-next"
+        "focus-next",
+        "focus-below",
+        "focus-above"
       ]
     },
     "Status": {

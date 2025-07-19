@@ -54,7 +54,7 @@ use {
         Axis, Direction, Workspace,
         client::{Client as ConfigClient, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, Timeline,
+            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -2185,6 +2185,19 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_focus_layer_rel(
+        &self,
+        seat: Seat,
+        direction: LayerDirection,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        match direction {
+            LayerDirection::Below => seat.focus_layer_below(),
+            LayerDirection::Above => seat.focus_layer_above(),
+        }
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3039,6 +3052,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_seat_focus_history_set_same_workspace(seat, same_workspace)
                 .wrn("seat_focus_history_set_same_workspace")?,
+            ClientMessage::SeatFocusLayerRel { seat, direction } => self
+                .handle_seat_focus_layer_rel(seat, direction)
+                .wrn("seat_focus_layer_rel")?,
         }
         Ok(())
     }
