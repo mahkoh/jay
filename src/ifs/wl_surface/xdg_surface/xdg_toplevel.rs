@@ -27,7 +27,7 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
+            NodeLocation, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
             ToplevelNodeBase, ToplevelNodeId, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
@@ -512,7 +512,7 @@ impl XdgToplevel {
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();
-                surface.set_output(&output);
+                surface.set_output(&output, workspace.location());
             }
             // {
             //     let seats = surface.client.state.globals.lock_seats();
@@ -571,6 +571,10 @@ impl Node for XdgToplevel {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.toplevel_data.output_opt()
+    }
+
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.xdg.surface.node_location()
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {

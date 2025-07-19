@@ -18,8 +18,8 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, OutputNode, TddType, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_bounds,
+            NodeId, NodeLocation, OutputNode, TddType, TileDragDestination, ToplevelData,
+            ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_bounds,
             toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
@@ -129,6 +129,7 @@ pub struct ContainerNode {
     focus_history: LinkedList<NodeRef<ContainerChild>>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     workspace: CloneCell<Rc<WorkspaceNode>>,
+    location: Cell<NodeLocation>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
@@ -235,6 +236,7 @@ impl ContainerNode {
             focus_history: Default::default(),
             child_nodes: RefCell::new(child_nodes),
             workspace: CloneCell::new(workspace.clone()),
+            location: Cell::new(workspace.location()),
             cursors: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
@@ -1547,6 +1549,10 @@ impl Node for ContainerNode {
         self.toplevel_data.output_opt()
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        Some(self.location.get())
+    }
+
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         if let Some(child) = self.child_nodes.borrow().get(&child.node_id()) {
             self.update_child_title(child, title);
@@ -2085,6 +2091,7 @@ impl ToplevelNodeBase for ContainerNode {
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(ws.clone());
+        self.location.set(ws.location());
         for child in self.children.iter() {
             child.node.clone().tl_set_workspace(ws);
         }

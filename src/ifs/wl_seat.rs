@@ -79,8 +79,8 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, OutputNode,
-            ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, NodeLocation,
+            OutputNode, ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
             toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
@@ -717,7 +717,9 @@ impl WlSeatGlobal {
         serial: u64,
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
-            icon.surface().set_output(&self.pointer_cursor.output());
+            let output = self.pointer_cursor.output();
+            icon.surface()
+                .set_output(&output, NodeLocation::Output(output.id));
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
@@ -1082,7 +1084,8 @@ impl WlSeatGlobal {
 impl CursorUserOwner for WlSeatGlobal {
     fn output_changed(&self, output: &Rc<OutputNode>) {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
-            dnd.surface().set_output(output);
+            dnd.surface()
+                .set_output(output, NodeLocation::Output(output.id));
         }
         if let Some(drag) = self.pointer_owner.toplevel_drag()
             && let Some(tl) = drag.toplevel.get()

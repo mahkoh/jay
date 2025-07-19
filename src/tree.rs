@@ -115,6 +115,15 @@ pub enum FindTreeUsecase {
     SelectWorkspace,
 }
 
+#[derive(Copy, Clone)]
+pub enum NodeLocation {
+    Workspace(
+        #[expect(dead_code)] OutputNodeId,
+        #[expect(dead_code)] WorkspaceNodeId,
+    ),
+    Output(#[expect(dead_code)] OutputNodeId),
+}
+
 pub trait Node: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
@@ -123,6 +132,7 @@ pub trait Node: 'static {
     fn node_visible(&self) -> bool;
     fn node_absolute_position(&self) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
+    fn node_location(&self) -> Option<NodeLocation>;
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;

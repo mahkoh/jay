@@ -19,8 +19,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
-            StackedNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
+            OutputNode, StackedNode,
         },
         utils::clonecell::CloneCell,
         wire::{XdgPopupId, xdg_popup::*},
@@ -317,6 +317,10 @@ impl Node for XdgPopup {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.xdg.workspace.get().map(|w| w.output.get())
+    }
+
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.xdg.surface.node_location()
     }
 
     fn node_find_tree_at(

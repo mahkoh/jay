@@ -752,6 +752,7 @@ fn create_dummy_output(state: &Rc<State>) {
         state: state.clone(),
         is_dummy: true,
         output: CloneCell::new(dummy_output.clone()),
+        output_id: Cell::new(dummy_output.id),
         position: Default::default(),
         container: Default::default(),
         stacked: Default::default(),

@@ -12,8 +12,9 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_destination,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData,
+            ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -370,6 +371,10 @@ impl Node for Xwindow {
         self.toplevel_data.output_opt()
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.x.surface.node_location()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
@@ -446,7 +451,7 @@ impl ToplevelNodeBase for Xwindow {
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
-        self.x.surface.set_output(&ws.output.get());
+        self.x.surface.set_output(&ws.output.get(), ws.location());
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
@@ -456,7 +461,9 @@ impl ToplevelNodeBase for Xwindow {
             if self.data.info.override_redirect.get() {
                 let (x, y) = rect.center();
                 let output = self.data.state.find_closest_output(x, y).0;
-                self.x.surface.set_output(&output);
+                self.x
+                    .surface
+                    .set_output(&output, NodeLocation::Output(output.id));
             } else {
                 self.data
                     .state

@@ -76,8 +76,8 @@ use {
         renderer::Renderer,
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
-            LatchListener, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode, PlaceholderNode,
-            PresentationListener, ToplevelNode, VblankListener,
+            LatchListener, Node, NodeId, NodeLocation, NodeVisitor, NodeVisitorBase, OutputNode,
+            PlaceholderNode, PresentationListener, ToplevelNode, VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -319,6 +319,7 @@ pub struct WlSurface {
     idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
     output: CloneCell<Rc<OutputNode>>,
+    location: Cell<NodeLocation>,
     fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
     pub constraints: SmallMap<SeatId, Rc<SeatConstraint>, 1>,
     xwayland_serial: Cell<Option<u64>>,
@@ -623,6 +624,7 @@ pub struct StackElement {
 
 impl WlSurface {
     pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version, slf: &Weak<Self>) -> Self {
+        let dummy_output = client.state.dummy_output.get().unwrap();
         Self {
             id,
             node_id: client.state.node_ids.next(),
@@ -662,7 +664,8 @@ impl WlSurface {
             tracker: Default::default(),
             idle_inhibitors: Default::default(),
             viewporter: Default::default(),
-            output: CloneCell::new(client.state.dummy_output.get().unwrap()),
+            location: Cell::new(NodeLocation::Output(dummy_output.id)),
+            output: CloneCell::new(dummy_output),
             fractional_scale: Default::default(),
             constraints: Default::default(),
             xwayland_serial: Default::default(),
@@ -715,7 +718,8 @@ impl WlSurface {
         self.output.get()
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>) {
+    pub fn set_output(&self, output: &Rc<OutputNode>, location: NodeLocation) {
+        self.location.set(location);
         let old = self.output.set(output.clone());
         if old.id == output.id {
             return;
@@ -737,7 +741,7 @@ impl WlSurface {
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
-                ss.surface.set_output(output);
+                ss.surface.set_output(output, location);
             }
         }
     }
@@ -1786,6 +1790,10 @@ impl Node for WlSurface {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         Some(self.output.get())
+    }
+
+    fn node_location(&self) -> Option<NodeLocation> {
+        Some(self.location.get())
     }
 
     fn node_active_changed(&self, active: bool) {

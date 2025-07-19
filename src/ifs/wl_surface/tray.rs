@@ -11,8 +11,8 @@ use {
         },
         rect::Rect,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
-            StackedNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
+            OutputNode, StackedNode,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -300,6 +300,10 @@ impl<T: TrayItem> Node for T {
         self.data().output.node()
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.data().surface.node_location()
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
@@ -328,7 +332,8 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     data.surface.ext.set(item.clone());
     data.surface.set_visible(false);
     if let Some(node) = data.output.node() {
-        data.surface.set_output(&node);
+        data.surface
+            .set_output(&node, NodeLocation::Output(node.id));
         item.send_initial_configure();
     }
     Ok(())

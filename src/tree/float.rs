@@ -15,8 +15,8 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            OutputNode, PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceNode,
-            toplevel_set_floating, walker::NodeVisitor,
+            NodeLocation, OutputNode, PinnedNode, StackedNode, TileDragDestination, ToplevelNode,
+            WorkspaceNode, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -45,6 +45,7 @@ pub struct FloatNode {
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
+    pub location: Cell<NodeLocation>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
@@ -124,6 +125,7 @@ impl FloatNode {
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
+            location: Cell::new(ws.location()),
             child: CloneCell::new(Some(child.clone())),
             active: Cell::new(false),
             seat_state: Default::default(),
@@ -423,6 +425,7 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
+        self.location.set(ws.location());
         if update_visible {
             self.stacked_set_visible(ws.float_visible());
         }
@@ -700,6 +703,10 @@ impl Node for FloatNode {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         Some(self.workspace.get().output.get())
+    }
+
+    fn node_location(&self) -> Option<NodeLocation> {
+        Some(self.location.get())
     }
 
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
