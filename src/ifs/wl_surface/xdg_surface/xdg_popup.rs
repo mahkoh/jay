@@ -317,7 +317,7 @@ impl Node for XdgPopup {
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.xdg.workspace.get().map(|w| w.output.get())
+        Some(self.xdg.surface.output.get())
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
