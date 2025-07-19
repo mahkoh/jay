@@ -868,6 +868,8 @@ SimpleActionName:
       description: Focuses the layer below the currently focused layer.
     - value: focus-above
       description: Focuses the layer above the currently focused layer.
+    - value: focus-tiles
+      description: Focuses the tile layer.
 
 
 Color:

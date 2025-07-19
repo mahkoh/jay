@@ -936,6 +936,32 @@ impl WlSeatGlobal {
         );
     }
 
+    pub fn focus_tiles(self: &Rc<Self>) {
+        let current = self.keyboard_node.get();
+        if matches!(
+            current.node_layer().layer(),
+            NodeLayer::Tiled | NodeLayer::Fullscreen,
+        ) {
+            return;
+        }
+        let Some(output) = current.node_output() else {
+            return;
+        };
+        let Some(ws) = output.workspace.get() else {
+            return;
+        };
+        let node = match ws.fullscreen.get() {
+            Some(fs) => fs as Rc<dyn Node>,
+            _ => match ws.container.get() {
+                Some(c) => c,
+                _ => return,
+            },
+        };
+        if node.node_visible() && node.node_accepts_focus() {
+            node.node_do_focus(self, Direction::Unspecified);
+        }
+    }
+
     fn set_selection_<T, X, S>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<dyn DynDataSource>>>,

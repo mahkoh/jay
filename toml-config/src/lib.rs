@@ -164,6 +164,10 @@ impl Action {
                     let persistent = state.persistent.clone();
                     B::new(move || persistent.seat.focus_layer_rel(direction))
                 }
+                SimpleCommand::FocusTiles => {
+                    let persistent = state.persistent.clone();
+                    B::new(move || persistent.seat.focus_tiles())
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();

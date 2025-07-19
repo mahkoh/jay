@@ -741,6 +741,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         direction: LayerDirection,
     },
+    SeatFocusTiles {
+        seat: Seat,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

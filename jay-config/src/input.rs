@@ -316,6 +316,11 @@ impl Seat {
         get!().seat_focus_layer_rel(self, direction)
     }
 
+    /// Moves the keyboard focus to the tile layer.
+    pub fn focus_tiles(self) {
+        get!().seat_focus_tiles(self)
+    }
+
     /// Moves the keyboard focus of the seat in the specified direction.
     pub fn focus(self, direction: Direction) {
         get!().seat_focus(self, direction)

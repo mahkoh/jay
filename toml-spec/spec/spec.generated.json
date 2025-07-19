@@ -1616,7 +1616,8 @@
         "focus-prev",
         "focus-next",
         "focus-below",
-        "focus-above"
+        "focus-above",
+        "focus-tiles"
       ]
     },
     "Status": {

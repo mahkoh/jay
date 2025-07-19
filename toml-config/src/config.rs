@@ -76,6 +76,7 @@ pub enum SimpleCommand {
     ToggleBar,
     FocusHistory(Timeline),
     FocusLayerRel(LayerDirection),
+    FocusTiles,
 }
 
 #[derive(Debug, Clone)]

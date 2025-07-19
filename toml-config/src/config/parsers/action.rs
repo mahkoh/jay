@@ -141,6 +141,7 @@ impl ActionParser<'_> {
             "focus-next" => FocusHistory(Timeline::Newer),
             "focus-below" => FocusLayerRel(LayerDirection::Below),
             "focus-above" => FocusLayerRel(LayerDirection::Above),
+            "focus-tiles" => FocusTiles,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

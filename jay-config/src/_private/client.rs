@@ -383,6 +383,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatFocusLayerRel { seat, direction });
     }
 
+    pub fn seat_focus_tiles(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatFocusTiles { seat });
+    }
+
     pub fn seat_focus(&self, seat: Seat, direction: Direction) {
         self.send(&ClientMessage::SeatFocus { seat, direction });
     }

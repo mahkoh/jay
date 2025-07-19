@@ -2198,6 +2198,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_focus_tiles(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.focus_tiles();
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3055,6 +3061,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatFocusLayerRel { seat, direction } => self
                 .handle_seat_focus_layer_rel(seat, direction)
                 .wrn("seat_focus_layer_rel")?,
+            ClientMessage::SeatFocusTiles { seat } => {
+                self.handle_seat_focus_tiles(seat).wrn("seat_focus_tiles")?
+            }
         }
         Ok(())
     }
