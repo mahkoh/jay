@@ -9,6 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
+        tree::NodeLayerLink,
         wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -27,6 +28,10 @@ pub struct ZwpInputPopupSurfaceV2 {
 }
 
 impl SurfaceExt for ZwpInputPopupSurfaceV2 {
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::InputMethod
+    }
+
     fn after_apply_commit(self: Rc<Self>) {
         self.update_visible();
         if self.surface.visible.get() {

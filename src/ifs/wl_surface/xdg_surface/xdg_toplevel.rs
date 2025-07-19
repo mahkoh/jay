@@ -27,9 +27,9 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLocation, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelNodeId, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire::{XdgToplevelId, xdg_toplevel::*},
@@ -577,6 +577,10 @@ impl Node for XdgToplevel {
         self.xdg.surface.node_location()
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        self.toplevel_data.node_layer()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
@@ -787,6 +791,10 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn make_visible(self: Rc<Self>) {
         self.node_make_visible();
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        self.toplevel_data.node_layer()
     }
 }
 

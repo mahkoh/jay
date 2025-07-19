@@ -18,9 +18,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLocation, OutputNode, TddType, TileDragDestination, ToplevelData,
-            ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_bounds,
-            toplevel_set_floating, walker::NodeVisitor,
+            NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            default_tile_drag_bounds, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1551,6 +1551,10 @@ impl Node for ContainerNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location.get())
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        self.toplevel_data.node_layer()
     }
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {

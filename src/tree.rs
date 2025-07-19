@@ -13,14 +13,15 @@ use {
                 },
                 wl_pointer::PendingScroll,
             },
-            wl_surface::{WlSurface, tray::TrayItemId},
+            wl_surface::{WlSurface, tray::TrayItemId, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1},
         },
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
-        utils::numcell::NumCell,
+        utils::{linkedlist::NodeRef, numcell::NumCell},
     },
     jay_config::Direction as JayDirection,
+    linearize::{Linearize, LinearizeExt},
     std::{
         fmt::{Debug, Display},
         rc::Rc,
@@ -121,6 +122,84 @@ pub enum NodeLocation {
     Output(OutputNodeId),
 }
 
+#[derive(Copy, Clone, Linearize, Eq, PartialEq, Debug)]
+pub enum NodeLayer {
+    Display,
+    Layer0,
+    Layer1,
+    Output,
+    Workspace,
+    Tiled,
+    Fullscreen,
+    Stacked,
+    Layer2,
+    Layer3,
+    StackedAboveLayers,
+    Lock,
+    InputMethod,
+}
+
+pub enum NodeLayerLink {
+    Display,
+    Layer0(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer1(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Output,
+    Workspace,
+    Tiled,
+    Fullscreen,
+    Stacked(#[expect(dead_code)] NodeRef<Rc<dyn StackedNode>>),
+    Layer2(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer3(#[expect(dead_code)] NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    StackedAboveLayers(#[expect(dead_code)] NodeRef<Rc<dyn StackedNode>>),
+    Lock,
+    InputMethod,
+}
+
+impl NodeLayerLink {
+    #[expect(dead_code)]
+    pub fn layer(&self) -> NodeLayer {
+        macro_rules! map {
+            ($($id:ident,)*) => {
+                match self {
+                    $(
+                        Self::$id { .. } => NodeLayer::$id,
+                    )*
+                }
+            };
+        }
+        map! {
+            Display,
+            Layer0,
+            Layer1,
+            Output,
+            Workspace,
+            Tiled,
+            Fullscreen,
+            Stacked,
+            Layer2,
+            Layer3,
+            StackedAboveLayers,
+            Lock,
+            InputMethod,
+        }
+    }
+}
+
+impl NodeLayer {
+    #[expect(dead_code)]
+    pub fn prev(self) -> Self {
+        if self == NodeLayer::Display {
+            return NodeLayer::InputMethod;
+        }
+        Self::from_linear(self.linearize() - 1).unwrap_or(NodeLayer::InputMethod)
+    }
+
+    #[expect(dead_code)]
+    pub fn next(self) -> Self {
+        Self::from_linear(self.linearize() + 1).unwrap_or(NodeLayer::Display)
+    }
+}
+
 pub trait Node: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
@@ -130,6 +209,7 @@ pub trait Node: 'static {
     fn node_absolute_position(&self) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
     fn node_location(&self) -> Option<NodeLocation>;
+    fn node_layer(&self) -> NodeLayerLink;
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;

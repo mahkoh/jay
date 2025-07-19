@@ -15,8 +15,8 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLocation, OutputNode, PinnedNode, StackedNode, TileDragDestination, ToplevelNode,
-            WorkspaceNode, toplevel_set_floating, walker::NodeVisitor,
+            NodeLayerLink, NodeLocation, OutputNode, PinnedNode, StackedNode, TileDragDestination,
+            ToplevelNode, WorkspaceNode, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -707,6 +707,13 @@ impl Node for FloatNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location.get())
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(l) = self.display_link.borrow().as_ref().map(|l| l.to_ref()) else {
+            return NodeLayerLink::Display;
+        };
+        NodeLayerLink::Stacked(l)
     }
 
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {

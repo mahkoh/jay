@@ -19,7 +19,8 @@ use {
         object::Object,
         rect::Rect,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeLocation, OutputNode, StackedNode, WorkspaceNode,
+            FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, OutputNode, StackedNode,
+            WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -75,6 +76,7 @@ pub struct XdgSurface {
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<LinkedList<Rc<dyn StackedNode>>>>,
+    is_above_layers: Cell<bool>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
@@ -152,6 +154,16 @@ impl XdgPopupParent for Popup {
         }
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(link) = self.display_link.borrow().as_ref().map(|w| w.to_ref()) else {
+            return NodeLayerLink::Display;
+        };
+        match self.popup.xdg.is_above_layers.get() {
+            true => NodeLayerLink::StackedAboveLayers(link),
+            false => NodeLayerLink::Stacked(link),
+        }
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.clone().tray_item()
     }
@@ -201,6 +213,8 @@ pub trait XdgSurfaceExt: Debug {
     }
 
     fn make_visible(self: Rc<Self>);
+
+    fn node_layer(&self) -> NodeLayerLink;
 }
 
 impl XdgSurface {
@@ -217,6 +231,7 @@ impl XdgSurface {
             absolute_desired_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
+            is_above_layers: Cell::new(false),
             popups: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
@@ -331,7 +346,12 @@ impl XdgSurface {
         })
     }
 
-    pub fn set_popup_stack(&self, stack: &Rc<LinkedList<Rc<dyn StackedNode>>>) {
+    pub fn set_popup_stack(
+        &self,
+        stack: &Rc<LinkedList<Rc<dyn StackedNode>>>,
+        is_above_layers: bool,
+    ) {
+        self.is_above_layers.set(is_above_layers);
         let prev = self.popup_display_stack.set(stack.clone());
         if rc_eq(&prev, stack) {
             return;
@@ -340,7 +360,7 @@ impl XdgSurface {
             if let Some(dl) = &*popup.display_link.borrow() {
                 stack.add_last_existing(dl);
             }
-            popup.popup.xdg.set_popup_stack(stack);
+            popup.popup.xdg.set_popup_stack(stack, is_above_layers);
         }
     }
 
@@ -423,7 +443,10 @@ impl XdgSurfaceRequestHandler for XdgSurface {
                 workspace_link: Default::default(),
             });
             popup.parent.set(Some(user.clone()));
-            popup.xdg.set_popup_stack(&parent.popup_display_stack.get());
+            popup.xdg.set_popup_stack(
+                &parent.popup_display_stack.get(),
+                parent.is_above_layers.get(),
+            );
             popup.xdg.set_output(&parent.surface.output.get());
             parent.popups.set(req.id, user);
         }
@@ -526,6 +549,13 @@ impl Object for XdgSurface {
 dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 
 impl SurfaceExt for XdgSurface {
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(ext) = self.ext.get() else {
+            return NodeLayerLink::Display;
+        };
+        ext.node_layer()
+    }
+
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,

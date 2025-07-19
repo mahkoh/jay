@@ -12,8 +12,8 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination, ToplevelData,
-            ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
@@ -373,6 +373,13 @@ impl Node for Xwindow {
 
     fn node_location(&self) -> Option<NodeLocation> {
         self.x.surface.node_location()
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        if let Some(link) = self.display_link.borrow().as_ref() {
+            return NodeLayerLink::Stacked(link.to_ref());
+        }
+        self.toplevel_data.node_layer()
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {

@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::Node,
+        tree::{Node, NodeLayerLink},
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
@@ -361,6 +361,10 @@ impl Object for WlSubsurface {
 simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
+    fn node_layer(&self) -> NodeLayerLink {
+        self.parent.node_layer()
+    }
+
     fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         if self.sync() {
             let mut parent_pending = self.pending();

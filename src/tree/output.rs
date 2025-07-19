@@ -43,9 +43,9 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation,
-            PinnedNode, StackedNode, TddType, TileDragDestination, WorkspaceDragDestination,
-            WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
+            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
@@ -1476,6 +1476,10 @@ impl Node for OutputNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         Some(NodeLocation::Output(self.id))
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Output
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {

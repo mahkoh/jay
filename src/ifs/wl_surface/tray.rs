@@ -11,8 +11,8 @@ use {
         },
         rect::Rect,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
-            OutputNode, StackedNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
+            NodeVisitor, OutputNode, StackedNode,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -216,6 +216,13 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         // nothing
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(link) = self.stack_link.borrow().as_ref().map(|w| w.to_ref()) else {
+            return NodeLayerLink::Display;
+        };
+        NodeLayerLink::Stacked(link)
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         Some(self.parent.data().tray_item_id)
     }
@@ -230,6 +237,10 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
 }
 
 impl<T: TrayItem> SurfaceExt for T {
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Output
+    }
+
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
@@ -308,6 +319,10 @@ impl<T: TrayItem> Node for T {
         self.data().surface.node_location()
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Output
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
@@ -384,7 +399,7 @@ fn get_popup<T: TrayItem>(
     };
     seat.add_tray_item_popup(item, &popup);
     let stack = data.client.state.root.stacked.clone();
-    popup.xdg.set_popup_stack(&stack);
+    popup.xdg.set_popup_stack(&stack, false);
     popup.xdg.set_output(&node);
     let user = Rc::new(Popup {
         parent: item.clone(),

@@ -11,8 +11,9 @@ use {
         text::TextTexture,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLocation, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_destination,
+            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -179,6 +180,10 @@ impl Node for PlaceholderNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         self.location.get()
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        self.toplevel.node_layer()
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {

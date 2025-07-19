@@ -76,8 +76,8 @@ use {
         renderer::Renderer,
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
-            LatchListener, Node, NodeId, NodeLocation, NodeVisitor, NodeVisitorBase, OutputNode,
-            PlaceholderNode, PresentationListener, ToplevelNode, VblankListener,
+            LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
+            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -372,6 +372,8 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
+    fn node_layer(&self) -> NodeLayerLink;
+
     fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         let _ = pending;
         CommitAction::ContinueCommit
@@ -444,6 +446,10 @@ trait SurfaceExt {
 pub struct NoneSurfaceExt;
 
 impl SurfaceExt for NoneSurfaceExt {
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Display
+    }
+
     fn is_some(&self) -> bool {
         false
     }
@@ -1794,6 +1800,10 @@ impl Node for WlSurface {
 
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location.get())
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        self.ext.get().node_layer()
     }
 
     fn node_active_changed(&self, active: bool) {

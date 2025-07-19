@@ -28,7 +28,7 @@ use {
         state::State,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
-            OutputNode, PlaceholderNode, WorkspaceNode,
+            NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode,
         },
         utils::{
             array_to_tuple::ArrayToTuple,
@@ -901,6 +901,16 @@ impl ToplevelData {
         if let Some(parent) = self.parent.get() {
             parent.cnode_make_visible(slf);
         }
+    }
+
+    pub fn node_layer(&self) -> NodeLayerLink {
+        if self.self_or_ancestor_is_fullscreen.get() {
+            return NodeLayerLink::Fullscreen;
+        }
+        if let Some(float) = self.float.get() {
+            return float.node_layer();
+        }
+        NodeLayerLink::Tiled
     }
 }
 
