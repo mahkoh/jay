@@ -216,6 +216,11 @@ pub trait Node: 'static {
         let _ = title;
     }
 
+    #[expect(dead_code)]
+    fn node_accepts_focus(&self) -> bool {
+        true
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let _ = seat;
         let _ = direction;

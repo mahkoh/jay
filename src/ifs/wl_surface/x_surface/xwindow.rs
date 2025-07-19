@@ -382,6 +382,10 @@ impl Node for Xwindow {
         self.toplevel_data.node_layer()
     }
 
+    fn node_accepts_focus(&self) -> bool {
+        self.tl_accepts_keyboard_focus()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }

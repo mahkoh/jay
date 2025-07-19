@@ -679,6 +679,10 @@ impl Node for ZwlrLayerSurfaceV1 {
         SurfaceExt::node_layer(self)
     }
 
+    fn node_accepts_focus(&self) -> bool {
+        self.keyboard_interactivity.get() != KI_NONE
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,

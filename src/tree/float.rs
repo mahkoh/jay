@@ -720,6 +720,13 @@ impl Node for FloatNode {
         self.update_child_title(title);
     }
 
+    fn node_accepts_focus(&self) -> bool {
+        if let Some(c) = self.child.get() {
+            return c.tl_accepts_keyboard_focus();
+        }
+        false
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
