@@ -34,6 +34,7 @@ use {
     jay_config::{
         Axis::{Horizontal, Vertical},
         get_workspace,
+        input::Timeline,
     },
     thiserror::Error,
 };
@@ -136,6 +137,8 @@ impl ActionParser<'_> {
             "show-bar" => ShowBar(true),
             "hide-bar" => ShowBar(false),
             "toggle-bar" => ToggleBar,
+            "focus-prev" => FocusHistory(Timeline::Older),
+            "focus-next" => FocusHistory(Timeline::Newer),
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

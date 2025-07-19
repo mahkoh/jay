@@ -46,6 +46,7 @@ use {
             },
             wl_output::WlOutputGlobal,
             wl_seat::{
+                event_handling::FocusHistoryData,
                 gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
                 pointer_owner::PointerOwnerHolder,
@@ -79,13 +80,19 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, OutputNode,
-            ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, NodeLocation,
+            OutputNode, ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
             toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
-            asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, linkedlist::LinkedNode, numcell::NumCell, rc_eq::rc_eq,
+            asyncevent::AsyncEvent,
+            bindings::PerClientBindings,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            linkedlist::{LinkedList, LinkedNode, NodeRef},
+            numcell::NumCell,
+            on_drop::OnDrop,
+            rc_eq::{rc_eq, rc_weak_eq},
             smallmap::SmallMap,
         },
         wire::{
@@ -218,6 +225,11 @@ pub struct WlSeatGlobal {
     keyboard_node_serial: Cell<u64>,
     tray_popups: CopyHashMap<(TrayItemId, XdgPopupId), Rc<dyn DynTrayItem>>,
     revert_key: Cell<KeySym>,
+    last_focus_location: Cell<Option<NodeLocation>>,
+    focus_history: LinkedList<FocusHistoryData>,
+    focus_history_rotate: NumCell<u64>,
+    focus_history_visible_only: Cell<bool>,
+    focus_history_same_workspace: Cell<bool>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -292,6 +304,11 @@ impl WlSeatGlobal {
             ui_drag_highlight: Default::default(),
             tray_popups: Default::default(),
             revert_key: Cell::new(SYM_Escape),
+            last_focus_location: Default::default(),
+            focus_history: Default::default(),
+            focus_history_rotate: Default::default(),
+            focus_history_visible_only: Cell::new(false),
+            focus_history_same_workspace: Cell::new(false),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -649,6 +666,141 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn get_last_focus_on_workspace(&self, ws: &WorkspaceNode) -> Option<Rc<dyn Node>> {
+        let mut node = self.focus_history.last()?;
+        loop {
+            if let Some(node) = node.node.upgrade()
+                && let Some(NodeLocation::Workspace(_, new)) = node.node_location()
+                && new == ws.id
+            {
+                return Some(node);
+            }
+            node = node.prev()?;
+        }
+    }
+
+    fn get_focus_history(
+        &self,
+        next: impl Fn(&NodeRef<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
+        first: impl FnOnce(&LinkedList<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
+    ) -> Option<(Rc<dyn Node>, bool)> {
+        let original = self.keyboard_node.get();
+        let mut output = None;
+        let mut workspace = None;
+        if let Some(old) = original.node_location() {
+            match old {
+                NodeLocation::Workspace(o, w) => {
+                    workspace = Some(w);
+                    output = Some(o);
+                }
+                NodeLocation::Output(o) => {
+                    output = Some(o);
+                }
+            }
+        }
+        if (output.is_none() || workspace.is_none())
+            && let Some(old) = self.last_focus_location.get()
+        {
+            match old {
+                NodeLocation::Workspace(o, w) => {
+                    workspace = workspace.or(Some(w));
+                    output = output.or(Some(o));
+                }
+                NodeLocation::Output(o) => {
+                    output = output.or(Some(o));
+                }
+            }
+        }
+        if workspace.is_none()
+            && let Some(output) = original.node_output()
+            && let Some(ws) = output.workspace.get()
+        {
+            workspace = Some(ws.id);
+        }
+        let matches = |node: &FocusHistoryData| {
+            let visible = node.visible.get();
+            if self.focus_history_visible_only.get() && !visible {
+                return None;
+            }
+            let node = node.node.upgrade()?;
+            if self.focus_history_same_workspace.get() {
+                let new = node.node_location()?;
+                let o = match new {
+                    NodeLocation::Workspace(o, w) => {
+                        if workspace != Some(w) {
+                            return None;
+                        }
+                        o
+                    }
+                    NodeLocation::Output(o) => o,
+                };
+                if output != Some(o) {
+                    return None;
+                }
+            }
+            Some((node, visible))
+        };
+        let node = original.node_seat_state().get_focus_history(self);
+        if let Some(mut node) = node {
+            loop {
+                node = match next(&node) {
+                    Some(n) => n,
+                    _ => break,
+                };
+                if let Some(matches) = matches(&node) {
+                    return Some(matches);
+                }
+            }
+        }
+        let mut node = first(&self.focus_history)?;
+        loop {
+            if rc_weak_eq(&original, &node.node) {
+                return None;
+            }
+            if let Some(matches) = matches(&node) {
+                return Some(matches);
+            }
+            node = next(&node)?;
+        }
+    }
+
+    fn focus_history(
+        self: &Rc<Self>,
+        next: impl Fn(&NodeRef<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
+        first: impl FnOnce(&LinkedList<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
+    ) {
+        let Some((node, visible)) = self.get_focus_history(next, first) else {
+            return;
+        };
+        self.focus_history_rotate.fetch_add(1);
+        let _reset = OnDrop(|| {
+            self.focus_history_rotate.fetch_sub(1);
+        });
+        if !visible {
+            node.clone().node_make_visible();
+            if !node.node_visible() {
+                return;
+            }
+        }
+        self.focus_node(node);
+    }
+
+    pub fn focus_prev(self: &Rc<Self>) {
+        self.focus_history(|s| s.prev(), |l| l.last());
+    }
+
+    pub fn focus_next(self: &Rc<Self>) {
+        self.focus_history(|s| s.next(), |l| l.first());
+    }
+
+    pub fn focus_history_set_visible(&self, visible: bool) {
+        self.focus_history_visible_only.set(visible);
+    }
+
+    pub fn focus_history_set_same_workspace(&self, same_workspace: bool) {
+        self.focus_history_same_workspace.set(same_workspace);
+    }
+
     fn set_selection_<T, X, S>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
@@ -717,7 +869,9 @@ impl WlSeatGlobal {
         serial: u64,
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
-            icon.surface().set_output(&self.pointer_cursor.output());
+            let output = self.pointer_cursor.output();
+            icon.surface()
+                .set_output(&output, NodeLocation::Output(output.id));
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
@@ -1082,7 +1236,8 @@ impl WlSeatGlobal {
 impl CursorUserOwner for WlSeatGlobal {
     fn output_changed(&self, output: &Rc<OutputNode>) {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
-            dnd.surface().set_output(output);
+            dnd.surface()
+                .set_output(output, NodeLocation::Output(output.id));
         }
         if let Some(drag) = self.pointer_owner.toplevel_drag()
             && let Some(tl) = drag.toplevel.get()

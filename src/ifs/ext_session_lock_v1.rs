@@ -6,6 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::NodeLocation,
         wire::{ExtSessionLockV1Id, ext_session_lock_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -87,7 +88,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             node.set_lock_surface(Some(new.clone()));
             let pos = node.global.pos.get();
             new.change_extents(pos);
-            new.surface.set_output(&node);
+            new.surface.set_output(&node, NodeLocation::Output(node.id));
             self.client.state.tree_changed();
         }
         Ok(())

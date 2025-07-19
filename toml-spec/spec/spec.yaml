@@ -860,6 +860,10 @@ SimpleActionName:
       description: Hides the built-in bar.
     - value: toggle-bar
       description: Toggles the built-in bar.
+    - value: focus-prev
+      description: Focuses the previous window in the focus history.
+    - value: focus-next
+      description: Focuses the next window in the focus history.
 
 
 Color:
@@ -2627,6 +2631,19 @@ Config:
         Configures whether the built-in bar is shown.
 
         The default is `true`.
+    focus-history:
+      ref: FocusHistory
+      required: false
+      description: |
+        Configures the focus-history settings.
+
+        - Example:
+        
+          ```toml
+          [focus-history]
+          only-visible: true
+          same-workspace: true
+          ```
 
 
 Idle:
@@ -3716,3 +3733,34 @@ ContentTypeMask:
       description: An array of masks that are OR'd.
       items:
         ref: ContentTypeMask
+
+
+FocusHistory:
+  kind: table
+  description: |
+    Describes settings of the focus history.
+    
+    - Example:
+    
+      ```toml
+      [focus-history]
+      only-visible: true
+      same-workspace: true
+      ```
+  fields:
+    only-visible:
+      description: |
+        Sets whether the focus history only moves to windows that are already visible.
+        
+        If this is false, then the window will be made visible before focusing it.
+        
+        The default is `false`.
+      kind: boolean
+      required: false
+    same-workspace:
+      description: |
+        Sets whether the focus history only moves to windows on the same workspace.
+        
+        The default is `false`.
+      kind: boolean
+      required: false

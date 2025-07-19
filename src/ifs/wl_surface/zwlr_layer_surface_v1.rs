@@ -15,8 +15,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
-            StackedNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
+            OutputNode, StackedNode,
         },
         utils::{
             bitflags::BitflagsExt,
@@ -187,7 +187,8 @@ impl ZwlrLayerSurfaceV1 {
         }
         self.surface.ext.set(self.clone());
         if let Some(output) = self.output.node() {
-            self.surface.set_output(&output);
+            self.surface
+                .set_output(&output, NodeLocation::Output(output.id));
         }
         Ok(())
     }
@@ -658,6 +659,10 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.output.node()
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.surface.node_location()
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
@@ -718,6 +723,10 @@ impl XdgPopupParent for Popup {
 
     fn visible(&self) -> bool {
         self.parent.node_visible()
+    }
+
+    fn make_visible(self: Rc<Self>) {
+        // nothing
     }
 }
 

@@ -250,10 +250,10 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                         continue;
                     };
                     let output = ws.output.get();
-                    output.show_workspace(&ws);
-                    ws.flush_jay_workspaces();
-                    output.schedule_update_render_data();
-                    self.client.state.tree_changed();
+                    let seat = self.client.state.seat_queue.last().as_deref().cloned();
+                    self.client
+                        .state
+                        .show_workspace2(seat.as_ref(), &output, &ws);
                 }
                 WorkspaceChange::AssignWorkspace(w, o) => {
                     let Some(ws) = w.get() else {

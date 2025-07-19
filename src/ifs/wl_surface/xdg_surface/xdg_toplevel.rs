@@ -27,7 +27,7 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
+            NodeLocation, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
             ToplevelNodeBase, ToplevelNodeId, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
@@ -512,7 +512,7 @@ impl XdgToplevel {
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();
-                surface.set_output(&output);
+                surface.set_output(&output, workspace.location());
             }
             // {
             //     let seats = surface.client.state.globals.lock_seats();
@@ -573,6 +573,10 @@ impl Node for XdgToplevel {
         self.toplevel_data.output_opt()
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.xdg.surface.node_location()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
@@ -604,6 +608,10 @@ impl Node for XdgToplevel {
 
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
         Some(self)
+    }
+
+    fn node_make_visible(self: Rc<Self>) {
+        self.toplevel_data.make_visible(&*self)
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -775,6 +783,10 @@ impl XdgSurfaceExt for XdgToplevel {
             .client
             .state
             .damage(self.node_absolute_position());
+    }
+
+    fn make_visible(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

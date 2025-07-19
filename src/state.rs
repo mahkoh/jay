@@ -853,48 +853,52 @@ impl State {
         node.node_do_focus(&seat, Direction::Unspecified);
     }
 
-    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
-        let (output, ws) = match self.workspaces.get(name) {
-            Some(ws) => {
-                let output = ws.output.get();
-                let mut pinned_is_focused = false;
-                for pinned in output.pinned.iter() {
-                    pinned
-                        .deref()
-                        .clone()
-                        .node_visit(&mut generic_node_visitor(|node| {
-                            node.node_seat_state().for_each_kb_focus(|s| {
-                                pinned_is_focused |= s.id() == seat.id();
-                            });
-                        }));
-                }
-                let did_change = output.show_workspace(&ws);
-                if !pinned_is_focused {
-                    ws.clone().node_do_focus(seat, Direction::Unspecified);
-                }
-                if !did_change {
-                    return;
-                }
-                (output, ws)
+    pub fn show_workspace2(
+        &self,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        output: &Rc<OutputNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
+        let mut pinned_is_focused = false;
+        if let Some(seat) = seat {
+            for pinned in output.pinned.iter() {
+                pinned
+                    .deref()
+                    .clone()
+                    .node_visit(&mut generic_node_visitor(|node| {
+                        node.node_seat_state().for_each_kb_focus(|s| {
+                            pinned_is_focused |= s.id() == seat.id();
+                        });
+                    }));
             }
+        }
+        let did_change = output.show_workspace(&ws);
+        if !pinned_is_focused && let Some(seat) = seat {
+            ws.clone().node_do_focus(seat, Direction::Unspecified);
+        }
+        if !did_change {
+            return;
+        }
+        ws.flush_jay_workspaces();
+        if !output.is_dummy {
+            output.schedule_update_render_data();
+            self.tree_changed();
+        }
+    }
+
+    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
+        let ws = match self.workspaces.get(name) {
+            Some(ws) => ws,
             _ => {
                 let output = seat.get_output();
                 if output.is_dummy {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
                 }
-                let ws = output.create_workspace(name);
-                output.show_workspace(&ws);
-                (output, ws)
+                output.create_workspace(name)
             }
         };
-        ws.flush_jay_workspaces();
-        output.schedule_update_render_data();
-        self.tree_changed();
-        // let seats = self.globals.seats.lock();
-        // for seat in seats.values() {
-        //     seat.workspace_changed(&output);
-        // }
+        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {

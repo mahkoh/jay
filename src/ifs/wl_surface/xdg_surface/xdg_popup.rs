@@ -19,8 +19,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
-            StackedNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
+            OutputNode, StackedNode,
         },
         utils::clonecell::CloneCell,
         wire::{XdgPopupId, xdg_popup::*},
@@ -45,6 +45,7 @@ pub trait XdgPopupParent {
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
     fn visible(&self) -> bool;
+    fn make_visible(self: Rc<Self>);
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
@@ -319,6 +320,10 @@ impl Node for XdgPopup {
         self.xdg.workspace.get().map(|w| w.output.get())
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.xdg.surface.node_location()
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
@@ -338,6 +343,12 @@ impl Node for XdgPopup {
 
     fn node_client(&self) -> Option<Rc<Client>> {
         Some(self.xdg.surface.client.clone())
+    }
+
+    fn node_make_visible(self: Rc<Self>) {
+        if let Some(parent) = self.parent.get() {
+            parent.make_visible();
+        }
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -425,6 +436,10 @@ impl XdgSurfaceExt for XdgPopup {
 
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.get()?.tray_item()
+    }
+
+    fn make_visible(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

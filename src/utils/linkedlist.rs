@@ -97,6 +97,18 @@ impl<T> LinkedList<T> {
         self.root.append_existing(t)
     }
 
+    pub fn rotate_last(&self, t: &NodeRef<T>) {
+        unsafe {
+            let root = self.root.data.as_ref();
+            root.prev.get().as_ref().next.set(root.next.get());
+            root.next.get().as_ref().prev.set(root.prev.get());
+            root.prev.set(t.data);
+            root.next.set(t.data.as_ref().next.get());
+            t.data.as_ref().next.get().as_ref().prev.set(self.root.data);
+            t.data.as_ref().next.set(self.root.data);
+        }
+    }
+
     pub fn iter(&self) -> LinkedListIter<T> {
         unsafe {
             let root = self.root.data.as_ref();

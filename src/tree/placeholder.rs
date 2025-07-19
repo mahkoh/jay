@@ -11,8 +11,8 @@ use {
         text::TextTexture,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, default_tile_drag_destination,
+            NodeLocation, NodeVisitor, OutputNode, TileDragDestination, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -35,6 +35,7 @@ pub struct PlaceholderNode {
     destroyed: Cell<bool>,
     update_textures_scheduled: Cell<bool>,
     state: Rc<State>,
+    location: Cell<Option<NodeLocation>>,
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
 }
 
@@ -63,6 +64,7 @@ impl PlaceholderNode {
             destroyed: Default::default(),
             update_textures_scheduled: Cell::new(false),
             state: state.clone(),
+            location: Cell::new(node.node_location()),
             textures: Default::default(),
         }
     }
@@ -82,6 +84,7 @@ impl PlaceholderNode {
             destroyed: Default::default(),
             update_textures_scheduled: Default::default(),
             state: state.clone(),
+            location: Default::default(),
             textures: Default::default(),
         }
     }
@@ -170,6 +173,14 @@ impl Node for PlaceholderNode {
         self.toplevel.pos.get()
     }
 
+    fn node_output(&self) -> Option<Rc<OutputNode>> {
+        self.toplevel.output_opt()
+    }
+
+    fn node_location(&self) -> Option<NodeLocation> {
+        self.location.get()
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
@@ -200,27 +211,31 @@ impl Node for PlaceholderNode {
         Some(self)
     }
 
+    fn node_make_visible(self: Rc<Self>) {
+        self.toplevel.make_visible(&*self);
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.pointer_cursor().set_known(KnownCursor::Default);
         seat.enter_toplevel(self.clone());
-    }
-
-    fn node_is_placeholder(&self) -> bool {
-        true
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
     }
 
-    fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel.output_opt()
+    fn node_is_placeholder(&self) -> bool {
+        true
     }
 }
 
 impl ToplevelNodeBase for PlaceholderNode {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel
+    }
+
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
+        self.location.set(ws.node_location());
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {

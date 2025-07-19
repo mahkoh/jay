@@ -15,6 +15,7 @@ use {
                 color_management::ColorManagement,
                 config::{ConfigParser, ConfigParserError},
                 float::Float,
+                focus_history::FocusHistory,
             },
         },
         toml::{self},
@@ -22,7 +23,7 @@ use {
     ahash::AHashMap,
     jay_config::{
         Axis, Direction, Workspace,
-        input::{SwitchEvent, acceleration::AccelProfile, clickmethod::ClickMethod},
+        input::{SwitchEvent, Timeline, acceleration::AccelProfile, clickmethod::ClickMethod},
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
@@ -70,6 +71,7 @@ pub enum SimpleCommand {
     KillClient,
     ShowBar(bool),
     ToggleBar,
+    FocusHistory(Timeline),
 }
 
 #[derive(Debug, Clone)]
@@ -486,6 +488,7 @@ pub struct Config {
     pub pointer_revert_key: Option<KeySym>,
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
+    pub focus_history: Option<FocusHistory>,
 }
 
 #[derive(Debug, Error)]

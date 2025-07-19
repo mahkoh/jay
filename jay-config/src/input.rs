@@ -182,6 +182,13 @@ impl InputDevice {
     }
 }
 
+/// A direction in a timeline.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum Timeline {
+    Older,
+    Newer,
+}
+
 /// A seat.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Seat(pub u64);
@@ -271,6 +278,29 @@ impl Seat {
     /// Unbinds a hotkey.
     pub fn unbind<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
         get!().unbind(self, mod_sym.into())
+    }
+
+    /// Moves the focus in the focus history.
+    pub fn focus_history(self, timeline: Timeline) {
+        get!().seat_focus_history(self, timeline)
+    }
+
+    /// Configures whether the focus history only includes visible windows.
+    ///
+    /// If this is `false`, then hidden windows will be made visible before moving the
+    /// focus to them.
+    ///
+    /// The default is `false`.
+    pub fn focus_history_set_only_visible(self, only_visible: bool) {
+        get!().seat_focus_history_set_only_visible(self, only_visible)
+    }
+
+    /// Configures whether the focus history only includes windows on the same workspace
+    /// as the currently focused window.
+    ///
+    /// The default is `false`.
+    pub fn focus_history_set_same_workspace(self, same_workspace: bool) {
+        get!().seat_focus_history_set_same_workspace(self, same_workspace)
     }
 
     /// Moves the keyboard focus of the seat in the specified direction.

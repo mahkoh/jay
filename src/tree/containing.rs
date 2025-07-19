@@ -12,6 +12,7 @@ pub trait ContainingNode: Node {
     fn cnode_accepts_child(&self, node: &dyn Node) -> bool;
     fn cnode_child_attention_request_changed(self: Rc<Self>, child: &dyn Node, set: bool);
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode>;
+    fn cnode_make_visible(self: Rc<Self>, child: &dyn Node);
     fn cnode_set_child_position(self: Rc<Self>, child: &dyn Node, x: i32, y: i32) {
         let _ = child;
         let _ = x;

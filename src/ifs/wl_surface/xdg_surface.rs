@@ -18,7 +18,9 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, Node, OutputNode, StackedNode, WorkspaceNode},
+        tree::{
+            FindTreeResult, FoundNode, Node, NodeLocation, OutputNode, StackedNode, WorkspaceNode,
+        },
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -144,6 +146,12 @@ impl XdgPopupParent for Popup {
         self.parent.surface.visible.get()
     }
 
+    fn make_visible(self: Rc<Self>) {
+        if let Some(ext) = self.parent.ext.get() {
+            ext.make_visible();
+        }
+    }
+
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.clone().tray_item()
     }
@@ -191,6 +199,8 @@ pub trait XdgSurfaceExt: Debug {
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
+
+    fn make_visible(self: Rc<Self>);
 }
 
 impl XdgSurface {
@@ -233,7 +243,7 @@ impl XdgSurface {
 
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
-        self.surface.set_output(&ws.output.get());
+        self.surface.set_output(&ws.output.get(), ws.location());
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_workspace(ws);
@@ -241,7 +251,8 @@ impl XdgSurface {
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
-        self.surface.set_output(output);
+        self.surface
+            .set_output(output, NodeLocation::Output(output.id));
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_output(output);

@@ -8,7 +8,7 @@ use {
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
-        tree::{Node, NodeVisitorBase, OutputNode},
+        tree::{Node, NodeLocation, NodeVisitorBase, OutputNode},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
 };
@@ -133,7 +133,8 @@ impl Cursor for CursorSurface {
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {
-        self.surface.set_output(output);
+        self.surface
+            .set_output(output, NodeLocation::Output(output.id));
     }
 
     fn handle_set(self: Rc<Self>) {

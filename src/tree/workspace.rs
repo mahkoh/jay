@@ -21,8 +21,8 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeVisitorBase, OutputNode, PlaceholderNode, StackedNode, ToplevelNode,
-            container::ContainerNode, walker::NodeVisitor,
+            NodeId, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId, PlaceholderNode,
+            StackedNode, ToplevelNode, container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -49,6 +49,7 @@ pub struct WorkspaceNode {
     pub state: Rc<State>,
     pub is_dummy: bool,
     pub output: CloneCell<Rc<OutputNode>>,
+    pub output_id: Cell<OutputNodeId>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
@@ -104,6 +105,7 @@ impl WorkspaceNode {
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
+        self.output_id.set(output.id);
         let old = self.output.set(output.clone());
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
@@ -113,12 +115,13 @@ impl WorkspaceNode {
         }
         self.update_has_captures();
         struct OutputSetter<'a> {
+            ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
             new: &'a Rc<OutputNode>,
         }
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                node.set_output(self.new);
+                node.set_output(self.new, self.ws.location());
             }
 
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -147,6 +150,7 @@ impl WorkspaceNode {
             }
         }
         let mut visitor = OutputSetter {
+            ws: self,
             old: &old,
             new: output,
         };
@@ -273,6 +277,10 @@ impl WorkspaceNode {
             self.output.get().schedule_update_render_data();
         }
     }
+
+    pub fn location(&self) -> NodeLocation {
+        NodeLocation::Workspace(self.output_id.get(), self.id)
+    }
 }
 
 impl Node for WorkspaceNode {
@@ -309,9 +317,17 @@ impl Node for WorkspaceNode {
         Some(self.output.get())
     }
 
+    fn node_location(&self) -> Option<NodeLocation> {
+        Some(self.location())
+    }
+
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(fs) = self.fullscreen.get() {
             fs.node_do_focus(seat, direction);
+        } else if self.stacked.is_not_empty()
+            && let Some(last) = seat.get_last_focus_on_workspace(&self)
+        {
+            seat.focus_node(last);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
         } else if let Some(float) = self
@@ -345,6 +361,13 @@ impl Node for WorkspaceNode {
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_workspace(self, x, y);
+    }
+
+    fn node_make_visible(self: Rc<Self>) {
+        if self.is_dummy {
+            return;
+        }
+        self.state.show_workspace2(None, &self.output.get(), &self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -422,6 +445,10 @@ impl ContainingNode for WorkspaceNode {
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self
     }
+
+    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
+        self.node_make_visible();
+    }
 }
 
 pub struct WsMoveConfig {
@@ -472,14 +499,13 @@ pub fn move_ws_to_output(
         && (config.make_visible_always
             || (config.make_visible_if_empty && target.workspace.is_none()));
     if make_visible {
-        target.show_workspace(&ws);
+        ws.state.show_workspace2(None, target, &ws);
     } else {
         ws.set_visible(false);
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {
-        source.show_workspace(&ws);
-        ws.flush_jay_workspaces();
+        ws.state.show_workspace2(None, &source, &ws);
     }
     if !target.is_dummy {
         target.schedule_update_render_data();
