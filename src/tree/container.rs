@@ -2108,6 +2108,10 @@ impl ContainingNode for ContainerNode {
     fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         self.tl_data().float.get()
     }
+
+    fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
+        self.tl_data().self_or_ancestor_is_fullscreen.get()
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {
@@ -2227,6 +2231,12 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
         for child in self.children.iter() {
             child.node.tl_set_float(float);
+        }
+    }
+
+    fn tl_mark_ancestor_fullscreen_ext(&self, fullscreen: bool) {
+        for child in self.children.iter() {
+            child.node.tl_mark_ancestor_fullscreen(fullscreen);
         }
     }
 }

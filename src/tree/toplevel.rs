@@ -70,6 +70,8 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_pinned(&self) -> bool;
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
+    fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
+    fn tl_mark_fullscreen(&self, fullscreen: bool);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -110,6 +112,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
+        if !data.is_fullscreen.get() {
+            self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
+        }
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
             data.mapped_during_iteration.set(data.state.eng.iteration());
@@ -227,6 +232,22 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_data().float.set(float.cloned());
         self.tl_push_float(float);
     }
+
+    fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool) {
+        let old = self
+            .tl_data()
+            .self_or_ancestor_is_fullscreen
+            .replace(fullscreen);
+        if old == fullscreen {
+            return;
+        }
+        self.tl_mark_ancestor_fullscreen_ext(fullscreen);
+    }
+
+    fn tl_mark_fullscreen(&self, fullscreen: bool) {
+        self.tl_data().is_fullscreen.set(fullscreen);
+        self.tl_mark_ancestor_fullscreen(fullscreen);
+    }
 }
 
 pub trait ToplevelNodeBase: Node {
@@ -290,6 +311,10 @@ pub trait ToplevelNodeBase: Node {
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
         let _ = float;
     }
+
+    fn tl_mark_ancestor_fullscreen_ext(&self, fullscreen: bool) {
+        let _ = fullscreen;
+    }
 }
 
 pub struct FullscreenedData {
@@ -346,6 +371,7 @@ pub struct ToplevelData {
     pub float_height: Cell<i32>,
     pub pinned: Cell<bool>,
     pub is_fullscreen: Cell<bool>,
+    pub self_or_ancestor_is_fullscreen: Cell<bool>,
     pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub title: RefCell<String>,
@@ -401,6 +427,7 @@ impl ToplevelData {
             float_height: Default::default(),
             pinned: Cell::new(false),
             is_fullscreen: Default::default(),
+            self_or_ancestor_is_fullscreen: Default::default(),
             fullscrceen_data: Default::default(),
             workspace: Default::default(),
             title: RefCell::new(title),
@@ -731,7 +758,7 @@ impl ToplevelData {
             workspace: ws.clone(),
         });
         drop(data);
-        self.is_fullscreen.set(true);
+        node.tl_mark_fullscreen(true);
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
@@ -758,7 +785,7 @@ impl ToplevelData {
                 return;
             }
         };
-        self.is_fullscreen.set(false);
+        node.tl_mark_fullscreen(false);
         self.property_changed(TL_CHANGED_FULLSCREEN);
         match fd.workspace.fullscreen.get() {
             None => {
