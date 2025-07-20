@@ -76,6 +76,7 @@ use {
         window::{TileState, Window, WindowMatcher},
         xwayland::XScalingMode,
     },
+    kbvm::Keycode,
     libloading::Library,
     log::Level,
     regex::Regex,
@@ -2208,6 +2209,32 @@ impl ConfigProxyHandler {
         self.state.enable_primary_selection.set(enabled);
     }
 
+    fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        if let Some(kc) = kc {
+            seat.create_mark(Keycode::from_evdev(kc));
+        } else {
+            seat.create_mark_interactive();
+        }
+        Ok(())
+    }
+
+    fn handle_seat_jump_to_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        if let Some(kc) = kc {
+            seat.jump_to_mark(Keycode::from_evdev(kc));
+        } else {
+            seat.jump_to_mark_interactive();
+        }
+        Ok(())
+    }
+
+    fn handle_seat_copy_mark(&self, seat: Seat, src: u32, dst: u32) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.copy_mark(Keycode::from_evdev(src), Keycode::from_evdev(dst));
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3071,6 +3098,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled)
             }
+            ClientMessage::SeatCreateMark { seat, kc } => self
+                .handle_seat_create_mark(seat, kc)
+                .wrn("seat_create_mark")?,
+            ClientMessage::SeatJumpToMark { seat, kc } => self
+                .handle_seat_jump_to_mark(seat, kc)
+                .wrn("seat_jump_to_mark")?,
+            ClientMessage::SeatCopyMark { seat, src, dst } => self
+                .handle_seat_copy_mark(seat, src, dst)
+                .wrn("seat_copy_mark")?,
         }
         Ok(())
     }

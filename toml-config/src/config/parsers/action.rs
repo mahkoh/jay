@@ -1,7 +1,7 @@
 use {
     crate::{
         config::{
-            Action,
+            Action, SimpleCommand,
             context::Context,
             extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
@@ -17,6 +17,7 @@ use {
                 input::{InputParser, InputParserError},
                 keymap::{KeymapParser, KeymapParserError},
                 log_level::{LogLevelParser, LogLevelParserError},
+                mark_id::{MarkIdParser, MarkIdParserError},
                 output::{OutputParser, OutputParserError},
                 output_match::{OutputMatchParser, OutputMatchParserError},
                 repeat_rate::{RepeatRateParser, RepeatRateParserError},
@@ -81,6 +82,12 @@ pub enum ActionParserError {
     MoveToOutput(#[source] OutputMatchParserError),
     #[error("Could not parse a set-repeat-rate action")]
     RepeatRate(#[source] RepeatRateParserError),
+    #[error("Could not parse a create-mark action")]
+    CreateMark(#[source] MarkIdParserError),
+    #[error("Could not parse a jump-to-mark action")]
+    JumpToMark(#[source] MarkIdParserError),
+    #[error("Could not parse a copy-mark action")]
+    CopyMark(#[source] MarkIdParserError),
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -142,6 +149,8 @@ impl ActionParser<'_> {
             "focus-below" => FocusLayerRel(LayerDirection::Below),
             "focus-above" => FocusLayerRel(LayerDirection::Above),
             "focus-tiles" => FocusTiles,
+            "create-mark" => CreateMark,
+            "jump-to-mark" => JumpToMark,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
@@ -368,6 +377,43 @@ impl ActionParser<'_> {
             name: name.value.to_string(),
         })
     }
+
+    fn parse_create_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (id,) = ext.extract((opt(val("id")),))?;
+        let Some(id) = id else {
+            return Ok(Action::SimpleCommand {
+                cmd: SimpleCommand::CreateMark,
+            });
+        };
+        let id = id
+            .parse(&mut MarkIdParser(self.0))
+            .map_spanned_err(ActionParserError::CreateMark)?;
+        Ok(Action::CreateMark(id))
+    }
+
+    fn parse_jump_to_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (id,) = ext.extract((opt(val("id")),))?;
+        let Some(id) = id else {
+            return Ok(Action::SimpleCommand {
+                cmd: SimpleCommand::JumpToMark,
+            });
+        };
+        let id = id
+            .parse(&mut MarkIdParser(self.0))
+            .map_spanned_err(ActionParserError::JumpToMark)?;
+        Ok(Action::JumpToMark(id))
+    }
+
+    fn parse_copy_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (src, dst) = ext.extract((val("src"), val("dst")))?;
+        let src = src
+            .parse(&mut MarkIdParser(self.0))
+            .map_spanned_err(ActionParserError::CopyMark)?;
+        let dst = dst
+            .parse(&mut MarkIdParser(self.0))
+            .map_spanned_err(ActionParserError::CopyMark)?;
+        Ok(Action::CopyMark(src, dst))
+    }
 }
 
 impl Parser for ActionParser<'_> {
@@ -422,6 +468,9 @@ impl Parser for ActionParser<'_> {
             "define-action" => self.parse_define_action(&mut ext),
             "undefine-action" => self.parse_undefine_action(&mut ext),
             "named" => self.parse_named_action(&mut ext),
+            "create-mark" => self.parse_create_mark(&mut ext),
+            "jump-to-mark" => self.parse_jump_to_mark(&mut ext),
+            "copy-mark" => self.parse_copy_mark(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

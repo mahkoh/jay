@@ -168,6 +168,14 @@ impl Action {
                     let persistent = state.persistent.clone();
                     B::new(move || persistent.seat.focus_tiles())
                 }
+                SimpleCommand::CreateMark => {
+                    let persistent = state.persistent.clone();
+                    B::new(move || persistent.seat.create_mark(None))
+                }
+                SimpleCommand::JumpToMark => {
+                    let persistent = state.persistent.clone();
+                    B::new(move || persistent.seat.jump_to_mark(None))
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -323,6 +331,18 @@ impl Action {
                     };
                     action();
                 })
+            }
+            Action::CreateMark(m) => {
+                let persistent = state.persistent.clone();
+                B::new(move || persistent.seat.create_mark(Some(m)))
+            }
+            Action::JumpToMark(m) => {
+                let persistent = state.persistent.clone();
+                B::new(move || persistent.seat.jump_to_mark(Some(m)))
+            }
+            Action::CopyMark(s, d) => {
+                let persistent = state.persistent.clone();
+                B::new(move || persistent.seat.copy_mark(s, d))
             }
         }
     }
@@ -973,13 +993,14 @@ struct PersistentState {
     client_rules: Cell<Vec<MatcherTemp<ClientRule>>>,
     client_rule_mapper: RefCell<Option<RuleMapper<ClientRule>>>,
     window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
+    mark_names: RefCell<AHashMap<String, u32>>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     let mut path = PathBuf::from(config_dir());
     path.push("config.toml");
     let mut config = match std::fs::read(&path) {
-        Ok(input) => match parse_config(&input, |e| {
+        Ok(input) => match parse_config(&input, &persistent.mark_names, |e| {
             log::warn!("Error while parsing {}: {}", path.display(), Report::new(e))
         }) {
             None if initial_load => {
@@ -1294,7 +1315,8 @@ fn create_command(exec: &Exec) -> Command {
 const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
-    let default = parse_config(DEFAULT, |e| {
+    let mark_names = Default::default();
+    let default = parse_config(DEFAULT, &mark_names, |e| {
         panic!("Could not parse the default config: {}", Report::new(e))
     });
     let persistent = Rc::new(PersistentState {
@@ -1306,6 +1328,7 @@ pub fn configure() {
         client_rules: Default::default(),
         client_rule_mapper: Default::default(),
         window_rules: Default::default(),
+        mark_names,
     });
     {
         let p = persistent.clone();

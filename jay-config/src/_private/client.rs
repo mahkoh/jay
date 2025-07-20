@@ -987,6 +987,18 @@ impl ConfigClient {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }
 
+    pub fn seat_create_mark(&self, seat: Seat, kc: Option<u32>) {
+        self.send(&ClientMessage::SeatCreateMark { seat, kc });
+    }
+
+    pub fn seat_jump_to_mark(&self, seat: Seat, kc: Option<u32>) {
+        self.send(&ClientMessage::SeatJumpToMark { seat, kc });
+    }
+
+    pub fn seat_copy_mark(&self, seat: Seat, src: u32, dst: u32) {
+        self.send(&ClientMessage::SeatCopyMark { seat, src, dst });
+    }
+
     pub fn set_show_float_pin_icon(&self, show: bool) {
         self.send(&ClientMessage::SetShowFloatPinIcon { show });
     }

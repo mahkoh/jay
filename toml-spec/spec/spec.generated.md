@@ -671,6 +671,91 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
+- `create-mark`:
+
+  Creates a mark for the currently focused window.
+  
+  - Example 1:
+  
+    This example interactively selects a key that identifies the mark.
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "create-mark" }
+    ```
+  
+  - Example 2:
+  
+    This example hard-codes a key.
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "create-mark", id.key = "a" }
+    ```
+
+  The table has the following fields:
+
+  - `id` (optional):
+
+    The identifier of the mark.
+    
+    If this field is omitted, the next pressed key identifies the mark.
+
+    The value of this field should be a [MarkId](#types-MarkId).
+
+- `jump-to-mark`:
+
+  Moves the keyboard focus to a window identified by a mark.
+  
+  - Example 1:
+  
+    This example interactively selects a key that identifies the mark.
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "jump-to-mark" }
+    ```
+  
+  - Example 2:
+  
+    This example hard-codes a key.
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "jump-to-mark", id.key = "a" }
+    ```
+
+  The table has the following fields:
+
+  - `id` (optional):
+
+    The identifier of the mark.
+    
+    If this field is omitted, the next pressed key identifies the mark.
+
+    The value of this field should be a [MarkId](#types-MarkId).
+
+- `copy-mark`:
+
+  Copies a mark.
+  
+  If the `src` id identifies a mark before this function is called, the `dst`
+  id will identify the same mark afterwards.
+
+  The table has the following fields:
+
+  - `src` (required):
+
+    The source id to copy from.
+
+    The value of this field should be a [MarkId](#types-MarkId).
+
+  - `dst` (required):
+
+    The destination id to copy to.
+
+    The value of this field should be a [MarkId](#types-MarkId).
+
 
 <a name="types-Brightness"></a>
 ### `Brightness`
@@ -3071,6 +3156,42 @@ The string should have one of the following values:
 
 
 
+<a name="types-MarkId"></a>
+### `MarkId`
+
+Identifies a mark.
+
+Exactly one of the fields must be set.
+
+- Example:
+
+  ```toml
+  [shortcuts]
+  alt-x = { type = "create-mark", id.key = "a" }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `key` (optional):
+
+  Identifies a mark by a key press.
+  
+  The names of the keys can be found in [1] with the `KEY_` prefix removed. The key
+  names must be written all lowercase.
+  
+  [1]: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+
+  The value of this field should be a string.
+
+- `name` (optional):
+
+  Identifies a mark with an arbitrary string.
+
+  The value of this field should be a string.
+
+
 <a name="types-MessageFormat"></a>
 ### `MessageFormat`
 
@@ -3696,6 +3817,18 @@ The string should have one of the following values:
 - `focus-tiles`:
 
   Focuses the tile layer.
+
+- `create-mark`:
+
+  Interactively creates a mark.
+  
+  The next pressed key becomes the identifier for the mark.
+
+- `jump-to-mark`:
+
+  Interactively jumps to a mark.
+  
+  The next pressed key identifies the mark to jump to.
 
 
 

@@ -11,3 +11,8 @@ tasks:
   - test: |
       cd jay
       cargo test
+  - test-tc: |
+      cd jay
+      git submodule update --init
+      cd toml-config
+      cargo test

@@ -6,7 +6,7 @@ use {
             toml_span::{Span, Spanned},
         },
     },
-    ahash::AHashSet,
+    ahash::{AHashMap, AHashSet},
     error_reporter::Report,
     std::{cell::RefCell, convert::Infallible, error::Error},
 };
@@ -14,6 +14,7 @@ use {
 pub struct Context<'a> {
     pub input: &'a [u8],
     pub used: RefCell<Used>,
+    pub mark_names: &'a RefCell<AHashMap<String, u32>>,
 }
 
 #[derive(Default)]

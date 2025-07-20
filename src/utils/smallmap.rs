@@ -198,6 +198,15 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
         None
     }
 
+    pub fn get_mut(&mut self, k: &K) -> Option<&mut V> {
+        for (ek, ev) in &mut self.m {
+            if ek == k {
+                return Some(ev);
+            }
+        }
+        None
+    }
+
     pub fn get_or_default_mut(&mut self, k: K) -> &mut V
     where
         V: Default,
