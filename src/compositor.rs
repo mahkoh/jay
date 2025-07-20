@@ -352,6 +352,7 @@ fn start_compositor2(
         head_managers: Default::default(),
         head_managers_async: Default::default(),
         show_bar: Cell::new(true),
+        enable_primary_selection: Cell::new(true),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

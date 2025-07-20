@@ -343,3 +343,13 @@ pub fn toggle_show_bar() {
 pub fn on_unload(f: impl FnOnce() + 'static) {
     get!().on_unload(f);
 }
+
+/// Enables or disables middle-click pasting.
+///
+/// This has no effect on applications that are already running.
+///
+/// The default is `true`.
+#[doc(alias("primary-selection", "primary_selection"))]
+pub fn set_middle_click_paste_enabled(enabled: bool) {
+    get!().set_middle_click_paste_enabled(enabled);
+}

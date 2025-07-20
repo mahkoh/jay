@@ -272,6 +272,7 @@ pub struct State {
         CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
+    pub enable_primary_selection: Cell<bool>,
 }
 
 // impl Drop for State {

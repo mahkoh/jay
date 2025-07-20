@@ -494,6 +494,7 @@ pub struct Config {
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
     pub focus_history: Option<FocusHistory>,
+    pub middle_click_paste: Option<bool>,
 }
 
 #[derive(Debug, Error)]

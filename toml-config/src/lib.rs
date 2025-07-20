@@ -35,8 +35,8 @@ use {
         logging::set_log_level,
         on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
-        set_idle, set_idle_grace_period, set_show_bar, set_show_float_pin_icon,
-        set_ui_drag_enabled, set_ui_drag_threshold,
+        set_idle, set_idle_grace_period, set_middle_click_paste_enabled, set_show_bar,
+        set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
@@ -1271,6 +1271,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         if let Some(v) = v.same_workspace {
             persistent.seat.focus_history_set_same_workspace(v);
         }
+    }
+    if let Some(v) = config.middle_click_paste {
+        set_middle_click_paste_enabled(v);
     }
 }
 
