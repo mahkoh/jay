@@ -8,6 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
         wire::{ZwpPrimarySelectionDeviceManagerV1Id, zwp_primary_selection_device_manager_v1::*},
     },
     std::rc::Rc,
@@ -95,6 +96,10 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 
     fn version(&self) -> u32 {
         1
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        state.enable_primary_selection.get()
     }
 }
 

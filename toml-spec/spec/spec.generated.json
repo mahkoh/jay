@@ -891,6 +891,10 @@
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
           "$ref": "#/$defs/FocusHistory"
+        },
+        "middle-click-paste": {
+          "type": "boolean",
+          "description": "Configures whether middle-click pasting is enabled.\n\nChanging this has no effect on running applications.\n\nThe default is `true`.\n"
         }
       },
       "required": []

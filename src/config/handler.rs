@@ -2204,6 +2204,10 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_middle_click_paste_enabled(&self, enabled: bool) {
+        self.state.enable_primary_selection.set(enabled);
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3063,6 +3067,9 @@ impl ConfigProxyHandler {
                 .wrn("seat_focus_layer_rel")?,
             ClientMessage::SeatFocusTiles { seat } => {
                 self.handle_seat_focus_tiles(seat).wrn("seat_focus_tiles")?
+            }
+            ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
+                self.handle_set_middle_click_paste_enabled(enabled)
             }
         }
         Ok(())

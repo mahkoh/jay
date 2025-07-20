@@ -744,6 +744,9 @@ pub enum ClientMessage<'a> {
     SeatFocusTiles {
         seat: Seat,
     },
+    SetMiddleClickPasteEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

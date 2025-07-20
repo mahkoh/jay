@@ -2650,6 +2650,15 @@ Config:
           only-visible: true
           same-workspace: true
           ```
+    middle-click-paste:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether middle-click pasting is enabled.
+        
+        Changing this has no effect on running applications.
+
+        The default is `true`.
 
 
 Idle:

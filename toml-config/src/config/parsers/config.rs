@@ -136,6 +136,7 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
+            (middle_click_paste,),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -185,6 +186,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("show-bar"))),
                 opt(val("focus-history")),
             ),
+            (recover(opt(bol("middle-click-paste"))),),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -513,6 +515,7 @@ impl Parser for ConfigParser<'_> {
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
             focus_history,
+            middle_click_paste: middle_click_paste.despan(),
         })
     }
 }

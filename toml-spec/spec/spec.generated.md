@@ -1816,6 +1816,16 @@ The table has the following fields:
 
   The value of this field should be a [FocusHistory](#types-FocusHistory).
 
+- `middle-click-paste` (optional):
+
+  Configures whether middle-click pasting is enabled.
+  
+  Changing this has no effect on running applications.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Connector"></a>
 ### `Connector`

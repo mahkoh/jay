@@ -983,6 +983,10 @@ impl ConfigClient {
         show
     }
 
+    pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
+    }
+
     pub fn set_show_float_pin_icon(&self, show: bool) {
         self.send(&ClientMessage::SetShowFloatPinIcon { show });
     }
