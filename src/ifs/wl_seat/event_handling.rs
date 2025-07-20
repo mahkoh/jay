@@ -17,7 +17,7 @@ use {
                 },
             },
             wl_seat::{
-                CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, SeatId, WlSeat, WlSeatGlobal,
+                CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, MarkMode, SeatId, WlSeat, WlSeatGlobal,
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::WlKeyboard,
@@ -56,7 +56,7 @@ use {
             syms::KeySym,
         },
     },
-    kbvm::{ModifierMask, state_machine::Event},
+    kbvm::{Keycode, ModifierMask, evdev, state_machine::Event},
     linearize::LinearizeExt,
     smallvec::SmallVec,
     std::{
@@ -80,6 +80,12 @@ pub struct NodeSeatState {
     tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
     ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    marks: RefCell<SmallMapMut<SeatId, Marks, 1>>,
+}
+
+struct Marks {
+    seat: Rc<WlSeatGlobal>,
+    marks: SmallMapMut<Keycode, (), 1>,
 }
 
 pub struct FocusHistoryData {
@@ -216,6 +222,12 @@ impl NodeSeatState {
         for (_, entry) in self.kb_focus_histories.borrow_mut().iter_mut() {
             entry.visible.set(false);
             entry.detach();
+        }
+        for (_, marks) in self.marks.borrow_mut().iter_mut() {
+            for (kc, _) in &marks.marks {
+                marks.seat.marks.remove(kc);
+            }
+            marks.marks.clear();
         }
         self.destroy_node2(node, true);
     }
@@ -870,6 +882,23 @@ impl WlSeatGlobal {
                     KeyState::Pressed => pk.insert(kc.to_evdev()),
                 }
             };
+            if key_state == KeyState::Pressed
+                && let Some(mode) = self.mark_mode.take()
+            {
+                update_pressed_keys(&mut kbvm_state);
+                if kc == evdev::ESC {
+                    continue;
+                }
+                match mode {
+                    MarkMode::Mark => self.create_mark(kc),
+                    MarkMode::Jump => {
+                        drop(kbvm_state);
+                        self.jump_to_mark(kc);
+                        kbvm_state = kbvm_state_rc.borrow_mut();
+                    }
+                }
+                continue;
+            }
             shortcuts.clear();
             {
                 let mut mods = kbvm_state.kb_state.mods.mods.0 & !(CAPS.0 | NUM.0);
@@ -947,6 +976,60 @@ impl WlSeatGlobal {
             update_pressed_keys(&mut kbvm_state);
         }
         self.send_components(&mut components_changed, &kbvm_state);
+    }
+
+    pub fn create_mark_interactive(&self) {
+        self.mark_mode.set(Some(MarkMode::Mark));
+    }
+
+    pub fn create_mark(self: &Rc<Self>, kc: Keycode) {
+        self.create_mark_(kc, self.keyboard_node.get());
+    }
+
+    fn create_mark_(self: &Rc<Self>, kc: Keycode, node: Rc<dyn Node>) {
+        let prev = self.marks.set(kc, node.clone());
+        if let Some(prev) = prev {
+            if prev.node_id() == node.node_id() {
+                return;
+            }
+            if let Some(marks) = prev.node_seat_state().marks.borrow_mut().get_mut(&self.id) {
+                marks.marks.remove(&kc);
+            }
+        }
+        node.node_seat_state()
+            .marks
+            .borrow_mut()
+            .get_or_insert_with(self.id, || Marks {
+                seat: self.clone(),
+                marks: Default::default(),
+            })
+            .marks
+            .insert(kc, ());
+    }
+
+    pub fn jump_to_mark_interactive(&self) {
+        self.mark_mode.set(Some(MarkMode::Jump));
+    }
+
+    pub fn jump_to_mark(self: &Rc<Self>, kc: Keycode) {
+        if let Some(node) = self.marks.get(&kc)
+            && node.node_accepts_focus()
+            && node.node_id() != self.keyboard_node.get().node_id()
+        {
+            if !node.node_visible() {
+                node.clone().node_make_visible();
+                if !node.node_visible() {
+                    return;
+                }
+            }
+            self.focus_node(node);
+        }
+    }
+
+    pub fn copy_mark(self: &Rc<Self>, src: Keycode, dst: Keycode) {
+        if let Some(node) = self.marks.get(&src) {
+            self.create_mark_(dst, node);
+        }
     }
 
     fn send_components(&self, components_changed: &mut bool, kbvm_state: &KbvmState) {

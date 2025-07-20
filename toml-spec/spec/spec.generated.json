@@ -479,6 +479,60 @@
                 "type",
                 "name"
               ]
+            },
+            {
+              "description": "Creates a mark for the currently focused window.\n\n- Example 1:\n\n  This example interactively selects a key that identifies the mark.\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"create-mark\" }\n  ```\n\n- Example 2:\n\n  This example hard-codes a key.\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"create-mark\", id.key = \"a\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "create-mark"
+                },
+                "id": {
+                  "description": "The identifier of the mark.\n\nIf this field is omitted, the next pressed key identifies the mark.\n",
+                  "$ref": "#/$defs/MarkId"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Moves the keyboard focus to a window identified by a mark.\n\n- Example 1:\n\n  This example interactively selects a key that identifies the mark.\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"jump-to-mark\" }\n  ```\n\n- Example 2:\n\n  This example hard-codes a key.\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"jump-to-mark\", id.key = \"a\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "jump-to-mark"
+                },
+                "id": {
+                  "description": "The identifier of the mark.\n\nIf this field is omitted, the next pressed key identifies the mark.\n",
+                  "$ref": "#/$defs/MarkId"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Copies a mark.\n\nIf the `src` id identifies a mark before this function is called, the `dst`\nid will identify the same mark afterwards.\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "copy-mark"
+                },
+                "src": {
+                  "description": "The source id to copy from.",
+                  "$ref": "#/$defs/MarkId"
+                },
+                "dst": {
+                  "description": "The destination id to copy to.",
+                  "$ref": "#/$defs/MarkId"
+                }
+              },
+              "required": [
+                "type",
+                "src",
+                "dst"
+              ]
             }
           ]
         }
@@ -1416,6 +1470,21 @@
         "error"
       ]
     },
+    "MarkId": {
+      "description": "Identifies a mark.\n\nExactly one of the fields must be set.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"create-mark\", id.key = \"a\" }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Identifies a mark by a key press.\n\nThe names of the keys can be found in [1] with the `KEY_` prefix removed. The key\nnames must be written all lowercase.\n\n[1]: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h\n"
+        },
+        "name": {
+          "type": "string",
+          "description": "Identifies a mark with an arbitrary string.\n"
+        }
+      },
+      "required": []
+    },
     "MessageFormat": {
       "type": "string",
       "description": "A message format used by status programs.",
@@ -1621,7 +1690,9 @@
         "focus-next",
         "focus-below",
         "focus-above",
-        "focus-tiles"
+        "focus-tiles",
+        "create-mark",
+        "jump-to-mark"
       ]
     },
     "Status": {

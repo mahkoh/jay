@@ -30,6 +30,7 @@ mod input_match;
 pub mod keymap;
 mod libei;
 mod log_level;
+pub mod mark_id;
 mod mode;
 pub mod modified_keysym;
 mod output;

@@ -106,6 +106,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::keyboard::syms::{KeySym, SYM_Escape},
+    kbvm::Keycode,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -232,6 +233,14 @@ pub struct WlSeatGlobal {
     focus_history_rotate: NumCell<u64>,
     focus_history_visible_only: Cell<bool>,
     focus_history_same_workspace: Cell<bool>,
+    mark_mode: Cell<Option<MarkMode>>,
+    marks: CopyHashMap<Keycode, Rc<dyn Node>>,
+}
+
+#[derive(Copy, Clone)]
+enum MarkMode {
+    Mark,
+    Jump,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -311,6 +320,8 @@ impl WlSeatGlobal {
             focus_history_rotate: Default::default(),
             focus_history_visible_only: Cell::new(false),
             focus_history_same_workspace: Cell::new(false),
+            mark_mode: Default::default(),
+            marks: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -1186,6 +1197,7 @@ impl WlSeatGlobal {
         self.cursor_user_group.detach();
         self.tablet_clear();
         self.ei_seats.clear();
+        self.marks.clear();
     }
 
     pub fn id(&self) -> SeatId {

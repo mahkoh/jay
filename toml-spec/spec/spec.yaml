@@ -602,6 +602,79 @@ Action:
               kind: string
               description: The name of the action.
               required: true
+        create-mark:
+          description: |
+            Creates a mark for the currently focused window.
+            
+            - Example 1:
+            
+              This example interactively selects a key that identifies the mark.
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "create-mark" }
+              ```
+            
+            - Example 2:
+            
+              This example hard-codes a key.
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "create-mark", id.key = "a" }
+              ```
+          fields:
+            id:
+              description: |
+                The identifier of the mark.
+                
+                If this field is omitted, the next pressed key identifies the mark.
+              required: false
+              ref: MarkId
+        jump-to-mark:
+          description: |
+            Moves the keyboard focus to a window identified by a mark.
+            
+            - Example 1:
+            
+              This example interactively selects a key that identifies the mark.
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "jump-to-mark" }
+              ```
+            
+            - Example 2:
+            
+              This example hard-codes a key.
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "jump-to-mark", id.key = "a" }
+              ```
+          fields:
+            id:
+              description: |
+                The identifier of the mark.
+                
+                If this field is omitted, the next pressed key identifies the mark.
+              required: false
+              ref: MarkId
+        copy-mark:
+          description: |
+            Copies a mark.
+            
+            If the `src` id identifies a mark before this function is called, the `dst`
+            id will identify the same mark afterwards.
+          fields:
+            src:
+              description: The source id to copy from.
+              required: true
+              ref: MarkId
+            dst:
+              description: The destination id to copy to.
+              required: true
+              ref: MarkId
 
 
 Exec:
@@ -870,6 +943,16 @@ SimpleActionName:
       description: Focuses the layer above the currently focused layer.
     - value: focus-tiles
       description: Focuses the tile layer.
+    - value: create-mark
+      description: |
+        Interactively creates a mark.
+        
+        The next pressed key becomes the identifier for the mark.
+    - value: jump-to-mark
+      description: |
+        Interactively jumps to a mark.
+        
+        The next pressed key identifies the mark to jump to.
 
 
 Color:
@@ -3778,4 +3861,35 @@ FocusHistory:
         
         The default is `false`.
       kind: boolean
+      required: false
+
+
+MarkId:
+  kind: table
+  description: |
+    Identifies a mark.
+    
+    Exactly one of the fields must be set.
+    
+    - Example:
+    
+      ```toml
+      [shortcuts]
+      alt-x = { type = "create-mark", id.key = "a" }
+      ```
+  fields:
+    key:
+      description: |
+        Identifies a mark by a key press.
+        
+        The names of the keys can be found in [1] with the `KEY_` prefix removed. The key
+        names must be written all lowercase.
+        
+        [1]: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+      kind: string
+      required: false
+    name:
+      description: |
+        Identifies a mark with an arbitrary string.
+      kind: string
       required: false

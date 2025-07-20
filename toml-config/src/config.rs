@@ -1,6 +1,7 @@
 mod context;
 pub mod error;
 mod extractor;
+mod keycodes;
 mod keysyms;
 mod parser;
 mod parsers;
@@ -36,6 +37,7 @@ use {
         xwayland::XScalingMode,
     },
     std::{
+        cell::RefCell,
         error::Error,
         fmt::{Display, Formatter},
         rc::Rc,
@@ -77,6 +79,8 @@ pub enum SimpleCommand {
     FocusHistory(Timeline),
     FocusLayerRel(LayerDirection),
     FocusTiles,
+    CreateMark,
+    JumpToMark,
 }
 
 #[derive(Debug, Clone)]
@@ -160,6 +164,9 @@ pub enum Action {
     NamedAction {
         name: String,
     },
+    CreateMark(u32),
+    JumpToMark(u32),
+    CopyMark(u32, u32),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -505,13 +512,18 @@ pub enum ConfigError {
     Parser(#[from] ConfigParserError),
 }
 
-pub fn parse_config<F>(input: &[u8], handle_error: F) -> Option<Config>
+pub fn parse_config<F>(
+    input: &[u8],
+    mark_names: &RefCell<AHashMap<String, u32>>,
+    handle_error: F,
+) -> Option<Config>
 where
     F: FnOnce(&dyn Error),
 {
     let cx = Context {
         input,
         used: Default::default(),
+        mark_names,
     };
     macro_rules! fatal {
         ($e:expr) => {{
@@ -554,5 +566,5 @@ where
 #[test]
 fn default_config_parses() {
     let input = include_bytes!("default-config.toml");
-    parse_config(input, |_| ()).unwrap();
+    parse_config(input, &Default::default(), |_| ()).unwrap();
 }

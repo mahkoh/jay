@@ -747,6 +747,19 @@ pub enum ClientMessage<'a> {
     SetMiddleClickPasteEnabled {
         enabled: bool,
     },
+    SeatCreateMark {
+        seat: Seat,
+        kc: Option<u32>,
+    },
+    SeatJumpToMark {
+        seat: Seat,
+        kc: Option<u32>,
+    },
+    SeatCopyMark {
+        seat: Seat,
+        src: u32,
+        dst: u32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

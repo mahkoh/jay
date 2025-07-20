@@ -566,6 +566,34 @@ impl Seat {
     pub fn set_pointer_revert_key(self, sym: KeySym) {
         get!().set_pointer_revert_key(self, sym);
     }
+
+    /// Creates a mark for the currently focused window.
+    ///
+    /// `kc` should be an evdev keycode. If `kc` is none, then the keycode will be
+    /// inferred from the next key press. Pressing escape during this interactive
+    /// selection aborts the process.
+    ///
+    /// Currently very few `u32` are valid keycodes. Large numbers can therefore be used
+    /// to create marks that do not correspond to a key. However, `kc` should always be
+    /// less than `u32::MAX - 8`.
+    pub fn create_mark(self, kc: Option<u32>) {
+        get!().seat_create_mark(self, kc);
+    }
+
+    /// Moves the keyboard focus to a window identified by a mark.
+    ///
+    /// See [`Seat::create_mark`] for information about the `kc` parameter.
+    pub fn jump_to_mark(self, kc: Option<u32>) {
+        get!().seat_jump_to_mark(self, kc);
+    }
+
+    /// Copies a mark from one keycode to another.
+    ///
+    /// If the `src` keycode identifies a mark before this function is called, the `dst`
+    /// keycode will identify the same mark afterwards.
+    pub fn copy_mark(self, src: u32, dst: u32) {
+        get!().seat_copy_mark(self, src, dst);
+    }
 }
 
 /// A focus-follows-mouse mode.
