@@ -8,9 +8,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, OutputNode,
-            StackedNode, TileDragDestination, WorkspaceDragDestination, WorkspaceNodeId,
-            walker::NodeVisitor,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
+            OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
+            WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
@@ -155,6 +155,10 @@ impl Node for DisplayNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         None
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Display
     }
 
     fn node_find_tree_at(

@@ -41,4 +41,7 @@ pub trait ContainingNode: Node {
     fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         None
     }
+    fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
+        false
+    }
 }

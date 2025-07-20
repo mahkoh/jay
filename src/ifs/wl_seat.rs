@@ -70,6 +70,7 @@ use {
                 dnd_icon::DndIcon,
                 tray::{DynTrayItem, TrayItemId},
                 xdg_surface::xdg_popup::XdgPopup,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
@@ -80,9 +81,10 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, NodeLocation,
-            OutputNode, ToplevelNode, WorkspaceNode, generic_node_visitor, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, NodeLayer,
+            NodeLayerLink, NodeLocation, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
+            generic_node_visitor, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -799,6 +801,165 @@ impl WlSeatGlobal {
 
     pub fn focus_history_set_same_workspace(&self, same_workspace: bool) {
         self.focus_history_same_workspace.set(same_workspace);
+    }
+
+    fn focus_layer_rel<LI, SI>(
+        self: &Rc<Self>,
+        next_layer: impl Fn(NodeLayer) -> NodeLayer,
+        layer_node_next: impl Fn(
+            &NodeRef<Rc<ZwlrLayerSurfaceV1>>,
+        ) -> Option<NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        stacked_node_next: impl Fn(
+            &NodeRef<Rc<dyn StackedNode>>,
+        ) -> Option<NodeRef<Rc<dyn StackedNode>>>,
+        layer_list_iter: impl Fn(&LinkedList<Rc<ZwlrLayerSurfaceV1>>) -> LI,
+        stacked_list_iter: impl Fn(&LinkedList<Rc<dyn StackedNode>>) -> SI,
+    ) where
+        LI: Iterator<Item = NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
+    {
+        fn node_viable(n: &(impl Node + ?Sized)) -> bool {
+            n.node_visible() && n.node_accepts_focus()
+        }
+
+        let current = self.keyboard_node.get();
+        let Some(output) = current.node_output() else {
+            return;
+        };
+        let current_layer = current.node_layer();
+        match &current_layer {
+            NodeLayerLink::Layer0(l)
+            | NodeLayerLink::Layer1(l)
+            | NodeLayerLink::Layer2(l)
+            | NodeLayerLink::Layer3(l) => {
+                if let Some(n) = layer_node_next(l)
+                    && node_viable(&**n)
+                {
+                    n.deref()
+                        .clone()
+                        .node_do_focus(self, Direction::Unspecified);
+                    return;
+                }
+            }
+            NodeLayerLink::Stacked(l) | NodeLayerLink::StackedAboveLayers(l) => {
+                if let Some(n) = stacked_node_next(l)
+                    && node_viable(&**n)
+                    && n.node_output().map(|o| o.id) == Some(output.id)
+                {
+                    n.deref()
+                        .clone()
+                        .node_do_focus(self, Direction::Unspecified);
+                    return;
+                }
+            }
+            NodeLayerLink::Display => {}
+            NodeLayerLink::Output => {}
+            NodeLayerLink::Workspace => {}
+            NodeLayerLink::Tiled => {}
+            NodeLayerLink::Fullscreen => {}
+            NodeLayerLink::Lock => {}
+            NodeLayerLink::InputMethod => {}
+        }
+        let handle_layer_shell = |l: &LinkedList<Rc<ZwlrLayerSurfaceV1>>| {
+            for n in layer_list_iter(l) {
+                if node_viable(&**n) {
+                    return Some(n.deref().clone() as Rc<dyn Node>);
+                }
+            }
+            None
+        };
+        let handle_stacked = |l: &LinkedList<Rc<dyn StackedNode>>| {
+            for n in stacked_list_iter(l) {
+                if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
+                    return Some(n.deref().clone() as Rc<dyn Node>);
+                }
+            }
+            None
+        };
+        let ws = output.workspace.get();
+        let first = next_layer(current_layer.layer());
+        let mut layer = first;
+        loop {
+            let node = match layer {
+                NodeLayer::Display => None,
+                NodeLayer::Layer0 => handle_layer_shell(&output.layers[0]),
+                NodeLayer::Layer1 => handle_layer_shell(&output.layers[1]),
+                NodeLayer::Output => None,
+                NodeLayer::Workspace => None,
+                NodeLayer::Tiled => ws
+                    .as_ref()
+                    .and_then(|w| w.container.get())
+                    .map(|n| n as Rc<dyn Node>),
+                NodeLayer::Fullscreen => ws
+                    .as_ref()
+                    .and_then(|w| w.fullscreen.get())
+                    .map(|n| n as Rc<dyn Node>),
+                NodeLayer::Stacked => handle_stacked(&self.state.root.stacked),
+                NodeLayer::Layer2 => handle_layer_shell(&output.layers[2]),
+                NodeLayer::Layer3 => handle_layer_shell(&output.layers[3]),
+                NodeLayer::StackedAboveLayers => {
+                    handle_stacked(&self.state.root.stacked_above_layers)
+                }
+                NodeLayer::Lock => None,
+                NodeLayer::InputMethod => None,
+            };
+            if let Some(n) = node {
+                if node_viable(&*n) {
+                    n.node_do_focus(self, Direction::Unspecified);
+                    return;
+                }
+            }
+            layer = next_layer(layer);
+            if layer == first {
+                return;
+            }
+        }
+    }
+
+    pub fn focus_layer_below(self: &Rc<Self>) {
+        self.focus_layer_rel(
+            |l| l.prev(),
+            |n| n.prev(),
+            |n| n.prev(),
+            |l| l.rev_iter(),
+            |l| l.rev_iter(),
+        );
+    }
+
+    pub fn focus_layer_above(self: &Rc<Self>) {
+        self.focus_layer_rel(
+            |l| l.next(),
+            |n| n.next(),
+            |n| n.next(),
+            |l| l.iter(),
+            |l| l.iter(),
+        );
+    }
+
+    pub fn focus_tiles(self: &Rc<Self>) {
+        let current = self.keyboard_node.get();
+        if matches!(
+            current.node_layer().layer(),
+            NodeLayer::Tiled | NodeLayer::Fullscreen,
+        ) {
+            return;
+        }
+        let Some(output) = current.node_output() else {
+            return;
+        };
+        let Some(ws) = output.workspace.get() else {
+            return;
+        };
+        let node = match ws.fullscreen.get() {
+            Some(fs) => fs as Rc<dyn Node>,
+            _ => match ws.container.get() {
+                Some(c) => c,
+                _ => return,
+            },
+        };
+        if node.node_visible() && node.node_accepts_focus() {
+            node.node_do_focus(self, Direction::Unspecified);
+        }
     }
 
     fn set_selection_<T, X, S>(

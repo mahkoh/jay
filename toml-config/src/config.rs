@@ -23,7 +23,10 @@ use {
     ahash::AHashMap,
     jay_config::{
         Axis, Direction, Workspace,
-        input::{SwitchEvent, Timeline, acceleration::AccelProfile, clickmethod::ClickMethod},
+        input::{
+            LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
+            clickmethod::ClickMethod,
+        },
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
@@ -72,6 +75,8 @@ pub enum SimpleCommand {
     ShowBar(bool),
     ToggleBar,
     FocusHistory(Timeline),
+    FocusLayerRel(LayerDirection),
+    FocusTiles,
 }
 
 #[derive(Debug, Clone)]

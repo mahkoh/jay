@@ -15,7 +15,7 @@ use {
         client::{Client, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, Timeline,
+            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
             acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{
@@ -377,6 +377,14 @@ impl ConfigClient {
             seat,
             same_workspace,
         });
+    }
+
+    pub fn seat_focus_layer_rel(&self, seat: Seat, direction: LayerDirection) {
+        self.send(&ClientMessage::SeatFocusLayerRel { seat, direction });
+    }
+
+    pub fn seat_focus_tiles(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatFocusTiles { seat });
     }
 
     pub fn seat_focus(&self, seat: Seat, direction: Direction) {

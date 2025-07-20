@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_output::OutputGlobalOpt,
-            wl_seat::NodeSeatState,
+            wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
@@ -15,8 +15,8 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLocation, NodeVisitor,
-            OutputNode, StackedNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode,
         },
         utils::{
             bitflags::BitflagsExt,
@@ -65,7 +65,7 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_zone: Cell<ExclusiveZone>,
     margin: Cell<(i32, i32, i32, i32)>,
     keyboard_interactivity: Cell<u32>,
-    link: Cell<Option<LinkedNode<Rc<Self>>>>,
+    link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     seat_state: NodeSeatState,
     last_configure: Cell<(i32, i32)>,
     exclusive_edge: Cell<Option<u32>>,
@@ -171,7 +171,7 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_zone: Cell::new(ExclusiveZone::MoveSelf),
             margin: Cell::new((0, 0, 0, 0)),
             keyboard_interactivity: Cell::new(0),
-            link: Cell::new(None),
+            link: Default::default(),
             seat_state: Default::default(),
             last_configure: Default::default(),
             exclusive_edge: Default::default(),
@@ -291,7 +291,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::PopupHasParent);
         }
         let stack = self.client.state.root.stacked_above_layers.clone();
-        popup.xdg.set_popup_stack(&stack);
+        popup.xdg.set_popup_stack(&stack, true);
         let user = Rc::new(Popup {
             parent: slf.clone(),
             popup: popup.clone(),
@@ -534,7 +534,7 @@ impl ZwlrLayerSurfaceV1 {
     }
 
     pub fn destroy_node(&self) {
-        self.link.set(None);
+        self.link.borrow_mut().take();
         self.mapped.set(false);
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);
@@ -562,6 +562,18 @@ impl ZwlrLayerSurfaceV1 {
 }
 
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(link) = self.link.borrow().as_ref().map(|l| l.to_ref()) else {
+            return NodeLayerLink::Display;
+        };
+        match self.layer.get() {
+            0 => NodeLayerLink::Layer0(link),
+            1 => NodeLayerLink::Layer1(link),
+            2 => NodeLayerLink::Layer2(link),
+            _ => NodeLayerLink::Layer3(link),
+        }
+    }
+
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
@@ -587,7 +599,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
-            self.link.set(Some(layer.add_last(self.clone())));
+            *self.link.borrow_mut() = Some(layer.add_last(self.clone()));
             self.mapped.set(true);
             self.compute_position();
             self.update_exclusive_size();
@@ -663,6 +675,18 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.surface.node_location()
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        SurfaceExt::node_layer(self)
+    }
+
+    fn node_accepts_focus(&self) -> bool {
+        self.keyboard_interactivity.get() != KI_NONE
+    }
+
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_node(self.surface.clone())
+    }
+
     fn node_find_tree_at(
         &self,
         x: i32,
@@ -728,6 +752,13 @@ impl XdgPopupParent for Popup {
     fn make_visible(self: Rc<Self>) {
         // nothing
     }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(link) = self.stack_link.borrow().as_ref().map(|w| w.to_ref()) else {
+            return NodeLayerLink::Display;
+        };
+        NodeLayerLink::StackedAboveLayers(link)
+    }
 }
 
 object_base! {
@@ -738,7 +769,7 @@ object_base! {
 impl Object for ZwlrLayerSurfaceV1 {
     fn break_loops(&self) {
         self.destroy_node();
-        self.link.set(None);
+        self.link.borrow_mut().take();
     }
 }
 

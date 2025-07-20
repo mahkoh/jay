@@ -5,7 +5,7 @@ use {
             x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
         },
         leaks::Tracker,
-        tree::{Node, ToplevelNode, ToplevelNodeBase},
+        tree::{Node, NodeLayerLink, ToplevelNode, ToplevelNodeBase},
         utils::clonecell::CloneCell,
         xwayland::XWaylandEvent,
     },
@@ -23,6 +23,13 @@ pub struct XSurface {
 }
 
 impl SurfaceExt for XSurface {
+    fn node_layer(&self) -> NodeLayerLink {
+        let Some(win) = self.xwindow.get() else {
+            return NodeLayerLink::Display;
+        };
+        win.node_layer()
+    }
+
     fn after_apply_commit(self: Rc<Self>) {
         if let Some(xwindow) = self.xwindow.get() {
             xwindow.map_status_changed();

@@ -21,8 +21,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId, PlaceholderNode,
-            StackedNode, ToplevelNode, container::ContainerNode, walker::NodeVisitor,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId,
+            PlaceholderNode, StackedNode, ToplevelNode, container::ContainerNode,
+            walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -319,6 +320,10 @@ impl Node for WorkspaceNode {
 
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location())
+    }
+
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Workspace
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {

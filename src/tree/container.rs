@@ -18,9 +18,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLocation, OutputNode, TddType, TileDragDestination, ToplevelData,
-            ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode, default_tile_drag_bounds,
-            toplevel_set_floating, walker::NodeVisitor,
+            NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            default_tile_drag_bounds, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1553,6 +1553,10 @@ impl Node for ContainerNode {
         Some(self.location.get())
     }
 
+    fn node_layer(&self) -> NodeLayerLink {
+        self.toplevel_data.node_layer()
+    }
+
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         if let Some(child) = self.child_nodes.borrow().get(&child.node_id()) {
             self.update_child_title(child, title);
@@ -2108,6 +2112,10 @@ impl ContainingNode for ContainerNode {
     fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         self.tl_data().float.get()
     }
+
+    fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
+        self.tl_data().self_or_ancestor_is_fullscreen.get()
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {
@@ -2227,6 +2235,12 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
         for child in self.children.iter() {
             child.node.tl_set_float(float);
+        }
+    }
+
+    fn tl_mark_ancestor_fullscreen_ext(&self, fullscreen: bool) {
+        for child in self.children.iter() {
+            child.node.tl_mark_ancestor_fullscreen(fullscreen);
         }
     }
 }
