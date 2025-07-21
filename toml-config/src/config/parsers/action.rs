@@ -151,6 +151,8 @@ impl ActionParser<'_> {
             "focus-tiles" => FocusTiles,
             "create-mark" => CreateMark,
             "jump-to-mark" => JumpToMark,
+            "clear-modes" => PopMode(false),
+            "pop-mode" => PopMode(true),
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
@@ -414,6 +416,22 @@ impl ActionParser<'_> {
             .map_spanned_err(ActionParserError::CopyMark)?;
         Ok(Action::CopyMark(src, dst))
     }
+
+    fn parse_push_mode(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::SetMode {
+            name: name.value.to_string(),
+            latch: false,
+        })
+    }
+
+    fn parse_latch_mode(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::SetMode {
+            name: name.value.to_string(),
+            latch: true,
+        })
+    }
 }
 
 impl Parser for ActionParser<'_> {
@@ -471,6 +489,8 @@ impl Parser for ActionParser<'_> {
             "create-mark" => self.parse_create_mark(&mut ext),
             "jump-to-mark" => self.parse_jump_to_mark(&mut ext),
             "copy-mark" => self.parse_copy_mark(&mut ext),
+            "push-mode" => self.parse_push_mode(&mut ext),
+            "latch-mode" => self.parse_latch_mode(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

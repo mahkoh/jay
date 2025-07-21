@@ -20,6 +20,7 @@ use {
                 gfx_api::GfxApiParser,
                 idle::IdleParser,
                 input::InputsParser,
+                input_mode::InputModesParser,
                 keymap::KeymapParser,
                 libei::LibeiParser,
                 log_level::LogLevelParser,
@@ -44,6 +45,7 @@ use {
             toml_value::Value,
         },
     },
+    ahash::AHashMap,
     indexmap::IndexMap,
     std::collections::HashSet,
     thiserror::Error,
@@ -136,7 +138,7 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
-            (middle_click_paste,),
+            (middle_click_paste, input_modes_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -186,7 +188,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("show-bar"))),
                 opt(val("focus-history")),
             ),
-            (recover(opt(bol("middle-click-paste"))),),
+            (recover(opt(bol("middle-click-paste"))), opt(val("modes"))),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -475,6 +477,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut input_modes = AHashMap::new();
+        if let Some(value) = input_modes_val {
+            match value.parse(&mut InputModesParser(self.0)) {
+                Ok(v) => input_modes = v,
+                Err(e) => {
+                    log::warn!("Could not parse the input modes: {}", self.0.error(e),);
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -516,6 +527,7 @@ impl Parser for ConfigParser<'_> {
             show_bar: show_bar.despan(),
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
+            input_modes,
         })
     }
 }

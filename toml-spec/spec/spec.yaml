@@ -675,6 +675,38 @@ Action:
               description: The destination id to copy to.
               required: true
               ref: MarkId
+        push-mode:
+          description: |
+            Pushes an input mode on top of the input-mode stack. The mode can be popped
+            with the `pop-mode` action.
+            
+            - Example:
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "push-mode", name = "navigation" }
+              ```
+          fields:
+            name:
+              description: The name of the mode.
+              required: true
+              kind: string
+        latch-mode:
+          description: |
+            Temporarily pushes an input mode on top of the input-mode stack. The new mode
+            will automatically be popped when the next shortcut is invoked.
+            
+            - Example:
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "latch-mode", name = "navigation" }
+              ```
+          fields:
+            name:
+              description: The name of the mode.
+              required: true
+              kind: string
 
 
 Exec:
@@ -953,6 +985,10 @@ SimpleActionName:
         Interactively jumps to a mark.
         
         The next pressed key identifies the mark to jump to.
+    - value: clear-modes
+      description: Disables all previously set input modes, clearing the input-mode stack.
+    - value: pop-mode
+      description: Pops the topmost mode from the input-mode stack.
 
 
 Color:
@@ -2742,6 +2778,32 @@ Config:
         Changing this has no effect on running applications.
 
         The default is `true`.
+    modes:
+      kind: map
+      values:
+        ref: InputMode
+      required: false
+      description: |
+        Configures the input modes.
+        
+        Modes can be used to define shortcuts that are only active when the mode is
+        active.
+        
+        - Example
+        
+          ```toml
+          [modes."navigation".shortcuts]
+          w = "focus-up"
+          a = "focus-left"
+          s = "focus-down"
+          d = "focus-right"
+          r = "focus-above"
+          f = "focus-below"
+          q = "focus-prev"
+          e = "focus-next"
+          ```
+        
+        Modes can be activated with the `push-mode` and `latch-mode` actions.
 
 
 Idle:
@@ -3893,3 +3955,54 @@ MarkId:
         Identifies a mark with an arbitrary string.
       kind: string
       required: false
+
+
+InputMode:
+  kind: table
+  description: |
+    Defines an input mode.
+    
+    Modes can be used to define shortcuts that are only active when the mode is active.
+    
+    - Example
+
+      ```toml
+      [modes."navigation".shortcuts]
+      w = "focus-up"
+      a = "focus-left"
+      s = "focus-down"
+      d = "focus-right"
+      r = "focus-above"
+      f = "focus-below"
+      q = "focus-prev"
+      e = "focus-next"
+      ```
+  fields:
+    parent:
+      kind: string
+      required: false
+      description: |
+        The parent of this input mode.
+        
+        This mode inherits all shortcuts from this parent. If this field is not set, then
+        it inherits the shortcuts from the top-level shortcuts.
+        
+        Note that you can disable a shortcut by explicitly assigning it the action `none`.
+    shortcuts:
+      kind: map
+      values:
+        ref: Action
+      required: false
+      description: |
+        The shortcuts of this mode.
+        
+        See the same field in the top-level `Config` object for a description.
+    complex-shortcuts:
+      kind: map
+      values:
+        ref: ComplexShortcut
+      required: false
+      description: |
+        The complex shortcuts of this mode.
+        
+        See the same field in the top-level `Config` object for a description.

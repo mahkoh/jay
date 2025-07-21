@@ -8,6 +8,7 @@ mod parsers;
 mod spanned;
 mod value;
 
+pub use crate::config::parsers::input_mode::InputMode;
 use {
     crate::{
         config::{
@@ -81,6 +82,7 @@ pub enum SimpleCommand {
     FocusTiles,
     CreateMark,
     JumpToMark,
+    PopMode(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -167,6 +169,10 @@ pub enum Action {
     CreateMark(u32),
     JumpToMark(u32),
     CopyMark(u32, u32),
+    SetMode {
+        name: String,
+        latch: bool,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -502,6 +508,7 @@ pub struct Config {
     pub show_bar: Option<bool>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,
+    pub input_modes: AHashMap<String, InputMode>,
 }
 
 #[derive(Debug, Error)]

@@ -756,6 +756,46 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [MarkId](#types-MarkId).
 
+- `push-mode`:
+
+  Pushes an input mode on top of the input-mode stack. The mode can be popped
+  with the `pop-mode` action.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "push-mode", name = "navigation" }
+    ```
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the mode.
+
+    The value of this field should be a string.
+
+- `latch-mode`:
+
+  Temporarily pushes an input mode on top of the input-mode stack. The new mode
+  will automatically be popped when the next shortcut is invoked.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "latch-mode", name = "navigation" }
+    ```
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the mode.
+
+    The value of this field should be a string.
+
 
 <a name="types-Brightness"></a>
 ### `Brightness`
@@ -1911,6 +1951,31 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `modes` (optional):
+
+  Configures the input modes.
+  
+  Modes can be used to define shortcuts that are only active when the mode is
+  active.
+  
+  - Example
+  
+    ```toml
+    [modes."navigation".shortcuts]
+    w = "focus-up"
+    a = "focus-left"
+    s = "focus-down"
+    d = "focus-right"
+    r = "focus-above"
+    f = "focus-below"
+    q = "focus-prev"
+    e = "focus-next"
+    ```
+  
+  Modes can be activated with the `push-mode` and `latch-mode` actions.
+
+  The value of this field should be a table whose values are [InputModes](#types-InputMode).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -3025,6 +3090,59 @@ The table has the following fields:
   The value of this field should be a boolean.
 
 
+<a name="types-InputMode"></a>
+### `InputMode`
+
+Defines an input mode.
+
+Modes can be used to define shortcuts that are only active when the mode is active.
+
+- Example
+
+  ```toml
+  [modes."navigation".shortcuts]
+  w = "focus-up"
+  a = "focus-left"
+  s = "focus-down"
+  d = "focus-right"
+  r = "focus-above"
+  f = "focus-below"
+  q = "focus-prev"
+  e = "focus-next"
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `parent` (optional):
+
+  The parent of this input mode.
+  
+  This mode inherits all shortcuts from this parent. If this field is not set, then
+  it inherits the shortcuts from the top-level shortcuts.
+  
+  Note that you can disable a shortcut by explicitly assigning it the action `none`.
+
+  The value of this field should be a string.
+
+- `shortcuts` (optional):
+
+  The shortcuts of this mode.
+  
+  See the same field in the top-level `Config` object for a description.
+
+  The value of this field should be a table whose values are [Actions](#types-Action).
+
+- `complex-shortcuts` (optional):
+
+  The complex shortcuts of this mode.
+  
+  See the same field in the top-level `Config` object for a description.
+
+  The value of this field should be a table whose values are [ComplexShortcuts](#types-ComplexShortcut).
+
+
 <a name="types-Keymap"></a>
 ### `Keymap`
 
@@ -3829,6 +3947,14 @@ The string should have one of the following values:
   Interactively jumps to a mark.
   
   The next pressed key identifies the mark to jump to.
+
+- `clear-modes`:
+
+  Disables all previously set input modes, clearing the input-mode stack.
+
+- `pop-mode`:
+
+  Pops the topmost mode from the input-mode stack.
 
 
 
