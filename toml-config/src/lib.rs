@@ -65,35 +65,46 @@ fn default_seat() -> Seat {
 }
 
 trait FnBuilder: Sized {
-    fn new<F: Fn() + 'static>(f: F) -> Self;
+    type Output;
+
+    #[expect(clippy::wrong_self_convention)]
+    fn new<F: Fn() + 'static>(&self, f: F) -> Self::Output;
 }
 
-impl FnBuilder for Box<dyn Fn()> {
-    fn new<F: Fn() + 'static>(f: F) -> Self {
+struct BoxFnBuilder;
+
+impl FnBuilder for BoxFnBuilder {
+    type Output = Box<dyn Fn()>;
+
+    fn new<F: Fn() + 'static>(&self, f: F) -> Self::Output {
         Box::new(f)
     }
 }
 
-impl FnBuilder for Rc<dyn Fn()> {
-    fn new<F: Fn() + 'static>(f: F) -> Self {
+struct RcFnBuilder;
+
+impl FnBuilder for RcFnBuilder {
+    type Output = Rc<dyn Fn()>;
+
+    fn new<F: Fn() + 'static>(&self, f: F) -> Self::Output {
         Rc::new(f)
     }
 }
 
 impl Action {
     fn into_fn(self, state: &Rc<State>) -> Box<dyn Fn()> {
-        self.into_fn_impl(state)
+        self.into_fn_impl(&BoxFnBuilder, state)
     }
 
     fn into_rc_fn(self, state: &Rc<State>) -> Rc<dyn Fn()> {
-        self.into_fn_impl(state)
+        self.into_fn_impl(&RcFnBuilder, state)
     }
 
-    fn into_fn_impl<B: FnBuilder>(self, state: &Rc<State>) -> B {
+    fn into_fn_impl<B: FnBuilder>(self, b: &B, state: &Rc<State>) -> B::Output {
         macro_rules! client_action {
             ($name:ident, $opt:expr) => {{
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     if let Some($name) = state.client.get() {
                         $opt
                     }
@@ -104,7 +115,7 @@ impl Action {
         macro_rules! window_or_seat {
             ($name:ident, $expr:expr) => {{
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     if let Some($name) = state.window.get() {
                         if let Some($name) = $name {
                             $expr;
@@ -118,7 +129,7 @@ impl Action {
         }
         match self {
             Action::SimpleCommand { cmd } => match cmd {
-                SimpleCommand::Focus(dir) => B::new(move || s.focus(dir)),
+                SimpleCommand::Focus(dir) => b.new(move || s.focus(dir)),
                 SimpleCommand::Move(dir) => window_or_seat!(s, s.move_(dir)),
                 SimpleCommand::Split(axis) => window_or_seat!(s, s.create_split(axis)),
                 SimpleCommand::ToggleSplit => window_or_seat!(s, s.toggle_split()),
@@ -127,75 +138,75 @@ impl Action {
                 SimpleCommand::SetMono(b) => window_or_seat!(s, s.set_mono(b)),
                 SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),
                 SimpleCommand::SetFullscreen(b) => window_or_seat!(s, s.set_fullscreen(b)),
-                SimpleCommand::FocusParent => B::new(move || s.focus_parent()),
+                SimpleCommand::FocusParent => b.new(move || s.focus_parent()),
                 SimpleCommand::Close => window_or_seat!(s, s.close()),
                 SimpleCommand::DisablePointerConstraint => {
-                    B::new(move || s.disable_pointer_constraint())
+                    b.new(move || s.disable_pointer_constraint())
                 }
                 SimpleCommand::ToggleFloating => window_or_seat!(s, s.toggle_floating()),
                 SimpleCommand::SetFloating(b) => window_or_seat!(s, s.set_floating(b)),
-                SimpleCommand::Quit => B::new(quit),
+                SimpleCommand::Quit => b.new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
-                    B::new(move || load_config(false, &persistent))
+                    b.new(move || load_config(false, &persistent))
                 }
-                SimpleCommand::ReloadConfigSo => B::new(reload),
-                SimpleCommand::None => B::new(|| ()),
-                SimpleCommand::Forward(bool) => B::new(move || s.set_forward(bool)),
+                SimpleCommand::ReloadConfigSo => b.new(reload),
+                SimpleCommand::None => b.new(|| ()),
+                SimpleCommand::Forward(bool) => b.new(move || s.set_forward(bool)),
                 SimpleCommand::EnableWindowManagement(bool) => {
-                    B::new(move || s.set_window_management_enabled(bool))
+                    b.new(move || s.set_window_management_enabled(bool))
                 }
                 SimpleCommand::SetFloatAboveFullscreen(bool) => {
-                    B::new(move || set_float_above_fullscreen(bool))
+                    b.new(move || set_float_above_fullscreen(bool))
                 }
-                SimpleCommand::ToggleFloatAboveFullscreen => B::new(toggle_float_above_fullscreen),
+                SimpleCommand::ToggleFloatAboveFullscreen => b.new(toggle_float_above_fullscreen),
                 SimpleCommand::SetFloatPinned(pinned) => {
                     window_or_seat!(s, s.set_float_pinned(pinned))
                 }
                 SimpleCommand::ToggleFloatPinned => window_or_seat!(s, s.toggle_float_pinned()),
                 SimpleCommand::KillClient => client_action!(c, c.kill()),
-                SimpleCommand::ShowBar(show) => B::new(move || set_show_bar(show)),
-                SimpleCommand::ToggleBar => B::new(toggle_show_bar),
+                SimpleCommand::ShowBar(show) => b.new(move || set_show_bar(show)),
+                SimpleCommand::ToggleBar => b.new(toggle_show_bar),
                 SimpleCommand::FocusHistory(timeline) => {
                     let persistent = state.persistent.clone();
-                    B::new(move || persistent.seat.focus_history(timeline))
+                    b.new(move || persistent.seat.focus_history(timeline))
                 }
                 SimpleCommand::FocusLayerRel(direction) => {
                     let persistent = state.persistent.clone();
-                    B::new(move || persistent.seat.focus_layer_rel(direction))
+                    b.new(move || persistent.seat.focus_layer_rel(direction))
                 }
                 SimpleCommand::FocusTiles => {
                     let persistent = state.persistent.clone();
-                    B::new(move || persistent.seat.focus_tiles())
+                    b.new(move || persistent.seat.focus_tiles())
                 }
                 SimpleCommand::CreateMark => {
                     let persistent = state.persistent.clone();
-                    B::new(move || persistent.seat.create_mark(None))
+                    b.new(move || persistent.seat.create_mark(None))
                 }
                 SimpleCommand::JumpToMark => {
                     let persistent = state.persistent.clone();
-                    B::new(move || persistent.seat.jump_to_mark(None))
+                    b.new(move || persistent.seat.jump_to_mark(None))
                 }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
-                B::new(move || {
+                b.new(move || {
                     for action in &actions {
                         action();
                     }
                 })
             }
-            Action::Exec { exec } => B::new(move || create_command(&exec).spawn()),
-            Action::SwitchToVt { num } => B::new(move || switch_to_vt(num)),
+            Action::Exec { exec } => b.new(move || create_command(&exec).spawn()),
+            Action::SwitchToVt { num } => b.new(move || switch_to_vt(num)),
             Action::ShowWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                B::new(move || s.show_workspace(workspace))
+                b.new(move || s.show_workspace(workspace))
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);
                 window_or_seat!(s, s.set_workspace(workspace))
             }
-            Action::ConfigureConnector { con } => B::new(move || {
+            Action::ConfigureConnector { con } => b.new(move || {
                 for c in connectors() {
                     if con.match_.matches(c) {
                         con.apply(c);
@@ -204,7 +215,7 @@ impl Action {
             }),
             Action::ConfigureInput { input } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     for c in input_devices() {
                         if input.match_.matches(c, &state) {
                             input.apply(c, &state);
@@ -214,7 +225,7 @@ impl Action {
             }
             Action::ConfigureOutput { out } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     for c in connectors() {
                         if out.match_.matches(c, &state) {
                             out.apply(c);
@@ -222,36 +233,36 @@ impl Action {
                     }
                 })
             }
-            Action::SetEnv { env } => B::new(move || {
+            Action::SetEnv { env } => b.new(move || {
                 for (k, v) in &env {
                     set_env(k, v);
                 }
             }),
-            Action::UnsetEnv { env } => B::new(move || {
+            Action::UnsetEnv { env } => b.new(move || {
                 for k in &env {
                     unset_env(k);
                 }
             }),
             Action::SetKeymap { map } => {
                 let state = state.clone();
-                B::new(move || state.set_keymap(&map))
+                b.new(move || state.set_keymap(&map))
             }
             Action::SetStatus { status } => {
                 let state = state.clone();
-                B::new(move || state.set_status(&status))
+                b.new(move || state.set_status(&status))
             }
             Action::SetTheme { theme } => {
                 let state = state.clone();
-                B::new(move || state.apply_theme(&theme))
+                b.new(move || state.apply_theme(&theme))
             }
-            Action::SetLogLevel { level } => B::new(move || set_log_level(level)),
-            Action::SetGfxApi { api } => B::new(move || set_gfx_api(api)),
+            Action::SetLogLevel { level } => b.new(move || set_log_level(level)),
+            Action::SetGfxApi { api } => b.new(move || set_gfx_api(api)),
             Action::ConfigureDirectScanout { enabled } => {
-                B::new(move || set_direct_scanout_enabled(enabled))
+                b.new(move || set_direct_scanout_enabled(enabled))
             }
             Action::ConfigureDrmDevice { dev } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     for d in drm_devices() {
                         if dev.match_.matches(d, &state) {
                             dev.apply(d);
@@ -261,7 +272,7 @@ impl Action {
             }
             Action::SetRenderDevice { dev } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     for d in drm_devices() {
                         if dev.matches(d, &state) {
                             d.make_render_device();
@@ -269,7 +280,7 @@ impl Action {
                     }
                 })
             }
-            Action::ConfigureIdle { idle, grace_period } => B::new(move || {
+            Action::ConfigureIdle { idle, grace_period } => b.new(move || {
                 if let Some(idle) = idle {
                     set_idle(Some(idle))
                 }
@@ -279,7 +290,7 @@ impl Action {
             }),
             Action::MoveToOutput { output, workspace } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     let output = 'get_output: {
                         for connector in connectors() {
                             if connector.connected() && output.matches(connector, &state) {
@@ -295,13 +306,13 @@ impl Action {
                 })
             }
             Action::SetRepeatRate { rate } => {
-                B::new(move || s.set_repeat_rate(rate.rate, rate.delay))
+                b.new(move || s.set_repeat_rate(rate.rate, rate.delay))
             }
             Action::DefineAction { name, action } => {
                 let state = state.clone();
                 let action = action.into_rc_fn(&state);
                 let name = Rc::new(name);
-                B::new(move || {
+                b.new(move || {
                     state
                         .persistent
                         .actions
@@ -311,13 +322,13 @@ impl Action {
             }
             Action::UndefineAction { name } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     state.persistent.actions.borrow_mut().remove(&name);
                 })
             }
             Action::NamedAction { name } => {
                 let state = state.clone();
-                B::new(move || {
+                b.new(move || {
                     let depth = state.action_depth.get();
                     if depth >= state.action_depth_max {
                         log::error!("Maximum action depth reached");
@@ -334,15 +345,15 @@ impl Action {
             }
             Action::CreateMark(m) => {
                 let persistent = state.persistent.clone();
-                B::new(move || persistent.seat.create_mark(Some(m)))
+                b.new(move || persistent.seat.create_mark(Some(m)))
             }
             Action::JumpToMark(m) => {
                 let persistent = state.persistent.clone();
-                B::new(move || persistent.seat.jump_to_mark(Some(m)))
+                b.new(move || persistent.seat.jump_to_mark(Some(m)))
             }
             Action::CopyMark(s, d) => {
                 let persistent = state.persistent.clone();
-                B::new(move || persistent.seat.copy_mark(s, d))
+                b.new(move || persistent.seat.copy_mark(s, d))
             }
         }
     }
