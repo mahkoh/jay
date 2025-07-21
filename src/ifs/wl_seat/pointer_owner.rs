@@ -968,6 +968,14 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
                     tl,
                     usecase: MoveFullscreenToplevelGrabPointerOwner,
                 })
+            } else if tl.tl_data().float.is_none() {
+                Rc::new(ToplevelGrabPointerOwner {
+                    tl: tl.clone(),
+                    usecase: TileDragUsecase {
+                        tl,
+                        destination: Default::default(),
+                    },
+                })
             } else {
                 Rc::new(ToplevelGrabPointerOwner {
                     tl,
@@ -1082,6 +1090,9 @@ where
     }
 
     fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(rect) = seat.ui_drag_highlight.take() {
+            seat.state.damage(rect);
+        }
         seat.pointer_cursor.set_known(KnownCursor::Default);
         seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
             usecase: WindowManagementUsecase,
@@ -1242,19 +1253,23 @@ where
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let new_highlight = self.usecase.apply_changes(seat);
-        let prev_highlight = seat.ui_drag_highlight.replace(new_highlight);
-        if prev_highlight != new_highlight {
-            if let Some(rect) = prev_highlight {
-                seat.state.damage(rect);
-            }
-            if let Some(rect) = new_highlight {
-                seat.state.damage(rect);
-            }
-        }
+        handle_ui_drag_highlight(seat, new_highlight);
     }
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         self.do_revert_to_default(seat, false);
+    }
+}
+
+fn handle_ui_drag_highlight(seat: &Rc<WlSeatGlobal>, new_highlight: Option<Rect>) {
+    let prev_highlight = seat.ui_drag_highlight.replace(new_highlight);
+    if prev_highlight != new_highlight {
+        if let Some(rect) = prev_highlight {
+            seat.state.damage(rect);
+        }
+        if let Some(rect) = new_highlight {
+            seat.state.damage(rect);
+        }
     }
 }
 
@@ -1370,6 +1385,24 @@ impl UiDragUsecase for TileDragUsecase {
                 Some(d.highlight)
             }
         }
+    }
+}
+
+impl WindowManagementGrabUsecase for TileDragUsecase {
+    const BUTTON: u32 = BTN_LEFT;
+
+    fn apply_changes(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        _parent: Rc<dyn ContainingNode>,
+        _tl: &Rc<dyn ToplevelNode>,
+    ) {
+        let dest = UiDragUsecase::apply_changes(self, seat);
+        handle_ui_drag_highlight(seat, dest);
+    }
+
+    fn on_drop(&self, seat: &Rc<WlSeatGlobal>, _tl: &Rc<dyn ToplevelNode>) {
+        UiDragUsecase::left_button_up(self, seat);
     }
 }
 
