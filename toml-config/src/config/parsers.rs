@@ -27,6 +27,7 @@ mod gfx_api;
 mod idle;
 mod input;
 mod input_match;
+pub mod input_mode;
 pub mod keymap;
 mod libei;
 mod log_level;

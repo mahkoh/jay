@@ -7,16 +7,18 @@
 
 mod config;
 mod rules;
+mod shortcuts;
 mod toml;
 
 use {
     crate::{
         config::{
             Action, ClientRule, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
-            ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
+            ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch,
             SimpleCommand, Status, Theme, WindowRule, parse_config,
         },
         rules::{MatcherTemp, RuleMapper},
+        shortcuts::ModeState,
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
@@ -31,7 +33,7 @@ use {
             set_libei_socket_enabled,
         },
         is_reload,
-        keyboard::{Keymap, ModifiedKeySym},
+        keyboard::Keymap,
         logging::set_log_level,
         on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
@@ -91,6 +93,20 @@ impl FnBuilder for RcFnBuilder {
     }
 }
 
+struct ShortcutFnBuilder<'a>(&'a Rc<State>);
+
+impl FnBuilder for ShortcutFnBuilder<'_> {
+    type Output = Rc<dyn Fn()>;
+
+    fn new<F: Fn() + 'static>(&self, f: F) -> Self::Output {
+        let state = self.0.clone();
+        Rc::new(move || {
+            state.cancel_mode_latch();
+            f();
+        })
+    }
+}
+
 impl Action {
     fn into_fn(self, state: &Rc<State>) -> Box<dyn Fn()> {
         self.into_fn_impl(&BoxFnBuilder, state)
@@ -98,6 +114,10 @@ impl Action {
 
     fn into_rc_fn(self, state: &Rc<State>) -> Rc<dyn Fn()> {
         self.into_fn_impl(&RcFnBuilder, state)
+    }
+
+    fn into_shortcut_fn(self, state: &Rc<State>) -> Rc<dyn Fn()> {
+        self.into_fn_impl(&ShortcutFnBuilder(state), state)
     }
 
     fn into_fn_impl<B: FnBuilder>(self, b: &B, state: &Rc<State>) -> B::Output {
@@ -186,6 +206,10 @@ impl Action {
                 SimpleCommand::JumpToMark => {
                     let persistent = state.persistent.clone();
                     b.new(move || persistent.seat.jump_to_mark(None))
+                }
+                SimpleCommand::PopMode(pop) => {
+                    let state = state.clone();
+                    b.new(move || state.pop_mode(pop))
                 }
             },
             Action::Multi { actions } => {
@@ -354,6 +378,18 @@ impl Action {
             Action::CopyMark(s, d) => {
                 let persistent = state.persistent.clone();
                 b.new(move || persistent.seat.copy_mark(s, d))
+            }
+            Action::SetMode { name, latch } => {
+                let state = state.clone();
+                let new = state.get_mode_slot(&name);
+                b.new(move || {
+                    let new = new.mode.borrow();
+                    let Some(new) = new.as_ref() else {
+                        log::warn!("Input mode {name} does not exist");
+                        return;
+                    };
+                    state.set_mode(new, latch);
+                })
             }
         }
     }
@@ -773,43 +809,6 @@ impl Drop for State {
 type SwitchActions = Vec<(InputMatch, AHashMap<SwitchEvent, Box<dyn Fn()>>)>;
 
 impl State {
-    fn unbind_all(&self) {
-        let mut binds = self.persistent.binds.borrow_mut();
-        for bind in binds.drain() {
-            self.persistent.seat.unbind(bind);
-        }
-    }
-
-    fn apply_shortcuts(self: &Rc<Self>, shortcuts: impl IntoIterator<Item = Shortcut>) {
-        let mut binds = self.persistent.binds.borrow_mut();
-        for shortcut in shortcuts {
-            if let Action::SimpleCommand {
-                cmd: SimpleCommand::None,
-            } = shortcut.action
-            {
-                if shortcut.latch.is_none() {
-                    self.persistent.seat.unbind(shortcut.keysym);
-                    binds.remove(&shortcut.keysym);
-                    continue;
-                }
-            }
-            let mut f = shortcut.action.into_fn(self);
-            if let Some(l) = shortcut.latch {
-                let l = l.into_rc_fn(self);
-                let s = self.persistent.seat;
-                f = Box::new(move || {
-                    f();
-                    let l = l.clone();
-                    s.latch(move || l());
-                });
-            }
-            self.persistent
-                .seat
-                .bind_masked(shortcut.mask, shortcut.keysym, f);
-            binds.insert(shortcut.keysym);
-        }
-    }
-
     fn get_keymap(&self, map: &ConfigKeymap) -> Option<Keymap> {
         let map = match map {
             ConfigKeymap::Named(n) => match self.keymaps.get(n) {
@@ -998,13 +997,13 @@ struct PersistentState {
     seen_outputs: RefCell<AHashSet<OutputId>>,
     default: Config,
     seat: Seat,
-    binds: RefCell<AHashSet<ModifiedKeySym>>,
     #[expect(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
     client_rules: Cell<Vec<MatcherTemp<ClientRule>>>,
     client_rule_mapper: RefCell<Option<RuleMapper<ClientRule>>>,
     window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
     mark_names: RefCell<AHashMap<String, u32>>,
+    mode_state: ModeState,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -1088,6 +1087,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         client: Default::default(),
         window: Default::default(),
     });
+    state.clear_modes_after_reload();
     let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
     persistent.client_rules.set(client_rules);
     *state.persistent.client_rule_mapper.borrow_mut() = Some(client_rule_mapper);
@@ -1118,8 +1118,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         None => on_idle(|| ()),
         Some(a) => on_idle(a.into_fn(&state)),
     }
-    state.unbind_all();
-    state.apply_shortcuts(config.shortcuts);
+    state.init_modes(&config.shortcuts, &config.input_modes);
     if let Some(keymap) = config.keymap {
         state.set_keymap(&keymap);
     }
@@ -1334,18 +1333,19 @@ pub fn configure() {
         seen_outputs: Default::default(),
         default: default.unwrap(),
         seat: default_seat(),
-        binds: Default::default(),
         actions: Default::default(),
         client_rules: Default::default(),
         client_rule_mapper: Default::default(),
         window_rules: Default::default(),
         mark_names,
+        mode_state: Default::default(),
     });
     {
         let p = persistent.clone();
         on_unload(move || {
             p.actions.borrow_mut().clear();
             p.client_rule_mapper.borrow_mut().take();
+            p.mode_state.clear();
         });
     }
     load_config(true, &persistent);
