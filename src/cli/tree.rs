@@ -133,6 +133,7 @@ struct Node {
     urgent: bool,
     fullscreen: bool,
     output: Option<String>,
+    content_type: Option<String>,
 }
 
 impl Query<'_> {
@@ -267,6 +268,10 @@ impl Query<'_> {
             last!(d, n);
             n.placeholder_for = Some(event.id.to_string());
         });
+        ContentType::handle(tl, id, d.clone(), |d, event| {
+            last!(d, n);
+            n.content_type = Some(event.ty.to_string());
+        });
         if args.recursive {
             tl.send(SetRecursive {
                 self_id: id,
@@ -384,6 +389,7 @@ impl Printer {
         opt!(title, "title");
         opt!(app_id, "app-id");
         opt!(tag, "tag");
+        opt!(content_type, "content-type");
         opt!(x_class, "x-class");
         opt!(x_instance, "x-instance");
         opt!(x_role, "x-role");

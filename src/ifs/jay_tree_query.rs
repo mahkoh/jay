@@ -2,11 +2,14 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::GlobalBase,
-        ifs::wl_surface::{
-            ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-            x_surface::xwindow::Xwindow,
-            xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
-            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+        ifs::{
+            wl_surface::{
+                ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
+                x_surface::xwindow::Xwindow,
+                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            },
+            wp_content_type_v1,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -39,6 +42,8 @@ pub const TREE_TY_X_WINDOW: u32 = 8;
 pub const TREE_TY_XDG_POPUP: u32 = 9;
 pub const TREE_TY_LAYER_SURFACE: u32 = 10;
 pub const TREE_TY_LOCK_SURFACE: u32 = 11;
+
+const CONTENT_TYPE_SINCE: Version = Version(20);
 
 pub struct JayTreeQuery {
     pub id: JayTreeQueryId,
@@ -223,6 +228,19 @@ impl JayTreeQuery {
             self.client.event(Workspace {
                 self_id: self.id,
                 name: &ws.name,
+            });
+        }
+        if self.version >= CONTENT_TYPE_SINCE
+            && let Some(ct) = data.content_type.get()
+        {
+            use wp_content_type_v1::ContentType::*;
+            self.client.event(ContentType {
+                self_id: self.id,
+                ty: match ct {
+                    Photo => "photo",
+                    Video => "video",
+                    Game => "game",
+                },
             });
         }
     }

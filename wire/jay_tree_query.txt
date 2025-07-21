@@ -100,3 +100,7 @@ event workspace {
 event placeholder_for {
     id: str,
 }
+
+event content_type (since = 20) {
+    ty: str,
+}
