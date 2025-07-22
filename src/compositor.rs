@@ -35,7 +35,10 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
-            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
+            wl_surface::{
+                NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
+                zwp_input_popup_surface_v2::input_popup_positioning,
+            },
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -353,6 +356,7 @@ fn start_compositor2(
         head_managers_async: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
+        xdg_surface_configure_events: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -545,6 +549,11 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "jay head manager send done",
             Phase::Layout,
             handle_jay_head_manager_done(state.clone()),
+        ),
+        eng.spawn2(
+            "xdg_surface configure events",
+            Phase::PostLayout,
+            handle_xdg_surface_configure_events(state.clone()),
         ),
     ]
 }

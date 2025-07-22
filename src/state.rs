@@ -64,6 +64,7 @@ use {
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
+                xdg_surface::XdgSurfaceConfigureEvent,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -273,6 +274,7 @@ pub struct State {
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
+    pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
 }
 
 // impl Drop for State {
@@ -1079,6 +1081,7 @@ impl State {
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
         self.wait_for_sync_obj.clear();
+        self.xdg_surface_configure_events.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

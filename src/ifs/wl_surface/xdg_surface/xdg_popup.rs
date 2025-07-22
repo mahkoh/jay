@@ -245,7 +245,7 @@ impl XdgPopupRequestHandler for XdgPopup {
             let rel = self.relative_position.get();
             self.send_repositioned(req.token);
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
-            self.xdg.do_send_configure();
+            self.xdg.schedule_configure();
         }
         Ok(())
     }
