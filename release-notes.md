@@ -328,7 +328,7 @@ These improvements apply to the toml-based configuration:
 
   Note that you can explicitly unset a shortcut by assigning it the `none` action.
 
-## Support for Real-Time Scheduling
+## Support for `cap_sys_nice`
 
 Jay now supports running with the `cap_sys_nice` capability:
 
