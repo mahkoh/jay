@@ -195,7 +195,7 @@ impl XdgToplevel {
             let rect = self.xdg.absolute_desired_extents.get();
             self.send_configure_checked(rect.width(), rect.height());
         }
-        self.xdg.do_send_configure();
+        self.xdg.schedule_configure();
     }
 
     fn send_configure_checked(&self, mut width: i32, mut height: i32) {
@@ -658,7 +658,7 @@ impl ToplevelNodeBase for XdgToplevel {
         if changed {
             let rect = self.xdg.absolute_desired_extents.get();
             self.send_configure_checked(rect.width(), rect.height());
-            self.xdg.do_send_configure();
+            self.xdg.schedule_configure();
         }
     }
 
@@ -677,7 +677,7 @@ impl ToplevelNodeBase for XdgToplevel {
         let de = self.xdg.absolute_desired_extents.get();
         if de.width() != nw || de.height() != nh {
             self.send_configure_checked(nw, nh);
-            self.xdg.do_send_configure();
+            self.xdg.schedule_configure();
             // self.xdg.surface.client.flush();
         }
         self.xdg.set_absolute_desired_extents(rect);

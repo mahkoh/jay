@@ -18,6 +18,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
+        state::State,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, OutputNode, StackedNode,
             WorkspaceNode,
@@ -40,6 +41,22 @@ use {
     },
     thiserror::Error,
 };
+
+pub struct XdgSurfaceConfigureEvent {
+    xdg: Rc<XdgSurface>,
+    serial: u32,
+}
+
+pub async fn handle_xdg_surface_configure_events(state: Rc<State>) {
+    loop {
+        let ev = state.xdg_surface_configure_events.pop().await;
+        ev.xdg.configure_scheduled.set(false);
+        if ev.xdg.destroyed.get() {
+            continue;
+        }
+        ev.xdg.send_configure(ev.serial);
+    }
+}
 
 #[expect(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
@@ -81,6 +98,8 @@ pub struct XdgSurface {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
     have_initial_commit: Cell<bool>,
+    configure_scheduled: Cell<bool>,
+    destroyed: Cell<bool>,
 }
 
 struct Popup {
@@ -236,6 +255,8 @@ impl XdgSurface {
             workspace: Default::default(),
             tracker: Default::default(),
             have_initial_commit: Default::default(),
+            configure_scheduled: Default::default(),
+            destroyed: Default::default(),
         }
     }
 
@@ -319,9 +340,19 @@ impl XdgSurface {
         self.geometry.get()
     }
 
-    pub fn do_send_configure(&self) {
-        let serial = self.requested_serial.fetch_add(1) + 1;
-        self.send_configure(serial);
+    pub fn schedule_configure(self: &Rc<Self>) {
+        if self.configure_scheduled.replace(true) {
+            return;
+        }
+        let serial = self.requested_serial.add_fetch(1);
+        self.surface
+            .client
+            .state
+            .xdg_surface_configure_events
+            .push(XdgSurfaceConfigureEvent {
+                xdg: self.clone(),
+                serial,
+            });
     }
 
     pub fn send_configure(&self, serial: u32) {
@@ -375,6 +406,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
     type Error = XdgSurfaceError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
         if self.ext.is_some() {
             return Err(XdgSurfaceError::RoleNotYetDestroyed(self.id));
         }
@@ -564,7 +596,7 @@ impl SurfaceExt for XdgSurface {
             && let Some(ext) = self.ext.get()
         {
             ext.initial_configure()?;
-            self.do_send_configure();
+            self.schedule_configure();
             self.have_initial_commit.set(true);
         }
         if let Some(pending) = &mut pending.xdg_surface
