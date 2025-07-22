@@ -1345,9 +1345,41 @@ impl ContainerNode {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
         let body = self.mono_body.get();
-        let bounds = body
+        let mut bounds = body
             .move_(self.abs_x1.get(), self.abs_y1.get())
             .intersect(abs_bounds);
+        if mc.node.node_id() != source && !mc.node.node_is_container() {
+            let delta = bounds.width() / 5;
+            for before in [true, false] {
+                let (x1, x2);
+                match before {
+                    true => {
+                        x1 = bounds.x1();
+                        x2 = bounds.x1() + delta;
+                    }
+                    false => {
+                        x1 = bounds.x2() - delta;
+                        x2 = bounds.x2();
+                    }
+                }
+                if abs_x >= x1 && abs_x < x2 {
+                    return Some(TileDragDestination {
+                        highlight: Rect::new(x1, bounds.y1(), x2, bounds.y2())?,
+                        ty: TddType::Insert {
+                            container: self.clone(),
+                            neighbor: mc.node.clone(),
+                            before,
+                        },
+                    });
+                }
+            }
+            bounds = Rect::new(
+                bounds.x1() + delta,
+                bounds.y1(),
+                bounds.x2() - delta,
+                bounds.y2(),
+            )?;
+        }
         return mc
             .node
             .clone()
