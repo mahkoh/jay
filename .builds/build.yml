@@ -4,8 +4,15 @@ sources:
 tasks:
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup libinput pango mesa cmake shaderc
+      sudo pacman -S --noconfirm rustup libinput pango mesa cmake shaderc nix
       rustup toolchain install stable
+      sudo systemctl start nix-daemon.service
   - build: |
       cd jay
       cargo build
+  - nix: |
+      cd jay
+      nix \
+        --extra-experimental-features nix-command \
+        --extra-experimental-features flakes \
+        develop --command cargo build
