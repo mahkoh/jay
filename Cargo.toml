@@ -7,6 +7,7 @@ license = "GPL-3.0-only"
 description = "The Jay compositor"
 repository = "https://github.com/mahkoh/jay"
 default-run = "jay"
+rust-version = "1.88.0"  # required by "if- and while-let-chains, take 2"
 
 [[bin]]
 name = "jay"
