@@ -705,6 +705,7 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_destroy_impl(&self) {
         if let Some(drag) = self.drag.take() {
+            self.xdg.damage();
             drag.toplevel.take();
         }
         self.xdg.destroy_node();
