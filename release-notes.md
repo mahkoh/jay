@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.11.0 (2025-07-26)
+
 ## Fixes
 
 As always, this release contains many bug fixes. Notably it changes the `top` layer in the
