@@ -45,6 +45,7 @@
 
 #[expect(unused_imports)]
 use crate::input::Seat;
+
 use {
     crate::{
         _private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector, window::Window,
@@ -73,6 +74,7 @@ pub mod theme;
 pub mod timer;
 pub mod video;
 pub mod window;
+pub mod workspace;
 pub mod xwayland;
 
 /// A planar direction.

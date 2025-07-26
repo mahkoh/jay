@@ -2122,7 +2122,6 @@ Theme:
       description: The name of the font to use.
 
 
-
 Config:
   kind: table
   description: |
@@ -2802,8 +2801,21 @@ Config:
           q = "focus-prev"
           e = "focus-next"
           ```
-        
+
         Modes can be activated with the `push-mode` and `latch-mode` actions.
+    workspace-display-order:
+      ref: WorkspaceDisplayOrder
+      required: false
+      description: |
+        Configures the order of workspaces displayed.
+
+        The default is `manual`.
+
+        - Example:
+
+          ```toml
+          workspace-display-order = "sorted"
+          ```
 
 
 Idle:
@@ -4006,3 +4018,14 @@ InputMode:
         The complex shortcuts of this mode.
         
         See the same field in the top-level `Config` object for a description.
+
+
+WorkspaceDisplayOrder:
+  kind: string
+  description: |
+    The order of workspaces displayed.
+  values:
+    - value: manual
+      description: Workspaces are not sorted and can be manually dragged.
+    - value: sorted
+      description: Workspaces are sorted alphabetically and cannot be manually dragged.

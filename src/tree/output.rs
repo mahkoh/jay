@@ -48,17 +48,27 @@ use {
             WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
-            asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, event_listener::EventSource,
-            hash_map_ext::HashMapExt, linkedlist::LinkedList, on_drop_event::OnDropEvent,
-            scroller::Scroller, transform_ext::TransformExt,
+            asyncevent::AsyncEvent,
+            bitflags::BitflagsExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            event_listener::EventSource,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedList, NodeRef},
+            on_drop_event::OnDropEvent,
+            scroller::Scroller,
+            transform_ext::TransformExt,
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
         },
     },
     ahash::AHashMap,
-    jay_config::video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
+    jay_config::{
+        video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
+        workspace::WorkspaceDisplayOrder,
+    },
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -712,6 +722,17 @@ impl OutputNode {
         true
     }
 
+    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<Rc<WorkspaceNode>>> {
+        if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
+            for existing_ws in self.workspaces.iter() {
+                if name < existing_ws.name.as_str() {
+                    return Some(existing_ws);
+                }
+            }
+        }
+        None
+    }
+
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
         let ws = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
@@ -740,7 +761,12 @@ impl OutputNode {
         });
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
-        *ws.output_link.borrow_mut() = Some(self.workspaces.add_last(ws.clone()));
+        let link = if let Some(before) = self.find_workspace_insertion_point(name) {
+            before.prepend(ws.clone())
+        } else {
+            self.workspaces.add_last(ws.clone())
+        };
+        *ws.output_link.borrow_mut() = Some(link);
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
             self.show_workspace(&ws);
@@ -1048,6 +1074,18 @@ impl OutputNode {
         }
     }
 
+    pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
+        if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
+            let mut workspaces: Vec<_> = self.workspaces.iter().collect();
+            workspaces.sort_by(|a, b| a.name.cmp(&b.name));
+            for ws_ref in workspaces {
+                ws_ref.detach();
+                self.workspaces.add_last_existing(&ws_ref);
+            }
+        }
+        self.schedule_update_render_data();
+    }
+
     pub fn update_visible(&self) {
         let mut visible = self.state.root_visible();
         if self.state.lock.locked.get() {
@@ -1284,6 +1322,16 @@ impl OutputNode {
         let th = self.state.theme.sizes.title_height.get();
         if y_abs - rect.y1() > th + 1 {
             return None;
+        }
+        if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
+            if self.workspaces.iter().any(|ws| ws.id == source) {
+                return None;
+            }
+            return Some(WorkspaceDragDestination {
+                highlight: Rect::new_sized(rect.x1(), rect.y1(), rect.width(), th)?,
+                output: self.clone(),
+                before: None,
+            });
         }
         let rd = &*self.render_data.borrow();
         let (x, _) = rect.translate(x_abs, y_abs);

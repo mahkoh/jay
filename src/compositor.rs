@@ -83,6 +83,7 @@ use {
     jay_config::{
         _private::DEFAULT_SEAT_NAME,
         video::{GfxApi, Transform},
+        workspace::WorkspaceDisplayOrder,
     },
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
@@ -357,6 +358,7 @@ fn start_compositor2(
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
         xdg_surface_configure_events: Default::default(),
+        workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

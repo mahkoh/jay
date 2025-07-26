@@ -36,6 +36,7 @@ use {
                 ui_drag::UiDragParser,
                 vrr::VrrParser,
                 window_rule::WindowRulesParser,
+                workspace_display_order::WorkspaceDisplayOrderParser,
                 xwayland::XwaylandParser,
             },
             spanned::SpannedErrorExt,
@@ -138,7 +139,7 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
-            (middle_click_paste, input_modes_val),
+            (middle_click_paste, input_modes_val, workspace_display_order_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -188,7 +189,11 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("show-bar"))),
                 opt(val("focus-history")),
             ),
-            (recover(opt(bol("middle-click-paste"))), opt(val("modes"))),
+            (
+                recover(opt(bol("middle-click-paste"))),
+                opt(val("modes")),
+                opt(val("workspace-display-order")),
+            ),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -486,6 +491,18 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut workspace_display_order = None;
+        if let Some(value) = workspace_display_order_val {
+            match value.parse(&mut WorkspaceDisplayOrderParser) {
+                Ok(v) => workspace_display_order = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the workspace display order: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -528,6 +545,7 @@ impl Parser for ConfigParser<'_> {
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,
+            workspace_display_order,
         })
     }
 }
