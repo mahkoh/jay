@@ -35,6 +35,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    jay_config::workspace::WorkspaceDisplayOrder,
     std::{
         cell::{Cell, RefCell},
         fmt::Debug,
@@ -491,8 +492,15 @@ pub fn move_ws_to_output(
         }
     }
     ws.set_output(&target);
+    let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
+        target
+            .find_workspace_insertion_point(&ws.name)
+            .map(|nr| nr.deref().clone())
+    } else {
+        config.before
+    };
     'link: {
-        if let Some(before) = config.before
+        if let Some(before) = before
             && let Some(link) = &*before.output_link.borrow()
         {
             link.prepend_existing(ws);

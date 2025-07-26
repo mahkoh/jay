@@ -991,6 +991,10 @@
             "description": "",
             "$ref": "#/$defs/InputMode"
           }
+        },
+        "workspace-display-order": {
+          "description": "Configures the order of workspaces displayed.\n\nThe default is `manual`.\n\n- Example:\n\n  ```toml\n  workspace-display-order = \"sorted\"\n  ```\n",
+          "$ref": "#/$defs/WorkspaceDisplayOrder"
         }
       },
       "required": []
@@ -2177,6 +2181,14 @@
             "$ref": "#/$defs/WindowTypeMask"
           }
         }
+      ]
+    },
+    "WorkspaceDisplayOrder": {
+      "type": "string",
+      "description": "The order of workspaces displayed.\n",
+      "enum": [
+        "manual",
+        "sorted"
       ]
     },
     "XScalingMode": {

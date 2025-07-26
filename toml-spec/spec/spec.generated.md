@@ -1976,6 +1976,20 @@ The table has the following fields:
 
   The value of this field should be a table whose values are [InputModes](#types-InputMode).
 
+- `workspace-display-order` (optional):
+
+  Configures the order of workspaces displayed.
+  
+  The default is `manual`.
+  
+  - Example:
+  
+    ```toml
+    workspace-display-order = "sorted"
+    ```
+
+  The value of this field should be a [WorkspaceDisplayOrder](#types-WorkspaceDisplayOrder).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -4759,6 +4773,25 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [WindowTypeMask](#types-WindowTypeMask).
+
+
+<a name="types-WorkspaceDisplayOrder"></a>
+### `WorkspaceDisplayOrder`
+
+The order of workspaces displayed.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `manual`:
+
+  Workspaces are not sorted and can be manually dragged.
+
+- `sorted`:
+
+  Workspaces are sorted alphabetically and cannot be manually dragged.
+
 
 
 <a name="types-XScalingMode"></a>

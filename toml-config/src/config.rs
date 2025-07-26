@@ -35,6 +35,7 @@ use {
         theme::Color,
         video::{ColorSpace, Format, GfxApi, TearingMode, TransferFunction, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
+        workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
     std::{
@@ -509,6 +510,7 @@ pub struct Config {
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,
     pub input_modes: AHashMap<String, InputMode>,
+    pub workspace_display_order: Option<WorkspaceDisplayOrder>,
 }
 
 #[derive(Debug, Error)]

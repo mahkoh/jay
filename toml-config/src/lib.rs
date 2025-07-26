@@ -50,6 +50,7 @@ use {
             set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
         },
         window::Window,
+        workspace::set_workspace_display_order,
         xwayland::set_x_scaling_mode,
     },
     run_on_drop::on_drop,
@@ -1305,6 +1306,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if let Some(v) = config.middle_click_paste {
         set_middle_click_paste_enabled(v);
+    }
+    if let Some(v) = config.workspace_display_order {
+        set_workspace_display_order(v);
     }
 }
 
