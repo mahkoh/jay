@@ -128,6 +128,7 @@ use {
         PciId,
         video::{GfxApi, Transform},
         window::TileState,
+        workspace::WorkspaceDisplayOrder,
     },
     std::{
         cell::{Cell, RefCell},
@@ -275,6 +276,7 @@ pub struct State {
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
+    pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
 }
 
 // impl Drop for State {

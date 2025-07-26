@@ -16,6 +16,7 @@ use {
             Transform, VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
+        workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -759,6 +760,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         src: u32,
         dst: u32,
+    },
+    SetWorkspaceDisplayOrder {
+        order: WorkspaceDisplayOrder,
     },
 }
 

@@ -74,6 +74,7 @@ use {
             Transform, VrrMode as ConfigVrrMode,
         },
         window::{TileState, Window, WindowMatcher},
+        workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
     kbvm::Keycode,
@@ -1350,6 +1351,13 @@ impl ConfigProxyHandler {
             if let Some(float) = stacked.deref().clone().node_into_float() {
                 float.schedule_render_titles();
             }
+        }
+    }
+
+    fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
+        self.state.workspace_display_order.set(order);
+        for output in self.state.root.outputs.lock().values() {
+            output.handle_workspace_display_order_update();
         }
     }
 
@@ -3097,6 +3105,9 @@ impl ConfigProxyHandler {
             }
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled)
+            }
+            ClientMessage::SetWorkspaceDisplayOrder { order } => {
+                self.handle_set_workspace_display_order(order)
             }
             ClientMessage::SeatCreateMark { seat, kc } => self
                 .handle_seat_create_mark(seat, kc)
