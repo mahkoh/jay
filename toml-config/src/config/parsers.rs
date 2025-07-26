@@ -47,6 +47,7 @@ mod vrr;
 mod window_match;
 mod window_rule;
 mod window_type;
+mod workspace_display_order;
 mod xwayland;
 
 #[derive(Debug, Error)]

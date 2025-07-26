@@ -36,6 +36,7 @@ use {
             ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
             WindowType,
         },
+        workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -985,6 +986,10 @@ impl ConfigClient {
 
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
+    }
+
+    pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
+        self.send(&ClientMessage::SetWorkspaceDisplayOrder { order });
     }
 
     pub fn seat_create_mark(&self, seat: Seat, kc: Option<u32>) {
