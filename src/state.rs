@@ -1302,7 +1302,7 @@ impl State {
                 &staging,
                 capture.clone(),
                 mem.clone(),
-                Region::new2(capture.rect.at_point(0, 0)),
+                Region::new(capture.rect.at_point(0, 0)),
             )
             .map_err(ShmScreencopyError::ReadPixels)?;
         Ok(pending)

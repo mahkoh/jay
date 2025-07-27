@@ -240,7 +240,7 @@ impl WlBuffer {
                         *stride,
                         &self.client.state.cpu_worker,
                     )?;
-                    mem.access(|mem| tex.clone().sync_upload(mem, Region::new2(self.rect)))??;
+                    mem.access(|mem| tex.clone().sync_upload(mem, Region::new(self.rect)))??;
                     surface.shm_textures.front().tex.set(Some(tex));
                     surface.shm_textures.front().damage.clear();
                 }

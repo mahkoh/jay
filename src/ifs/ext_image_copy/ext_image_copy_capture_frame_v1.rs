@@ -146,7 +146,7 @@ impl ExtImageCopyCaptureFrameV1 {
                     &staging,
                     self.clone(),
                     mem.clone(),
-                    Region::new2(buffer.rect),
+                    Region::new(buffer.rect),
                 );
                 match res {
                     Ok(d) => self.session.pending_download.set(d),

@@ -314,7 +314,7 @@ pub trait GfxFramebuffer: Debug {
 
     fn full_region(&self) -> Region {
         let (width, height) = self.physical_size();
-        Region::new2(Rect::new_sized_unchecked(0, 0, width, height))
+        Region::new(Rect::new_sized_unchecked(0, 0, width, height))
     }
 }
 

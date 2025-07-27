@@ -544,7 +544,7 @@ impl CpuJob for RenderJob {
                 &staging,
                 data.clone(),
                 Rc::new(rt.data),
-                Region::new2(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+                Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
             )
             .map_err(TextError::Upload);
         if pending.is_ok() {

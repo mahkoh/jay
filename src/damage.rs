@@ -160,7 +160,7 @@ impl DamageVisualizer {
         let entries = &*self.entries.borrow();
         let decay = self.decay.get();
         let base_color = self.color.get();
-        let mut used = Region::empty();
+        let mut used = Region::default();
         let dx = -cursor_rect.x1();
         let dy = -cursor_rect.y1();
         let decay_millis = decay.as_millis() as u64 as f32;
@@ -168,12 +168,12 @@ impl DamageVisualizer {
         let srgb = &self.color_manager.srgb_srgb().linear;
         for entry in entries.iter().rev() {
             let region = Region::new(entry.rect);
-            let region = region.subtract(&used);
+            let region = region.subtract_cow(&used);
             if region.is_not_empty() {
                 let age = (now - entry.time).as_millis() as u64 as f32 / decay_millis;
                 let color = base_color * (1.0 - age);
                 renderer.fill_boxes2(region.rects(), &color, srgb, dx, dy);
-                used = used.union(&region);
+                used = used.union_cow(&region).into_owned();
             }
         }
     }
