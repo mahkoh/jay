@@ -108,6 +108,11 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
                 ("flags", "EGLint"),
             ][..],
         ),
+        (
+            "eglQueryDeviceStringEXT",
+            "*const c::c_char",
+            &[("device", "EGLDeviceEXT"), ("name", "EGLint")][..],
+        ),
     ];
 
     writeln!(f, "use std::ptr;")?;
