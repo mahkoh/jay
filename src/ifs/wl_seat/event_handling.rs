@@ -310,6 +310,7 @@ impl WlSeatGlobal {
             InputEvent::Key { time_usec, .. }
             | InputEvent::ConnectorPosition { time_usec, .. }
             | InputEvent::Motion { time_usec, .. }
+            | InputEvent::MotionAbsolute { time_usec, .. }
             | InputEvent::Button { time_usec, .. }
             | InputEvent::AxisFrame { time_usec, .. }
             | InputEvent::SwipeBegin { time_usec, .. }
@@ -350,6 +351,7 @@ impl WlSeatGlobal {
         match event {
             InputEvent::ConnectorPosition { .. }
             | InputEvent::Motion { .. }
+            | InputEvent::MotionAbsolute { .. }
             | InputEvent::Button { .. }
             | InputEvent::AxisFrame { .. }
             | InputEvent::SwipeBegin { .. }
@@ -406,6 +408,13 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
                 time_usec,
             } => self.motion_event(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
+            InputEvent::MotionAbsolute {
+                time_usec,
+                x_normed,
+                y_normed,
+            } => {
+                self.motion_absolute_event(time_usec, dev.get_rect(&self.state), x_normed, y_normed)
+            }
             InputEvent::Button {
                 time_usec,
                 button,
@@ -649,6 +658,18 @@ impl WlSeatGlobal {
         });
         self.set_pointer_cursor_position(x, y);
         self.cursor_moved(time_usec, false);
+    }
+
+    fn motion_absolute_event(
+        self: &Rc<Self>,
+        time_usec: u64,
+        rect: Rect,
+        x_normed: f32,
+        y_normed: f32,
+    ) {
+        let x = Fixed::from_f32(rect.x1() as f32 + x_normed * rect.width() as f32);
+        let y = Fixed::from_f32(rect.y1() as f32 + y_normed * rect.height() as f32);
+        self.motion_event_abs(time_usec, x, y, false);
     }
 
     pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {

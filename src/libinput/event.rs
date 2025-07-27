@@ -19,14 +19,16 @@ use {
             libinput_event_get_touch_event, libinput_event_get_type, libinput_event_keyboard,
             libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
             libinput_event_keyboard_get_time_usec, libinput_event_pointer,
-            libinput_event_pointer_get_button, libinput_event_pointer_get_button_state,
-            libinput_event_pointer_get_dx, libinput_event_pointer_get_dx_unaccelerated,
-            libinput_event_pointer_get_dy, libinput_event_pointer_get_dy_unaccelerated,
-            libinput_event_pointer_get_scroll_value, libinput_event_pointer_get_scroll_value_v120,
-            libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
-            libinput_event_switch, libinput_event_switch_get_switch,
-            libinput_event_switch_get_switch_state, libinput_event_switch_get_time_usec,
-            libinput_event_tablet_pad, libinput_event_tablet_pad_get_button_number,
+            libinput_event_pointer_get_absolute_x_transformed,
+            libinput_event_pointer_get_absolute_y_transformed, libinput_event_pointer_get_button,
+            libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
+            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
+            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
+            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
+            libinput_event_pointer_has_axis, libinput_event_switch,
+            libinput_event_switch_get_switch, libinput_event_switch_get_switch_state,
+            libinput_event_switch_get_time_usec, libinput_event_tablet_pad,
+            libinput_event_tablet_pad_get_button_number,
             libinput_event_tablet_pad_get_button_state,
             libinput_event_tablet_pad_get_dial_delta_v120,
             libinput_event_tablet_pad_get_dial_number, libinput_event_tablet_pad_get_mode,
@@ -186,6 +188,14 @@ impl<'a> LibInputEventKeyboard<'a> {
 }
 
 impl<'a> LibInputEventPointer<'a> {
+    pub fn x_transformed(&self, width: u32) -> f64 {
+        unsafe { libinput_event_pointer_get_absolute_x_transformed(self.event, width) }
+    }
+
+    pub fn y_transformed(&self, height: u32) -> f64 {
+        unsafe { libinput_event_pointer_get_absolute_y_transformed(self.event, height) }
+    }
+
     pub fn dx(&self) -> f64 {
         unsafe { libinput_event_pointer_get_dx(self.event) }
     }
