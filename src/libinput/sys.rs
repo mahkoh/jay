@@ -155,6 +155,14 @@ unsafe extern "C" {
     pub fn libinput_event_pointer_get_dy(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_dx_unaccelerated(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_dy_unaccelerated(event: *mut libinput_event_pointer) -> f64;
+    pub fn libinput_event_pointer_get_absolute_x_transformed(
+        event: *mut libinput_event_pointer,
+        width: u32,
+    ) -> f64;
+    pub fn libinput_event_pointer_get_absolute_y_transformed(
+        event: *mut libinput_event_pointer,
+        height: u32,
+    ) -> f64;
     pub fn libinput_event_pointer_get_button(event: *mut libinput_event_pointer) -> u32;
     pub fn libinput_event_pointer_get_button_state(
         event: *mut libinput_event_pointer,

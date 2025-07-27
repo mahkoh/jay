@@ -95,6 +95,7 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_DEVICE_REMOVED => self.handle_li_device_removed(event),
             c::LIBINPUT_EVENT_KEYBOARD_KEY => self.handle_keyboard_key(event),
             c::LIBINPUT_EVENT_POINTER_MOTION => self.handle_pointer_motion(event),
+            c::LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE => self.handle_pointer_motion_absolute(event),
             c::LIBINPUT_EVENT_POINTER_BUTTON => self.handle_pointer_button(event),
             c::LIBINPUT_EVENT_POINTER_SCROLL_WHEEL => {
                 self.handle_pointer_axis(event, AxisSource::Wheel)
@@ -245,6 +246,15 @@ impl MetalBackend {
             dy: Fixed::from_f64(dy),
             dx_unaccelerated: Fixed::from_f64(event.dx_unaccelerated()),
             dy_unaccelerated: Fixed::from_f64(event.dy_unaccelerated()),
+        });
+    }
+
+    fn handle_pointer_motion_absolute(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, pointer_event);
+        dev.event(InputEvent::MotionAbsolute {
+            time_usec: event.time_usec(),
+            x_normed: event.x_transformed(1) as f32,
+            y_normed: event.y_transformed(1) as f32,
         });
     }
 

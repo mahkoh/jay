@@ -271,6 +271,7 @@ impl ConnectorHandler {
         self.state.outputs.set(self.id, output_data.clone());
         on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
+        self.state.outputs_without_hc.fetch_add(1);
         self.state.output_extents_changed();
         global.opt.node.set(Some(on.clone()));
         global.opt.global.set(Some(global.clone()));
@@ -330,7 +331,7 @@ impl ConnectorHandler {
                     ConnectorEvent::Disconnected => break 'outer,
                     ConnectorEvent::HardwareCursor(hc) => {
                         on.schedule.set_hardware_cursor(&hc);
-                        on.hardware_cursor.set(hc);
+                        on.set_hardware_cursor(hc);
                         self.state.refresh_hardware_cursors();
                     }
                     ConnectorEvent::FormatsChanged(formats) => {
@@ -363,6 +364,9 @@ impl ConnectorHandler {
             sc.stop();
         }
         global.destroyed.set(true);
+        if on.hardware_cursor.is_none() {
+            self.state.outputs_without_hc.fetch_sub(1);
+        }
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);

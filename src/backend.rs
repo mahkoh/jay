@@ -348,6 +348,11 @@ pub enum InputEvent {
         dx_unaccelerated: Fixed,
         dy_unaccelerated: Fixed,
     },
+    MotionAbsolute {
+        time_usec: u64,
+        x_normed: f32,
+        y_normed: f32,
+    },
     Button {
         time_usec: u64,
         button: u32,
