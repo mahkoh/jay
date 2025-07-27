@@ -590,6 +590,9 @@ impl OutputNode {
         let output_width = non_exclusive_rect.width();
         rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
+            if ws.is_empty() && !ws.has_capture.get() && Some(ws.id) != active_id {
+                continue;
+            }
             let mut title_width = th;
             let title = &*ws.title_texture.borrow();
             if let Some(title) = title {
