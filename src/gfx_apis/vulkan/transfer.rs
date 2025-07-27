@@ -132,7 +132,7 @@ impl VulkanShmImage {
             if tt == TransferType::Download {
                 return Err(VulkanError::UndefinedContents);
             }
-            damage = Region::new2(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
+            damage = Region::new(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
         }
 
         let copies = &mut *data.regions.borrow_mut();

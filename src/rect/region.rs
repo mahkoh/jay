@@ -49,7 +49,7 @@ impl Region {
             return Self::default();
         }
         if rects.len() == 1 {
-            return Self::new2(rects[0]);
+            return Self::new(rects[0]);
         }
         let rects = rects_to_bands(unsafe { mem::transmute::<&[Rect], &[RectRaw]>(rects) });
         Self {
@@ -69,6 +69,20 @@ impl Region {
         }
         let rects = union(&self.rects, &other.rects);
         Rc::new(Self {
+            rects,
+            extents: self.extents.union(other.extents),
+        })
+    }
+
+    pub fn union_cow<'a>(self: &'a Self, other: &'a Self) -> Cow<'a, Region> {
+        if self.extents.is_empty() {
+            return Cow::Borrowed(other);
+        }
+        if other.extents.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let rects = union(&self.rects, &other.rects);
+        Cow::Owned(Self {
             rects,
             extents: self.extents.union(other.extents),
         })
@@ -122,7 +136,7 @@ impl Region<u32> {
         if rects.len() == 1 {
             let mut rect = rects[0];
             rect.raw.tag = rect.raw.tag.constrain();
-            return Self::new2(rect);
+            return Self::new(rect);
         }
         let rects = rects_to_bands_tagged(unsafe {
             mem::transmute::<&[Rect<u32>], &[RectRaw<u32>]>(rects)
@@ -153,11 +167,7 @@ impl<T> Region<T>
 where
     T: Tag,
 {
-    pub fn new(rect: Rect<T>) -> Rc<Self> {
-        Rc::new(Self::new2(rect))
-    }
-
-    pub fn new2(rect: Rect<T>) -> Self {
+    pub fn new(rect: Rect<T>) -> Self {
         let mut rects = SmallVec::new();
         rects.push(rect.raw);
         Self {

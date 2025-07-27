@@ -8,7 +8,8 @@ fn union1() {
     let r1 = Region::new(Rect::new(0, 0, 10, 10).unwrap());
     let r2_ = Region::new(Rect::new(5, 5, 15, 15).unwrap());
     let r2 = Region::new(Rect::new(10, 10, 20, 20).unwrap());
-    let r3 = r1.union(&r2).union(&r2_);
+    let r3 = r1.union_cow(&r2);
+    let r3 = r3.union_cow(&r2_);
     assert_eq!(r3.extents, Rect::new(0, 0, 20, 20).unwrap());
     assert_eq!(
         &r3.rects[..],
@@ -25,7 +26,7 @@ fn union1() {
 fn union2() {
     let r1 = Region::new(Rect::new(0, 0, 10, 10).unwrap());
     let r2 = Region::new(Rect::new(0, 10, 10, 20).unwrap());
-    let r3 = r1.union(&r2);
+    let r3 = r1.union_cow(&r2);
     assert_eq!(r3.extents, Rect::new(0, 0, 10, 20).unwrap());
     assert_eq!(&r3.rects[..], &[Rect::new(0, 0, 10, 20).unwrap().raw,]);
 }
@@ -34,7 +35,7 @@ fn union2() {
 fn subtract1() {
     let r1 = Region::new(Rect::new(0, 0, 20, 20).unwrap());
     let r2 = Region::new(Rect::new(5, 5, 15, 15).unwrap());
-    let r3 = r1.subtract(&r2);
+    let r3 = r1.subtract_cow(&r2);
     assert_eq!(r3.extents, Rect::new(0, 0, 20, 20).unwrap());
     assert_eq!(
         &r3.rects[..],
