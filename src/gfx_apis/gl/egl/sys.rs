@@ -14,6 +14,7 @@ egl_transparent!(EGLImageKHR);
 egl_transparent!(EGLContext);
 egl_transparent!(EGLClientBuffer);
 egl_transparent!(EGLLabelKHR);
+egl_transparent!(EGLDeviceEXT);
 
 pub type EGLDEBUGPROCKHR = unsafe extern "C" fn(
     error: EGLenum,
@@ -53,6 +54,7 @@ pub const EGL_PLATFORM_GBM_KHR: EGLint = 0x31D7;
 pub const EGL_CONTEXT_CLIENT_VERSION: EGLint = 0x3098;
 pub const EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT: EGLint = 0x3138;
 pub const EGL_LOSE_CONTEXT_ON_RESET_EXT: EGLint = 0x31BF;
+pub const EGL_DEVICE_EXT: EGLint = 0x322C;
 
 pub const GL_GUILTY_CONTEXT_RESET_ARB: GLenum = 0x8253;
 pub const GL_INNOCENT_CONTEXT_RESET_ARB: GLenum = 0x8254;

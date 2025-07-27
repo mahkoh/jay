@@ -25,13 +25,21 @@ pub fn create_gfx_context(
     let mut apis = [GfxApi::OpenGl, GfxApi::Vulkan];
     apis.sort_by_key(|&a| if a == api { -1 } else { a as i32 });
     let mut last_err = None;
-    for api in apis {
-        let res = create_gfx_context_(eng, ring, drm, api, caps_thread);
-        match res {
-            Ok(_) => return res,
-            Err(e) => {
-                log::warn!("Could not create {:?} API: {}", api, ErrorFmt(&e));
-                last_err = Some(e);
+    for software in [false, true] {
+        for api in apis {
+            let res = create_gfx_context_(eng, ring, drm, api, caps_thread, software);
+            match res {
+                Ok(_) => {
+                    log::info!("Created a {api:?} renderer");
+                    if software {
+                        log::warn!("Renderer uses software rendering");
+                    }
+                    return res;
+                }
+                Err(e) => {
+                    log::warn!("Could not create {:?} API: {}", api, ErrorFmt(&e));
+                    last_err = Some(e);
+                }
             }
         }
     }
@@ -44,10 +52,11 @@ fn create_gfx_context_(
     drm: &Drm,
     api: GfxApi,
     caps_thread: Option<&PrCapsThread>,
+    software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     match api {
-        GfxApi::OpenGl => gl::create_gfx_context(drm),
-        GfxApi::Vulkan => vulkan::create_graphics_context(eng, ring, drm, caps_thread),
+        GfxApi::OpenGl => gl::create_gfx_context(drm, software),
+        GfxApi::Vulkan => vulkan::create_graphics_context(eng, ring, drm, caps_thread, software),
         _ => unreachable!(),
     }
 }
