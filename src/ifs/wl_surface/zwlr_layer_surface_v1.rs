@@ -493,14 +493,14 @@ impl ZwlrLayerSurfaceV1 {
         let mut x1 = 0;
         let mut y1 = 0;
         if anchor.contains(LEFT | RIGHT) {
-            x1 = (owidth - width - ml - mr) / 2;
+            x1 = (owidth - width) / 2;
         } else if anchor.contains(LEFT) {
             x1 = ml;
         } else if anchor.contains(RIGHT) {
             x1 = owidth - width - mr;
         }
         if anchor.contains(TOP | BOTTOM) {
-            y1 = (oheight - height - mt - mb) / 2;
+            y1 = (oheight - height) / 2;
         } else if anchor.contains(TOP) {
             y1 = mt;
         } else if anchor.contains(BOTTOM) {
