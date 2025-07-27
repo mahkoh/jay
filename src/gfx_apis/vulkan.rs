@@ -100,6 +100,8 @@ pub enum VulkanError {
     EnumeratePhysicalDevices(#[source] vk::Result),
     #[error("Could not find a vulkan device that matches dev_t {0}")]
     NoDeviceFound(dev_t),
+    #[error("There is no vulkan software renderer")]
+    NoSoftwareRenderer,
     #[error("Could not load image properties")]
     LoadImageProperties(#[source] vk::Result),
     #[error("Device does not support rending and texturing from the XRGB8888 format")]
@@ -214,6 +216,12 @@ pub enum VulkanError {
     NonVulkanBuffer,
     #[error("Mixed vulkan device use")]
     MixedVulkanDeviceUse,
+    #[error("Could not allocate GBM BO")]
+    AllocGbm(#[source] GbmError),
+    #[error("Could not retrieve file description flags")]
+    GetFl(#[source] OsError),
+    #[error("GBM implementation cannot be used with software renderer")]
+    SoftwareRendererNotUsable,
 }
 
 impl From<VulkanError> for GfxError {
@@ -230,18 +238,19 @@ pub fn create_graphics_context(
     ring: &Rc<IoUring>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
+    software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     let instance = VulkanInstance::new(Level::Info, *VULKAN_VALIDATION)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe { t.run(|| instance.create_device(drm, true)) } {
+            match unsafe { t.run(|| instance.create_device(drm, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm, false)?
+        instance.create_device(drm, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
@@ -249,7 +258,7 @@ pub fn create_graphics_context(
 
 pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
     let instance = VulkanInstance::new(Level::Debug, *VULKAN_VALIDATION)?;
-    let device = instance.create_device(drm, false)?;
+    let device = instance.create_device(drm, false, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
 }

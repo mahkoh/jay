@@ -235,7 +235,7 @@ impl GbmDevice {
             if modifiers.is_empty() {
                 return Err(GbmError::NoModifier);
             }
-            let (modifiers, n_modifiers) = if modifiers == [INVALID_MODIFIER] {
+            let (modifiers_ptr, n_modifiers) = if modifiers == [INVALID_MODIFIER] {
                 (ptr::null(), 0)
             } else {
                 usage &= !GBM_BO_USE_LINEAR;
@@ -246,7 +246,7 @@ impl GbmDevice {
                 width as _,
                 height as _,
                 format.drm,
-                modifiers,
+                modifiers_ptr,
                 n_modifiers,
                 usage,
             );
@@ -255,8 +255,8 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let mut dma = export_bo(dma_buf_ids, bo.bo)?;
-            if modifiers.is_null() {
-                dma.modifier = INVALID_MODIFIER;
+            if let [modifier] = *modifiers {
+                dma.modifier = modifier;
             }
             Ok(GbmBo { bo, dmabuf: dma })
         }

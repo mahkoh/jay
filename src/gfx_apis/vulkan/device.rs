@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::BufferObject,
         format::XRGB8888,
         gfx_apis::vulkan::{
             VulkanError,
@@ -9,10 +10,11 @@ use {
                 map_extension_properties,
             },
         },
-        utils::on_drop::OnDrop,
+        utils::{bitflags::BitflagsExt, on_drop::OnDrop},
         video::{
+            dmabuf::DmaBufIds,
             drm::{Drm, sync_obj::SyncObjCtx},
-            gbm::GbmDevice,
+            gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
     },
     ahash::AHashMap,
@@ -37,7 +39,7 @@ use {
             PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
             PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures,
+            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
             PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
             Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
         },
@@ -49,7 +51,7 @@ use {
         rc::Rc,
         sync::Arc,
     },
-    uapi::Ustr,
+    uapi::{Ustr, c::O_RDWR},
     vk::QueueFamilyGlobalPriorityPropertiesKHR,
 };
 
@@ -208,6 +210,24 @@ impl VulkanInstance {
         Err(VulkanError::NoDeviceFound(dev))
     }
 
+    fn find_software_renderer(&self) -> Result<PhysicalDevice, VulkanError> {
+        let phy_devs = unsafe { self.instance.enumerate_physical_devices() };
+        let phy_devs = match phy_devs {
+            Ok(d) => d,
+            Err(e) => return Err(VulkanError::EnumeratePhysicalDevices(e)),
+        };
+        for phy_dev in phy_devs {
+            let props = unsafe { self.instance.get_physical_device_properties(phy_dev) };
+            if props.api_version < API_VERSION {
+                continue;
+            }
+            if props.device_type == PhysicalDeviceType::CPU {
+                return Ok(phy_dev);
+            }
+        }
+        Err(VulkanError::NoSoftwareRenderer)
+    }
+
     fn find_queues(
         &self,
         phy_dev: PhysicalDevice,
@@ -316,6 +336,7 @@ impl VulkanInstance {
         self: &Rc<Self>,
         drm: &Drm,
         mut high_priority: bool,
+        software: bool,
     ) -> Result<Rc<VulkanDevice>, VulkanError> {
         let render_node = drm
             .get_render_node()
@@ -323,7 +344,10 @@ impl VulkanInstance {
             .ok_or(VulkanError::NoRenderNode)
             .map(Rc::new)?;
         let gbm = GbmDevice::new(drm).map_err(VulkanError::Gbm)?;
-        let phy_dev = self.find_dev(drm)?;
+        let phy_dev = match software {
+            true => self.find_software_renderer()?,
+            false => self.find_dev(drm)?,
+        };
         let extensions = self.get_device_extensions(phy_dev)?;
         for &ext in REQUIRED_DEVICE_EXTENSIONS {
             if extensions.not_contains_key(ext) {
@@ -439,6 +463,23 @@ impl VulkanInstance {
             .unwrap_or(false);
         if !supports_xrgb8888 {
             return Err(VulkanError::XRGB8888);
+        }
+        if software {
+            let bo = gbm
+                .create_bo(
+                    &DmaBufIds::default(),
+                    1,
+                    1,
+                    XRGB8888,
+                    formats.get(&XRGB8888.drm).unwrap().modifiers.keys(),
+                    GBM_BO_USE_RENDERING,
+                )
+                .map_err(VulkanError::AllocGbm)?;
+            let fl = uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw())
+                .map_err(|e| VulkanError::GetFl(e.into()))?;
+            if fl.not_contains(O_RDWR) {
+                return Err(VulkanError::SoftwareRendererNotUsable);
+            }
         }
         destroy_device.forget();
         let external_memory_fd = external_memory_fd::Device::new(&self.instance, &device);

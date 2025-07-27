@@ -102,12 +102,15 @@ impl GlRenderContext {
         self.ctx.reset_status()
     }
 
-    pub(in crate::gfx_apis::gl) fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
+    pub(in crate::gfx_apis::gl) fn from_drm_device(
+        drm: &Drm,
+        software: bool,
+    ) -> Result<Self, RenderError> {
         let node = drm
             .get_render_node()?
             .ok_or(RenderError::NoRenderNode)
             .map(Rc::new)?;
-        let dpy = EglDisplay::create(drm)?;
+        let dpy = EglDisplay::create(drm, software)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
         }

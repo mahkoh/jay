@@ -3,7 +3,8 @@ use {
         RenderError,
         egl::sys::{EGL_EXTENSIONS, EGLDisplay},
         gl::sys::GL_EXTENSIONS,
-        sys::{EGL, GLESV2},
+        proc::ExtProc,
+        sys::{EGL, EGL_DEVICE_EXT, EGL_TRUE, EGLDeviceEXT, GLESV2},
     },
     ahash::AHashSet,
     bstr::ByteSlice,
@@ -53,6 +54,7 @@ bitflags! {
         EXT_PLATFORM_BASE      = 1 << 1,
         KHR_PLATFORM_GBM       = 1 << 2,
         KHR_DEBUG              = 1 << 3,
+        EXT_DEVICE_QUERY       = 1 << 4,
 }
 
 pub fn get_client_ext() -> ClientExt {
@@ -60,6 +62,7 @@ pub fn get_client_ext() -> ClientExt {
         ("EGL_EXT_platform_base", EXT_PLATFORM_BASE),
         ("EGL_KHR_platform_gbm", KHR_PLATFORM_GBM),
         ("EGL_KHR_debug", KHR_DEBUG),
+        ("EGL_EXT_device_query", EXT_DEVICE_QUERY),
     ];
     match unsafe { get_dpy_extensions(EGLDisplay::none()) } {
         Some(exts) => get_typed_ext(&exts, EXT_CLIENT_EXTENSION, &map),
@@ -125,5 +128,26 @@ pub fn get_gl_ext() -> Result<GlExt, RenderError> {
     match unsafe { get_extensions((gles.glGetString)(GL_EXTENSIONS) as _) } {
         Some(exts) => Ok(get_typed_ext(&exts, GlExt::none(), &map)),
         _ => Ok(GlExt::none()),
+    }
+}
+
+bitflags! {
+    DevExt: u32;
+        MESA_DEVICE_SOFTWARE = 1 << 0,
+}
+
+pub fn get_device_ext(procs: &ExtProc, dpy: EGLDisplay) -> Result<DevExt, RenderError> {
+    let map = [("EGL_MESA_device_software", MESA_DEVICE_SOFTWARE)];
+    unsafe {
+        let mut device = 0;
+        if procs.eglQueryDisplayAttribEXT(dpy, EGL_DEVICE_EXT, &mut device) != EGL_TRUE {
+            return Err(RenderError::QueryDisplayDevice);
+        }
+        let device = EGLDeviceEXT(device as _);
+        let ext = procs.eglQueryDeviceStringEXT(device, EGL_EXTENSIONS);
+        match get_extensions(ext) {
+            Some(exts) => Ok(get_typed_ext(&exts, DevExt::none(), &map)),
+            _ => Ok(DevExt::none()),
+        }
     }
 }
