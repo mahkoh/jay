@@ -74,7 +74,7 @@ impl Region {
         })
     }
 
-    pub fn union_cow<'a>(self: &'a Self, other: &'a Self) -> Cow<'a, Region> {
+    pub fn union_cow<'a>(&'a self, other: &'a Self) -> Cow<'a, Region> {
         if self.extents.is_empty() {
             return Cow::Borrowed(other);
         }
