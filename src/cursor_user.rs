@@ -85,7 +85,7 @@ impl CursorUserGroup {
             let x_int = x.round_down();
             let y_int = y.round_down();
             let extents = cursor.extents_at_scale(Scale::default());
-            self.state.damage2(true, extents.move_(x_int, y_int));
+            self.damage(extents.move_(x_int, y_int));
         }
     }
 
@@ -247,6 +247,10 @@ impl CursorUserGroup {
             return;
         };
         active.present_hardware_cursor(output, hc);
+    }
+
+    fn damage(&self, rect: Rect) {
+        self.state.damage2(true, self.hardware_cursor.get(), rect);
     }
 }
 
@@ -416,10 +420,8 @@ impl CursorUser {
             let old_x_int = old_x.round_down();
             let old_y_int = old_y.round_down();
             let extents = cursor.extents_at_scale(Scale::default());
-            self.group
-                .state
-                .damage2(true, extents.move_(old_x_int, old_y_int));
-            self.group.state.damage2(true, extents.move_(x_int, y_int));
+            self.group.damage(extents.move_(old_x_int, old_y_int));
+            self.group.damage(extents.move_(x_int, y_int));
         }
         self.pos.set((x, y));
         self.update_hardware_cursor_(false);
@@ -435,7 +437,8 @@ impl CursorUser {
     }
 
     pub fn software_cursor(&self) -> bool {
-        self.is_active() && !self.group.hardware_cursor.get()
+        self.is_active()
+            && (!self.group.hardware_cursor.get() || self.group.state.outputs_without_hc.get() > 0)
     }
 
     fn update_hardware_cursor_(&self, render: bool) {

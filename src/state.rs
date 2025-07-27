@@ -277,6 +277,7 @@ pub struct State {
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
+    pub outputs_without_hc: NumCell<usize>,
 }
 
 // impl Drop for State {
@@ -648,7 +649,7 @@ impl State {
                 fn visit_output(&mut self, node: &Rc<OutputNode>) {
                     node.render_data.borrow_mut().titles.clear();
                     node.render_data.borrow_mut().status.take();
-                    node.hardware_cursor.set(None);
+                    node.set_hardware_cursor(None);
                     node.node_visit_children(self);
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {
@@ -968,16 +969,19 @@ impl State {
     }
 
     pub fn damage(&self, rect: Rect) {
-        self.damage2(false, rect);
+        self.damage2(false, false, rect);
     }
 
-    pub fn damage2(&self, cursor: bool, rect: Rect) {
+    pub fn damage2(&self, cursor: bool, skip_hc: bool, rect: Rect) {
         if rect.is_empty() {
             return;
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
             if output.global.pos.get().intersects(&rect) {
+                if skip_hc && output.hardware_cursor.is_some() {
+                    continue;
+                }
                 output.global.add_damage_area(&rect);
                 if cursor && output.schedule.defer_cursor_updates() {
                     output.schedule.software_cursor_changed();

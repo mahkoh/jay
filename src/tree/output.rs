@@ -1433,6 +1433,19 @@ impl OutputNode {
                 .handle_tearing_mode_change(mode.to_config());
         }
     }
+
+    pub fn set_hardware_cursor(&self, hc: Option<Rc<dyn HardwareCursor>>) {
+        let is_none = hc.is_none();
+        let old = self.hardware_cursor.set(hc);
+        let was_none = old.is_none();
+        if was_none != is_none {
+            if is_none {
+                self.state.outputs_without_hc.fetch_add(1);
+            } else {
+                self.state.outputs_without_hc.fetch_sub(1);
+            }
+        }
+    }
 }
 
 pub struct OutputTitle {
