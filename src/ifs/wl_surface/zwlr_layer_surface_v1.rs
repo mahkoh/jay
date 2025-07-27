@@ -71,6 +71,7 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_edge: Cell<Option<u32>>,
     exclusive_size: Cell<ExclusiveSize>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
+    need_position_update: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -177,6 +178,7 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_edge: Default::default(),
             exclusive_size: Default::default(),
             popups: Default::default(),
+            need_position_update: Default::default(),
         }
     }
 
@@ -398,13 +400,19 @@ impl ZwlrLayerSurfaceV1 {
             self.size.set(size);
         }
         if let Some(anchor) = pending.anchor.take() {
-            self.anchor.set(anchor);
+            if self.anchor.replace(anchor) != anchor {
+                self.need_position_update.set(true);
+            }
         }
         if let Some(ez) = pending.exclusive_zone.take() {
-            self.exclusive_zone.set(ez);
+            if self.exclusive_zone.replace(ez) != ez {
+                self.need_position_update.set(true);
+            }
         }
         if let Some(margin) = pending.margin.take() {
-            self.margin.set(margin);
+            if self.margin.replace(margin) != margin {
+                self.need_position_update.set(true);
+            }
         }
         if let Some(ki) = pending.keyboard_interactivity.take() {
             self.keyboard_interactivity.set(ki);
@@ -519,6 +527,7 @@ impl ZwlrLayerSurfaceV1 {
             }
         }
         self.client.state.tree_changed();
+        self.need_position_update.set(false);
     }
 
     pub fn output_resized(&self) {
@@ -593,6 +602,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                 self.destroy_node();
             } else {
                 if self.surface.extents.get().size() != self.pos.get().size() {
+                    self.need_position_update.set(true);
+                }
+                if self.need_position_update.get() {
                     self.compute_position();
                 }
                 self.update_exclusive_size();
