@@ -10,6 +10,7 @@ use {
     std::{
         cell::Cell,
         rc::{Rc, Weak},
+        slice,
     },
 };
 
@@ -86,7 +87,7 @@ where
             targets: CritPerTargetData::new(slf, id),
             on_match: Box::new(on_match),
             events: mgr.leaf_events().clone(),
-            upstream: CritDownstreamData::new(id, &[upstream.clone()]),
+            upstream: CritDownstreamData::new(id, slice::from_ref(upstream)),
         });
         slf.upstream.attach(&slf);
         slf

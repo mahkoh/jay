@@ -101,7 +101,7 @@ impl VulkanAllocation {
         Ok(f(self.mem.unwrap(), self.size as usize))
     }
 
-    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange {
+    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange<'static> {
         MappedMemoryRange::default()
             .memory(self.memory)
             .offset(self.offset & !mask)

@@ -14,7 +14,7 @@ use {
         state::State,
         tree::{ToplevelData, ToplevelNodeBase},
     },
-    std::rc::Rc,
+    std::{rc::Rc, slice},
 };
 
 pub struct TlmMatchClient {
@@ -32,7 +32,7 @@ impl TlmMatchClient {
             id,
             state: state.clone(),
             node: node.clone(),
-            upstream: CritDownstreamData::new(id, &[node.clone()]),
+            upstream: CritDownstreamData::new(id, slice::from_ref(node)),
             downstream: CritUpstreamData::new(slf, id),
         });
         slf.upstream.attach(&slf);

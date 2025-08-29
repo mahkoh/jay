@@ -391,7 +391,7 @@ impl<'a> LibInputTabletPadModeGroup<'a> {
 }
 
 impl RegisteredDevice {
-    pub fn device(&self) -> LibInputDevice {
+    pub fn device(&self) -> LibInputDevice<'_> {
         LibInputDevice {
             dev: self.dev,
             _phantom: Default::default(),

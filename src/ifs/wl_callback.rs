@@ -6,7 +6,6 @@ use {
         wire::{WlCallbackId, wl_callback::*},
     },
     std::{convert::Infallible, rc::Rc},
-    thiserror::Error,
 };
 
 pub struct WlCallback {
@@ -44,6 +43,3 @@ object_base! {
 impl Object for WlCallback {}
 
 simple_add_obj!(WlCallback);
-
-#[derive(Debug, Error)]
-pub enum WlCallbackError {}

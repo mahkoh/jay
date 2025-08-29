@@ -208,7 +208,7 @@ impl ZwlrLayerSurfaceV1 {
         self.client.event(Closed { self_id: self.id });
     }
 
-    fn pending(&self) -> RefMut<Box<PendingLayerSurfaceData>> {
+    fn pending(&self) -> RefMut<'_, Box<PendingLayerSurfaceData>> {
         RefMut::map(self.surface.pending.borrow_mut(), |m| {
             m.layer_surface.get_or_insert_default_ext()
         })

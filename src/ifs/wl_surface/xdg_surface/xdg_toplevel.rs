@@ -36,7 +36,6 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     jay_config::window::TileState,
-    num_derive::FromPrimitive,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -45,19 +44,6 @@ use {
     },
     thiserror::Error,
 };
-
-#[derive(Copy, Clone, Debug, FromPrimitive)]
-pub enum ResizeEdge {
-    None = 0,
-    Top = 1,
-    Bottom = 2,
-    Left = 4,
-    TopLeft = 5,
-    BottomLeft = 6,
-    Right = 8,
-    TopRight = 9,
-    BottomRight = 10,
-}
 
 #[expect(dead_code)]
 const STATE_MAXIMIZED: u32 = 1;

@@ -58,7 +58,7 @@ impl<T: Eq> RefCounted<T> {
         unsafe { self.map.get().deref().iter().map(|k| k.0).collect() }
     }
 
-    pub fn lock(&self) -> Locked<T> {
+    pub fn lock(&self) -> Locked<'_, T> {
         unsafe {
             Locked {
                 vec: mem::take(self.map.get().deref_mut()),

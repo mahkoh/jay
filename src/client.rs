@@ -466,7 +466,7 @@ impl Client {
         self.checking_queue_size.set(false);
     }
 
-    pub fn lock_registries(&self) -> Locked<WlRegistryId, Rc<WlRegistry>> {
+    pub fn lock_registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>> {
         self.objects.registries()
     }
 

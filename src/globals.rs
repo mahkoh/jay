@@ -299,7 +299,7 @@ impl Globals {
         Ok(())
     }
 
-    pub fn lock_seats(&self) -> Locked<GlobalName, Rc<WlSeatGlobal>> {
+    pub fn lock_seats(&self) -> Locked<'_, GlobalName, Rc<WlSeatGlobal>> {
         self.seats.lock()
     }
 

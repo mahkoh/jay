@@ -1,3 +1,4 @@
+#[expect(dead_code)]
 pub struct LogOnDrop(pub &'static str);
 
 impl Drop for LogOnDrop {

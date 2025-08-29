@@ -147,7 +147,7 @@ impl LibInput {
         }
     }
 
-    pub fn event(&self) -> Option<LibInputEvent> {
+    pub fn event(&self) -> Option<LibInputEvent<'_>> {
         let res = unsafe { libinput_get_event(self.li) };
         if res.is_null() {
             None

@@ -256,7 +256,7 @@ impl Objects {
         Ok(())
     }
 
-    pub fn registries(&self) -> Locked<WlRegistryId, Rc<WlRegistry>> {
+    pub fn registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>> {
         self.registries.lock()
     }
 

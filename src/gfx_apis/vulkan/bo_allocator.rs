@@ -751,7 +751,7 @@ fn image_create_info(
     height: u32,
     format: &Format,
     usage: BufferUsage,
-) -> ImageCreateInfo {
+) -> ImageCreateInfo<'_> {
     let usage = map_usage(usage);
     ImageCreateInfo::default()
         .image_type(ImageType::TYPE_2D)

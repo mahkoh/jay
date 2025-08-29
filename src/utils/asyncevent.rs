@@ -37,7 +37,7 @@ impl AsyncEvent {
         }
     }
 
-    pub fn triggered(&self) -> AsyncEventTriggered {
+    pub fn triggered(&self) -> AsyncEventTriggered<'_> {
         AsyncEventTriggered { ae: self }
     }
 }

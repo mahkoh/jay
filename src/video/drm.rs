@@ -802,6 +802,7 @@ pub struct DrmVersion {
     pub desc: BString,
 }
 
+#[expect(dead_code)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HdrMetadata {
     pub eotf: u8,
