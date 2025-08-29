@@ -60,7 +60,7 @@ where
         self.data.borrow_mut().clear();
     }
 
-    pub fn get_or_create(&self, target: &Target, default: impl FnOnce() -> T) -> RefMut<T> {
+    pub fn get_or_create(&self, target: &Target, default: impl FnOnce() -> T) -> RefMut<'_, T> {
         RefMut::map(self.data.borrow_mut(), |d| {
             &mut d
                 .entry(target.id())
@@ -75,7 +75,7 @@ where
         })
     }
 
-    pub fn get(&self, target: &Target) -> Option<RefMut<T>> {
+    pub fn get(&self, target: &Target) -> Option<RefMut<'_, T>> {
         RefMut::filter_map(self.data.borrow_mut(), |d| {
             d.get_mut(&target.id()).map(|d| &mut d.data)
         })

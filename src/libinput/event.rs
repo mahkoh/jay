@@ -110,7 +110,7 @@ impl<'a> Drop for LibInputEvent<'a> {
 
 macro_rules! converter {
     ($name:ident, $out:ident, $f:ident) => {
-        pub fn $name(&self) -> Option<$out> {
+        pub fn $name(&self) -> Option<$out<'_>> {
             let res = unsafe { $f(self.event) };
             if res.is_null() {
                 None
@@ -129,7 +129,7 @@ impl<'a> LibInputEvent<'a> {
         unsafe { EventType(libinput_event_get_type(self.event)) }
     }
 
-    pub fn device(&self) -> LibInputDevice {
+    pub fn device(&self) -> LibInputDevice<'_> {
         LibInputDevice {
             dev: unsafe { libinput_event_get_device(self.event) },
             _phantom: Default::default(),
@@ -491,7 +491,7 @@ impl<'a> LibInputEventTabletPad<'a> {
         unsafe { libinput_event_tablet_pad_get_mode(self.event) as u32 }
     }
 
-    pub fn mode_group(&self) -> LibInputTabletPadModeGroup {
+    pub fn mode_group(&self) -> LibInputTabletPadModeGroup<'_> {
         LibInputTabletPadModeGroup {
             group: unsafe { libinput_event_tablet_pad_get_mode_group(self.event) },
             _phantom: Default::default(),

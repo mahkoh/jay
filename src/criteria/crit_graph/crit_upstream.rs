@@ -151,7 +151,7 @@ where
         }
     }
 
-    pub fn get_or_create(&self, target: &Target) -> RefMut<CritUpstreamNodeData<Target, T>>
+    pub fn get_or_create(&self, target: &Target) -> RefMut<'_, CritUpstreamNodeData<Target, T>>
     where
         T: Default,
     {
@@ -162,7 +162,7 @@ where
         })
     }
 
-    pub fn get(&self, target: &Target) -> Option<RefMut<CritUpstreamNodeData<Target, T>>> {
+    pub fn get(&self, target: &Target) -> Option<RefMut<'_, CritUpstreamNodeData<Target, T>>> {
         self.nodes.get(target)
     }
 

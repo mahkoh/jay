@@ -459,7 +459,7 @@ impl IoUringData {
         encoded as usize
     }
 
-    fn id(&self) -> Cancellable {
+    fn id(&self) -> Cancellable<'_> {
         Cancellable {
             id: self.id_raw(),
             data: self,

@@ -371,7 +371,7 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn pending(&self) -> RefMut<Box<PendingXdgSurfaceData>> {
+    fn pending(&self) -> RefMut<'_, Box<PendingXdgSurfaceData>> {
         RefMut::map(self.surface.pending.borrow_mut(), |p| {
             p.xdg_surface.get_or_insert_default_ext()
         })

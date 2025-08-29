@@ -281,7 +281,7 @@ impl UdevEnumerate {
         }
     }
 
-    pub fn get_list_entry(&mut self) -> Result<Option<UdevListEntry>, UdevError> {
+    pub fn get_list_entry(&mut self) -> Result<Option<UdevListEntry<'_>>, UdevError> {
         let res = unsafe { udev_enumerate_get_list_entry(self.enumerate) };
         if res.is_null() {
             let err = Errno::default();

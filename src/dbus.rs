@@ -481,6 +481,7 @@ pub unsafe trait DbusType<'a>: Clone + 'a {
     type Generic<'b>: DbusType<'b> + 'b;
 
     fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError>;
+    #[expect(dead_code)]
     fn write_signature(w: &mut Vec<u8>);
     fn marshal(&self, fmt: &mut Formatter);
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError>;

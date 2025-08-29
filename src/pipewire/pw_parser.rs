@@ -114,7 +114,7 @@ impl<'a> PwParser<'a> {
         }
     }
 
-    pub fn read_object_opt(&mut self) -> Result<Option<PwPodObject>, PwParserError> {
+    pub fn read_object_opt(&mut self) -> Result<Option<PwPodObject<'_>>, PwParserError> {
         match self.read_pod()? {
             PwPod::Object(p) => Ok(Some(p)),
             PwPod::None => Ok(None),
@@ -122,7 +122,7 @@ impl<'a> PwParser<'a> {
         }
     }
 
-    pub fn read_object(&mut self) -> Result<PwPodObject, PwParserError> {
+    pub fn read_object(&mut self) -> Result<PwPodObject<'_>, PwParserError> {
         match self.read_object_opt()? {
             Some(p) => Ok(p),
             _ => Err(PwParserError::UnexpectedPodType(

@@ -1,7 +1,6 @@
 pub mod client;
 pub mod ipc;
 mod logging;
-pub(crate) mod string_error;
 
 use {
     crate::{

@@ -38,7 +38,7 @@ impl<P: Object> Bindings<P> {
         self.bindings.clear();
     }
 
-    pub fn lock(&self) -> Locked<(ClientId, ObjectId), Rc<P>> {
+    pub fn lock(&self) -> Locked<'_, (ClientId, ObjectId), Rc<P>> {
         self.bindings.lock()
     }
 }
@@ -89,7 +89,7 @@ impl<P: Object> PerClientBindings<P> {
         }
     }
 
-    pub fn borrow(&self) -> Ref<AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>> {
+    pub fn borrow(&self) -> Ref<'_, AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>> {
         self.bindings.borrow()
     }
 }

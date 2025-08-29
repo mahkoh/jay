@@ -7,7 +7,6 @@ use {
         wire::{WpPresentationFeedbackId, wp_presentation_feedback::*},
     },
     std::{convert::Infallible, rc::Rc},
-    thiserror::Error,
 };
 
 pub struct WpPresentationFeedback {
@@ -62,6 +61,3 @@ object_base! {
 impl Object for WpPresentationFeedback {}
 
 simple_add_obj!(WpPresentationFeedback);
-
-#[derive(Debug, Error)]
-pub enum WpPresentationFeedbackError {}
