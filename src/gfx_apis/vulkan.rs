@@ -210,6 +210,10 @@ pub enum VulkanError {
     BusyInTransfer,
     #[error("Driver does not support descriptor buffers")]
     NoDescriptorBuffer,
+    #[error("A non-vulkan buffer was passed into the vulkan renderer")]
+    NonVulkanBuffer,
+    #[error("Mixed vulkan device use")]
+    MixedVulkanDeviceUse,
 }
 
 impl From<VulkanError> for GfxError {
@@ -284,7 +288,7 @@ impl GfxContext for Context {
         damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn ShmGfxTexture>, GfxError> {
         if let Some(old) = old {
-            let old = (old as Rc<dyn GfxTexture>).into_vk(&self.0.device.device);
+            let old = (old as Rc<dyn GfxTexture>).into_vk(&self.0.device.device)?;
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
                 VulkanImageMemory::Blend(_) => unreachable!(),
