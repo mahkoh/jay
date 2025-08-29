@@ -327,7 +327,7 @@ idle.minutes = 10
 If you want to lock the screen when this timeout happens, you can use the `on-idle` table.
 
 ```toml
-on-idle = { type = "exec", exec = { prog = "swaylock", privileged = "true" } }
+on-idle = { type = "exec", exec = { prog = "swaylock", privileged = true } }
 ```
 
 See the specification for more details.
