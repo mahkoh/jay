@@ -485,6 +485,7 @@ impl MetalDeviceTransaction {
                     Some(b) => b.clone(),
                     None => {
                         let modifiers = &plane.obj.formats.get(&format.drm).unwrap().modifiers;
+                        connector.changed.set(true);
                         let buffers = slf
                             .dev
                             .dev
