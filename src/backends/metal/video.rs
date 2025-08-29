@@ -2581,12 +2581,12 @@ impl MetalBackend {
         plane_modifiers: &IndexSet<Modifier>,
         width: i32,
         height: i32,
-        ctx: &Rc<MetalRenderContext>,
+        render_ctx: &Rc<MetalRenderContext>,
         cursor: bool,
     ) -> Result<[RenderBuffer; N], MetalError> {
         let mut blend_buffer = None;
         if !cursor {
-            match ctx.gfx.acquire_blend_buffer(width, height) {
+            match render_ctx.gfx.acquire_blend_buffer(width, height) {
                 Ok(bb) => blend_buffer = Some(bb),
                 Err(e) => {
                     log::warn!("Could not create blend buffer: {}", ErrorFmt(e));
@@ -2601,7 +2601,7 @@ impl MetalBackend {
                 plane_modifiers,
                 width,
                 height,
-                ctx,
+                render_ctx,
                 cursor,
                 damage_queue.pop().unwrap(),
                 blend_buffer.clone(),
