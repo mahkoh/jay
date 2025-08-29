@@ -291,8 +291,9 @@ impl MetalDeviceTransaction {
             }
             *field = plane.obj.id;
         }
-        let render_ctx = slf.dev.dev.backend.ctx.get();
         let dev_ctx = slf.dev.dev.ctx.get();
+        let render_ctx = slf.dev.dev.backend.ctx.get();
+        let render_ctx = render_ctx.as_ref().unwrap_or(&dev_ctx);
         for connector in slf.connectors.values_mut() {
             let state = &connector.state;
             let dd = &*connector.obj.display.borrow();
@@ -463,9 +464,6 @@ impl MetalDeviceTransaction {
                         if b[0].width != width || b[0].height != height || b[0].format != format {
                             discard!();
                         }
-                        let Some(render_ctx) = &render_ctx else {
-                            discard!();
-                        };
                         if !rc_eq(render_ctx, &b[0].render_ctx) {
                             discard!();
                         }
@@ -496,7 +494,7 @@ impl MetalDeviceTransaction {
                                 modifiers,
                                 width,
                                 height,
-                                &slf.dev.dev.ctx.get(),
+                                render_ctx,
                                 plane.obj.ty == PlaneType::Cursor,
                             )
                             .map_err(|e| {
