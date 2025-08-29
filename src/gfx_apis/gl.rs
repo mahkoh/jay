@@ -329,7 +329,10 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
 }
 
 fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
-    let texture = tex.tex.as_gl();
+    let Some(texture) = tex.tex.as_gl() else {
+        log::error!("A non-OpenGL texture was passed into OpenGL");
+        return;
+    };
     if !texture.gl.contents_valid.get() {
         log::error!("Ignoring texture with invalid contents");
         return;
@@ -437,10 +440,8 @@ fn handle_explicit_sync(ctx: &GlRenderContext, img: Option<&Rc<EglImage>>, sync:
 }
 
 impl dyn GfxTexture {
-    fn as_gl(&self) -> &Texture {
-        (self as &dyn Any)
-            .downcast_ref()
-            .expect("Non-gl texture passed into gl")
+    fn as_gl(&self) -> Option<&Texture> {
+        (self as &dyn Any).downcast_ref()
     }
 }
 
