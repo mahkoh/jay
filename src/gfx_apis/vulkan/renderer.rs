@@ -627,7 +627,7 @@ impl VulkanRenderer {
         opts: &[GfxApiOpt],
         blend_cd: &ColorDescription,
         fb_cd: &ColorDescription,
-    ) {
+    ) -> Result<(), VulkanError> {
         zone!("convert_ops");
         let memory = &mut *self.memory.borrow_mut();
         for ops in memory.ops.values_mut() {
@@ -744,7 +744,7 @@ impl VulkanRenderer {
                     }
                 }
                 GfxApiOpt::CopyTexture(ct) => {
-                    let tex = ct.tex.clone().into_vk(&self.device.device);
+                    let tex = ct.tex.clone().into_vk(&self.device.device)?;
                     if tex.contents_are_undefined.get() {
                         log::warn!("Ignoring undefined texture");
                         continue;
@@ -815,6 +815,7 @@ impl VulkanRenderer {
             }
         }
         sync(memory);
+        Ok(())
     }
 
     fn create_data_buffer(&self) -> Result<(), VulkanError> {
@@ -1735,7 +1736,7 @@ impl VulkanRenderer {
         clear: Option<&Color>,
         region: &Region,
         bb: Option<&VulkanImage>,
-    ) {
+    ) -> Result<(), VulkanError> {
         zone!("create_paint_regions");
         let memory = &mut *self.memory.borrow_mut();
         memory.regions_1.clear();
@@ -1755,7 +1756,7 @@ impl VulkanRenderer {
                             break 'opaque false;
                         }
                         if !c.opaque {
-                            let tex = c.tex.as_vk(&self.device.device);
+                            let tex = c.tex.as_vk(&self.device.device)?;
                             if tex.format.has_alpha {
                                 break 'opaque false;
                             }
@@ -1848,6 +1849,7 @@ impl VulkanRenderer {
                 });
             }
         }
+        Ok(())
     }
 
     fn elide_blend_buffer(&self, blend_buffer: &mut Option<Rc<VulkanImage>>) {
@@ -1874,11 +1876,11 @@ impl VulkanRenderer {
         bb_cd: &Rc<ColorDescription>,
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
-        self.create_regions(fb, opts, clear, region, blend_buffer.as_deref());
+        self.create_regions(fb, opts, clear, region, blend_buffer.as_deref())?;
         self.elide_blend_buffer(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
-        self.convert_ops(opts, bb_cd, fb_cd);
+        self.convert_ops(opts, bb_cd, fb_cd)?;
         self.create_data_buffer()?;
         self.create_uniform_buffer()?;
         self.collect_memory();
@@ -1956,40 +1958,41 @@ impl Debug for VulkanRenderer {
 }
 
 impl VulkanImage {
-    fn assert_device(&self, device: &Device) {
-        assert_eq!(
-            self.renderer.device.device.handle(),
-            device.handle(),
-            "Mixed vulkan device use"
-        );
+    fn assert_device(&self, device: &Device) -> Result<(), VulkanError> {
+        if self.renderer.device.device.handle() != device.handle() {
+            return Err(VulkanError::MixedVulkanDeviceUse);
+        }
+        Ok(())
     }
 }
 
 impl dyn GfxTexture {
-    fn as_vk(&self, device: &Device) -> &VulkanImage {
+    fn as_vk(&self, device: &Device) -> Result<&VulkanImage, VulkanError> {
         let img: &VulkanImage = (self as &dyn Any)
             .downcast_ref()
-            .expect("Non-vulkan texture passed into vulkan");
-        img.assert_device(device);
-        img
+            .ok_or(VulkanError::NonVulkanBuffer)?;
+        img.assert_device(device)?;
+        Ok(img)
     }
 
-    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanImage> {
+    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Result<Rc<VulkanImage>, VulkanError> {
         let img: Rc<VulkanImage> = (self as Rc<dyn Any>)
             .downcast()
-            .expect("Non-vulkan texture passed into vulkan");
-        img.assert_device(device);
-        img
+            .ok()
+            .ok_or(VulkanError::NonVulkanBuffer)?;
+        img.assert_device(device)?;
+        Ok(img)
     }
 }
 
 impl dyn GfxBlendBuffer {
-    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Rc<VulkanImage> {
+    pub(super) fn into_vk(self: Rc<Self>, device: &Device) -> Result<Rc<VulkanImage>, VulkanError> {
         let img: Rc<VulkanImage> = (self as Rc<dyn Any>)
             .downcast()
-            .expect("Non-vulkan blend buffer passed into vulkan");
-        img.assert_device(device);
-        img
+            .ok()
+            .ok_or(VulkanError::NonVulkanBuffer)?;
+        img.assert_device(device)?;
+        Ok(img)
     }
 }
 

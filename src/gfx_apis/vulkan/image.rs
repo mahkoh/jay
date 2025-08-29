@@ -556,8 +556,9 @@ impl GfxFramebuffer for VulkanImage {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<SyncFile>, GfxError> {
-        let mut blend_buffer =
-            blend_buffer.map(|b| b.clone().into_vk(&self.renderer.device.device));
+        let mut blend_buffer = blend_buffer
+            .map(|b| b.clone().into_vk(&self.renderer.device.device))
+            .transpose()?;
         if let Some(bb) = &blend_buffer
             && bb.size() != self.size()
         {
