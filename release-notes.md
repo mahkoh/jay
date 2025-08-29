@@ -1,5 +1,12 @@
 # Unreleased
 
+# 1.11.1 (2025-08-29)
+
+## Fixes
+
+This release fixes a bug that caused the compositor to abort on multi-GPU
+systems in some situations. Thanks to @krakow10 for reporting this.
+
 # 1.11.0 (2025-07-26)
 
 ## Fixes
