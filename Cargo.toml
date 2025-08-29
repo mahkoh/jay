@@ -1,6 +1,6 @@
 [package]
 name = "jay-compositor"
-version = "1.11.0"
+version = "1.11.1"
 edition = "2024"
 build = "build/build.rs"
 license = "GPL-3.0-only"
