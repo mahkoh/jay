@@ -32,6 +32,7 @@ use {
             get_seat, input_devices, on_input_device_removed, on_new_input_device,
             set_libei_socket_enabled,
         },
+        io::Async,
         is_reload,
         keyboard::Keymap,
         logging::set_log_level,
@@ -41,6 +42,7 @@ use {
         set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
+        tasks::{self, JoinHandle},
         theme::{reset_colors, reset_font, reset_sizes, set_font},
         toggle_float_above_fullscreen, toggle_show_bar,
         video::{
@@ -56,11 +58,14 @@ use {
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
+        fs::File,
         io::ErrorKind,
+        os::fd::AsRawFd,
         path::PathBuf,
         rc::Rc,
-        time::Duration,
+        time::{Duration, Instant},
     },
+    uapi::c::{IN_CLOSE_WRITE, IN_CREATE, IN_DELETE, IN_DELETE_SELF, IN_MODIFY, IN_NONBLOCK},
 };
 
 fn default_seat() -> Seat {
@@ -1005,6 +1010,93 @@ struct PersistentState {
     window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
     mark_names: RefCell<AHashMap<String, u32>>,
     mode_state: ModeState,
+    watcher_handle: RefCell<Option<JoinHandle<()>>>,
+}
+
+fn watch_config(initial_load: bool, persistent: &Rc<PersistentState>) {
+    let watcher_persistent = persistent.clone();
+    *persistent.watcher_handle.borrow_mut() = Some(tasks::spawn(async move {
+        let path = PathBuf::from(config_dir());
+        let Ok(file) = Async::new(File::open("/").expect("no root directory")) else {
+            return;
+        };
+        loop {
+            file.readable().await.unwrap();
+
+            if !path.exists() {
+                continue;
+            }
+
+            if !initial_load {
+                load_config(initial_load, &watcher_persistent);
+            }
+
+            let Ok(mut inotify) = uapi::inotify_init1(IN_NONBLOCK) else {
+                log::warn!("Inotify instance cannot initialized");
+                return;
+            };
+
+            let mut timeout = Instant::now();
+            let mut reloaded = true;
+
+            _ = uapi::inotify_add_watch(
+                inotify.as_raw_fd(),
+                config_dir(),
+                IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
+            );
+
+            let mut buffer = [0; 1024];
+
+            loop {
+                file.readable().await.unwrap();
+
+                if !path.exists() {
+                    load_config(false, &watcher_persistent);
+                    break;
+                }
+
+                if timeout.elapsed() >= Duration::from_millis(400) && !reloaded {
+                    load_config(false, &watcher_persistent);
+                    reloaded = true;
+                }
+
+                let Ok(events) = uapi::inotify_read(inotify.as_raw_fd(), &mut buffer) else {
+                    continue;
+                };
+
+                for event in events {
+                    if event.name() == c"config.toml" {
+                        if let Ok(instance) = uapi::inotify_init1(IN_NONBLOCK) {
+                            inotify = instance;
+                        } else {
+                            return;
+                        }
+
+                        _ = uapi::inotify_add_watch(
+                            inotify.as_raw_fd(),
+                            config_dir(),
+                            IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
+                        );
+                        reloaded = false;
+                        timeout = Instant::now();
+                    } else if event.mask == IN_DELETE {
+                        if event.name() == c"config.toml" {
+                            reloaded = false;
+                            timeout = Instant::now();
+                        }
+                    } else if event.mask == IN_DELETE_SELF {
+                        reloaded = false;
+                        timeout = Instant::now();
+                    } else if event.mask == IN_CLOSE_WRITE {
+                        if event.name() == c"config.toml" {
+                            reloaded = false;
+                            timeout = Instant::now();
+                        }
+                    }
+                }
+            }
+        }
+    }));
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -1034,6 +1126,17 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             return;
         }
     };
+
+    if config.auto_reload.unwrap_or_default() {
+        if persistent.watcher_handle.borrow().is_none() {
+            watch_config(initial_load, persistent);
+        }
+    } else {
+        if let Some(handle) = persistent.watcher_handle.take() {
+            handle.abort();
+        }
+    };
+
     let mut outputs = AHashMap::new();
     for output in &config.outputs {
         if let Some(name) = &output.name {
@@ -1343,6 +1446,7 @@ pub fn configure() {
         window_rules: Default::default(),
         mark_names,
         mode_state: Default::default(),
+        watcher_handle: Default::default(),
     });
     {
         let p = persistent.clone();
@@ -1352,6 +1456,7 @@ pub fn configure() {
             p.mode_state.clear();
         });
     }
+
     load_config(true, &persistent);
 }
 

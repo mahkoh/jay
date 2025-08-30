@@ -102,6 +102,7 @@ impl Parser for ConfigParser<'_> {
                 env_val,
                 on_startup_val,
                 keymaps_val,
+                auto_reload,
             ),
             (
                 log_level_val,
@@ -152,6 +153,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("env")),
                 opt(val("on-startup")),
                 recover(opt(arr("keymaps"))),
+                recover(opt(bol("auto-reload"))),
             ),
             (
                 opt(val("log-level")),
@@ -279,6 +281,7 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+
         let mut log_level = None;
         if let Some(value) = log_level_val {
             match value.parse(&mut LogLevelParser) {
@@ -516,6 +519,7 @@ impl Parser for ConfigParser<'_> {
             env,
             on_startup,
             keymaps,
+            auto_reload: auto_reload.despan(),
             log_level,
             theme,
             gfx_api,
