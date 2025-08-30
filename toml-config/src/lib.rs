@@ -32,6 +32,7 @@ use {
             get_seat, input_devices, on_input_device_removed, on_new_input_device,
             set_libei_socket_enabled,
         },
+        io::Async,
         is_reload,
         keyboard::Keymap,
         logging::set_log_level,
@@ -40,7 +41,7 @@ use {
         set_idle, set_idle_grace_period, set_middle_click_paste_enabled, set_show_bar,
         set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
-        switch_to_vt,
+        switch_to_vt, tasks,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
         toggle_float_above_fullscreen, toggle_show_bar,
         video::{
@@ -56,10 +57,11 @@ use {
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
+        fs::File,
         io::ErrorKind,
         path::PathBuf,
         rc::Rc,
-        time::Duration,
+        time::{Duration, SystemTime},
     },
 };
 
@@ -1005,6 +1007,7 @@ struct PersistentState {
     window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
     mark_names: RefCell<AHashMap<String, u32>>,
     mode_state: ModeState,
+    last_modified: RefCell<SystemTime>,
 }
 
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
@@ -1343,6 +1346,7 @@ pub fn configure() {
         window_rules: Default::default(),
         mark_names,
         mode_state: Default::default(),
+        last_modified: RefCell::new(SystemTime::now()),
     });
     {
         let p = persistent.clone();
@@ -1352,6 +1356,26 @@ pub fn configure() {
             p.mode_state.clear();
         });
     }
+
+    let watcher_persistent = persistent.clone();
+    tasks::spawn(async move {
+        let mut path = PathBuf::from(config_dir());
+        path.push("config.toml");
+        loop {
+            if let Ok(config_file) = File::open(&path)
+                && let Ok(async_file) = Async::new(config_file)
+                && let Ok(metadata) = async_file.as_ref().metadata()
+                && let Ok(last_modified) = metadata.modified()
+            {
+                _ = async_file.readable().await;
+                if last_modified > *watcher_persistent.last_modified.borrow() {
+                    *watcher_persistent.last_modified.borrow_mut() = last_modified;
+                    load_config(false, &watcher_persistent);
+                }
+            }
+        }
+    });
+
     load_config(true, &persistent);
 }
 
