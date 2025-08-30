@@ -247,6 +247,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_mark_fullscreen(&self, fullscreen: bool) {
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
+        self.tl_mark_fullscreen_ext();
     }
 }
 
@@ -314,6 +315,10 @@ pub trait ToplevelNodeBase: Node {
 
     fn tl_mark_ancestor_fullscreen_ext(&self, fullscreen: bool) {
         let _ = fullscreen;
+    }
+
+    fn tl_mark_fullscreen_ext(&self) {
+        // nothing
     }
 }
 

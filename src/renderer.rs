@@ -338,9 +338,8 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         let surface = &xdg.surface;
-        if let Some(geo) = xdg.geometry() {
-            (x, y) = geo.translate(x, y);
-        }
+        let geo = xdg.geometry();
+        (x, y) = geo.translate(x, y);
         self.render_surface(surface, x, y, bounds);
     }
 

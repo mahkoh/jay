@@ -308,7 +308,7 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
                 if !parent.need_extents_update.get() {
                     break;
                 }
-                parent.calculate_extents();
+                parent.calculate_extents(true);
                 parent_opt = parent.ext.get().subsurface_parent();
             }
         }

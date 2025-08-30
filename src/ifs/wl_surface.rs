@@ -301,6 +301,7 @@ pub struct WlSurface {
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
+    need_extents_propagation: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     pub shm_staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
@@ -650,6 +651,7 @@ impl WlSurface {
             extents: Default::default(),
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
+            need_extents_propagation: Default::default(),
             buffer: Default::default(),
             shm_staging: Default::default(),
             shm_textures: DoubleBuffered::new(DamageQueue::new().map(|damage| SurfaceShmTexture {
@@ -904,7 +906,7 @@ impl WlSurface {
         self.ext.set(self.client.state.none_surface_ext.clone());
     }
 
-    fn calculate_extents(&self) {
+    fn calculate_extents(&self, propagate: bool) {
         let old_extents = self.extents.get();
         let mut extents = self.buffer_abs_pos.get().at_point(0, 0);
         let children = self.children.borrow();
@@ -925,7 +927,11 @@ impl WlSurface {
         self.extents.set(extents);
         self.need_extents_update.set(false);
         if old_extents != extents {
-            self.ext.get().extents_changed()
+            if propagate {
+                self.ext.get().extents_changed()
+            } else {
+                self.need_extents_propagation.set(true);
+            }
         }
     }
 
@@ -1398,7 +1404,7 @@ impl WlSurface {
                 .push(XWaylandEvent::SurfaceSerialAssigned(self.id));
         }
         if self.need_extents_update.get() {
-            self.calculate_extents();
+            self.calculate_extents(false);
         }
         if buffer_changed || transform_changed || alpha_changed {
             for (_, cursor) in &self.cursors {
@@ -1460,6 +1466,9 @@ impl WlSurface {
             && tl.tl_data().is_fullscreen.get()
         {
             self.output.get().update_presentation_type();
+        }
+        if self.need_extents_propagation.take() {
+            self.ext.get().extents_changed();
         }
         self.commit_version.fetch_add(1);
         Ok(())
