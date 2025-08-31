@@ -62,7 +62,6 @@ mod t0028_top_level_restacking;
 mod t0029_double_click_float;
 mod t0030_cursor_shape;
 mod t0031_syncobj;
-mod t0032_content_type;
 mod t0032_data_control;
 mod t0033_float_size_memoization;
 mod t0034_workspace_restoration;
@@ -76,6 +75,7 @@ mod t0041_input_method;
 mod t0042_toplevel_select;
 mod t0043_destroy_registry;
 mod t0044_stacked_focus;
+mod t0045_content_type;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -139,5 +139,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0042_toplevel_select,
         t0043_destroy_registry,
         t0044_stacked_focus,
+        t0045_content_type,
     }
 }
