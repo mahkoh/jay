@@ -59,6 +59,36 @@ impl TestSurface {
         Ok(())
     }
 
+    pub fn damage(&self, x: i32, y: i32, width: i32, height: i32) -> Result<(), TestError> {
+        self.tran.send(Damage {
+            self_id: self.id,
+            x,
+            y,
+            width,
+            height,
+        })?;
+        Ok(())
+    }
+
+    pub fn damage_buffer(&self, x: i32, y: i32, width: i32, height: i32) -> Result<(), TestError> {
+        self.tran.send(DamageBuffer {
+            self_id: self.id,
+            x,
+            y,
+            width,
+            height,
+        })?;
+        Ok(())
+    }
+
+    pub fn set_buffer_transform(&self, transform: i32) -> Result<(), TestError> {
+        self.tran.send(SetBufferTransform {
+            self_id: self.id,
+            transform,
+        })?;
+        Ok(())
+    }
+
     pub fn commit(&self) -> Result<(), TestError> {
         self.tran.send(Commit { self_id: self.id })?;
         Ok(())
