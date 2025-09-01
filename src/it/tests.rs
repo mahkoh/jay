@@ -76,6 +76,8 @@ mod t0042_toplevel_select;
 mod t0043_destroy_registry;
 mod t0044_stacked_focus;
 mod t0045_content_type;
+mod t0046_buffer_release;
+mod t0047_surface_damage;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -140,5 +142,7 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0043_destroy_registry,
         t0044_stacked_focus,
         t0045_content_type,
+        t0046_buffer_release,
+        t0047_surface_damage,
     }
 }

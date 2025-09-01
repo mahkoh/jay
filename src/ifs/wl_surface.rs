@@ -997,6 +997,16 @@ impl WlSurface {
                 .push(XWaylandEvent::Configure(window));
         }
     }
+
+    #[cfg(feature = "it")]
+    pub fn get_pending_damage(&self) -> (Vec<Rect>, Vec<Rect>, bool) {
+        let pending = self.pending.borrow();
+        (
+            pending.surface_damage.clone(),
+            pending.buffer_damage.clone(),
+            pending.damage_full,
+        )
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
