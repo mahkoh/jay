@@ -746,6 +746,10 @@ impl ToplevelNodeBase for XdgToplevel {
     ) -> Option<TileDragDestination> {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
+
+    fn tl_mark_fullscreen_ext(&self) {
+        self.xdg.update_effective_geometry();
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
@@ -774,6 +778,23 @@ impl XdgSurfaceExt for XdgToplevel {
             .client
             .state
             .damage(self.node_absolute_position());
+    }
+
+    fn effective_geometry(&self, geometry: Rect) -> Rect {
+        if !self.toplevel_data.is_fullscreen.get() {
+            return geometry;
+        }
+        let output = self
+            .toplevel_data
+            .output()
+            .node_absolute_position()
+            .at_point(0, 0);
+        let x_overflow = output.width() - geometry.width();
+        let y_overflow = output.height() - geometry.height();
+        output.at_point(
+            geometry.x1() - x_overflow / 2,
+            geometry.y1() - y_overflow / 2,
+        )
     }
 
     fn make_visible(self: Rc<Self>) {

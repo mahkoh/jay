@@ -24,6 +24,7 @@ use {
             WorkspaceNode,
         },
         utils::{
+            cell_ext::CellExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
@@ -90,6 +91,7 @@ pub struct XdgSurface {
     acked_serial: Cell<Option<u32>>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
+    effective_geometry: Cell<Rect>,
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<LinkedList<Rc<dyn StackedNode>>>>,
@@ -231,6 +233,10 @@ pub trait XdgSurfaceExt: Debug {
         None
     }
 
+    fn effective_geometry(&self, geometry: Rect) -> Rect {
+        geometry
+    }
+
     fn make_visible(self: Rc<Self>);
 
     fn node_layer(&self) -> NodeLayerLink;
@@ -247,6 +253,7 @@ impl XdgSurface {
             acked_serial: Cell::new(None),
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
+            effective_geometry: Default::default(),
             absolute_desired_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
@@ -262,10 +269,9 @@ impl XdgSurface {
 
     fn update_surface_position(&self) {
         let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
-        if let Some(geo) = self.geometry.get() {
-            x1 -= geo.x1();
-            y1 -= geo.y1();
-        }
+        let geo = self.effective_geometry.get();
+        x1 -= geo.x1();
+        y1 -= geo.y1();
         self.surface.set_absolute_position(x1, y1);
         self.update_popup_positions();
     }
@@ -336,8 +342,8 @@ impl XdgSurface {
         self.surface.client.state.damage(extents.move_(x, y));
     }
 
-    pub fn geometry(&self) -> Option<Rect> {
-        self.geometry.get()
+    pub fn geometry(&self) -> Rect {
+        self.effective_geometry.get()
     }
 
     pub fn schedule_configure(self: &Rc<Self>) {
@@ -512,6 +518,24 @@ impl XdgSurfaceRequestHandler for XdgSurface {
 }
 
 impl XdgSurface {
+    fn update_effective_geometry(&self) {
+        let geometry = self
+            .geometry
+            .get()
+            .unwrap_or_else(|| self.surface.extents.get());
+        let mut effective_geometry = geometry;
+        let ext = self.ext.get();
+        if let Some(ext) = &ext {
+            effective_geometry = ext.effective_geometry(geometry);
+        }
+        if self.effective_geometry.replace(effective_geometry) != effective_geometry {
+            self.update_surface_position();
+            if let Some(ext) = &ext {
+                ext.geometry_changed();
+            }
+        }
+    }
+
     fn update_extents(&self) {
         let old_extents = self.extents.get();
         let mut new_extents = self.surface.extents.get();
@@ -519,19 +543,19 @@ impl XdgSurface {
             new_extents = new_extents.intersect(geometry);
         }
         self.extents.set(new_extents);
-        if old_extents != new_extents
-            && let Some(ext) = self.ext.get()
-        {
-            ext.extents_changed();
+        if old_extents != new_extents {
+            if self.geometry.is_none() {
+                self.update_effective_geometry();
+            }
+            if let Some(ext) = self.ext.get() {
+                ext.extents_changed();
+            }
         }
     }
 
     fn find_tree_at(&self, mut x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        if let Some(geo) = self.geometry.get() {
-            let (xt, yt) = geo.translate_inv(x, y);
-            x = xt;
-            y = yt;
-        }
+        let geo = self.effective_geometry.get();
+        (x, y) = geo.translate_inv(x, y);
         self.surface.find_tree_at_(x, y, tree)
     }
 
@@ -604,11 +628,8 @@ impl SurfaceExt for XdgSurface {
         {
             let prev = self.geometry.replace(Some(geometry));
             if prev != Some(geometry) {
+                self.update_effective_geometry();
                 self.update_extents();
-                self.update_surface_position();
-                if let Some(ext) = self.ext.get() {
-                    ext.geometry_changed();
-                }
             }
         }
         Ok(())
