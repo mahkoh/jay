@@ -3,14 +3,14 @@ use {
         ifs::wl_surface::WlSurface,
         it::{
             test_error::{TestError, TestResult},
-            test_ifs::test_region::TestRegion,
+            test_ifs::{test_callback::TestCallback, test_region::TestRegion},
             test_object::TestObject,
             test_transport::TestTransport,
             test_utils::test_expected_event::TEEH,
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
-        wire::{WlBufferId, WlSurfaceId, wl_surface::*},
+        wire::{WlBufferId, WlCallbackId, WlSurfaceId, wl_surface::*},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -87,6 +87,22 @@ impl TestSurface {
             transform,
         })?;
         Ok(())
+    }
+
+    pub fn frame(&self) -> Result<Rc<TestCallback>, TestError> {
+        let id: WlCallbackId = self.tran.id();
+        let callback = Rc::new(TestCallback {
+            id,
+            _tran: self.tran.clone(),
+            handler: Cell::new(None),
+            done: Cell::new(false),
+        });
+        self.tran.add_obj(callback.clone())?;
+        self.tran.send(Frame {
+            self_id: self.id,
+            callback: callback.id,
+        })?;
+        Ok(callback)
     }
 
     pub fn commit(&self) -> Result<(), TestError> {
