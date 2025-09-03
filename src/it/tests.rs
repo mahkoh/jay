@@ -78,6 +78,9 @@ mod t0044_stacked_focus;
 mod t0045_content_type;
 mod t0046_buffer_release;
 mod t0047_surface_damage;
+mod t0048_frame_callback;
+mod t0049_surface_damage_backend;
+mod t0050_fifo;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -144,5 +147,8 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0045_content_type,
         t0046_buffer_release,
         t0047_surface_damage,
+        t0048_frame_callback,
+        t0049_surface_damage_backend,
+        t0050_fifo,
     }
 }

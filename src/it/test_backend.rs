@@ -27,7 +27,7 @@ use {
         state::State,
         udmabuf::Udmabuf,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             on_change::OnChange, oserror::OsError, syncqueue::SyncQueue,
         },
         video::{
@@ -84,6 +84,7 @@ impl TestBackend {
             events: Default::default(),
             feedback: Default::default(),
             idle: Default::default(),
+            damage_calls: NumCell::new(0),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -318,6 +319,7 @@ pub struct TestConnector {
     pub events: OnChange<ConnectorEvent>,
     pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub idle: TEEH<bool>,
+    pub damage_calls: NumCell<u32>,
 }
 
 impl Connector for TestConnector {
@@ -338,7 +340,7 @@ impl Connector for TestConnector {
     }
 
     fn damage(&self) {
-        // nothing
+        self.damage_calls.fetch_add(1);
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {

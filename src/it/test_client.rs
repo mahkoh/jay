@@ -8,9 +8,10 @@ use {
             test_ifs::{
                 test_compositor::TestCompositor, test_cursor_shape_manager::TestCursorShapeManager,
                 test_data_device_manager::TestDataDeviceManager,
-                test_jay_compositor::TestJayCompositor, test_keyboard::TestKeyboard,
-                test_pointer::TestPointer, test_registry::TestRegistry, test_seat::TestSeat,
-                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_fifo_manager::TestFifoManager, test_jay_compositor::TestJayCompositor,
+                test_keyboard::TestKeyboard, test_pointer::TestPointer,
+                test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
+                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
                 test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
@@ -38,6 +39,7 @@ pub struct TestClient {
     pub activation: Rc<TestXdgActivation>,
     pub data_device_manager: Rc<TestDataDeviceManager>,
     pub cursor_shape_manager: Rc<TestCursorShapeManager>,
+    pub fifo_manager: Rc<TestFifoManager>,
 }
 
 pub struct DefaultSeat {

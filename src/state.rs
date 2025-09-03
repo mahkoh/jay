@@ -1446,6 +1446,20 @@ impl State {
     }
 
     #[cfg(feature = "it")]
+    pub fn latch(&self, connector: ConnectorId) {
+        if let Some(output) = self.root.outputs.get(&connector) {
+            output.latched(false);
+        }
+    }
+
+    #[cfg(feature = "it")]
+    pub fn latch_tearing(&self, connector: ConnectorId) {
+        if let Some(output) = self.root.outputs.get(&connector) {
+            output.latched(true);
+        }
+    }
+
+    #[cfg(feature = "it")]
     pub async fn idle(&self) {
         loop {
             self.eng.idle().await;

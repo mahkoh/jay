@@ -7,6 +7,7 @@ use {
         format::XRGB8888,
         ifs::wl_output::OutputId,
         it::{test_backend::TestConnector, test_error::TestResult, testrun::TestRun},
+        utils::numcell::NumCell,
         video::drm::ConnectorType,
     },
     std::rc::Rc,
@@ -35,6 +36,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         events: Default::default(),
         feedback: Default::default(),
         idle: Default::default(),
+        damage_calls: NumCell::new(0),
     });
     let new_monitor_info = MonitorInfo {
         modes: vec![],
