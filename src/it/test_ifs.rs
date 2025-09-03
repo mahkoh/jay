@@ -20,6 +20,7 @@ pub mod test_dmabuf;
 pub mod test_dmabuf_feedback;
 pub mod test_ext_foreign_toplevel_handle;
 pub mod test_ext_foreign_toplevel_list;
+pub mod test_fifo_manager;
 pub mod test_input_method;
 pub mod test_input_method_keyboard_grab;
 pub mod test_input_method_manager;

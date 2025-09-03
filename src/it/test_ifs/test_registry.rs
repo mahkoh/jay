@@ -11,6 +11,7 @@ use {
                 test_data_control_manager::TestDataControlManager,
                 test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
+                test_fifo_manager::TestFifoManager,
                 test_input_method_manager::TestInputMethodManager,
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
@@ -60,6 +61,7 @@ pub struct TestRegistrySingletons {
     pub zwp_input_method_manager_v2: u32,
     pub zwp_text_input_manager_v3: u32,
     pub wl_fixes: u32,
+    pub wp_fifo_manager_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -88,6 +90,7 @@ pub struct TestRegistry {
     pub input_method_manager: CloneCell<Option<Rc<TestInputMethodManager>>>,
     pub text_input_manager: CloneCell<Option<Rc<TestTextInputManager>>>,
     pub wl_fixes: CloneCell<Option<Rc<TestWlFixes>>>,
+    pub fifo_manager: CloneCell<Option<Rc<TestFifoManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -160,6 +163,7 @@ impl TestRegistry {
             zwp_input_method_manager_v2,
             zwp_text_input_manager_v3,
             wl_fixes,
+            wp_fifo_manager_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -276,6 +280,13 @@ impl TestRegistry {
         TestTextInputManager
     );
     create_singleton!(get_wl_fixes, wl_fixes, wl_fixes, 1, TestWlFixes);
+    create_singleton!(
+        get_fifo_manager,
+        fifo_manager,
+        wp_fifo_manager_v1,
+        1,
+        TestFifoManager
+    );
 
     pub fn bind<O: TestObject>(
         &self,
