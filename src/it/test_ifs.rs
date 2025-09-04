@@ -28,6 +28,7 @@ pub mod test_input_popup_surface;
 pub mod test_jay_compositor;
 pub mod test_keyboard;
 pub mod test_pointer;
+pub mod test_pointer_warp;
 pub mod test_region;
 pub mod test_registry;
 pub mod test_screenshot;

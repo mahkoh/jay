@@ -10,7 +10,8 @@ use {
                 test_data_device_manager::TestDataDeviceManager,
                 test_fifo_manager::TestFifoManager, test_jay_compositor::TestJayCompositor,
                 test_keyboard::TestKeyboard, test_pointer::TestPointer,
-                test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
+                test_pointer_warp::TestPointerWarp, test_registry::TestRegistry,
+                test_seat::TestSeat, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
                 test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
@@ -40,6 +41,7 @@ pub struct TestClient {
     pub data_device_manager: Rc<TestDataDeviceManager>,
     pub cursor_shape_manager: Rc<TestCursorShapeManager>,
     pub fifo_manager: Rc<TestFifoManager>,
+    pub pointer_warp: Rc<TestPointerWarp>,
 }
 
 pub struct DefaultSeat {

@@ -75,6 +75,7 @@ impl TestTransport {
             text_input_manager: Default::default(),
             wl_fixes: Default::default(),
             fifo_manager: Default::default(),
+            pointer_warp: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {
