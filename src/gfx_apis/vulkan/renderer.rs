@@ -1894,7 +1894,21 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn elide_blend_buffer(&self, blend_buffer: &mut Option<Rc<VulkanImage>>) {
+    fn elide_blend_buffer1(
+        &self,
+        blend_buffer: &mut Option<Rc<VulkanImage>>,
+        bb_cd: &ColorDescription,
+        fb_cd: &ColorDescription,
+    ) {
+        if blend_buffer.is_none() {
+            return;
+        }
+        if bb_cd.embeds_into(fb_cd) {
+            *blend_buffer = None;
+        }
+    }
+
+    fn elide_blend_buffer2(&self, blend_buffer: &mut Option<Rc<VulkanImage>>) {
         if blend_buffer.is_none() {
             return;
         }
@@ -1918,8 +1932,9 @@ impl VulkanRenderer {
         bb_cd: &Rc<ColorDescription>,
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
+        self.elide_blend_buffer1(&mut blend_buffer, bb_cd, fb_cd);
         self.create_regions(fb, opts, clear, region, blend_buffer.as_deref())?;
-        self.elide_blend_buffer(&mut blend_buffer);
+        self.elide_blend_buffer2(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
