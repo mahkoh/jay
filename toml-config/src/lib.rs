@@ -1044,7 +1044,7 @@ fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
 
         loop {
             inotify.readable().await.unwrap();
-            
+
             let Ok(events) = uapi::inotify_read(inotify.as_ref().as_raw_fd(), &mut buffer) else {
                 continue;
             };
