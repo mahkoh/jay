@@ -6,7 +6,7 @@
 #define TF_SRGB 0
 #define TF_LINEAR 1
 #define TF_ST2084_PQ 2
-#define TF_BT1886 3
+#define TF_GAMMA24 3
 #define TF_GAMMA22 4
 #define TF_GAMMA28 5
 #define TF_ST240 6
@@ -72,22 +72,6 @@ vec3 oetf_st2084_pq(vec3 c) {
     return pow(num / den, vec3(78.84375));
 }
 
-vec3 eotf_bt1886(vec3 c) {
-    return mix(
-        c * vec3(1.0 / 4.5),
-        pow((c + vec3(0.099)) * vec3(1.0 / 1.099), vec3(1.0 / 0.45)),
-        greaterThanEqual(c, vec3(0.081))
-    );
-}
-
-vec3 oetf_bt1886(vec3 c) {
-    return mix(
-        vec3(4.5) * c,
-        vec3(1.099) * pow(c, vec3(0.45)) - vec3(0.099),
-        greaterThanEqual(c, vec3(0.018))
-    );
-}
-
 vec3 eotf_st240(vec3 c) {
     return mix(
         c * vec3(1.0 / 4.0),
@@ -145,7 +129,7 @@ vec3 apply_eotf(vec3 c) {
         case TF_SRGB: return eotf_srgb(c);
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return eotf_st2084_pq(c);
-        case TF_BT1886: return eotf_bt1886(c);
+        case TF_GAMMA24: return pow(max(c, 0.0), vec3(2.4));
         case TF_GAMMA22: return pow(max(c, 0.0), vec3(2.2));
         case TF_GAMMA28: return pow(max(c, 0.0), vec3(2.8));
         case TF_ST240: return eotf_st240(c);
@@ -162,7 +146,7 @@ vec3 apply_oetf(vec3 c) {
         case TF_SRGB: return oetf_srgb(c);
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return oetf_st2084_pq(c);
-        case TF_BT1886: return oetf_bt1886(c);
+        case TF_GAMMA24: return pow(max(c, 0.0), vec3(1.0 / 2.4));
         case TF_GAMMA22: return pow(max(c, 0.0), vec3(1.0 / 2.2));
         case TF_GAMMA28: return pow(max(c, 0.0), vec3(1.0 / 2.8));
         case TF_ST240: return oetf_st240(c);

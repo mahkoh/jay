@@ -96,13 +96,6 @@ impl Color {
                 1.055 * c.powf(1.0 / 2.4) - 0.055
             }
         }
-        fn bt1886(c: f32) -> f32 {
-            if c < 0.081 {
-                c / 4.5
-            } else {
-                ((c + 0.099) / 1.099).powf(1.0 / 0.45)
-            }
-        }
         fn st240(c: f32) -> f32 {
             if c < 0.0913 {
                 c / 4.0
@@ -122,6 +115,9 @@ impl Color {
         fn gamma22(c: f32) -> f32 {
             c.powf(2.2)
         }
+        fn gamma24(c: f32) -> f32 {
+            c.powf(2.4)
+        }
         fn gamma28(c: f32) -> f32 {
             c.powf(2.8)
         }
@@ -136,7 +132,7 @@ impl Color {
             TransferFunction::Srgb => convert!(srgb),
             TransferFunction::Linear => convert!(linear),
             TransferFunction::St2084Pq => convert!(st2084_pq),
-            TransferFunction::Bt1886 => convert!(bt1886),
+            TransferFunction::Bt1886 => convert!(gamma24),
             TransferFunction::Gamma22 => convert!(gamma22),
             TransferFunction::Gamma28 => convert!(gamma28),
             TransferFunction::St240 => convert!(st240),
@@ -255,13 +251,6 @@ impl Color {
                 ((c + 0.055) / 1.055).powf(2.4)
             }
         }
-        fn bt1886(c: f32) -> f32 {
-            if c < 0.018 {
-                4.5 * c
-            } else {
-                1.099 * c.powf(0.45) - 0.099
-            }
-        }
         fn st240(c: f32) -> f32 {
             if c < 0.0228 {
                 4.0 * c
@@ -287,6 +276,9 @@ impl Color {
         fn gamma22(c: f32) -> f32 {
             c.powf(1.0 / 2.2)
         }
+        fn gamma24(c: f32) -> f32 {
+            c.powf(1.0 / 2.4)
+        }
         fn gamma28(c: f32) -> f32 {
             c.powf(1.0 / 2.8)
         }
@@ -307,7 +299,7 @@ impl Color {
                 TransferFunction::Srgb => convert!(srgb),
                 TransferFunction::Linear => convert!(linear),
                 TransferFunction::St2084Pq => convert!(st2084_pq),
-                TransferFunction::Bt1886 => convert!(bt1886),
+                TransferFunction::Bt1886 => convert!(gamma24),
                 TransferFunction::Gamma22 => convert!(gamma22),
                 TransferFunction::Gamma28 => convert!(gamma28),
                 TransferFunction::St240 => convert!(st240),
