@@ -12,8 +12,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode, Transform,
-            VrrMode, connector_type::ConnectorType,
+            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode,
+            Transform, VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -763,6 +763,10 @@ pub enum ClientMessage<'a> {
     },
     SetWorkspaceDisplayOrder {
         order: WorkspaceDisplayOrder,
+    },
+    ConnectorSetBlendSpace {
+        connector: Connector,
+        blend_space: BlendSpace,
     },
 }
 

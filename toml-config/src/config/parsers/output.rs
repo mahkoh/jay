@@ -19,7 +19,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::video::{ColorSpace, Eotf, Transform},
+    jay_config::video::{BlendSpace, ColorSpace, Eotf, Transform},
     thiserror::Error,
 };
 
@@ -51,7 +51,7 @@ impl Parser for OutputParser<'_> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
             (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
-            (color_space, eotf, brightness_val),
+            (color_space, eotf, brightness_val, blend_space),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -69,6 +69,7 @@ impl Parser for OutputParser<'_> {
                 recover(opt(str("color-space"))),
                 recover(opt(str("transfer-function"))),
                 opt(val("brightness")),
+                recover(opt(str("blend-space"))),
             ),
         ))?;
         let transform = match transform {
@@ -177,6 +178,21 @@ impl Parser for OutputParser<'_> {
                 }
             }
         }
+        let blend_space = match blend_space {
+            None => None,
+            Some(bs) => match bs.value {
+                "linear" => Some(BlendSpace::LINEAR),
+                "srgb" => Some(BlendSpace::SRGB),
+                _ => {
+                    log::warn!(
+                        "Unknown blend space {}: {}",
+                        bs.value,
+                        self.cx.error3(bs.span)
+                    );
+                    None
+                }
+            },
+        };
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
@@ -191,6 +207,7 @@ impl Parser for OutputParser<'_> {
             color_space,
             eotf,
             brightness,
+            blend_space,
         })
     }
 }

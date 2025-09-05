@@ -17,6 +17,7 @@ use {
         },
         format::config_formats,
         ifs::{
+            wl_output::BlendSpace,
             wl_seat::{SeatId, WlSeatGlobal},
             wp_content_type_v1::ContentTypeExt,
         },
@@ -69,8 +70,9 @@ use {
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
-            ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf, Format as ConfigFormat, GfxApi,
-            TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
+            BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
+            Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode, Transform,
+            VrrMode as ConfigVrrMode,
         },
         window::{TileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
@@ -1303,6 +1305,21 @@ impl ConfigProxyHandler {
                 s.eotf = btf;
             })
             .map_err(CphError::ModifyConnectorState)?;
+        Ok(())
+    }
+
+    fn handle_connector_set_blend_space(
+        &self,
+        connector: Connector,
+        blend_space: ConfigBlendSpace,
+    ) -> Result<(), CphError> {
+        let blend_space = match blend_space {
+            ConfigBlendSpace::SRGB => BlendSpace::Srgb,
+            ConfigBlendSpace::LINEAR => BlendSpace::Linear,
+            _ => return Err(CphError::UnknownBlendSpace(blend_space)),
+        };
+        let connector = self.get_output_node(connector)?;
+        connector.set_blend_space(blend_space);
         Ok(())
     }
 
@@ -3117,6 +3134,12 @@ impl ConfigProxyHandler {
             ClientMessage::SeatCopyMark { seat, src, dst } => self
                 .handle_seat_copy_mark(seat, src, dst)
                 .wrn("seat_copy_mark")?,
+            ClientMessage::ConnectorSetBlendSpace {
+                connector,
+                blend_space,
+            } => self
+                .handle_connector_set_blend_space(connector, blend_space)
+                .wrn("connector_set_blend_space")?,
         }
         Ok(())
     }
@@ -3226,6 +3249,8 @@ enum CphError {
     WindowMatcherDoesNotExist(WindowMatcher),
     #[error("Could not modify the connector state")]
     ModifyConnectorState(#[source] BackendConnectorTransactionError),
+    #[error("Unknown blend space {0:?}")]
+    UnknownBlendSpace(ConfigBlendSpace),
 }
 
 trait WithRequestName {

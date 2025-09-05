@@ -33,7 +33,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -636,6 +636,7 @@ fn create_dummy_output(state: &Rc<State>) {
         vrr_cursor_hz: Default::default(),
         tearing_mode: Cell::new(&TearingMode::Never),
         brightness: Cell::new(None),
+        blend_space: Cell::new(BlendSpace::Srgb),
     });
     let mode = backend::Mode {
         width: 0,

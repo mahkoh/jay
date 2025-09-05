@@ -1967,6 +1967,13 @@ Output:
         The brightness of the output.
         
         This setting has no effect unless the vulkan renderer is used.
+    blend-space:
+      ref: BlendSpace
+      required: false
+      description: |
+        The blend space of the output.
+        
+        The default is `srgb`.
 
 
 Transform:
@@ -4029,3 +4036,14 @@ WorkspaceDisplayOrder:
       description: Workspaces are not sorted and can be manually dragged.
     - value: sorted
       description: Workspaces are sorted alphabetically and cannot be manually dragged.
+
+
+BlendSpace:
+  kind: string
+  description: |
+    A color blend space.
+  values:
+    - value: srgb
+      description: The sRGB blend space. This is the classic desktop blend space.
+    - value: linear
+      description: Linear color space. This is the physically correct blend space.

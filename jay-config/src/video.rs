@@ -286,6 +286,13 @@ impl Connector {
         get!().connector_set_colors(self, color_space, eotf);
     }
 
+    /// Sets the space in which blending is performed for this output.
+    ///
+    /// The default is [`BlendSpace::SRGB`]
+    pub fn set_blend_space(self, blend_space: BlendSpace) {
+        get!().connector_set_blend_space(self, blend_space);
+    }
+
     /// Sets the brightness of the output.
     ///
     /// By default or when `brightness` is `None`, the brightness depends on the
@@ -730,4 +737,17 @@ impl Eotf {
     pub const DEFAULT: Self = Self(0);
     /// The PQ EOTF.
     pub const PQ: Self = Self(1);
+}
+
+/// A space in which color blending is performed.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BlendSpace(pub u32);
+
+impl BlendSpace {
+    /// The sRGB blend space with sRGB primaries and gamma22 transfer function. This is
+    /// the classic desktop blend space.
+    pub const SRGB: Self = Self(0);
+    /// The linear blend space performs blending in linear space, which is more physically
+    /// correct but leads to much lighter output when blending light and dark colors.
+    pub const LINEAR: Self = Self(1);
 }

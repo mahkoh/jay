@@ -4,6 +4,7 @@ use {
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
         format::named_formats,
+        ifs::wl_output,
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
@@ -34,6 +35,7 @@ const FORMAT_SINCE: Version = Version(8);
 const FLIP_MARGIN_SINCE: Version = Version(10);
 const COLORIMETRY_SINCE: Version = Version(15);
 const BRIGHTNESS_SINCE: Version = Version(16);
+const BLEND_SPACE_SINCE: Version = Version(21);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -206,6 +208,12 @@ impl JayRandr {
                     lux,
                 });
             }
+        }
+        if self.version >= BLEND_SPACE_SINCE {
+            self.client.event(BlendSpace {
+                self_id: self.id,
+                blend_space: node.global.persistent.blend_space.get().name(),
+            });
         }
     }
 
@@ -524,6 +532,23 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.set_brightness(None);
+        Ok(())
+    }
+
+    fn set_blend_space(&self, req: SetBlendSpace<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let space = 'space: {
+            for space in wl_output::BlendSpace::variants() {
+                if space.name() == req.blend_space {
+                    break 'space space;
+                }
+            }
+            self.send_error(&format!("Unknown blend space: {}", req.blend_space));
+            return Ok(());
+        };
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.set_blend_space(space);
         Ok(())
     }
 }

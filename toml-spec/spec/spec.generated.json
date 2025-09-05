@@ -572,6 +572,14 @@
         }
       ]
     },
+    "BlendSpace": {
+      "type": "string",
+      "description": "A color blend space.\n",
+      "enum": [
+        "srgb",
+        "linear"
+      ]
+    },
     "Brightness": {
       "description": "The brightness setting of an output.\n",
       "anyOf": [
@@ -1655,6 +1663,10 @@
         "brightness": {
           "description": "The brightness of the output.\n\nThis setting has no effect unless the vulkan renderer is used.\n",
           "$ref": "#/$defs/Brightness"
+        },
+        "blend-space": {
+          "description": "The blend space of the output.\n\nThe default is `srgb`.\n",
+          "$ref": "#/$defs/BlendSpace"
         }
       },
       "required": [

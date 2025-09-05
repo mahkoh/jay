@@ -33,7 +33,7 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
-        video::{ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
+        video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
@@ -349,6 +349,7 @@ pub struct Output {
     pub color_space: Option<ColorSpace>,
     pub eotf: Option<Eotf>,
     pub brightness: Option<Option<f64>>,
+    pub blend_space: Option<BlendSpace>,
 }
 
 #[derive(Debug, Clone)]

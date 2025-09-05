@@ -797,6 +797,25 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The value of this field should be a string.
 
 
+<a name="types-BlendSpace"></a>
+### `BlendSpace`
+
+A color blend space.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `srgb`:
+
+  The sRGB blend space. This is the classic desktop blend space.
+
+- `linear`:
+
+  Linear color space. This is the physically correct blend space.
+
+
+
 <a name="types-Brightness"></a>
 ### `Brightness`
 
@@ -3547,6 +3566,14 @@ The table has the following fields:
   This setting has no effect unless the vulkan renderer is used.
 
   The value of this field should be a [Brightness](#types-Brightness).
+
+- `blend-space` (optional):
+
+  The blend space of the output.
+  
+  The default is `srgb`.
+
+  The value of this field should be a [BlendSpace](#types-BlendSpace).
 
 
 <a name="types-OutputMatch"></a>

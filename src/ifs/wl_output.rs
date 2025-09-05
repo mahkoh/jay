@@ -30,6 +30,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::video::Transform,
+    linearize::Linearize,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -115,6 +116,21 @@ impl OutputGlobalOpt {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+pub enum BlendSpace {
+    Linear,
+    Srgb,
+}
+
+impl BlendSpace {
+    pub fn name(self) -> &'static str {
+        match self {
+            BlendSpace::Linear => "linear",
+            BlendSpace::Srgb => "srgb",
+        }
+    }
+}
+
 pub struct PersistentOutputState {
     pub transform: Cell<Transform>,
     pub scale: Cell<crate::scale::Scale>,
@@ -123,6 +139,7 @@ pub struct PersistentOutputState {
     pub vrr_cursor_hz: Cell<Option<f64>>,
     pub tearing_mode: Cell<&'static TearingMode>,
     pub brightness: Cell<Option<f64>>,
+    pub blend_space: Cell<BlendSpace>,
 }
 
 impl Default for PersistentOutputState {
@@ -135,6 +152,7 @@ impl Default for PersistentOutputState {
             vrr_cursor_hz: Default::default(),
             tearing_mode: Cell::new(&TearingMode::Never),
             brightness: Default::default(),
+            blend_space: Cell::new(BlendSpace::Srgb),
         }
     }
 }

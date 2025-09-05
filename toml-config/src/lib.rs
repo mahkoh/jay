@@ -777,6 +777,9 @@ impl Output {
         if let Some(brightness) = self.brightness {
             c.set_brightness(brightness);
         }
+        if let Some(bs) = self.blend_space {
+            c.set_blend_space(bs);
+        }
     }
 }
 

@@ -28,8 +28,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode, Transform,
-            VrrMode,
+            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode,
+            Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         window::{
@@ -1047,6 +1047,13 @@ impl ConfigClient {
             connector,
             color_space,
             eotf,
+        });
+    }
+
+    pub fn connector_set_blend_space(&self, connector: Connector, blend_space: BlendSpace) {
+        self.send(&ClientMessage::ConnectorSetBlendSpace {
+            connector,
+            blend_space,
         });
     }
 

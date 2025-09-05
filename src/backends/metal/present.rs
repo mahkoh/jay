@@ -13,6 +13,7 @@ use {
             AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
             create_render_pass,
         },
+        ifs::wl_output::BlendSpace,
         rect::Region,
         theme::Color,
         time::Time,
@@ -201,7 +202,11 @@ impl MetalConnector {
         let buffer = &buffers[next_buffer_idx];
 
         let cd = node.global.color_description.get();
-        let blend_cd = self.state.color_manager.srgb_gamma22();
+        let linear_cd = node.global.linear_color_description.get();
+        let blend_cd = match node.global.persistent.blend_space.get() {
+            BlendSpace::Linear => &linear_cd,
+            BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),
+        };
 
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();

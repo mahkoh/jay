@@ -3,6 +3,7 @@ use {
         backend::{BackendColorSpace, BackendEotfs},
         cli::GlobalArgs,
         format::{Format, XRGB8888},
+        ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
@@ -164,6 +165,8 @@ pub enum OutputCommand {
     Colors(ColorsSettings),
     /// Change the output brightness.
     Brightness(BrightnessArgs),
+    /// Change the blend space.
+    BlendSpace(BlendSpaceArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -407,6 +410,26 @@ fn parse_brightness(s: &str) -> Result<Brightness, ParseBrightnessError> {
         .map_err(|_| ParseBrightnessError)
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct BlendSpaceArgs {
+    /// The space to blend translucent surfaces in.
+    #[clap(value_parser = PossibleValuesParser::new(blend_space_possible_values()))]
+    blend_space: String,
+}
+
+fn blend_space_possible_values() -> Vec<PossibleValue> {
+    let mut res = vec![];
+    for bs in BlendSpace::variants() {
+        use BlendSpace::*;
+        let help = match bs {
+            Linear => "Linear space, more accurate but brighter",
+            Srgb => "sRGB space, the classic desktop blend space",
+        };
+        res.push(PossibleValue::new(bs.name()).help(help));
+    }
+    res
+}
+
 pub fn main(global: GlobalArgs, args: RandrArgs) {
     with_tool_client(global.log_level.into(), |tc| async move {
         let idle = Rc::new(Randr { tc: tc.clone() });
@@ -466,6 +489,7 @@ struct Output {
     pub current_eotf: Option<String>,
     pub brightness_range: Option<(f64, f64)>,
     pub brightness: Option<f64>,
+    pub blend_space: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -743,6 +767,16 @@ impl Randr {
                     }
                 }
             }
+            OutputCommand::BlendSpace(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not set the blend space: {}", msg);
+                });
+                tc.send(jay_randr::SetBlendSpace {
+                    self_id: randr,
+                    output: &args.output,
+                    blend_space: &a.blend_space,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -975,6 +1009,9 @@ impl Randr {
         if let Some(lux) = o.brightness {
             println!("        brightness:     {:>10.4} cd/m^2", lux);
         }
+        if let Some(bs) = &o.blend_space {
+            println!("        blend space: {bs}");
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -1148,6 +1185,12 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.brightness = Some(msg.lux);
+        });
+        jay_randr::BlendSpace::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.blend_space = Some(msg.blend_space.to_string());
         });
         tc.round_trip().await;
         data.borrow_mut().clone()

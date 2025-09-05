@@ -13,7 +13,7 @@ use {
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
             wl_buffer::WlBufferStorage,
-            wl_output::WlOutputGlobal,
+            wl_output::{BlendSpace, WlOutputGlobal},
             wl_seat::{
                 BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci2,
                 tablet::{TabletTool, TabletToolChanges, TabletToolId},
@@ -971,6 +971,12 @@ impl OutputNode {
         }
     }
 
+    pub fn set_blend_space(&self, blend_space: BlendSpace) {
+        let old = self.global.persistent.blend_space.replace(blend_space);
+        if old != blend_space {
+            self.state.damage(self.global.position());
+        }
+    }
     fn find_stacked_at(
         &self,
         stack: &LinkedList<Rc<dyn StackedNode>>,

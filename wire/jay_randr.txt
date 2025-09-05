@@ -95,6 +95,11 @@ request unset_brightness (since = 16) {
     output: str,
 }
 
+request set_blend_space (since = 21) {
+    output: str,
+    blend_space: str,
+}
+
 # events
 
 event global {
@@ -200,4 +205,8 @@ event brightness_range (since = 16) {
 
 event brightness (since = 16) {
     lux: pod(f64),
+}
+
+event blend_space (since = 21) {
+    blend_space: str,
 }

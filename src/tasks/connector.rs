@@ -9,7 +9,7 @@ use {
         ifs::{
             head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
-            wl_output::{PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
@@ -183,6 +183,7 @@ impl ConnectorHandler {
                     vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
                     tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
                     brightness: Cell::new(None),
+                    blend_space: Cell::new(BlendSpace::Srgb),
                 });
                 self.state
                     .persistent_output_states
