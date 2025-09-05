@@ -28,8 +28,8 @@ use {
             shaders::{
                 FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
                 LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, LegacyTexPushConstants,
-                OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT, TexColorManagementData,
-                TexPushConstants, TexVertex, VulkanShader,
+                OUT_FRAG, OUT_VERT, OutColorManagementData, OutPushConstants, TEX_FRAG, TEX_VERT,
+                TexColorManagementData, TexPushConstants, TexVertex, VulkanShader,
             },
         },
         io_uring::IoUring,
@@ -179,6 +179,7 @@ pub(super) struct Memory {
     uniform_buffer_writer: GenericBufferWriter,
     uniform_buffer_descriptor_cache: Option<Box<[u8]>>,
     blend_buffer_descriptor_buffer_offset: DeviceAddress,
+    blend_buffer_color_management_data_address: Option<DeviceSize>,
 }
 
 type Point = [[f32; 2]; 4];
@@ -298,7 +299,7 @@ impl VulkanDevice {
         let out_descriptor_set_layout = self
             .descriptor_buffer
             .as_ref()
-            .map(|db| self.create_out_descriptor_set_layout(db))
+            .map(|_| self.create_tex_resource_descriptor_set_layout())
             .transpose()?;
         let gfx_command_buffers = self.create_command_pool(self.graphics_queue_idx)?;
         let transfer_command_buffers = self
@@ -502,6 +503,7 @@ impl VulkanRenderer {
         format: vk::Format,
         bb_cd: &ColorDescription,
         fb_cd: &ColorDescription,
+        has_color_management_data: bool,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let key = OutPipelineKey {
             format,
@@ -525,7 +527,7 @@ impl VulkanRenderer {
                 eotf: key.eotf.to_vulkan(),
                 inv_eotf: fb_cd.eotf.to_vulkan(),
                 descriptor_set_layouts,
-                has_color_management_data: false,
+                has_color_management_data,
             })?;
         pipelines.set(key, out.clone());
         Ok(out)
@@ -566,6 +568,20 @@ impl VulkanRenderer {
             memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
             let mut writer = resource_writer.add_set(layout);
             writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
+            if let Some(addr) = memory.blend_buffer_color_management_data_address {
+                let uniform_buffer = DescriptorAddressInfoEXT::default()
+                    .address(addr)
+                    .range(size_of::<OutColorManagementData>() as _);
+                let info = DescriptorGetInfoEXT::default()
+                    .ty(DescriptorType::UNIFORM_BUFFER)
+                    .data(DescriptorDataEXT {
+                        p_uniform_buffer: &uniform_buffer,
+                    });
+                unsafe {
+                    db.get_descriptor(&info, uniform_buffer_descriptor_cache);
+                }
+                writer.write(layout.offsets[1], uniform_buffer_descriptor_cache);
+            }
         }
         let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
         for pass in RenderPass::variants() {
@@ -816,6 +832,26 @@ impl VulkanRenderer {
         Ok(())
     }
 
+    fn create_blend_cm_data(
+        &self,
+        bb: Option<&VulkanImage>,
+        bb_cd: &ColorDescription,
+        fb_cd: &ColorDescription,
+    ) {
+        zone!("create_blend_cm_data");
+        let memory = &mut *self.memory.borrow_mut();
+        memory.blend_buffer_color_management_data_address = None;
+        if bb.is_none() {
+            return;
+        }
+        memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
+            &bb_cd.linear,
+            fb_cd,
+            self.device.uniform_buffer_offset_mask,
+            &mut memory.uniform_buffer_writer,
+        );
+    }
+
     fn create_data_buffer(&self) -> Result<(), VulkanError> {
         if self.device.descriptor_buffer.is_none() {
             return Ok(());
@@ -880,6 +916,9 @@ impl VulkanRenderer {
                     *addr += buffer.buffer.address;
                 }
             }
+        }
+        if let Some(addr) = &mut memory.blend_buffer_color_management_data_address {
+            *addr += buffer.buffer.address;
         }
         memory.used_buffers.push(buffer);
         Ok(())
@@ -1297,7 +1336,12 @@ impl VulkanRenderer {
         zone!("blend_buffer_copy");
         let memory = &*self.memory.borrow();
         let db = self.device.descriptor_buffer.as_ref().unwrap();
-        let pipeline = self.get_or_create_out_pipeline(fb.format.vk_format, bb_cd, fb_cd)?;
+        let pipeline = self.get_or_create_out_pipeline(
+            fb.format.vk_format,
+            bb_cd,
+            fb_cd,
+            memory.blend_buffer_color_management_data_address.is_some(),
+        )?;
         let push = OutPushConstants {
             vertices: memory.out_address,
         };
@@ -1879,6 +1923,7 @@ impl VulkanRenderer {
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
+        self.create_blend_cm_data(bb, bb_cd, fb_cd);
         self.create_data_buffer()?;
         self.create_uniform_buffer()?;
         self.collect_memory();
