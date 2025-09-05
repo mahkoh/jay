@@ -44,7 +44,7 @@ use {
         theme::{reset_colors, reset_font, reset_sizes, set_font},
         toggle_float_above_fullscreen, toggle_show_bar,
         video::{
-            ColorSpace, Connector, DrmDevice, TransferFunction, connectors, drm_devices,
+            ColorSpace, Connector, DrmDevice, Eotf, connectors, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
             on_new_connector, on_new_drm_device, set_direct_scanout_enabled, set_gfx_api,
             set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
@@ -769,13 +769,16 @@ impl Output {
         if let Some(format) = self.format {
             c.set_format(format);
         }
-        if self.color_space.is_some() || self.transfer_function.is_some() {
+        if self.color_space.is_some() || self.eotf.is_some() {
             let cs = self.color_space.unwrap_or(ColorSpace::DEFAULT);
-            let tf = self.transfer_function.unwrap_or(TransferFunction::DEFAULT);
+            let tf = self.eotf.unwrap_or(Eotf::DEFAULT);
             c.set_colors(cs, tf);
         }
         if let Some(brightness) = self.brightness {
             c.set_brightness(brightness);
+        }
+        if let Some(bs) = self.blend_space {
+            c.set_blend_space(bs);
         }
     }
 }

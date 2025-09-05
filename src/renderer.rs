@@ -79,7 +79,7 @@ impl Renderer<'_> {
         }
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
-        let srgb_srgb = self.state.color_manager.srgb_srgb();
+        let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         if let Some(fs) = &fullscreen {
             fs.node_render(self, x, y, None);
@@ -135,7 +135,7 @@ impl Renderer<'_> {
                         AcquireSync::None,
                         ReleaseSync::None,
                         false,
-                        self.state.color_manager.srgb_srgb(),
+                        self.state.color_manager.srgb_gamma22(),
                     );
                 }
                 if let Some(status) = &rd.status
@@ -219,7 +219,7 @@ impl Renderer<'_> {
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
-            &self.state.color_manager.srgb_srgb().linear,
+            &self.state.color_manager.srgb_gamma22().linear,
         );
         if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale)
             && let Some(texture) = tex.texture()
@@ -240,7 +240,7 @@ impl Renderer<'_> {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
-                self.state.color_manager.srgb_srgb(),
+                self.state.color_manager.srgb_gamma22(),
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -248,7 +248,7 @@ impl Renderer<'_> {
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
         {
-            let srgb_srgb = self.state.color_manager.srgb_srgb();
+            let srgb_srgb = self.state.color_manager.srgb_gamma22();
             let srgb = &srgb_srgb.linear;
             let rd = container.render_data.borrow_mut();
             let c = self.state.theme.colors.unfocused_title_background.get();
@@ -367,7 +367,7 @@ impl Renderer<'_> {
             slice::from_ref(bounds),
             &color,
             None,
-            &self.state.color_manager.srgb_srgb().linear,
+            &self.state.color_manager.srgb_gamma22().linear,
         );
     }
 
@@ -377,7 +377,7 @@ impl Renderer<'_> {
         self.base.fill_boxes(
             slice::from_ref(rect),
             &color,
-            &self.state.color_manager.srgb_srgb().linear,
+            &self.state.color_manager.srgb_gamma22().linear,
         );
     }
 
@@ -482,11 +482,7 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     let color = Color::from_u32_premultiplied(
-                        cd.transfer_function,
-                        color[0],
-                        color[1],
-                        color[2],
-                        color[3],
+                        cd.eotf, color[0], color[1], color[2], color[3],
                     );
                     self.base.ops.push(GfxApiOpt::Sync);
                     self.base
@@ -522,7 +518,7 @@ impl Renderer<'_> {
             Rect::new_sized(x + pos.width() - bw, y + bw, bw, pos.height() - bw).unwrap(),
             Rect::new_sized(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw).unwrap(),
         ];
-        let srgb_srgb = self.state.color_manager.srgb_srgb();
+        let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         self.base.fill_boxes(&borders, &bc, srgb);
         let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];

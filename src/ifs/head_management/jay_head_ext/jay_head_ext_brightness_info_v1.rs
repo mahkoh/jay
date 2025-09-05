@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::BackendTransferFunction,
+        backend::BackendEotfs,
         cmm::cmm_luminance::Luminance,
         ifs::head_management::HeadState,
         wire::{
@@ -27,7 +27,7 @@ impl HeadName {
     }
 
     fn after_transaction(&self, shared: &HeadState, tran: &HeadState) {
-        if shared.transfer_function != tran.transfer_function {
+        if shared.eotf != tran.eotf {
             self.send_implied_default_brightness(shared);
         }
         if shared.brightness != tran.brightness {
@@ -36,14 +36,14 @@ impl HeadName {
     }
 
     pub(in super::super) fn send_implied_default_brightness(&self, shared: &HeadState) {
-        let lux = match shared.transfer_function {
-            BackendTransferFunction::Default => shared
+        let lux = match shared.eotf {
+            BackendEotfs::Default => shared
                 .monitor_info
                 .as_ref()
                 .and_then(|m| m.luminance.as_ref())
                 .map(|l| l.max)
                 .unwrap_or(Luminance::SRGB.white.0),
-            BackendTransferFunction::Pq => Luminance::ST2084_PQ.white.0,
+            BackendEotfs::Pq => Luminance::ST2084_PQ.white.0,
         };
         self.client.event(ImpliedDefaultBrightness {
             self_id: self.id,

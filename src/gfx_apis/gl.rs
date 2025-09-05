@@ -67,7 +67,7 @@ macro_rules! dynload {
 
 use {
     crate::{
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         gfx_api::{
             AcquireSync, CopyTexture, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
             ReleaseSync, SyncFile,
@@ -309,7 +309,7 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
 }
 
 fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
-    let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+    let [r, g, b, a] = color.to_array(Eotf::Gamma22);
     let gles = ctx.ctx.dpy.gles;
     unsafe {
         (gles.glUseProgram)(ctx.fill_prog.prog);

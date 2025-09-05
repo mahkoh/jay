@@ -1,10 +1,10 @@
 use {
     crate::{
         cmm::{
+            cmm_eotf::Eotf,
             cmm_luminance::{Luminance, TargetLuminance, white_balance},
             cmm_manager::Shared,
             cmm_primaries::{NamedPrimaries, Primaries},
-            cmm_transfer_function::TransferFunction,
             cmm_transform::{ColorMatrix, Local, Xyz, bradford_adjustment},
         },
         utils::ordered_float::F64,
@@ -34,7 +34,7 @@ pub struct ColorDescription {
     pub id: ColorDescriptionId,
     pub linear: Rc<LinearColorDescription>,
     pub named_primaries: Option<NamedPrimaries>,
-    pub transfer_function: TransferFunction,
+    pub eotf: Eotf,
     pub(super) shared: Rc<Shared>,
 }
 
@@ -66,8 +66,7 @@ impl LinearColorDescription {
 
 impl ColorDescription {
     pub fn embeds_into(&self, target: &Self) -> bool {
-        self.transfer_function == target.transfer_function
-            && self.linear.embeds_into(&target.linear)
+        self.eotf == target.eotf && self.linear.embeds_into(&target.linear)
     }
 }
 

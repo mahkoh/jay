@@ -33,7 +33,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -636,6 +636,7 @@ fn create_dummy_output(state: &Rc<State>) {
         vrr_cursor_hz: Default::default(),
         tearing_mode: Cell::new(&TearingMode::Never),
         brightness: Cell::new(None),
+        blend_space: Cell::new(BlendSpace::Srgb),
     });
     let mode = backend::Mode {
         width: 0,
@@ -652,7 +653,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing: false,
         format: XRGB8888,
         color_space: Default::default(),
-        transfer_function: Default::default(),
+        eotf: Default::default(),
     };
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
@@ -680,7 +681,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing_mode: TearingMode::Never.to_config(),
         format: XRGB8888,
         color_space: backend_state.color_space,
-        transfer_function: backend_state.transfer_function,
+        eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
     };

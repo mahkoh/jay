@@ -1,8 +1,9 @@
 use {
     crate::{
-        backend::{BackendColorSpace, BackendTransferFunction},
+        backend::{BackendColorSpace, BackendEotfs},
         cli::GlobalArgs,
         format::{Format, XRGB8888},
+        ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
@@ -164,6 +165,8 @@ pub enum OutputCommand {
     Colors(ColorsSettings),
     /// Change the output brightness.
     Brightness(BrightnessArgs),
+    /// Change the blend space.
+    BlendSpace(BlendSpaceArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -333,14 +336,14 @@ pub struct ColorsSettings {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum ColorsCommand {
-    /// Sets the color space and transfer function of the output.
+    /// Sets the color space and EOTF of the output.
     Set {
         /// The name of the color space.
         #[clap(value_parser = PossibleValuesParser::new(color_space_possible_values()))]
         color_space: String,
-        /// The name of the transfer function.
-        #[clap(value_parser = PossibleValuesParser::new(transfer_function_possible_values()))]
-        transfer_function: String,
+        /// The name of the EOTF.
+        #[clap(value_parser = PossibleValuesParser::new(eotf_possible_values()))]
+        eotf: String,
     },
 }
 
@@ -357,13 +360,13 @@ fn color_space_possible_values() -> Vec<PossibleValue> {
     res
 }
 
-fn transfer_function_possible_values() -> Vec<PossibleValue> {
+fn eotf_possible_values() -> Vec<PossibleValue> {
     let mut res = vec![];
-    for cs in BackendTransferFunction::variants() {
-        use BackendTransferFunction::*;
+    for cs in BackendEotfs::variants() {
+        use BackendEotfs::*;
         let help = match cs {
-            Default => "The default transfer function (usually sRGB)",
-            Pq => "The PQ transfer function",
+            Default => "The default EOTF (usually gamma22)",
+            Pq => "The PQ EOTF",
         };
         res.push(PossibleValue::new(cs.name()).help(help));
     }
@@ -375,12 +378,12 @@ pub struct BrightnessArgs {
     /// The brightness of standard white in cd/m^2 or `default` to use the default
     /// brightness.
     ///
-    /// The default brightness depends on the transfer function:
+    /// The default brightness depends on the EOTF:
     ///
     /// - default: the maximum display brightness
     /// - PQ: 203 cd/m^2.
     ///
-    /// When using the default transfer function, you likely want to set this to `default`
+    /// When using the default EOTF, you likely want to set this to `default`
     /// and adjust the display hardware brightness setting instead.
     ///
     /// This has no effect unless the vulkan renderer is used.
@@ -405,6 +408,26 @@ fn parse_brightness(s: &str) -> Result<Brightness, ParseBrightnessError> {
     f64::from_str(s)
         .map(Brightness::Lux)
         .map_err(|_| ParseBrightnessError)
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct BlendSpaceArgs {
+    /// The space to blend translucent surfaces in.
+    #[clap(value_parser = PossibleValuesParser::new(blend_space_possible_values()))]
+    blend_space: String,
+}
+
+fn blend_space_possible_values() -> Vec<PossibleValue> {
+    let mut res = vec![];
+    for bs in BlendSpace::variants() {
+        use BlendSpace::*;
+        let help = match bs {
+            Linear => "Linear space, more accurate but brighter",
+            Srgb => "sRGB space, the classic desktop blend space",
+        };
+        res.push(PossibleValue::new(bs.name()).help(help));
+    }
+    res
 }
 
 pub fn main(global: GlobalArgs, args: RandrArgs) {
@@ -462,10 +485,11 @@ struct Output {
     pub flip_margin_ns: Option<u64>,
     pub supported_color_spaces: Vec<String>,
     pub current_color_space: Option<String>,
-    pub supported_transfer_functions: Vec<String>,
-    pub current_transfer_function: Option<String>,
+    pub supported_eotfs: Vec<String>,
+    pub current_eotf: Option<String>,
     pub brightness_range: Option<(f64, f64)>,
     pub brightness: Option<f64>,
+    pub blend_space: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -713,15 +737,12 @@ impl Randr {
                     eprintln!("Could not change the colors: {}", msg);
                 });
                 match a.command {
-                    ColorsCommand::Set {
-                        color_space,
-                        transfer_function,
-                    } => {
+                    ColorsCommand::Set { color_space, eotf } => {
                         tc.send(jay_randr::SetColors {
                             self_id: randr,
                             output: &args.output,
                             color_space: &color_space,
-                            transfer_function: &transfer_function,
+                            eotf: &eotf,
                         });
                     }
                 }
@@ -745,6 +766,16 @@ impl Randr {
                         });
                     }
                 }
+            }
+            OutputCommand::BlendSpace(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not set the blend space: {}", msg);
+                });
+                tc.send(jay_randr::SetBlendSpace {
+                    self_id: randr,
+                    output: &args.output,
+                    blend_space: &a.blend_space,
+                });
             }
         }
         tc.round_trip().await;
@@ -957,19 +988,17 @@ impl Randr {
             handle_cs("default");
             o.supported_color_spaces.iter().for_each(|cs| handle_cs(cs));
         }
-        if o.supported_transfer_functions.is_not_empty() {
-            println!("        transfer functions:");
+        if o.supported_eotfs.is_not_empty() {
+            println!("        eotfs:");
             let handle_tf = |tf: &str| {
-                let current = match Some(tf) == o.current_transfer_function.as_deref() {
+                let current = match Some(tf) == o.current_eotf.as_deref() {
                     false => "",
                     true => " (current)",
                 };
                 println!("          {tf}{current}");
             };
             handle_tf("default");
-            o.supported_transfer_functions
-                .iter()
-                .for_each(|tf| handle_tf(tf));
+            o.supported_eotfs.iter().for_each(|tf| handle_tf(tf));
         }
         if let Some((min, max)) = o.brightness_range {
             println!("        min brightness: {:>10.4} cd/m^2", min);
@@ -979,6 +1008,9 @@ impl Randr {
         }
         if let Some(lux) = o.brightness {
             println!("        brightness:     {:>10.4} cd/m^2", lux);
+        }
+        if let Some(bs) = &o.blend_space {
+            println!("        blend space: {bs}");
         }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
@@ -1130,19 +1162,17 @@ impl Randr {
             let output = c.output.as_mut().unwrap();
             output.current_color_space = Some(msg.color_space.to_string());
         });
-        jay_randr::SupportedTransferFunction::handle(tc, randr, data.clone(), |data, msg| {
+        jay_randr::SupportedEotf::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
-            output
-                .supported_transfer_functions
-                .push(msg.transfer_function.to_string());
+            output.supported_eotfs.push(msg.eotf.to_string());
         });
-        jay_randr::CurrentTransferFunction::handle(tc, randr, data.clone(), |data, msg| {
+        jay_randr::CurrentEotf::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
-            output.current_transfer_function = Some(msg.transfer_function.to_string());
+            output.current_eotf = Some(msg.eotf.to_string());
         });
         jay_randr::BrightnessRange::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
@@ -1155,6 +1185,12 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.brightness = Some(msg.lux);
+        });
+        jay_randr::BlendSpace::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.blend_space = Some(msg.blend_space.to_string());
         });
         tc.round_trip().await;
         data.borrow_mut().clone()

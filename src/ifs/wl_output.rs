@@ -2,13 +2,13 @@ mod removed_output;
 
 use {
     crate::{
-        backend::{self, BackendColorSpace, BackendLuminance, BackendTransferFunction},
+        backend::{self, BackendColorSpace, BackendEotfs, BackendLuminance},
         client::{Client, ClientError, ClientId},
         cmm::{
             cmm_description::ColorDescription,
+            cmm_eotf::Eotf,
             cmm_luminance::Luminance,
             cmm_primaries::{NamedPrimaries, Primaries},
-            cmm_transfer_function::TransferFunction,
         },
         damage::DamageMatrix,
         format::{Format, XRGB8888},
@@ -30,6 +30,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::video::Transform,
+    linearize::Linearize,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -76,7 +77,7 @@ pub struct WlOutputGlobal {
     pub format: Cell<&'static Format>,
     pub width_mm: i32,
     pub height_mm: i32,
-    pub transfer_functions: Vec<BackendTransferFunction>,
+    pub eotfs: Vec<BackendEotfs>,
     pub color_spaces: Vec<BackendColorSpace>,
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
@@ -86,7 +87,7 @@ pub struct WlOutputGlobal {
     pub persistent: Rc<PersistentOutputState>,
     pub opt: Rc<OutputGlobalOpt>,
     pub damage_matrix: Cell<DamageMatrix>,
-    pub btf: Cell<BackendTransferFunction>,
+    pub btf: Cell<BackendEotfs>,
     pub bcs: Cell<BackendColorSpace>,
     pub color_description: CloneCell<Rc<ColorDescription>>,
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
@@ -115,6 +116,21 @@ impl OutputGlobalOpt {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+pub enum BlendSpace {
+    Linear,
+    Srgb,
+}
+
+impl BlendSpace {
+    pub fn name(self) -> &'static str {
+        match self {
+            BlendSpace::Linear => "linear",
+            BlendSpace::Srgb => "srgb",
+        }
+    }
+}
+
 pub struct PersistentOutputState {
     pub transform: Cell<Transform>,
     pub scale: Cell<crate::scale::Scale>,
@@ -123,6 +139,7 @@ pub struct PersistentOutputState {
     pub vrr_cursor_hz: Cell<Option<f64>>,
     pub tearing_mode: Cell<&'static TearingMode>,
     pub brightness: Cell<Option<f64>>,
+    pub blend_space: Cell<BlendSpace>,
 }
 
 impl Default for PersistentOutputState {
@@ -135,6 +152,7 @@ impl Default for PersistentOutputState {
             vrr_cursor_hz: Default::default(),
             tearing_mode: Cell::new(&TearingMode::Never),
             brightness: Default::default(),
+            blend_space: Cell::new(BlendSpace::Srgb),
         }
     }
 }
@@ -179,7 +197,7 @@ impl WlOutputGlobal {
         height_mm: i32,
         output_id: &Rc<OutputId>,
         persistent_state: &Rc<PersistentOutputState>,
-        transfer_functions: Vec<BackendTransferFunction>,
+        eotfs: Vec<BackendEotfs>,
         color_spaces: Vec<BackendColorSpace>,
         primaries: Primaries,
         luminance: Option<BackendLuminance>,
@@ -205,7 +223,7 @@ impl WlOutputGlobal {
             format: Cell::new(XRGB8888),
             width_mm,
             height_mm,
-            transfer_functions,
+            eotfs,
             color_spaces,
             primaries,
             luminance,
@@ -215,9 +233,9 @@ impl WlOutputGlobal {
             persistent: persistent_state.clone(),
             opt: Default::default(),
             damage_matrix: Default::default(),
-            btf: Cell::new(connector_state.transfer_function),
+            btf: Cell::new(connector_state.eotf),
             bcs: Cell::new(connector_state.color_space),
-            color_description: CloneCell::new(state.color_manager.srgb_srgb().clone()),
+            color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
             linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
             color_description_listeners: Default::default(),
         };
@@ -345,7 +363,7 @@ impl WlOutputGlobal {
     pub fn update_color_description(&self) -> bool {
         let mut luminance = Luminance::SRGB;
         let tf = match self.btf.get() {
-            BackendTransferFunction::Default => {
+            BackendEotfs::Default => {
                 if let Some(brightness) = self.persistent.brightness.get() {
                     let output_max = match self.luminance {
                         None => 80.0,
@@ -353,14 +371,14 @@ impl WlOutputGlobal {
                     };
                     luminance.white.0 = luminance.max.0 * brightness / output_max;
                 }
-                TransferFunction::Srgb
+                Eotf::Gamma22
             }
-            BackendTransferFunction::Pq => {
+            BackendEotfs::Pq => {
                 luminance = Luminance::ST2084_PQ;
                 if let Some(brightness) = self.persistent.brightness.get() {
                     luminance.white.0 = brightness;
                 }
-                TransferFunction::St2084Pq
+                Eotf::St2084Pq
             }
         };
         let mut target_luminance = luminance.to_target();
@@ -386,10 +404,7 @@ impl WlOutputGlobal {
             max_cll,
             max_fall,
         );
-        let cd_linear = self
-            .state
-            .color_manager
-            .get_with_tf(&cd, TransferFunction::Linear);
+        let cd_linear = self.state.color_manager.get_with_tf(&cd, Eotf::Linear);
         self.linear_color_description.set(cd_linear.clone());
         self.color_description.set(cd.clone()).id != cd.id
     }

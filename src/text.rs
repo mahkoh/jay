@@ -1,6 +1,6 @@
 use {
     crate::{
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
         format::ARGB8888,
         gfx_api::{
@@ -188,7 +188,7 @@ fn render(
         data.layout.set_text(text);
     }
     let font_height = data.layout.pixel_size().1;
-    let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+    let [r, g, b, a] = color.to_array(Eotf::Gamma22);
     data.cctx.set_operator(CAIRO_OPERATOR_SOURCE);
     data.cctx.set_source_rgba(r as _, g as _, b as _, a as _);
     let y = y.unwrap_or((height - font_height) / 2);

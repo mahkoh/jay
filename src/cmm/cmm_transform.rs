@@ -1,6 +1,6 @@
 use {
     crate::{
-        cmm::{cmm_primaries::Primaries, cmm_transfer_function::TransferFunction},
+        cmm::{cmm_eotf::Eotf, cmm_primaries::Primaries},
         theme::Color,
         utils::{debug_fn::debug_fn, ordered_float::F64},
     },
@@ -131,7 +131,7 @@ impl<T, U> Mul<Color> for ColorMatrix<T, U> {
     type Output = Color;
 
     fn mul(self, rhs: Color) -> Self::Output {
-        let mut rgba = rhs.to_array(TransferFunction::Linear);
+        let mut rgba = rhs.to_array(Eotf::Linear);
         let a = rgba[3];
         if a < 1.0 && a > 0.0 {
             for c in &mut rgba[..3] {
@@ -139,7 +139,7 @@ impl<T, U> Mul<Color> for ColorMatrix<T, U> {
             }
         }
         let [r, g, b] = self * [rgba[0] as f64, rgba[1] as f64, rgba[2] as f64];
-        let mut color = Color::new(TransferFunction::Linear, r as f32, g as f32, b as f32);
+        let mut color = Color::new(Eotf::Linear, r as f32, g as f32, b as f32);
         if a < 1.0 {
             color = color * a;
         }

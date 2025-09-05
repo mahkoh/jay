@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{BackendColorSpace, BackendTransferFunction},
+        backend::{BackendColorSpace, BackendEotfs},
         ifs::head_management::{HeadOp, HeadState},
         video::drm::{
             DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT, HDMI_EOTF_SMPTE_ST2084,
@@ -41,7 +41,7 @@ impl HeadName {
             return;
         };
         self.send_supported_eotf(HDMI_EOTF_TRADITIONAL_GAMMA_SDR);
-        for tf in &mi.transfer_functions {
+        for tf in &mi.eotfs {
             self.send_supported_eotf(tf.to_drm());
         }
         self.send_supported_colorimetry(DRM_MODE_COLORIMETRY_DEFAULT);
@@ -80,20 +80,20 @@ impl JayHeadExtDrmColorSpaceSetterV1RequestHandler for HeadName {
         const DEFAULT: u32 = HDMI_EOTF_TRADITIONAL_GAMMA_SDR as u32;
         const PQ: u32 = HDMI_EOTF_SMPTE_ST2084 as u32;
         let eotf = match req.eotf {
-            DEFAULT => BackendTransferFunction::Default,
-            PQ => BackendTransferFunction::Pq,
+            DEFAULT => BackendEotfs::Default,
+            PQ => BackendEotfs::Pq,
             _ => return Err(ErrorName::UnknownEotf(req.eotf)),
         };
-        if eotf != BackendTransferFunction::Default {
+        if eotf != BackendEotfs::Default {
             let state = &*self.common.transaction_state.borrow();
             let Some(mi) = &state.monitor_info else {
                 return Err(ErrorName::UnsupportedEotf(req.eotf));
             };
-            if mi.transfer_functions.not_contains(&eotf) {
+            if mi.eotfs.not_contains(&eotf) {
                 return Err(ErrorName::UnsupportedEotf(req.eotf));
             }
         }
-        self.common.push_op(HeadOp::SetTransferFunction(eotf))?;
+        self.common.push_op(HeadOp::SetEotf(eotf))?;
         Ok(())
     }
 

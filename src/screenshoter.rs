@@ -79,7 +79,7 @@ pub fn take_screenshot(
     fb.render_node(
         AcquireSync::Unnecessary,
         ReleaseSync::Implicit,
-        state.color_manager.srgb_srgb(),
+        state.color_manager.srgb_gamma22(),
         state.root.deref(),
         state,
         Some(state.root.extents.get()),

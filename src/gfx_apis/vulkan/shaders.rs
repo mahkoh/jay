@@ -70,6 +70,14 @@ pub struct TexColorManagementData {
 unsafe impl Packed for TexColorManagementData {}
 
 #[derive(Copy, Clone, Debug)]
+#[repr(C, align(16))]
+pub struct OutColorManagementData {
+    pub matrix: [[f32; 4]; 4],
+}
+
+unsafe impl Packed for OutColorManagementData {}
+
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct LegacyTexPushConstants {
     pub pos: [[f32; 2]; 4],

@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, color::parse_color, duration::parse_duration},
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         tools::tool_client::{ToolClient, with_tool_client},
         wire::jay_damage_tracking::{SetVisualizerColor, SetVisualizerDecay, SetVisualizerEnabled},
     },
@@ -86,7 +86,7 @@ impl DamageTracking {
             }
             DamageTrackingCmd::SetColor(c) => {
                 let color = parse_color(&c.color);
-                let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+                let [r, g, b, a] = color.to_array(Eotf::Gamma22);
                 tc.send(SetVisualizerColor {
                     self_id: dt,
                     r,

@@ -1,8 +1,8 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendTransferFunction, Connector,
-            ConnectorId, ConnectorKernelId, Mode,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, Connector, ConnectorId,
+            ConnectorKernelId, Mode,
         },
         backends::metal::MetalError,
         state::State,
@@ -112,8 +112,8 @@ pub enum BackendConnectorTransactionError {
     TearingNotSupported(ConnectorKernelId),
     #[error("Connector {} does not support color space {:?}", .0, .1)]
     ColorSpaceNotSupported(ConnectorKernelId, BackendColorSpace),
-    #[error("Connector {} does not support transfer function {:?}", .0, .1)]
-    TransferFunctionNotSupported(ConnectorKernelId, BackendTransferFunction),
+    #[error("Connector {} does not support EOTF {:?}", .0, .1)]
+    EotfNotSupported(ConnectorKernelId, BackendEotfs),
     #[error("Could not create an hdr metadata blob")]
     CreateHdrMetadataBlob(#[source] DrmError),
     #[error("Could not create a mode blob")]

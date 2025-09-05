@@ -273,26 +273,33 @@ impl Connector {
         get!().connector_set_format(self, format);
     }
 
-    /// Sets the color space and transfer function of the connector.
+    /// Sets the color space and EOTF of the connector.
     ///
     /// By default, the default values are used which usually means sRGB color space with
-    /// sRGB transfer function.
+    /// gamma22 EOTF.
     ///
     /// If the output supports it, HDR10 can be enabled by setting the color space to
-    /// BT.2020 and the transfer function to PQ.
+    /// BT.2020 and the EOTF to PQ.
     ///
     /// Note that some displays might ignore incompatible settings.
-    pub fn set_colors(self, color_space: ColorSpace, transfer_function: TransferFunction) {
-        get!().connector_set_colors(self, color_space, transfer_function);
+    pub fn set_colors(self, color_space: ColorSpace, eotf: Eotf) {
+        get!().connector_set_colors(self, color_space, eotf);
+    }
+
+    /// Sets the space in which blending is performed for this output.
+    ///
+    /// The default is [`BlendSpace::SRGB`]
+    pub fn set_blend_space(self, blend_space: BlendSpace) {
+        get!().connector_set_blend_space(self, blend_space);
     }
 
     /// Sets the brightness of the output.
     ///
     /// By default or when `brightness` is `None`, the brightness depends on the
-    /// transfer function:
+    /// EOTF:
     ///
-    /// - [`TransferFunction::DEFAULT`]: The maximum brightness of the output.
-    /// - [`TransferFunction::PQ`]: 203 cd/m^2.
+    /// - [`Eotf::DEFAULT`]: The maximum brightness of the output.
+    /// - [`Eotf::PQ`]: 203 cd/m^2.
     ///
     /// This should only be used with the PQ transfer function. If the default transfer
     /// function is used, you should instead calibrate the hardware directly.
@@ -718,13 +725,29 @@ impl ColorSpace {
     pub const BT2020: Self = Self(1);
 }
 
-/// A transfer function.
+/// An electro-optical transfer function (EOTF).
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct TransferFunction(pub u32);
+pub struct Eotf(pub u32);
 
-impl TransferFunction {
-    /// The default transfer function (usually sRGB).
+#[deprecated = "use the Eotf type instead"]
+pub type TransferFunction = Eotf;
+
+impl Eotf {
+    /// The default EOTF (usually gamma22).
     pub const DEFAULT: Self = Self(0);
-    /// The PQ transfer function.
+    /// The PQ EOTF.
     pub const PQ: Self = Self(1);
+}
+
+/// A space in which color blending is performed.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BlendSpace(pub u32);
+
+impl BlendSpace {
+    /// The sRGB blend space with sRGB primaries and gamma22 transfer function. This is
+    /// the classic desktop blend space.
+    pub const SRGB: Self = Self(0);
+    /// The linear blend space performs blending in linear space, which is more physically
+    /// correct but leads to much lighter output when blending light and dark colors.
+    pub const LINEAR: Self = Self(1);
 }

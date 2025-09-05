@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription},
-            cmm_transfer_function::TransferFunction,
+            cmm_eotf::Eotf,
         },
         format::Format,
         gfx_api::{
@@ -82,7 +82,7 @@ impl Framebuffer {
                 (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
                 (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
                 if let Some(c) = clear {
-                    let [r, g, b, a] = c.to_array(TransferFunction::Srgb);
+                    let [r, g, b, a] = c.to_array(Eotf::Gamma22);
                     (gles.glClearColor)(r, g, b, a);
                     (gles.glClear)(GL_COLOR_BUFFER_BIT);
                 }

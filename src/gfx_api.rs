@@ -895,7 +895,7 @@ pub fn create_render_pass(
         return GfxRenderPass {
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),
-            clear_cd: state.color_manager.srgb_srgb().linear.clone(),
+            clear_cd: state.color_manager.srgb_gamma22().linear.clone(),
         };
     }
     let mut ops = vec![];
@@ -962,7 +962,7 @@ pub fn create_render_pass(
     GfxRenderPass {
         ops,
         clear: Some(c),
-        clear_cd: state.color_manager.srgb_srgb().linear.clone(),
+        clear_cd: state.color_manager.srgb_gamma22().linear.clone(),
     }
 }
 

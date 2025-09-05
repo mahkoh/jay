@@ -1,18 +1,14 @@
 use {
     crate::{
         client::Client,
-        cmm::{
-            cmm_description::ColorDescription, cmm_primaries::NamedPrimaries,
-            cmm_transfer_function::TransferFunction,
-        },
+        cmm::{cmm_description::ColorDescription, cmm_eotf::Eotf, cmm_primaries::NamedPrimaries},
         ifs::color_management::{
             MIN_LUM_MUL, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020, PRIMARIES_CIE1931_XYZ,
             PRIMARIES_DCI_P3, PRIMARIES_DISPLAY_P3, PRIMARIES_GENERIC_FILM, PRIMARIES_MUL,
-            PRIMARIES_NTSC, PRIMARIES_PAL, PRIMARIES_PAL_M, TRANSFER_FUNCTION_BT1886,
-            TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_EXT_SRGB, TRANSFER_FUNCTION_GAMMA22,
+            PRIMARIES_NTSC, PRIMARIES_PAL, PRIMARIES_PAL_M, PRIMARIES_SRGB,
+            TRANSFER_FUNCTION_BT1886, TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_GAMMA22,
             TRANSFER_FUNCTION_GAMMA28, TRANSFER_FUNCTION_LOG_100, TRANSFER_FUNCTION_LOG_316,
             TRANSFER_FUNCTION_ST240, TRANSFER_FUNCTION_ST428, TRANSFER_FUNCTION_ST2084_PQ,
-            consts::{PRIMARIES_SRGB, TRANSFER_FUNCTION_SRGB},
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -32,18 +28,16 @@ pub struct WpImageDescriptionInfoV1 {
 
 impl WpImageDescriptionInfoV1 {
     pub fn send_description(&self, d: &ColorDescription) {
-        let tf = match d.transfer_function {
-            TransferFunction::Srgb => TRANSFER_FUNCTION_SRGB,
-            TransferFunction::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
-            TransferFunction::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
-            TransferFunction::Bt1886 => TRANSFER_FUNCTION_BT1886,
-            TransferFunction::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
-            TransferFunction::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
-            TransferFunction::St240 => TRANSFER_FUNCTION_ST240,
-            TransferFunction::ExtSrgb => TRANSFER_FUNCTION_EXT_SRGB,
-            TransferFunction::Log100 => TRANSFER_FUNCTION_LOG_100,
-            TransferFunction::Log316 => TRANSFER_FUNCTION_LOG_316,
-            TransferFunction::St428 => TRANSFER_FUNCTION_ST428,
+        let tf = match d.eotf {
+            Eotf::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
+            Eotf::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
+            Eotf::Bt1886 => TRANSFER_FUNCTION_BT1886,
+            Eotf::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
+            Eotf::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
+            Eotf::St240 => TRANSFER_FUNCTION_ST240,
+            Eotf::Log100 => TRANSFER_FUNCTION_LOG_100,
+            Eotf::Log316 => TRANSFER_FUNCTION_LOG_316,
+            Eotf::St428 => TRANSFER_FUNCTION_ST428,
         };
         self.send_primaries(&d.linear.primaries);
         if let Some(n) = d.named_primaries {

@@ -2,12 +2,12 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            self, BackendColorSpace, BackendTransferFunction, ConnectorId, DrmDeviceId,
+            self, BackendColorSpace, BackendEotfs, ConnectorId, DrmDeviceId,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
             transaction::BackendConnectorTransactionError,
         },
         client::{Client, ClientId},
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
         criteria::{
@@ -17,6 +17,7 @@ use {
         },
         format::config_formats,
         ifs::{
+            wl_output::BlendSpace,
             wl_seat::{SeatId, WlSeatGlobal},
             wp_content_type_v1::ContentTypeExt,
         },
@@ -69,9 +70,9 @@ use {
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
-            ColorSpace, Connector, DrmDevice, Format as ConfigFormat, GfxApi,
-            TearingMode as ConfigTearingMode, TransferFunction as ConfigTransferFunction,
-            Transform, VrrMode as ConfigVrrMode,
+            BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
+            Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode, Transform,
+            VrrMode as ConfigVrrMode,
         },
         window::{TileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
@@ -1285,25 +1286,40 @@ impl ConfigProxyHandler {
         &self,
         connector: Connector,
         color_space: ColorSpace,
-        transfer_function: ConfigTransferFunction,
+        eotf: ConfigEotf,
     ) -> Result<(), CphError> {
         let bcs = match color_space {
             ColorSpace::DEFAULT => BackendColorSpace::Default,
             ColorSpace::BT2020 => BackendColorSpace::Bt2020,
             _ => return Err(CphError::UnknownColorSpace(color_space)),
         };
-        let btf = match transfer_function {
-            ConfigTransferFunction::DEFAULT => BackendTransferFunction::Default,
-            ConfigTransferFunction::PQ => BackendTransferFunction::Pq,
-            _ => return Err(CphError::UnknownTransferFunction(transfer_function)),
+        let btf = match eotf {
+            ConfigEotf::DEFAULT => BackendEotfs::Default,
+            ConfigEotf::PQ => BackendEotfs::Pq,
+            _ => return Err(CphError::UnknownEotf(eotf)),
         };
         let connector = self.get_connector(connector)?;
         connector
             .modify_state(&self.state, |s| {
                 s.color_space = bcs;
-                s.transfer_function = btf;
+                s.eotf = btf;
             })
             .map_err(CphError::ModifyConnectorState)?;
+        Ok(())
+    }
+
+    fn handle_connector_set_blend_space(
+        &self,
+        connector: Connector,
+        blend_space: ConfigBlendSpace,
+    ) -> Result<(), CphError> {
+        let blend_space = match blend_space {
+            ConfigBlendSpace::SRGB => BlendSpace::Srgb,
+            ConfigBlendSpace::LINEAR => BlendSpace::Linear,
+            _ => return Err(CphError::UnknownBlendSpace(blend_space)),
+        };
+        let connector = self.get_output_node(connector)?;
+        connector.set_blend_space(blend_space);
         Ok(())
     }
 
@@ -2365,7 +2381,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
         let color = self.get_color(colorable)?.get();
-        let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+        let [r, g, b, a] = color.to_array(Eotf::Gamma22);
         let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
         Ok(())
@@ -2930,9 +2946,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetColors {
                 connector,
                 color_space,
-                transfer_function,
+                eotf,
             } => self
-                .handle_connector_set_colors(connector, color_space, transfer_function)
+                .handle_connector_set_colors(connector, color_space, eotf)
                 .wrn("connector_set_colors")?,
             ClientMessage::ConnectorSetBrightness {
                 connector,
@@ -3118,6 +3134,12 @@ impl ConfigProxyHandler {
             ClientMessage::SeatCopyMark { seat, src, dst } => self
                 .handle_seat_copy_mark(seat, src, dst)
                 .wrn("seat_copy_mark")?,
+            ClientMessage::ConnectorSetBlendSpace {
+                connector,
+                blend_space,
+            } => self
+                .handle_connector_set_blend_space(connector, blend_space)
+                .wrn("connector_set_blend_space")?,
         }
         Ok(())
     }
@@ -3211,8 +3233,8 @@ enum CphError {
     UnknownXScalingMode(XScalingMode),
     #[error("Unknown color space {0:?}")]
     UnknownColorSpace(ColorSpace),
-    #[error("Unknown transfer function {0:?}")]
-    UnknownTransferFunction(ConfigTransferFunction),
+    #[error("Unknown EOTF {0:?}")]
+    UnknownEotf(ConfigEotf),
     #[error("Client {0:?} does not exist")]
     ClientDoesNotExist(ConfigClient),
     #[error("Window {0:?} does not exist")]
@@ -3227,6 +3249,8 @@ enum CphError {
     WindowMatcherDoesNotExist(WindowMatcher),
     #[error("Could not modify the connector state")]
     ModifyConnectorState(#[source] BackendConnectorTransactionError),
+    #[error("Unknown blend space {0:?}")]
+    UnknownBlendSpace(ConfigBlendSpace),
 }
 
 trait WithRequestName {

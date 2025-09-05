@@ -265,7 +265,7 @@ impl JayHeadManagerSessionV1 {
             new.non_desktop_override = desired.override_non_desktop;
             new.format = desired.format;
             new.color_space = desired.color_space;
-            new.transfer_function = desired.transfer_function;
+            new.eotf = desired.eotf;
             if old == new {
                 continue;
             }
@@ -447,8 +447,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         state.format = f;
                         to_send |= FORMAT_INFO;
                     }
-                    HeadOp::SetTransferFunction(e) => {
-                        state.transfer_function = e;
+                    HeadOp::SetEotf(e) => {
+                        state.eotf = e;
                         to_send |= DRM_COLOR_SPACE_INFO;
                         to_send |= BRIGHTNESS_INFO;
                     }

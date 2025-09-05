@@ -491,7 +491,7 @@ impl XBackend {
             tearing: false,
             format: FORMAT,
             color_space: Default::default(),
-            transfer_function: Default::default(),
+            eotf: Default::default(),
         };
         let output = Rc::new(XOutput {
             id: self.state.connector_ids.next(),
@@ -599,7 +599,7 @@ impl XBackend {
             non_desktop: false,
             non_desktop_effective: false,
             vrr_capable: false,
-            transfer_functions: vec![],
+            eotfs: vec![],
             color_spaces: vec![],
             primaries: Primaries::SRGB,
             luminance: None,
@@ -774,7 +774,7 @@ impl XBackend {
             let res = self.state.present_output(
                 &node,
                 &image.fb.get(),
-                self.state.color_manager.srgb_srgb(),
+                self.state.color_manager.srgb_gamma22(),
                 AcquireSync::Implicit,
                 ReleaseSync::Implicit,
                 &image.tex.get(),

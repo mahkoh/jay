@@ -13,6 +13,7 @@ use {
             AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
             create_render_pass,
         },
+        ifs::wl_output::BlendSpace,
         rect::Region,
         theme::Color,
         time::Time,
@@ -202,6 +203,10 @@ impl MetalConnector {
 
         let cd = node.global.color_description.get();
         let linear_cd = node.global.linear_color_description.get();
+        let blend_cd = match node.global.persistent.blend_space.get() {
+            BlendSpace::Linear => &linear_cd,
+            BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),
+        };
 
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();
@@ -218,7 +223,7 @@ impl MetalConnector {
         let mut present_fb = None;
         let mut direct_scanout_id = None;
         if let Some(latched) = &latched {
-            let fb = self.prepare_present_fb(&cd, &linear_cd, buffer, &plane, latched, true)?;
+            let fb = self.prepare_present_fb(&cd, blend_cd, buffer, &plane, latched, true)?;
             direct_scanout_id = fb.direct_scanout_data.as_ref().map(|d| d.dma_buf_id);
             present_fb = Some(fb);
         }
@@ -247,7 +252,7 @@ impl MetalConnector {
         {
             let fb = self.prepare_present_fb(
                 &cd,
-                &linear_cd,
+                blend_cd,
                 buffer,
                 &plane,
                 latched.as_ref().unwrap(),
@@ -621,6 +626,7 @@ impl MetalConnector {
         &self,
         pass: &GfxRenderPass,
         plane: &Rc<MetalPlane>,
+        blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
     ) -> Option<DirectScanoutData> {
         let ct = 'ct: {
@@ -640,6 +646,10 @@ impl MetalConnector {
             };
             if !ct.cd.embeds_into(cd) {
                 // Direct scanout requires embeddable color descriptions.
+                return None;
+            }
+            if !ct.opaque && !ct.cd.embeds_into(blend_cd) {
+                // Blending changes the appearance of translucent buffers.
                 return None;
             }
             if ct.alpha.is_some() {
@@ -796,7 +806,7 @@ impl MetalConnector {
     fn prepare_present_fb(
         &self,
         cd: &Rc<ColorDescription>,
-        linear_cd: &Rc<ColorDescription>,
+        blend_cd: &Rc<ColorDescription>,
         buffer: &RenderBuffer,
         plane: &Rc<MetalPlane>,
         latched: &Latched,
@@ -813,7 +823,7 @@ impl MetalConnector {
             && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, cd);
+            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, blend_cd, cd);
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
@@ -837,7 +847,7 @@ impl MetalConnector {
                         &latched.pass,
                         &latched.damage,
                         buffer.blend_buffer.as_ref(),
-                        linear_cd,
+                        blend_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(cd, sf)?;

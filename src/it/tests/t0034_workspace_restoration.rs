@@ -51,7 +51,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         non_desktop: false,
         non_desktop_effective: false,
         vrr_capable: false,
-        transfer_functions: vec![],
+        eotfs: vec![],
         color_spaces: vec![],
         primaries: Primaries::SRGB,
         luminance: None,
@@ -65,7 +65,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
             tearing: false,
             format: XRGB8888,
             color_space: Default::default(),
-            transfer_function: Default::default(),
+            eotf: Default::default(),
         },
     };
     run.backend

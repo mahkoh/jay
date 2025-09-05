@@ -9,7 +9,7 @@ use {
         ifs::{
             head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
-            wl_output::{PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
@@ -41,7 +41,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         tearing: false,
         format: XRGB8888,
         color_space: Default::default(),
-        transfer_function: Default::default(),
+        eotf: Default::default(),
     };
     let id = connector.id();
     let name = Rc::new(connector.kernel_id().to_string());
@@ -67,7 +67,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         tearing_mode: Default::default(),
         format: backend_state.format,
         color_space: backend_state.color_space,
-        transfer_function: backend_state.transfer_function,
+        eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
     };
@@ -183,6 +183,7 @@ impl ConnectorHandler {
                     vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
                     tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
                     brightness: Cell::new(None),
+                    blend_space: Cell::new(BlendSpace::Srgb),
                 });
                 self.state
                     .persistent_output_states
@@ -199,7 +200,7 @@ impl ConnectorHandler {
             info.height_mm,
             &output_id,
             &desired_state,
-            info.transfer_functions.clone(),
+            info.eotfs.clone(),
             info.color_spaces.clone(),
             info.primaries,
             info.luminance,

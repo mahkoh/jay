@@ -572,6 +572,14 @@
         }
       ]
     },
+    "BlendSpace": {
+      "type": "string",
+      "description": "A color blend space.\n",
+      "enum": [
+        "srgb",
+        "linear"
+      ]
+    },
     "Brightness": {
       "description": "The brightness setting of an output.\n",
       "anyOf": [
@@ -1141,6 +1149,14 @@
         }
       ]
     },
+    "Eotf": {
+      "type": "string",
+      "description": "The EOTF of an output.\n",
+      "enum": [
+        "default",
+        "pq"
+      ]
+    },
     "Exec": {
       "description": "Describes how to execute a program.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n\n- Example 3:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n",
       "anyOf": [
@@ -1641,12 +1657,16 @@
           "$ref": "#/$defs/ColorSpace"
         },
         "transfer-function": {
-          "description": "The transfer function of the output.\n",
-          "$ref": "#/$defs/TransferFunction"
+          "description": "The EOTF of the output.\n",
+          "$ref": "#/$defs/Eotf"
         },
         "brightness": {
           "description": "The brightness of the output.\n\nThis setting has no effect unless the vulkan renderer is used.\n",
           "$ref": "#/$defs/Brightness"
+        },
+        "blend-space": {
+          "description": "The blend space of the output.\n\nThe default is `srgb`.\n",
+          "$ref": "#/$defs/BlendSpace"
         }
       },
       "required": [
@@ -1900,14 +1920,6 @@
       "enum": [
         "tiled",
         "floating"
-      ]
-    },
-    "TransferFunction": {
-      "type": "string",
-      "description": "The transfer function of an output.\n",
-      "enum": [
-        "default",
-        "pq"
       ]
     },
     "Transform": {

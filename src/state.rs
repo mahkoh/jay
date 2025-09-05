@@ -476,9 +476,9 @@ impl ConnectorData {
         if old.format != s.format {
             self.head_managers.handle_format_change(s.format);
         }
-        if (old.color_space, old.transfer_function) != (s.color_space, s.transfer_function) {
+        if (old.color_space, old.eotf) != (s.color_space, s.eotf) {
             self.head_managers
-                .handle_colors_change(s.color_space, s.transfer_function);
+                .handle_colors_change(s.color_space, s.eotf);
         }
         if old.mode != s.mode {
             self.head_managers.handle_mode_change(s.mode);
@@ -1290,7 +1290,7 @@ impl State {
             AcquireSync::Unnecessary,
             ReleaseSync::None,
             transform,
-            self.color_manager.srgb_srgb(),
+            self.color_manager.srgb_gamma22(),
             position,
             true,
             x_off - capture.rect.x1(),
