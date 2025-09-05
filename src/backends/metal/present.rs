@@ -201,7 +201,7 @@ impl MetalConnector {
         let buffer = &buffers[next_buffer_idx];
 
         let cd = node.global.color_description.get();
-        let linear_cd = node.global.linear_color_description.get();
+        let blend_cd = self.state.color_manager.srgb_gamma22();
 
         if self.has_damage.get() > 0 || self.cursor_damage.get() {
             node.schedule.commit_cursor();
@@ -218,7 +218,7 @@ impl MetalConnector {
         let mut present_fb = None;
         let mut direct_scanout_id = None;
         if let Some(latched) = &latched {
-            let fb = self.prepare_present_fb(&cd, &linear_cd, buffer, &plane, latched, true)?;
+            let fb = self.prepare_present_fb(&cd, blend_cd, buffer, &plane, latched, true)?;
             direct_scanout_id = fb.direct_scanout_data.as_ref().map(|d| d.dma_buf_id);
             present_fb = Some(fb);
         }
@@ -247,7 +247,7 @@ impl MetalConnector {
         {
             let fb = self.prepare_present_fb(
                 &cd,
-                &linear_cd,
+                blend_cd,
                 buffer,
                 &plane,
                 latched.as_ref().unwrap(),
@@ -796,7 +796,7 @@ impl MetalConnector {
     fn prepare_present_fb(
         &self,
         cd: &Rc<ColorDescription>,
-        linear_cd: &Rc<ColorDescription>,
+        blend_cd: &Rc<ColorDescription>,
         buffer: &RenderBuffer,
         plane: &Rc<MetalPlane>,
         latched: &Latched,
@@ -837,7 +837,7 @@ impl MetalConnector {
                         &latched.pass,
                         &latched.damage,
                         buffer.blend_buffer.as_ref(),
-                        linear_cd,
+                        blend_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(cd, sf)?;
