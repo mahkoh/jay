@@ -58,12 +58,11 @@ use {
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
-        fs::File,
         io::ErrorKind,
         os::fd::AsRawFd,
         path::PathBuf,
         rc::Rc,
-        time::{Duration, Instant},
+        time::Duration,
     },
     uapi::c::{IN_CLOSE_WRITE, IN_CREATE, IN_DELETE, IN_DELETE_SELF, IN_MODIFY, IN_NONBLOCK},
 };
@@ -1013,85 +1012,73 @@ struct PersistentState {
     watcher_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
-fn watch_config(initial_load: bool, persistent: &Rc<PersistentState>) {
+fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
     let watcher_persistent = persistent.clone();
     *persistent.watcher_handle.borrow_mut() = Some(tasks::spawn(async move {
         let path = PathBuf::from(config_dir());
-        let Ok(file) = Async::new(File::open("/").expect("no root directory")) else {
+
+        let Ok(Ok(mut inotify)) = uapi::inotify_init1(IN_NONBLOCK).map(|i| Async::new(i)) else {
+            log::warn!("Inotify instance cannot initialized");
             return;
         };
+
+        _ = uapi::inotify_add_watch(
+            inotify.as_ref().as_raw_fd(),
+            config_dir(),
+            IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
+        );
+
+        let mut ancestors = path.ancestors();
+
+        _ = ancestors.next();
+
+        while let Some(parent) = ancestors.next() {
+            _ = uapi::inotify_add_watch(
+                inotify.as_ref().as_raw_fd(),
+                parent,
+                IN_CREATE | IN_DELETE_SELF,
+            );
+        }
+
+        let mut buffer = [0; 1024];
+
         loop {
-            file.readable().await.unwrap();
-
-            if !path.exists() {
+            inotify.readable().await.unwrap();
+            
+            let Ok(events) = uapi::inotify_read(inotify.as_ref().as_raw_fd(), &mut buffer) else {
                 continue;
-            }
-
-            if !initial_load {
-                load_config(initial_load, &watcher_persistent);
-            }
-
-            let Ok(mut inotify) = uapi::inotify_init1(IN_NONBLOCK) else {
-                log::warn!("Inotify instance cannot initialized");
-                return;
             };
 
-            let mut timeout = Instant::now();
-            let mut reloaded = true;
-
-            _ = uapi::inotify_add_watch(
-                inotify.as_raw_fd(),
-                config_dir(),
-                IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
-            );
-
-            let mut buffer = [0; 1024];
-
-            loop {
-                file.readable().await.unwrap();
-
-                if !path.exists() {
-                    load_config(false, &watcher_persistent);
-                    break;
-                }
-
-                if timeout.elapsed() >= Duration::from_millis(400) && !reloaded {
-                    load_config(false, &watcher_persistent);
-                    reloaded = true;
-                }
-
-                let Ok(events) = uapi::inotify_read(inotify.as_raw_fd(), &mut buffer) else {
-                    continue;
-                };
-
-                for event in events {
-                    if event.name() == c"config.toml" {
-                        if let Ok(instance) = uapi::inotify_init1(IN_NONBLOCK) {
-                            inotify = instance;
+            for event in events {
+                if event.mask == IN_CREATE {
+                    if path.ancestors().any(|a| {
+                        a.file_name().unwrap_or_default().to_string_lossy()
+                            == event.name().to_string_lossy()
+                    }) {
+                        if let Ok(instance) = uapi::inotify_init1(IN_NONBLOCK)
+                            && let Ok(async_instance) = Async::new(instance)
+                        {
+                            inotify = async_instance;
                         } else {
                             return;
                         }
 
                         _ = uapi::inotify_add_watch(
-                            inotify.as_raw_fd(),
+                            inotify.as_ref().as_raw_fd(),
                             config_dir(),
                             IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
                         );
-                        reloaded = false;
-                        timeout = Instant::now();
-                    } else if event.mask == IN_DELETE {
-                        if event.name() == c"config.toml" {
-                            reloaded = false;
-                            timeout = Instant::now();
-                        }
-                    } else if event.mask == IN_DELETE_SELF {
-                        reloaded = false;
-                        timeout = Instant::now();
-                    } else if event.mask == IN_CLOSE_WRITE {
-                        if event.name() == c"config.toml" {
-                            reloaded = false;
-                            timeout = Instant::now();
-                        }
+                        load_config(false, &watcher_persistent);
+                    }
+                } else if event.mask == IN_DELETE {
+                    if event.name() == c"config.toml" {
+                        load_config(false, &watcher_persistent);
+                    }
+                } else if event.mask == IN_DELETE_SELF {
+                    load_config(false, &watcher_persistent);
+                } else if event.mask == IN_CLOSE_WRITE {
+                    if event.name() == c"config.toml" {
+                        load_config(false, &watcher_persistent);
                     }
                 }
             }
