@@ -1025,7 +1025,7 @@ fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
         _ = uapi::inotify_add_watch(
             inotify.as_ref().as_raw_fd(),
             config_dir(),
-            IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
+            IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
         );
 
         let mut ancestors = path.ancestors();
