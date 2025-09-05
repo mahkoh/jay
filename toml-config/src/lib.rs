@@ -62,9 +62,12 @@ use {
         os::fd::AsRawFd,
         path::PathBuf,
         rc::Rc,
-        time::Duration,
+        time::{Duration, Instant},
     },
-    uapi::c::{IN_CLOSE_WRITE, IN_CREATE, IN_DELETE, IN_DELETE_SELF, IN_MODIFY, IN_NONBLOCK},
+    uapi::c::{
+        CLOCK_REALTIME, IN_CLOSE_WRITE, IN_CREATE, IN_DELETE, IN_DELETE_SELF, IN_MODIFY,
+        IN_NONBLOCK, TFD_NONBLOCK, timespec,
+    },
 };
 
 fn default_seat() -> Seat {
@@ -1028,6 +1031,28 @@ fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
             IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
         );
 
+        let Ok(Ok(timer)) =
+            uapi::timerfd_create(0, TFD_NONBLOCK | CLOCK_REALTIME).map(|t| Async::new(t))
+        else {
+            log::warn!("Timer instance cannot initialized");
+            return;
+        };
+
+        _ = uapi::timerfd_settime(
+            timer.as_ref().as_raw_fd(),
+            0,
+            &uapi::c::itimerspec {
+                it_interval: timespec {
+                    tv_nsec: 100_000_000,
+                    tv_sec: 0,
+                },
+                it_value: timespec {
+                    tv_nsec: 100_000_000,
+                    tv_sec: 0,
+                },
+            },
+        );
+
         let mut ancestors = path.ancestors();
 
         _ = ancestors.next();
@@ -1042,8 +1067,20 @@ fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
 
         let mut buffer = [0; 1024];
 
+        let mut config_reloaded = true;
+        let mut timeout = Instant::now();
+
         loop {
-            inotify.readable().await.unwrap();
+            if config_reloaded {
+                inotify.readable().await.unwrap();
+            } else {
+                timer.readable().await.unwrap();
+            }
+
+            if !config_reloaded && timeout.elapsed() > Duration::from_millis(400) {
+                load_config(false, &watcher_persistent);
+                config_reloaded = true;
+            }
 
             let Ok(events) = uapi::inotify_read(inotify.as_ref().as_raw_fd(), &mut buffer) else {
                 continue;
@@ -1068,17 +1105,21 @@ fn watch_config(_initial_load: bool, persistent: &Rc<PersistentState>) {
                             config_dir(),
                             IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_DELETE_SELF | IN_CREATE,
                         );
-                        load_config(false, &watcher_persistent);
+                        config_reloaded = false;
+                        timeout = Instant::now();
                     }
                 } else if event.mask == IN_DELETE {
                     if event.name() == c"config.toml" {
-                        load_config(false, &watcher_persistent);
+                        config_reloaded = false;
+                        timeout = Instant::now();
                     }
                 } else if event.mask == IN_DELETE_SELF {
-                    load_config(false, &watcher_persistent);
+                    config_reloaded = false;
+                    timeout = Instant::now();
                 } else if event.mask == IN_CLOSE_WRITE {
                     if event.name() == c"config.toml" {
-                        load_config(false, &watcher_persistent);
+                        config_reloaded = false;
+                        timeout = Instant::now();
                     }
                 }
             }
