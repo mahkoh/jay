@@ -194,7 +194,7 @@ impl JayScreencast {
                 let res = buffer.fb.render_node(
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
-                    self.client.state.color_manager.srgb_srgb(),
+                    self.client.state.color_manager.srgb_gamma22(),
                     &*tl,
                     &self.client.state,
                     Some(tl.node_absolute_position()),
@@ -341,7 +341,7 @@ impl JayScreencast {
                     AcquireSync::Implicit,
                     ReleaseSync::Implicit,
                     Transform::None,
-                    self.client.state.color_manager.srgb_srgb(),
+                    self.client.state.color_manager.srgb_gamma22(),
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,

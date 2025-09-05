@@ -1,7 +1,7 @@
 use linearize::Linearize;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
-pub enum TransferFunction {
+pub enum Eotf {
     Linear,
     St2084Pq,
     Bt1886,

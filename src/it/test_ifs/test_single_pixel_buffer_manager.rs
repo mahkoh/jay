@@ -1,6 +1,6 @@
 use {
     crate::{
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         it::{
             test_error::TestResult, test_ifs::test_buffer::TestBuffer, test_object::TestObject,
             test_transport::TestTransport,
@@ -32,7 +32,7 @@ impl TestSinglePixelBufferManager {
             destroyed: Cell::new(false),
         });
         let map = |c: f32| (c as f64 * u32::MAX as f64) as u32;
-        let [r, g, b, a] = color.to_array(TransferFunction::Gamma22);
+        let [r, g, b, a] = color.to_array(Eotf::Gamma22);
         self.tran.send(CreateU32RgbaBuffer {
             self_id: self.id,
             id: obj.id,

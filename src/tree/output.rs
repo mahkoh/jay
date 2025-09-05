@@ -1,8 +1,7 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendTransferFunction, HardwareCursor,
-            KeyState, Mode,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, HardwareCursor, KeyState, Mode,
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
@@ -415,7 +414,7 @@ impl OutputNode {
                             AcquireSync::Implicit,
                             ReleaseSync::Implicit,
                             self.global.persistent.transform.get(),
-                            self.state.color_manager.srgb_srgb(),
+                            self.state.color_manager.srgb_gamma22(),
                             self.global.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
@@ -928,7 +927,7 @@ impl OutputNode {
     }
 
     pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
-        self.update_btf_and_bcs(state.transfer_function, state.color_space);
+        self.update_btf_and_bcs(state.eotf, state.color_space);
         if old.vrr != state.vrr {
             self.schedule.set_vrr_enabled(state.vrr);
         }
@@ -938,7 +937,7 @@ impl OutputNode {
         self.global.format.set(state.format);
     }
 
-    fn update_btf_and_bcs(&self, btf: BackendTransferFunction, bcs: BackendColorSpace) {
+    fn update_btf_and_bcs(&self, btf: BackendEotfs, bcs: BackendColorSpace) {
         let old_btf = self.global.btf.replace(btf);
         let old_bcs = self.global.bcs.replace(bcs);
         if (old_btf, old_bcs) == (btf, bcs) {

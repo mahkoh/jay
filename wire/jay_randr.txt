@@ -83,7 +83,7 @@ request set_flip_margin (since = 10) {
 request set_colors (since = 15) {
     output: str,
     color_space: str,
-    transfer_function: str,
+    eotf: str,
 }
 
 request set_brightness (since = 16) {
@@ -184,12 +184,12 @@ event current_color_space (since = 15) {
     color_space: str,
 }
 
-event supported_transfer_function (since = 15) {
-    transfer_function: str,
+event supported_eotf (since = 15) {
+    eotf: str,
 }
 
-event current_transfer_function (since = 15) {
-    transfer_function: str,
+event current_eotf (since = 15) {
+    eotf: str,
 }
 
 event brightness_range (since = 16) {

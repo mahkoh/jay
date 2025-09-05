@@ -4,10 +4,10 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
-            BackendDrmLessee, BackendEvent, BackendLuminance, BackendTransferFunction,
-            CONCAP_CONNECTOR, CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY, Connector,
-            ConnectorCaps, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
-            HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
+            BackendDrmLessee, BackendEotfs, BackendEvent, BackendLuminance, CONCAP_CONNECTOR,
+            CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY, Connector, ConnectorCaps, ConnectorEvent,
+            ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor, HardwareCursorUpdate,
+            Mode, MonitorInfo,
             transaction::{
                 BackendConnectorTransaction, BackendConnectorTransactionError,
                 BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
@@ -1092,7 +1092,7 @@ fn create_connector(
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
         buffers: Default::default(),
-        color_description: CloneCell::new(backend.state.color_manager.srgb_srgb().clone()),
+        color_description: CloneCell::new(backend.state.color_manager.srgb_gamma22().clone()),
         lease: Cell::new(None),
         buffers_idle: Cell::new(true),
         crtc_idle: Cell::new(true),
@@ -1315,7 +1315,7 @@ fn create_connector_display_data(
                     tearing: false,
                     format: XRGB8888,
                     color_space: Default::default(),
-                    transfer_function: Default::default(),
+                    eotf: Default::default(),
                 }),
             });
             dev.backend
@@ -1341,13 +1341,13 @@ fn create_connector_display_data(
         Err(_) => false,
     };
     {
-        let viable = match desired_state.transfer_function {
-            BackendTransferFunction::Default => true,
-            BackendTransferFunction::Pq => supports_pq,
+        let viable = match desired_state.eotf {
+            BackendEotfs::Default => true,
+            BackendEotfs::Pq => supports_pq,
         };
         if !viable {
-            log::warn!("Discarding previously desired transfer function");
-            desired_state.transfer_function = BackendTransferFunction::Default;
+            log::warn!("Discarding previously desired EOTF");
+            desired_state.eotf = BackendEotfs::Default;
         }
     }
     {
@@ -1900,9 +1900,9 @@ impl MetalBackend {
                 modes.push(mode);
             }
         }
-        let mut transfer_functions = vec![];
+        let mut eotfs = vec![];
         if dd.supports_pq {
-            transfer_functions.push(BackendTransferFunction::Pq);
+            eotfs.push(BackendEotfs::Pq);
         }
         let mut color_spaces = vec![];
         if dd.supports_bt2020 {
@@ -1918,7 +1918,7 @@ impl MetalBackend {
             non_desktop: dd.non_desktop,
             non_desktop_effective: dd.non_desktop_effective,
             vrr_capable: dd.vrr_capable,
-            transfer_functions,
+            eotfs,
             color_spaces,
             primaries: dd.primaries,
             luminance: dd.luminance,
@@ -2684,7 +2684,7 @@ impl MetalBackend {
             .clear(
                 AcquireSync::Unnecessary,
                 ReleaseSync::None,
-                self.state.color_manager.srgb_srgb(),
+                self.state.color_manager.srgb_gamma22(),
             )
             .map_err(MetalError::Clear)?;
         let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
@@ -2742,7 +2742,7 @@ impl MetalBackend {
                 .clear(
                     AcquireSync::Unnecessary,
                     ReleaseSync::None,
-                    self.state.color_manager.srgb_srgb(),
+                    self.state.color_manager.srgb_gamma22(),
                 )
                 .map_err(MetalError::Clear)?;
             let render_tex = match render_img.to_texture() {

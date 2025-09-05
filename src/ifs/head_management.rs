@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendTransferFunction, ConnectorId, Mode, MonitorInfo,
+            BackendColorSpace, BackendEotfs, ConnectorId, Mode, MonitorInfo,
             transaction::BackendConnectorTransactionError,
         },
         client::ClientId,
@@ -90,7 +90,7 @@ pub struct HeadState {
     pub tearing_mode: TearingMode,
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
-    pub transfer_function: BackendTransferFunction,
+    pub eotf: BackendEotfs,
     pub supported_formats: RcEq<Vec<&'static Format>>,
     pub brightness: Option<f64>,
 }
@@ -132,7 +132,7 @@ enum HeadOp {
     SetVrrMode(VrrMode),
     SetTearingMode(TearingMode),
     SetFormat(&'static Format),
-    SetTransferFunction(BackendTransferFunction),
+    SetEotf(BackendEotfs),
     SetColorSpace(BackendColorSpace),
     SetBrightness(Option<f64>),
 }
@@ -491,14 +491,10 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_colors_change(
-        &self,
-        color_space: BackendColorSpace,
-        transfer_function: BackendTransferFunction,
-    ) {
+    pub fn handle_colors_change(&self, color_space: BackendColorSpace, eotf: BackendEotfs) {
         let state = &mut *self.state.borrow_mut();
         state.color_space = color_space;
-        state.transfer_function = transfer_function;
+        state.eotf = eotf;
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.drm_color_space_info_v1 {

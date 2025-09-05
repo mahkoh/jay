@@ -165,7 +165,7 @@ impl DamageVisualizer {
         let dy = -cursor_rect.y1();
         let decay_millis = decay.as_millis() as u64 as f32;
         renderer.ops.push(GfxApiOpt::Sync);
-        let srgb = &self.color_manager.srgb_srgb().linear;
+        let srgb = &self.color_manager.srgb_gamma22().linear;
         for entry in entries.iter().rev() {
             let region = Region::new(entry.rect);
             let region = region.subtract_cow(&used);

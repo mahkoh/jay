@@ -135,8 +135,8 @@ mod matrices {
 
 mod transforms {
     use crate::cmm::{
-        cmm_luminance::Luminance, cmm_manager::ColorManager, cmm_primaries::Primaries,
-        cmm_transfer_function::TransferFunction,
+        cmm_eotf::Eotf, cmm_luminance::Luminance, cmm_manager::ColorManager,
+        cmm_primaries::Primaries,
     };
 
     fn check(p1: Primaries, p2: Primaries, expected: [[f64; 4]; 3]) {
@@ -146,7 +146,7 @@ mod transforms {
                 None,
                 p,
                 Luminance::SRGB,
-                TransferFunction::Linear,
+                Eotf::Linear,
                 p,
                 Luminance::SRGB.to_target(),
                 None,

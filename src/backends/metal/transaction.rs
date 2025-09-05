@@ -2,8 +2,7 @@ use {
     crate::{
         allocator::BufferObject,
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendTransferFunction, Connector,
-            ConnectorEvent,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, Connector, ConnectorEvent,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
@@ -669,16 +668,14 @@ impl MetalDeviceTransaction {
                     }
                 }
             }
-            match state.transfer_function {
-                BackendTransferFunction::Default => {}
-                BackendTransferFunction::Pq => {
+            match state.eotf {
+                BackendEotfs::Default => {}
+                BackendEotfs::Pq => {
                     if !dd.supports_pq {
-                        return Err(
-                            BackendConnectorTransactionError::TransferFunctionNotSupported(
-                                connector.obj.kernel_id(),
-                                state.transfer_function,
-                            ),
-                        );
+                        return Err(BackendConnectorTransactionError::EotfNotSupported(
+                            connector.obj.kernel_id(),
+                            state.eotf,
+                        ));
                     }
                 }
             }
@@ -686,12 +683,10 @@ impl MetalDeviceTransaction {
                 *cs = state.color_space.to_drm();
             }
             if dd.hdr_metadata.is_some() {
-                let new = if state.transfer_function == BackendTransferFunction::Default {
+                let new = if state.eotf == BackendEotfs::Default {
                     None
                 } else {
-                    Some(hdr_output_metadata::from_eotf(
-                        state.transfer_function.to_drm(),
-                    ))
+                    Some(hdr_output_metadata::from_eotf(state.eotf.to_drm()))
                 };
                 if connector.new.hdr_metadata != new {
                     if let Some(new) = &new {

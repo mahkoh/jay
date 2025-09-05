@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{self, BackendColorSpace, BackendTransferFunction},
+        backend::{self, BackendColorSpace, BackendEotfs},
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
         format::named_formats,
@@ -170,15 +170,15 @@ impl JayRandr {
             });
         }
         if self.version >= COLORIMETRY_SINCE {
-            for tf in &node.global.transfer_functions {
-                self.client.event(SupportedTransferFunction {
+            for eotf in &node.global.eotfs {
+                self.client.event(SupportedEotf {
                     self_id: self.id,
-                    transfer_function: tf.name(),
+                    eotf: eotf.name(),
                 });
             }
-            self.client.event(CurrentTransferFunction {
+            self.client.event(CurrentEotf {
                 self_id: self.id,
-                transfer_function: node.global.btf.get().name(),
+                eotf: node.global.btf.get().name(),
             });
             for cs in &node.global.color_spaces {
                 self.client.event(SupportedColorSpace {
@@ -484,21 +484,19 @@ impl JayRandrRequestHandler for JayRandr {
             ));
         };
         let tf = 'tf: {
-            for tf in BackendTransferFunction::variants() {
-                if tf.name() == req.transfer_function {
+            for tf in BackendEotfs::variants() {
+                if tf.name() == req.eotf {
                     break 'tf tf;
                 }
             }
-            return Err(JayRandrError::UnknownTransferFunction(
-                req.transfer_function.to_string(),
-            ));
+            return Err(JayRandrError::UnknownEotf(req.eotf.to_string()));
         };
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
         let res = c.modify_state(&self.state, |s| {
             s.color_space = cs;
-            s.transfer_function = tf;
+            s.eotf = tf;
         });
         if let Err(e) = res {
             self.send_error(&format!(
@@ -551,7 +549,7 @@ pub enum JayRandrError {
     UnknownFormat(String),
     #[error("Unknown color space {0}")]
     UnknownColorSpace(String),
-    #[error("Unknown transfer function {0}")]
-    UnknownTransferFunction(String),
+    #[error("Unknown EOTF {0}")]
+    UnknownEotf(String),
 }
 efrom!(JayRandrError, ClientError);

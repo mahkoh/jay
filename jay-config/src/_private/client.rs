@@ -28,8 +28,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            ColorSpace, Connector, DrmDevice, Format, GfxApi, Mode, TearingMode, TransferFunction,
-            Transform, VrrMode,
+            ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode, Transform,
+            VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         window::{
@@ -1042,16 +1042,11 @@ impl ConfigClient {
         self.send(&ClientMessage::ConnectorSetFormat { connector, format });
     }
 
-    pub fn connector_set_colors(
-        &self,
-        connector: Connector,
-        color_space: ColorSpace,
-        transfer_function: TransferFunction,
-    ) {
+    pub fn connector_set_colors(&self, connector: Connector, color_space: ColorSpace, eotf: Eotf) {
         self.send(&ClientMessage::ConnectorSetColors {
             connector,
             color_space,
-            transfer_function,
+            eotf,
         });
     }
 

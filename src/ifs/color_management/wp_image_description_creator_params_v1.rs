@@ -2,9 +2,9 @@ use {
     crate::{
         client::{Client, ClientError},
         cmm::{
+            cmm_eotf::Eotf,
             cmm_luminance::{Luminance, TargetLuminance},
             cmm_primaries::{NamedPrimaries, Primaries},
-            cmm_transfer_function::TransferFunction,
         },
         ifs::color_management::{
             MIN_LUM_MUL_INV, PRIMARIES_MUL_INV,
@@ -40,7 +40,7 @@ pub struct WpImageDescriptionCreatorParamsV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
-    pub tf: Cell<Option<TransferFunction>>,
+    pub tf: Cell<Option<Eotf>>,
     pub primaries: Cell<Option<(Option<NamedPrimaries>, Primaries)>>,
     pub luminance: Cell<Option<Luminance>>,
     pub mastering_primaries: Cell<Option<Primaries>>,
@@ -53,19 +53,19 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
     type Error = WpImageDescriptionCreatorParamsV1Error;
 
     fn create(&self, req: Create, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let Some(transfer_function) = self.tf.get() else {
+        let Some(eotf) = self.tf.get() else {
             return Err(WpImageDescriptionCreatorParamsV1Error::TfNotSet);
         };
         let Some((named_primaries, primaries)) = self.primaries.get() else {
             return Err(WpImageDescriptionCreatorParamsV1Error::PrimariesNotSet);
         };
-        let default_luminance = match transfer_function {
-            TransferFunction::Bt1886 => Luminance::BT1886,
-            TransferFunction::St2084Pq => Luminance::ST2084_PQ,
+        let default_luminance = match eotf {
+            Eotf::Bt1886 => Luminance::BT1886,
+            Eotf::St2084Pq => Luminance::ST2084_PQ,
             _ => Luminance::SRGB,
         };
         let mut luminance = self.luminance.get().unwrap_or(default_luminance);
-        if transfer_function == TransferFunction::St2084Pq {
+        if eotf == Eotf::St2084Pq {
             luminance.max.0 = luminance.min.0 + 10_000.0;
         }
         if luminance.max.0 <= luminance.min.0 || luminance.white.0 <= luminance.min.0 {
@@ -80,7 +80,7 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             named_primaries,
             primaries,
             luminance,
-            transfer_function,
+            eotf,
             target_primaries,
             target_luminance,
             self.max_cll.get(),
@@ -102,17 +102,17 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
 
     fn set_tf_named(&self, req: SetTfNamed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let tf = match req.tf {
-            TRANSFER_FUNCTION_BT1886 => TransferFunction::Bt1886,
-            TRANSFER_FUNCTION_GAMMA22 => TransferFunction::Gamma22,
-            TRANSFER_FUNCTION_GAMMA28 => TransferFunction::Gamma28,
-            TRANSFER_FUNCTION_ST240 => TransferFunction::St240,
-            TRANSFER_FUNCTION_EXT_LINEAR => TransferFunction::Linear,
-            TRANSFER_FUNCTION_LOG_100 => TransferFunction::Log100,
-            TRANSFER_FUNCTION_LOG_316 => TransferFunction::Log316,
-            TRANSFER_FUNCTION_SRGB => TransferFunction::Gamma22,
-            TRANSFER_FUNCTION_EXT_SRGB => TransferFunction::Gamma22,
-            TRANSFER_FUNCTION_ST2084_PQ => TransferFunction::St2084Pq,
-            TRANSFER_FUNCTION_ST428 => TransferFunction::St428,
+            TRANSFER_FUNCTION_BT1886 => Eotf::Bt1886,
+            TRANSFER_FUNCTION_GAMMA22 => Eotf::Gamma22,
+            TRANSFER_FUNCTION_GAMMA28 => Eotf::Gamma28,
+            TRANSFER_FUNCTION_ST240 => Eotf::St240,
+            TRANSFER_FUNCTION_EXT_LINEAR => Eotf::Linear,
+            TRANSFER_FUNCTION_LOG_100 => Eotf::Log100,
+            TRANSFER_FUNCTION_LOG_316 => Eotf::Log316,
+            TRANSFER_FUNCTION_SRGB => Eotf::Gamma22,
+            TRANSFER_FUNCTION_EXT_SRGB => Eotf::Gamma22,
+            TRANSFER_FUNCTION_ST2084_PQ => Eotf::St2084Pq,
+            TRANSFER_FUNCTION_ST428 => Eotf::St428,
             _ => {
                 return Err(WpImageDescriptionCreatorParamsV1Error::UnsupportedTf(
                     req.tf,
@@ -261,9 +261,9 @@ pub enum WpImageDescriptionCreatorParamsV1Error {
     UnsupportedPrimaries(u32),
     #[error("set_tf_power is not supported")]
     SetTfPowerNotSupported,
-    #[error("{} is not a supported named transfer function", .0)]
+    #[error("{} is not a supported named EOTF", .0)]
     UnsupportedTf(u32),
-    #[error("The transfer function has already been set")]
+    #[error("The EOTF has already been set")]
     TfAlreadySet,
     #[error("The primaries have already been set")]
     PrimariesAlreadySet,
@@ -271,7 +271,7 @@ pub enum WpImageDescriptionCreatorParamsV1Error {
     LuminancesAlreadySet,
     #[error("The minimum luminance is too low")]
     MinLuminanceTooLow,
-    #[error("The transfer function was not set")]
+    #[error("The EOTF was not set")]
     TfNotSet,
     #[error("The primaries were not set")]
     PrimariesNotSet,

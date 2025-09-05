@@ -41,7 +41,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         tearing: false,
         format: XRGB8888,
         color_space: Default::default(),
-        transfer_function: Default::default(),
+        eotf: Default::default(),
     };
     let id = connector.id();
     let name = Rc::new(connector.kernel_id().to_string());
@@ -67,7 +67,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         tearing_mode: Default::default(),
         format: backend_state.format,
         color_space: backend_state.color_space,
-        transfer_function: backend_state.transfer_function,
+        eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
     };
@@ -199,7 +199,7 @@ impl ConnectorHandler {
             info.height_mm,
             &output_id,
             &desired_state,
-            info.transfer_functions.clone(),
+            info.eotfs.clone(),
             info.color_spaces.clone(),
             info.primaries,
             info.luminance,

@@ -32,9 +32,7 @@ impl HeadName {
     }
 
     fn after_transaction(&self, shared: &HeadState, tran: &HeadState) {
-        if (shared.color_space, shared.transfer_function)
-            != (tran.color_space, tran.transfer_function)
-        {
+        if (shared.color_space, shared.eotf) != (tran.color_space, tran.eotf) {
             self.send_state(shared);
         }
     }
@@ -42,7 +40,7 @@ impl HeadName {
     pub(in super::super) fn send_state(&self, state: &HeadState) {
         self.client.event(HdmiEotf {
             self_id: self.id,
-            eotf: state.transfer_function.to_drm() as u32,
+            eotf: state.eotf.to_drm() as u32,
         });
         self.client.event(Colorimetry {
             self_id: self.id,

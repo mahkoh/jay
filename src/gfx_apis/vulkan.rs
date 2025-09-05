@@ -6,6 +6,7 @@ mod command;
 mod descriptor;
 mod descriptor_buffer;
 mod device;
+mod eotfs;
 mod fence;
 mod format;
 mod image;
@@ -18,7 +19,6 @@ mod shaders;
 mod shm_image;
 mod staging;
 mod transfer;
-mod transfer_functions;
 
 use {
     crate::{

@@ -106,7 +106,7 @@ pub struct MonitorInfo {
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
-    pub transfer_functions: Vec<BackendTransferFunction>,
+    pub eotfs: Vec<BackendEotfs>,
     pub color_spaces: Vec<BackendColorSpace>,
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
@@ -540,7 +540,7 @@ pub trait BackendDrmLessee {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Linearize)]
-pub enum BackendTransferFunction {
+pub enum BackendEotfs {
     #[default]
     Default,
     Pq,
@@ -560,18 +560,18 @@ pub struct BackendLuminance {
     pub max_fall: f64,
 }
 
-impl BackendTransferFunction {
+impl BackendEotfs {
     pub fn to_drm(self) -> u8 {
         match self {
-            BackendTransferFunction::Default => HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
-            BackendTransferFunction::Pq => HDMI_EOTF_SMPTE_ST2084,
+            BackendEotfs::Default => HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+            BackendEotfs::Pq => HDMI_EOTF_SMPTE_ST2084,
         }
     }
 
     pub const fn name(self) -> &'static str {
         match self {
-            BackendTransferFunction::Default => "default",
-            BackendTransferFunction::Pq => "pq",
+            BackendEotfs::Default => "default",
+            BackendEotfs::Pq => "pq",
         }
     }
 }
@@ -609,5 +609,5 @@ pub struct BackendConnectorState {
     pub tearing: bool,
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
-    pub transfer_function: BackendTransferFunction,
+    pub eotf: BackendEotfs,
 }

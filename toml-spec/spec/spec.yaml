@@ -1956,10 +1956,10 @@ Output:
       description: |
         The color space of the output.
     transfer-function:
-      ref: TransferFunction
+      ref: Eotf
       required: false
       description: |
-        The transfer function of the output.
+        The EOTF of the output.
     brightness:
       ref: Brightness
       required: false
@@ -3293,15 +3293,15 @@ ColorSpace:
       description: The BT.2020 color space.
 
 
-TransferFunction:
+Eotf:
   description: |
-    The transfer function of an output.
+    The EOTF of an output.
   kind: string
   values:
     - value: default
-      description: The default transfer function (usually sRGB).
+      description: The default EOTF (usually gamma22).
     - value: pq
-      description: The PQ transfer function.
+      description: The PQ EOTF.
 
 
 Brightness:
@@ -3317,7 +3317,7 @@ Brightness:
           description: |
             The default brightness setting.       
             
-            The behavior depends on the transfer function:
+            The behavior depends on the EOTF:
             
             - `default`: The maximum brightness of the output.
             - `PQ`: 203 cd/m^2

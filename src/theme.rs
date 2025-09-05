@@ -1,7 +1,7 @@
 #![expect(clippy::excessive_precision)]
 
 use {
-    crate::{cmm::cmm_transfer_function::TransferFunction, utils::clonecell::CloneCell},
+    crate::{cmm::cmm_eotf::Eotf, utils::clonecell::CloneCell},
     num_traits::Float,
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
@@ -68,7 +68,7 @@ impl Color {
         a: 1.0,
     };
 
-    pub fn new(transfer_function: TransferFunction, mut r: f32, mut g: f32, mut b: f32) -> Self {
+    pub fn new(eotf: Eotf, mut r: f32, mut g: f32, mut b: f32) -> Self {
         #[inline(always)]
         fn linear(c: f32) -> f32 {
             c
@@ -111,28 +111,22 @@ impl Color {
                 b = $tf(b);
             }};
         }
-        match transfer_function {
-            TransferFunction::Linear => convert!(linear),
-            TransferFunction::St2084Pq => convert!(st2084_pq),
-            TransferFunction::Bt1886 => convert!(gamma24),
-            TransferFunction::Gamma22 => convert!(gamma22),
-            TransferFunction::Gamma28 => convert!(gamma28),
-            TransferFunction::St240 => convert!(st240),
-            TransferFunction::Log100 => convert!(log100),
-            TransferFunction::Log316 => convert!(log316),
-            TransferFunction::St428 => convert!(st428),
+        match eotf {
+            Eotf::Linear => convert!(linear),
+            Eotf::St2084Pq => convert!(st2084_pq),
+            Eotf::Bt1886 => convert!(gamma24),
+            Eotf::Gamma22 => convert!(gamma22),
+            Eotf::Gamma28 => convert!(gamma28),
+            Eotf::St240 => convert!(st240),
+            Eotf::Log100 => convert!(log100),
+            Eotf::Log316 => convert!(log316),
+            Eotf::St428 => convert!(st428),
         }
         Self { r, g, b, a: 1.0 }
     }
 
-    pub fn new_premultiplied(
-        transfer_function: TransferFunction,
-        mut r: f32,
-        mut g: f32,
-        mut b: f32,
-        a: f32,
-    ) -> Self {
-        if transfer_function == TransferFunction::Linear {
+    pub fn new_premultiplied(eotf: Eotf, mut r: f32, mut g: f32, mut b: f32, a: f32) -> Self {
+        if eotf == Eotf::Linear {
             return Self { r, g, b, a };
         }
         if a < 1.0 && a > 0.0 {
@@ -140,7 +134,7 @@ impl Color {
                 *c /= a;
             }
         }
-        let mut c = Self::new(transfer_function, r, g, b);
+        let mut c = Self::new(eotf, r, g, b);
         if a < 1.0 {
             c = c * a;
         }
@@ -156,40 +150,22 @@ impl Color {
     }
 
     pub fn from_srgb(r: u8, g: u8, b: u8) -> Self {
-        Self::new(TransferFunction::Gamma22, to_f32(r), to_f32(g), to_f32(b))
+        Self::new(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b))
     }
 
     pub fn from_srgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new_premultiplied(
-            TransferFunction::Gamma22,
-            to_f32(r),
-            to_f32(g),
-            to_f32(b),
-            to_f32(a),
-        )
+        Self::new_premultiplied(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b), to_f32(a))
     }
 
-    pub fn from_u32_premultiplied(
-        transfer_function: TransferFunction,
-        r: u32,
-        g: u32,
-        b: u32,
-        a: u32,
-    ) -> Self {
+    pub fn from_u32_premultiplied(eotf: Eotf, r: u32, g: u32, b: u32, a: u32) -> Self {
         fn to_f32(c: u32) -> f32 {
             ((c as f64) / (u32::MAX as f64)) as f32
         }
-        Self::new_premultiplied(
-            transfer_function,
-            to_f32(r),
-            to_f32(g),
-            to_f32(b),
-            to_f32(a),
-        )
+        Self::new_premultiplied(eotf, to_f32(r), to_f32(g), to_f32(b), to_f32(a))
     }
 
     pub fn from_srgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
-        let mut c = Self::new(TransferFunction::Gamma22, to_f32(r), to_f32(g), to_f32(b));
+        let mut c = Self::new(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b));
         if a < 255 {
             c = c * to_f32(a);
         }
@@ -197,15 +173,15 @@ impl Color {
     }
 
     pub fn to_srgba_premultiplied(self) -> [u8; 4] {
-        let [r, g, b, a] = self.to_array(TransferFunction::Gamma22);
+        let [r, g, b, a] = self.to_array(Eotf::Gamma22);
         [to_u8(r), to_u8(g), to_u8(b), to_u8(a)]
     }
 
-    pub fn to_array(self, transfer_function: TransferFunction) -> [f32; 4] {
-        self.to_array2(transfer_function, None)
+    pub fn to_array(self, eotf: Eotf) -> [f32; 4] {
+        self.to_array2(eotf, None)
     }
 
-    pub fn to_array2(self, transfer_function: TransferFunction, alpha: Option<f32>) -> [f32; 4] {
+    pub fn to_array2(self, eotf: Eotf, alpha: Option<f32>) -> [f32; 4] {
         let mut res = [self.r, self.g, self.b, self.a];
         fn linear(c: f32) -> f32 {
             c
@@ -254,22 +230,22 @@ impl Color {
                 }
             }};
         }
-        if transfer_function != TransferFunction::Linear {
+        if eotf != Eotf::Linear {
             if self.a < 1.0 && self.a > 0.0 {
                 for c in &mut res[..3] {
                     *c /= self.a;
                 }
             }
-            match transfer_function {
-                TransferFunction::Linear => convert!(linear),
-                TransferFunction::St2084Pq => convert!(st2084_pq),
-                TransferFunction::Bt1886 => convert!(gamma24),
-                TransferFunction::Gamma22 => convert!(gamma22),
-                TransferFunction::Gamma28 => convert!(gamma28),
-                TransferFunction::St240 => convert!(st240),
-                TransferFunction::Log100 => convert!(log100),
-                TransferFunction::Log316 => convert!(log316),
-                TransferFunction::St428 => convert!(st428),
+            match eotf {
+                Eotf::Linear => convert!(linear),
+                Eotf::St2084Pq => convert!(st2084_pq),
+                Eotf::Bt1886 => convert!(gamma24),
+                Eotf::Gamma22 => convert!(gamma22),
+                Eotf::Gamma28 => convert!(gamma28),
+                Eotf::St240 => convert!(st240),
+                Eotf::Log100 => convert!(log100),
+                Eotf::Log316 => convert!(log316),
+                Eotf::St428 => convert!(st428),
             }
             if self.a < 1.0 {
                 for c in &mut res[..3] {
@@ -298,7 +274,7 @@ impl Color {
 impl From<jay_config::theme::Color> for Color {
     fn from(f: jay_config::theme::Color) -> Self {
         let [r, g, b, a] = f.to_f32_premultiplied();
-        Self::new_premultiplied(TransferFunction::Gamma22, r, g, b, a)
+        Self::new_premultiplied(Eotf::Gamma22, r, g, b, a)
     }
 }
 

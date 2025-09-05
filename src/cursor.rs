@@ -397,7 +397,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             AcquireSync::None,
             ReleaseSync::None,
             false,
-            renderer.state.color_manager.srgb_srgb(),
+            renderer.state.color_manager.srgb_gamma22(),
         );
     }
 }
@@ -422,7 +422,7 @@ impl Cursor for StaticCursor {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
-                renderer.state.color_manager.srgb_srgb(),
+                renderer.state.color_manager.srgb_gamma22(),
             );
         }
     }
@@ -465,7 +465,7 @@ impl Cursor for AnimatedCursor {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
-                renderer.state.color_manager.srgb_srgb(),
+                renderer.state.color_manager.srgb_gamma22(),
             );
         }
     }

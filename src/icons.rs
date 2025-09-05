@@ -2,7 +2,7 @@
 
 use {
     crate::{
-        cmm::cmm_transfer_function::TransferFunction,
+        cmm::cmm_eotf::Eotf,
         format::ARGB8888,
         gfx_api::{GfxContext, GfxError, GfxTexture},
         scale::Scale,
@@ -221,7 +221,7 @@ impl PathBuilderExt for PathBuilder {
 
 impl From<crate::theme::Color> for Color {
     fn from(v: crate::theme::Color) -> Self {
-        let [r, g, b, a] = v.to_array(TransferFunction::Gamma22);
+        let [r, g, b, a] = v.to_array(Eotf::Gamma22);
         let mut c = Self::TRANSPARENT;
         c.set_red(r / a);
         c.set_green(g / a);
@@ -242,7 +242,7 @@ fn calculate_accents(srgb: crate::theme::Color) -> [Color; 2] {
 }
 
 fn srgb_to_lab(srgb: crate::theme::Color) -> [f32; 4] {
-    let [mut r, mut g, mut b, alpha] = srgb.to_array(TransferFunction::Gamma22);
+    let [mut r, mut g, mut b, alpha] = srgb.to_array(Eotf::Gamma22);
     if alpha < 1.0 {
         r /= alpha;
         g /= alpha;

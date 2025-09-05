@@ -814,7 +814,7 @@ The string should have one of the following values:
 
   The default brightness setting.       
   
-  The behavior depends on the transfer function:
+  The behavior depends on the EOTF:
   
   - `default`: The maximum brightness of the output.
   - `PQ`: 203 cd/m^2
@@ -2303,6 +2303,25 @@ The table has the following fields:
   The numbers should be integers.
 
 
+<a name="types-Eotf"></a>
+### `Eotf`
+
+The EOTF of an output.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `default`:
+
+  The default EOTF (usually gamma22).
+
+- `pq`:
+
+  The PQ EOTF.
+
+
+
 <a name="types-Exec"></a>
 ### `Exec`
 
@@ -3517,9 +3536,9 @@ The table has the following fields:
 
 - `transfer-function` (optional):
 
-  The transfer function of the output.
+  The EOTF of the output.
 
-  The value of this field should be a [TransferFunction](#types-TransferFunction).
+  The value of this field should be a [Eotf](#types-Eotf).
 
 - `brightness` (optional):
 
@@ -4212,25 +4231,6 @@ The string should have one of the following values:
 - `floating`:
 
   The window is floating.
-
-
-
-<a name="types-TransferFunction"></a>
-### `TransferFunction`
-
-The transfer function of an output.
-
-Values of this type should be strings.
-
-The string should have one of the following values:
-
-- `default`:
-
-  The default transfer function (usually sRGB).
-
-- `pq`:
-
-  The PQ transfer function.
 
 
 

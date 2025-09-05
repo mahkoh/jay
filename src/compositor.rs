@@ -652,7 +652,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing: false,
         format: XRGB8888,
         color_space: Default::default(),
-        transfer_function: Default::default(),
+        eotf: Default::default(),
     };
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
@@ -680,7 +680,7 @@ fn create_dummy_output(state: &Rc<State>) {
         tearing_mode: TearingMode::Never.to_config(),
         format: XRGB8888,
         color_space: backend_state.color_space,
-        transfer_function: backend_state.transfer_function,
+        eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
     };

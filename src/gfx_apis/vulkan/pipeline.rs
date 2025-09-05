@@ -40,7 +40,7 @@ pub(super) struct PipelineCreateInfo {
     pub(super) src_has_alpha: bool,
     pub(super) has_alpha_mult: bool,
     pub(super) eotf: u32,
-    pub(super) oetf: u32,
+    pub(super) inv_eotf: u32,
     pub(super) descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
     pub(super) has_color_management_data: bool,
 }
@@ -91,7 +91,7 @@ impl VulkanDevice {
         frag_spec_entry(&(info.src_has_alpha as u32).to_ne_bytes());
         frag_spec_entry(&(info.has_alpha_mult as u32).to_ne_bytes());
         frag_spec_entry(&info.eotf.to_ne_bytes());
-        frag_spec_entry(&info.oetf.to_ne_bytes());
+        frag_spec_entry(&info.inv_eotf.to_ne_bytes());
         frag_spec_entry(&(info.has_color_management_data as u32).to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)

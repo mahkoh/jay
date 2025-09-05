@@ -1723,7 +1723,7 @@ impl WlSurface {
     pub fn color_description(&self) -> Rc<ColorDescription> {
         match self.color_description.get() {
             Some(cd) => cd,
-            None => self.client.state.color_manager.srgb_srgb().clone(),
+            None => self.client.state.color_manager.srgb_gamma22().clone(),
         }
     }
 

@@ -192,7 +192,7 @@ impl GuiElement for Button {
     }
 
     fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x1: f32, y1: f32) {
-        let srgb_srgb = color_manager.srgb_srgb();
+        let srgb_srgb = color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         let x2 = x1 + self.data.width.get();
         let y2 = y1 + self.data.height.get();
@@ -331,7 +331,7 @@ impl GuiElement for Label {
                 AcquireSync::None,
                 ReleaseSync::None,
                 false,
-                color_manager.srgb_srgb(),
+                color_manager.srgb_gamma22(),
             );
         }
     }
@@ -644,10 +644,10 @@ impl WindowData {
         let res = buf.fb.render_custom(
             AcquireSync::Implicit,
             ReleaseSync::Implicit,
-            self.dpy.state.color_manager.srgb_srgb(),
+            self.dpy.state.color_manager.srgb_gamma22(),
             self.scale.get(),
             Some(&Color::from_gray_srgb(0)),
-            &self.dpy.state.color_manager.srgb_srgb().linear,
+            &self.dpy.state.color_manager.srgb_gamma22().linear,
             None,
             self.dpy.state.color_manager.srgb_linear(),
             &mut |r| {

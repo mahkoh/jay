@@ -12,8 +12,8 @@ use {
         theme::{Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            ColorSpace, Connector, DrmDevice, Format, GfxApi, TearingMode, TransferFunction,
-            Transform, VrrMode, connector_type::ConnectorType,
+            ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode, Transform,
+            VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -555,7 +555,7 @@ pub enum ClientMessage<'a> {
     ConnectorSetColors {
         connector: Connector,
         color_space: ColorSpace,
-        transfer_function: TransferFunction,
+        eotf: Eotf,
     },
     ConnectorSetBrightness {
         connector: Connector,

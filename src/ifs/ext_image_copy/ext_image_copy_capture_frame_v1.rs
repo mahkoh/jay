@@ -217,7 +217,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 aq,
                 re,
                 jay_config::video::Transform::None,
-                self.client.state.color_manager.srgb_srgb(),
+                self.client.state.color_manager.srgb_gamma22(),
                 on.global.pos.get(),
                 render_hardware_cursors,
                 x_off,
@@ -235,7 +235,7 @@ impl ExtImageCopyCaptureFrameV1 {
             fb.render_node(
                 aq,
                 re,
-                self.client.state.color_manager.srgb_srgb(),
+                self.client.state.color_manager.srgb_gamma22(),
                 node,
                 &self.client.state,
                 Some(node.node_absolute_position()),
