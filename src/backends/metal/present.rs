@@ -626,6 +626,7 @@ impl MetalConnector {
         &self,
         pass: &GfxRenderPass,
         plane: &Rc<MetalPlane>,
+        blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
     ) -> Option<DirectScanoutData> {
         let ct = 'ct: {
@@ -645,6 +646,10 @@ impl MetalConnector {
             };
             if !ct.cd.embeds_into(cd) {
                 // Direct scanout requires embeddable color descriptions.
+                return None;
+            }
+            if !ct.opaque && !ct.cd.embeds_into(blend_cd) {
+                // Blending changes the appearance of translucent buffers.
                 return None;
             }
             if ct.alpha.is_some() {
@@ -818,7 +823,7 @@ impl MetalConnector {
             && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, cd);
+            direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, blend_cd, cd);
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
