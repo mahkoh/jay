@@ -113,13 +113,13 @@ impl Color {
             c.powf(2.6) * 52.37 / 48.0
         }
         fn gamma22(c: f32) -> f32 {
-            c.powf(2.2)
+            c.signum() * c.abs().powf(2.2)
         }
         fn gamma24(c: f32) -> f32 {
-            c.powf(2.4)
+            c.signum() * c.abs().powf(2.4)
         }
         fn gamma28(c: f32) -> f32 {
-            c.powf(2.8)
+            c.signum() * c.abs().powf(2.8)
         }
         macro_rules! convert {
             ($tf:ident) => {{
@@ -274,13 +274,13 @@ impl Color {
             (48.0 * c / 52.37).powf(1.0 / 2.6)
         }
         fn gamma22(c: f32) -> f32 {
-            c.powf(1.0 / 2.2)
+            c.signum() * c.abs().powf(1.0 / 2.2)
         }
         fn gamma24(c: f32) -> f32 {
-            c.powf(1.0 / 2.4)
+            c.signum() * c.abs().powf(1.0 / 2.4)
         }
         fn gamma28(c: f32) -> f32 {
-            c.powf(1.0 / 2.8)
+            c.signum() * c.abs().powf(1.0 / 2.8)
         }
         macro_rules! convert {
             ($tf:ident) => {{
