@@ -97,7 +97,7 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         req: SetVisualizerColor,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let color = Color::new(TransferFunction::Srgb, req.r, req.g, req.b) * req.a;
+        let color = Color::new(TransferFunction::Gamma22, req.r, req.g, req.b) * req.a;
         self.client.state.damage_visualizer.set_color(color);
         Ok(())
     }

@@ -109,8 +109,8 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             TRANSFER_FUNCTION_EXT_LINEAR => TransferFunction::Linear,
             TRANSFER_FUNCTION_LOG_100 => TransferFunction::Log100,
             TRANSFER_FUNCTION_LOG_316 => TransferFunction::Log316,
-            TRANSFER_FUNCTION_SRGB => TransferFunction::Srgb,
-            TRANSFER_FUNCTION_EXT_SRGB => TransferFunction::ExtSrgb,
+            TRANSFER_FUNCTION_SRGB => TransferFunction::Gamma22,
+            TRANSFER_FUNCTION_EXT_SRGB => TransferFunction::Gamma22,
             TRANSFER_FUNCTION_ST2084_PQ => TransferFunction::St2084Pq,
             TRANSFER_FUNCTION_ST428 => TransferFunction::St428,
             _ => {

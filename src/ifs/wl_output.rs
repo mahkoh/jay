@@ -353,7 +353,7 @@ impl WlOutputGlobal {
                     };
                     luminance.white.0 = luminance.max.0 * brightness / output_max;
                 }
-                TransferFunction::Srgb
+                TransferFunction::Gamma22
             }
             BackendTransferFunction::Pq => {
                 luminance = Luminance::ST2084_PQ;

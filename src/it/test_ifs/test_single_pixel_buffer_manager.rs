@@ -32,7 +32,7 @@ impl TestSinglePixelBufferManager {
             destroyed: Cell::new(false),
         });
         let map = |c: f32| (c as f64 * u32::MAX as f64) as u32;
-        let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+        let [r, g, b, a] = color.to_array(TransferFunction::Gamma22);
         self.tran.send(CreateU32RgbaBuffer {
             self_id: self.id,
             id: obj.id,

@@ -86,7 +86,7 @@ impl DamageTracking {
             }
             DamageTrackingCmd::SetColor(c) => {
                 let color = parse_color(&c.color);
-                let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+                let [r, g, b, a] = color.to_array(TransferFunction::Gamma22);
                 tc.send(SetVisualizerColor {
                     self_id: dt,
                     r,

@@ -2365,7 +2365,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
         let color = self.get_color(colorable)?.get();
-        let [r, g, b, a] = color.to_array(TransferFunction::Srgb);
+        let [r, g, b, a] = color.to_array(TransferFunction::Gamma22);
         let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
         Ok(())

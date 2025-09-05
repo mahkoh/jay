@@ -63,7 +63,7 @@ impl ColorManager {
             Some(NamedPrimaries::Srgb),
             Primaries::SRGB,
             Luminance::SRGB,
-            TransferFunction::Srgb,
+            TransferFunction::Gamma22,
             Primaries::SRGB,
             Luminance::SRGB.to_target(),
             None,

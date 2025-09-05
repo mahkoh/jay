@@ -69,13 +69,6 @@ impl Color {
     };
 
     pub fn new(transfer_function: TransferFunction, mut r: f32, mut g: f32, mut b: f32) -> Self {
-        fn srgb(c: f32) -> f32 {
-            if c <= 0.04045 {
-                c / 12.92
-            } else {
-                ((c + 0.055) / 1.055).powf(2.4)
-            }
-        }
         #[inline(always)]
         fn linear(c: f32) -> f32 {
             c
@@ -85,16 +78,6 @@ impl Color {
             let num = (cp - 0.8359375).max(0.0);
             let den = 18.8515625 - 18.6875 * cp;
             (num / den).powf(1.0 / 0.1593017578125)
-        }
-        fn ext_srgb(c: f32) -> f32 {
-            let c = c.clamp(-0.6038, 7.5913);
-            if c <= -0.0031308 {
-                -1.055 * (-c).powf(1.0 / 2.4) + 0.055
-            } else if c <= 0.0031308 {
-                c * 12.92
-            } else {
-                1.055 * c.powf(1.0 / 2.4) - 0.055
-            }
         }
         fn st240(c: f32) -> f32 {
             if c < 0.0913 {
@@ -129,14 +112,12 @@ impl Color {
             }};
         }
         match transfer_function {
-            TransferFunction::Srgb => convert!(srgb),
             TransferFunction::Linear => convert!(linear),
             TransferFunction::St2084Pq => convert!(st2084_pq),
             TransferFunction::Bt1886 => convert!(gamma24),
             TransferFunction::Gamma22 => convert!(gamma22),
             TransferFunction::Gamma28 => convert!(gamma28),
             TransferFunction::St240 => convert!(st240),
-            TransferFunction::ExtSrgb => convert!(ext_srgb),
             TransferFunction::Log100 => convert!(log100),
             TransferFunction::Log316 => convert!(log316),
             TransferFunction::St428 => convert!(st428),
@@ -175,12 +156,12 @@ impl Color {
     }
 
     pub fn from_srgb(r: u8, g: u8, b: u8) -> Self {
-        Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b))
+        Self::new(TransferFunction::Gamma22, to_f32(r), to_f32(g), to_f32(b))
     }
 
     pub fn from_srgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::new_premultiplied(
-            TransferFunction::Srgb,
+            TransferFunction::Gamma22,
             to_f32(r),
             to_f32(g),
             to_f32(b),
@@ -208,7 +189,7 @@ impl Color {
     }
 
     pub fn from_srgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
-        let mut c = Self::new(TransferFunction::Srgb, to_f32(r), to_f32(g), to_f32(b));
+        let mut c = Self::new(TransferFunction::Gamma22, to_f32(r), to_f32(g), to_f32(b));
         if a < 255 {
             c = c * to_f32(a);
         }
@@ -216,7 +197,7 @@ impl Color {
     }
 
     pub fn to_srgba_premultiplied(self) -> [u8; 4] {
-        let [r, g, b, a] = self.to_array(TransferFunction::Srgb);
+        let [r, g, b, a] = self.to_array(TransferFunction::Gamma22);
         [to_u8(r), to_u8(g), to_u8(b), to_u8(a)]
     }
 
@@ -226,13 +207,6 @@ impl Color {
 
     pub fn to_array2(self, transfer_function: TransferFunction, alpha: Option<f32>) -> [f32; 4] {
         let mut res = [self.r, self.g, self.b, self.a];
-        fn srgb(c: f32) -> f32 {
-            if c <= 0.0031308 {
-                c * 12.92
-            } else {
-                1.055 * c.powf(1.0 / 2.4) - 0.055
-            }
-        }
         fn linear(c: f32) -> f32 {
             c
         }
@@ -241,15 +215,6 @@ impl Color {
             let num = 0.8359375 + 18.8515625 * c.powf(0.1593017578125);
             let den = 1.0 + 18.6875 * c.powf(0.1593017578125);
             (num / den).powf(78.84375)
-        }
-        fn ext_srgb(c: f32) -> f32 {
-            if c < -0.04045 {
-                -((c - 0.055) / -1.055).powf(2.4)
-            } else if c < 0.04045 {
-                c / 12.92
-            } else {
-                ((c + 0.055) / 1.055).powf(2.4)
-            }
         }
         fn st240(c: f32) -> f32 {
             if c < 0.0228 {
@@ -296,14 +261,12 @@ impl Color {
                 }
             }
             match transfer_function {
-                TransferFunction::Srgb => convert!(srgb),
                 TransferFunction::Linear => convert!(linear),
                 TransferFunction::St2084Pq => convert!(st2084_pq),
                 TransferFunction::Bt1886 => convert!(gamma24),
                 TransferFunction::Gamma22 => convert!(gamma22),
                 TransferFunction::Gamma28 => convert!(gamma28),
                 TransferFunction::St240 => convert!(st240),
-                TransferFunction::ExtSrgb => convert!(ext_srgb),
                 TransferFunction::Log100 => convert!(log100),
                 TransferFunction::Log316 => convert!(log316),
                 TransferFunction::St428 => convert!(st428),
@@ -335,7 +298,7 @@ impl Color {
 impl From<jay_config::theme::Color> for Color {
     fn from(f: jay_config::theme::Color) -> Self {
         let [r, g, b, a] = f.to_f32_premultiplied();
-        Self::new_premultiplied(TransferFunction::Srgb, r, g, b, a)
+        Self::new_premultiplied(TransferFunction::Gamma22, r, g, b, a)
     }
 }
 
