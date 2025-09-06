@@ -5,7 +5,7 @@ use {
         gfx_apis::gl::{
             RenderError,
             egl::{
-                PROCS,
+                EXTS, PROCS,
                 context::EglContext,
                 image::EglImage,
                 sys::{
@@ -26,9 +26,10 @@ use {
             },
             ext::{
                 ANDROID_NATIVE_FENCE_SYNC, DisplayExt, EXT_CREATE_CONTEXT_ROBUSTNESS,
-                EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, GL_OES_EGL_IMAGE, GL_OES_EGL_IMAGE_EXTERNAL,
-                GlExt, KHR_FENCE_SYNC, KHR_IMAGE_BASE, KHR_NO_CONFIG_CONTEXT,
-                KHR_SURFACELESS_CONTEXT, KHR_WAIT_SYNC, MESA_CONFIGLESS_CONTEXT, get_display_ext,
+                EXT_DEVICE_QUERY, EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, GL_OES_EGL_IMAGE,
+                GL_OES_EGL_IMAGE_EXTERNAL, GlExt, KHR_FENCE_SYNC, KHR_IMAGE_BASE,
+                KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT, KHR_WAIT_SYNC,
+                MESA_CONFIGLESS_CONTEXT, MESA_DEVICE_SOFTWARE, get_device_ext, get_display_ext,
                 get_gl_ext,
             },
             proc::ExtProc,
@@ -70,7 +71,10 @@ pub struct EglDisplay {
 }
 
 impl EglDisplay {
-    pub(in crate::gfx_apis::gl) fn create(drm: &Drm) -> Result<Rc<Self>, RenderError> {
+    pub(in crate::gfx_apis::gl) fn create(
+        drm: &Drm,
+        software: bool,
+    ) -> Result<Rc<Self>, RenderError> {
         unsafe {
             let Some(egl) = EGL.as_ref() else {
                 return Err(RenderError::LoadEgl);
@@ -107,6 +111,11 @@ impl EglDisplay {
             let mut minor = 0;
             if (egl.eglInitialize)(dpy.dpy, &mut major, &mut minor) != EGL_TRUE {
                 return Err(RenderError::Initialize);
+            }
+            if !software && EXTS.contains(EXT_DEVICE_QUERY) {
+                if get_device_ext(procs, dpy.dpy)?.contains(MESA_DEVICE_SOFTWARE) {
+                    return Err(RenderError::NoHardwareRenderer);
+                }
             }
             dpy.exts = get_display_ext(dpy.dpy);
             if !dpy.exts.intersects(KHR_IMAGE_BASE) {
