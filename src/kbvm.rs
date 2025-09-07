@@ -33,21 +33,18 @@ pub enum KbvmError {
 
 pub struct KbvmContext {
     pub ctx: xkb::Context,
-    pub ids: KbvmMapIds,
 }
 
 impl Default for KbvmContext {
     fn default() -> Self {
         let mut ctx = xkb::Context::builder();
         ctx.enable_environment(true);
-        Self {
-            ctx: ctx.build(),
-            ids: Default::default(),
-        }
+        Self { ctx: ctx.build() }
     }
 }
 
-linear_ids!(KbvmMapIds, KbvmMapId, u64);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct KbvmMapId([u8; 32]);
 
 pub struct KbvmMap {
     pub id: KbvmMapId,
@@ -90,7 +87,7 @@ impl KbvmContext {
             .map_err(KbvmError::CouldNotParseKeymap)?;
         let builder = map.to_builder();
         Ok(Rc::new(KbvmMap {
-            id: self.ids.next(),
+            id: KbvmMapId(*blake3::hash(keymap).as_bytes()),
             state_machine: builder.build_state_machine(),
             map: create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?,
             xwayland_map: create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?,
