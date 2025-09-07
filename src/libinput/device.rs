@@ -7,7 +7,7 @@ use {
             LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
             LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
             LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED, LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
-            LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED,
+            LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED, Led,
         },
         sys::{
             libinput_device, libinput_device_config_accel_get_profile,
@@ -36,8 +36,9 @@ use {
             libinput_device_get_id_vendor, libinput_device_get_name, libinput_device_get_user_data,
             libinput_device_group, libinput_device_group_get_user_data,
             libinput_device_group_set_user_data, libinput_device_has_capability,
-            libinput_device_set_user_data, libinput_device_tablet_pad_get_mode_group,
-            libinput_device_tablet_pad_get_num_buttons, libinput_device_tablet_pad_get_num_dials,
+            libinput_device_led_update, libinput_device_set_user_data,
+            libinput_device_tablet_pad_get_mode_group, libinput_device_tablet_pad_get_num_buttons,
+            libinput_device_tablet_pad_get_num_dials,
             libinput_device_tablet_pad_get_num_mode_groups,
             libinput_device_tablet_pad_get_num_rings, libinput_device_tablet_pad_get_num_strips,
             libinput_device_unref, libinput_path_remove_device, libinput_tablet_pad_mode_group,
@@ -342,6 +343,12 @@ impl<'a> LibInputDevice<'a> {
             libinput_device_config_calibration_get_matrix(self.dev, &mut m);
         }
         [[m[0], m[1], m[2]], [m[3], m[4], m[5]]]
+    }
+
+    pub fn led_update(&self, led: Led) {
+        unsafe {
+            libinput_device_led_update(self.dev, led.raw() as _);
+        }
     }
 }
 

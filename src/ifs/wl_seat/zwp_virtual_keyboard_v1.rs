@@ -84,6 +84,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
             xwayland_map: map.xwayland_map.clone(),
             pressed_keys: Default::default(),
             mods: Default::default(),
+            mods_changed: Default::default(),
         };
         Ok(())
     }
@@ -112,11 +113,15 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
 
     fn modifiers(&self, req: Modifiers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let kb_state = &mut *self.kb_state.borrow_mut();
+        let locked_mods = kb_state.mods.mods_locked;
         kb_state.mods.mods_pressed.0 = req.mods_depressed;
         kb_state.mods.mods_latched.0 = req.mods_latched;
         kb_state.mods.mods_locked.0 = req.mods_locked;
         kb_state.mods.group_locked.0 = req.group;
         kb_state.mods.update_effective();
+        if locked_mods != kb_state.mods.mods_locked {
+            kb_state.dispatch_locked_mods_listeners();
+        }
         self.for_each_kb(|serial, surface, kb| {
             kb.on_mods_changed(serial, surface.id, &kb_state);
         });

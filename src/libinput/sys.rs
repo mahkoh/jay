@@ -410,6 +410,8 @@ unsafe extern "C" {
         device: *mut libinput_device,
         matrix: *mut [f32; 6],
     ) -> c::c_int;
+
+    pub fn libinput_device_led_update(device: *mut libinput_device, leds: libinput_led);
 }
 
 #[repr(C)]

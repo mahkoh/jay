@@ -90,6 +90,7 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
                 xwayland_map: seat_keymap.xwayland_map.clone(),
                 pressed_keys: Default::default(),
                 mods: Default::default(),
+                mods_changed: Default::default(),
             })),
         });
         track!(self.client, kb);

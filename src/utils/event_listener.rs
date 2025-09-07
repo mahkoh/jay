@@ -78,4 +78,8 @@ impl<T: ?Sized> EventListener<T> {
     pub fn detach(&self) {
         self.link.detach();
     }
+
+    pub fn get(&self) -> Option<Rc<T>> {
+        self.link.upgrade()
+    }
 }

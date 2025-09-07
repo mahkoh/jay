@@ -24,7 +24,7 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::KeyState,
+        backend::{KeyState, LED_CAPS_LOCK, LED_NUM_LOCK, Leds},
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -75,7 +75,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         kbvm::{KbvmMap, KbvmMapId, KbvmState, PhysicalKeyboardState},
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd},
+        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd, ModifiersListener},
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
@@ -91,6 +91,7 @@ use {
             bindings::PerClientBindings,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            event_listener::{EventListener, EventSource},
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             on_drop::OnDrop,
@@ -106,7 +107,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::keyboard::syms::{KeySym, SYM_Escape},
-    kbvm::Keycode,
+    kbvm::{Components, Keycode, ModifierMask},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -235,6 +236,8 @@ pub struct WlSeatGlobal {
     focus_history_same_workspace: Cell<bool>,
     mark_mode: Cell<Option<MarkMode>>,
     marks: CopyHashMap<Keycode, Rc<dyn Node>>,
+    modifiers_listener: EventListener<dyn ModifiersListener>,
+    modifiers_forward: EventSource<dyn ModifiersListener>,
 }
 
 #[derive(Copy, Clone)]
@@ -256,7 +259,7 @@ impl WlSeatGlobal {
         let cursor_user_group = CursorUserGroup::create(state);
         let cursor_user = cursor_user_group.create_user();
         cursor_user.activate();
-        let slf = Rc::new(Self {
+        let slf = Rc::new_cyclic(|slf: &Weak<WlSeatGlobal>| Self {
             id: state.seat_ids.next(),
             name,
             state: state.clone(),
@@ -322,8 +325,12 @@ impl WlSeatGlobal {
             focus_history_same_workspace: Cell::new(false),
             mark_mode: Default::default(),
             marks: Default::default(),
+            modifiers_listener: EventListener::new(slf.clone()),
+            modifiers_forward: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
+        slf.modifiers_listener
+            .attach(&seat_kb_state.borrow().kb_state.mods_changed);
         let seat = slf.clone();
         let future = state.eng.spawn("seat handler", async move {
             loop {
@@ -516,14 +523,27 @@ impl WlSeatGlobal {
         false
     }
 
-    pub fn set_seat_keymap(&self, keymap: &Rc<KbvmMap>) {
+    pub fn set_seat_keymap(self: &Rc<Self>, keymap: &Rc<KbvmMap>) {
         self.seat_kb_map.set(keymap.clone());
         let new = self.get_kb_state(keymap);
         let old = self.seat_kb_state.set(new.clone());
         if rc_eq(&old, &new) {
             return;
         }
-        self.kb_devices.lock().retain(|_, p| p.has_custom_map.get());
+        let mut to_destroy = vec![];
+        for (id, s) in self.kb_devices.lock().iter() {
+            if !s.has_custom_map.get() {
+                to_destroy.push(*id);
+            }
+        }
+        for dev in to_destroy {
+            self.destroy_physical_keyboard(dev);
+        }
+        {
+            let new = &*new.borrow();
+            self.modifiers_listener.attach(&new.kb_state.mods_changed);
+            self.dispatch_seat_modifiers_listeners(&new.kb_state.mods);
+        }
         self.handle_keyboard_state_change(&old.borrow().kb_state, &new.borrow().kb_state);
     }
 
@@ -556,6 +576,35 @@ impl WlSeatGlobal {
         let s = Rc::new(RefCell::new(s));
         self.kb_states.set(keymap.id, Rc::downgrade(&s));
         s
+    }
+
+    fn attach_modifiers_listener(
+        &self,
+        id: PhysicalKeyboardId,
+        listener: &EventListener<dyn ModifiersListener>,
+        map: Option<&Rc<KbvmMap>>,
+    ) {
+        let _ = self.get_physical_keyboard(id, map);
+        let state = match map {
+            None => {
+                listener.attach(&self.modifiers_forward);
+                self.seat_kb_state.get()
+            }
+            Some(m) => {
+                let state = self.get_kb_state(m);
+                listener.attach(&state.borrow().kb_state.mods_changed);
+                state
+            }
+        };
+        if let Some(l) = listener.get() {
+            l.locked_mods(&state.borrow().kb_state.mods);
+        }
+    }
+
+    fn dispatch_seat_modifiers_listeners(&self, mods: &Components) {
+        for listener in self.modifiers_forward.iter() {
+            listener.locked_mods(mods);
+        }
     }
 
     pub fn prepare_for_lock(self: &Rc<Self>) {
@@ -1639,17 +1688,32 @@ impl DeviceHandlerData {
                 seat.update_capabilities();
             }
         }
+        self.attach_event_listeners();
     }
 
     fn destroy_physical_keyboard_state(&self) {
+        self.mods_listener.detach();
         if let Some(seat) = self.seat.get() {
             seat.destroy_physical_keyboard(self.keyboard_id);
+        };
+    }
+
+    fn attach_event_listeners(&self) {
+        if self.is_kb
+            && let Some(seat) = self.seat.get()
+        {
+            seat.attach_modifiers_listener(
+                self.keyboard_id,
+                &self.mods_listener,
+                self.keymap.get().as_ref(),
+            );
         };
     }
 
     pub fn set_keymap(&self, keymap: Option<Rc<KbvmMap>>) {
         self.destroy_physical_keyboard_state();
         self.keymap.set(keymap);
+        self.attach_event_listeners();
     }
 
     pub fn set_output(&self, output: Option<&WlOutputGlobal>) {
@@ -1672,6 +1736,25 @@ impl DeviceHandlerData {
             return output.pos.get();
         }
         state.root.extents.get()
+    }
+}
+
+impl ModifiersListener for DeviceHandlerData {
+    fn locked_mods(&self, mods: &Components) {
+        let mut leds = Leds::none();
+        if mods.mods_locked.contains(ModifierMask::NUM_LOCK) {
+            leds |= LED_NUM_LOCK;
+        }
+        if mods.mods_locked.contains(ModifierMask::LOCK) {
+            leds |= LED_CAPS_LOCK;
+        }
+        self.device.set_enabled_leds(leds);
+    }
+}
+
+impl ModifiersListener for WlSeatGlobal {
+    fn locked_mods(&self, mods: &Components) {
+        self.dispatch_seat_modifiers_listeners(mods);
     }
 }
 
