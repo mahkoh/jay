@@ -523,14 +523,22 @@ impl WlSeatGlobal {
         false
     }
 
-    pub fn set_seat_keymap(&self, keymap: &Rc<KbvmMap>) {
+    pub fn set_seat_keymap(self: &Rc<Self>, keymap: &Rc<KbvmMap>) {
         self.seat_kb_map.set(keymap.clone());
         let new = self.get_kb_state(keymap);
         let old = self.seat_kb_state.set(new.clone());
         if rc_eq(&old, &new) {
             return;
         }
-        self.kb_devices.lock().retain(|_, p| p.has_custom_map.get());
+        let mut to_destroy = vec![];
+        for (id, s) in self.kb_devices.lock().iter() {
+            if !s.has_custom_map.get() {
+                to_destroy.push(*id);
+            }
+        }
+        for dev in to_destroy {
+            self.destroy_physical_keyboard(dev);
+        }
         {
             let new = &*new.borrow();
             self.modifiers_listener.attach(&new.kb_state.mods_changed);
