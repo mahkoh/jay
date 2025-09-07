@@ -1,5 +1,9 @@
 use {
-    crate::utils::{event_listener::EventSource, oserror::OsError, vecset::VecSet},
+    crate::{
+        backend::{LED_CAPS_LOCK, LED_COMPOSE, LED_KANA, LED_NUM_LOCK, LED_SCROLL_LOCK, Leds},
+        kbvm::KbvmMap,
+        utils::{event_listener::EventSource, oserror::OsError, vecset::VecSet},
+    },
     kbvm::{Components, state_machine::Event},
     std::{
         cell::{Ref, RefCell},
@@ -21,15 +25,15 @@ linear_ids!(KeyboardStateIds, KeyboardStateId, u64);
 
 pub struct KeyboardState {
     pub id: KeyboardStateId,
-    pub map: KeymapFd,
-    pub xwayland_map: KeymapFd,
+    pub map: Rc<KbvmMap>,
     pub pressed_keys: VecSet<u32>,
     pub mods: Components,
-    pub mods_changed: EventSource<dyn ModifiersListener>,
+    pub leds: Leds,
+    pub leds_changed: EventSource<dyn LedsListener>,
 }
 
-pub trait ModifiersListener {
-    fn locked_mods(&self, mods: &Components);
+pub trait LedsListener {
+    fn leds(&self, leds: Leds);
 }
 
 pub trait DynKeyboardState {
@@ -44,17 +48,37 @@ impl DynKeyboardState for RefCell<KeyboardState> {
 
 impl KeyboardState {
     pub fn apply_event(&mut self, event: Event) -> bool {
-        let locked_mods = self.mods.mods_locked;
         let changed = self.mods.apply_event(event);
-        if locked_mods != self.mods.mods_locked {
-            self.dispatch_locked_mods_listeners();
+        if changed && self.map.has_indicators {
+            self.update_leds();
         }
         changed
     }
 
-    pub fn dispatch_locked_mods_listeners(&self) {
-        for listener in self.mods_changed.iter() {
-            listener.locked_mods(&self.mods);
+    pub fn update_leds(&mut self) {
+        if !self.map.has_indicators {
+            return;
+        }
+        let mut new = Leds::none();
+        macro_rules! map_led {
+            ($field:ident, $led:ident) => {
+                if let Some(m) = &self.map.$field
+                    && m.matches(&self.mods)
+                {
+                    new |= $led;
+                }
+            };
+        }
+        map_led!(num_lock, LED_NUM_LOCK);
+        map_led!(caps_lock, LED_CAPS_LOCK);
+        map_led!(scroll_lock, LED_SCROLL_LOCK);
+        map_led!(compose, LED_COMPOSE);
+        map_led!(kana, LED_KANA);
+        if new != self.leds {
+            self.leds = new;
+            for listener in self.leds_changed.iter() {
+                listener.leds(new);
+            }
         }
     }
 }

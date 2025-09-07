@@ -12,6 +12,7 @@ use {
         xkb::{
             self, Keymap,
             diagnostic::{Diagnostic, WriteToLog},
+            keymap::{Indicator, IndicatorMatcher},
         },
     },
     std::{
@@ -52,6 +53,12 @@ pub struct KbvmMap {
     pub lookup_table: LookupTable,
     pub map: KeymapFd,
     pub xwayland_map: KeymapFd,
+    pub has_indicators: bool,
+    pub num_lock: Option<IndicatorMatcher>,
+    pub caps_lock: Option<IndicatorMatcher>,
+    pub scroll_lock: Option<IndicatorMatcher>,
+    pub compose: Option<IndicatorMatcher>,
+    pub kana: Option<IndicatorMatcher>,
 }
 
 pub struct KbvmState {
@@ -85,6 +92,23 @@ impl KbvmContext {
             .ctx
             .keymap_from_bytes(WriteToLog, None, keymap)
             .map_err(KbvmError::CouldNotParseKeymap)?;
+        let mut has_indicators = false;
+        let mut num_lock = None;
+        let mut caps_lock = None;
+        let mut scroll_lock = None;
+        let mut compose = None;
+        let mut kana = None;
+        for indicator in map.indicators() {
+            match indicator.name() {
+                Indicator::NUM_LOCK => num_lock = Some(indicator.matcher()),
+                Indicator::CAPS_LOCK => caps_lock = Some(indicator.matcher()),
+                Indicator::SCROLL_LOCK => scroll_lock = Some(indicator.matcher()),
+                Indicator::COMPOSE => compose = Some(indicator.matcher()),
+                Indicator::KANA => kana = Some(indicator.matcher()),
+                _ => continue,
+            }
+            has_indicators = true;
+        }
         let builder = map.to_builder();
         Ok(Rc::new(KbvmMap {
             id: KbvmMapId(*blake3::hash(keymap).as_bytes()),
@@ -92,6 +116,12 @@ impl KbvmContext {
             map: create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?,
             xwayland_map: create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?,
             lookup_table: builder.build_lookup_table(),
+            has_indicators,
+            num_lock,
+            caps_lock,
+            scroll_lock,
+            compose,
+            kana,
         }))
     }
 }
@@ -123,11 +153,11 @@ impl KbvmMap {
             state: self.state_machine.create_state(),
             kb_state: KeyboardState {
                 id,
-                map: self.map.clone(),
-                xwayland_map: self.xwayland_map.clone(),
+                map: self.clone(),
                 pressed_keys: Default::default(),
                 mods: Default::default(),
-                mods_changed: Default::default(),
+                leds: Default::default(),
+                leds_changed: Default::default(),
             },
         }
     }

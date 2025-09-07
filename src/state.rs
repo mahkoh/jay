@@ -83,7 +83,7 @@ use {
         },
         io_uring::IoUring,
         kbvm::{KbvmContext, KbvmMap},
-        keyboard::{KeyboardStateIds, ModifiersListener},
+        keyboard::{KeyboardStateIds, LedsListener},
         leaks::Tracker,
         logger::Logger,
         pr_caps::PrCapsThread,
@@ -397,7 +397,7 @@ pub struct DeviceHandlerData {
     pub tablet_pad_init: Option<Box<TabletPadInit>>,
     pub is_touch: bool,
     pub is_kb: bool,
-    pub mods_listener: EventListener<dyn ModifiersListener>,
+    pub mods_listener: EventListener<dyn LedsListener>,
 }
 
 pub struct ConnectorData {
