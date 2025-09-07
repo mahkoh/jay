@@ -130,6 +130,7 @@ impl KbvmMap {
                 xwayland_map: self.xwayland_map.clone(),
                 pressed_keys: Default::default(),
                 mods: Default::default(),
+                mods_changed: Default::default(),
             },
         }
     }
@@ -139,7 +140,7 @@ impl KbvmState {
     pub fn apply_events(&mut self, events: &SyncQueue<Event>) {
         let state = &mut self.kb_state;
         while let Some(event) = events.pop() {
-            state.mods.apply_event(event);
+            state.apply_event(event);
             match event {
                 Event::KeyDown(kc) => {
                     state.pressed_keys.insert(kc.to_evdev());

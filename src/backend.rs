@@ -259,6 +259,10 @@ pub trait InputDevice {
     fn tablet_pad_info(&self) -> Option<Box<TabletPadInit>> {
         None
     }
+
+    fn set_enabled_leds(&self, leds: Leds) {
+        let _ = leds;
+    }
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -327,6 +331,15 @@ pub enum AxisSource {
 }
 
 pub const AXIS_120: i32 = 120;
+
+bitflags! {
+    Leds: u32;
+        LED_NUM_LOCK = 1 << 0,
+        LED_CAPS_LOCK = 1 << 1,
+        LED_SCROLL_LOCK = 1 << 2,
+        LED_COMPOSE = 1 << 3,
+        LED_KANA = 1 << 4,
+}
 
 #[derive(Debug)]
 pub enum InputEvent {

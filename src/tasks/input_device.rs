@@ -4,10 +4,13 @@ use {
         ifs::wl_seat::PX_PER_SCROLL,
         state::{DeviceHandlerData, InputDeviceData, State},
         tasks::udev_utils::{UdevProps, udev_props},
-        utils::asyncevent::AsyncEvent,
+        utils::{asyncevent::AsyncEvent, event_listener::EventListener},
     },
     jay_config::_private::DEFAULT_SEAT_NAME,
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::Cell,
+        rc::{Rc, Weak},
+    },
 };
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
@@ -15,7 +18,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         None => UdevProps::default(),
         Some(dev_t) => udev_props(dev_t, 3),
     };
-    let data = Rc::new(DeviceHandlerData {
+    let data = Rc::new_cyclic(|slf: &Weak<DeviceHandlerData>| DeviceHandlerData {
         keyboard_id: state.physical_keyboard_ids.next(),
         seat: Default::default(),
         px_per_scroll_wheel: Cell::new(PX_PER_SCROLL),
@@ -27,6 +30,8 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         tablet_init: dev.tablet_info(),
         tablet_pad_init: dev.tablet_pad_info(),
         is_touch: dev.has_capability(InputDeviceCapability::Touch),
+        is_kb: dev.has_capability(InputDeviceCapability::Keyboard),
+        mods_listener: EventListener::new(slf.clone()),
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {

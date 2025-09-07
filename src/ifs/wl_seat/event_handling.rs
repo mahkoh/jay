@@ -890,7 +890,7 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let mut components_changed = false;
         while let Some(event) = events.pop() {
-            components_changed |= kbvm_state.kb_state.mods.apply_event(event);
+            components_changed |= kbvm_state.kb_state.apply_event(event);
             let (key_state, kc) = match event {
                 Event::KeyDown(kc) => (KeyState::Pressed, kc),
                 Event::KeyUp(kc) => (KeyState::Released, kc),

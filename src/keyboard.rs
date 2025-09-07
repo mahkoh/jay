@@ -1,6 +1,6 @@
 use {
-    crate::utils::{oserror::OsError, vecset::VecSet},
-    kbvm::Components,
+    crate::utils::{event_listener::EventSource, oserror::OsError, vecset::VecSet},
+    kbvm::{Components, state_machine::Event},
     std::{
         cell::{Ref, RefCell},
         rc::Rc,
@@ -25,6 +25,11 @@ pub struct KeyboardState {
     pub xwayland_map: KeymapFd,
     pub pressed_keys: VecSet<u32>,
     pub mods: Components,
+    pub mods_changed: EventSource<dyn ModifiersListener>,
+}
+
+pub trait ModifiersListener {
+    fn locked_mods(&self, mods: &Components);
 }
 
 pub trait DynKeyboardState {
@@ -34,6 +39,23 @@ pub trait DynKeyboardState {
 impl DynKeyboardState for RefCell<KeyboardState> {
     fn borrow(&self) -> Ref<'_, KeyboardState> {
         self.borrow()
+    }
+}
+
+impl KeyboardState {
+    pub fn apply_event(&mut self, event: Event) -> bool {
+        let locked_mods = self.mods.mods_locked;
+        let changed = self.mods.apply_event(event);
+        if locked_mods != self.mods.mods_locked {
+            self.dispatch_locked_mods_listeners();
+        }
+        changed
+    }
+
+    pub fn dispatch_locked_mods_listeners(&self) {
+        for listener in self.mods_changed.iter() {
+            listener.locked_mods(&self.mods);
+        }
     }
 }
 

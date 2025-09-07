@@ -9,7 +9,7 @@ use {
         async_engine::SpawnedFuture,
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState,
+            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, Leds,
             TransformMatrix, transaction::BackendConnectorTransactionError,
         },
         backends::metal::video::{
@@ -31,7 +31,7 @@ use {
                 AccelProfile, ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
                 LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
                 LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
-                LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL,
+                LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL, Led,
             },
             device::{LibInputDevice, RegisteredDevice},
         },
@@ -373,6 +373,7 @@ struct InputDeviceProperties {
     calibration_matrix: Cell<Option<[[f32; 3]; 2]>>,
     click_method: Cell<Option<ConfigClickMethod>>,
     middle_button_emulation_enabled: Cell<Option<bool>>,
+    enabled_leds: Cell<Option<Led>>,
 }
 
 #[derive(Clone)]
@@ -441,6 +442,9 @@ impl MetalInputDevice {
         }
         if let Some(enabled) = self.desired.middle_button_emulation_enabled.get() {
             self.set_middle_button_emulation_enabled(enabled);
+        }
+        if let Some(led) = self.desired.enabled_leds.get() {
+            self.set_enabled_leds_(led);
         }
         self.fetch_effective();
     }
@@ -525,6 +529,14 @@ impl MetalInputDevice {
             self.effective
                 .click_method
                 .set(Some(dev.device().click_method()));
+        }
+    }
+
+    fn set_enabled_leds_(&self, led: Led) {
+        self.desired.enabled_leds.set(Some(led));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().led_update(led);
+            self.effective.enabled_leds.set(Some(led));
         }
     }
 }
@@ -809,6 +821,11 @@ impl InputDevice for MetalInputDevice {
             dials,
             groups,
         }))
+    }
+
+    fn set_enabled_leds(&self, leds: Leds) {
+        let led = Led(leds.0 as _);
+        self.set_enabled_leds_(led);
     }
 }
 
