@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         cmm::{
-            cmm_eotf::Eotf,
+            cmm_eotf::{Eotf, EotfPow},
             cmm_luminance::{Luminance, TargetLuminance},
             cmm_primaries::{NamedPrimaries, Primaries},
         },
@@ -125,8 +125,21 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
         Ok(())
     }
 
-    fn set_tf_power(&self, _req: SetTfPower, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        Err(WpImageDescriptionCreatorParamsV1Error::SetTfPowerNotSupported)
+    fn set_tf_power(&self, req: SetTfPower, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let pow = EotfPow(req.eexp);
+        if pow < EotfPow::MIN || pow > EotfPow::MAX {
+            return Err(WpImageDescriptionCreatorParamsV1Error::SetTfPowerOutOfBounds);
+        }
+        let tf = match pow {
+            EotfPow::LINEAR => Eotf::Linear,
+            EotfPow::GAMMA22 => Eotf::Gamma22,
+            EotfPow::GAMMA28 => Eotf::Gamma28,
+            _ => Eotf::Pow(pow),
+        };
+        if self.tf.replace(Some(tf)).is_some() {
+            return Err(WpImageDescriptionCreatorParamsV1Error::TfAlreadySet);
+        }
+        Ok(())
     }
 
     fn set_primaries_named(
@@ -259,8 +272,8 @@ pub enum WpImageDescriptionCreatorParamsV1Error {
     ClientError(Box<ClientError>),
     #[error("{} is not a supported named primary", .0)]
     UnsupportedPrimaries(u32),
-    #[error("set_tf_power is not supported")]
-    SetTfPowerNotSupported,
+    #[error("The exponent is out of bounds")]
+    SetTfPowerOutOfBounds,
     #[error("{} is not a supported named EOTF", .0)]
     UnsupportedTf(u32),
     #[error("The EOTF has already been set")]

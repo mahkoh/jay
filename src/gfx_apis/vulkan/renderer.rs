@@ -3,6 +3,7 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
+            cmm_eotf::{Eotf, EotfPow},
             cmm_transform::ColorMatrix,
         },
         cpu_worker::PendingJob,
@@ -2327,21 +2328,48 @@ impl ColorTransforms {
 
 #[derive(Default)]
 struct EotfArgsCache {
-    map: AHashMap<(), EotfArg>,
+    map: AHashMap<(EotfPow, bool), EotfArg>,
 }
 
 struct EotfArg {
-    _offset: DeviceSize,
+    offset: DeviceSize,
 }
 
 impl EotfArgsCache {
     fn get_offset(
         &mut self,
-        _desc: &ColorDescription,
-        _inv: bool,
-        _uniform_buffer_offset_mask: DeviceSize,
-        _writer: &mut GenericBufferWriter,
+        desc: &ColorDescription,
+        inv: bool,
+        uniform_buffer_offset_mask: DeviceSize,
+        writer: &mut GenericBufferWriter,
     ) -> Option<DeviceSize> {
-        None
+        let Eotf::Pow(pow) = desc.eotf else {
+            return None;
+        };
+        let ct = match self.map.entry((pow, inv)) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(e) => {
+                if inv {
+                    let data = InvEotfArgs {
+                        arg1: pow.inv_eotf_f32(),
+                        arg2: 0.0,
+                        arg3: 0.0,
+                        arg4: 0.0,
+                    };
+                    let offset = writer.write(uniform_buffer_offset_mask, &data);
+                    e.insert(EotfArg { offset })
+                } else {
+                    let data = EotfArgs {
+                        arg1: pow.eotf_f32(),
+                        arg2: 0.0,
+                        arg3: 0.0,
+                        arg4: 0.0,
+                    };
+                    let offset = writer.write(uniform_buffer_offset_mask, &data);
+                    e.insert(EotfArg { offset })
+                }
+            }
+        };
+        Some(ct.offset)
     }
 }

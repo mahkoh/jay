@@ -1,7 +1,11 @@
 use {
     crate::{
         client::Client,
-        cmm::{cmm_description::ColorDescription, cmm_eotf::Eotf, cmm_primaries::NamedPrimaries},
+        cmm::{
+            cmm_description::ColorDescription,
+            cmm_eotf::{Eotf, EotfPow},
+            cmm_primaries::NamedPrimaries,
+        },
         ifs::color_management::{
             MIN_LUM_MUL, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020, PRIMARIES_CIE1931_XYZ,
             PRIMARIES_DCI_P3, PRIMARIES_DISPLAY_P3, PRIMARIES_GENERIC_FILM, PRIMARIES_MUL,
@@ -28,17 +32,24 @@ pub struct WpImageDescriptionInfoV1 {
 
 impl WpImageDescriptionInfoV1 {
     pub fn send_description(&self, d: &ColorDescription) {
-        let tf = match d.eotf {
-            Eotf::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
-            Eotf::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
-            Eotf::Bt1886 => TRANSFER_FUNCTION_BT1886,
-            Eotf::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
-            Eotf::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
-            Eotf::St240 => TRANSFER_FUNCTION_ST240,
-            Eotf::Log100 => TRANSFER_FUNCTION_LOG_100,
-            Eotf::Log316 => TRANSFER_FUNCTION_LOG_316,
-            Eotf::St428 => TRANSFER_FUNCTION_ST428,
-        };
+        'tf: {
+            let tf = match d.eotf {
+                Eotf::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
+                Eotf::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
+                Eotf::Bt1886 => TRANSFER_FUNCTION_BT1886,
+                Eotf::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
+                Eotf::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
+                Eotf::St240 => TRANSFER_FUNCTION_ST240,
+                Eotf::Log100 => TRANSFER_FUNCTION_LOG_100,
+                Eotf::Log316 => TRANSFER_FUNCTION_LOG_316,
+                Eotf::St428 => TRANSFER_FUNCTION_ST428,
+                Eotf::Pow(e) => {
+                    self.send_tf_power(e);
+                    break 'tf;
+                }
+            };
+            self.send_tf_named(tf);
+        }
         self.send_primaries(&d.linear.primaries);
         if let Some(n) = d.named_primaries {
             let n = match n {
@@ -55,7 +66,6 @@ impl WpImageDescriptionInfoV1 {
             };
             self.send_primaries_named(n);
         }
-        self.send_tf_named(tf);
         self.send_luminances(&d.linear.luminance);
         self.send_target_primaries(&d.linear.target_primaries);
         self.send_target_luminances(&d.linear.target_luminance);
@@ -103,11 +113,10 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    #[expect(dead_code)]
-    pub fn send_tf_power(&self, eexp: f64) {
+    pub fn send_tf_power(&self, e: EotfPow) {
         self.client.event(TfPower {
             self_id: self.id,
-            eexp: (eexp * 10_000.0) as u32,
+            eexp: e.0,
         });
     }
 

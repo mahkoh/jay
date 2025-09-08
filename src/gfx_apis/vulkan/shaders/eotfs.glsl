@@ -13,6 +13,7 @@
 #define TF_LOG100 8
 #define TF_LOG316 9
 #define TF_ST428 10
+#define TF_POW 11
 
 vec3 eotf_st2084_pq(vec3 c) {
     c = clamp(c, 0.0, 1.0);
@@ -92,6 +93,7 @@ vec3 apply_eotf(vec3 c) {
         case TF_LOG100: return eotf_log100(c);
         case TF_LOG316: return eotf_log316(c);
         case TF_ST428: return eotf_st428(c);
+        case TF_POW: return sign(c) * pow(abs(c), vec3(cm_eotf_args.arg1));
         default: return c;
     }
 }
@@ -107,6 +109,7 @@ vec3 apply_inv_eotf(vec3 c) {
         case TF_LOG100: return inv_eotf_log100(c);
         case TF_LOG316: return inv_eotf_log316(c);
         case TF_ST428: return inv_eotf_st428(c);
+        case TF_POW: return sign(c) * pow(abs(c), vec3(cm_inv_eotf_args.arg1));
         default: return c;
     }
 }

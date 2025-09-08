@@ -121,6 +121,11 @@ impl Color {
             Eotf::Log100 => convert!(log100),
             Eotf::Log316 => convert!(log316),
             Eotf::St428 => convert!(st428),
+            Eotf::Pow(n) => {
+                let e = n.eotf_f32();
+                let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
+                convert!(pow)
+            }
         }
         Self { r, g, b, a: 1.0 }
     }
@@ -246,6 +251,11 @@ impl Color {
                 Eotf::Log100 => convert!(log100),
                 Eotf::Log316 => convert!(log316),
                 Eotf::St428 => convert!(st428),
+                Eotf::Pow(n) => {
+                    let e = n.inv_eotf_f32();
+                    let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
+                    convert!(pow)
+                }
             }
             if self.a < 1.0 {
                 for c in &mut res[..3] {

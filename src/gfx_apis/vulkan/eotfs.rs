@@ -9,6 +9,7 @@ pub const EOTF_ST240: u32 = 6;
 pub const EOTF_LOG100: u32 = 8;
 pub const EOTF_LOG316: u32 = 9;
 pub const EOTF_ST428: u32 = 10;
+pub const EOTF_POW: u32 = 11;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
 pub enum VulkanEotf {
@@ -21,6 +22,7 @@ pub enum VulkanEotf {
     Log100,
     Log316,
     St428,
+    Pow,
 }
 
 pub trait EotfExt: Sized {
@@ -48,6 +50,7 @@ impl EotfExt for Eotf {
             Log100,
             Log316,
             St428,
+            Pow,
         }
     }
 }
@@ -64,6 +67,7 @@ impl VulkanEotf {
             Self::Log100 => EOTF_LOG100,
             Self::Log316 => EOTF_LOG316,
             Self::St428 => EOTF_ST428,
+            Self::Pow => EOTF_POW,
         }
     }
 }

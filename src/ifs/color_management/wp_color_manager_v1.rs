@@ -5,6 +5,7 @@ use {
         ifs::{
             color_management::{
                 FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
+                FEATURE_SET_TF_POWER,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -79,6 +80,7 @@ impl WpColorManagerV1 {
         self.send_supported_feature(FEATURE_SET_PRIMARIES);
         self.send_supported_feature(FEATURE_SET_LUMINANCES);
         self.send_supported_feature(FEATURE_SET_MASTERING_DISPLAY_PRIMARIES);
+        self.send_supported_feature(FEATURE_SET_TF_POWER);
         self.send_supported_feature(FEATURE_EXTENDED_TARGET_VOLUME);
         self.send_supported_feature(FEATURE_WINDOWS_SCRGB);
         self.send_supported_tf_named(TRANSFER_FUNCTION_BT1886);
