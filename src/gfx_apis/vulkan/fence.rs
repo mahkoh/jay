@@ -41,12 +41,16 @@ impl VulkanDevice {
 }
 
 impl VulkanFence {
-    pub fn export_sync_file(&self) -> Result<SyncFile, VulkanError> {
+    pub fn export_sync_file(&self) -> Result<Option<SyncFile>, VulkanError> {
         let info = FenceGetFdInfoKHR::default()
             .fence(self.fence)
             .handle_type(ExternalFenceHandleTypeFlags::SYNC_FD);
         let res = unsafe { self.device.external_fence_fd.get_fence_fd(&info) };
-        res.map_err(VulkanError::ExportSyncFile)
-            .map(|fd| SyncFile(Rc::new(OwnedFd::new(fd))))
+        let fd = res.map_err(VulkanError::ExportSyncFile)?;
+        if fd == -1 {
+            Ok(None)
+        } else {
+            Ok(Some(SyncFile(Rc::new(OwnedFd::new(fd)))))
+        }
     }
 }

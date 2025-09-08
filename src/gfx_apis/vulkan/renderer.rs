@@ -1658,7 +1658,7 @@ impl VulkanRenderer {
         }
         zone!("export_sync_file");
         let release_sync_file = match release_fence.export_sync_file() {
-            Ok(s) => Some(s),
+            Ok(s) => s,
             Err(e) => {
                 log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
                 self.block();
@@ -2069,18 +2069,13 @@ async fn await_release(
     frame: Rc<PendingFrame>,
     renderer: Rc<VulkanRenderer>,
 ) {
-    let mut is_released = false;
-    if let Some(sync_file) = sync_file {
-        if let Err(e) = ring.readable(&sync_file).await {
-            log::error!(
-                "Could not wait for release semaphore to be signaled: {}",
-                ErrorFmt(e)
-            );
-        } else {
-            is_released = true;
-        }
-    }
-    if !is_released {
+    if let Some(sync_file) = sync_file
+        && let Err(e) = ring.readable(&sync_file).await
+    {
+        log::error!(
+            "Could not wait for release semaphore to be signaled: {}",
+            ErrorFmt(e)
+        );
         frame.renderer.block();
     }
     if let Some(buf) = frame.cmd.take() {

@@ -136,11 +136,8 @@ impl VulkanShmImage {
                 ptr::copy_nonoverlapping(buf, mem, total_size as usize);
             }
         })?;
-        let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_image_copy(img, &staging, cpy, false, TransferType::Upload)?
-        else {
-            return Ok(());
-        };
+        let (cmd, fence, sync_file, point) =
+            self.submit_buffer_image_copy(img, &staging, cpy, false, TransferType::Upload)?;
         let future = img.renderer.eng.spawn(
             "await upload",
             await_upload(point, img.clone(), cmd, sync_file, fence, staging),
@@ -156,8 +153,15 @@ impl VulkanShmImage {
         regions: &[BufferImageCopy2],
         use_transfer_queue: bool,
         tt: TransferType,
-    ) -> Result<Option<(Rc<VulkanCommandBuffer>, Rc<VulkanFence>, SyncFile, u64)>, VulkanError>
-    {
+    ) -> Result<
+        (
+            Rc<VulkanCommandBuffer>,
+            Rc<VulkanFence>,
+            Option<SyncFile>,
+            u64,
+        ),
+        VulkanError,
+    > {
         let memory_barrier = |sam, ssm, dam, dsm| {
             BufferMemoryBarrier2::default()
                 .buffer(staging.buffer)
@@ -308,11 +312,11 @@ impl VulkanShmImage {
             Err(e) => {
                 log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
                 img.renderer.block();
-                return Ok(None);
+                None
             }
         };
         let point = img.renderer.allocate_point();
-        Ok(Some((cmd, release_fence, release_sync_file, point)))
+        Ok((cmd, release_fence, release_sync_file, point))
     }
 }
 
@@ -320,12 +324,13 @@ async fn await_upload(
     id: u64,
     img: Rc<VulkanImage>,
     buf: Rc<VulkanCommandBuffer>,
-    sync_file: SyncFile,
+    sync_file: Option<SyncFile>,
     _fence: Rc<VulkanFence>,
     _staging: VulkanStagingBuffer,
 ) {
-    let res = img.renderer.ring.readable(&sync_file.0).await;
-    if let Err(e) = res {
+    if let Some(sync_file) = sync_file
+        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
