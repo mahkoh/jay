@@ -567,24 +567,35 @@ impl VulkanRenderer {
             .get_or_insert_with(|| {
                 vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
             });
-        if let Some(bb) = bb {
-            let layout = self.out_descriptor_set_layout.as_ref().unwrap();
-            memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
-            let mut writer = resource_writer.add_set(layout);
-            writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
-            if let Some(addr) = memory.blend_buffer_color_management_data_address {
+        macro_rules! get_ub_descriptor {
+            ($addr:expr, $ty:ty, $descriptor:expr $(,)?) => {{
                 let uniform_buffer = DescriptorAddressInfoEXT::default()
-                    .address(addr)
-                    .range(size_of::<ColorManagementData>() as _);
+                    .address($addr)
+                    .range(size_of::<$ty>() as _);
                 let info = DescriptorGetInfoEXT::default()
                     .ty(DescriptorType::UNIFORM_BUFFER)
                     .data(DescriptorDataEXT {
                         p_uniform_buffer: &uniform_buffer,
                     });
                 unsafe {
-                    db.get_descriptor(&info, uniform_buffer_descriptor_cache);
+                    db.get_descriptor(&info, $descriptor);
                 }
-                writer.write(layout.offsets[1], uniform_buffer_descriptor_cache);
+                &*$descriptor
+            }};
+            ($addr:expr, $ty:ty $(,)?) => {
+                get_ub_descriptor!($addr, $ty, uniform_buffer_descriptor_cache)
+            };
+        }
+        if let Some(bb) = bb {
+            let layout = self.out_descriptor_set_layout.as_ref().unwrap();
+            memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
+            let mut writer = resource_writer.add_set(layout);
+            writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
+            if let Some(addr) = memory.blend_buffer_color_management_data_address {
+                writer.write(
+                    layout.offsets[1],
+                    get_ub_descriptor!(addr, ColorManagementData),
+                );
             }
         }
         let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
@@ -601,20 +612,9 @@ impl VulkanRenderer {
                     &tex.sampled_image_descriptor,
                 );
                 if let Some(addr) = c.color_management_data_address {
-                    let uniform_buffer = DescriptorAddressInfoEXT::default()
-                        .address(addr)
-                        .range(size_of::<ColorManagementData>() as _);
-                    let info = DescriptorGetInfoEXT::default()
-                        .ty(DescriptorType::UNIFORM_BUFFER)
-                        .data(DescriptorDataEXT {
-                            p_uniform_buffer: &uniform_buffer,
-                        });
-                    unsafe {
-                        db.get_descriptor(&info, uniform_buffer_descriptor_cache);
-                    }
                     writer.write(
                         tex_descriptor_set_layout.offsets[1],
-                        uniform_buffer_descriptor_cache,
+                        get_ub_descriptor!(addr, ColorManagementData),
                     );
                 }
             }
