@@ -227,7 +227,7 @@ impl VulkanShmImage {
             let id = img.renderer.allocate_point();
             let pending = img.renderer.eng.spawn(
                 "await_transfer_to_transfer",
-                await_gfx_queue_release(id, img.clone(), None, None, sync_file, tt),
+                await_gfx_queue_release(id, img.clone(), None, None, Some(sync_file), tt),
             );
             img.renderer.pending_submits.set(id, pending);
             img.queue_state.set(QueueState::Releasing);
@@ -453,11 +453,8 @@ impl VulkanShmImage {
         let regions = &*data.regions.borrow();
         let staging = data.staging.get().unwrap().staging.get().unwrap();
         staging.upload(|_, _| ())?;
-        let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_image_copy(img, &staging, regions, true, TransferType::Upload)?
-        else {
-            return Ok(());
-        };
+        let (cmd, fence, sync_file, point) =
+            self.submit_buffer_image_copy(img, &staging, regions, true, TransferType::Upload)?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async upload",
@@ -484,23 +481,8 @@ impl VulkanShmImage {
             return Ok(());
         }
         img.renderer.check_defunct()?;
-        let Some((cmd, fence, sync_file, point)) =
-            self.submit_buffer_image_copy(img, &staging, copies, true, TransferType::Download)?
-        else {
-            img.queue_state.set(QueueState::Released {
-                to: QueueFamily::Gfx,
-            });
-            let data = self.async_data.as_ref().unwrap();
-            let client_mem = data.client_mem.get().unwrap();
-            return self.async_transfer_initiate_host_copy(
-                &img,
-                data,
-                &staging,
-                copies,
-                &client_mem,
-                TransferType::Download,
-            );
-        };
+        let (cmd, fence, sync_file, point) =
+            self.submit_buffer_image_copy(img, &staging, copies, true, TransferType::Download)?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async image to buffer copy",
@@ -598,11 +580,12 @@ async fn await_gfx_queue_release(
     img: Rc<VulkanImage>,
     buf: Option<Rc<VulkanCommandBuffer>>,
     _fence: Option<Rc<VulkanFence>>,
-    sync_file: SyncFile,
+    sync_file: Option<SyncFile>,
     tt: TransferType,
 ) {
-    let res = img.renderer.ring.readable(&sync_file.0).await;
-    if let Err(e) = res {
+    if let Some(sync_file) = sync_file
+        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
@@ -640,11 +623,12 @@ pub async fn await_async_transfer_release_to_gfx(
     img: Rc<VulkanImage>,
     buf: Rc<VulkanCommandBuffer>,
     _fence: Rc<VulkanFence>,
-    sync_file: SyncFile,
+    sync_file: Option<SyncFile>,
     tt: TransferType,
 ) {
-    let res = img.renderer.ring.readable(&sync_file.0).await;
-    if let Err(e) = res {
+    if let Some(sync_file) = sync_file
+        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
