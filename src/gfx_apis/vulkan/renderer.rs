@@ -260,6 +260,7 @@ pub(super) struct TexPipelines {
 pub(super) struct OutPipelineKey {
     format: vk::Format,
     eotf: Eotf,
+    has_color_management_data: bool,
 }
 
 impl VulkanDevice {
@@ -508,6 +509,7 @@ impl VulkanRenderer {
         let key = OutPipelineKey {
             format,
             eotf: bb_cd.eotf,
+            has_color_management_data,
         };
         let pipelines = &self.out_pipelines[fb_cd.eotf];
         if let Some(pl) = pipelines.get(&key) {
