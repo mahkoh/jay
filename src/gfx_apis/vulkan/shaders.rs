@@ -70,6 +70,28 @@ pub struct ColorManagementData {
 unsafe impl Packed for ColorManagementData {}
 
 #[derive(Copy, Clone, Debug)]
+#[repr(C, align(16))]
+pub struct EotfArgs {
+    pub arg1: f32,
+    pub arg2: f32,
+    pub arg3: f32,
+    pub arg4: f32,
+}
+
+unsafe impl Packed for EotfArgs {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C, align(16))]
+pub struct InvEotfArgs {
+    pub arg1: f32,
+    pub arg2: f32,
+    pub arg3: f32,
+    pub arg4: f32,
+}
+
+unsafe impl Packed for InvEotfArgs {}
+
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct LegacyTexPushConstants {
     pub pos: [[f32; 2]; 4],

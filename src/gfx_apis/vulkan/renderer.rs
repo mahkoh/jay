@@ -25,10 +25,10 @@ use {
             sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
-                ColorManagementData, FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG,
-                LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants,
-                LegacyTexPushConstants, OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT,
-                TexPushConstants, TexVertex, VulkanShader,
+                ColorManagementData, EotfArgs, FILL_FRAG, FILL_VERT, FillPushConstants,
+                InvEotfArgs, LEGACY_FILL_FRAG, LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT,
+                LegacyFillPushConstants, LegacyTexPushConstants, OUT_FRAG, OUT_VERT,
+                OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants, TexVertex, VulkanShader,
             },
         },
         io_uring::IoUring,
@@ -176,10 +176,16 @@ pub(super) struct Memory {
     data_buffer: Vec<u8>,
     out_address: DeviceAddress,
     color_transforms: ColorTransforms,
+    eotf_args_cache: EotfArgsCache,
     uniform_buffer_writer: GenericBufferWriter,
     uniform_buffer_descriptor_cache: Option<Box<[u8]>>,
+    blend_buffer_inv_eotf_args_descriptor: Option<Box<[u8]>>,
+    fb_inv_eotf_args_descriptor: Option<Box<[u8]>>,
     blend_buffer_descriptor_buffer_offset: DeviceAddress,
     blend_buffer_color_management_data_address: Option<DeviceSize>,
+    blend_buffer_eotf_args_address: Option<DeviceSize>,
+    blend_buffer_inv_eotf_args_address: Option<DeviceSize>,
+    fb_inv_eotf_args_address: Option<DeviceSize>,
 }
 
 type Point = [[f32; 2]; 4];
@@ -202,6 +208,7 @@ struct VulkanTexOp {
     instances: u32,
     tex_cd: Rc<ColorDescription>,
     color_management_data_address: Option<DeviceAddress>,
+    eotf_args_address: Option<DeviceAddress>,
     resource_descriptor_buffer_offset: DeviceAddress,
 }
 
@@ -352,7 +359,9 @@ impl VulkanDevice {
         };
         let uniform_buffer_cache = {
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::UNIFORM_BUFFER;
-            let align = align_of::<ColorManagementData>() as DeviceSize;
+            let align = align_of::<ColorManagementData>()
+                .max(align_of::<EotfArgs>())
+                .max(align_of::<InvEotfArgs>()) as DeviceSize;
             VulkanBufferCache::new(self, &allocator, usage, align)
         };
         let render = Rc::new(VulkanRenderer {
@@ -562,11 +571,14 @@ impl VulkanRenderer {
         }
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
-        let uniform_buffer_descriptor_cache = memory
-            .uniform_buffer_descriptor_cache
-            .get_or_insert_with(|| {
-                vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
-            });
+        macro_rules! ub_descriptor_cache {
+            ($field:ident) => {
+                memory.$field.get_or_insert_with(|| {
+                    vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
+                })
+            };
+        }
+        let uniform_buffer_descriptor_cache = ub_descriptor_cache!(uniform_buffer_descriptor_cache);
         macro_rules! get_ub_descriptor {
             ($addr:expr, $ty:ty, $descriptor:expr $(,)?) => {{
                 let uniform_buffer = DescriptorAddressInfoEXT::default()
@@ -586,6 +598,22 @@ impl VulkanRenderer {
                 get_ub_descriptor!($addr, $ty, uniform_buffer_descriptor_cache)
             };
         }
+        let mut blend_buffer_inv_eotf_args_descriptor = None;
+        if let Some(addr) = memory.blend_buffer_inv_eotf_args_address {
+            blend_buffer_inv_eotf_args_descriptor = Some(get_ub_descriptor!(
+                addr,
+                InvEotfArgs,
+                ub_descriptor_cache!(blend_buffer_inv_eotf_args_descriptor),
+            ));
+        }
+        let mut fb_inv_eotf_args_descriptor = None;
+        if let Some(addr) = memory.fb_inv_eotf_args_address {
+            fb_inv_eotf_args_descriptor = Some(get_ub_descriptor!(
+                addr,
+                InvEotfArgs,
+                ub_descriptor_cache!(fb_inv_eotf_args_descriptor),
+            ));
+        }
         if let Some(bb) = bb {
             let layout = self.out_descriptor_set_layout.as_ref().unwrap();
             memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
@@ -597,9 +625,19 @@ impl VulkanRenderer {
                     get_ub_descriptor!(addr, ColorManagementData),
                 );
             }
+            if let Some(addr) = memory.blend_buffer_eotf_args_address {
+                writer.write(layout.offsets[2], get_ub_descriptor!(addr, EotfArgs));
+            }
+            if let Some(desc) = fb_inv_eotf_args_descriptor {
+                writer.write(layout.offsets[3], desc);
+            }
         }
         let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
         for pass in RenderPass::variants() {
+            let inv_eotf_desc = match pass {
+                RenderPass::BlendBuffer => blend_buffer_inv_eotf_args_descriptor,
+                RenderPass::FrameBuffer => fb_inv_eotf_args_descriptor,
+            };
             for cmd in &mut memory.ops[pass] {
                 let VulkanOp::Tex(c) = cmd else {
                     continue;
@@ -616,6 +654,15 @@ impl VulkanRenderer {
                         tex_descriptor_set_layout.offsets[1],
                         get_ub_descriptor!(addr, ColorManagementData),
                     );
+                }
+                if let Some(addr) = c.eotf_args_address {
+                    writer.write(
+                        tex_descriptor_set_layout.offsets[2],
+                        get_ub_descriptor!(addr, EotfArgs),
+                    );
+                }
+                if let Some(desc) = inv_eotf_desc {
+                    writer.write(tex_descriptor_set_layout.offsets[3], desc);
                 }
             }
         }
@@ -659,6 +706,7 @@ impl VulkanRenderer {
         memory.data_buffer.clear();
         memory.uniform_buffer_writer.clear();
         memory.color_transforms.map.clear();
+        memory.eotf_args_cache.map.clear();
         let sync = |memory: &mut Memory| {
             for pass in RenderPass::variants() {
                 let ops = &mut memory.ops_tmp[pass];
@@ -813,6 +861,12 @@ impl VulkanRenderer {
                             self.device.uniform_buffer_offset_mask,
                             &mut memory.uniform_buffer_writer,
                         );
+                        let eotf_args_address = memory.eotf_args_cache.get_offset(
+                            &ct.cd,
+                            false,
+                            self.device.uniform_buffer_offset_mask,
+                            &mut memory.uniform_buffer_writer,
+                        );
                         ops.push(VulkanOp::Tex(VulkanTexOp {
                             tex: tex.clone(),
                             range: lo..hi,
@@ -826,6 +880,7 @@ impl VulkanRenderer {
                             instances: 0,
                             tex_cd: ct.cd.clone(),
                             color_management_data_address,
+                            eotf_args_address,
                             resource_descriptor_buffer_offset: 0,
                         }));
                     }
@@ -836,21 +891,41 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn create_blend_cm_data(
+    fn create_fixed_cm_data(
         &self,
         bb: Option<&VulkanImage>,
         bb_cd: &ColorDescription,
         fb_cd: &ColorDescription,
     ) {
-        zone!("create_blend_cm_data");
+        zone!("create_fixed_cm_data");
         let memory = &mut *self.memory.borrow_mut();
         memory.blend_buffer_color_management_data_address = None;
-        if bb.is_none() {
-            return;
+        memory.blend_buffer_eotf_args_address = None;
+        memory.blend_buffer_inv_eotf_args_address = None;
+        memory.fb_inv_eotf_args_address = None;
+        if bb.is_some() {
+            memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
+                &bb_cd.linear,
+                fb_cd,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
+            memory.blend_buffer_eotf_args_address = memory.eotf_args_cache.get_offset(
+                bb_cd,
+                false,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
+            memory.blend_buffer_inv_eotf_args_address = memory.eotf_args_cache.get_offset(
+                bb_cd,
+                true,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
         }
-        memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
-            &bb_cd.linear,
+        memory.fb_inv_eotf_args_address = memory.eotf_args_cache.get_offset(
             fb_cd,
+            true,
             self.device.uniform_buffer_offset_mask,
             &mut memory.uniform_buffer_writer,
         );
@@ -912,18 +987,25 @@ impl VulkanRenderer {
         buffer.buffer.allocation.upload(|ptr, _| unsafe {
             ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
         })?;
+        macro_rules! adj {
+            ($expr:expr) => {
+                if let Some(addr) = $expr {
+                    *addr += buffer.buffer.address;
+                }
+            };
+        }
         for ops in memory.ops.values_mut() {
             for op in ops {
-                if let VulkanOp::Tex(c) = op
-                    && let Some(addr) = &mut c.color_management_data_address
-                {
-                    *addr += buffer.buffer.address;
+                if let VulkanOp::Tex(c) = op {
+                    adj!(&mut c.color_management_data_address);
+                    adj!(&mut c.eotf_args_address);
                 }
             }
         }
-        if let Some(addr) = &mut memory.blend_buffer_color_management_data_address {
-            *addr += buffer.buffer.address;
-        }
+        adj!(&mut memory.blend_buffer_color_management_data_address);
+        adj!(&mut memory.blend_buffer_eotf_args_address);
+        adj!(&mut memory.blend_buffer_inv_eotf_args_address);
+        adj!(&mut memory.fb_inv_eotf_args_address);
         memory.used_buffers.push(buffer);
         Ok(())
     }
@@ -1942,7 +2024,7 @@ impl VulkanRenderer {
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
-        self.create_blend_cm_data(bb, bb_cd, fb_cd);
+        self.create_fixed_cm_data(bb, bb_cd, fb_cd);
         self.create_data_buffer()?;
         self.create_uniform_buffer()?;
         self.collect_memory();
@@ -2240,5 +2322,26 @@ impl ColorTransforms {
             ct.offset = Some(offset);
         }
         ct.offset
+    }
+}
+
+#[derive(Default)]
+struct EotfArgsCache {
+    map: AHashMap<(), EotfArg>,
+}
+
+struct EotfArg {
+    _offset: DeviceSize,
+}
+
+impl EotfArgsCache {
+    fn get_offset(
+        &mut self,
+        _desc: &ColorDescription,
+        _inv: bool,
+        _uniform_buffer_offset_mask: DeviceSize,
+        _writer: &mut GenericBufferWriter,
+    ) -> Option<DeviceSize> {
+        None
     }
 }
