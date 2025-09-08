@@ -3,7 +3,6 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
-            cmm_eotf::Eotf,
             cmm_transform::ColorMatrix,
         },
         cpu_worker::PendingJob,
@@ -19,7 +18,7 @@ use {
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
             device::VulkanDevice,
-            eotfs::{EOTF_LINEAR, EotfExt},
+            eotfs::{EOTF_LINEAR, EotfExt, VulkanEotf},
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
@@ -78,8 +77,9 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipelines: CopyHashMap<vk::Format, FillPipelines>,
-    pub(super) tex_pipelines: StaticMap<Eotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
-    pub(super) out_pipelines: StaticMap<Eotf, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
+    pub(super) tex_pipelines: StaticMap<VulkanEotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
+    pub(super) out_pipelines:
+        StaticMap<VulkanEotf, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
     pub(super) gfx_command_buffers: CachedCommandBuffers,
     pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -246,20 +246,20 @@ type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
 struct TexPipelineKey {
     tex_copy_type: TexCopyType,
     tex_source_type: TexSourceType,
-    eotf: Eotf,
+    eotf: VulkanEotf,
     has_color_management_data: bool,
 }
 
 pub(super) struct TexPipelines {
     format: vk::Format,
-    eotf: Eotf,
+    eotf: VulkanEotf,
     pipelines: CopyHashMap<TexPipelineKey, Rc<VulkanPipeline>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub(super) struct OutPipelineKey {
     format: vk::Format,
-    eotf: Eotf,
+    eotf: VulkanEotf,
     has_color_management_data: bool,
 }
 
@@ -437,13 +437,14 @@ impl VulkanRenderer {
         format: vk::Format,
         target_cd: &ColorDescription,
     ) -> Rc<TexPipelines> {
-        let pipelines = &self.tex_pipelines[target_cd.eotf];
+        let eotf = target_cd.eotf.to_vulkan();
+        let pipelines = &self.tex_pipelines[eotf];
         match pipelines.get(&format) {
             Some(pl) => pl,
             _ => {
                 let pl = Rc::new(TexPipelines {
                     format,
-                    eotf: target_cd.eotf,
+                    eotf,
                     pipelines: Default::default(),
                 });
                 pipelines.set(format, pl.clone());
@@ -463,7 +464,7 @@ impl VulkanRenderer {
         let key = TexPipelineKey {
             tex_copy_type,
             tex_source_type,
-            eotf: tex_cd.eotf,
+            eotf: tex_cd.eotf.to_vulkan(),
             has_color_management_data,
         };
         if let Some(pl) = pipelines.pipelines.get(&key) {
@@ -508,10 +509,11 @@ impl VulkanRenderer {
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let key = OutPipelineKey {
             format,
-            eotf: bb_cd.eotf,
+            eotf: bb_cd.eotf.to_vulkan(),
             has_color_management_data,
         };
-        let pipelines = &self.out_pipelines[fb_cd.eotf];
+        let fb_eotf = fb_cd.eotf.to_vulkan();
+        let pipelines = &self.out_pipelines[fb_eotf];
         if let Some(pl) = pipelines.get(&key) {
             return Ok(pl);
         }
@@ -527,7 +529,7 @@ impl VulkanRenderer {
                 src_has_alpha: true,
                 has_alpha_mult: false,
                 eotf: key.eotf.to_vulkan(),
-                inv_eotf: fb_cd.eotf.to_vulkan(),
+                inv_eotf: fb_eotf.to_vulkan(),
                 descriptor_set_layouts,
                 has_color_management_data,
             })?;

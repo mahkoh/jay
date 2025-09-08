@@ -1,6 +1,4 @@
-use linearize::Linearize;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Eotf {
     Linear,
     St2084Pq,
