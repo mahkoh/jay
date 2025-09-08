@@ -205,13 +205,8 @@ impl FloatNode {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
-        let bw = theme.sizes.border_width.get();
         let font = theme.font.get();
         let title = self.title.borrow_mut();
-        let pos = self.position.get();
-        if pos.width() <= 2 * bw {
-            return on_completed.event();
-        }
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,
             _ => return on_completed.event(),
@@ -233,9 +228,6 @@ impl FloatNode {
                 th = (th as f64 * scale).round() as _;
                 width = (width as f64 * scale).round() as _;
                 scalef = Some(scale);
-            }
-            if th == 0 || width == 0 {
-                continue;
             }
             tex.schedule_render(
                 on_completed.clone(),
