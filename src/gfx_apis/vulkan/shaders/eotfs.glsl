@@ -2,6 +2,7 @@
 #define EOTFS_GLSL
 
 #include "frag_spec_const.glsl"
+#include "tex_set.glsl"
 
 #define TF_LINEAR 1
 #define TF_ST2084_PQ 2

@@ -63,19 +63,11 @@ unsafe impl Packed for TexPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
-pub struct TexColorManagementData {
+pub struct ColorManagementData {
     pub matrix: [[f32; 4]; 4],
 }
 
-unsafe impl Packed for TexColorManagementData {}
-
-#[derive(Copy, Clone, Debug)]
-#[repr(C, align(16))]
-pub struct OutColorManagementData {
-    pub matrix: [[f32; 4]; 4],
-}
-
-unsafe impl Packed for OutColorManagementData {}
+unsafe impl Packed for ColorManagementData {}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]

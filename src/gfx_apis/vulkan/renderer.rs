@@ -25,10 +25,10 @@ use {
             sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
-                FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
-                LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, LegacyTexPushConstants,
-                OUT_FRAG, OUT_VERT, OutColorManagementData, OutPushConstants, TEX_FRAG, TEX_VERT,
-                TexColorManagementData, TexPushConstants, TexVertex, VulkanShader,
+                ColorManagementData, FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG,
+                LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants,
+                LegacyTexPushConstants, OUT_FRAG, OUT_VERT, OutPushConstants, TEX_FRAG, TEX_VERT,
+                TexPushConstants, TexVertex, VulkanShader,
             },
         },
         io_uring::IoUring,
@@ -352,7 +352,7 @@ impl VulkanDevice {
         };
         let uniform_buffer_cache = {
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::UNIFORM_BUFFER;
-            let align = align_of::<TexColorManagementData>() as DeviceSize;
+            let align = align_of::<ColorManagementData>() as DeviceSize;
             VulkanBufferCache::new(self, &allocator, usage, align)
         };
         let render = Rc::new(VulkanRenderer {
@@ -575,7 +575,7 @@ impl VulkanRenderer {
             if let Some(addr) = memory.blend_buffer_color_management_data_address {
                 let uniform_buffer = DescriptorAddressInfoEXT::default()
                     .address(addr)
-                    .range(size_of::<OutColorManagementData>() as _);
+                    .range(size_of::<ColorManagementData>() as _);
                 let info = DescriptorGetInfoEXT::default()
                     .ty(DescriptorType::UNIFORM_BUFFER)
                     .data(DescriptorDataEXT {
@@ -603,7 +603,7 @@ impl VulkanRenderer {
                 if let Some(addr) = c.color_management_data_address {
                     let uniform_buffer = DescriptorAddressInfoEXT::default()
                         .address(addr)
-                        .range(size_of::<TexColorManagementData>() as _);
+                        .range(size_of::<ColorManagementData>() as _);
                     let info = DescriptorGetInfoEXT::default()
                         .ty(DescriptorType::UNIFORM_BUFFER)
                         .data(DescriptorDataEXT {
@@ -2233,7 +2233,7 @@ impl ColorTransforms {
     ) -> Option<DeviceSize> {
         let ct = self.get_or_create(src, dst)?;
         if ct.offset.is_none() {
-            let data = TexColorManagementData {
+            let data = ColorManagementData {
                 matrix: ct.matrix.to_f32(),
             };
             let offset = writer.write(uniform_buffer_offset_mask, &data);
