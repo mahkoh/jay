@@ -3,7 +3,7 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
-            cmm_eotf::{Eotf, EotfPow},
+            cmm_eotf::{Eotf, EotfPow, bt1886_eotf_args, bt1886_inv_eotf_args},
             cmm_transform::ColorMatrix,
         },
         cpu_worker::PendingJob,
@@ -35,7 +35,10 @@ use {
         io_uring::IoUring,
         rect::{Rect, Region},
         theme::Color,
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
+        utils::{
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, ordered_float::F32,
+            stack::Stack,
+        },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
     },
     ahash::AHashMap,
@@ -2328,7 +2331,13 @@ impl ColorTransforms {
 
 #[derive(Default)]
 struct EotfArgsCache {
-    map: AHashMap<(EotfPow, bool), EotfArg>,
+    map: AHashMap<(EotfCacheKey, bool), EotfArg>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+enum EotfCacheKey {
+    Pow(EotfPow),
+    Bt1886(F32),
 }
 
 struct EotfArg {
@@ -2343,27 +2352,43 @@ impl EotfArgsCache {
         uniform_buffer_offset_mask: DeviceSize,
         writer: &mut GenericBufferWriter,
     ) -> Option<DeviceSize> {
-        let Eotf::Pow(pow) = desc.eotf else {
-            return None;
+        let key = match desc.eotf {
+            Eotf::Bt1886(c) => EotfCacheKey::Bt1886(c),
+            Eotf::Pow(pow) => EotfCacheKey::Pow(pow),
+            _ => return None,
         };
-        let ct = match self.map.entry((pow, inv)) {
+        let ct = match self.map.entry((key, inv)) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(e) => {
+                #[expect(unused_assignments)]
+                let [mut arg1, mut arg2, mut arg3, mut arg4] = [0.0; 4];
                 if inv {
+                    match key {
+                        EotfCacheKey::Pow(pow) => arg1 = pow.inv_eotf_f32(),
+                        EotfCacheKey::Bt1886(c) => {
+                            [arg1, arg2, arg3, arg4] = bt1886_inv_eotf_args(c);
+                        }
+                    }
                     let data = InvEotfArgs {
-                        arg1: pow.inv_eotf_f32(),
-                        arg2: 0.0,
-                        arg3: 0.0,
-                        arg4: 0.0,
+                        arg1,
+                        arg2,
+                        arg3,
+                        arg4,
                     };
                     let offset = writer.write(uniform_buffer_offset_mask, &data);
                     e.insert(EotfArg { offset })
                 } else {
+                    match key {
+                        EotfCacheKey::Pow(pow) => arg1 = pow.eotf_f32(),
+                        EotfCacheKey::Bt1886(c) => {
+                            [arg1, arg2, arg3, arg4] = bt1886_eotf_args(c);
+                        }
+                    }
                     let data = EotfArgs {
-                        arg1: pow.eotf_f32(),
-                        arg2: 0.0,
-                        arg3: 0.0,
-                        arg4: 0.0,
+                        arg1,
+                        arg2,
+                        arg3,
+                        arg4,
                     };
                     let offset = writer.write(uniform_buffer_offset_mask, &data);
                     e.insert(EotfArg { offset })

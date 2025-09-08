@@ -36,8 +36,12 @@ impl WpImageDescriptionInfoV1 {
             let tf = match d.eotf {
                 Eotf::Linear => TRANSFER_FUNCTION_EXT_LINEAR,
                 Eotf::St2084Pq => TRANSFER_FUNCTION_ST2084_PQ,
-                Eotf::Bt1886 => TRANSFER_FUNCTION_BT1886,
+                Eotf::Bt1886 { .. } => TRANSFER_FUNCTION_BT1886,
                 Eotf::Gamma22 => TRANSFER_FUNCTION_GAMMA22,
+                Eotf::Gamma24 => {
+                    self.send_tf_power(EotfPow::GAMMA24);
+                    break 'tf;
+                }
                 Eotf::Gamma28 => TRANSFER_FUNCTION_GAMMA28,
                 Eotf::St240 => TRANSFER_FUNCTION_ST240,
                 Eotf::Log100 => TRANSFER_FUNCTION_LOG_100,

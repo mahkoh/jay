@@ -2,7 +2,7 @@ use {crate::cmm::cmm_eotf::Eotf, linearize::Linearize};
 
 pub const EOTF_LINEAR: u32 = 1;
 pub const EOTF_ST2084_PQ: u32 = 2;
-pub const EOTF_GAMMA24: u32 = 3;
+pub const EOTF_BT1886: u32 = 3;
 pub const EOTF_GAMMA22: u32 = 4;
 pub const EOTF_GAMMA28: u32 = 5;
 pub const EOTF_ST240: u32 = 6;
@@ -10,6 +10,7 @@ pub const EOTF_LOG100: u32 = 8;
 pub const EOTF_LOG316: u32 = 9;
 pub const EOTF_ST428: u32 = 10;
 pub const EOTF_POW: u32 = 11;
+pub const EOTF_GAMMA24: u32 = 12;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
 pub enum VulkanEotf {
@@ -17,6 +18,7 @@ pub enum VulkanEotf {
     St2084Pq,
     Bt1886,
     Gamma22,
+    Gamma24,
     Gamma28,
     St240,
     Log100,
@@ -45,6 +47,7 @@ impl EotfExt for Eotf {
             St2084Pq,
             Bt1886,
             Gamma22,
+            Gamma24,
             Gamma28,
             St240,
             Log100,
@@ -60,8 +63,9 @@ impl VulkanEotf {
         match self {
             Self::Linear => EOTF_LINEAR,
             Self::St2084Pq => EOTF_ST2084_PQ,
-            Self::Bt1886 => EOTF_GAMMA24,
+            Self::Bt1886 => EOTF_BT1886,
             Self::Gamma22 => EOTF_GAMMA22,
+            Self::Gamma24 => EOTF_GAMMA24,
             Self::Gamma28 => EOTF_GAMMA28,
             Self::St240 => EOTF_ST240,
             Self::Log100 => EOTF_LOG100,
