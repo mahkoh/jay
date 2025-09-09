@@ -3,7 +3,7 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
-            cmm_eotf::Eotf,
+            cmm_eotf::{Eotf, EotfPow, bt1886_eotf_args, bt1886_inv_eotf_args},
             cmm_transform::ColorMatrix,
         },
         cpu_worker::PendingJob,
@@ -19,23 +19,26 @@ use {
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
             device::VulkanDevice,
-            eotfs::{EOTF_LINEAR, EotfExt},
+            eotfs::{EOTF_LINEAR, EotfExt, VulkanEotf},
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
             sampler::VulkanSampler,
             semaphore::VulkanSemaphore,
             shaders::{
-                FILL_FRAG, FILL_VERT, FillPushConstants, LEGACY_FILL_FRAG, LEGACY_FILL_VERT,
-                LEGACY_TEX_FRAG, LEGACY_TEX_VERT, LegacyFillPushConstants, LegacyTexPushConstants,
-                OUT_FRAG, OUT_VERT, OutColorManagementData, OutPushConstants, TEX_FRAG, TEX_VERT,
-                TexColorManagementData, TexPushConstants, TexVertex, VulkanShader,
+                ColorManagementData, EotfArgs, FILL_FRAG, FILL_VERT, FillPushConstants,
+                InvEotfArgs, LEGACY_FILL_FRAG, LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT,
+                LegacyFillPushConstants, LegacyTexPushConstants, OUT_FRAG, OUT_VERT,
+                OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants, TexVertex, VulkanShader,
             },
         },
         io_uring::IoUring,
         rect::{Rect, Region},
         theme::Color,
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
+        utils::{
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, ordered_float::F32,
+            stack::Stack,
+        },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
     },
     ahash::AHashMap,
@@ -78,8 +81,9 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipelines: CopyHashMap<vk::Format, FillPipelines>,
-    pub(super) tex_pipelines: StaticMap<Eotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
-    pub(super) out_pipelines: StaticMap<Eotf, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
+    pub(super) tex_pipelines: StaticMap<VulkanEotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
+    pub(super) out_pipelines:
+        StaticMap<VulkanEotf, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
     pub(super) gfx_command_buffers: CachedCommandBuffers,
     pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -176,10 +180,16 @@ pub(super) struct Memory {
     data_buffer: Vec<u8>,
     out_address: DeviceAddress,
     color_transforms: ColorTransforms,
+    eotf_args_cache: EotfArgsCache,
     uniform_buffer_writer: GenericBufferWriter,
     uniform_buffer_descriptor_cache: Option<Box<[u8]>>,
+    blend_buffer_inv_eotf_args_descriptor: Option<Box<[u8]>>,
+    fb_inv_eotf_args_descriptor: Option<Box<[u8]>>,
     blend_buffer_descriptor_buffer_offset: DeviceAddress,
     blend_buffer_color_management_data_address: Option<DeviceSize>,
+    blend_buffer_eotf_args_address: Option<DeviceSize>,
+    blend_buffer_inv_eotf_args_address: Option<DeviceSize>,
+    fb_inv_eotf_args_address: Option<DeviceSize>,
 }
 
 type Point = [[f32; 2]; 4];
@@ -202,6 +212,7 @@ struct VulkanTexOp {
     instances: u32,
     tex_cd: Rc<ColorDescription>,
     color_management_data_address: Option<DeviceAddress>,
+    eotf_args_address: Option<DeviceAddress>,
     resource_descriptor_buffer_offset: DeviceAddress,
 }
 
@@ -246,20 +257,21 @@ type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
 struct TexPipelineKey {
     tex_copy_type: TexCopyType,
     tex_source_type: TexSourceType,
-    eotf: Eotf,
+    eotf: VulkanEotf,
     has_color_management_data: bool,
 }
 
 pub(super) struct TexPipelines {
     format: vk::Format,
-    eotf: Eotf,
+    eotf: VulkanEotf,
     pipelines: CopyHashMap<TexPipelineKey, Rc<VulkanPipeline>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub(super) struct OutPipelineKey {
     format: vk::Format,
-    eotf: Eotf,
+    eotf: VulkanEotf,
+    has_color_management_data: bool,
 }
 
 impl VulkanDevice {
@@ -351,7 +363,9 @@ impl VulkanDevice {
         };
         let uniform_buffer_cache = {
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::UNIFORM_BUFFER;
-            let align = align_of::<TexColorManagementData>() as DeviceSize;
+            let align = align_of::<ColorManagementData>()
+                .max(align_of::<EotfArgs>())
+                .max(align_of::<InvEotfArgs>()) as DeviceSize;
             VulkanBufferCache::new(self, &allocator, usage, align)
         };
         let render = Rc::new(VulkanRenderer {
@@ -436,13 +450,14 @@ impl VulkanRenderer {
         format: vk::Format,
         target_cd: &ColorDescription,
     ) -> Rc<TexPipelines> {
-        let pipelines = &self.tex_pipelines[target_cd.eotf];
+        let eotf = target_cd.eotf.to_vulkan();
+        let pipelines = &self.tex_pipelines[eotf];
         match pipelines.get(&format) {
             Some(pl) => pl,
             _ => {
                 let pl = Rc::new(TexPipelines {
                     format,
-                    eotf: target_cd.eotf,
+                    eotf,
                     pipelines: Default::default(),
                 });
                 pipelines.set(format, pl.clone());
@@ -462,7 +477,7 @@ impl VulkanRenderer {
         let key = TexPipelineKey {
             tex_copy_type,
             tex_source_type,
-            eotf: tex_cd.eotf,
+            eotf: tex_cd.eotf.to_vulkan(),
             has_color_management_data,
         };
         if let Some(pl) = pipelines.pipelines.get(&key) {
@@ -507,9 +522,11 @@ impl VulkanRenderer {
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let key = OutPipelineKey {
             format,
-            eotf: bb_cd.eotf,
+            eotf: bb_cd.eotf.to_vulkan(),
+            has_color_management_data,
         };
-        let pipelines = &self.out_pipelines[fb_cd.eotf];
+        let fb_eotf = fb_cd.eotf.to_vulkan();
+        let pipelines = &self.out_pipelines[fb_eotf];
         if let Some(pl) = pipelines.get(&key) {
             return Ok(pl);
         }
@@ -525,7 +542,7 @@ impl VulkanRenderer {
                 src_has_alpha: true,
                 has_alpha_mult: false,
                 eotf: key.eotf.to_vulkan(),
-                inv_eotf: fb_cd.eotf.to_vulkan(),
+                inv_eotf: fb_eotf.to_vulkan(),
                 descriptor_set_layouts,
                 has_color_management_data,
             })?;
@@ -558,33 +575,73 @@ impl VulkanRenderer {
         }
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
-        let uniform_buffer_descriptor_cache = memory
-            .uniform_buffer_descriptor_cache
-            .get_or_insert_with(|| {
-                vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
-            });
-        if let Some(bb) = bb {
-            let layout = self.out_descriptor_set_layout.as_ref().unwrap();
-            memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
-            let mut writer = resource_writer.add_set(layout);
-            writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
-            if let Some(addr) = memory.blend_buffer_color_management_data_address {
+        macro_rules! ub_descriptor_cache {
+            ($field:ident) => {
+                memory.$field.get_or_insert_with(|| {
+                    vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
+                })
+            };
+        }
+        let uniform_buffer_descriptor_cache = ub_descriptor_cache!(uniform_buffer_descriptor_cache);
+        macro_rules! get_ub_descriptor {
+            ($addr:expr, $ty:ty, $descriptor:expr $(,)?) => {{
                 let uniform_buffer = DescriptorAddressInfoEXT::default()
-                    .address(addr)
-                    .range(size_of::<OutColorManagementData>() as _);
+                    .address($addr)
+                    .range(size_of::<$ty>() as _);
                 let info = DescriptorGetInfoEXT::default()
                     .ty(DescriptorType::UNIFORM_BUFFER)
                     .data(DescriptorDataEXT {
                         p_uniform_buffer: &uniform_buffer,
                     });
                 unsafe {
-                    db.get_descriptor(&info, uniform_buffer_descriptor_cache);
+                    db.get_descriptor(&info, $descriptor);
                 }
-                writer.write(layout.offsets[1], uniform_buffer_descriptor_cache);
+                &*$descriptor
+            }};
+            ($addr:expr, $ty:ty $(,)?) => {
+                get_ub_descriptor!($addr, $ty, uniform_buffer_descriptor_cache)
+            };
+        }
+        let mut blend_buffer_inv_eotf_args_descriptor = None;
+        if let Some(addr) = memory.blend_buffer_inv_eotf_args_address {
+            blend_buffer_inv_eotf_args_descriptor = Some(get_ub_descriptor!(
+                addr,
+                InvEotfArgs,
+                ub_descriptor_cache!(blend_buffer_inv_eotf_args_descriptor),
+            ));
+        }
+        let mut fb_inv_eotf_args_descriptor = None;
+        if let Some(addr) = memory.fb_inv_eotf_args_address {
+            fb_inv_eotf_args_descriptor = Some(get_ub_descriptor!(
+                addr,
+                InvEotfArgs,
+                ub_descriptor_cache!(fb_inv_eotf_args_descriptor),
+            ));
+        }
+        if let Some(bb) = bb {
+            let layout = self.out_descriptor_set_layout.as_ref().unwrap();
+            memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
+            let mut writer = resource_writer.add_set(layout);
+            writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
+            if let Some(addr) = memory.blend_buffer_color_management_data_address {
+                writer.write(
+                    layout.offsets[1],
+                    get_ub_descriptor!(addr, ColorManagementData),
+                );
+            }
+            if let Some(addr) = memory.blend_buffer_eotf_args_address {
+                writer.write(layout.offsets[2], get_ub_descriptor!(addr, EotfArgs));
+            }
+            if let Some(desc) = fb_inv_eotf_args_descriptor {
+                writer.write(layout.offsets[3], desc);
             }
         }
         let tex_descriptor_set_layout = &self.tex_descriptor_set_layouts[1];
         for pass in RenderPass::variants() {
+            let inv_eotf_desc = match pass {
+                RenderPass::BlendBuffer => blend_buffer_inv_eotf_args_descriptor,
+                RenderPass::FrameBuffer => fb_inv_eotf_args_descriptor,
+            };
             for cmd in &mut memory.ops[pass] {
                 let VulkanOp::Tex(c) = cmd else {
                     continue;
@@ -597,21 +654,19 @@ impl VulkanRenderer {
                     &tex.sampled_image_descriptor,
                 );
                 if let Some(addr) = c.color_management_data_address {
-                    let uniform_buffer = DescriptorAddressInfoEXT::default()
-                        .address(addr)
-                        .range(size_of::<TexColorManagementData>() as _);
-                    let info = DescriptorGetInfoEXT::default()
-                        .ty(DescriptorType::UNIFORM_BUFFER)
-                        .data(DescriptorDataEXT {
-                            p_uniform_buffer: &uniform_buffer,
-                        });
-                    unsafe {
-                        db.get_descriptor(&info, uniform_buffer_descriptor_cache);
-                    }
                     writer.write(
                         tex_descriptor_set_layout.offsets[1],
-                        uniform_buffer_descriptor_cache,
+                        get_ub_descriptor!(addr, ColorManagementData),
                     );
+                }
+                if let Some(addr) = c.eotf_args_address {
+                    writer.write(
+                        tex_descriptor_set_layout.offsets[2],
+                        get_ub_descriptor!(addr, EotfArgs),
+                    );
+                }
+                if let Some(desc) = inv_eotf_desc {
+                    writer.write(tex_descriptor_set_layout.offsets[3], desc);
                 }
             }
         }
@@ -655,6 +710,7 @@ impl VulkanRenderer {
         memory.data_buffer.clear();
         memory.uniform_buffer_writer.clear();
         memory.color_transforms.map.clear();
+        memory.eotf_args_cache.map.clear();
         let sync = |memory: &mut Memory| {
             for pass in RenderPass::variants() {
                 let ops = &mut memory.ops_tmp[pass];
@@ -809,6 +865,12 @@ impl VulkanRenderer {
                             self.device.uniform_buffer_offset_mask,
                             &mut memory.uniform_buffer_writer,
                         );
+                        let eotf_args_address = memory.eotf_args_cache.get_offset(
+                            &ct.cd,
+                            false,
+                            self.device.uniform_buffer_offset_mask,
+                            &mut memory.uniform_buffer_writer,
+                        );
                         ops.push(VulkanOp::Tex(VulkanTexOp {
                             tex: tex.clone(),
                             range: lo..hi,
@@ -822,6 +884,7 @@ impl VulkanRenderer {
                             instances: 0,
                             tex_cd: ct.cd.clone(),
                             color_management_data_address,
+                            eotf_args_address,
                             resource_descriptor_buffer_offset: 0,
                         }));
                     }
@@ -832,21 +895,41 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn create_blend_cm_data(
+    fn create_fixed_cm_data(
         &self,
         bb: Option<&VulkanImage>,
         bb_cd: &ColorDescription,
         fb_cd: &ColorDescription,
     ) {
-        zone!("create_blend_cm_data");
+        zone!("create_fixed_cm_data");
         let memory = &mut *self.memory.borrow_mut();
         memory.blend_buffer_color_management_data_address = None;
-        if bb.is_none() {
-            return;
+        memory.blend_buffer_eotf_args_address = None;
+        memory.blend_buffer_inv_eotf_args_address = None;
+        memory.fb_inv_eotf_args_address = None;
+        if bb.is_some() {
+            memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
+                &bb_cd.linear,
+                fb_cd,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
+            memory.blend_buffer_eotf_args_address = memory.eotf_args_cache.get_offset(
+                bb_cd,
+                false,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
+            memory.blend_buffer_inv_eotf_args_address = memory.eotf_args_cache.get_offset(
+                bb_cd,
+                true,
+                self.device.uniform_buffer_offset_mask,
+                &mut memory.uniform_buffer_writer,
+            );
         }
-        memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
-            &bb_cd.linear,
+        memory.fb_inv_eotf_args_address = memory.eotf_args_cache.get_offset(
             fb_cd,
+            true,
             self.device.uniform_buffer_offset_mask,
             &mut memory.uniform_buffer_writer,
         );
@@ -908,18 +991,25 @@ impl VulkanRenderer {
         buffer.buffer.allocation.upload(|ptr, _| unsafe {
             ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
         })?;
+        macro_rules! adj {
+            ($expr:expr) => {
+                if let Some(addr) = $expr {
+                    *addr += buffer.buffer.address;
+                }
+            };
+        }
         for ops in memory.ops.values_mut() {
             for op in ops {
-                if let VulkanOp::Tex(c) = op
-                    && let Some(addr) = &mut c.color_management_data_address
-                {
-                    *addr += buffer.buffer.address;
+                if let VulkanOp::Tex(c) = op {
+                    adj!(&mut c.color_management_data_address);
+                    adj!(&mut c.eotf_args_address);
                 }
             }
         }
-        if let Some(addr) = &mut memory.blend_buffer_color_management_data_address {
-            *addr += buffer.buffer.address;
-        }
+        adj!(&mut memory.blend_buffer_color_management_data_address);
+        adj!(&mut memory.blend_buffer_eotf_args_address);
+        adj!(&mut memory.blend_buffer_inv_eotf_args_address);
+        adj!(&mut memory.fb_inv_eotf_args_address);
         memory.used_buffers.push(buffer);
         Ok(())
     }
@@ -1938,7 +2028,7 @@ impl VulkanRenderer {
         let bb = blend_buffer.as_deref();
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
-        self.create_blend_cm_data(bb, bb_cd, fb_cd);
+        self.create_fixed_cm_data(bb, bb_cd, fb_cd);
         self.create_data_buffer()?;
         self.create_uniform_buffer()?;
         self.collect_memory();
@@ -2229,12 +2319,82 @@ impl ColorTransforms {
     ) -> Option<DeviceSize> {
         let ct = self.get_or_create(src, dst)?;
         if ct.offset.is_none() {
-            let data = TexColorManagementData {
+            let data = ColorManagementData {
                 matrix: ct.matrix.to_f32(),
             };
             let offset = writer.write(uniform_buffer_offset_mask, &data);
             ct.offset = Some(offset);
         }
         ct.offset
+    }
+}
+
+#[derive(Default)]
+struct EotfArgsCache {
+    map: AHashMap<(EotfCacheKey, bool), EotfArg>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+enum EotfCacheKey {
+    Pow(EotfPow),
+    Bt1886(F32),
+}
+
+struct EotfArg {
+    offset: DeviceSize,
+}
+
+impl EotfArgsCache {
+    fn get_offset(
+        &mut self,
+        desc: &ColorDescription,
+        inv: bool,
+        uniform_buffer_offset_mask: DeviceSize,
+        writer: &mut GenericBufferWriter,
+    ) -> Option<DeviceSize> {
+        let key = match desc.eotf {
+            Eotf::Bt1886(c) => EotfCacheKey::Bt1886(c),
+            Eotf::Pow(pow) => EotfCacheKey::Pow(pow),
+            _ => return None,
+        };
+        let ct = match self.map.entry((key, inv)) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(e) => {
+                #[expect(unused_assignments)]
+                let [mut arg1, mut arg2, mut arg3, mut arg4] = [0.0; 4];
+                if inv {
+                    match key {
+                        EotfCacheKey::Pow(pow) => arg1 = pow.inv_eotf_f32(),
+                        EotfCacheKey::Bt1886(c) => {
+                            [arg1, arg2, arg3, arg4] = bt1886_inv_eotf_args(c);
+                        }
+                    }
+                    let data = InvEotfArgs {
+                        arg1,
+                        arg2,
+                        arg3,
+                        arg4,
+                    };
+                    let offset = writer.write(uniform_buffer_offset_mask, &data);
+                    e.insert(EotfArg { offset })
+                } else {
+                    match key {
+                        EotfCacheKey::Pow(pow) => arg1 = pow.eotf_f32(),
+                        EotfCacheKey::Bt1886(c) => {
+                            [arg1, arg2, arg3, arg4] = bt1886_eotf_args(c);
+                        }
+                    }
+                    let data = EotfArgs {
+                        arg1,
+                        arg2,
+                        arg3,
+                        arg4,
+                    };
+                    let offset = writer.write(uniform_buffer_offset_mask, &data);
+                    e.insert(EotfArg { offset })
+                }
+            }
+        };
+        Some(ct.offset)
     }
 }

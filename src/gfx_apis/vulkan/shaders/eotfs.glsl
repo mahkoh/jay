@@ -2,16 +2,37 @@
 #define EOTFS_GLSL
 
 #include "frag_spec_const.glsl"
+#include "tex_set.glsl"
 
 #define TF_LINEAR 1
 #define TF_ST2084_PQ 2
-#define TF_GAMMA24 3
+#define TF_BT1886 3
 #define TF_GAMMA22 4
 #define TF_GAMMA28 5
 #define TF_ST240 6
 #define TF_LOG100 8
 #define TF_LOG316 9
 #define TF_ST428 10
+#define TF_POW 11
+#define TF_GAMMA24 12
+
+vec3 eotf_bt1886(vec3 c) {
+    c = clamp(c, 0.0, 1.0);
+    float a1 = cm_eotf_args.arg1;
+    float a2 = cm_eotf_args.arg2;
+    float a3 = cm_eotf_args.arg3;
+    float a4 = cm_eotf_args.arg4;
+    return a1 * (pow(a2 * c + a3, vec3(2.4)) - a4);
+}
+
+vec3 inv_eotf_bt1886(vec3 c) {
+    c = clamp(c, 0.0, 1.0);
+    float a1 = cm_inv_eotf_args.arg1;
+    float a2 = cm_inv_eotf_args.arg2;
+    float a3 = cm_inv_eotf_args.arg3;
+    float a4 = cm_inv_eotf_args.arg4;
+    return a1 * (pow(a2 * c + a3, vec3(1.0 / 2.4)) - a4);
+}
 
 vec3 eotf_st2084_pq(vec3 c) {
     c = clamp(c, 0.0, 1.0);
@@ -84,13 +105,15 @@ vec3 apply_eotf(vec3 c) {
     switch (eotf) {
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return eotf_st2084_pq(c);
-        case TF_GAMMA24: return sign(c) * pow(abs(c), vec3(2.4));
+        case TF_BT1886: return eotf_bt1886(c);
         case TF_GAMMA22: return sign(c) * pow(abs(c), vec3(2.2));
+        case TF_GAMMA24: return sign(c) * pow(abs(c), vec3(2.4));
         case TF_GAMMA28: return sign(c) * pow(abs(c), vec3(2.8));
         case TF_ST240: return eotf_st240(c);
         case TF_LOG100: return eotf_log100(c);
         case TF_LOG316: return eotf_log316(c);
         case TF_ST428: return eotf_st428(c);
+        case TF_POW: return sign(c) * pow(abs(c), vec3(cm_eotf_args.arg1));
         default: return c;
     }
 }
@@ -99,13 +122,15 @@ vec3 apply_inv_eotf(vec3 c) {
     switch (inv_eotf) {
         case TF_LINEAR: return c;
         case TF_ST2084_PQ: return inv_eotf_st2084_pq(c);
-        case TF_GAMMA24: return sign(c) * pow(abs(c), vec3(1.0 / 2.4));
+        case TF_BT1886: return inv_eotf_bt1886(c);
         case TF_GAMMA22: return sign(c) * pow(abs(c), vec3(1.0 / 2.2));
+        case TF_GAMMA24: return sign(c) * pow(abs(c), vec3(1.0 / 2.4));
         case TF_GAMMA28: return sign(c) * pow(abs(c), vec3(1.0 / 2.8));
         case TF_ST240: return inv_eotf_st240(c);
         case TF_LOG100: return inv_eotf_log100(c);
         case TF_LOG316: return inv_eotf_log316(c);
         case TF_ST428: return inv_eotf_st428(c);
+        case TF_POW: return sign(c) * pow(abs(c), vec3(cm_inv_eotf_args.arg1));
         default: return c;
     }
 }

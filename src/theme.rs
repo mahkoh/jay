@@ -1,7 +1,10 @@
 #![expect(clippy::excessive_precision)]
 
 use {
-    crate::{cmm::cmm_eotf::Eotf, utils::clonecell::CloneCell},
+    crate::{
+        cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
+        utils::clonecell::CloneCell,
+    },
     num_traits::Float,
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
@@ -114,13 +117,23 @@ impl Color {
         match eotf {
             Eotf::Linear => convert!(linear),
             Eotf::St2084Pq => convert!(st2084_pq),
-            Eotf::Bt1886 => convert!(gamma24),
+            Eotf::Bt1886(c) => {
+                let [a1, a2, a3, a4] = bt1886_eotf_args(c);
+                let bt1886 = |c: f32| -> f32 { a1 * ((a2 * c + a3).powf(2.4) - a4) };
+                convert!(bt1886)
+            }
             Eotf::Gamma22 => convert!(gamma22),
+            Eotf::Gamma24 => convert!(gamma24),
             Eotf::Gamma28 => convert!(gamma28),
             Eotf::St240 => convert!(st240),
             Eotf::Log100 => convert!(log100),
             Eotf::Log316 => convert!(log316),
             Eotf::St428 => convert!(st428),
+            Eotf::Pow(n) => {
+                let e = n.eotf_f32();
+                let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
+                convert!(pow)
+            }
         }
         Self { r, g, b, a: 1.0 }
     }
@@ -239,13 +252,23 @@ impl Color {
             match eotf {
                 Eotf::Linear => convert!(linear),
                 Eotf::St2084Pq => convert!(st2084_pq),
-                Eotf::Bt1886 => convert!(gamma24),
+                Eotf::Bt1886(c) => {
+                    let [a1, a2, a3, a4] = bt1886_inv_eotf_args(c);
+                    let bt1886 = |c: f32| -> f32 { a1 * ((a2 * c + a3).powf(1.0 / 2.4) - a4) };
+                    convert!(bt1886)
+                }
                 Eotf::Gamma22 => convert!(gamma22),
+                Eotf::Gamma24 => convert!(gamma24),
                 Eotf::Gamma28 => convert!(gamma28),
                 Eotf::St240 => convert!(st240),
                 Eotf::Log100 => convert!(log100),
                 Eotf::Log316 => convert!(log316),
                 Eotf::St428 => convert!(st428),
+                Eotf::Pow(n) => {
+                    let e = n.inv_eotf_f32();
+                    let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
+                    convert!(pow)
+                }
             }
             if self.a < 1.0 {
                 for c in &mut res[..3] {

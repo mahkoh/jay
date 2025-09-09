@@ -15,7 +15,7 @@ pub(super) struct VulkanDescriptorSetLayout {
     pub(super) device: Rc<VulkanDevice>,
     pub(super) layout: DescriptorSetLayout,
     pub(super) size: DeviceSize,
-    pub(super) offsets: ArrayVec<DeviceSize, 2>,
+    pub(super) offsets: ArrayVec<DeviceSize, 4>,
     pub(super) _sampler: Option<Rc<VulkanSampler>>,
 }
 
@@ -98,6 +98,16 @@ impl VulkanDevice {
                 .stage_flags(ShaderStageFlags::FRAGMENT)
                 .descriptor_count(1)
                 .descriptor_type(DescriptorType::UNIFORM_BUFFER),
+            DescriptorSetLayoutBinding::default()
+                .binding(2)
+                .stage_flags(ShaderStageFlags::FRAGMENT)
+                .descriptor_count(1)
+                .descriptor_type(DescriptorType::UNIFORM_BUFFER),
+            DescriptorSetLayoutBinding::default()
+                .binding(3)
+                .stage_flags(ShaderStageFlags::FRAGMENT)
+                .descriptor_count(1)
+                .descriptor_type(DescriptorType::UNIFORM_BUFFER),
         ];
         let create_info = DescriptorSetLayoutCreateInfo::default()
             .bindings(&bindings)
@@ -110,6 +120,8 @@ impl VulkanDevice {
         unsafe {
             offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 0));
             offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 1));
+            offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 2));
+            offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 3));
         }
         Ok(Rc::new(VulkanDescriptorSetLayout {
             device: self.clone(),

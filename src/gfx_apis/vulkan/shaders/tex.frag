@@ -2,15 +2,14 @@
 
 #extension GL_EXT_scalar_block_layout : require
 
+#define TEX_SET 1
+
 #include "frag_spec_const.glsl"
-#include "eotfs.glsl"
 #include "tex.common.glsl"
+#include "tex_set.glsl"
+#include "eotfs.glsl"
 
 layout(set = 0, binding = 0) uniform sampler sam;
-layout(set = 1, binding = 0) uniform texture2D tex;
-layout(set = 1, binding = 1, row_major, std430) uniform ColorManagementData {
-	mat4x4 matrix;
-} cm_data;
 layout(location = 0) in vec2 tex_pos;
 layout(location = 0) out vec4 out_color;
 
