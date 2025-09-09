@@ -682,6 +682,7 @@ dependencies = [
  "serde_json",
  "simplelog",
  "thiserror",
+ "uapi",
  "walkdir",
 ]
 
