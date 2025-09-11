@@ -13,15 +13,17 @@ pub struct MsgFormatter<'a> {
     meta: &'a mut OutBufferMeta,
     pos: usize,
     fds: &'a mut Vec<Rc<OwnedFd>>,
+    v2: bool,
 }
 
 impl<'a> MsgFormatter<'a> {
-    pub fn new(buf: &'a mut OutBuffer, fds: &'a mut Vec<Rc<OwnedFd>>) -> Self {
+    pub fn new(buf: &'a mut OutBuffer, fds: &'a mut Vec<Rc<OwnedFd>>, v2: bool) -> Self {
         Self {
             pos: buf.meta.write_pos,
             buf: &mut buf.buf[..],
             fds,
             meta: &mut buf.meta,
+            v2,
         }
     }
 
@@ -85,7 +87,10 @@ impl<'a> MsgFormatter<'a> {
         self.uint(obj.into().raw())
     }
 
-    pub fn header<T: Into<ObjectId>>(&mut self, obj: T, event: u32) -> &mut Self {
+    pub fn header<T: Into<ObjectId>>(&mut self, obj: T, mut event: u32) -> &mut Self {
+        if self.v2 {
+            event <<= 8;
+        }
         self.object(obj).uint(event)
     }
 
@@ -99,6 +104,7 @@ impl<'a> MsgFormatter<'a> {
                 meta: self.meta,
                 pos,
                 fds: self.fds,
+                v2: self.v2,
             };
             f(&mut fmt);
             let len = self.meta.write_pos - pos - 4;
@@ -123,7 +129,10 @@ impl<'a> MsgFormatter<'a> {
         assert_eq!(self.pos % 4, 0);
         unsafe {
             let second_ptr = self.buf.as_ptr().add(self.pos + 4) as *mut u32;
-            let len = ((self.meta.write_pos - self.pos) as u32) << 16;
+            let mut len = ((self.meta.write_pos - self.pos) as u32) << 16;
+            if self.v2 {
+                len |= self.fds.len() as u32;
+            }
             *second_ptr |= len;
         }
         if self.fds.len() > 0 {
