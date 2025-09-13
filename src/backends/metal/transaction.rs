@@ -385,6 +385,7 @@ impl MetalDeviceTransaction {
                     }
                     *plane = p.id;
                     unused_planes.remove(&p.id);
+                    break;
                 }
             }
             if crtc_planes.primary.is_none() {
@@ -417,11 +418,11 @@ impl MetalDeviceTransaction {
                 crtc.new.mode_blob = Some(Rc::new(blob));
                 mode.clone()
             };
-            for plane in [crtc_planes.primary, crtc_planes.cursor] {
-                if plane.is_none() {
+            for plane_id in [&mut crtc_planes.primary, &mut crtc_planes.cursor] {
+                if plane_id.is_none() {
                     continue;
                 }
-                let plane = slf.planes.get_mut(&plane).unwrap();
+                let plane = slf.planes.get_mut(plane_id).unwrap();
                 plane.new.assigned_crtc = crtc.obj.id;
                 plane.changed.extend(crtc.changed.iter().cloned());
                 let (x, y, width, height, format, old_buffers);
@@ -483,7 +484,8 @@ impl MetalDeviceTransaction {
                     None => {
                         let modifiers = &plane.obj.formats.get(&format.drm).unwrap().modifiers;
                         connector.changed.set(true);
-                        let buffers = slf
+                        let is_cursor = plane.obj.ty == PlaneType::Cursor;
+                        let res = slf
                             .dev
                             .dev
                             .backend
@@ -494,15 +496,28 @@ impl MetalDeviceTransaction {
                                 width,
                                 height,
                                 render_ctx,
-                                plane.obj.ty == PlaneType::Cursor,
+                                is_cursor,
                             )
                             .map_err(|e| {
                                 BackendConnectorTransactionError::AllocateScanoutBuffers(
                                     connector.obj.kernel_id(),
                                     Box::new(e),
                                 )
-                            })?;
-                        let buffers = Rc::new(buffers);
+                            });
+                        if let Err(e) = &res
+                            && is_cursor
+                        {
+                            log::error!(
+                                "Could not allocate buffers for cursor plane of {}: {}",
+                                connector.obj.kernel_id(),
+                                ErrorFmt(e),
+                            );
+                            plane.new = DrmPlaneState::default();
+                            unused_planes.insert(*plane_id, ());
+                            *plane_id = DrmPlane::NONE;
+                            continue;
+                        }
+                        let buffers = Rc::new(res?);
                         plane.new.buffers = Some(buffers.clone());
                         new_buffers = Some(buffers.clone());
                         buffers
