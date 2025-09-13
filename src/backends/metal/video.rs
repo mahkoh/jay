@@ -1083,6 +1083,11 @@ fn create_connector(
     dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
     let display = create_connector_display_data(connector, dev)?;
+    log::info!(
+        "Creating connector {} for device {}",
+        display.connector_id,
+        dev.devnode.as_bytes().as_bstr(),
+    );
     let slf = Rc::new(MetalConnector {
         id: connector,
         kernel_id: Cell::new(display.connector_id),
@@ -1799,6 +1804,11 @@ impl MetalBackend {
         for c in removed_connectors {
             dev.futures.remove(&c);
             if let Some(c) = dev.connectors.remove(&c) {
+                log::info!(
+                    "Removing connector {} from device {}",
+                    c.kernel_id.get(),
+                    dev.dev.devnode.as_bytes().as_bstr(),
+                );
                 if let Some(lease_id) = c.lease.get()
                     && let Some(lease) = dev.dev.leases.remove(&lease_id)
                     && !lease.try_revoke()
@@ -2467,7 +2477,11 @@ impl MetalBackend {
 
     fn re_init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) {
         if let Err(e) = self.init_drm_device(dev) {
-            log::error!("Could not initialize device: {}", ErrorFmt(e));
+            log::error!(
+                "Could not initialize drm device {}: {}",
+                dev.dev.devnode.as_bytes().as_bstr(),
+                ErrorFmt(e),
+            );
         }
         for connector in dev.connectors.lock().values() {
             if connector.connected() {
@@ -2552,7 +2566,11 @@ impl MetalBackend {
                 Ok(_) => break,
                 Err(e) => e,
             };
-            log::error!("Could not initialize DRM device: {}", ErrorFmt(&err));
+            log::error!(
+                "Could not initialize DRM device {}: {}",
+                dev.dev.devnode.as_bytes().as_bstr(),
+                ErrorFmt(&err),
+            );
             let Some(q) = quirks.pop() else {
                 return Err(err);
             };
