@@ -385,6 +385,7 @@ impl MetalDeviceTransaction {
                     }
                     *plane = p.id;
                     unused_planes.remove(&p.id);
+                    break;
                 }
             }
             if crtc_planes.primary.is_none() {
