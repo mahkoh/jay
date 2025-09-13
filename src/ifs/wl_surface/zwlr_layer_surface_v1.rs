@@ -498,21 +498,38 @@ impl ZwlrLayerSurfaceV1 {
             _ => opos,
         };
         let (owidth, oheight) = rect.size();
-        let mut x1 = 0;
-        let mut y1 = 0;
+        let (swidth, sheight) = self.size.get();
+        let x1;
+        let y1;
         if anchor.contains(LEFT | RIGHT) {
-            x1 = (owidth - width) / 2;
+            x1 = if swidth != 0 {
+                (owidth - width) / 2
+            } else if ml < 0 {
+                ((owidth - width - mr) / 2).min(ml)
+            } else {
+                ((owidth - width - mr) / 2).max(ml)
+            };
         } else if anchor.contains(LEFT) {
             x1 = ml;
         } else if anchor.contains(RIGHT) {
             x1 = owidth - width - mr;
+        } else {
+            x1 = (owidth - width) / 2;
         }
         if anchor.contains(TOP | BOTTOM) {
-            y1 = (oheight - height) / 2;
+            y1 = if sheight != 0 {
+                (oheight - height) / 2
+            } else if mt < 0 {
+                ((oheight - height - mb) / 2).min(mt)
+            } else {
+                ((oheight - height - mb) / 2).max(mt)
+            };
         } else if anchor.contains(TOP) {
             y1 = mt;
         } else if anchor.contains(BOTTOM) {
             y1 = oheight - height - mb;
+        } else {
+            y1 = (oheight - height) / 2;
         }
         let a_rect = Rect::new_sized(x1 + rect.x1(), y1 + rect.y1(), width, height).unwrap();
         let o_rect = a_rect.move_(-opos.x1(), -opos.y1());
