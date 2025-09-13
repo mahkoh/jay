@@ -232,6 +232,10 @@ impl MetalBackend {
                 Some(d) if d.id == id => d,
                 _ => return,
             };
+            log::info!(
+                "Received logind response for drm device {}",
+                dev.devnode.to_bytes().as_bstr(),
+            );
             let res = match res {
                 Ok(r) => r,
                 Err(e) => {

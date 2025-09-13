@@ -14,7 +14,7 @@ use {
             },
         },
         backends::metal::{
-            MetalBackend, MetalError,
+            MetalBackend, MetalError, ScanoutBufferError, ScanoutBufferErrorKind,
             present::{
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
@@ -41,7 +41,7 @@ use {
             asyncevent::AsyncEvent, binary_search_map::BinarySearchMap, bitflags::BitflagsExt,
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             geometric_decay::GeometricDecay, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
+            on_drop::OnDrop2, opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
         },
         video::{
             INVALID_MODIFIER, Modifier,
@@ -88,6 +88,7 @@ pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
     pub gbm: Rc<GbmDevice>,
+    pub devnode: CString,
 }
 
 pub struct MetalDrmDevice {
@@ -1083,6 +1084,11 @@ fn create_connector(
     dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
     let display = create_connector_display_data(connector, dev)?;
+    log::info!(
+        "Creating connector {} for device {}",
+        display.connector_id,
+        dev.devnode.as_bytes().as_bstr(),
+    );
     let slf = Rc::new(MetalConnector {
         id: connector,
         kernel_id: Cell::new(display.connector_id),
@@ -1799,6 +1805,11 @@ impl MetalBackend {
         for c in removed_connectors {
             dev.futures.remove(&c);
             if let Some(c) = dev.connectors.remove(&c) {
+                log::info!(
+                    "Removing connector {} from device {}",
+                    c.kernel_id.get(),
+                    dev.dev.devnode.as_bytes().as_bstr(),
+                );
                 if let Some(lease_id) = c.lease.get()
                     && let Some(lease) = dev.dev.leases.remove(&lease_id)
                     && !lease.try_revoke()
@@ -1990,6 +2001,7 @@ impl MetalBackend {
             dev_id: pending.id,
             gfx,
             gbm: gbm.clone(),
+            devnode: pending.devnode.clone(),
         });
 
         let mut is_nvidia = false;
@@ -2455,6 +2467,7 @@ impl MetalBackend {
             dev_id: dev.id,
             gfx,
             gbm: old_ctx.gbm.clone(),
+            devnode: old_ctx.devnode.clone(),
         }));
         if dev.is_render_device() {
             self.make_render_device(dev, true);
@@ -2467,7 +2480,11 @@ impl MetalBackend {
 
     fn re_init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) {
         if let Err(e) = self.init_drm_device(dev) {
-            log::error!("Could not initialize device: {}", ErrorFmt(e));
+            log::error!(
+                "Could not initialize drm device {}: {}",
+                dev.dev.devnode.as_bytes().as_bstr(),
+                ErrorFmt(e),
+            );
         }
         for connector in dev.connectors.lock().values() {
             if connector.connected() {
@@ -2552,7 +2569,11 @@ impl MetalBackend {
                 Ok(_) => break,
                 Err(e) => e,
             };
-            log::error!("Could not initialize DRM device: {}", ErrorFmt(&err));
+            log::error!(
+                "Could not initialize DRM device {}: {}",
+                dev.dev.devnode.as_bytes().as_bstr(),
+                ErrorFmt(&err),
+            );
             let Some(q) = quirks.pop() else {
                 return Err(err);
             };
@@ -2629,25 +2650,102 @@ impl MetalBackend {
         damage_queue: DamageQueue,
         blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
     ) -> Result<RenderBuffer, MetalError> {
+        let mut dev_gfx_write_modifiers = None;
+        let mut dev_gfx_read_modifiers = None;
+        let mut dev_modifiers_possible = None;
+        let mut dev_usage = None;
+        let mut dev_modifier = None;
+        let mut render_name = None;
+        let mut render_gfx_write_modifiers = None;
+        let mut render_modifiers_possible = None;
+        let mut render_usage = None;
+        let mut render_modifier = None;
+        self.create_scanout_buffer_(
+            dev,
+            format,
+            plane_modifiers,
+            width,
+            height,
+            render_ctx,
+            cursor,
+            damage_queue,
+            blend_buffer,
+            &mut dev_gfx_write_modifiers,
+            &mut dev_gfx_read_modifiers,
+            &mut dev_modifiers_possible,
+            &mut dev_usage,
+            &mut dev_modifier,
+            &mut render_name,
+            &mut render_gfx_write_modifiers,
+            &mut render_modifiers_possible,
+            &mut render_usage,
+            &mut render_modifier,
+        )
+        .map_err(|kind| ScanoutBufferError {
+            dev: dev.devnode.as_bytes().as_bstr().to_string(),
+            format,
+            plane_modifiers: plane_modifiers.clone(),
+            width,
+            height,
+            cursor,
+            dev_gfx_write_modifiers,
+            dev_gfx_read_modifiers,
+            dev_modifiers_possible,
+            dev_usage,
+            dev_modifier,
+            render_name,
+            render_gfx_write_modifiers,
+            render_modifiers_possible,
+            render_usage,
+            render_modifier,
+            kind,
+        })
+        .map_err(Box::new)
+        .map_err(MetalError::AllocateScanoutBuffer)
+    }
+
+    fn create_scanout_buffer_(
+        &self,
+        dev: &Rc<MetalDrmDevice>,
+        format: &'static Format,
+        plane_modifiers: &IndexSet<Modifier>,
+        width: i32,
+        height: i32,
+        render_ctx: &Rc<MetalRenderContext>,
+        cursor: bool,
+        damage_queue: DamageQueue,
+        blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
+        dbg_dev_gfx_write_modifiers: &mut Option<IndexSet<Modifier>>,
+        dbg_dev_gfx_read_modifiers: &mut Option<IndexSet<Modifier>>,
+        dbg_dev_modifiers_possible: &mut Option<IndexSet<Modifier>>,
+        dbg_dev_usage: &mut Option<u32>,
+        dbg_dev_modifier: &mut Option<Modifier>,
+        dbg_render_name: &mut Option<String>,
+        dbg_render_gfx_write_modifiers: &mut Option<IndexSet<Modifier>>,
+        dbg_render_modifiers_possible: &mut Option<IndexSet<Modifier>>,
+        dbg_render_usage: &mut Option<u32>,
+        dbg_render_modifier: &mut Option<Modifier>,
+    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
         let dev_ctx = dev.ctx.get();
         let dev_gfx_formats = dev_ctx.gfx.formats();
-        let dev_gfx_format = match dev_gfx_formats.get(&format.drm) {
-            None => return Err(MetalError::MissingDevFormat(format.name)),
-            Some(f) => f,
+        let Some(dev_gfx_format) = dev_gfx_formats.get(&format.drm) else {
+            return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
+        let send_dev_gfx_write_modifiers = OnDrop2::new(|| {
+            *dbg_dev_gfx_write_modifiers =
+                Some(dev_gfx_format.write_modifiers.keys().copied().collect())
+        });
         let possible_modifiers: IndexMap<_, _> = dev_gfx_format
             .write_modifiers
             .iter()
             .filter(|(m, _)| plane_modifiers.contains(*m))
             .map(|(m, v)| (*m, v))
             .collect();
+        let send_dev_modifiers_possible = OnDrop2::new(|| {
+            *dbg_dev_modifiers_possible = Some(possible_modifiers.keys().copied().collect())
+        });
         if possible_modifiers.is_empty() {
-            log::warn!("Scanout modifiers: {:?}", plane_modifiers);
-            log::warn!(
-                "DEV GFX modifiers: {:?}",
-                dev_gfx_format.write_modifiers.keys()
-            );
-            return Err(MetalError::MissingDevModifier(format.name));
+            return Err(ScanoutBufferErrorKind::SodNoWritableModifier);
         }
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
         if !needs_render_usage(possible_modifiers.values().copied()) {
@@ -2656,6 +2754,7 @@ impl MetalBackend {
         if cursor {
             usage |= GBM_BO_USE_LINEAR;
         };
+        *dbg_dev_usage = Some(usage);
         let dev_bo = dev.gbm.create_bo(
             &self.state.dma_buf_ids,
             width,
@@ -2666,19 +2765,20 @@ impl MetalBackend {
         );
         let dev_bo = match dev_bo {
             Ok(b) => b,
-            Err(e) => return Err(MetalError::ScanoutBuffer(e)),
+            Err(e) => return Err(ScanoutBufferErrorKind::SodBufferAllocation(e)),
         };
+        *dbg_dev_modifier = Some(dev_bo.dmabuf().modifier);
         let drm_fb = match dev.master.add_fb(dev_bo.dmabuf(), None) {
             Ok(fb) => Rc::new(fb),
-            Err(e) => return Err(MetalError::Framebuffer(e)),
+            Err(e) => return Err(ScanoutBufferErrorKind::SodAddfb2(e)),
         };
         let dev_img = match dev_ctx.gfx.clone().dmabuf_img(dev_bo.dmabuf()) {
             Ok(img) => img,
-            Err(e) => return Err(MetalError::ImportImage(e)),
+            Err(e) => return Err(ScanoutBufferErrorKind::SodImportSodImage(e)),
         };
         let dev_fb = match dev_img.clone().to_framebuffer() {
             Ok(fb) => fb,
-            Err(e) => return Err(MetalError::ImportFb(e)),
+            Err(e) => return Err(ScanoutBufferErrorKind::SodImportFb(e)),
         };
         dev_fb
             .clear(
@@ -2686,57 +2786,74 @@ impl MetalBackend {
                 ReleaseSync::None,
                 self.state.color_manager.srgb_gamma22(),
             )
-            .map_err(MetalError::Clear)?;
+            .map_err(ScanoutBufferErrorKind::SodClear)?;
+        let render_gfx_formats;
+        let render_possible_modifiers: IndexMap<_, _>;
+        let mut send_render_dev_name = None;
+        let mut send_render_gfx_write_modifiers = None;
+        let mut send_dev_gfx_read_modifiers = None;
+        let mut send_render_possible_modifiers = None;
         let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
             let render_tex = match dev_img.to_texture() {
                 Ok(fb) => fb,
-                Err(e) => return Err(MetalError::ImportTexture(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::SodImportSodTexture(e)),
             };
             (None, render_tex, None, None)
         } else {
+            send_render_dev_name = Some(OnDrop2::new(|| {
+                *dbg_render_name = Some(render_ctx.devnode.as_bytes().as_bstr().to_string());
+            }));
             // Create a _bridge_ BO in the render device
-            let render_gfx_formats = render_ctx.gfx.formats();
+            render_gfx_formats = render_ctx.gfx.formats();
             let render_gfx_format = match render_gfx_formats.get(&format.drm) {
-                None => return Err(MetalError::MissingRenderFormat(format.name)),
+                None => return Err(ScanoutBufferErrorKind::RenderUnsupportedFormat),
                 Some(f) => f,
             };
-            let possible_modifiers: IndexMap<_, _> = render_gfx_format
+            send_render_gfx_write_modifiers = Some(OnDrop2::new(|| {
+                *dbg_render_gfx_write_modifiers =
+                    Some(render_gfx_format.write_modifiers.keys().copied().collect())
+            }));
+            send_dev_gfx_read_modifiers = Some(OnDrop2::new(|| {
+                *dbg_dev_gfx_read_modifiers = Some(dev_gfx_format.read_modifiers.clone());
+            }));
+            render_possible_modifiers = render_gfx_format
                 .write_modifiers
                 .iter()
                 .filter(|(m, _)| dev_gfx_format.read_modifiers.contains(*m))
                 .map(|(m, v)| (*m, v))
                 .collect();
-            if possible_modifiers.is_empty() {
-                log::warn!(
-                    "Render GFX modifiers: {:?}",
-                    render_gfx_format.write_modifiers.keys()
-                );
-                log::warn!("DEV GFX modifiers: {:?}", dev_gfx_format.read_modifiers);
-                return Err(MetalError::MissingRenderModifier(format.name));
+            send_render_possible_modifiers = Some(OnDrop2::new(|| {
+                *dbg_render_modifiers_possible =
+                    Some(render_possible_modifiers.keys().copied().collect())
+            }));
+            if render_possible_modifiers.is_empty() {
+                return Err(ScanoutBufferErrorKind::RenderNoWritableModifier);
             }
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            if !needs_render_usage(possible_modifiers.values().copied()) {
+            if !needs_render_usage(render_possible_modifiers.values().copied()) {
                 usage &= !GBM_BO_USE_RENDERING;
             }
+            *dbg_render_usage = Some(usage);
             let render_bo = render_ctx.gbm.create_bo(
                 &self.state.dma_buf_ids,
                 width,
                 height,
                 format,
-                possible_modifiers.keys(),
+                render_possible_modifiers.keys(),
                 usage,
             );
             let render_bo = match render_bo {
                 Ok(b) => b,
-                Err(e) => return Err(MetalError::ScanoutBuffer(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::RenderBufferAllocation(e)),
             };
+            *dbg_render_modifier = Some(render_bo.dmabuf().modifier);
             let render_img = match render_ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
                 Ok(img) => img,
-                Err(e) => return Err(MetalError::ImportImage(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportImage(e)),
             };
             let render_fb = match render_img.clone().to_framebuffer() {
                 Ok(fb) => fb,
-                Err(e) => return Err(MetalError::ImportFb(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportFb(e)),
             };
             render_fb
                 .clear(
@@ -2744,24 +2861,30 @@ impl MetalBackend {
                     ReleaseSync::None,
                     self.state.color_manager.srgb_gamma22(),
                 )
-                .map_err(MetalError::Clear)?;
+                .map_err(ScanoutBufferErrorKind::RenderClear)?;
             let render_tex = match render_img.to_texture() {
                 Ok(fb) => fb,
-                Err(e) => return Err(MetalError::ImportTexture(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportRenderTexture(e)),
             };
 
             // Import the bridge BO into the current device
             let dev_img = match dev_ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
                 Ok(img) => img,
-                Err(e) => return Err(MetalError::ImportImage(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::SodImportRenderImage(e)),
             };
             let dev_tex = match dev_img.to_texture() {
                 Ok(fb) => fb,
-                Err(e) => return Err(MetalError::ImportTexture(e)),
+                Err(e) => return Err(ScanoutBufferErrorKind::SodImportRenderTexture(e)),
             };
 
             (Some(dev_tex), render_tex, Some(render_fb), Some(render_bo))
         };
+        send_dev_gfx_write_modifiers.forget();
+        send_dev_modifiers_possible.forget();
+        send_render_dev_name.map(|o| o.forget());
+        send_render_gfx_write_modifiers.map(|o| o.forget());
+        send_dev_gfx_read_modifiers.map(|o| o.forget());
+        send_render_possible_modifiers.map(|o| o.forget());
         Ok(RenderBuffer {
             width,
             height,
