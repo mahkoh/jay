@@ -365,7 +365,7 @@ impl VulkanDmaBufImageTemplate {
             let mut image_memory_requirements_info =
                 ImageMemoryRequirementsInfo2::default().image(image);
             let mut image_plane_memory_requirements_info;
-            if self.disjoint {
+            if dbg!(self.disjoint) {
                 let plane_aspect = match plane_idx {
                     0 => ImageAspectFlags::MEMORY_PLANE_0_EXT,
                     1 => ImageAspectFlags::MEMORY_PLANE_1_EXT,
@@ -387,12 +387,12 @@ impl VulkanDmaBufImageTemplate {
                     &mut memory_requirements,
                 );
             }
-            let memory_type_bits = memory_requirements.memory_requirements.memory_type_bits
-                & memory_fd_properties.memory_type_bits;
+            let memory_type_bits = dbg!(memory_requirements.memory_requirements.memory_type_bits)
+                & dbg!(memory_fd_properties.memory_type_bits);
             let memory_type_index = self
                 .renderer
                 .device
-                .find_memory_type(MemoryPropertyFlags::empty(), memory_type_bits)
+                .find_memory_type(MemoryPropertyFlags::empty(), dbg!(memory_type_bits))
                 .ok_or(VulkanError::MemoryType)?;
             let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
                 .map_err(|e| VulkanError::Dupfd(e.into()))?;
