@@ -2,6 +2,8 @@ image: archlinux
 sources:
   - https://github.com/mahkoh/jay
 tasks:
+  - packages: |
+      echo 'Server = https://mirrors.n-ix.net/archlinux/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
   - install: |
       sudo pacman -Syu --noconfirm
       sudo pacman -S --noconfirm rustup libinput pango mesa cmake shaderc
