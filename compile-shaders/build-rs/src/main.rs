@@ -1,7 +1,12 @@
-use {anyhow::bail, std::process::Command};
+use {
+    anyhow::bail,
+    compile_shaders_core::{ROOT, unchanged},
+    std::process::Command,
+};
 
-pub fn main() -> anyhow::Result<()> {
-    if !std::fs::exists("compile-shaders")? {
+fn main() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed={}", ROOT);
+    if unchanged() {
         return Ok(());
     }
     let code = Command::new("cargo")
@@ -10,7 +15,7 @@ pub fn main() -> anyhow::Result<()> {
             "--manifest-path",
             "compile-shaders/Cargo.toml",
             "-p",
-            "compile-shaders-build-rs",
+            "compile-shaders-compile",
         ])
         .status()?;
     if !code.success() {
