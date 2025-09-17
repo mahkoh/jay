@@ -463,6 +463,8 @@ pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
     pub font: CloneCell<Arc<String>>,
+    pub bar_font: CloneCell<Option<Arc<String>>>,
+    pub title_font: CloneCell<Option<Arc<String>>>,
     pub default_font: Arc<String>,
 }
 
@@ -473,7 +475,19 @@ impl Default for Theme {
             colors: Default::default(),
             sizes: Default::default(),
             font: CloneCell::new(default_font.clone()),
+            bar_font: Default::default(),
+            title_font: Default::default(),
             default_font,
         }
+    }
+}
+
+impl Theme {
+    pub fn title_font(&self) -> Arc<String> {
+        self.title_font.get().unwrap_or_else(|| self.font.get())
+    }
+
+    pub fn bar_font(&self) -> Arc<String> {
+        self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 }

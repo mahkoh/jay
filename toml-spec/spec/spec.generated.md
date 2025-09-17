@@ -4251,6 +4251,18 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `title-font` (optional):
+
+  The name of the font to use in window titles. Defaults to `font` if not set.
+
+  The value of this field should be a string.
+
+- `bar-font` (optional):
+
+  The name of the font to use in the bar. Defaults to `font` if not set.
+
+  The value of this field should be a string.
+
 
 <a name="types-TileState"></a>
 ### `TileState`

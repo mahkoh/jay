@@ -707,7 +707,7 @@ impl ContainerNode {
         };
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
-        let font = theme.font.get();
+        let font = theme.title_font();
         let last_active = self.focus_history.last().map(|v| v.node.node_id());
         let have_active = self.children.iter().any(|c| c.active.get());
         let scales = self.state.scales.lock();

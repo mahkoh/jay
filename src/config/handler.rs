@@ -2341,14 +2341,28 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reset_font(&self) {
-        self.state
-            .theme
-            .font
-            .set(self.state.theme.default_font.clone());
+        let theme = &self.state.theme;
+        theme.font.set(self.state.theme.default_font.clone());
+        theme.bar_font.set(None);
+        theme.title_font.set(None);
     }
 
     fn handle_set_font(&self, font: &str) {
         self.state.theme.font.set(Arc::new(font.to_string()));
+    }
+
+    fn handle_set_bar_font(&self, font: &str) {
+        self.state
+            .theme
+            .bar_font
+            .set(Some(Arc::new(font.to_string())));
+    }
+
+    fn handle_set_title_font(&self, font: &str) {
+        self.state
+            .theme
+            .title_font
+            .set(Some(Arc::new(font.to_string())));
     }
 
     fn handle_get_font(&self) {
@@ -3143,6 +3157,8 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_blend_space(connector, blend_space)
                 .wrn("connector_set_blend_space")?,
+            ClientMessage::SetBarFont { font } => self.handle_set_bar_font(font),
+            ClientMessage::SetTitleFont { font } => self.handle_set_title_font(font),
         }
         Ok(())
     }

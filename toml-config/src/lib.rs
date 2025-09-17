@@ -41,7 +41,7 @@ use {
         set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
-        theme::{reset_colors, reset_font, reset_sizes, set_font},
+        theme::{reset_colors, reset_font, reset_sizes, set_bar_font, set_font, set_title_font},
         toggle_float_above_fullscreen, toggle_show_bar,
         video::{
             ColorSpace, Connector, DrmDevice, Eotf, connectors, drm_devices,
@@ -894,9 +894,16 @@ impl State {
         size!(BORDER_WIDTH, border_width);
         size!(TITLE_HEIGHT, title_height);
         size!(BAR_HEIGHT, bar_height);
-        if let Some(font) = &theme.font {
-            set_font(font);
+        macro_rules! font {
+            ($fun:ident, $field:ident) => {
+                if let Some(font) = &theme.$field {
+                    $fun(font);
+                }
+            };
         }
+        font!(set_font, font);
+        font!(set_title_font, title_font);
+        font!(set_bar_font, bar_font);
     }
 
     fn handle_switch_device(self: &Rc<Self>, dev: InputDevice, actions: &Rc<SwitchActions>) {

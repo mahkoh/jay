@@ -650,6 +650,14 @@ impl ConfigClient {
         self.send(&ClientMessage::SetFont { font });
     }
 
+    pub fn set_bar_font(&self, font: &str) {
+        self.send(&ClientMessage::SetBarFont { font });
+    }
+
+    pub fn set_title_font(&self, font: &str) {
+        self.send(&ClientMessage::SetTitleFont { font });
+    }
+
     pub fn get_font(&self) -> String {
         let res = self.send_with_response(&ClientMessage::GetFont);
         get_response!(res, String::new(), GetFont { font });

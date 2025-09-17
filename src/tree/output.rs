@@ -514,7 +514,7 @@ impl OutputNode {
         let Some(ctx) = self.state.render_ctx.get() else {
             return on_completed.event();
         };
-        let font = self.state.theme.font.get();
+        let font = self.state.theme.bar_font();
         let theme = &self.state.theme;
         let bh = theme.sizes.bar_height();
         let scale = self.global.persistent.scale.get();

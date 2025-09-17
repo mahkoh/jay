@@ -60,7 +60,9 @@ impl Parser for ThemeParser<'_> {
                 title_height,
                 bar_height,
                 font,
+                title_font,
             ),
+            (bar_font,),
         ) = ext.extract((
             (
                 opt(val("attention-requested-bg-color")),
@@ -84,7 +86,9 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(s32("title-height"))),
                 recover(opt(s32("bar-height"))),
                 recover(opt(str("font"))),
+                recover(opt(str("title-font"))),
             ),
+            (recover(opt(str("bar-font"))),),
         ))?;
         macro_rules! color {
             ($e:expr) => {
@@ -120,6 +124,8 @@ impl Parser for ThemeParser<'_> {
             title_height: title_height.despan(),
             bar_height: bar_height.despan(),
             font: font.map(|f| f.value.to_string()),
+            title_font: title_font.map(|f| f.value.to_string()),
+            bar_font: bar_font.map(|f| f.value.to_string()),
         })
     }
 }
