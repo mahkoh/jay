@@ -95,7 +95,7 @@ impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
             .position_hint_requests
             .push(PositionHintRequest {
                 seat: seat.clone(),
-                node: surface.node_id.into(),
+                client_id: surface.client.id,
                 old_pos: seat.pointer_cursor.position(),
                 new_pos: (x.apply_fract(x_int), y.apply_fract(y_int)),
             });

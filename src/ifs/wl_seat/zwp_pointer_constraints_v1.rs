@@ -94,7 +94,7 @@ impl SeatConstraint {
             .position_hint_requests
             .push(PositionHintRequest {
                 seat: self.seat.clone(),
-                node: self.surface.node_id.into(),
+                client_id: self.surface.client.id,
                 old_pos: self.seat.pointer_cursor.position(),
                 new_pos: (x.apply_fract(x_int), y.apply_fract(y_int)),
             });
