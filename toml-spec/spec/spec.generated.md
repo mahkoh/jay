@@ -4235,6 +4235,16 @@ The table has the following fields:
 
   The numbers should be greater than or equal to 0.
 
+- `bar-height` (optional):
+
+  The height of the bar. Defaults to the title-height if not set.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
 - `font` (optional):
 
   The name of the font to use.

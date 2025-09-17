@@ -893,6 +893,7 @@ impl State {
         }
         size!(BORDER_WIDTH, border_width);
         size!(TITLE_HEIGHT, title_height);
+        size!(BAR_HEIGHT, bar_height);
         if let Some(font) = &theme.font {
             set_font(font);
         }

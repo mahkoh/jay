@@ -315,5 +315,11 @@ pub mod sized {
         ///
         /// Default: 4
         const 02 => BORDER_WIDTH,
+        /// The height of the bar.
+        ///
+        /// Defaults to the TITLE_HEIGHT if not set explicitly.
+        ///
+        /// Default: 17
+        const 03 => BAR_HEIGHT,
     }
 }

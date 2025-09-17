@@ -2123,6 +2123,12 @@ Theme:
       minimum: 0
       required: false
       description: The height of tabs.
+    bar-height:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: The height of the bar. Defaults to the title-height if not set.
     font:
       kind: string
       required: false

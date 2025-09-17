@@ -516,16 +516,16 @@ impl OutputNode {
         };
         let font = self.state.theme.font.get();
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let bh = theme.sizes.bar_height();
         let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
             None
         };
-        let mut texture_height = th;
+        let mut texture_height = bh;
         if let Some(scale) = scale {
-            texture_height = (th as f64 * scale).round() as _;
+            texture_height = (bh as f64 * scale).round() as _;
         }
         let active_id = self.workspace.get().map(|w| w.id);
         for ws in self.workspaces.iter() {
@@ -577,7 +577,7 @@ impl OutputNode {
         }
         let mut pos = 0;
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let bh = theme.sizes.bar_height();
         let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
@@ -587,9 +587,9 @@ impl OutputNode {
         let active_id = self.workspace.get().map(|w| w.id);
         let non_exclusive_rect = self.non_exclusive_rect.get();
         let output_width = non_exclusive_rect.width();
-        rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
+        rd.underline = Rect::new_sized(0, bh, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
-            let mut title_width = th;
+            let mut title_width = bh;
             let title = &*ws.title_texture.borrow();
             if let Some(title) = title {
                 if let Err(e) = title.flip() {
@@ -616,7 +616,7 @@ impl OutputNode {
                     });
                 }
             }
-            let rect = Rect::new_sized(pos, 0, title_width, th).unwrap();
+            let rect = Rect::new_sized(pos, 0, title_width, bh).unwrap();
             if Some(ws.id) == active_id {
                 rd.active_workspace = Some(OutputWorkspaceRenderData {
                     rect,
@@ -652,7 +652,7 @@ impl OutputNode {
             non_exclusive_rect.x1(),
             non_exclusive_rect.y1(),
             non_exclusive_rect.width(),
-            th + 1,
+            bh + 1,
         )
         .unwrap();
         if self.title_visible.get() {
@@ -786,7 +786,7 @@ impl OutputNode {
 
     pub fn update_rects(self: &Rc<Self>) {
         let rect = self.global.pos.get();
-        let th = self.state.theme.sizes.title_height.get();
+        let bh = self.state.theme.sizes.bar_height();
         let exclusive = self.exclusive_zones.get();
         let y1 = rect.y1() + exclusive.top;
         let x2 = rect.x2() - exclusive.right;
@@ -804,7 +804,7 @@ impl OutputNode {
         ));
         let mut y1 = y1;
         if self.state.show_bar.get() {
-            y1 += th + 1;
+            y1 += bh + 1;
         }
         let height = (y2 - y1).max(0);
         self.workspace_rect
@@ -1136,7 +1136,7 @@ impl OutputNode {
             self.pointer_down.set(s, (x, y));
         }
         let (x, y) = self.non_exclusive_rect_rel.get().translate(x, y);
-        if y >= self.state.theme.sizes.title_height.get() {
+        if y >= self.state.theme.sizes.bar_height() {
             return;
         }
         let ws = 'ws: {
@@ -1266,15 +1266,15 @@ impl OutputNode {
             return None;
         }
         let show_bar = self.state.show_bar.get();
-        let th = self.state.theme.sizes.title_height.get();
-        if show_bar && y_abs < rect.y1() + th + 1 {
+        let bh = self.state.theme.sizes.bar_height();
+        if show_bar && y_abs < rect.y1() + bh + 1 {
             let rd = &*self.render_data.borrow();
             let (x, _) = rect.translate(x_abs, y_abs);
             let mut last_x2 = 0;
             for t in &rd.titles {
                 if x < t.x2 {
                     return Some(TileDragDestination {
-                        highlight: Rect::new_sized(rect.x1() + t.x1, rect.y1(), t.x2 - t.x1, th)?,
+                        highlight: Rect::new_sized(rect.x1() + t.x1, rect.y1(), t.x2 - t.x1, bh)?,
                         ty: TddType::MoveToWorkspace {
                             workspace: t.ws.clone(),
                         },
@@ -1287,7 +1287,7 @@ impl OutputNode {
                     rect.x1() + last_x2,
                     rect.y1(),
                     rect.x2() - last_x2,
-                    th,
+                    bh,
                 )?,
                 ty: TddType::MoveToNewWorkspace {
                     output: self.clone(),
@@ -1295,7 +1295,7 @@ impl OutputNode {
             });
         }
         let bar_height = match show_bar {
-            true => th + 1,
+            true => bh + 1,
             false => 0,
         };
         let rect = Rect::new(rect.x1(), rect.y1() + bar_height, rect.x2(), rect.y2())?;
@@ -1324,8 +1324,8 @@ impl OutputNode {
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
-        let th = self.state.theme.sizes.title_height.get();
-        if y_abs - rect.y1() > th + 1 {
+        let bh = self.state.theme.sizes.bar_height();
+        if y_abs - rect.y1() > bh + 1 {
             return None;
         }
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
@@ -1333,7 +1333,7 @@ impl OutputNode {
                 return None;
             }
             return Some(WorkspaceDragDestination {
-                highlight: Rect::new_sized(rect.x1(), rect.y1(), rect.width(), th)?,
+                highlight: Rect::new_sized(rect.x1(), rect.y1(), rect.width(), bh)?,
                 output: self.clone(),
                 before: None,
             });
@@ -1357,7 +1357,7 @@ impl OutputNode {
                             rect.x1() + prev_center,
                             rect.y1(),
                             center - prev_center,
-                            th,
+                            bh,
                         )?,
                         output: self.clone(),
                         before: Some(t.ws.clone()),
@@ -1375,7 +1375,7 @@ impl OutputNode {
                 rect.x1() + prev_center,
                 rect.y1(),
                 rect.x2() - prev_center,
-                th,
+                bh,
             )?,
             output: self.clone(),
             before: None,
@@ -1383,7 +1383,7 @@ impl OutputNode {
     }
 
     pub fn update_tray_positions(self: &Rc<Self>) {
-        let th = self.state.theme.sizes.title_height.get();
+        let bh = self.state.theme.sizes.bar_height();
         let rect = self.non_exclusive_rect.get();
         let output_width = rect.width();
         let mut right = output_width;
@@ -1394,7 +1394,7 @@ impl OutputNode {
                 continue;
             }
             have_any = true;
-            right -= th;
+            right -= bh;
             let rel_pos = Rect::new_sized(right, 1, icon_size, icon_size).unwrap();
             let abs_pos = rel_pos.move_(rect.x1(), rect.y1());
             item.set_position(abs_pos, rel_pos);
@@ -1406,7 +1406,7 @@ impl OutputNode {
         if prev_right != right {
             {
                 let min = prev_right.min(right);
-                let rect = Rect::new_sized(rect.x1() + min, 0, output_width, th).unwrap();
+                let rect = Rect::new_sized(rect.x1() + min, 0, output_width, bh).unwrap();
                 self.state.damage(rect);
             }
             self.schedule_update_render_data();
@@ -1581,7 +1581,7 @@ impl Node for OutputNode {
             return FindTreeResult::AcceptsInput;
         }
         let bar_height = match self.state.show_bar.get() {
-            true => self.state.theme.sizes.title_height.get() + 1,
+            true => self.state.theme.sizes.bar_height() + 1,
             false => 0,
         };
         if usecase == FindTreeUsecase::SelectWorkspace {

@@ -58,6 +58,7 @@ impl Parser for ThemeParser<'_> {
                 highlight_color,
                 border_width,
                 title_height,
+                bar_height,
                 font,
             ),
         ) = ext.extract((
@@ -81,6 +82,7 @@ impl Parser for ThemeParser<'_> {
                 opt(val("highlight-color")),
                 recover(opt(s32("border-width"))),
                 recover(opt(s32("title-height"))),
+                recover(opt(s32("bar-height"))),
                 recover(opt(str("font"))),
             ),
         ))?;
@@ -116,6 +118,7 @@ impl Parser for ThemeParser<'_> {
             highlight_color: color!(highlight_color),
             border_width: border_width.despan(),
             title_height: title_height.despan(),
+            bar_height: bar_height.despan(),
             font: font.map(|f| f.value.to_string()),
         })
     }

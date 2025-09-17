@@ -1524,7 +1524,7 @@ impl State {
         if !self.show_bar.get() {
             return 0;
         }
-        (self.theme.sizes.title_height.get() - 2).max(0)
+        (self.theme.sizes.bar_height() - 2).max(0)
     }
 
     pub fn color_management_available(&self) -> bool {
