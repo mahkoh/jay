@@ -111,11 +111,14 @@ pub mod sys {
 
 static INIT: Lazy<Result<(), Arc<RenderError>>> = Lazy::new(|| egl::init().map_err(Arc::new));
 
-pub(super) fn create_gfx_context(drm: &Drm) -> Result<Rc<dyn GfxContext>, GfxError> {
+pub(super) fn create_gfx_context(
+    drm: &Drm,
+    software: bool,
+) -> Result<Rc<dyn GfxContext>, GfxError> {
     if let Err(e) = &*INIT {
         return Err(GfxError(Box::new(e.clone())));
     }
-    GlRenderContext::from_drm_device(drm)
+    GlRenderContext::from_drm_device(drm, software)
         .map(|v| Rc::new(v) as Rc<dyn GfxContext>)
         .map_err(|e| e.into())
 }
@@ -200,6 +203,10 @@ enum RenderError {
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
     #[error("OpenGL does not support blend buffers")]
     NoBlendBuffer,
+    #[error("Hardware renderer was requested but EGL device is a software renderer")]
+    NoHardwareRenderer,
+    #[error("Could not query display device")]
+    QueryDisplayDevice,
 }
 
 #[derive(Default)]
