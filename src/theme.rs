@@ -427,8 +427,8 @@ macro_rules! sizes {
 }
 
 sizes! {
-    title_height = (1, 1000, 17),
-    border_width = (1, 1000, 4),
+    title_height = (0, 1000, 17),
+    border_width = (0, 1000, 4),
 }
 
 pub const DEFAULT_FONT: &str = "monospace 8";
