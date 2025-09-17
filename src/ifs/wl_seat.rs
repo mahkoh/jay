@@ -81,8 +81,8 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeId, NodeLayer,
-            NodeLayerLink, NodeLocation, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
+            NodeLocation, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
             generic_node_visitor, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
         },
@@ -1753,7 +1753,7 @@ impl LedsListener for WlSeatGlobal {
 
 pub struct PositionHintRequest {
     seat: Rc<WlSeatGlobal>,
-    node: NodeId,
+    client_id: ClientId,
     old_pos: (Fixed, Fixed),
     new_pos: (Fixed, Fixed),
 }
@@ -1762,7 +1762,7 @@ pub async fn handle_position_hint_requests(state: Rc<State>) {
     loop {
         let req = state.position_hint_requests.pop().await;
         let (x, y) = (req.new_pos.0.round_down(), req.new_pos.1.round_down());
-        if state.node_at(x, y).node.node_id() != req.node {
+        if state.node_at(x, y).node.node_client_id() != Some(req.client_id) {
             continue;
         }
         let current_pos = req.seat.pointer_cursor.position();
