@@ -294,15 +294,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
-name = "cmake"
-version = "0.1.52"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c682c223677e0e5b6b7f63a64b9351844c3f1b1678a68b7ee617e30fb082620e"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -641,7 +632,6 @@ dependencies = [
  "rustc-demangle",
  "serde",
  "serde_json",
- "shaderc",
  "smallvec",
  "thiserror",
  "tiny-skia",
@@ -782,15 +772,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
-]
-
-[[package]]
-name = "link-cplusplus"
-version = "1.0.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a6f6da007f968f9def0d65a05b187e2960183de70c160204ecfccf0ee330212"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -1166,12 +1147,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e110b7d5a1335c2e801176c42a626a905c23eecdee104d9bdfbd6ea5f0b8368"
 
 [[package]]
-name = "roxmltree"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
-
-[[package]]
 name = "run-on-drop"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1276,29 +1251,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "shaderc"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cdc8a26f751f141968dbc08fc01cfa3f4a288351f81cfd9148db41aa189f635"
-dependencies = [
- "libc",
- "shaderc-sys",
-]
-
-[[package]]
-name = "shaderc-sys"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "275f0ea572da7183c0cd0a060ba67c9fb54934523d4c9a9494ce5828c533d40b"
-dependencies = [
- "cmake",
- "libc",
- "link-cplusplus",
- "pkg-config",
- "roxmltree",
 ]
 
 [[package]]

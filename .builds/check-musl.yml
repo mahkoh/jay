@@ -6,7 +6,7 @@ tasks:
       echo 'Server = https://mirrors.n-ix.net/archlinux/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup shaderc musl
+      sudo pacman -S --noconfirm rustup musl
       rustup toolchain install stable
       rustup target install x86_64-unknown-linux-musl
   - build: |

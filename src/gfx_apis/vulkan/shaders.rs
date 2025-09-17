@@ -5,18 +5,16 @@ use {
     uapi::Packed,
 };
 
-pub const FILL_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.vert.spv"));
-pub const FILL_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fill.frag.spv"));
-pub const TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.vert.spv"));
-pub const TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tex.frag.spv"));
-pub const OUT_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/out.vert.spv"));
-pub const OUT_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/out.frag.spv"));
-pub const LEGACY_FILL_VERT: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/legacy_fill.vert.spv"));
-pub const LEGACY_FILL_FRAG: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/legacy_fill.frag.spv"));
-pub const LEGACY_TEX_VERT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/legacy_tex.vert.spv"));
-pub const LEGACY_TEX_FRAG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/legacy_tex.frag.spv"));
+pub const FILL_VERT: &[u8] = include_bytes!("shaders_bin/fill.vert.spv");
+pub const FILL_FRAG: &[u8] = include_bytes!("shaders_bin/fill.frag.spv");
+pub const TEX_VERT: &[u8] = include_bytes!("shaders_bin/tex.vert.spv");
+pub const TEX_FRAG: &[u8] = include_bytes!("shaders_bin/tex.frag.spv");
+pub const OUT_VERT: &[u8] = include_bytes!("shaders_bin/out.vert.spv");
+pub const OUT_FRAG: &[u8] = include_bytes!("shaders_bin/out.frag.spv");
+pub const LEGACY_FILL_VERT: &[u8] = include_bytes!("shaders_bin/legacy_fill.vert.spv");
+pub const LEGACY_FILL_FRAG: &[u8] = include_bytes!("shaders_bin/legacy_fill.frag.spv");
+pub const LEGACY_TEX_VERT: &[u8] = include_bytes!("shaders_bin/legacy_tex.vert.spv");
+pub const LEGACY_TEX_FRAG: &[u8] = include_bytes!("shaders_bin/legacy_tex.frag.spv");
 
 pub struct VulkanShader {
     pub(super) device: Rc<VulkanDevice>,

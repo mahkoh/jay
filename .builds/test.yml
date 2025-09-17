@@ -6,7 +6,7 @@ tasks:
       echo 'Server = https://mirrors.n-ix.net/archlinux/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup libinput pango mesa xorg-xwayland adwaita-icon-theme libxcursor cmake shaderc
+      sudo pacman -S --noconfirm rustup libinput pango mesa xorg-xwayland adwaita-icon-theme libxcursor
       rustup toolchain install stable
   - configure: |
       sudo rmmod bochs
