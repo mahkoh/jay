@@ -1907,9 +1907,22 @@
           "description": "The height of tabs.",
           "minimum": 0.0
         },
+        "bar-height": {
+          "type": "integer",
+          "description": "The height of the bar. Defaults to the title-height if not set.",
+          "minimum": 0.0
+        },
         "font": {
           "type": "string",
           "description": "The name of the font to use."
+        },
+        "title-font": {
+          "type": "string",
+          "description": "The name of the font to use in window titles. Defaults to `font` if not set."
+        },
+        "bar-font": {
+          "type": "string",
+          "description": "The name of the font to use in the bar. Defaults to `font` if not set."
         }
       },
       "required": []

@@ -205,7 +205,7 @@ impl FloatNode {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
-        let font = theme.font.get();
+        let font = theme.title_font();
         let title = self.title.borrow_mut();
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,

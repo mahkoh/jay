@@ -354,11 +354,22 @@ colors! {
     highlight = (0x9d, 0x28, 0xc6, 0x7f),
 }
 
+pub struct ThemeSize {
+    pub val: Cell<i32>,
+    pub set: Cell<bool>,
+}
+
+impl ThemeSize {
+    pub fn get(&self) -> i32 {
+        self.val.get()
+    }
+}
+
 macro_rules! sizes {
     ($($name:ident = ($min:expr, $max:expr, $def:expr),)*) => {
         pub struct ThemeSizes {
             $(
-                pub $name: Cell<i32>,
+                pub $name: ThemeSize,
             )*
         }
 
@@ -387,7 +398,7 @@ macro_rules! sizes {
                 }
             }
 
-            pub fn field(self, theme: &Theme) -> &Cell<i32> {
+            pub fn field(self, theme: &Theme) -> &ThemeSize {
                 let sizes = &theme.sizes;
                 match self {
                     $(
@@ -409,7 +420,8 @@ macro_rules! sizes {
             pub fn reset(&self) {
                 let default = Self::default();
                 $(
-                    self.$name.set(default.$name.get());
+                    self.$name.val.set(default.$name.val.get());
+                    self.$name.set.set(false);
                 )*
             }
         }
@@ -418,7 +430,10 @@ macro_rules! sizes {
             fn default() -> Self {
                 Self {
                     $(
-                        $name: Cell::new($def),
+                        $name: ThemeSize {
+                            val: Cell::new($def),
+                            set: Cell::new(false),
+                        },
                     )*
                 }
             }
@@ -426,8 +441,19 @@ macro_rules! sizes {
     }
 }
 
+impl ThemeSizes {
+    pub fn bar_height(&self) -> i32 {
+        if self.bar_height.set.get() {
+            self.bar_height.val.get()
+        } else {
+            self.title_height.val.get()
+        }
+    }
+}
+
 sizes! {
     title_height = (0, 1000, 17),
+    bar_height = (0, 1000, 17),
     border_width = (0, 1000, 4),
 }
 
@@ -437,6 +463,8 @@ pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
     pub font: CloneCell<Arc<String>>,
+    pub bar_font: CloneCell<Option<Arc<String>>>,
+    pub title_font: CloneCell<Option<Arc<String>>>,
     pub default_font: Arc<String>,
 }
 
@@ -447,7 +475,19 @@ impl Default for Theme {
             colors: Default::default(),
             sizes: Default::default(),
             font: CloneCell::new(default_font.clone()),
+            bar_font: Default::default(),
+            title_font: Default::default(),
             default_font,
         }
+    }
+}
+
+impl Theme {
+    pub fn title_font(&self) -> Arc<String> {
+        self.title_font.get().unwrap_or_else(|| self.font.get())
+    }
+
+    pub fn bar_font(&self) -> Arc<String> {
+        self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 }

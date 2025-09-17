@@ -145,6 +145,8 @@ pub fn get_font() -> String {
 ///
 /// Default: `monospace 8`.
 ///
+/// See also [`set_bar_font`] and [`set_title_font`].
+///
 /// The font name should be specified in [pango][pango] syntax.
 ///
 /// [pango]: https://docs.gtk.org/Pango/type_func.FontDescription.from_string.html
@@ -152,7 +154,23 @@ pub fn set_font(font: &str) {
     get!().set_font(font)
 }
 
-/// Resets the font to the default.
+/// Sets the font used by the bar.
+///
+/// If this function is not called, the font set by [`set_font`] is used. See that
+/// function for more details.
+pub fn set_bar_font(font: &str) {
+    get!().set_bar_font(font)
+}
+
+/// Sets the font used by window titles.
+///
+/// If this function is not called, the font set by [`set_font`] is used. See that
+/// function for more details.
+pub fn set_title_font(font: &str) {
+    get!().set_title_font(font)
+}
+
+/// Resets the fonts to the defaults.
 ///
 /// Currently the default is `monospace 8`.
 pub fn reset_font() {
@@ -315,5 +333,11 @@ pub mod sized {
         ///
         /// Default: 4
         const 02 => BORDER_WIDTH,
+        /// The height of the bar.
+        ///
+        /// Defaults to the TITLE_HEIGHT if not set explicitly.
+        ///
+        /// Default: 17
+        const 03 => BAR_HEIGHT,
     }
 }

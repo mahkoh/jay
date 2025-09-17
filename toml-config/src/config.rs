@@ -195,7 +195,10 @@ pub struct Theme {
     pub highlight_color: Option<Color>,
     pub border_width: Option<i32>,
     pub title_height: Option<i32>,
+    pub bar_height: Option<i32>,
     pub font: Option<String>,
+    pub title_font: Option<String>,
+    pub bar_font: Option<String>,
 }
 
 #[derive(Debug, Clone)]

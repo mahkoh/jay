@@ -78,7 +78,7 @@ impl Renderer<'_> {
             fullscreen = ws.fullscreen.get();
         }
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let bh = theme.sizes.bar_height();
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         if let Some(fs) = &fullscreen {
@@ -89,7 +89,7 @@ impl Renderer<'_> {
             let non_exclusive_rect = output.non_exclusive_rect_rel.get();
             let (x, mut y) = non_exclusive_rect.translate_inv(x, y);
             if self.state.show_bar.get() {
-                let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap();
+                let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), bh).unwrap();
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let bar_bg_abs = {
                     let (x, y) = self.base.scale_point(x, y);
@@ -166,7 +166,7 @@ impl Renderer<'_> {
                         self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
                     }
                 }
-                y += th + 1;
+                y += bh + 1;
             }
             if let Some(ws) = output.workspace.get() {
                 self.render_workspace(&ws, x, y);
@@ -196,7 +196,7 @@ impl Renderer<'_> {
             && ws.render_highlight.get() > 0
         {
             let color = self.state.theme.colors.highlight.get();
-            let bounds = ws.position.get().at_point(x, y + th + 1);
+            let bounds = ws.position.get().at_point(x, y + bh + 1);
             self.base.ops.push(GfxApiOpt::Sync);
             self.base.fill_boxes(&[bounds], &color, srgb);
         }

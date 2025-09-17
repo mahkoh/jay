@@ -768,6 +768,12 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         blend_space: BlendSpace,
     },
+    SetBarFont {
+        font: &'a str,
+    },
+    SetTitleFont {
+        font: &'a str,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
