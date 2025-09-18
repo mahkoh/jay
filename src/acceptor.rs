@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
-        client::{CAPS_DEFAULT, ClientCaps},
+        client::ClientCaps,
         security_context_acceptor::AcceptorMetadata,
         state::State,
         utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
@@ -149,11 +149,11 @@ impl Acceptor {
         let futures = vec![
             state.eng.spawn(
                 "secure acceptor",
-                accept(acc.socket.secure.clone(), state.clone(), ClientCaps::all()),
+                accept(acc.socket.secure.clone(), state.clone(), true),
             ),
             state.eng.spawn(
                 "insecure acceptor",
-                accept(acc.socket.insecure.clone(), state.clone(), CAPS_DEFAULT),
+                accept(acc.socket.insecure.clone(), state.clone(), false),
             ),
         ];
         state.acceptor.set(Some(acc.clone()));
@@ -170,8 +170,11 @@ impl Acceptor {
     }
 }
 
-async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, effective_caps: ClientCaps) {
-    let metadata = Rc::new(AcceptorMetadata::default());
+async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, secure: bool) {
+    let metadata = Rc::new(AcceptorMetadata {
+        secure,
+        ..Default::default()
+    });
     loop {
         let fd = match state.ring.accept(&fd, c::SOCK_CLOEXEC).await {
             Ok(fd) => fd,
@@ -181,10 +184,9 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, effective_caps: ClientCaps) {
             }
         };
         let id = state.clients.id();
-        if let Err(e) =
-            state
-                .clients
-                .spawn(id, &state, fd, effective_caps, ClientCaps::all(), &metadata)
+        if let Err(e) = state
+            .clients
+            .spawn(id, &state, fd, ClientCaps::all(), false, &metadata)
         {
             log::error!("Could not spawn a client: {}", ErrorFmt(e));
             break;

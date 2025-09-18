@@ -7,6 +7,7 @@ use {
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::{ActionParser, ActionParserError},
+                capabilities::CapabilitiesParser,
                 client_match::{ClientMatchParser, ClientMatchParserError},
             },
             spanned::SpannedErrorExt,
@@ -47,12 +48,15 @@ impl Parser for ClientRuleParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, match_val, action_val, latch_val) = ext.extract((
-            opt(str("name")),
-            opt(val("match")),
-            opt(val("action")),
-            opt(val("latch")),
-        ))?;
+        let (name, match_val, action_val, latch_val, capabilities_val, bounding_capabilities_val) =
+            ext.extract((
+                opt(str("name")),
+                opt(val("match")),
+                opt(val("action")),
+                opt(val("latch")),
+                opt(val("capabilities")),
+                opt(val("sandbox-bounding-capabilities")),
+            ))?;
         let mut action = None;
         if let Some(value) = action_val {
             action = Some(
@@ -73,11 +77,34 @@ impl Parser for ClientRuleParser<'_> {
             None => ClientMatch::default(),
             Some(m) => m.parse_map(&mut ClientMatchParser(self.0))?,
         };
+        let mut capabilities = None;
+        if let Some(value) = capabilities_val {
+            match value.parse(&mut CapabilitiesParser) {
+                Ok(v) => capabilities = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse the capabilities: {}", self.0.error(e));
+                }
+            }
+        }
+        let mut bounding_capabilities = None;
+        if let Some(value) = bounding_capabilities_val {
+            match value.parse(&mut CapabilitiesParser) {
+                Ok(v) => bounding_capabilities = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the bounding capabilities: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(ClientRule {
             name: name.despan_into(),
             match_,
             action,
             latch,
+            capabilities,
+            bounding_capabilities,
         })
     }
 }

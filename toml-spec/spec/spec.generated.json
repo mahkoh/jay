@@ -605,6 +605,40 @@
         "clickfinger"
       ]
     },
+    "ClientCapabilities": {
+      "description": "A mask of client capabilities.\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "A named mask.",
+          "enum": [
+            "none",
+            "all",
+            "data-control",
+            "virtual-keyboard",
+            "foreign-toplevel-list",
+            "idle-notifier",
+            "session-lock",
+            "layer-shell",
+            "screencopy",
+            "seat-manager",
+            "drm-lease",
+            "input-method",
+            "workspace-manager",
+            "foreign-toplevel-manager",
+            "head-manager"
+          ]
+        },
+        {
+          "type": "array",
+          "description": "An array of masks that are OR'd.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientCapabilities"
+          }
+        }
+      ]
+    },
     "ClientMatch": {
       "description": "Criteria for matching clients.\n\nIf no fields are set, all clients are matched. If multiple fields are set, all fields\nmust match the client.\n",
       "type": "object",
@@ -737,6 +771,14 @@
         "latch": {
           "description": "An action to execute when a client no longer matches the criteria.",
           "$ref": "#/$defs/Action"
+        },
+        "capabilities": {
+          "description": "Sets the capabilities granted to clients matching this matcher.\n\nIf multiple matchers match a client, the capabilities are added.\n\nIf no matcher matches a client, it is granted the default capabilities depending\non whether it's sandboxed or not. If it is not sandboxed, it is granted the\ncapabilities `layer-shell` and `drm-lease`. Otherwise it is granted the\ncapability `drm-lease`.\n\nRegardless of any capabilities set through this function, the capabilities of the\nclient can never exceed its bounding capabilities.\n",
+          "$ref": "#/$defs/ClientCapabilities"
+        },
+        "sandbox-bounding-capabilities": {
+          "description": "Sets the upper capability bounds for clients in sandboxes created by this client.\n\nIf multiple matchers match a client, the capabilities are added.\n\nIf no matcher matches a client, the bounding capabilities for sandboxes depend on\nwhether the client is itself sandboxed. If it is sandboxed, the bounding\ncapabilities are the effective capabilities of the client. Otherwise the bounding\ncapabilities are all capabilities.\n\nRegardless of any capabilities set through this function, the capabilities set\nthrough this function can never exceed the client's bounding capabilities.\n",
+          "$ref": "#/$defs/ClientCapabilities"
         }
       },
       "required": []

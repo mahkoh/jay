@@ -304,7 +304,7 @@ impl Globals {
     }
 
     pub fn notify_all(&self, registry: &Rc<WlRegistry>) {
-        let caps = registry.client.effective_caps;
+        let caps = registry.client.effective_caps.get();
         let xwayland = registry.client.is_xwayland;
         let globals = self.registry.lock();
         macro_rules! emit {

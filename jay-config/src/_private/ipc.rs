@@ -2,7 +2,7 @@ use {
     crate::{
         _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode},
         Axis, Direction, PciId, Workspace,
-        client::{Client, ClientMatcher},
+        client::{Client, ClientCapabilities, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
             acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
@@ -773,6 +773,14 @@ pub enum ClientMessage<'a> {
     },
     SetTitleFont {
         font: &'a str,
+    },
+    SetClientMatcherCapabilities {
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
+    },
+    SetClientMatcherBoundingCapabilities {
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
     },
 }
 

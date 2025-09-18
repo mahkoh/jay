@@ -175,6 +175,12 @@ impl Rule for ClientRule {
                 });
             }
         }
+        if let Some(caps) = self.capabilities {
+            matcher.set_capabilities(caps);
+        }
+        if let Some(caps) = self.bounding_capabilities {
+            matcher.set_sandbox_bounding_capabilities(caps);
+        }
     }
 
     fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {

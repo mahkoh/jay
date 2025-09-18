@@ -178,7 +178,7 @@ async fn run(
         uapi::getuid(),
         pid,
         ClientCaps::all(),
-        ClientCaps::all(),
+        false,
         true,
         &Rc::new(AcceptorMetadata::default()),
     );

@@ -12,7 +12,7 @@ use {
             logging,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
-        client::{Client, ClientCriterion, ClientMatcher, MatchedClient},
+        client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
             FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
@@ -1341,6 +1341,22 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetConnectorWorkspaces { connector });
         get_response!(res, vec![], GetConnectorWorkspaces { workspaces });
         workspaces
+    }
+
+    pub fn set_client_matcher_capabilities(
+        &self,
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
+    ) {
+        self.send(&ClientMessage::SetClientMatcherCapabilities { matcher, caps });
+    }
+
+    pub fn set_client_matcher_bounding_capabilities(
+        &self,
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
+    ) {
+        self.send(&ClientMessage::SetClientMatcherBoundingCapabilities { matcher, caps });
     }
 
     pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, f: F) {

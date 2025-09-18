@@ -3404,6 +3404,36 @@ ClientRule:
       ref: Action
       required: false
       description: An action to execute when a client no longer matches the criteria.
+    capabilities:
+      ref: ClientCapabilities
+      required: false
+      description: |
+        Sets the capabilities granted to clients matching this matcher.
+        
+        If multiple matchers match a client, the capabilities are added.
+        
+        If no matcher matches a client, it is granted the default capabilities depending
+        on whether it's sandboxed or not. If it is not sandboxed, it is granted the
+        capabilities `layer-shell` and `drm-lease`. Otherwise it is granted the
+        capability `drm-lease`.
+        
+        Regardless of any capabilities set through this function, the capabilities of the
+        client can never exceed its bounding capabilities.
+    sandbox-bounding-capabilities:
+      ref: ClientCapabilities
+      required: false
+      description: |
+        Sets the upper capability bounds for clients in sandboxes created by this client.
+        
+        If multiple matchers match a client, the capabilities are added.
+        
+        If no matcher matches a client, the bounding capabilities for sandboxes depend on
+        whether the client is itself sandboxed. If it is sandboxed, the bounding
+        capabilities are the effective capabilities of the client. Otherwise the bounding
+        capabilities are all capabilities.
+        
+        Regardless of any capabilities set through this function, the capabilities set
+        through this function can never exceed the client's bounding capabilities.
 
 
 ClientMatch:
@@ -4061,3 +4091,63 @@ BlendSpace:
       description: The sRGB blend space. This is the classic desktop blend space.
     - value: linear
       description: Linear color space. This is the physically correct blend space.
+
+
+ClientCapabilities:
+  description: |
+    A mask of client capabilities.
+  kind: variable
+  variants:
+    - kind: string
+      description: A named mask.
+      values:
+        - value: none
+          description: No capabilities.
+        - value: all
+          description: The mask containing all capabilities.
+        - value: data-control
+          description: |
+            Grants access to the `ext_data_control_manager_v1` and
+            `zwlr_data_control_manager_v1` globals.
+        - value: virtual-keyboard
+          description: |
+            Grants access to the `zwp_virtual_keyboard_manager_v1` global.
+        - value: foreign-toplevel-list
+          description: |
+            Grants access to the `ext_foreign_toplevel_list_v1` global.
+        - value: idle-notifier
+          description: |
+            Grants access to the `ext_idle_notifier_v1` global.
+        - value: session-lock
+          description: |
+            Grants access to the `ext_session_lock_manager_v1` global.
+        - value: layer-shell
+          description: |
+            Grants access to the `zwlr_layer_shell_v1` global.
+        - value: screencopy
+          description: |
+            Grants access to the `ext_image_copy_capture_manager_v1` and
+            `zwlr_screencopy_manager_v1` globals.
+        - value: seat-manager
+          description: |
+            Grants access to the `ext_transient_seat_manager_v1` global.
+        - value: drm-lease
+          description: |
+            Grants access to the `wp_drm_lease_device_v1` global.
+        - value: input-method
+          description: |
+            Grants access to the `zwp_input_method_manager_v2` global.
+        - value: workspace-manager
+          description: |
+            Grants access to the `ext_workspace_manager_v1` global.
+        - value: foreign-toplevel-manager
+          description: |
+            Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
+        - value: head-manager
+          description: |
+            Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
+            globals.
+    - kind: array
+      description: An array of masks that are OR'd.
+      items:
+        ref: ClientCapabilities
