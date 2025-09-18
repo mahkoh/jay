@@ -126,8 +126,8 @@ impl Clients {
         id: ClientId,
         global: &Rc<State>,
         socket: Rc<OwnedFd>,
-        effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
+        set_bounding_caps_for_children: bool,
         acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<(), ClientError> {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
@@ -139,8 +139,8 @@ impl Clients {
             socket,
             uid,
             pid,
-            effective_caps,
             bounding_caps,
+            set_bounding_caps_for_children,
             false,
             acceptor,
         )?;
@@ -154,11 +154,15 @@ impl Clients {
         socket: Rc<OwnedFd>,
         uid: c::uid_t,
         pid: c::pid_t,
-        effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
+        set_bounding_caps_for_children: bool,
         is_xwayland: bool,
         acceptor: &Rc<AcceptorMetadata>,
     ) -> Result<Rc<Client>, ClientError> {
+        let effective_caps = match acceptor.sandboxed {
+            true => CAPS_DEFAULT_SANDBOXED,
+            false => CAPS_DEFAULT,
+        };
         let data = Rc::new_cyclic(|slf| Client {
             id,
             state: global.clone(),
@@ -170,8 +174,8 @@ impl Clients {
             shutdown: Default::default(),
             tracker: Default::default(),
             is_xwayland,
-            effective_caps,
-            bounding_caps,
+            effective_caps: Cell::new(effective_caps & bounding_caps),
+            bounding_caps_for_children: Cell::new(bounding_caps),
             last_enter_serial: Default::default(),
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
@@ -192,6 +196,10 @@ impl Clients {
             acceptor: acceptor.clone(),
         });
         track!(data, data);
+        global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
+        if acceptor.secure || is_xwayland {
+            data.effective_caps.set(ClientCaps::all());
+        }
         let display = Rc::new(WlDisplay::new(&data));
         track!(data, display);
         data.objects.display.set(Some(display.clone()));
@@ -207,7 +215,7 @@ impl Clients {
             uid,
             client.data.socket.raw(),
             data.pid_info.comm,
-            effective_caps,
+            data.effective_caps.get(),
         );
         client.data.property_changed(CL_CHANGED_NEW);
         self.clients.borrow_mut().insert(client.data.id, client);
@@ -236,7 +244,7 @@ impl Clients {
     {
         let clients = self.clients.borrow();
         for client in clients.values() {
-            if client.data.effective_caps.contains(required_caps)
+            if client.data.effective_caps.get().contains(required_caps)
                 && (!xwayland_only || client.data.is_xwayland)
             {
                 f(&client.data);
@@ -298,8 +306,8 @@ pub struct Client {
     shutdown: AsyncEvent,
     pub tracker: Tracker<Client>,
     pub is_xwayland: bool,
-    pub effective_caps: ClientCaps,
-    pub bounding_caps: ClientCaps,
+    pub effective_caps: Cell<ClientCaps>,
+    pub bounding_caps_for_children: Cell<ClientCaps>,
     pub last_enter_serial: Cell<Option<u64>>,
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,

@@ -870,6 +870,90 @@ The string should have one of the following values:
 
 
 
+<a name="types-ClientCapabilities"></a>
+### `ClientCapabilities`
+
+A mask of client capabilities.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+A named mask.
+
+The string should have one of the following values:
+
+- `none`:
+
+  No capabilities.
+
+- `all`:
+
+  The mask containing all capabilities.
+
+- `data-control`:
+
+  Grants access to the `ext_data_control_manager_v1` and
+  `zwlr_data_control_manager_v1` globals.
+
+- `virtual-keyboard`:
+
+  Grants access to the `zwp_virtual_keyboard_manager_v1` global.
+
+- `foreign-toplevel-list`:
+
+  Grants access to the `ext_foreign_toplevel_list_v1` global.
+
+- `idle-notifier`:
+
+  Grants access to the `ext_idle_notifier_v1` global.
+
+- `session-lock`:
+
+  Grants access to the `ext_session_lock_manager_v1` global.
+
+- `layer-shell`:
+
+  Grants access to the `zwlr_layer_shell_v1` global.
+
+- `screencopy`:
+
+  Grants access to the `ext_image_copy_capture_manager_v1` and
+  `zwlr_screencopy_manager_v1` globals.
+
+- `seat-manager`:
+
+  Grants access to the `ext_transient_seat_manager_v1` global.
+
+- `drm-lease`:
+
+  Grants access to the `wp_drm_lease_device_v1` global.
+
+- `input-method`:
+
+  Grants access to the `zwp_input_method_manager_v2` global.
+
+- `workspace-manager`:
+
+  Grants access to the `ext_workspace_manager_v1` global.
+
+- `foreign-toplevel-manager`:
+
+  Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
+
+- `head-manager`:
+
+  Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
+  globals.
+
+
+#### An array
+
+An array of masks that are OR'd.
+
+Each element of this array should be a [ClientCapabilities](#types-ClientCapabilities).
+
+
 <a name="types-ClientMatch"></a>
 ### `ClientMatch`
 
@@ -1156,6 +1240,38 @@ The table has the following fields:
   An action to execute when a client no longer matches the criteria.
 
   The value of this field should be a [Action](#types-Action).
+
+- `capabilities` (optional):
+
+  Sets the capabilities granted to clients matching this matcher.
+  
+  If multiple matchers match a client, the capabilities are added.
+  
+  If no matcher matches a client, it is granted the default capabilities depending
+  on whether it's sandboxed or not. If it is not sandboxed, it is granted the
+  capabilities `layer-shell` and `drm-lease`. Otherwise it is granted the
+  capability `drm-lease`.
+  
+  Regardless of any capabilities set through this function, the capabilities of the
+  client can never exceed its bounding capabilities.
+
+  The value of this field should be a [ClientCapabilities](#types-ClientCapabilities).
+
+- `sandbox-bounding-capabilities` (optional):
+
+  Sets the upper capability bounds for clients in sandboxes created by this client.
+  
+  If multiple matchers match a client, the capabilities are added.
+  
+  If no matcher matches a client, the bounding capabilities for sandboxes depend on
+  whether the client is itself sandboxed. If it is sandboxed, the bounding
+  capabilities are the effective capabilities of the client. Otherwise the bounding
+  capabilities are all capabilities.
+  
+  Regardless of any capabilities set through this function, the capabilities set
+  through this function can never exceed the client's bounding capabilities.
+
+  The value of this field should be a [ClientCapabilities](#types-ClientCapabilities).
 
 
 <a name="types-Color"></a>

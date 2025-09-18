@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{CAPS_DEFAULT_SANDBOXED, Client, ClientError},
+        client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
         wire::{WpSecurityContextV1Id, wp_security_context_v1::*},
@@ -80,7 +80,6 @@ impl WpSecurityContextV1RequestHandler for WpSecurityContextV1 {
     fn commit(&self, _req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.check_committed()?;
         self.committed.set(true);
-        let caps = CAPS_DEFAULT_SANDBOXED & self.client.bounding_caps;
         self.client.state.security_context_acceptors.spawn(
             &self.client.state,
             self.sandbox_engine.take(),
@@ -88,7 +87,7 @@ impl WpSecurityContextV1RequestHandler for WpSecurityContextV1 {
             self.instance_id.take(),
             &self.listen_fd,
             &self.close_fd,
-            caps,
+            self.client.bounding_caps_for_children.get(),
         );
         Ok(())
     }

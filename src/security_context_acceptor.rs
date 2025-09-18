@@ -27,13 +27,14 @@ struct Acceptor {
     metadata: Rc<AcceptorMetadata>,
     listen_fd: Rc<OwnedFd>,
     close_fd: Rc<OwnedFd>,
-    caps: ClientCaps,
+    bounding_caps: ClientCaps,
     listen_future: Cell<Option<SpawnedFuture<()>>>,
     close_future: Cell<Option<SpawnedFuture<()>>>,
 }
 
 #[derive(Default)]
 pub struct AcceptorMetadata {
+    pub secure: bool,
     pub sandboxed: bool,
     pub sandbox_engine: Option<String>,
     pub app_id: Option<String>,
@@ -55,12 +56,13 @@ impl SecurityContextAcceptors {
         instance_id: Option<String>,
         listen_fd: &Rc<OwnedFd>,
         close_fd: &Rc<OwnedFd>,
-        caps: ClientCaps,
+        bounding_caps: ClientCaps,
     ) {
         let acceptor = Rc::new(Acceptor {
             id: self.ids.next(),
             state: state.clone(),
             metadata: Rc::new(AcceptorMetadata {
+                secure: false,
                 sandboxed: true,
                 sandbox_engine,
                 app_id,
@@ -68,7 +70,7 @@ impl SecurityContextAcceptors {
             }),
             listen_fd: listen_fd.clone(),
             close_fd: close_fd.clone(),
-            caps,
+            bounding_caps,
             listen_future: Cell::new(None),
             close_future: Cell::new(None),
         });
@@ -111,7 +113,7 @@ impl Acceptor {
             let id = s.clients.id();
             if let Err(e) = s
                 .clients
-                .spawn(id, s, fd, self.caps, self.caps, &self.metadata)
+                .spawn(id, s, fd, self.bounding_caps, true, &self.metadata)
             {
                 log::error!("Could not spawn a client: {}", ErrorFmt(e));
                 break;

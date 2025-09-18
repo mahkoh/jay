@@ -5,6 +5,7 @@ use crate::it::test_config::TEST_CONFIG_ENTRY;
 use {
     crate::{
         backend::{ConnectorId, DrmDeviceId, InputDeviceId},
+        client::{Client, ClientCaps},
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
@@ -180,6 +181,17 @@ impl ConfigProxy {
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
         self.handler.get()?.initial_tile_state(data)
     }
+
+    pub fn update_capabilities(
+        &self,
+        data: &Rc<Client>,
+        bounding_caps: ClientCaps,
+        set_bounding_caps: bool,
+    ) {
+        if let Some(handler) = self.handler.get() {
+            handler.update_capabilities(data, bounding_caps, set_bounding_caps);
+        }
+    }
 }
 
 impl Drop for ConfigProxy {
@@ -238,6 +250,8 @@ impl ConfigProxy {
             client_matchers: Default::default(),
             client_matcher_cache: Default::default(),
             client_matcher_leafs: Default::default(),
+            client_matcher_capabilities: Default::default(),
+            client_matcher_bounding_capabilities: Default::default(),
             window_matcher_ids: NumCell::new(1),
             window_matchers: Default::default(),
             window_matcher_cache: Default::default(),

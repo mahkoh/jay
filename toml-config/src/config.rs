@@ -25,6 +25,7 @@ use {
     ahash::AHashMap,
     jay_config::{
         Axis, Direction, Workspace,
+        client::ClientCapabilities,
         input::{
             LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
             clickmethod::ClickMethod,
@@ -247,6 +248,8 @@ pub struct ClientRule {
     pub match_: ClientMatch,
     pub action: Option<Action>,
     pub latch: Option<Action>,
+    pub capabilities: Option<ClientCapabilities>,
+    pub bounding_capabilities: Option<ClientCapabilities>,
 }
 
 #[derive(Default, Debug, Clone)]

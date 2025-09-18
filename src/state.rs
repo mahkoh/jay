@@ -10,7 +10,7 @@ use {
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
-        client::{Client, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
+        client::{Client, ClientCaps, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
@@ -1539,6 +1539,17 @@ impl State {
 
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
         self.config.get()?.initial_tile_state(data)
+    }
+
+    pub fn update_capabilities(
+        &self,
+        data: &Rc<Client>,
+        bounding_caps: ClientCaps,
+        set_bounding_caps: bool,
+    ) {
+        if let Some(config) = self.config.get() {
+            config.update_capabilities(data, bounding_caps, set_bounding_caps);
+        }
     }
 
     pub fn node_at(&self, x: i32, y: i32) -> FoundNode {

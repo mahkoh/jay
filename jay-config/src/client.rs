@@ -105,6 +105,20 @@ impl ClientCriterion<'_> {
     pub fn bind<F: FnMut(MatchedClient) + 'static>(self, cb: F) {
         self.to_matcher().bind(cb);
     }
+
+    /// Sets the capabilities granted to clients matching this matcher.
+    ///
+    /// This leaks the matcher.
+    pub fn set_capabilities(self, caps: ClientCapabilities) {
+        self.to_matcher().set_capabilities(caps);
+    }
+
+    /// Sets the upper capability bounds for clients in sandboxes created by this client.
+    ///
+    /// This leaks the matcher.
+    pub fn set_sandbox_bounding_capabilities(self, caps: ClientCapabilities) {
+        self.to_matcher().set_sandbox_bounding_capabilities(caps);
+    }
 }
 
 impl ClientMatcher {
@@ -120,6 +134,36 @@ impl ClientMatcher {
     /// Replaces any already bound callback.
     pub fn bind<F: FnMut(MatchedClient) + 'static>(self, cb: F) {
         get!().set_client_matcher_handler(self, cb);
+    }
+
+    /// Sets the capabilities granted to clients matching this matcher.
+    ///
+    /// If multiple matchers match a client, the capabilities are added.
+    ///
+    /// If no matcher matches a client, it is granted the default capabilities depending
+    /// on whether it's sandboxed or not. If it is not sandboxed, it is granted the
+    /// capabilities [`CC_LAYER_SHELL`] and [`CC_DRM_LEASE`]. Otherwise it is granted the
+    /// capability [`CC_DRM_LEASE`].
+    ///
+    /// Regardless of any capabilities set through this function, the capabilities of the
+    /// client can never exceed its bounding capabilities.
+    pub fn set_capabilities(self, caps: ClientCapabilities) {
+        get!().set_client_matcher_capabilities(self, caps);
+    }
+
+    /// Sets the upper capability bounds for clients in sandboxes created by this client.
+    ///
+    /// If multiple matchers match a client, the capabilities are added.
+    ///
+    /// If no matcher matches a client, the bounding capabilities for sandboxes depend on
+    /// whether the client is itself sandboxed. If it is sandboxed, the bounding
+    /// capabilities are the effective capabilities of the client. Otherwise the bounding
+    /// capabilities are all capabilities.
+    ///
+    /// Regardless of any capabilities set through this function, the capabilities set
+    /// through this function can never exceed the client's bounding capabilities.
+    pub fn set_sandbox_bounding_capabilities(self, caps: ClientCapabilities) {
+        get!().set_client_matcher_bounding_capabilities(self, caps);
     }
 }
 
@@ -145,5 +189,41 @@ impl Deref for MatchedClient {
 
     fn deref(&self) -> &Self::Target {
         &self.client
+    }
+}
+
+bitflags! {
+    /// Capabilities granted to a client.
+    #[derive(Serialize, Deserialize, Copy, Clone, Hash, Eq, PartialEq)]
+    pub struct ClientCapabilities(pub u64) {
+        /// Grants access to the `ext_data_control_manager_v1` and
+        /// `zwlr_data_control_manager_v1` globals.
+        pub const CC_DATA_CONTROL             = 1 << 0,
+        /// Grants access to the `zwp_virtual_keyboard_manager_v1` global.
+        pub const CC_VIRTUAL_KEYBOARD         = 1 << 1,
+        /// Grants access to the `ext_foreign_toplevel_list_v1` global.
+        pub const CC_FOREIGN_TOPLEVEL_LIST    = 1 << 2,
+        /// Grants access to the `ext_idle_notifier_v1` global.
+        pub const CC_IDLE_NOTIFIER            = 1 << 3,
+        /// Grants access to the `ext_session_lock_manager_v1` global.
+        pub const CC_SESSION_LOCK             = 1 << 4,
+        /// Grants access to the `zwlr_layer_shell_v1` global.
+        pub const CC_LAYER_SHELL              = 1 << 6,
+        /// Grants access to the `ext_image_copy_capture_manager_v1` and
+        /// `zwlr_screencopy_manager_v1` globals.
+        pub const CC_SCREENCOPY               = 1 << 7,
+        /// Grants access to the `ext_transient_seat_manager_v1` global.
+        pub const CC_SEAT_MANAGER             = 1 << 8,
+        /// Grants access to the `wp_drm_lease_device_v1` global.
+        pub const CC_DRM_LEASE                = 1 << 9,
+        /// Grants access to the `zwp_input_method_manager_v2` global.
+        pub const CC_INPUT_METHOD             = 1 << 10,
+        /// Grants access to the `ext_workspace_manager_v1` global.
+        pub const CC_WORKSPACE_MANAGER        = 1 << 11,
+        /// Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
+        pub const CC_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
+        /// Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
+        /// globals.
+        pub const CC_HEAD_MANAGER             = 1 << 13,
     }
 }

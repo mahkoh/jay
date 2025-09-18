@@ -6,7 +6,7 @@ use {
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
             transaction::BackendConnectorTransactionError,
         },
-        client::{Client, ClientId},
+        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
@@ -53,7 +53,7 @@ use {
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
-        client::{Client as ConfigClient, ClientMatcher},
+        client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
         input::{
             FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
@@ -127,6 +127,20 @@ pub(super) struct ConfigProxyHandler {
         CopyHashMap<ClientMatcher, Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>>,
     pub client_matcher_cache: CriterionCache<ClientCriterionIpc, Rc<Client>>,
     pub client_matcher_leafs: CopyHashMap<ClientMatcher, Rc<ClmLeafMatcher>>,
+    pub client_matcher_capabilities: CopyHashMap<
+        ClientMatcher,
+        (
+            Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>,
+            ClientCaps,
+        ),
+    >,
+    pub client_matcher_bounding_capabilities: CopyHashMap<
+        ClientMatcher,
+        (
+            Rc<CachedCriterion<ClientCriterionIpc, Rc<Client>>>,
+            ClientCaps,
+        ),
+    >,
 
     pub window_matcher_ids: NumCell<u64>,
     pub window_matchers:
@@ -2009,6 +2023,8 @@ impl ConfigProxyHandler {
     fn handle_destroy_client_matcher(&self, matcher: ClientMatcher) {
         self.client_matchers.remove(&matcher);
         self.client_matcher_leafs.remove(&matcher);
+        self.client_matcher_capabilities.remove(&matcher);
+        self.client_matcher_bounding_capabilities.remove(&matcher);
     }
 
     fn handle_enable_client_matcher_events(
@@ -2576,6 +2592,28 @@ impl ConfigProxyHandler {
             }
         }
         self.respond(Response::GetWindowChildren { windows });
+        Ok(())
+    }
+
+    fn handle_set_client_matcher_capabilities(
+        &self,
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
+    ) -> Result<(), CphError> {
+        let m = self.get_client_matcher(matcher)?;
+        self.client_matcher_capabilities
+            .set(matcher, (m, caps.to_client_caps()));
+        Ok(())
+    }
+
+    fn handle_set_client_matcher_bounding_capabilities(
+        &self,
+        matcher: ClientMatcher,
+        caps: ClientCapabilities,
+    ) -> Result<(), CphError> {
+        let m = self.get_client_matcher(matcher)?;
+        self.client_matcher_bounding_capabilities
+            .set(matcher, (m, caps.to_client_caps()));
         Ok(())
     }
 
@@ -3159,6 +3197,12 @@ impl ConfigProxyHandler {
                 .wrn("connector_set_blend_space")?,
             ClientMessage::SetBarFont { font } => self.handle_set_bar_font(font),
             ClientMessage::SetTitleFont { font } => self.handle_set_title_font(font),
+            ClientMessage::SetClientMatcherCapabilities { matcher, caps } => self
+                .handle_set_client_matcher_capabilities(matcher, caps)
+                .wrn("set_client_matcher_capabilities")?,
+            ClientMessage::SetClientMatcherBoundingCapabilities { matcher, caps } => self
+                .handle_set_client_matcher_bounding_capabilities(matcher, caps)
+                .wrn("set_client_matcher_bounding_capabilities")?,
         }
         Ok(())
     }
@@ -3179,6 +3223,42 @@ impl ConfigProxyHandler {
             }
         }
         None
+    }
+
+    pub fn update_capabilities(
+        &self,
+        data: &Rc<Client>,
+        bounding_caps: ClientCaps,
+        set_bounding_caps: bool,
+    ) {
+        let mut have_caps = false;
+        let mut have_bounding_caps = false;
+        let mut caps = ClientCaps::none();
+        let mut new_bounding_caps = ClientCaps::none();
+        for (matcher, state) in self.client_matcher_capabilities.lock().values() {
+            if matcher.node.pull(data) {
+                have_caps = true;
+                caps |= *state;
+            }
+        }
+        for (matcher, state) in self.client_matcher_bounding_capabilities.lock().values() {
+            if matcher.node.pull(data) {
+                have_bounding_caps = true;
+                new_bounding_caps |= *state;
+            }
+        }
+        if have_caps {
+            caps &= bounding_caps;
+            data.effective_caps.set(caps);
+        }
+        if !have_bounding_caps && set_bounding_caps {
+            have_bounding_caps = true;
+            new_bounding_caps = data.effective_caps.get();
+        }
+        if have_bounding_caps {
+            new_bounding_caps &= bounding_caps;
+            data.bounding_caps_for_children.set(new_bounding_caps);
+        }
     }
 }
 
@@ -3279,5 +3359,15 @@ trait WithRequestName {
 impl WithRequestName for Result<(), CphError> {
     fn wrn(self, request: &'static str) -> Result<(), CphError> {
         self.map_err(move |e| CphError::FailedRequest(request, Box::new(e)))
+    }
+}
+
+trait ClientCapabilitiesExt {
+    fn to_client_caps(self) -> ClientCaps;
+}
+
+impl ClientCapabilitiesExt for ClientCapabilities {
+    fn to_client_caps(self) -> ClientCaps {
+        ClientCaps(self.0 as u32) & !CAP_JAY_COMPOSITOR & ClientCaps::all()
     }
 }
