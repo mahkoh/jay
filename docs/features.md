@@ -174,7 +174,7 @@ Jay supports the following wayland protocols:
 | wl_shm                                               | 2               |               |
 | wl_subcompositor                                     | 1               |               |
 | wp_alpha_modifier_v1                                 | 1               |               |
-| wp_color_manager_v1                                  | 1               |               |
+| wp_color_manager_v1                                  | 2               |               |
 | wp_commit_timing_manager_v1                          | 1               |               |
 | wp_content_type_manager_v1                           | 1               |               |
 | wp_cursor_shape_manager_v1                           | 2               |               |
