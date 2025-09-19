@@ -733,6 +733,13 @@ Exec:
       [shortcuts]
       ctrl-a = { type = "exec", exec = { prog = "notify-send", args = ["hello world"], env.WAYLAND_DISPLAY = "2" } }
       ```
+    
+    - Example 4:
+    
+      ```toml
+      [shortcuts]
+      ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
+      ```
   kind: variable
   variants:
     - kind: string
@@ -760,24 +767,42 @@ Exec:
     - kind: table
       description: |
         The name, arguments, and environment variables of the executable to execute.
+        
+        Exactly one of the `prog` or `shell` fields must be specified.
 
-        - Example:
+        - Example 1:
 
           ```toml
           [shortcuts]
           ctrl-a = { type = "exec", exec = { prog = "notify-send", args = ["hello world"], env.WAYLAND_DISPLAY = "2" } }
           ```
+
+        - Example 2:
+          
+          ```toml
+          [shortcuts]
+          ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
+          ```
       fields:
         prog:
           kind: string
-          required: true
+          required: false
           description: The name of the executable.
+        shell:
+          kind: string
+          required: false
+          description: |
+            The name of a shell command to execute. The command will be executed as
+            `$SHELL -c "command"`.
         args:
           kind: array
           required: false
           items:
             kind: string
-          description: The arguments to pass to the executable.
+          description: |
+            The arguments to pass to the executable.
+            
+            This field must not be specified if a shell command is used.
         env:
           kind: map
           required: false

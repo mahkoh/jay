@@ -1200,7 +1200,7 @@
       ]
     },
     "Exec": {
-      "description": "Describes how to execute a program.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n\n- Example 3:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n",
+      "description": "Describes how to execute a program.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n\n- Example 3:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n\n- Example 4:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { shell = \"grim - | wl-copy\", privileged = true } }\n  ```\n",
       "anyOf": [
         {
           "type": "string",
@@ -1215,16 +1215,20 @@
           }
         },
         {
-          "description": "The name, arguments, and environment variables of the executable to execute.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n",
+          "description": "The name, arguments, and environment variables of the executable to execute.\n\nExactly one of the `prog` or `shell` fields must be specified.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n\n- Example 2:\n  \n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { shell = \"grim - | wl-copy\", privileged = true } }\n  ```\n",
           "type": "object",
           "properties": {
             "prog": {
               "type": "string",
               "description": "The name of the executable."
             },
+            "shell": {
+              "type": "string",
+              "description": "The name of a shell command to execute. The command will be executed as\n`$SHELL -c \"command\"`.\n"
+            },
             "args": {
               "type": "array",
-              "description": "The arguments to pass to the executable.",
+              "description": "The arguments to pass to the executable.\n\nThis field must not be specified if a shell command is used.\n",
               "items": {
                 "type": "string",
                 "description": ""
@@ -1243,9 +1247,7 @@
               "description": "If `true`, the executable gets access to privileged wayland protocols.\n\nThe default is `false`.\n"
             }
           },
-          "required": [
-            "prog"
-          ]
+          "required": []
         }
       ]
     },

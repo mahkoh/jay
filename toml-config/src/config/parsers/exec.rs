@@ -16,6 +16,7 @@ use {
         },
     },
     indexmap::IndexMap,
+    std::sync::LazyLock,
     thiserror::Error,
 };
 
@@ -31,6 +32,12 @@ pub enum ExecParserError {
     Env(#[from] EnvParserError),
     #[error("Array cannot be empty")]
     Empty,
+    #[error("Exactly one of the `prog` or `shell` fields must be specified")]
+    ProgXorShell,
+    #[error("Could not read $SHELL")]
+    ShellNotDefined,
+    #[error("The `args` field cannot be used for shell commands")]
+    ArgsForShell,
 }
 
 pub struct ExecParser<'a>(pub &'a Context<'a>);
@@ -72,16 +79,33 @@ impl Parser for ExecParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (prog, args_val, envs_val, privileged) = ext.extract((
-            str("prog"),
+        let (prog_opt, shell_opt, args_val, envs_val, privileged) = ext.extract((
+            opt(str("prog")),
+            opt(str("shell")),
             opt(arr("args")),
             opt(val("env")),
             recover(opt(bol("privileged"))),
         ))?;
+        let prog;
         let mut args = vec![];
-        if let Some(args_val) = args_val {
-            for arg in args_val.value {
-                args.push(arg.parse_map(&mut StringParser)?);
+        match (prog_opt, shell_opt) {
+            (None, None) | (Some(_), Some(_)) => {
+                return Err(ExecParserError::ProgXorShell.spanned(span));
+            }
+            (Some(v), _) => {
+                prog = v.value.to_string();
+                if let Some(args_val) = args_val {
+                    for arg in args_val.value {
+                        args.push(arg.parse_map(&mut StringParser)?);
+                    }
+                }
+            }
+            (_, Some(v)) => {
+                prog = shell(v.span)?;
+                args = vec!["-c".to_string(), v.value.to_string()];
+                if let Some(v) = args_val {
+                    return Err(ExecParserError::ArgsForShell.spanned(v.span));
+                }
             }
         }
         let envs = match envs_val {
@@ -89,10 +113,17 @@ impl Parser for ExecParser<'_> {
             Some(e) => e.parse_map(&mut EnvParser)?,
         };
         Ok(Exec {
-            prog: prog.value.to_string(),
+            prog,
             args,
             envs,
             privileged: privileged.despan().unwrap_or(false),
         })
     }
+}
+
+fn shell(span: Span) -> Result<String, Spanned<ExecParserError>> {
+    static SHELL: LazyLock<Option<String>> = LazyLock::new(|| std::env::var("SHELL").ok());
+    SHELL
+        .clone()
+        .ok_or(ExecParserError::ShellNotDefined.spanned(span))
 }
