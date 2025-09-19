@@ -5,6 +5,7 @@ use {
             ei_client::{EiClient, EiClientError},
             ei_ifs::{
                 ei_callback::EiCallback,
+                ei_pingpong::EiPingpong,
                 ei_seat::{
                     EI_CAP_BUTTON, EI_CAP_KEYBOARD, EI_CAP_POINTER, EI_CAP_POINTER_ABSOLUTE,
                     EI_CAP_SCROLL, EI_CAP_TOUCHSCREEN, EiSeat,
@@ -18,7 +19,7 @@ use {
             EiButton, EiConnectionId, EiKeyboard, EiPointer, EiPointerAbsolute, EiScroll,
             EiTouchscreen,
             ei_connection::{
-                Disconnect, Disconnected, EiConnectionRequestHandler, InvalidObject, Seat,
+                Disconnect, Disconnected, EiConnectionRequestHandler, InvalidObject, Ping, Seat,
             },
         },
     },
@@ -56,6 +57,15 @@ impl EiConnection {
             self_id: self.id,
             seat: seat.id,
             version: seat.version.0,
+        });
+    }
+
+    #[expect(dead_code)]
+    pub fn send_ping(&self, ping: &EiPingpong, version: u32) {
+        self.client.event(Ping {
+            self_id: self.id,
+            ping: ping.id,
+            version,
         });
     }
 
