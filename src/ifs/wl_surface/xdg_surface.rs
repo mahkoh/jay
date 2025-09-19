@@ -87,8 +87,9 @@ pub struct XdgSurface {
     base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
-    requested_serial: NumCell<u32>,
-    acked_serial: Cell<Option<u32>>,
+    requested_serial: NumCell<u64>,
+    acked_serial: Cell<u64>,
+    applied_serial: Cell<u64>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
     effective_geometry: Cell<Rect>,
@@ -99,9 +100,17 @@ pub struct XdgSurface {
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
-    have_initial_commit: Cell<bool>,
+    initial_commit_state: Cell<InitialCommitState>,
     configure_scheduled: Cell<bool>,
     destroyed: Cell<bool>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+enum InitialCommitState {
+    #[default]
+    Unmapped,
+    Sent,
+    Mapped,
 }
 
 struct Popup {
@@ -209,8 +218,8 @@ impl PendingXdgSurfaceData {
 }
 
 pub trait XdgSurfaceExt: Debug {
-    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
-        Ok(())
+    fn initial_configure(self: Rc<Self>) {
+        // nothing
     }
 
     fn post_commit(self: Rc<Self>) {
@@ -250,7 +259,8 @@ impl XdgSurface {
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
             requested_serial: NumCell::new(1),
-            acked_serial: Cell::new(None),
+            acked_serial: Cell::new(0),
+            applied_serial: Cell::new(0),
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
             effective_geometry: Default::default(),
@@ -261,7 +271,7 @@ impl XdgSurface {
             popups: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
-            have_initial_commit: Default::default(),
+            initial_commit_state: Default::default(),
             configure_scheduled: Default::default(),
             destroyed: Default::default(),
         }
@@ -350,15 +360,32 @@ impl XdgSurface {
         if self.configure_scheduled.replace(true) {
             return;
         }
-        let serial = self.requested_serial.add_fetch(1);
         self.surface
             .client
             .state
             .xdg_surface_configure_events
             .push(XdgSurfaceConfigureEvent {
                 xdg: self.clone(),
-                serial,
+                serial: self.next_serial() as _,
             });
+    }
+
+    fn next_serial(&self) -> u64 {
+        let mut serial = self.requested_serial.add_fetch(1);
+        if serial as u32 == 0 {
+            serial = self.requested_serial.add_fetch(1);
+        }
+        serial
+    }
+
+    fn map_serial(&self, serial: u32) -> u64 {
+        let max = self.requested_serial.get();
+        let mask = u32::MAX as u64;
+        let mut serial = max & !mask | (serial as u64);
+        if serial > max {
+            serial -= mask + 1;
+        }
+        serial
     }
 
     pub fn send_configure(&self, serial: u32) {
@@ -510,9 +537,13 @@ impl XdgSurfaceRequestHandler for XdgSurface {
     }
 
     fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if self.requested_serial.get() == req.serial {
-            self.acked_serial.set(Some(req.serial));
+        let serial = self.map_serial(req.serial);
+        let last = self.acked_serial.get();
+        if serial <= last {
+            return Err(XdgSurfaceError::InvalidSerial(serial, last));
         }
+        self.acked_serial.set(serial);
+        self.surface.pending.borrow_mut().serial = Some(serial);
         Ok(())
     }
 }
@@ -616,26 +647,41 @@ impl SurfaceExt for XdgSurface {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        if !self.have_initial_commit.get()
-            && let Some(ext) = self.ext.get()
-        {
-            ext.initial_configure()?;
-            self.schedule_configure();
-            self.have_initial_commit.set(true);
-        }
-        if let Some(pending) = &mut pending.xdg_surface
-            && let Some(geometry) = pending.geometry.take()
-        {
-            let prev = self.geometry.replace(Some(geometry));
-            if prev != Some(geometry) {
-                self.update_effective_geometry();
-                self.update_extents();
+        if let Some(pending) = &mut pending.xdg_surface {
+            if let Some(geometry) = pending.geometry.take() {
+                let prev = self.geometry.replace(Some(geometry));
+                if prev != Some(geometry) {
+                    self.update_effective_geometry();
+                    self.update_extents();
+                }
             }
+        }
+        if let Some(serial) = pending.serial.take() {
+            self.applied_serial.set(serial);
         }
         Ok(())
     }
 
     fn after_apply_commit(self: Rc<Self>) {
+        match self.initial_commit_state.get() {
+            InitialCommitState::Unmapped => {
+                if let Some(ext) = self.ext.get() {
+                    ext.initial_configure();
+                    self.schedule_configure();
+                    self.initial_commit_state.set(InitialCommitState::Sent);
+                }
+            }
+            InitialCommitState::Sent => {
+                if self.surface.buffer.is_some() {
+                    self.initial_commit_state.set(InitialCommitState::Mapped);
+                }
+            }
+            InitialCommitState::Mapped => {
+                if self.surface.buffer.is_none() {
+                    self.initial_commit_state.set(InitialCommitState::Unmapped);
+                }
+            }
+        }
         if let Some(ext) = self.ext.get() {
             ext.post_commit();
         }
@@ -682,6 +728,8 @@ pub enum XdgSurfaceError {
     AlreadyConstructed,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
+    #[error("The serial {0} is not larger than the previously acked serial {1}")]
+    InvalidSerial(u64, u64),
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);
