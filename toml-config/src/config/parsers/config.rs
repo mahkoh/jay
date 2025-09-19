@@ -139,7 +139,7 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
-            (middle_click_paste, input_modes_val, workspace_display_order_val),
+            (middle_click_paste, input_modes_val, workspace_display_order_val, auto_reload),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -193,6 +193,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("middle-click-paste"))),
                 opt(val("modes")),
                 opt(val("workspace-display-order")),
+                recover(opt(bol("auto-reload"))),
             ),
         ))?;
         let mut keymap = None;
@@ -279,6 +280,7 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+
         let mut log_level = None;
         if let Some(value) = log_level_val {
             match value.parse(&mut LogLevelParser) {
@@ -516,6 +518,7 @@ impl Parser for ConfigParser<'_> {
             env,
             on_startup,
             keymaps,
+            auto_reload: auto_reload.despan(),
             log_level,
             theme,
             gfx_api,
