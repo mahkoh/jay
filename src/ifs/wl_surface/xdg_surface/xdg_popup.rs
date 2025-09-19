@@ -7,7 +7,7 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
-                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+                xdg_surface::{XdgSurface, XdgSurfaceExt},
             },
             xdg_positioner::{
                 CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
@@ -417,13 +417,12 @@ impl StackedNode for XdgPopup {
 }
 
 impl XdgSurfaceExt for XdgPopup {
-    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
+    fn initial_configure(self: Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
             let rel = self.relative_position.get();
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
-        Ok(())
     }
 
     fn post_commit(self: Rc<Self>) {

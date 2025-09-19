@@ -486,6 +486,7 @@ struct PendingState {
     commit_time: Option<u64>,
     tray_item_ack_serial: Option<u32>,
     color_description: Option<Option<Rc<ColorDescription>>>,
+    serial: Option<u64>,
 }
 
 struct AttachedSubsurfaceState {
@@ -539,6 +540,7 @@ impl PendingState {
         opt!(commit_time);
         opt!(tray_item_ack_serial);
         opt!(color_description);
+        opt!(serial);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
