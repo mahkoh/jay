@@ -2483,6 +2483,13 @@ Describes how to execute a program.
   ctrl-a = { type = "exec", exec = { prog = "notify-send", args = ["hello world"], env.WAYLAND_DISPLAY = "2" } }
   ```
 
+- Example 4:
+
+  ```toml
+  [shortcuts]
+  ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
+  ```
+
 Values of this type should have one of the following forms:
 
 #### A string
@@ -2513,24 +2520,42 @@ Each element of this array should be a string.
 
 The name, arguments, and environment variables of the executable to execute.
 
-- Example:
+Exactly one of the `prog` or `shell` fields must be specified.
+
+- Example 1:
 
   ```toml
   [shortcuts]
   ctrl-a = { type = "exec", exec = { prog = "notify-send", args = ["hello world"], env.WAYLAND_DISPLAY = "2" } }
   ```
 
+- Example 2:
+  
+  ```toml
+  [shortcuts]
+  ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
+  ```
+
 The table has the following fields:
 
-- `prog` (required):
+- `prog` (optional):
 
   The name of the executable.
+
+  The value of this field should be a string.
+
+- `shell` (optional):
+
+  The name of a shell command to execute. The command will be executed as
+  `$SHELL -c "command"`.
 
   The value of this field should be a string.
 
 - `args` (optional):
 
   The arguments to pass to the executable.
+  
+  This field must not be specified if a shell command is used.
 
   The value of this field should be an array of strings.
 
