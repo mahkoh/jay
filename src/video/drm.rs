@@ -9,13 +9,13 @@ use {
         video::drm::sys::{
             DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS,
             DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC,
-            DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_MODE,
-            DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY, create_lease, drm_event,
-            drm_event_vblank, gem_close, get_cap, get_device_name_from_fd2, get_minor_name_from_fd,
-            get_node_type_from_fd, get_nodes, mode_addfb2, mode_atomic, mode_create_blob,
-            mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder,
-            mode_getplane, mode_getplaneresources, mode_getprobblob, mode_getproperty,
-            mode_obj_getproperties, mode_rmfb, prime_fd_to_handle, set_client_cap,
+            DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_PLANE,
+            DRM_MODE_OBJECT_PROPERTY, create_lease, drm_event, drm_event_vblank, gem_close,
+            get_cap, get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd,
+            get_nodes, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
+            mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
+            mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
+            mode_rmfb, prime_fd_to_handle, set_client_cap,
         },
     },
     ahash::AHashMap,
@@ -734,7 +734,6 @@ macro_rules! drm_obj {
 drm_obj!(DrmCrtc, DRM_MODE_OBJECT_CRTC);
 drm_obj!(DrmConnector, DRM_MODE_OBJECT_CONNECTOR);
 drm_obj!(DrmEncoder, DRM_MODE_OBJECT_ENCODER);
-drm_obj!(DrmMode, DRM_MODE_OBJECT_MODE);
 drm_obj!(DrmProperty, DRM_MODE_OBJECT_PROPERTY);
 drm_obj!(DrmFb, DRM_MODE_OBJECT_FB);
 drm_obj!(DrmBlob, DRM_MODE_OBJECT_BLOB);

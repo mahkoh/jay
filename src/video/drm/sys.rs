@@ -400,7 +400,6 @@ pub fn mode_obj_getproperties(
 pub const DRM_MODE_OBJECT_CRTC: u32 = 0xcccccccc;
 pub const DRM_MODE_OBJECT_CONNECTOR: u32 = 0xc0c0c0c0;
 pub const DRM_MODE_OBJECT_ENCODER: u32 = 0xe0e0e0e0;
-pub const DRM_MODE_OBJECT_MODE: u32 = 0xdededede;
 pub const DRM_MODE_OBJECT_PROPERTY: u32 = 0xb0b0b0b0;
 pub const DRM_MODE_OBJECT_FB: u32 = 0xfbfbfbfb;
 pub const DRM_MODE_OBJECT_BLOB: u32 = 0xbbbbbbbb;

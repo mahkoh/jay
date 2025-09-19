@@ -16,8 +16,9 @@ use {
             EiDeviceId,
             ei_device::{
                 ClientFrame, ClientStartEmulating, ClientStopEmulating, Destroyed, DeviceType,
-                Done, EiDeviceRequestHandler, Interface, Paused, Region, RegionMappingId, Release,
-                Resumed, ServerFrame, ServerStartEmulating,
+                Dimensions, Done, EiDeviceRequestHandler, Interface, Name, Paused, Region,
+                RegionMappingId, Release, Resumed, ServerFrame, ServerStartEmulating,
+                ServerStopEmulating,
             },
         },
     },
@@ -89,6 +90,31 @@ impl EiDevice {
             self_id: self.id,
             serial,
             sequence,
+        });
+    }
+
+    #[expect(dead_code)]
+    pub fn send_stop_emulating(&self, serial: u32) {
+        self.client.event(ServerStopEmulating {
+            self_id: self.id,
+            serial,
+        });
+    }
+
+    #[expect(dead_code)]
+    pub fn send_dimensions(&self, width: u32, height: u32) {
+        self.client.event(Dimensions {
+            self_id: self.id,
+            width,
+            height,
+        });
+    }
+
+    #[expect(dead_code)]
+    pub fn send_name(&self, name: &str) {
+        self.client.event(Name {
+            self_id: self.id,
+            name,
         });
     }
 
