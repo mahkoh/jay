@@ -13,8 +13,7 @@ use {
             wl_surface::{
                 WlSurface,
                 xdg_surface::{
-                    XdgSurface, XdgSurfaceError, XdgSurfaceExt,
-                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1,
+                    XdgSurface, XdgSurfaceExt, xdg_toplevel::xdg_dialog_v1::XdgDialogV1,
                 },
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -753,14 +752,13 @@ impl ToplevelNodeBase for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
-    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
+    fn initial_configure(self: Rc<Self>) {
         let rect = self.xdg.absolute_desired_extents.get();
         if rect.is_empty() {
             self.send_configure(0, 0);
         } else {
             self.send_configure_checked(rect.width(), rect.height());
         }
-        Ok(())
     }
 
     fn post_commit(self: Rc<Self>) {
