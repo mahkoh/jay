@@ -8,13 +8,12 @@ use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
-#[expect(unused)]
 #[derive(Object)]
 pub struct WpImageDescriptionReferenceV1 {
-    id: WpImageDescriptionReferenceV1Id,
-    version: Version,
-    client: Rc<Client>,
-    tracker: Tracker<Self>,
+    pub id: WpImageDescriptionReferenceV1Id,
+    pub version: Version,
+    pub client: Rc<Client>,
+    pub tracker: Tracker<Self>,
     pub description: Rc<ColorDescription>,
 }
 

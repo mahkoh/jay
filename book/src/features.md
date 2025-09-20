@@ -298,6 +298,7 @@ granted access. See
 | xdg_toplevel_tag_manager_v1                          | 1       |            |
 | xdg_wm_base                                          | 7       |            |
 | xdg_wm_dialog_v1                                     | 1       |            |
+| xx_image_capture_color_manager_v1                    | 1       | Yes        |
 | zwlr_data_control_manager_v1                         | 2       | Yes        |
 | zwlr_foreign_toplevel_manager_v1                     | 3       | Yes        |
 | zwlr_gamma_control_manager_v1                        | 1       | Yes        |
