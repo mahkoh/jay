@@ -10,7 +10,6 @@ use {
     thiserror::Error,
 };
 
-#[expect(dead_code)]
 pub struct WpImageDescriptionReferenceV1 {
     pub id: WpImageDescriptionReferenceV1Id,
     pub client: Rc<Client>,

@@ -984,6 +984,9 @@ impl OutputNode {
             for fb in self.global.color_description_listeners.lock().values() {
                 fb.send_image_description_changed();
             }
+            self.global
+                .color_description_listeners2
+                .changed(|| self.global.color_description.get());
             self.visit_children(&mut SurfaceSendPreferredColorDescription);
         }
     }

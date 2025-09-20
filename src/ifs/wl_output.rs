@@ -15,6 +15,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
+            ext_image_capture_source_colors_v1::PreferredColorDescriptionListeners,
             wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1,
         },
         leaks::Tracker,
@@ -93,6 +94,7 @@ pub struct WlOutputGlobal {
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
     pub color_description_listeners:
         CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
+    pub color_description_listeners2: PreferredColorDescriptionListeners,
 }
 
 #[derive(Default)]
@@ -240,6 +242,7 @@ impl WlOutputGlobal {
             color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
             linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
             color_description_listeners: Default::default(),
+            color_description_listeners2: Default::default(),
         };
         global.update_damage_matrix();
         global.update_color_description();

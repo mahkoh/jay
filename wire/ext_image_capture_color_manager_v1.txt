@@ -1,0 +1,12 @@
+request destroy (destructor) {
+}
+
+request get_capture_source_colors {
+    colors: id(ext_image_capture_source_colors_v1) (new),
+    source: id(ext_image_capture_source_v1),
+}
+
+request set_frame_image_description {
+    frame: id(ext_image_copy_capture_frame_v1),
+    image_description: id(wp_image_description_v1),
+}
