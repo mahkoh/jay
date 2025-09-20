@@ -139,6 +139,9 @@ impl WlSubsurface {
             stacking_changed = true;
         }
         if let Some((mut x, mut y)) = pending.position.take() {
+            if self.surface.toplevel.is_some() {
+                self.damage();
+            }
             client_wire_scale_to_logical!(self.surface.client, x, y);
             self.position.set((x, y));
             let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();
