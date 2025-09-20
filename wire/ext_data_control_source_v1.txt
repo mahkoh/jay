@@ -1,14 +1,9 @@
-# requests
-
 request offer {
     mime_type: str,
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
-
-# events
 
 event send {
     mime_type: str,
@@ -16,5 +11,4 @@ event send {
 }
 
 event cancelled {
-
 }

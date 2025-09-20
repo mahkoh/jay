@@ -1,23 +1,19 @@
 event workspace_group {
-    workspace_group: id(ext_workspace_group_handle_v1),
+    workspace_group: id(ext_workspace_group_handle_v1) (new),
 }
 
 event workspace {
-    workspace: id(ext_workspace_handle_v1),
+    workspace: id(ext_workspace_handle_v1) (new),
 }
 
 request commit {
-
 }
 
 event done {
-
 }
 
-event finished {
-
+event finished (destructor) {
 }
 
 request stop {
-
 }

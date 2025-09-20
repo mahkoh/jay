@@ -1,5 +1,4 @@
-request destroy (since = 3) {
-
+request destroy (destructor, since = 3) {
 }
 
 event begin (since = 3) {

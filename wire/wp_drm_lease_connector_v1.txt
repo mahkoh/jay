@@ -1,7 +1,3 @@
-request destroy {
-
-}
-
 event name {
     name: str,
 }
@@ -15,9 +11,10 @@ event connector_id {
 }
 
 event done {
-
 }
 
 event withdrawn {
+}
 
+request destroy (destructor) {
 }

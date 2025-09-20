@@ -1,13 +1,12 @@
-# requests
-
-request destroy { }
+request destroy (destructor) {
+}
 
 request get_toplevel {
-    id: id(xdg_toplevel),
+    id: id(xdg_toplevel) (new),
 }
 
 request get_popup {
-    id: id(xdg_popup),
+    id: id(xdg_popup) (new),
     parent: id(xdg_surface),
     positioner: id(xdg_positioner),
 }
@@ -22,8 +21,6 @@ request set_window_geometry {
 request ack_configure {
     serial: u32,
 }
-
-# events
 
 event configure {
     serial: u32,

@@ -13,7 +13,7 @@ name = "jay"
 path = "src/main.rs"
 
 [workspace]
-members = ["jay-config", "toml-config", "algorithms", "toml-spec", "wire-to-xml"]
+members = ["jay-config", "toml-config", "algorithms", "toml-spec", "wire-to-xml", "xml-to-wire"]
 
 [profile.release]
 panic = "abort"

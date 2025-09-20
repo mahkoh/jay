@@ -1,3 +1,2 @@
-request destroy {
-
+request destroy (destructor) {
 }

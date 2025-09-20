@@ -1,7 +1,7 @@
-request destroy {
+request destroy (destructor) {
 }
 
 request get_surface {
-    id: id(wp_alpha_modifier_surface_v1),
+    id: id(wp_alpha_modifier_surface_v1) (new),
     surface: id(wl_surface),
 }

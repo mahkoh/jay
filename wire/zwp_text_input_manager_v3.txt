@@ -1,7 +1,7 @@
-request destroy {
+request destroy (destructor) {
 }
 
 request get_text_input {
-    id: id(zwp_text_input_v3),
+    id: id(zwp_text_input_v3) (new),
     seat: id(wl_seat),
 }

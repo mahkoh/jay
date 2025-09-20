@@ -1,31 +1,31 @@
-request destroy {
+request destroy (destructor) {
 }
 
 request get_output {
-    id: id(wp_color_management_output_v1),
+    id: id(wp_color_management_output_v1) (new),
     output: id(wl_output),
 }
 
 request get_surface {
-    id: id(wp_color_management_surface_v1),
+    id: id(wp_color_management_surface_v1) (new),
     surface: id(wl_surface),
 }
 
 request get_surface_feedback {
-    id: id(wp_color_management_surface_feedback_v1),
+    id: id(wp_color_management_surface_feedback_v1) (new),
     surface: id(wl_surface),
 }
 
 request create_icc_creator {
-    obj: id(wp_image_description_creator_icc_v1),
+    obj: id(wp_image_description_creator_icc_v1) (new),
 }
 
 request create_parametric_creator {
-    obj: id(wp_image_description_creator_params_v1),
+    obj: id(wp_image_description_creator_params_v1) (new),
 }
 
 request create_windows_scrgb {
-    image_description: id(wp_image_description_v1),
+    image_description: id(wp_image_description_v1) (new),
 }
 
 event supported_intent {

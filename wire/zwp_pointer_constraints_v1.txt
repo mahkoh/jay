@@ -1,11 +1,8 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request lock_pointer {
-    id: id(zwp_locked_pointer_v1),
+    id: id(zwp_locked_pointer_v1) (new),
     surface: id(wl_surface),
     pointer: id(wl_pointer),
     region: id(wl_region),
@@ -13,7 +10,7 @@ request lock_pointer {
 }
 
 request confine_pointer {
-    id: id(zwp_confined_pointer_v1),
+    id: id(zwp_confined_pointer_v1) (new),
     surface: id(wl_surface),
     pointer: id(wl_pointer),
     region: id(wl_region),

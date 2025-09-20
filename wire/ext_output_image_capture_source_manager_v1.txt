@@ -1,8 +1,7 @@
 request create_source {
-    source: id(ext_image_capture_source_v1),
+    source: id(ext_image_capture_source_v1) (new),
     output: id(wl_output),
 }
 
-request destroy {
-
+request destroy (destructor) {
 }

@@ -1,6 +1,6 @@
 request create {
-    seat: id(ext_transient_seat_v1),
+    seat: id(ext_transient_seat_v1) (new),
 }
 
-request destroy {
+request destroy (destructor) {
 }

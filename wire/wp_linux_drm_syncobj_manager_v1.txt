@@ -1,15 +1,12 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_surface {
-    id: id(wp_linux_drm_syncobj_surface_v1),
+    id: id(wp_linux_drm_syncobj_surface_v1) (new),
     surface: id(wl_surface),
 }
 
 request import_timeline {
-    id: id(wp_linux_drm_syncobj_timeline_v1),
+    id: id(wp_linux_drm_syncobj_timeline_v1) (new),
     fd: fd,
 }

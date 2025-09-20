@@ -1,5 +1,3 @@
-# requests
-
 request set_serial {
     serial: u32,
     seat: id(wl_seat),
@@ -14,15 +12,11 @@ request set_surface {
 }
 
 request commit {
-
 }
-
-request destroy {
-
-}
-
-# events
 
 event done {
     token: str,
+}
+
+request destroy (destructor) {
 }

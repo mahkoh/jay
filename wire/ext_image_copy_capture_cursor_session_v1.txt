@@ -1,17 +1,14 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_capture_session {
-    session: id(ext_image_copy_capture_session_v1),
+    session: id(ext_image_copy_capture_session_v1) (new),
 }
 
 event enter {
-
 }
 
 event leave {
-
 }
 
 event position {

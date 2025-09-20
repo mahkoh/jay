@@ -1,9 +1,8 @@
 request create_lease_request {
-    id: id(wp_drm_lease_request_v1),
+    id: id(wp_drm_lease_request_v1) (new),
 }
 
 request release {
-
 }
 
 event drm_fd {
@@ -11,13 +10,11 @@ event drm_fd {
 }
 
 event connector {
-    id: id(wp_drm_lease_connector_v1),
+    id: id(wp_drm_lease_connector_v1) (new),
 }
 
 event done {
-
 }
 
-event released {
-
+event released (destructor) {
 }

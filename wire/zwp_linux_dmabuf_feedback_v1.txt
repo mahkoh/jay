@@ -1,10 +1,8 @@
-# requests
+request destroy (destructor) {
+}
 
-request destroy { }
-
-# events
-
-event done { }
+event done {
+}
 
 event format_table {
     fd: fd,
@@ -16,7 +14,6 @@ event main_device {
 }
 
 event tranche_done {
-
 }
 
 event tranche_target_device {

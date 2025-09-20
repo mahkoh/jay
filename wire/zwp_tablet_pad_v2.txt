@@ -4,11 +4,11 @@ request set_feedback {
     serial: u32,
 }
 
-request destroy {
+request destroy (destructor) {
 }
 
 event group {
-    pad_group: id(zwp_tablet_pad_group_v2),
+    pad_group: id(zwp_tablet_pad_group_v2) (new),
 }
 
 event path {

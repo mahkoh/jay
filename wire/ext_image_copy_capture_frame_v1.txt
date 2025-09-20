@@ -1,5 +1,4 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request attach_buffer {
@@ -14,7 +13,6 @@ request damage_buffer {
 }
 
 request capture {
-
 }
 
 event transform {
@@ -34,9 +32,8 @@ event presentation_time {
 }
 
 event ready {
-
 }
 
 event failed {
-    reason: i32,
+    reason: u32,
 }

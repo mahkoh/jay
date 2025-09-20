@@ -1,6 +1,4 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request set_cursor_position_hint {
@@ -11,8 +9,6 @@ request set_cursor_position_hint {
 request set_region {
     region: id(wl_region),
 }
-
-# events
 
 event locked {
 }

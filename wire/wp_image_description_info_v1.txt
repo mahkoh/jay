@@ -1,4 +1,4 @@
-event done {
+event done (destructor) {
 }
 
 event icc_file {

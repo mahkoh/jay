@@ -1,6 +1,5 @@
-# requests
-
-request destroy { }
+request destroy (destructor) {
+}
 
 request add {
     fd: fd,
@@ -17,20 +16,17 @@ request create {
     flags: u32,
 }
 
+event created {
+    buffer: id(wl_buffer) (new),
+}
+
+event failed {
+}
+
 request create_immed (since = 2) {
-    buffer_id: id(wl_buffer),
+    buffer_id: id(wl_buffer) (new),
     width: i32,
     height: i32,
     format: u32,
     flags: u32,
-}
-
-# events
-
-event created {
-    buffer: id(wl_buffer),
-}
-
-event failed {
-
 }

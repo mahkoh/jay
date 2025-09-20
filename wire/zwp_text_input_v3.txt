@@ -1,4 +1,4 @@
-request destroy {
+request destroy (destructor) {
 }
 
 request enable {
@@ -41,9 +41,9 @@ event leave {
 }
 
 event preedit_string {
-   text: optstr,
-   cursor_begin: i32,
-   cursor_end: i32,
+    text: optstr,
+    cursor_begin: i32,
+    cursor_end: i32,
 }
 
 event commit_string {

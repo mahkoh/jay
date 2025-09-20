@@ -25,8 +25,8 @@ impl ZwpRelativePointerV1 {
         time_usec: u64,
         mut dx: Fixed,
         mut dy: Fixed,
-        dx_unaccelerated: Fixed,
-        dy_unaccelerated: Fixed,
+        dx_unaccel: Fixed,
+        dy_unaccel: Fixed,
     ) {
         logical_to_client_wire_scale!(self.client, dx, dy);
         self.client.event(RelativeMotion {
@@ -34,8 +34,8 @@ impl ZwpRelativePointerV1 {
             utime: time_usec,
             dx,
             dy,
-            dx_unaccelerated,
-            dy_unaccelerated,
+            dx_unaccel,
+            dy_unaccel,
         });
     }
 }

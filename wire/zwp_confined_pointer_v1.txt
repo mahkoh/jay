@@ -1,19 +1,12 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request set_region {
     region: id(wl_region),
 }
 
-# events
-
 event confined {
-
 }
 
 event unconfined {
-
 }

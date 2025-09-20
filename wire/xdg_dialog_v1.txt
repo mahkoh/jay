@@ -1,11 +1,8 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request set_modal {
-
 }
 
 request unset_modal {
-
 }

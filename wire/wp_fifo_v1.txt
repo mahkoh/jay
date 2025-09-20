@@ -1,11 +1,8 @@
 request set_barrier {
-
 }
 
 request wait_barrier {
-
 }
 
-request destroy {
-
+request destroy (destructor) {
 }

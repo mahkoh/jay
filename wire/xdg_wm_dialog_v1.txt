@@ -1,8 +1,7 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_xdg_dialog {
-    id: id(xdg_dialog_v1),
+    id: id(xdg_dialog_v1) (new),
     toplevel: id(xdg_toplevel),
 }
