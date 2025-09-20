@@ -249,6 +249,25 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         obj.send_ready();
         Ok(())
     }
+
+    fn get_image_description(
+        &self,
+        req: GetImageDescription,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let desc = self.client.lookup(req.reference)?;
+        let obj = Rc::new(WpImageDescriptionV1 {
+            id: req.image_description,
+            client: self.client.clone(),
+            version: self.version,
+            tracker: Default::default(),
+            description: Some(desc.description.clone()),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        obj.send_ready();
+        Ok(())
+    }
 }
 
 global_base!(
@@ -263,7 +282,7 @@ impl Global for WpColorManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn exposed(&self, state: &State) -> bool {
