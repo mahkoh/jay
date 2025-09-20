@@ -1,14 +1,9 @@
-# request
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request ack_configure {
     serial: u32,
 }
-
-# events
 
 event configure {
     serial: u32,

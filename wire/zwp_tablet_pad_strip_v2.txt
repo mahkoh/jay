@@ -3,7 +3,7 @@ request set_feedback {
     serial: u32,
 }
 
-request destroy {
+request destroy (destructor) {
 }
 
 event source {

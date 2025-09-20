@@ -1,9 +1,9 @@
-request destroy {
+request destroy (destructor) {
 }
 
 event image_description_changed {
 }
 
 request get_image_description {
-    image_description: id(wp_image_description_v1),
+    image_description: id(wp_image_description_v1) (new),
 }

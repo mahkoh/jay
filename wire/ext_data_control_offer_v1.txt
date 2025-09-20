@@ -1,15 +1,10 @@
-# requests
-
 request receive {
     mime_type: str,
     fd: fd,
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
-
-# events
 
 event offer {
     mime_type: str,

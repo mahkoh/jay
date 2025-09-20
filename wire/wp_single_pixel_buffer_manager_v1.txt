@@ -1,10 +1,8 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request create_u32_rgba_buffer {
-    id: id(wl_buffer),
+    id: id(wl_buffer) (new),
     r: u32,
     g: u32,
     b: u32,

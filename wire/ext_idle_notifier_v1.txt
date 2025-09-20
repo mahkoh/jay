@@ -1,16 +1,14 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request get_idle_notification {
-    id: id(ext_idle_notification_v1),
+    id: id(ext_idle_notification_v1) (new),
     timeout: u32,
     seat: id(wl_seat),
 }
 
 request get_input_idle_notification (since = 2) {
-    id: id(ext_idle_notification_v1),
+    id: id(ext_idle_notification_v1) (new),
     timeout: u32,
     seat: id(wl_seat),
 }

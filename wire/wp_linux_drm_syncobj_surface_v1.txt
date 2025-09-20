@@ -1,7 +1,4 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request set_acquire_point {

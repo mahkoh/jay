@@ -1,4 +1,4 @@
-request destroy {
+request destroy (destructor) {
 }
 
 event preferred_changed {
@@ -6,9 +6,9 @@ event preferred_changed {
 }
 
 request get_preferred {
-    image_description: id(wp_image_description_v1),
+    image_description: id(wp_image_description_v1) (new),
 }
 
 request get_preferred_parametric {
-    image_description: id(wp_image_description_v1),
+    image_description: id(wp_image_description_v1) (new),
 }

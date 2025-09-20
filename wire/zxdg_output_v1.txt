@@ -1,8 +1,5 @@
-# requests
-
-request destroy { }
-
-# events
+request destroy (destructor) {
+}
 
 event logical_position {
     x: i32,
@@ -14,7 +11,8 @@ event logical_size {
     height: i32,
 }
 
-event done { }
+event done {
+}
 
 event name (since = 2) {
     name: str,

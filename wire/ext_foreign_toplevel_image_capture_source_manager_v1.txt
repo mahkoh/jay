@@ -1,8 +1,7 @@
 request create_source {
-    source: id(ext_image_capture_source_v1),
+    source: id(ext_image_capture_source_v1) (new),
     toplevel_handle: id(ext_foreign_toplevel_handle_v1),
 }
 
-request destroy {
-
+request destroy (destructor) {
 }

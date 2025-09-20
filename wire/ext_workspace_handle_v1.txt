@@ -19,19 +19,15 @@ event capabilities {
 }
 
 event removed {
-
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
 
 request activate {
-
 }
 
 request deactivate {
-
 }
 
 request assign {
@@ -39,5 +35,4 @@ request assign {
 }
 
 request remove {
-
 }

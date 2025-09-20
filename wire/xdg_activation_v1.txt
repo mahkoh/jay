@@ -1,11 +1,8 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_activation_token {
-    id: id(xdg_activation_token_v1),
+    id: id(xdg_activation_token_v1) (new),
 }
 
 request activate {

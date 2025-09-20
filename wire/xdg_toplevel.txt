@@ -1,7 +1,4 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request set_parent {
@@ -44,21 +41,21 @@ request set_min_size {
     height: i32,
 }
 
-request set_maximized { }
+request set_maximized {
+}
 
-request unset_maximized { }
+request unset_maximized {
+}
 
 request set_fullscreen {
     output: id(wl_output),
 }
 
 request unset_fullscreen {
-
 }
 
-request set_minimized { }
-
-# events
+request set_minimized {
+}
 
 event configure {
     width: i32,
@@ -66,7 +63,8 @@ event configure {
     states: array(u32),
 }
 
-event close { }
+event close {
+}
 
 event configure_bounds (since = 4) {
     width: i32,

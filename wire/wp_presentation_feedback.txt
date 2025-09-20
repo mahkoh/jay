@@ -1,17 +1,14 @@
-# events
-
 event sync_output {
     output: id(wl_output),
 }
 
-event presented {
-    tv_sec      : u64,
-    tv_nsec     : u32,
-    refresh     : u32,
-    seq         : u64,
-    flags       : u32,
+event presented (destructor) {
+    tv_sec: u64,
+    tv_nsec: u32,
+    refresh: u32,
+    seq: u64,
+    flags: u32,
 }
 
-event discarded {
-
+event discarded (destructor) {
 }

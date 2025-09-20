@@ -1,14 +1,12 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request get_pointer {
-    cursor_shape_device: id(wp_cursor_shape_device_v1),
+    cursor_shape_device: id(wp_cursor_shape_device_v1) (new),
     pointer: id(wl_pointer),
 }
 
 request get_tablet_tool_v2 {
-    cursor_shape_device: id(wp_cursor_shape_device_v1),
+    cursor_shape_device: id(wp_cursor_shape_device_v1) (new),
     tablet_tool: id(zwp_tablet_tool_v2),
 }

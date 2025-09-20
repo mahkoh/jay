@@ -19,13 +19,11 @@ event workspace_leave {
 }
 
 event removed {
-
 }
 
 request create_workspace {
     workspace: str,
 }
 
-request destroy {
-
+request destroy (destructor) {
 }

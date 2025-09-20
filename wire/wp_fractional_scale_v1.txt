@@ -1,10 +1,5 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
-
-# events
 
 event preferred_scale {
     scale: u32,

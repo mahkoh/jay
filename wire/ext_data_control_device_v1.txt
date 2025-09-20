@@ -1,21 +1,12 @@
-# requests
-
 request set_selection {
     source: id(ext_data_control_source_v1),
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
-
-request set_primary_selection {
-    source: id(ext_data_control_source_v1),
-}
-
-# events
 
 event data_offer {
-    id: id(ext_data_control_offer_v1),
+    id: id(ext_data_control_offer_v1) (new),
 }
 
 event selection {
@@ -27,4 +18,8 @@ event finished {
 
 event primary_selection {
     id: id(ext_data_control_offer_v1),
+}
+
+request set_primary_selection {
+    source: id(ext_data_control_source_v1),
 }

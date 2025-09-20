@@ -1,9 +1,5 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
-
-# events
 
 event closed {
 }

@@ -1,15 +1,10 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
-
-# events
 
 event relative_motion {
     utime: u64,
     dx: fixed,
     dy: fixed,
-    dx_unaccelerated: fixed,
-    dy_unaccelerated: fixed,
+    dx_unaccel: fixed,
+    dy_unaccel: fixed,
 }

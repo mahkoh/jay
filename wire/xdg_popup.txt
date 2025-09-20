@@ -1,18 +1,10 @@
-# requests
-
-request destroy { }
+request destroy (destructor) {
+}
 
 request grab {
     seat: id(wl_seat),
     serial: u32,
 }
-
-request reposition (since = 3) {
-    positioner: id(xdg_positioner),
-    token: u32,
-}
-
-# events
 
 event configure {
     x: i32,
@@ -22,7 +14,11 @@ event configure {
 }
 
 event popup_done {
+}
 
+request reposition (since = 3) {
+    positioner: id(xdg_positioner),
+    token: u32,
 }
 
 event repositioned (since = 3) {

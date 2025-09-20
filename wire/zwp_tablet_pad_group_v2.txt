@@ -1,4 +1,4 @@
-request destroy {
+request destroy (destructor) {
 }
 
 event buttons {
@@ -6,11 +6,11 @@ event buttons {
 }
 
 event ring {
-    ring: id(zwp_tablet_pad_ring_v2),
+    ring: id(zwp_tablet_pad_ring_v2) (new),
 }
 
 event strip {
-    strip: id(zwp_tablet_pad_strip_v2),
+    strip: id(zwp_tablet_pad_strip_v2) (new),
 }
 
 event modes {
@@ -26,6 +26,6 @@ event mode_switch {
     mode: u32,
 }
 
-event dial {
-    dial: id(zwp_tablet_pad_dial_v2),
+event dial (since = 2) {
+    dial: id(zwp_tablet_pad_dial_v2) (new),
 }

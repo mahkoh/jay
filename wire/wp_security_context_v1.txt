@@ -1,5 +1,4 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request set_sandbox_engine {
@@ -15,5 +14,4 @@ request set_instance_id {
 }
 
 request commit {
-
 }

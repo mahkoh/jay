@@ -1,10 +1,7 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_fractional_scale {
-    id: id(wp_fractional_scale_v1),
+    id: id(wp_fractional_scale_v1) (new),
     surface: id(wl_surface),
 }

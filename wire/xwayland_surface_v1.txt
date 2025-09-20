@@ -1,7 +1,6 @@
-# requests
-
 request set_serial {
     serial: u64_rev,
 }
 
-request destroy { }
+request destroy (destructor) {
+}

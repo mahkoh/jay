@@ -1,11 +1,7 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_tearing_control {
-    id: id(wp_tearing_control_v1),
+    id: id(wp_tearing_control_v1) (new),
     surface: id(wl_surface),
 }
-

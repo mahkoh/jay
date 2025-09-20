@@ -1,6 +1,5 @@
-# requests
-
-request destroy { }
+request destroy (destructor) {
+}
 
 request set_size {
     width: i32,
@@ -32,7 +31,6 @@ request set_offset {
 }
 
 request set_reactive (since = 3) {
-
 }
 
 request set_parent_size (since = 3) {

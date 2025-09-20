@@ -1,4 +1,4 @@
-request destroy {
+request destroy (destructor) {
 }
 
 event name {
@@ -20,6 +20,6 @@ event done {
 event removed {
 }
 
-event bustype {
+event bustype (since = 2) {
     bustype: u32,
 }

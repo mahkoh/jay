@@ -1,4 +1,4 @@
-request destroy {
+request destroy (destructor) {
 }
 
 event failed {
@@ -11,5 +11,5 @@ event ready {
 }
 
 request get_information {
-    information: id(wp_image_description_info_v1),
+    information: id(wp_image_description_info_v1) (new),
 }

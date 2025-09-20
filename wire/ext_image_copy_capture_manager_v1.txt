@@ -1,15 +1,14 @@
 request create_session {
-    session: id(ext_image_copy_capture_session_v1),
+    session: id(ext_image_copy_capture_session_v1) (new),
     source: id(ext_image_capture_source_v1),
     options: u32,
 }
 
 request create_pointer_cursor_session {
-    session: id(ext_image_copy_capture_cursor_session_v1),
+    session: id(ext_image_copy_capture_cursor_session_v1) (new),
     source: id(ext_image_capture_source_v1),
     pointer: id(wl_pointer),
 }
 
-request destroy {
-
+request destroy (destructor) {
 }

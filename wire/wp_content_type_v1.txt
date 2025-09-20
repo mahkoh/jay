@@ -1,6 +1,4 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request set_content_type {
