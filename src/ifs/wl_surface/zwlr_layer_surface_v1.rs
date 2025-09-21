@@ -16,14 +16,13 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode, TreeSerial,
         },
         utils::{
             bitflags::BitflagsExt,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
-            numcell::NumCell,
             option_ext::OptionExt,
         },
         wire::{WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
@@ -59,7 +58,6 @@ pub struct ZwlrLayerSurfaceV1 {
     pos: Cell<Rect>,
     mapped: Cell<bool>,
     layer: Cell<u32>,
-    requested_serial: NumCell<u32>,
     size: Cell<(i32, i32)>,
     anchor: Cell<u32>,
     exclusive_zone: Cell<ExclusiveZone>,
@@ -166,7 +164,6 @@ impl ZwlrLayerSurfaceV1 {
             pos: Default::default(),
             mapped: Cell::new(false),
             layer: Cell::new(layer),
-            requested_serial: Default::default(),
             size: Cell::new((0, 0)),
             anchor: Cell::new(0),
             exclusive_zone: Cell::new(ExclusiveZone::MoveSelf),
@@ -195,10 +192,10 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn send_configure(&self, serial: u32, width: u32, height: u32) {
+    fn send_configure(&self, serial: TreeSerial, width: u32, height: u32) {
         self.client.event(Configure {
             self_id: self.id,
-            serial,
+            serial: serial.raw() as _,
             width,
             height,
         });
@@ -471,8 +468,8 @@ impl ZwlrLayerSurfaceV1 {
             height = available_height;
         }
         height = height.min(available_height).max(1);
-        let serial = self.requested_serial.fetch_add(1) + 1;
         if self.last_configure.replace((width, height)) != (width, height) {
+            let serial = self.client.state.next_tree_serial();
             self.send_configure(serial, width as _, height as _);
         }
     }
