@@ -32,6 +32,7 @@ use {
             get_seat, input_devices, on_input_device_removed, on_new_input_device,
             set_libei_socket_enabled,
         },
+        io::Async,
         is_reload,
         keyboard::Keymap,
         logging::set_log_level,
@@ -41,6 +42,7 @@ use {
         set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
+        tasks::{self, JoinHandle},
         theme::{reset_colors, reset_font, reset_sizes, set_bar_font, set_font, set_title_font},
         toggle_float_above_fullscreen, toggle_show_bar,
         video::{
@@ -56,10 +58,20 @@ use {
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
+        ffi::OsStr,
         io::ErrorKind,
-        path::PathBuf,
+        os::{fd::AsRawFd, unix::ffi::OsStrExt},
+        path::{Path, PathBuf},
         rc::Rc,
         time::Duration,
+    },
+    uapi::{
+        Errno,
+        c::{
+            self, CLOCK_MONOTONIC, IN_ATTRIB, IN_CLOEXEC, IN_CLOSE_WRITE, IN_CREATE, IN_DELETE,
+            IN_EXCL_UNLINK, IN_MOVED_FROM, IN_MOVED_TO, IN_NONBLOCK, IN_ONLYDIR, TFD_CLOEXEC,
+            TFD_NONBLOCK, timespec,
+        },
     },
 };
 
@@ -169,7 +181,7 @@ impl Action {
                 SimpleCommand::Quit => b.new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
-                    b.new(move || load_config(false, &persistent))
+                    b.new(move || load_config(false, false, &persistent))
                 }
                 SimpleCommand::ReloadConfigSo => b.new(reload),
                 SimpleCommand::None => b.new(|| ()),
@@ -1016,26 +1028,222 @@ struct PersistentState {
     window_rules: Cell<Vec<MatcherTemp<WindowRule>>>,
     mark_names: RefCell<AHashMap<String, u32>>,
     mode_state: ModeState,
+    watcher_handle: RefCell<Option<JoinHandle<()>>>,
+    last_config: RefCell<Option<Vec<u8>>>,
 }
 
-fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
-    let mut path = PathBuf::from(config_dir());
-    path.push("config.toml");
-    let mut config = match std::fs::read(&path) {
-        Ok(input) => match parse_config(&input, &persistent.mark_names, |e| {
-            log::warn!("Error while parsing {}: {}", path.display(), Report::new(e))
-        }) {
-            None if initial_load => {
-                log::warn!("Using default config instead");
-                persistent.default.clone()
-            }
-            None => {
-                log::warn!("Ignoring config reload");
+async fn watch_config(persistent: Rc<PersistentState>) {
+    let inotify = match uapi::inotify_init1(IN_NONBLOCK | IN_CLOEXEC) {
+        Ok(i) => i,
+        Err(e) => {
+            log::error!("Could not create inotify fd: {}", Report::new(e));
+            return;
+        }
+    };
+    let inotify_async = match Async::new(&inotify) {
+        Ok(i) => i,
+        Err(e) => {
+            log::error!(
+                "Could not create Async object for inotify fd: {}",
+                Report::new(e)
+            );
+            return;
+        }
+    };
+
+    let timer = match uapi::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC) {
+        Ok(t) => Rc::new(t),
+        Err(e) => {
+            log::error!("Could not create timer fd: {}", Report::new(e));
+            return;
+        }
+    };
+    let timer_async = match Async::new(timer.clone()) {
+        Ok(i) => i,
+        Err(e) => {
+            log::error!(
+                "Could not create Async object for timer fd: {}",
+                Report::new(e)
+            );
+            return;
+        }
+    };
+
+    let timer_task = tasks::spawn(async move {
+        loop {
+            if let Err(e) = timer_async.readable().await {
+                log::error!(
+                    "Could not wait for timer to become readable: {}",
+                    Report::new(e),
+                );
                 return;
             }
-            Some(c) => c,
-        },
+            let mut buf = 0u64;
+            if let Err(e) = uapi::read(timer_async.as_ref().raw(), &mut buf) {
+                log::error!("Could not read from timer fd: {}", Report::new(e));
+                return;
+            }
+            load_config(false, true, &persistent);
+        }
+    });
+    let _cancel_task = on_drop(|| timer_task.abort());
+
+    let program_timer = || {
+        let new_value = c::itimerspec {
+            it_interval: timespec {
+                tv_nsec: 0,
+                tv_sec: 0,
+            },
+            it_value: timespec {
+                tv_nsec: 400_000_000,
+                tv_sec: 0,
+            },
+        };
+        if let Err(e) = uapi::timerfd_settime(timer.raw(), 0, &new_value) {
+            log::error!("Could not set timer: {}", Report::new(e));
+        }
+    };
+
+    let config_dir = config_dir();
+    let config_dir = Path::new(&config_dir);
+    let mut dirs = vec![];
+    for component in config_dir.components() {
+        dirs.push(component.as_os_str());
+    }
+
+    let mut dir_watches = vec![];
+    let mut file_watch = None;
+
+    let mut path_buf = PathBuf::new();
+    let mut create_watches = |dir_watches: &mut Vec<c::c_int>,
+                              file_watch: &mut Option<c::c_int>| {
+        path_buf.clear();
+        for (i, dir) in dirs.iter().enumerate() {
+            path_buf.push(dir);
+            if dir_watches.len() > i {
+                continue;
+            }
+            let res = uapi::inotify_add_watch(
+                inotify.raw(),
+                &*path_buf,
+                IN_ONLYDIR
+                    | IN_CREATE
+                    | IN_DELETE
+                    | IN_MOVED_FROM
+                    | IN_MOVED_TO
+                    | IN_ATTRIB
+                    | IN_EXCL_UNLINK,
+            );
+            let Ok(n) = res else {
+                return;
+            };
+            dir_watches.push(n);
+        }
+        if file_watch.is_none() {
+            path_buf.push(CONFIG_TOML);
+            let res =
+                uapi::inotify_add_watch(inotify.raw(), &*path_buf, IN_CLOSE_WRITE | IN_EXCL_UNLINK);
+            *file_watch = res.ok();
+        }
+    };
+    macro_rules! create_watches {
+        () => {
+            create_watches(&mut dir_watches, &mut file_watch);
+            program_timer();
+        };
+    }
+    create_watches!();
+
+    let mut buffer = vec![0; 1024];
+    loop {
+        let res = uapi::inotify_read(inotify_async.as_ref().as_raw_fd(), &mut *buffer);
+        let events = match res {
+            Ok(e) => e,
+            Err(Errno(c::EAGAIN)) => {
+                inotify_async.readable().await.unwrap();
+                continue;
+            }
+            Err(e) => {
+                log::error!("Could not read from inotify fd: {}", e);
+                return;
+            }
+        };
+        for event in events {
+            if Some(event.wd) == file_watch {
+                program_timer();
+            } else {
+                for i in 0..dir_watches.len() {
+                    if event.wd != dir_watches[i] {
+                        continue;
+                    }
+                    let next = if i + 1 == dirs.len() {
+                        OsStr::new(CONFIG_TOML)
+                    } else {
+                        dirs[i + 1]
+                    };
+                    if event.name().to_bytes() != next.as_bytes() {
+                        break;
+                    }
+                    if event.mask & (IN_DELETE | IN_MOVED_FROM) != 0 {
+                        for wd in dir_watches.drain(i + 1..) {
+                            let _ = uapi::inotify_rm_watch(inotify.raw(), wd);
+                        }
+                        if let Some(wd) = file_watch.take() {
+                            let _ = uapi::inotify_rm_watch(inotify.raw(), wd);
+                        }
+                        program_timer();
+                    }
+                    if (event.mask & IN_ATTRIB != 0
+                        && i + 1 == dir_watches.len()
+                        && file_watch.is_none())
+                        || event.mask & (IN_CREATE | IN_MOVED_TO) != 0
+                    {
+                        create_watches!();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+const CONFIG_TOML: &str = "config.toml";
+
+fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<PersistentState>) {
+    let mut path = PathBuf::from(config_dir());
+    path.push(CONFIG_TOML);
+    let mut last_config = persistent.last_config.borrow_mut();
+    let mut config = match std::fs::read(&path) {
+        Ok(input) => {
+            if auto_reload {
+                if Some(&input) == last_config.as_ref() {
+                    return;
+                }
+                log::info!("Auto reloading config")
+            }
+            let parsed = parse_config(&input, &persistent.mark_names, |e| {
+                log::warn!("Error while parsing {}: {}", path.display(), Report::new(e))
+            });
+            *last_config = Some(input);
+            match parsed {
+                None if initial_load => {
+                    log::warn!("Using default config instead");
+                    persistent.default.clone()
+                }
+                None => {
+                    log::warn!("Ignoring config reload");
+                    return;
+                }
+                Some(c) => c,
+            }
+        }
         Err(e) if e.kind() == ErrorKind::NotFound => {
+            if auto_reload {
+                if last_config.take().is_none() {
+                    return;
+                }
+                log::info!("Auto reloading config")
+            }
             log::info!("{} does not exist. Using default config.", path.display());
             persistent.default.clone()
         }
@@ -1045,6 +1253,19 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             return;
         }
     };
+    drop(last_config);
+    if let Some(auto_reload) = config.auto_reload {
+        if auto_reload {
+            let handle = &mut *persistent.watcher_handle.borrow_mut();
+            if handle.is_none() {
+                *handle = Some(tasks::spawn(watch_config(persistent.clone())));
+            }
+        } else {
+            if let Some(handle) = persistent.watcher_handle.take() {
+                handle.abort();
+            }
+        }
+    }
     let mut outputs = AHashMap::new();
     for output in &config.outputs {
         if let Some(name) = &output.name {
@@ -1354,6 +1575,8 @@ pub fn configure() {
         window_rules: Default::default(),
         mark_names,
         mode_state: Default::default(),
+        watcher_handle: Default::default(),
+        last_config: Default::default(),
     });
     {
         let p = persistent.clone();
@@ -1363,7 +1586,7 @@ pub fn configure() {
             p.mode_state.clear();
         });
     }
-    load_config(true, &persistent);
+    load_config(true, false, &persistent);
 }
 
 config!(configure);
