@@ -71,7 +71,6 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             client: self.client.clone(),
             surface,
             tracker: Default::default(),
-            serial: Default::default(),
             output: output.global.clone(),
             seat_state: Default::default(),
             version: self.version,

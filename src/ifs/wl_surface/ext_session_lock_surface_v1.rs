@@ -14,7 +14,6 @@ use {
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
             NodeVisitor, OutputNode, WorkspaceNode,
         },
-        utils::numcell::NumCell,
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
     std::rc::Rc,
@@ -27,7 +26,6 @@ pub struct ExtSessionLockSurfaceV1 {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-    pub serial: NumCell<u32>,
     pub output: Rc<OutputGlobalOpt>,
     pub seat_state: NodeSeatState,
     pub version: Version,
@@ -53,7 +51,7 @@ impl ExtSessionLockSurfaceV1 {
     fn send_configure(&self, width: i32, height: i32) {
         self.client.event(Configure {
             self_id: self.id,
-            serial: self.serial.fetch_add(1),
+            serial: self.client.state.next_tree_serial().raw() as _,
             width: width as _,
             height: height as _,
         });
@@ -75,7 +73,9 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
         Ok(())
     }
 
-    fn ack_configure(&self, _req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let serial = self.client.state.map_tree_serial32(req.serial);
+        self.surface.pending.borrow_mut().serial = Some(serial);
         Ok(())
     }
 }

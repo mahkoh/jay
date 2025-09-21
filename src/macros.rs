@@ -207,6 +207,11 @@ macro_rules! linear_ids {
             pub fn next(&self) -> $id {
                 $id(self.next.fetch_add(1))
             }
+
+            #[allow(clippy::allow_attributes, dead_code)]
+            pub fn last(&self) -> $id {
+                $id(self.next.get() - 1)
+            }
         }
 
         #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
