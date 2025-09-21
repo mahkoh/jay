@@ -73,9 +73,11 @@ impl JayTrayItemV1 {
     }
 
     fn send_configure(&self) {
+        let serial = self.data.client.state.next_tree_serial();
+        self.data.sent_serial.set(Some(serial));
         self.data.client.event(Configure {
             self_id: self.id,
-            serial: self.data.sent_serial.add_fetch(1),
+            serial: serial.raw() as _,
         });
     }
 }
@@ -89,7 +91,10 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
     }
 
     fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        ack_configure(self, req.serial);
+        let Some(serial) = self.data.client.state.validate_tree_serial32(req.serial) else {
+            return Err(JayTrayItemV1Error::InvalidSerial);
+        };
+        ack_configure(self, serial);
         Ok(())
     }
 
@@ -150,4 +155,6 @@ pub enum JayTrayItemV1Error {
     TrayItemError(#[from] TrayItemError),
     #[error("The focus hint {} is invalid", .0)]
     InvalidFocusHint(u32),
+    #[error("The serial is invalid")]
+    InvalidSerial,
 }

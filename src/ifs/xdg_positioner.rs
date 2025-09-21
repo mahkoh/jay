@@ -5,6 +5,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
+        tree::TreeSerial,
         wire::{XdgPositionerId, xdg_positioner::*},
     },
     std::{cell::RefCell, rc::Rc},
@@ -81,7 +82,7 @@ pub struct XdgPositioned {
     pub reactive: bool,
     pub parent_width: i32,
     pub parent_height: i32,
-    pub parent_serial: u32,
+    pub parent_serial: Option<TreeSerial>,
 }
 
 impl XdgPositioned {
@@ -252,7 +253,10 @@ impl XdgPositionerRequestHandler for XdgPositioner {
         req: SetParentConfigure,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.position.borrow_mut().parent_serial = req.serial;
+        let Some(serial) = self.client.state.validate_tree_serial32(req.serial) else {
+            return Err(XdgPositionerError::InvalidSerial);
+        };
+        self.position.borrow_mut().parent_serial = Some(serial);
         Ok(())
     }
 }
@@ -282,5 +286,7 @@ pub enum XdgPositionerError {
     NegativeParentSize,
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("The serial is invalid")]
+    InvalidSerial,
 }
 efrom!(XdgPositionerError, ClientError);
