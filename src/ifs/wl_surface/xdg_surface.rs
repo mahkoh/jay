@@ -44,7 +44,6 @@ use {
 
 pub struct XdgSurfaceConfigureEvent {
     xdg: Rc<XdgSurface>,
-    serial: TreeSerial,
 }
 
 pub async fn handle_xdg_surface_configure_events(state: Rc<State>) {
@@ -54,7 +53,7 @@ pub async fn handle_xdg_surface_configure_events(state: Rc<State>) {
         if ev.xdg.destroyed.get() {
             continue;
         }
-        ev.xdg.send_configure(ev.serial);
+        ev.xdg.send_configure(ev.xdg.requested_serial.get());
     }
 }
 
@@ -86,6 +85,7 @@ pub struct XdgSurface {
     base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
+    requested_serial: Cell<TreeSerial>,
     acked_serial: Cell<Option<TreeSerial>>,
     applied_serial: Cell<Option<TreeSerial>>,
     geometry: Cell<Option<Rect>>,
@@ -256,6 +256,7 @@ impl XdgSurface {
             base: wm_base.clone(),
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
+            requested_serial: Cell::new(TreeSerial::from_raw(0)),
             acked_serial: Default::default(),
             applied_serial: Default::default(),
             geometry: Cell::new(None),
@@ -354,6 +355,14 @@ impl XdgSurface {
     }
 
     pub fn schedule_configure(self: &Rc<Self>) {
+        if self.configure_scheduled.get() {
+            return;
+        }
+        self.schedule_configure_(self.surface.client.state.next_tree_serial());
+    }
+
+    pub fn schedule_configure_(self: &Rc<Self>, serial: TreeSerial) {
+        self.requested_serial.set(serial);
         if self.configure_scheduled.replace(true) {
             return;
         }
@@ -361,10 +370,7 @@ impl XdgSurface {
             .client
             .state
             .xdg_surface_configure_events
-            .push(XdgSurfaceConfigureEvent {
-                xdg: self.clone(),
-                serial: self.surface.client.state.next_tree_serial(),
-            });
+            .push(XdgSurfaceConfigureEvent { xdg: self.clone() });
     }
 
     pub fn send_configure(&self, serial: TreeSerial) {
