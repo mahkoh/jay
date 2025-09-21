@@ -113,8 +113,8 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
-            ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, VrrMode,
-            WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
+            ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
+            VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
             generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
@@ -316,6 +316,7 @@ pub struct State {
     pub fallback_output: Cell<Option<ConnectorId>>,
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
+    pub tree_serials: TreeSerials,
 }
 
 // impl Drop for State {
@@ -2237,6 +2238,33 @@ impl State {
         self.workspaces.set(name.to_string(), ws.clone());
         self.trigger_cci(CCI_WORKSPACES);
         ws
+    }
+
+    pub fn next_tree_serial(&self) -> TreeSerial {
+        let mut s = self.tree_serials.next();
+        if s.raw() as u32 == 0 {
+            s = self.tree_serials.next();
+        }
+        s
+    }
+
+    pub fn validate_tree_serial32(&self, s: u32) -> Option<TreeSerial> {
+        const MASK: u64 = u32::MAX as u64;
+        let last = self.tree_serials.last().raw();
+        let mut serial = last & !MASK | s as u64;
+        if serial > last {
+            serial = serial.checked_sub(MASK + 1)?;
+        }
+        Some(TreeSerial::from_raw(serial))
+    }
+
+    #[expect(dead_code)]
+    pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
+        let last = self.tree_serials.last().raw();
+        if s > last {
+            return None;
+        }
+        Some(TreeSerial::from_raw(s))
     }
 }
 

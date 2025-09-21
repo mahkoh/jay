@@ -408,6 +408,7 @@ fn start_compositor2(
         fallback_output: Default::default(),
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
+        tree_serials: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

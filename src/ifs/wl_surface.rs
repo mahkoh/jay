@@ -83,7 +83,7 @@ use {
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
-            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform,
+            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform, TreeSerial,
             VblankListener, WorkspaceNode,
         },
         utils::{
@@ -482,9 +482,8 @@ struct PendingState {
     fifo_barrier_set: bool,
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
-    tray_item_ack_serial: Option<u32>,
     color_description: Option<Option<(RenderIntent, Rc<ColorDescription>)>>,
-    serial: Option<u64>,
+    serial: Option<TreeSerial>,
     alpha_mode: Option<AlphaMode>,
     surface_release: SmallVec<[SurfaceRelease; 1]>,
 }
@@ -528,7 +527,6 @@ impl PendingState {
         opt!(content_type);
         opt!(alpha_multiplier);
         opt!(commit_time);
-        opt!(tray_item_ack_serial);
         opt!(color_description);
         opt!(serial);
         opt!(alpha_mode);

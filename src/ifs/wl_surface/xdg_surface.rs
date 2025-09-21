@@ -21,12 +21,11 @@ use {
         state::State,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
-            NodesStackElement, OutputNode, StackedNode, WorkspaceNode, WorkspaceType,
+            NodesStackElement, OutputNode, StackedNode, TreeSerial, WorkspaceNode, WorkspaceType,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt, linkedlist::LinkedNode, numcell::NumCell,
-            option_ext::OptionExt,
+            hash_map_ext::HashMapExt, linkedlist::LinkedNode, option_ext::OptionExt,
         },
         wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
     },
@@ -40,7 +39,7 @@ use {
 
 pub struct XdgSurfaceConfigureEvent {
     xdg: Rc<XdgSurface>,
-    serial: u32,
+    serial: TreeSerial,
 }
 
 pub async fn handle_xdg_surface_configure_events(state: Rc<State>) {
@@ -89,9 +88,8 @@ pub struct XdgSurface {
     base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
-    requested_serial: NumCell<u64>,
-    acked_serial: Cell<u64>,
-    applied_serial: Cell<u64>,
+    acked_serial: Cell<Option<TreeSerial>>,
+    applied_serial: Cell<Option<TreeSerial>>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
     effective_geometry: Cell<Rect>,
@@ -268,9 +266,8 @@ impl XdgSurface {
             base: wm_base.clone(),
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
-            requested_serial: NumCell::new(1),
-            acked_serial: Cell::new(0),
-            applied_serial: Cell::new(0),
+            acked_serial: Default::default(),
+            applied_serial: Default::default(),
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
             effective_geometry: Default::default(),
@@ -390,32 +387,14 @@ impl XdgSurface {
             .xdg_surface_configure_events
             .push(XdgSurfaceConfigureEvent {
                 xdg: self.clone(),
-                serial: self.next_serial() as _,
+                serial: self.surface.client.state.next_tree_serial(),
             });
     }
 
-    fn next_serial(&self) -> u64 {
-        let mut serial = self.requested_serial.add_fetch(1);
-        if serial as u32 == 0 {
-            serial = self.requested_serial.add_fetch(1);
-        }
-        serial
-    }
-
-    fn map_serial(&self, serial: u32) -> u64 {
-        let max = self.requested_serial.get();
-        let mask = u32::MAX as u64;
-        let mut serial = max & !mask | (serial as u64);
-        if serial > max {
-            serial = serial.saturating_sub(mask + 1);
-        }
-        serial
-    }
-
-    pub fn send_configure(&self, serial: u32) {
+    pub fn send_configure(&self, serial: TreeSerial) {
         self.surface.client.event(Configure {
             self_id: self.id,
-            serial,
+            serial: serial.raw() as _,
         })
     }
 
@@ -559,12 +538,15 @@ impl XdgSurfaceRequestHandler for XdgSurface {
     }
 
     fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let serial = self.map_serial(req.serial);
-        let last = self.acked_serial.get();
-        if serial <= last {
-            return Err(XdgSurfaceError::InvalidSerial(serial, last));
+        let Some(serial) = self.surface.client.state.validate_tree_serial32(req.serial) else {
+            return Err(XdgSurfaceError::InvalidSerial);
+        };
+        if let Some(last) = self.acked_serial.get()
+            && serial <= last
+        {
+            return Err(XdgSurfaceError::ReusedSerial(serial.raw(), last.raw()));
         }
-        self.acked_serial.set(serial);
+        self.acked_serial.set(Some(serial));
         self.surface.pending.borrow_mut().serial = Some(serial);
         Ok(())
     }
@@ -686,7 +668,7 @@ impl SurfaceExt for XdgSurface {
             }
         }
         if let Some(serial) = pending.serial.take() {
-            self.applied_serial.set(serial);
+            self.applied_serial.set(Some(serial));
         }
         Ok(())
     }
@@ -761,8 +743,10 @@ pub enum XdgSurfaceError {
     AlreadyConstructed,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
+    #[error("The serial is invalid")]
+    InvalidSerial,
     #[error("The serial {0} is not larger than the previously acked serial {1}")]
-    InvalidSerial(u64, u64),
+    ReusedSerial(u64, u64),
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);

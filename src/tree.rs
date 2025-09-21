@@ -410,6 +410,8 @@ pub enum WorkspaceChangeReason {
     OutputChanged,
 }
 
+linear_ids!(TreeSerials, TreeSerial, u64);
+
 pub trait Node: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
