@@ -96,8 +96,8 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
-            TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode,
-            generic_node_visitor,
+            TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, TreeSerial, TreeSerials,
+            VrrMode, WorkspaceNode, generic_node_visitor,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -290,6 +290,7 @@ pub struct State {
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
+    pub tree_serials: TreeSerials,
 }
 
 // impl Drop for State {
@@ -1571,6 +1572,33 @@ impl State {
         let node = found_tree.pop().unwrap();
         found_tree.clear();
         node
+    }
+
+    pub fn next_tree_serial(&self) -> TreeSerial {
+        let mut s = self.tree_serials.next();
+        if s.raw() as u32 == 0 {
+            s = self.tree_serials.next();
+        }
+        s
+    }
+
+    pub fn validate_tree_serial32(&self, s: u32) -> Option<TreeSerial> {
+        const MASK: u64 = u32::MAX as u64;
+        let last = self.tree_serials.last().raw();
+        let mut serial = last & !MASK | s as u64;
+        if serial > last {
+            serial = serial.checked_sub(MASK + 1)?;
+        }
+        Some(TreeSerial::from_raw(serial))
+    }
+
+    #[expect(dead_code)]
+    pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
+        let last = self.tree_serials.last().raw();
+        if s > last {
+            return None;
+        }
+        Some(TreeSerial::from_raw(s))
     }
 }
 

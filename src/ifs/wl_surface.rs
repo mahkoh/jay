@@ -77,7 +77,8 @@ use {
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
-            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, VblankListener,
+            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, TreeSerial,
+            VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -484,9 +485,8 @@ struct PendingState {
     fifo_barrier_set: bool,
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
-    tray_item_ack_serial: Option<u32>,
     color_description: Option<Option<Rc<ColorDescription>>>,
-    serial: Option<u64>,
+    serial: Option<TreeSerial>,
 }
 
 struct AttachedSubsurfaceState {
@@ -538,7 +538,6 @@ impl PendingState {
         opt!(content_type);
         opt!(alpha_multiplier);
         opt!(commit_time);
-        opt!(tray_item_ack_serial);
         opt!(color_description);
         opt!(serial);
         {
