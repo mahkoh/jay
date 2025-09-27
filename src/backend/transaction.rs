@@ -6,6 +6,7 @@ use {
         },
         backends::metal::MetalError,
         state::State,
+        tree::transaction::TreeTransaction,
         utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::drm::DrmError,
     },
@@ -226,13 +227,13 @@ impl PreparedConnectorTransaction {
 }
 
 impl AppliedConnectorTransaction {
-    pub fn commit(mut self) {
+    pub fn commit(mut self, tt: &TreeTransaction) {
         for tran in self.parts.drain(..) {
             tran.commit();
         }
         for (connector_id, state) in self.common.states.drain() {
             if let Some(c) = self.common.state.connectors.get(&connector_id) {
-                c.set_state(&self.common.state, state);
+                c.set_state(tt, &self.common.state, state);
             }
         }
     }

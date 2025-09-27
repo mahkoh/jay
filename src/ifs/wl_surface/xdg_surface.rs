@@ -4,9 +4,10 @@ pub mod xdg_toplevel;
 use {
     crate::{
         client::ClientError,
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_surface::{
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 tray::TrayItemId,
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
@@ -17,11 +18,10 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        rect::Rect,
-        state::State,
+        rect::{Rect, Size},
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, OutputNode, StackedNode,
-            TreeSerial, WorkspaceNode,
+            TreeSerial, WorkspaceNode, transaction::TreeTransaction,
         },
         utils::{
             cell_ext::CellExt,
@@ -41,21 +41,6 @@ use {
     },
     thiserror::Error,
 };
-
-pub struct XdgSurfaceConfigureEvent {
-    xdg: Rc<XdgSurface>,
-}
-
-pub async fn handle_xdg_surface_configure_events(state: Rc<State>) {
-    loop {
-        let ev = state.xdg_surface_configure_events.pop().await;
-        ev.xdg.configure_scheduled.set(false);
-        if ev.xdg.destroyed.get() {
-            continue;
-        }
-        ev.xdg.send_configure(ev.xdg.requested_serial.get());
-    }
-}
 
 #[expect(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
@@ -85,13 +70,11 @@ pub struct XdgSurface {
     base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
-    requested_serial: Cell<TreeSerial>,
     acked_serial: Cell<Option<TreeSerial>>,
-    applied_serial: Cell<Option<TreeSerial>>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
     effective_geometry: Cell<Rect>,
-    pub absolute_desired_extents: Cell<Rect>,
+    pub absolute_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<LinkedList<Rc<dyn StackedNode>>>>,
     is_above_layers: Cell<bool>,
@@ -99,8 +82,8 @@ pub struct XdgSurface {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
     initial_commit_state: Cell<InitialCommitState>,
-    configure_scheduled: Cell<bool>,
     destroyed: Cell<bool>,
+    configure_data: ConfigurableData<XdgSurfaceConfigureData>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -120,7 +103,7 @@ struct Popup {
 
 impl XdgPopupParent for Popup {
     fn position(&self) -> Rect {
-        self.parent.absolute_desired_extents.get()
+        self.parent.absolute_extents.get()
     }
 
     fn remove_popup(&self) {
@@ -176,9 +159,9 @@ impl XdgPopupParent for Popup {
         self.parent.surface.visible.get()
     }
 
-    fn make_visible(self: Rc<Self>) {
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(ext) = self.parent.ext.get() {
-            ext.make_visible();
+            ext.make_visible(tt);
         }
     }
 
@@ -244,9 +227,25 @@ pub trait XdgSurfaceExt: Debug {
         geometry
     }
 
-    fn make_visible(self: Rc<Self>);
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction);
 
     fn node_layer(&self) -> NodeLayerLink;
+
+    fn configure_data(&self) -> XdgSurfaceConfigureData;
+
+    fn send_configure(&self, data: XdgSurfaceConfigureData);
+}
+
+pub enum XdgSurfaceConfigureData {
+    Toplevel {
+        initial: bool,
+        size: Size,
+        state: u32,
+    },
+    Popup {
+        repositioned: Option<u32>,
+        rect: Rect,
+    },
 }
 
 impl XdgSurface {
@@ -256,13 +255,11 @@ impl XdgSurface {
             base: wm_base.clone(),
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
-            requested_serial: Cell::new(TreeSerial::from_raw(0)),
             acked_serial: Default::default(),
-            applied_serial: Default::default(),
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
             effective_geometry: Default::default(),
-            absolute_desired_extents: Cell::new(Default::default()),
+            absolute_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
             is_above_layers: Cell::new(false),
@@ -270,22 +267,22 @@ impl XdgSurface {
             workspace: Default::default(),
             tracker: Default::default(),
             initial_commit_state: Default::default(),
-            configure_scheduled: Default::default(),
             destroyed: Default::default(),
+            configure_data: Default::default(),
         }
     }
 
     fn update_surface_position(&self) {
-        let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
+        let (mut x1, mut y1) = self.absolute_extents.get().position();
         let geo = self.effective_geometry.get();
         x1 -= geo.x1();
         y1 -= geo.y1();
-        self.surface.set_absolute_position(x1, y1);
+        self.surface.set_mapped_position(x1, y1);
         self.update_popup_positions();
     }
 
-    fn set_absolute_desired_extents(&self, ext: &Rect) {
-        let prev = self.absolute_desired_extents.replace(*ext);
+    fn set_absolute_extents(&self, ext: &Rect) {
+        let prev = self.absolute_extents.replace(*ext);
         if ext.position() != prev.position() {
             self.update_surface_position();
         }
@@ -354,26 +351,26 @@ impl XdgSurface {
         self.effective_geometry.get()
     }
 
-    pub fn schedule_configure(self: &Rc<Self>) {
-        if self.configure_scheduled.get() {
+    pub fn request_configure(self: &Rc<Self>, tt: &TreeTransaction) {
+        let Some(ext) = self.ext.get() else {
             return;
-        }
-        self.schedule_configure_(self.surface.client.state.next_tree_serial());
+        };
+        tt.configure_group().add(self, ext.configure_data());
+        self.surface.push_tree_blocker(tt);
     }
 
-    pub fn schedule_configure_(self: &Rc<Self>, serial: TreeSerial) {
-        self.requested_serial.set(serial);
-        if self.configure_scheduled.replace(true) {
-            return;
-        }
-        self.surface
-            .client
-            .state
-            .xdg_surface_configure_events
-            .push(XdgSurfaceConfigureEvent { xdg: self.clone() });
+    pub fn schedule_configure(self: &Rc<Self>) {
+        let tt = &self.surface.client.state.tree_transaction();
+        self.request_configure(tt);
     }
 
     pub fn send_configure(&self, serial: TreeSerial) {
+        // log::info!(
+        //     "{:?}, {:?}: send_configure({:?})",
+        //     self.surface.client.id,
+        //     self.id,
+        //     serial
+        // );
         self.surface.client.event(Configure {
             self_id: self.id,
             serial: serial.raw() as _,
@@ -631,21 +628,27 @@ impl SurfaceExt for XdgSurface {
         ext.node_layer()
     }
 
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+        if pending.serial.is_some() {
+            self.configure_data.ready();
+        }
+        CommitAction::ContinueCommit
+    }
+
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
+        pending.serial = None;
         if let Some(pending) = &mut pending.xdg_surface {
             if let Some(geometry) = pending.geometry.take() {
                 let prev = self.geometry.replace(Some(geometry));
                 if prev != Some(geometry) {
+                    // log::info!("{:?}: new geometry {:?}", (self.surface.client.id, self.surface.id), geometry);
                     self.update_effective_geometry();
                     self.update_extents();
                 }
             }
-        }
-        if let Some(serial) = pending.serial.take() {
-            self.applied_serial.set(Some(serial));
         }
         Ok(())
     }
@@ -723,3 +726,29 @@ pub enum XdgSurfaceError {
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);
+
+impl Configurable for XdgSurface {
+    type T = XdgSurfaceConfigureData;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configure_data
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        if !self.surface.visible.get() || self.destroyed.get() {
+            self.configure_data.ready();
+        }
+        if self.destroyed.get() {
+            return;
+        }
+        // log::info!("send configure {serial:?} {data:?}");
+        if let Some(ext) = self.ext.get() {
+            ext.send_configure(data);
+        }
+        self.send_configure(serial);
+    }
+}

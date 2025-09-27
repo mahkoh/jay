@@ -71,12 +71,13 @@ impl DisplayNode {
 
     pub fn update_visible(&self, state: &State) {
         let visible = state.root_visible();
+        let tt = &state.tree_transaction();
         for output in self.outputs.lock().values() {
-            output.update_visible();
+            output.update_visible(tt);
         }
         for stacked in self.stacked.iter() {
             if !stacked.stacked_has_workspace_link() {
-                stacked.stacked_set_visible(visible);
+                stacked.deref().clone().stacked_set_visible(tt, visible);
             }
         }
         for seat in state.globals.seats.lock().values() {
@@ -94,7 +95,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_mapped_position();
             if pos.contains(x, y) {
                 return output.tile_drag_destination(source, x, y);
             }
@@ -109,7 +110,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<WorkspaceDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_mapped_position();
             if pos.contains(x, y) {
                 return output.workspace_drag_destination(source, x, y);
             }
@@ -145,7 +146,7 @@ impl Node for DisplayNode {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.extents.get()
     }
 

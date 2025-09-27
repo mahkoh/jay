@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        configurable::{handle_configurables, handle_configurables_timeout},
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
             CritMatcherIds,
@@ -35,10 +36,7 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
-            wl_surface::{
-                NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
-                zwp_input_popup_surface_v2::input_popup_positioning,
-            },
+            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -58,6 +56,7 @@ use {
             DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceNode,
             container_layout, container_render_positions, container_render_titles, float_layout,
             float_titles, output_render_data, placeholder_render_textures,
+            transaction::{handle_tree_blocker_timeout, handle_tree_blocker_unblocked},
         },
         user_session::import_environment,
         utils::{
@@ -357,10 +356,11 @@ fn start_compositor2(
         head_managers_async: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
-        xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         tree_serials: Default::default(),
+        tree_transactions: Default::default(),
+        configure_groups: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -555,9 +555,22 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             handle_jay_head_manager_done(state.clone()),
         ),
         eng.spawn2(
-            "xdg_surface configure events",
+            "configurables",
             Phase::PostLayout,
-            handle_xdg_surface_configure_events(state.clone()),
+            handle_configurables(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables timeout",
+            Phase::PostLayout,
+            handle_configurables_timeout(state.clone()),
+        ),
+        eng.spawn(
+            "tree blocker unblocked",
+            handle_tree_blocker_unblocked(state.clone()),
+        ),
+        eng.spawn(
+            "tree blocker timeout",
+            handle_tree_blocker_timeout(state.clone()),
         ),
     ]
 }
@@ -775,7 +788,8 @@ fn create_dummy_output(state: &Rc<State>) {
         name: "dummy".to_string(),
         output_link: Default::default(),
         visible: Default::default(),
-        fullscreen: Default::default(),
+        mapped_fullscreen: Default::default(),
+        pending_fullscreen: Default::default(),
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),
@@ -789,7 +803,7 @@ fn create_dummy_output(state: &Rc<State>) {
     });
     *dummy_workspace.output_link.borrow_mut() =
         Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
-    dummy_output.show_workspace(&dummy_workspace);
+    dummy_output.show_workspace(&state.tree_transaction(), &dummy_workspace);
     state.dummy_output.set(Some(dummy_output));
 }
 

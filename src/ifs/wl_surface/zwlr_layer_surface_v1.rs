@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -12,11 +13,12 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        rect::Rect,
+        rect::{Rect, Size},
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, OutputNode, StackedNode, TreeSerial,
+            transaction::TreeTransaction,
         },
         utils::{
             bitflags::BitflagsExt,
@@ -29,7 +31,6 @@ use {
     },
     std::{
         cell::{Cell, RefCell, RefMut},
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -70,6 +71,8 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_size: Cell<ExclusiveSize>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     need_position_update: Cell<bool>,
+    configurable_data: ConfigurableData<Size>,
+    destroyed: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -176,6 +179,8 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_size: Default::default(),
             popups: Default::default(),
             need_position_update: Default::default(),
+            configurable_data: Default::default(),
+            destroyed: Cell::new(false),
         }
     }
 
@@ -307,6 +312,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
         if self.popups.is_not_empty() {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
@@ -351,7 +357,7 @@ impl ZwlrLayerSurfaceV1 {
         self.exclusive_size.get()
     }
 
-    fn update_exclusive_size(&self) {
+    fn update_exclusive_size(&self, tt: &TreeTransaction) {
         let exclusive_edge = {
             if let Some(ee) = self.exclusive_edge.get() {
                 Some(ee)
@@ -387,11 +393,14 @@ impl ZwlrLayerSurfaceV1 {
         if self.exclusive_size.replace(exclusive_size) != exclusive_size
             && let Some(output) = self.output.node.get()
         {
-            output.update_exclusive_zones();
+            output.update_exclusive_zones(tt);
         }
     }
 
-    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
+    fn pre_commit(
+        self: &Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
         if let Some(size) = pending.size.take() {
             self.size.set(size);
@@ -433,11 +442,12 @@ impl ZwlrLayerSurfaceV1 {
         {
             return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
         }
-        self.configure();
+        let tt = &self.client.state.tree_transaction();
+        self.configure(tt);
         Ok(())
     }
 
-    fn configure(&self) {
+    fn configure(self: &Rc<Self>, tt: &TreeTransaction) {
         let Some(node) = self.output.node() else {
             return;
         };
@@ -469,8 +479,9 @@ impl ZwlrLayerSurfaceV1 {
         }
         height = height.min(available_height).max(1);
         if self.last_configure.replace((width, height)) != (width, height) {
-            let serial = self.client.state.next_tree_serial();
-            self.send_configure(serial, width as _, height as _);
+            tt.configure_group()
+                .add(self, Size::new(width, height).unwrap());
+            self.surface.push_tree_blocker(tt);
         }
     }
 
@@ -517,7 +528,7 @@ impl ZwlrLayerSurfaceV1 {
         let a_rect_old = self.pos.replace(a_rect);
         let abs_x = a_rect.x1() - extents.x1();
         let abs_y = a_rect.y1() - extents.y1();
-        self.surface.set_absolute_position(abs_x, abs_y);
+        self.surface.set_mapped_position(abs_x, abs_y);
         if a_rect_old != a_rect {
             for popup in self.popups.lock().values() {
                 popup.popup.update_absolute_position();
@@ -527,16 +538,16 @@ impl ZwlrLayerSurfaceV1 {
         self.need_position_update.set(false);
     }
 
-    pub fn output_resized(&self) {
-        self.configure();
+    pub fn output_resized(self: &Rc<Self>, tt: &TreeTransaction) {
+        self.configure(tt);
         self.compute_position();
     }
 
-    pub fn exclusive_zones_changed(&self) {
+    pub fn exclusive_zones_changed(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.exclusive_zone.get() != ExclusiveZone::MoveSelf {
             return;
         }
-        self.output_resized();
+        self.output_resized(tt);
     }
 
     pub fn destroy_node(&self) {
@@ -549,7 +560,8 @@ impl ZwlrLayerSurfaceV1 {
         if self.exclusive_size.take().is_not_empty()
             && let Some(node) = self.output.node()
         {
-            node.update_exclusive_zones();
+            let tt = &self.client.state.tree_transaction();
+            node.update_exclusive_zones(tt);
         }
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();
@@ -584,7 +596,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        self.deref().pre_commit(pending)?;
+        self.pre_commit(pending)?;
         Ok(())
     }
 
@@ -592,6 +604,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         let Some(output) = self.output.node() else {
             return;
         };
+        let tt = &self.client.state.tree_transaction();
         let buffer_is_some = self.surface.buffer.is_some();
         let was_mapped = self.mapped.get();
         if self.mapped.get() {
@@ -604,17 +617,17 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                 if self.need_position_update.get() {
                     self.compute_position();
                 }
-                self.update_exclusive_size();
+                self.update_exclusive_size(tt);
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
             *self.link.borrow_mut() = Some(layer.add_last(self.clone()));
             self.mapped.set(true);
             self.compute_position();
-            self.update_exclusive_size();
+            self.update_exclusive_size(tt);
         }
         if self.mapped.get() != was_mapped {
-            output.update_visible();
+            output.update_visible(tt);
             if self.mapped.get() {
                 let (x, y) = self.surface.buffer_abs_pos.get().position();
                 let extents = self.surface.extents.get().move_(x, y);
@@ -672,7 +685,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.pos.get()
     }
 
@@ -758,8 +771,8 @@ impl XdgPopupParent for Popup {
         self.parent.node_visible()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        // nothing
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -821,3 +834,25 @@ pub enum ZwlrLayerSurfaceV1Error {
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);
+
+impl Configurable for ZwlrLayerSurfaceV1 {
+    type T = Size;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configurable_data
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        if !self.surface.visible.get() || self.destroyed.get() {
+            self.configurable_data.ready();
+        }
+        if self.destroyed.get() {
+            return;
+        }
+        self.send_configure(serial, data.width() as _, data.height() as _);
+    }
+}

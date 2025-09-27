@@ -12,10 +12,9 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, StackedNode, TreeSerial,
+            NodeVisitor, OutputNode, StackedNode, TreeSerial, transaction::TreeTransaction,
         },
         utils::{
-            cell_ext::CellExt,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
@@ -43,8 +42,6 @@ pub struct TrayItemData {
     pub surface: Rc<WlSurface>,
     output: Rc<OutputGlobalOpt>,
     attached: Cell<bool>,
-    sent_serial: Cell<Option<TreeSerial>>,
-    ack_serial: Cell<Option<TreeSerial>>,
     linked_node: Cell<Option<LinkedNode<Rc<dyn DynTrayItem>>>>,
     abs_pos: Cell<Rect>,
     pub rel_pos: Cell<Rect>,
@@ -61,8 +58,6 @@ impl TrayItemData {
             surface: surface.clone(),
             output: output.clone(),
             attached: Default::default(),
-            sent_serial: Default::default(),
-            ack_serial: Default::default(),
             linked_node: Default::default(),
             abs_pos: Default::default(),
             rel_pos: Default::default(),
@@ -75,7 +70,7 @@ impl TrayItemData {
 }
 
 pub trait DynTrayItem: Node {
-    fn send_current_configure(&self);
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction);
     fn data(&self) -> &TrayItemData;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
@@ -84,8 +79,8 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(&self) {
-        <Self as TrayItem>::send_current_configure(self)
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction) {
+        <Self as TrayItem>::send_current_configure(self, tt)
     }
 
     fn data(&self) -> &TrayItemData {
@@ -94,8 +89,7 @@ impl<T: TrayItem> DynTrayItem for T {
 
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {
         let data = self.data();
-        data.surface
-            .set_absolute_position(abs_pos.x1(), abs_pos.y1());
+        data.surface.set_mapped_position(abs_pos.x1(), abs_pos.y1());
         data.rel_pos.set(rel_pos);
         if data.abs_pos.replace(abs_pos) != abs_pos {
             for popup in self.popups().lock().values() {
@@ -134,9 +128,9 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 }
 
-trait TrayItem: Sized + 'static {
-    fn send_initial_configure(&self);
-    fn send_current_configure(&self);
+trait TrayItem: SurfaceExt + Sized + 'static {
+    fn send_initial_configure(self: Rc<Self>, tt: &TreeTransaction);
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction);
     fn data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
@@ -212,8 +206,8 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         self.parent.node_visible()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        // nothing
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -245,9 +239,7 @@ impl<T: TrayItem> SurfaceExt for T {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        if let Some(serial) = pending.serial.take() {
-            self.data().ack_serial.set(Some(serial));
-        }
+        pending.serial = None;
         Ok(())
     }
 
@@ -258,9 +250,6 @@ impl<T: TrayItem> SurfaceExt for T {
                 self.destroy_node();
             }
         } else {
-            if data.ack_serial.is_none() || data.ack_serial.get() != data.sent_serial.get() {
-                return;
-            }
             if data.surface.buffer.is_some() {
                 data.surface.set_visible(data.visible.get());
                 if let Some(node) = data.output.node()
@@ -307,8 +296,8 @@ impl<T: TrayItem> Node for T {
         self.data().surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.data().surface.node_absolute_position()
+    fn node_mapped_position(&self) -> Rect {
+        self.data().surface.node_mapped_position()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -353,7 +342,8 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
-        item.send_initial_configure();
+        let tt = &data.client.state.tree_transaction();
+        item.clone().send_initial_configure(tt);
     }
     Ok(())
 }

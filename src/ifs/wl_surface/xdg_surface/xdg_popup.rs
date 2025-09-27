@@ -7,7 +7,7 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
-                xdg_surface::{XdgSurface, XdgSurfaceExt},
+                xdg_surface::{XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt},
             },
             xdg_positioner::{
                 CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
@@ -20,7 +20,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode, transaction::TreeTransaction,
         },
         utils::clonecell::CloneCell,
         wire::{XdgPopupId, xdg_popup::*},
@@ -45,7 +45,7 @@ pub trait XdgPopupParent {
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
     fn visible(&self) -> bool;
-    fn make_visible(self: Rc<Self>);
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction);
     fn node_layer(&self) -> NodeLayerLink;
     fn tray_item(&self) -> Option<TrayItemId> {
         None
@@ -65,6 +65,7 @@ pub struct XdgPopup {
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
     set_visible_prepared: Cell<bool>,
+    reposition_token: Cell<Option<u32>>,
 }
 
 impl Debug for XdgPopup {
@@ -93,6 +94,7 @@ impl XdgPopup {
             tracker: Default::default(),
             seat_state: Default::default(),
             set_visible_prepared: Cell::new(false),
+            reposition_token: Default::default(),
         })
     }
 
@@ -211,7 +213,7 @@ impl XdgPopup {
             }
         }
         self.relative_position.set(rel_pos);
-        self.xdg.set_absolute_desired_extents(&abs_pos);
+        self.xdg.set_absolute_extents(&abs_pos);
     }
 
     pub fn update_absolute_position(&self) {
@@ -219,7 +221,7 @@ impl XdgPopup {
             let rel = self.relative_position.get();
             let parent = parent.position();
             self.xdg
-                .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
+                .set_absolute_extents(&rel.move_(parent.x1(), parent.y1()));
         }
     }
 }
@@ -242,9 +244,7 @@ impl XdgPopupRequestHandler for XdgPopup {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_repositioned(req.token);
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
+            self.reposition_token.set(Some(req.token));
             self.xdg.schedule_configure();
         }
         Ok(())
@@ -313,8 +313,8 @@ impl Node for XdgPopup {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn node_mapped_position(&self) -> Rect {
+        self.xdg.absolute_extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -354,9 +354,9 @@ impl Node for XdgPopup {
         Some(self.xdg.surface.client.clone())
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(parent) = self.parent.get() {
-            parent.make_visible();
+            parent.make_visible(tt);
         }
     }
 
@@ -389,7 +389,7 @@ impl StackedNode for XdgPopup {
         self.set_visible_prepared.get()
     }
 
-    fn stacked_set_visible(&self, visible: bool) {
+    fn stacked_set_visible(self: Rc<Self>, _tt: &TreeTransaction, visible: bool) {
         if visible {
             if let Some(parent) = self.parent.get()
                 && !parent.visible()
@@ -420,8 +420,6 @@ impl XdgSurfaceExt for XdgPopup {
     fn initial_configure(self: Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
     }
 
@@ -446,8 +444,8 @@ impl XdgSurfaceExt for XdgPopup {
         self.parent.get()?.tray_item()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.node_make_visible(tt);
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -455,6 +453,23 @@ impl XdgSurfaceExt for XdgPopup {
             return NodeLayerLink::Display;
         };
         parent.node_layer()
+    }
+
+    fn configure_data(&self) -> XdgSurfaceConfigureData {
+        XdgSurfaceConfigureData::Popup {
+            repositioned: self.reposition_token.take(),
+            rect: self.relative_position.get(),
+        }
+    }
+
+    fn send_configure(&self, data: XdgSurfaceConfigureData) {
+        let XdgSurfaceConfigureData::Popup { repositioned, rect } = data else {
+            return;
+        };
+        if let Some(t) = repositioned {
+            self.send_repositioned(t);
+        }
+        self.send_configure(rect.x1(), rect.y1(), rect.width(), rect.height());
     }
 }
 

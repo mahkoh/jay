@@ -145,7 +145,10 @@ impl ConnectorHandler {
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        self.data.set_state(&self.state, info.state);
+        {
+            let tt = &self.state.tree_transaction();
+            self.data.set_state(tt, &self.state, info.state);
+        }
         *self.data.description.borrow_mut() = create_description(&info);
         let name = self.state.globals.name();
         if info.non_desktop_effective {
@@ -259,7 +262,8 @@ impl ConnectorHandler {
             pinned: Default::default(),
             tearing: Default::default(),
         });
-        on.update_visible();
+        let tt = self.state.tree_transaction();
+        on.update_visible(&tt);
         on.update_rects();
         self.state
             .add_output_scale(on.global.persistent.scale.get());
@@ -312,7 +316,7 @@ impl ConnectorHandler {
                 source_is_destroyed: false,
                 before: None,
             };
-            move_ws_to_output(&ws, &on, config);
+            move_ws_to_output(&tt, &ws, &on, config);
         }
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
@@ -320,7 +324,8 @@ impl ConnectorHandler {
         self.state.add_global(&global);
         self.state.add_global(&tray);
         self.state.tree_changed();
-        on.update_presentation_type();
+        on.update_presentation_type(&tt);
+        drop(tt);
         self.state.workspace_managers.announce_output(&on);
         self.data
             .head_managers
@@ -340,7 +345,8 @@ impl ConnectorHandler {
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {
-                        self.data.set_state(&self.state, state);
+                        let tt = &self.state.tree_transaction();
+                        self.data.set_state(tt, &self.state, state);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
@@ -386,6 +392,7 @@ impl ConnectorHandler {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
+        let tt = self.state.tree_transaction();
         for ws in on.workspaces.iter() {
             if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(ws.visible.get());
@@ -396,8 +403,9 @@ impl ConnectorHandler {
                 source_is_destroyed: true,
                 before: None,
             };
-            move_ws_to_output(&ws, &target, config);
+            move_ws_to_output(&tt, &ws, &target, config);
         }
+        drop(tt);
         for group in on.ext_workspace_groups.lock().drain_values() {
             group.handle_destroyed();
         }

@@ -14,7 +14,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::{ConnectorData, State},
-        tree::{TearingMode, VrrMode},
+        tree::{TearingMode, VrrMode, transaction::TreeTransaction},
         utils::{copyhashmap::CopyHashMap, numcell::NumCell},
         wire::{
             JayHeadManagerSessionV1Id, JayHeadTransactionResultV1Id,
@@ -277,8 +277,8 @@ impl JayHeadManagerSessionV1 {
         Ok(tran.prepare()?)
     }
 
-    fn commit_transaction(&self) -> Result<(), HeadTransactionError> {
-        self.prepare_transaction()?.apply()?.commit();
+    fn commit_transaction(&self, tt: &TreeTransaction) -> Result<(), HeadTransactionError> {
+        self.prepare_transaction()?.apply()?.commit(tt);
         Ok(())
     }
 }
@@ -546,7 +546,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             return Err(JayHeadManagerSessionV1Error::NotInTransaction);
         }
         slf.after_transaction_ended();
-        if let Err(e) = self.commit_transaction() {
+        let tt = &self.client.state.tree_transaction();
+        if let Err(e) = self.commit_transaction(tt) {
             slf.schedule_transaction_result(req.result, Some(e))?;
             return Ok(());
         }
@@ -555,11 +556,11 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
             if let Some(output) = self.client.state.outputs.get(&head.common.id)
                 && let Some(node) = &output.node
             {
-                node.set_position(desired.position.0, desired.position.1);
-                node.set_preferred_scale(desired.scale);
-                node.update_transform(desired.transform);
-                node.set_vrr_mode(VrrMode::from_config(desired.vrr_mode).unwrap());
-                node.set_tearing_mode(TearingMode::from_config(desired.tearing_mode).unwrap());
+                node.set_position(tt, desired.position.0, desired.position.1);
+                node.set_preferred_scale(tt, desired.scale);
+                node.update_transform(tt, desired.transform);
+                node.set_vrr_mode(tt, VrrMode::from_config(desired.vrr_mode).unwrap());
+                node.set_tearing_mode(tt, TearingMode::from_config(desired.tearing_mode).unwrap());
                 node.set_brightness(desired.brightness);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;

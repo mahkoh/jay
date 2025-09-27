@@ -79,11 +79,14 @@ use {
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
             OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, TreeSerial,
             VblankListener,
+            transaction::{
+                TreeBarrier, TreeTransaction, TreeTransactionOp, TreeTransactionTimeline,
+            },
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
+            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap, syncqueue::SyncQueue,
             transform_ext::TransformExt,
         },
         video::{
@@ -351,6 +354,11 @@ pub struct WlSurface {
     color_management_feedback:
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
+    tree_barriers: SyncQueue<TreeBarrier>,
+    flush_frame_requests: Cell<bool>,
+    transaction_timeline: TreeTransactionTimeline,
+    unblocked_serial: Cell<TreeSerial>,
+    scheduled_serial: Cell<TreeSerial>,
 }
 
 impl Debug for WlSurface {
@@ -616,6 +624,18 @@ impl PendingState {
     fn has_damage(&self) -> bool {
         self.damage_full || self.buffer_damage.is_not_empty() || self.surface_damage.is_not_empty()
     }
+
+    fn flush_frame_requests(&mut self, now_msec: u32) {
+        for fr in self.frame_request.drain(..) {
+            fr.send_done(now_msec);
+            let _ = fr.client.remove_obj(&*fr);
+        }
+        for ss in self.subsurfaces.values_mut() {
+            if let Some(s) = &mut ss.pending.state {
+                s.flush_frame_requests(now_msec);
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -703,6 +723,11 @@ impl WlSurface {
             color_management_surface: Default::default(),
             color_management_feedback: Default::default(),
             color_description: Default::default(),
+            tree_barriers: Default::default(),
+            flush_frame_requests: Default::default(),
+            transaction_timeline: Default::default(),
+            unblocked_serial: Cell::new(TreeSerial::from_raw(0)),
+            scheduled_serial: Cell::new(TreeSerial::from_raw(0)),
         }
     }
 
@@ -770,7 +795,7 @@ impl WlSurface {
         self.xwayland_serial.get()
     }
 
-    fn set_absolute_position(&self, x1: i32, y1: i32) {
+    fn set_mapped_position(&self, x1: i32, y1: i32) {
         let old_pos = self.buffer_abs_pos.get();
         let new_pos = old_pos.at_point(x1, y1);
         if self.visible.get() && self.toplevel.is_none() {
@@ -781,7 +806,7 @@ impl WlSurface {
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
-                ss.surface.set_absolute_position(x1 + pos.0, y1 + pos.1);
+                ss.surface.set_mapped_position(x1 + pos.0, y1 + pos.1);
             }
         }
         for (_, con) in &self.text_input_connections {
@@ -1001,7 +1026,7 @@ impl WlSurface {
                 .state
                 .xwayland
                 .queue
-                .push(XWaylandEvent::Configure(window));
+                .push(XWaylandEvent::Configure(window.data.clone()));
         }
     }
 
@@ -1112,6 +1137,11 @@ impl WlSurfaceRequestHandler for WlSurface {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
         self.verify_explicit_sync(pending)?;
+        if let Some(serial) = pending.serial
+            && serial >= self.scheduled_serial.get()
+        {
+            self.flush_frame_requests.set(false);
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1152,6 +1182,9 @@ impl WlSurfaceRequestHandler for WlSurface {
 
 impl WlSurface {
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        // if let Some(serial) = pending.serial && APPLYING.get() != serial {
+        //     log::info!("XXXXXXXXXXXXX {:?}: {:?}", (self.client.id, self.id), serial);
+        // }
         for (_, pending) in &mut pending.subsurfaces {
             pending.subsurface.apply_state(&mut pending.pending)?;
         }
@@ -1423,12 +1456,12 @@ impl WlSurface {
                 .with_size(max_surface_size.0, max_surface_size.1)
                 .unwrap();
             if let Some(tl) = self.toplevel.get() {
-                damage = damage.intersect(tl.node_absolute_position());
+                damage = damage.intersect(tl.node_mapped_position());
             }
             self.client.state.damage(damage);
         }
+        let output = self.output.get();
         if self.visible.get() {
-            let output = self.output.get();
             if has_new_frame_requests {
                 self.vblank_listener.attach(&output.vblank_event);
             }
@@ -1466,7 +1499,8 @@ impl WlSurface {
             && let Some(tl) = self.toplevel.get()
             && tl.tl_data().is_fullscreen.get()
         {
-            self.output.get().update_presentation_type();
+            let tt = &self.client.state.tree_transaction();
+            self.output.get().update_presentation_type(tt);
         }
         if self.need_extents_propagation.take() {
             self.ext.get().extents_changed();
@@ -1745,6 +1779,41 @@ impl WlSurface {
             fb.send_preferred_changed(&cd);
         }
     }
+
+    fn pop_tree_barriers(&self, cond: impl Fn(&TreeBarrier) -> bool) {
+        while let Some(barrier) = self.tree_barriers.pop() {
+            // log::warn!("pop barrier {}", barrier.serial());
+            if cond(&barrier) {
+                continue;
+            }
+            self.tree_barriers.push_front(barrier);
+            return;
+        }
+    }
+
+    fn push_tree_blocker(self: &Rc<Self>, tt: &TreeTransaction) {
+        let serial = tt.serial();
+        let ss = &self.scheduled_serial;
+        let max_serial = ss.get().max(serial);
+        if ss.replace(max_serial) != max_serial {
+            self.flush_frame_requests.set(true);
+            self.commit_timeline
+                .flush_frame_requests(self.client.state.now_msec());
+        }
+        self.tree_barriers.push(tt.barrier());
+        tt.add_op(WlSurfaceSetMaxUnblocked {
+            surface: self.clone(),
+        });
+        self.transaction_timeline.and_then(tt);
+    }
+
+    fn serial_is_unblocked(&self, tree_serial: TreeSerial) -> bool {
+        tree_serial <= self.unblocked_serial.get() || tree_serial > self.scheduled_serial.get()
+    }
+
+    fn serial_is_blocked(&self, tree_serial: TreeSerial) -> bool {
+        !self.serial_is_unblocked(tree_serial)
+    }
 }
 
 object_base! {
@@ -1810,7 +1879,7 @@ impl Node for WlSurface {
         self.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.buffer_abs_pos.get()
     }
 
@@ -1848,9 +1917,9 @@ impl Node for WlSurface {
         self.ext.get().tray_item()
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(tl) = self.toplevel.get() {
-            tl.node_make_visible();
+            tl.node_make_visible(tt);
         }
     }
 
@@ -2245,5 +2314,24 @@ impl PresentationListener for WlSurface {
             let _ = pf.client.remove_obj(&*pf);
         }
         self.presentation_listener.detach();
+    }
+}
+
+pub struct WlSurfaceSetMaxUnblocked {
+    surface: Rc<WlSurface>,
+}
+
+impl TreeTransactionOp for WlSurfaceSetMaxUnblocked {
+    fn unblocked(self, serial: TreeSerial, timeout: bool) {
+        if timeout {
+            self.surface
+                .pop_tree_barriers(|barrier| barrier.is_unblocked());
+        }
+        let us = &self.surface.unblocked_serial;
+        // log::info!("{:?}: {:?} -> {:?}", (self.surface.client.id, self.surface.id), us.get(), serial);
+        if serial > us.get() {
+            us.set(serial);
+            self.surface.commit_timeline.tree_unblocked(&self.surface);
+        }
     }
 }
