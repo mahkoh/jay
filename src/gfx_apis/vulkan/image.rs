@@ -4,7 +4,7 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxBlendBuffer, GfxError,
+            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxBlendBuffer, GfxBuffer, GfxError,
             GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
             PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory, SyncFile,
         },
@@ -669,6 +669,20 @@ impl AsyncShmGfxTexture for VulkanImage {
         let staging = staging.clone().into_vk(&self.renderer.device.device);
         let pending =
             shm.async_transfer(&self, staging, &mem, damage, callback, TransferType::Upload)?;
+        Ok(pending)
+    }
+
+    fn async_upload_from_buffer(
+        self: Rc<Self>,
+        buf: &Rc<dyn GfxBuffer>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        let VulkanImageMemory::Internal(shm) = &self.ty else {
+            unreachable!();
+        };
+        let buf = buf.clone().into_vk(&self.renderer.device.device);
+        let pending = shm.async_transfer2(&self, buf, damage, callback)?;
         Ok(pending)
     }
 

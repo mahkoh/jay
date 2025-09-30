@@ -4,7 +4,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError, device::VulkanDevice, instance::API_VERSION, renderer::VulkanRenderer,
         },
-        utils::{numcell::NumCell, ptr_ext::MutPtrExt},
+        utils::{numcell::NumCell, page_size::page_size, ptr_ext::MutPtrExt},
     },
     ash::{
         Device,
@@ -304,6 +304,19 @@ impl CpuWork for AllocWork {
             self.usage,
             self.map,
         );
+        if self.usage.contains(UsageFlags::UPLOAD)
+            && let Ok(r) = &r
+            && let Some(ptr) = r.ptr
+        {
+            let page_size = page_size() as u64;
+            let mut offset = 0;
+            while offset < r.block.size() {
+                unsafe {
+                    *ptr.add(offset as usize) = 0;
+                }
+                offset += page_size;
+            }
+        }
         self.res = Some(r);
         None
     }

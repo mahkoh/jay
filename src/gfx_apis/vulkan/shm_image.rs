@@ -17,7 +17,7 @@ use {
         utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
     },
     ash::vk::{
-        AccessFlags2, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,
+        AccessFlags2, Buffer, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,
         CommandBufferSubmitInfo, CommandBufferUsageFlags, CopyBufferToImageInfo2,
         CopyImageToBufferInfo2, DependencyInfoKHR, DeviceSize, Extent3D, ImageAspectFlags,
         ImageCreateInfo, ImageLayout, ImageSubresourceLayers, ImageSubresourceRange, ImageTiling,
@@ -136,8 +136,14 @@ impl VulkanShmImage {
                 ptr::copy_nonoverlapping(buf, mem, total_size as usize);
             }
         })?;
-        let (cmd, fence, sync_file, point) =
-            self.submit_buffer_image_copy(img, &staging, cpy, false, TransferType::Upload)?;
+        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+            img,
+            staging.buffer,
+            staging.size,
+            cpy,
+            false,
+            TransferType::Upload,
+        )?;
         let future = img.renderer.eng.spawn(
             "await upload",
             await_upload(point, img.clone(), cmd, sync_file, fence, staging),
@@ -149,7 +155,8 @@ impl VulkanShmImage {
     pub(super) fn submit_buffer_image_copy(
         &self,
         img: &Rc<VulkanImage>,
-        staging: &VulkanStagingBuffer,
+        buffer: Buffer,
+        size: DeviceSize,
         regions: &[BufferImageCopy2],
         use_transfer_queue: bool,
         tt: TransferType,
@@ -164,9 +171,9 @@ impl VulkanShmImage {
     > {
         let memory_barrier = |sam, ssm, dam, dsm| {
             BufferMemoryBarrier2::default()
-                .buffer(staging.buffer)
+                .buffer(buffer)
                 .offset(0)
-                .size(staging.size)
+                .size(size)
                 .src_access_mask(sam)
                 .src_stage_mask(ssm)
                 .dst_access_mask(dam)
@@ -274,7 +281,7 @@ impl VulkanShmImage {
             match tt {
                 TransferType::Upload => {
                     let cpy_info = CopyBufferToImageInfo2::default()
-                        .src_buffer(staging.buffer)
+                        .src_buffer(buffer)
                         .dst_image(img.image)
                         .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
                         .regions(regions);
@@ -282,7 +289,7 @@ impl VulkanShmImage {
                 }
                 TransferType::Download => {
                     let cpy_info = CopyImageToBufferInfo2::default()
-                        .dst_buffer(staging.buffer)
+                        .dst_buffer(buffer)
                         .src_image(img.image)
                         .src_image_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
                         .regions(regions);
@@ -432,6 +439,7 @@ impl VulkanRenderer {
                 io_job: Default::default(),
                 copy_job: Default::default(),
                 staging: Default::default(),
+                buffer: Default::default(),
                 client_mem: Default::default(),
                 callback: Default::default(),
                 callback_id: Cell::new(0),

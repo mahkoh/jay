@@ -367,7 +367,7 @@ impl OutputNode {
             let mut ready = true;
             if let Some(storage) = wl_buffer.storage.borrow_mut().deref() {
                 match storage {
-                    WlBufferStorage::Shm { mem, stride } => {
+                    WlBufferStorage::Shm { mem, stride, .. } => {
                         let res = self.state.perform_shm_screencopy(
                             tex,
                             cd,

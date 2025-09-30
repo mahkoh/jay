@@ -14,6 +14,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
@@ -599,7 +600,12 @@ fn schedule_async_upload(
     let Some(Some(buf)) = &pending.buffer else {
         return Ok(None);
     };
-    let Some(WlBufferStorage::Shm { mem, stride, .. }) = &*buf.storage.borrow() else {
+    let Some(WlBufferStorage::Shm {
+        mem,
+        stride,
+        dmabuf_buffer_params,
+    }) = &mut *buf.storage.borrow_mut()
+    else {
         return Ok(None);
     };
     let back = surface.shm_textures.back();
@@ -613,6 +619,11 @@ fn schedule_async_upload(
         back.damage.clear();
         back.damage.damage(slice::from_ref(&buf.rect));
     };
+    let state = &surface.client.state;
+    let ctx = state
+        .render_ctx
+        .get()
+        .ok_or(WlSurfaceError::NoRenderContext)?;
     let back_tex = match back_tex_opt {
         Some(b) => {
             if pending.damage_full || pending.surface_damage.is_not_empty() {
@@ -624,12 +635,8 @@ fn schedule_async_upload(
         }
         None => {
             damage_full();
-            let state = &surface.client.state;
-            let ctx = state
-                .render_ctx
-                .get()
-                .ok_or(WlSurfaceError::NoRenderContext)?;
             let back_tex = ctx
+                .clone()
                 .async_shmem_texture(
                     buf.format,
                     buf.rect.width(),
@@ -642,6 +649,20 @@ fn schedule_async_upload(
             back_tex
         }
     };
+    match buf.get_gfx_buffer(&ctx, mem, dmabuf_buffer_params) {
+        Ok(Some(hb)) => {
+            return back_tex
+                .async_upload_from_buffer(&hb, node_ref.clone(), back.damage.get())
+                .map_err(WlSurfaceError::PrepareAsyncUpload);
+        }
+        Ok(None) => {}
+        Err(e) => {
+            log::error!(
+                "Could not create GPU mapping of host buffer: {}",
+                ErrorFmt(e),
+            );
+        }
+    }
     let mut staging_opt = surface.shm_staging.get();
     if let Some(staging) = &staging_opt
         && staging.size() != back_tex.staging_size()

@@ -360,6 +360,7 @@ fn start_compositor2(
         xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
+        udmabuf: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

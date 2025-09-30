@@ -3,12 +3,12 @@ use {
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         format::{ARGB8888, Format},
-        gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        gfx_api::{GfxBuffer, GfxContext, GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, page_size::page_size},
         video::dmabuf::DmaBuf,
         wire::{WlBufferId, wl_buffer::*},
     },
@@ -17,18 +17,30 @@ use {
         rc::Rc,
     },
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub enum WlBufferStorage {
     Shm {
         mem: Rc<ClientMemOffset>,
         stride: i32,
+        dmabuf_buffer_params: DmabufBufferParams,
     },
     Dmabuf {
         img: Rc<dyn GfxImage>,
         tex: Option<Rc<dyn GfxTexture>>,
         fb: Option<Rc<dyn GfxFramebuffer>>,
     },
+}
+
+pub struct DmabufBufferParams {
+    size: usize,
+    udmabuf: Option<Rc<OwnedFd>>,
+    udmabuf_offset: usize,
+    udmabuf_size: usize,
+    udmabuf_impossible: bool,
+    host_buffer: Option<Rc<dyn GfxBuffer>>,
+    host_buffer_impossible: bool,
 }
 
 pub struct WlBuffer {
@@ -118,7 +130,19 @@ impl WlBuffer {
             format,
             dmabuf: None,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(Some(WlBufferStorage::Shm { mem, stride })),
+            storage: RefCell::new(Some(WlBufferStorage::Shm {
+                dmabuf_buffer_params: DmabufBufferParams {
+                    size: bytes as usize,
+                    udmabuf: None,
+                    udmabuf_offset: 0,
+                    udmabuf_size: 0,
+                    udmabuf_impossible: !mem.pool().is_sealed_memfd(),
+                    host_buffer: None,
+                    host_buffer_impossible: !mem.pool().is_sealed_memfd(),
+                },
+                mem,
+                stride,
+            })),
             shm: true,
             width,
             height,
@@ -169,7 +193,18 @@ impl WlBuffer {
             return false;
         };
         let had_texture = match s {
-            WlBufferStorage::Shm { .. } => {
+            WlBufferStorage::Shm {
+                mem,
+                dmabuf_buffer_params:
+                    DmabufBufferParams {
+                        host_buffer,
+                        host_buffer_impossible,
+                        ..
+                    },
+                ..
+            } => {
+                host_buffer.take();
+                *host_buffer_impossible = !mem.pool().is_sealed_memfd();
                 return match surface {
                     Some(s) => {
                         s.shm_staging.take();
@@ -224,6 +259,69 @@ impl WlBuffer {
         }
     }
 
+    pub fn get_gfx_buffer(
+        self: &Rc<Self>,
+        ctx: &Rc<dyn GfxContext>,
+        mem: &Rc<ClientMemOffset>,
+        dmabuf_buffer_params: &mut DmabufBufferParams,
+    ) -> Result<Option<Rc<dyn GfxBuffer>>, GfxError> {
+        let DmabufBufferParams {
+            size,
+            udmabuf,
+            udmabuf_offset,
+            udmabuf_size,
+            udmabuf_impossible,
+            host_buffer,
+            host_buffer_impossible,
+        } = dmabuf_buffer_params;
+        if let Some(hb) = host_buffer {
+            return Ok(Some(hb.clone()));
+        }
+        if *host_buffer_impossible {
+            return Ok(None);
+        }
+        let udmabuf = 'udmabuf: {
+            if let Some(b) = udmabuf {
+                break 'udmabuf b.clone();
+            }
+            if *udmabuf_impossible {
+                return Ok(None);
+            }
+            let Some(dev) = self.client.state.udmabuf() else {
+                return Ok(None);
+            };
+            let mask = page_size() - 1;
+            let offset = mem.offset() & mask;
+            let base = mem.offset() & !mask;
+            let end = (mem.offset() + *size + mask) & !mask;
+            let len = end - base;
+            match dev.create_dmabuf_from_memfd(mem.pool().fd(), base, len) {
+                Ok(b) => {
+                    let b = Rc::new(b);
+                    *udmabuf_offset = offset;
+                    *udmabuf_size = len;
+                    *udmabuf = Some(b.clone());
+                    b
+                }
+                Err(e) => {
+                    *udmabuf_impossible = true;
+                    log::debug!("Could not create udmabuf: {}", ErrorFmt(e));
+                    return Ok(None);
+                }
+            }
+        };
+        let hb = match ctx.create_dmabuf_buffer(&udmabuf, *udmabuf_offset, *udmabuf_size) {
+            Ok(hb) => hb,
+            Err(e) => {
+                *host_buffer_impossible = true;
+                log::debug!("Could not create gfx host buffer: {}", ErrorFmt(e));
+                return Ok(None);
+            }
+        };
+        *host_buffer = Some(hb.clone());
+        Ok(Some(hb))
+    }
+
     fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {
         let storage = &mut *self.storage.borrow_mut();
         let storage = match storage {
@@ -231,7 +329,7 @@ impl WlBuffer {
             _ => return Ok(()),
         };
         match storage {
-            WlBufferStorage::Shm { mem, stride } => {
+            WlBufferStorage::Shm { mem, stride, .. } => {
                 if sync_shm && let Some(ctx) = self.client.state.render_ctx.get() {
                     let tex = ctx.async_shmem_texture(
                         self.format,

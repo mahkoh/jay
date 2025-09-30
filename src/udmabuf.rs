@@ -63,6 +63,26 @@ impl Udmabuf {
         };
         Ok(Self { fd })
     }
+
+    pub fn create_dmabuf_from_memfd(
+        &self,
+        memfd: &OwnedFd,
+        offset: usize,
+        size: usize,
+    ) -> Result<OwnedFd, UdmabufError> {
+        let mut cmd = udmabuf_create {
+            memfd: memfd.raw() as u32,
+            flags: UDMABUF_FLAGS_CLOEXEC,
+            offset: offset as u64,
+            size: size as u64,
+        };
+        let dmabuf = unsafe { ioctl(self.fd.raw(), UDMABUF_CREATE, &mut cmd) };
+        let dmabuf = match map_err!(dmabuf) {
+            Ok(d) => OwnedFd::new(d),
+            Err(e) => return Err(UdmabufError::CreateDmabuf(e.into())),
+        };
+        Ok(dmabuf)
+    }
 }
 
 impl Allocator for Udmabuf {
@@ -104,17 +124,7 @@ impl Allocator for Udmabuf {
         if let Err(e) = uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK) {
             return Err(UdmabufError::Seal(e.into()).into());
         }
-        let mut cmd = udmabuf_create {
-            memfd: memfd.raw() as u32,
-            flags: 0,
-            offset: 0,
-            size: size as u64,
-        };
-        let dmabuf = unsafe { ioctl(self.fd.raw(), UDMABUF_CREATE, &mut cmd) };
-        let dmabuf = match map_err!(dmabuf) {
-            Ok(d) => OwnedFd::new(d),
-            Err(e) => return Err(UdmabufError::CreateDmabuf(e.into()).into()),
-        };
+        let dmabuf = self.create_dmabuf_from_memfd(&memfd, 0, size as _)?;
         let mut planes = PlaneVec::new();
         planes.push(DmaBufPlane {
             offset: 0,
@@ -260,11 +270,14 @@ impl From<UdmabufError> for AllocatorError {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 struct udmabuf_create {
     memfd: u32,
     flags: u32,
     offset: u64,
     size: u64,
 }
+
+const UDMABUF_FLAGS_CLOEXEC: u32 = 0x01;
 
 const UDMABUF_CREATE: IoctlNumber = _IOW::<udmabuf_create>(b'u' as u64, 0x42) as IoctlNumber;

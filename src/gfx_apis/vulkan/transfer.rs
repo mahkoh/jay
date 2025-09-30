@@ -13,6 +13,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             command::VulkanCommandBuffer,
+            dmabuf_buffer::VulkanDmabufBuffer,
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::image_barrier,
@@ -29,7 +30,7 @@ use {
         ImageSubresourceLayers, Offset3D, PipelineStageFlags2, SubmitInfo2,
     },
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, RefCell, RefMut},
         rc::Rc,
         slice,
     },
@@ -41,6 +42,7 @@ pub struct VulkanShmImageAsyncData {
     pub(super) io_job: Cell<Option<Box<IoTransferJob>>>,
     pub(super) copy_job: Cell<Option<Box<CopyTransferJob>>>,
     pub(super) staging: CloneCell<Option<Rc<VulkanStagingShell>>>,
+    pub(super) buffer: CloneCell<Option<Rc<VulkanDmabufBuffer>>>,
     pub(super) client_mem: CloneCell<Option<Rc<dyn ShmMemory>>>,
     pub(super) callback: Cell<Option<Rc<dyn AsyncShmGfxTextureCallback>>>,
     pub(super) callback_id: Cell<u64>,
@@ -53,7 +55,10 @@ pub struct VulkanShmImageAsyncData {
 impl VulkanShmImageAsyncData {
     fn complete(&self, result: Result<(), VulkanError>) {
         self.busy.set(false);
-        self.staging.take().unwrap().busy.set(false);
+        if let Some(staging) = self.staging.take() {
+            staging.busy.set(false);
+        }
+        self.buffer.take();
         self.client_mem.take();
         if let Some(cb) = self.callback.take() {
             cb.completed(result.map_err(|e| e.into()));
@@ -68,6 +73,43 @@ pub(super) enum TransferType {
 }
 
 impl VulkanShmImage {
+    pub fn async_transfer2(
+        &self,
+        img: &Rc<VulkanImage>,
+        buffer: Rc<VulkanDmabufBuffer>,
+        damage: Region,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+    ) -> Result<Option<PendingShmTransfer>, VulkanError> {
+        self.async_transfer_(img, damage, callback, |data, damage| {
+            self.try_async_transfer2(img, buffer, data, damage)
+        })
+    }
+
+    fn try_async_transfer2(
+        &self,
+        img: &Rc<VulkanImage>,
+        buffer: Rc<VulkanDmabufBuffer>,
+        data: &VulkanShmImageAsyncData,
+        mut damage: Region,
+    ) -> Result<(), VulkanError> {
+        if data.busy.get() {
+            return Err(VulkanError::AsyncCopyBusy);
+        }
+        if self.size > buffer.size {
+            return Err(VulkanError::InvalidBufferSize);
+        }
+        data.busy.set(true);
+        data.data_copied.set(true);
+        data.buffer.set(Some(buffer.clone()));
+        if img.contents_are_undefined.get() {
+            damage = Region::new(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
+        }
+        self.calculate_copies(img, data, damage, buffer.offset);
+        self.async_release_from_gfx_queue(img, data, TransferType::Upload)?;
+        self.async_upload_copy_buffer_to_image(img, data)?;
+        Ok(())
+    }
+
     pub fn async_transfer(
         &self,
         img: &Rc<VulkanImage>,
@@ -77,11 +119,23 @@ impl VulkanShmImage {
         callback: Rc<dyn AsyncShmGfxTextureCallback>,
         tt: TransferType,
     ) -> Result<Option<PendingShmTransfer>, VulkanError> {
+        self.async_transfer_(img, damage, callback, |data, damage| {
+            self.try_async_transfer(img, staging, data, client_mem, damage, tt)
+        })
+    }
+
+    fn async_transfer_(
+        &self,
+        img: &Rc<VulkanImage>,
+        damage: Region,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        f: impl FnOnce(&VulkanShmImageAsyncData, Region) -> Result<(), VulkanError>,
+    ) -> Result<Option<PendingShmTransfer>, VulkanError> {
         if damage.is_empty() {
             return Ok(None);
         }
         let data = self.async_data.as_ref().unwrap();
-        let res = self.try_async_transfer(img, staging, data, client_mem, damage, tt);
+        let res = f(data, damage);
         match res {
             Ok(()) => {
                 let id = img.renderer.allocate_point();
@@ -135,53 +189,7 @@ impl VulkanShmImage {
             damage = Region::new(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
         }
 
-        let copies = &mut *data.regions.borrow_mut();
-        copies.clear();
-
-        let mut copy = |x, y, width, height| {
-            let buffer_offset = (y as u32 * img.stride + x as u32 * self.shm_info.bpp) as u64;
-            let copy = BufferImageCopy2::default()
-                .buffer_offset(buffer_offset)
-                .image_offset(Offset3D { x, y, z: 0 })
-                .image_extent(Extent3D {
-                    width,
-                    height,
-                    depth: 1,
-                })
-                .image_subresource(ImageSubresourceLayers {
-                    aspect_mask: ImageAspectFlags::COLOR,
-                    mip_level: 0,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                })
-                .buffer_image_height(img.height)
-                .buffer_row_length(img.stride / self.shm_info.bpp);
-            copies.push(copy);
-        };
-        let (width_mask, height_mask) = img.renderer.device.transfer_granularity_mask;
-        let width_mask = width_mask as i32;
-        let height_mask = height_mask as i32;
-        for damage in damage.rects() {
-            if damage.x2() < 0 || damage.y2() < 0 {
-                continue;
-            }
-            let x1 = damage.x1().max(0) & !width_mask;
-            let y1 = damage.y1().max(0) & !height_mask;
-            let x2 = ((damage.x2() + width_mask) & !width_mask).min(img.width as i32);
-            let y2 = ((damage.y2() + height_mask) & !height_mask).min(img.height as i32);
-            let Some(damage) = Rect::new(x1, y1, x2, y2) else {
-                continue;
-            };
-            if damage.is_empty() {
-                continue;
-            }
-            copy(
-                damage.x1(),
-                damage.y1(),
-                damage.width() as u32,
-                damage.height() as u32,
-            );
-        }
+        let copies = &mut *self.calculate_copies(img, data, damage, 0);
 
         self.async_release_from_gfx_queue(img, data, tt)?;
 
@@ -207,6 +215,67 @@ impl VulkanShmImage {
                     shm.async_data.as_ref().unwrap().complete(Err(e));
                 }
             })
+    }
+
+    fn calculate_copies<'a>(
+        &self,
+        img: &Rc<VulkanImage>,
+        data: &'a VulkanShmImageAsyncData,
+        damage: Region,
+        extra_offset: u64,
+    ) -> RefMut<'a, Vec<BufferImageCopy2<'static>>> {
+        let mut copies_ref = data.regions.borrow_mut();
+        let copies = &mut *copies_ref;
+        copies.clear();
+        let mut copy = |x, y, width, height| {
+            let buffer_offset = (y as u32 * img.stride + x as u32 * self.shm_info.bpp) as u64;
+            let copy = BufferImageCopy2::default()
+                .buffer_offset(buffer_offset + extra_offset)
+                .image_offset(Offset3D { x, y, z: 0 })
+                .image_extent(Extent3D {
+                    width,
+                    height,
+                    depth: 1,
+                })
+                .image_subresource(ImageSubresourceLayers {
+                    aspect_mask: ImageAspectFlags::COLOR,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                })
+                .buffer_image_height(img.height)
+                .buffer_row_length(img.stride / self.shm_info.bpp);
+            copies.push(copy);
+        };
+        let (width_mask, height_mask) = img.renderer.device.transfer_granularity_mask;
+        let width_mask = width_mask as i32;
+        let height_mask = height_mask as i32;
+        for damage in damage.rects() {
+            if damage.x2() < 0 || damage.y2() < 0 {
+                continue;
+            }
+            let x1 = damage.x1().max(0);
+            let y1 = damage.y1().max(0);
+            let x2 = damage.x2().min(img.width as i32);
+            let y2 = damage.y2().min(img.height as i32);
+            let x1 = x1 & !width_mask;
+            let y1 = y1 & !height_mask;
+            let x2 = ((x2 + width_mask) & !width_mask).min(img.width as i32);
+            let y2 = ((y2 + height_mask) & !height_mask).min(img.height as i32);
+            let Some(damage) = Rect::new(x1, y1, x2, y2) else {
+                continue;
+            };
+            if damage.is_empty() {
+                continue;
+            }
+            copy(
+                damage.x1(),
+                damage.y1(),
+                damage.width() as u32,
+                damage.height() as u32,
+            );
+        }
+        copies_ref
     }
 
     fn async_release_from_gfx_queue(
@@ -451,10 +520,19 @@ impl VulkanShmImage {
         }
         img.renderer.check_defunct()?;
         let regions = &*data.regions.borrow();
-        let staging = data.staging.get().unwrap().staging.get().unwrap();
-        staging.upload(|_, _| ())?;
+        let (buffer, size) = match data.staging.get() {
+            Some(s) => {
+                let staging = s.staging.get().unwrap();
+                staging.upload(|_, _| ())?;
+                (staging.buffer, staging.size)
+            }
+            _ => {
+                let host_buffer = data.buffer.get().unwrap();
+                (host_buffer.buffer, host_buffer.size)
+            }
+        };
         let (cmd, fence, sync_file, point) =
-            self.submit_buffer_image_copy(img, &staging, regions, true, TransferType::Upload)?;
+            self.submit_buffer_image_copy(img, buffer, size, regions, true, TransferType::Upload)?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async upload",
@@ -481,8 +559,14 @@ impl VulkanShmImage {
             return Ok(());
         }
         img.renderer.check_defunct()?;
-        let (cmd, fence, sync_file, point) =
-            self.submit_buffer_image_copy(img, &staging, copies, true, TransferType::Download)?;
+        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+            img,
+            staging.buffer,
+            staging.size,
+            copies,
+            true,
+            TransferType::Download,
+        )?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async image to buffer copy",
