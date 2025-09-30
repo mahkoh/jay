@@ -665,6 +665,8 @@ pub trait GfxStagingBuffer: Any {
     fn size(&self) -> usize;
 }
 
+pub trait GfxBuffer: Any {}
+
 pub trait AsyncShmGfxTextureTransferCancellable {
     fn cancel(&self, id: u64);
 }
@@ -712,6 +714,22 @@ pub trait AsyncShmGfxTexture: GfxTexture {
         mem: Rc<dyn ShmMemory>,
         damage: Region,
     ) -> Result<Option<PendingShmTransfer>, GfxError>;
+
+    fn async_upload_from_buffer(
+        self: Rc<Self>,
+        buf: &Rc<dyn GfxBuffer>,
+        callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        let _ = buf;
+        let _ = callback;
+        let _ = damage;
+
+        #[derive(Debug, Error)]
+        #[error("Host buffers are not supported")]
+        struct E;
+        Err(GfxError(Box::new(E)))
+    }
 
     fn sync_upload(self: Rc<Self>, shm: &[Cell<u8>], damage: Region) -> Result<(), GfxError>;
 
@@ -799,6 +817,22 @@ pub trait GfxContext: Debug {
 
     fn supports_invalid_modifier(&self) -> bool {
         false
+    }
+
+    fn create_dmabuf_buffer(
+        &self,
+        dmabuf: &Rc<OwnedFd>,
+        offset: usize,
+        size: usize,
+    ) -> Result<Rc<dyn GfxBuffer>, GfxError> {
+        let _ = dmabuf;
+        let _ = offset;
+        let _ = size;
+
+        #[derive(Debug, Error)]
+        #[error("Host buffers are not supported")]
+        struct E;
+        Err(GfxError(Box::new(E)))
     }
 }
 

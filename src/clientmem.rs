@@ -3,7 +3,7 @@ use {
         client::Client,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
         gfx_api::{ShmMemory, ShmMemoryBacking},
-        utils::vec_ext::VecExt,
+        utils::{page_size::page_size, vec_ext::VecExt},
     },
     std::{
         cell::Cell,
@@ -18,6 +18,7 @@ use {
     uapi::{
         OwnedFd,
         c::{self, raise},
+        ftruncate,
     },
 };
 
@@ -76,10 +77,12 @@ impl ClientMem {
         flags: c::c_int,
     ) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
+        let mut real_size = None;
         if let Ok(seals) = uapi::fcntl_get_seals(fd.raw())
             && seals & c::F_SEAL_SHRINK != 0
             && let Ok(stat) = uapi::fstat(fd.raw())
         {
+            real_size = Some(stat.st_size as usize);
             sigbus_impossible = stat.st_size as u64 >= len as u64;
         }
         if !sigbus_impossible && let Some(client) = client {
@@ -88,6 +91,12 @@ impl ClientMem {
                 client.pid_info.comm,
                 client.id,
             );
+        }
+        let len = len.next_multiple_of(page_size());
+        if let Some(real_size) = real_size
+            && real_size < len
+        {
+            let _ = ftruncate(fd.raw(), len as _);
         }
         let data = if len == 0 {
             &mut [][..]
@@ -126,23 +135,20 @@ impl ClientMem {
         }
     }
 
-    #[expect(dead_code)]
     pub fn fd(&self) -> &Rc<OwnedFd> {
         &self.fd
     }
 
-    pub fn sigbus_impossible(&self) -> bool {
+    pub fn is_sealed_memfd(&self) -> bool {
         self.sigbus_impossible
     }
 }
 
 impl ClientMemOffset {
-    #[expect(dead_code)]
     pub fn pool(&self) -> &ClientMem {
         &self.mem
     }
 
-    #[expect(dead_code)]
     pub fn offset(&self) -> usize {
         self.offset
     }
@@ -299,7 +305,7 @@ impl ShmMemory for ClientMemOffset {
     }
 
     fn safe_access(&self) -> ShmMemoryBacking {
-        match self.mem.sigbus_impossible() {
+        match self.mem.is_sealed_memfd() {
             true => ShmMemoryBacking::Ptr(self.data),
             false => ShmMemoryBacking::Fd(self.mem.fd.deref().clone(), self.offset),
         }

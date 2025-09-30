@@ -101,7 +101,7 @@ impl ExtImageCopyCaptureFrameV1 {
         let mut shm_bridge = self.session.shm_bridge.take();
         let mut shm_staging = self.session.shm_staging.take();
         match storage {
-            WlBufferStorage::Shm { mem, stride } => {
+            WlBufferStorage::Shm { mem, stride, .. } => {
                 if let Some(b) = &shm_bridge
                     && (b.physical_size() != buffer.rect.size()
                         || b.format() != buffer.format

@@ -6,6 +6,7 @@ mod command;
 mod descriptor;
 mod descriptor_buffer;
 mod device;
+mod dmabuf_buffer;
 mod eotfs;
 mod fence;
 mod format;
@@ -27,9 +28,9 @@ use {
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxBlendBuffer, GfxContext, GfxError, GfxFormat, GfxImage,
-            GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus, STAGING_DOWNLOAD,
-            STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
+            AsyncShmGfxTexture, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
+            GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus,
+            STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
@@ -57,7 +58,7 @@ use {
         sync::Arc,
     },
     thiserror::Error,
-    uapi::c::dev_t,
+    uapi::{OwnedFd, c::dev_t},
 };
 
 #[derive(Debug, Error)]
@@ -393,6 +394,20 @@ impl GfxContext for Context {
 
     fn supports_color_management(&self) -> bool {
         self.0.device.descriptor_buffer.is_some()
+    }
+
+    fn create_dmabuf_buffer(
+        &self,
+        dmabuf: &Rc<OwnedFd>,
+        offset: usize,
+        size: usize,
+    ) -> Result<Rc<dyn GfxBuffer>, GfxError> {
+        self.0.check_defunct()?;
+        let buffer = self
+            .0
+            .device
+            .create_dmabuf_buffer(dmabuf, offset as u64, size as u64)?;
+        Ok(buffer)
     }
 }
 
