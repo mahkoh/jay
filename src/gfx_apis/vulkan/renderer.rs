@@ -1649,6 +1649,9 @@ impl VulkanRenderer {
                             let fd = dma_buf_export_sync_file(&plane.fd, flag)
                                 .map_err(VulkanError::IoctlExportSyncFile)?;
                             import_sync_file(fd)?;
+                            if buf.template.dmabuf.is_one_file() {
+                                break;
+                            }
                         }
                     }
                     AcquireSync::SyncFile { sync_file } => {

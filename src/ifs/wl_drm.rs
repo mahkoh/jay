@@ -142,6 +142,7 @@ impl WlDrmRequestHandler for WlDrm {
             format,
             modifier: INVALID_MODIFIER,
             planes: PlaneVec::new(),
+            is_disjoint: Default::default(),
         };
         if req.stride0 > 0 {
             dmabuf.planes.push(DmaBufPlane {

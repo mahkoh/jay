@@ -202,6 +202,7 @@ unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmEr
                 }
                 planes
             },
+            is_disjoint: Default::default(),
         })
     }
 }

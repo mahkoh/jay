@@ -38,6 +38,7 @@ impl TestJayScreenshot {
             format: XRGB8888,
             modifier: ev.modifier,
             planes,
+            is_disjoint: Default::default(),
         })));
         Ok(())
     }
@@ -73,6 +74,7 @@ impl TestJayScreenshot {
             format: XRGB8888,
             modifier: ev.modifier,
             planes: self.planes.take(),
+            is_disjoint: Default::default(),
         })));
         Ok(())
     }

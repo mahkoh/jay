@@ -162,6 +162,7 @@ impl Allocator for Udmabuf {
             format,
             modifier: LINEAR_MODIFIER,
             planes,
+            is_disjoint: Default::default(),
         };
         Ok(Rc::new(UdmabufBo {
             buf: dmabuf,

@@ -230,6 +230,7 @@ impl VulkanBoAllocator {
             format: format.format,
             modifier: modifier.modifier,
             planes,
+            is_disjoint: Default::default(),
         };
         unsafe {
             let cmd = data.command_buffer.buffer;

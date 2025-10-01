@@ -93,6 +93,7 @@ impl ZwpLinuxBufferParamsV1 {
             format: format.format,
             modifier,
             planes: PlaneVec::new(),
+            is_disjoint: Default::default(),
         };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);
