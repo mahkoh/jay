@@ -108,20 +108,38 @@ impl WlBuffer {
         stride: i32,
         format: &'static Format,
         mem: &Rc<ClientMem>,
+        udmabuf: Option<(&Rc<OwnedFd>, usize)>,
     ) -> Result<Self, WlBufferError> {
-        let Some(shm_info) = &format.shm_info else {
-            return Err(WlBufferError::UnsupportedShmFormat(format.name));
-        };
         let bytes = stride as u64 * height as u64;
         let required = bytes + offset as u64;
         if required > mem.len() as u64 {
             return Err(WlBufferError::OutOfBounds);
         }
         let mem = Rc::new(mem.offset(offset));
-        let min_row_size = width as u64 * shm_info.bpp as u64;
+        let min_row_size = width as u64 * format.bpp as u64;
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
         }
+        let dmabuf_buffer_params = match udmabuf {
+            None => DmabufBufferParams {
+                size: bytes as usize,
+                udmabuf: None,
+                udmabuf_offset: 0,
+                udmabuf_size: 0,
+                udmabuf_impossible: !mem.pool().is_sealed_memfd(),
+                host_buffer: None,
+                host_buffer_impossible: !mem.pool().is_sealed_memfd(),
+            },
+            Some((udmabuf, size)) => DmabufBufferParams {
+                size,
+                udmabuf: Some(udmabuf.clone()),
+                udmabuf_offset: offset,
+                udmabuf_size: size,
+                udmabuf_impossible: false,
+                host_buffer: None,
+                host_buffer_impossible: false,
+            },
+        };
         Ok(Self {
             id,
             destroyed: Cell::new(false),
@@ -131,15 +149,7 @@ impl WlBuffer {
             dmabuf: None,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(Some(WlBufferStorage::Shm {
-                dmabuf_buffer_params: DmabufBufferParams {
-                    size: bytes as usize,
-                    udmabuf: None,
-                    udmabuf_offset: 0,
-                    udmabuf_size: 0,
-                    udmabuf_impossible: !mem.pool().is_sealed_memfd(),
-                    host_buffer: None,
-                    host_buffer_impossible: !mem.pool().is_sealed_memfd(),
-                },
+                dmabuf_buffer_params,
                 mem,
                 stride,
             })),
@@ -194,9 +204,9 @@ impl WlBuffer {
         };
         let had_texture = match s {
             WlBufferStorage::Shm {
-                mem,
                 dmabuf_buffer_params:
                     DmabufBufferParams {
+                        udmabuf_impossible,
                         host_buffer,
                         host_buffer_impossible,
                         ..
@@ -204,7 +214,7 @@ impl WlBuffer {
                 ..
             } => {
                 host_buffer.take();
-                *host_buffer_impossible = !mem.pool().is_sealed_memfd();
+                *host_buffer_impossible = *udmabuf_impossible;
                 return match surface {
                     Some(s) => {
                         s.shm_staging.take();
@@ -310,14 +320,15 @@ impl WlBuffer {
                 }
             }
         };
-        let hb = match ctx.create_dmabuf_buffer(&udmabuf, *udmabuf_offset, *udmabuf_size) {
-            Ok(hb) => hb,
-            Err(e) => {
-                *host_buffer_impossible = true;
-                log::debug!("Could not create gfx host buffer: {}", ErrorFmt(e));
-                return Ok(None);
-            }
-        };
+        let hb =
+            match ctx.create_dmabuf_buffer(&udmabuf, *udmabuf_offset, *udmabuf_size, self.format) {
+                Ok(hb) => hb,
+                Err(e) => {
+                    *host_buffer_impossible = true;
+                    log::debug!("Could not create gfx host buffer: {}", ErrorFmt(e));
+                    return Ok(None);
+                }
+            };
         *host_buffer = Some(hb.clone());
         Ok(Some(hb))
     }
@@ -407,8 +418,6 @@ pub enum WlBufferError {
     GfxError(#[from] GfxError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Buffer format {0} is not supported for shm buffers")]
-    UnsupportedShmFormat(&'static str),
 }
 efrom!(WlBufferError, ClientMemError);
 efrom!(WlBufferError, ClientError);

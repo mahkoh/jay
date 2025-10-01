@@ -77,6 +77,7 @@ impl TestGfxCtx {
                             )
                         })
                         .collect(),
+                    supports_shm: true,
                 },
             );
         }

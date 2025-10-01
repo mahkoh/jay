@@ -54,8 +54,9 @@ impl ClientMem {
         read_only: bool,
         client: Option<&Client>,
         cpu: Option<&Rc<CpuWorker>>,
+        is_udmabuf: bool,
     ) -> Result<Self, ClientMemError> {
-        Self::new2(fd, len, read_only, client, cpu, c::MAP_SHARED)
+        Self::new2(fd, len, read_only, client, cpu, c::MAP_SHARED, is_udmabuf)
     }
 
     pub fn new_private(
@@ -65,7 +66,7 @@ impl ClientMem {
         client: Option<&Client>,
         cpu: Option<&Rc<CpuWorker>>,
     ) -> Result<Self, ClientMemError> {
-        Self::new2(fd, len, read_only, client, cpu, c::MAP_PRIVATE)
+        Self::new2(fd, len, read_only, client, cpu, c::MAP_PRIVATE, false)
     }
 
     fn new2(
@@ -75,10 +76,12 @@ impl ClientMem {
         client: Option<&Client>,
         cpu: Option<&Rc<CpuWorker>>,
         flags: c::c_int,
+        is_udmabuf: bool,
     ) -> Result<Self, ClientMemError> {
-        let mut sigbus_impossible = false;
+        let mut sigbus_impossible = is_udmabuf;
         let mut real_size = None;
-        if let Ok(seals) = uapi::fcntl_get_seals(fd.raw())
+        if !sigbus_impossible
+            && let Ok(seals) = uapi::fcntl_get_seals(fd.raw())
             && seals & c::F_SEAL_SHRINK != 0
             && let Ok(stat) = uapi::fstat(fd.raw())
         {

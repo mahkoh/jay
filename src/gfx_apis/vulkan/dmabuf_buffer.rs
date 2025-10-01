@@ -1,5 +1,6 @@
 use {
     crate::{
+        format::Format,
         gfx_api::GfxBuffer,
         gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
         utils::on_drop::OnDrop,
@@ -9,12 +10,14 @@ use {
         vk::{
             self, BufferCreateInfo, BufferUsageFlags, ExternalMemoryBufferCreateInfo,
             ExternalMemoryHandleTypeFlags, ImportMemoryFdInfoKHR, MemoryAllocateInfo,
-            MemoryFdPropertiesKHR, MemoryPropertyFlags,
+            MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryPropertyFlags,
         },
     },
     std::{any::Any, rc::Rc},
     uapi::OwnedFd,
 };
+
+pub(super) const TRANSFER_QUEUE_BUFFER_ALIGNMENT: u64 = 4;
 
 pub struct VulkanDmabufBuffer {
     pub(super) device: Rc<VulkanDevice>,
@@ -30,7 +33,11 @@ impl VulkanDevice {
         dmabuf: &OwnedFd,
         offset: u64,
         size: u64,
+        format: &'static Format,
     ) -> Result<Rc<VulkanDmabufBuffer>, VulkanError> {
+        if offset % TRANSFER_QUEUE_BUFFER_ALIGNMENT != 0 || offset % format.bpp as u64 != 0 {
+            return Err(VulkanError::DmaBufBufferOffsetAlignment);
+        }
         let mut memory_fd_properties = MemoryFdPropertiesKHR::default();
         unsafe {
             self.external_memory_fd
@@ -66,13 +73,15 @@ impl VulkanDevice {
         let fd =
             uapi::fcntl_dupfd_cloexec(dmabuf.raw(), 0).map_err(|e| VulkanError::Dupfd(e.into()))?;
         let memory = {
+            let mut dedicated = MemoryDedicatedAllocateInfo::default().buffer(buffer);
             let mut import_info = ImportMemoryFdInfoKHR::default()
                 .fd(fd.raw())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
             let allocate_info = MemoryAllocateInfo::default()
                 .allocation_size(requirements.size)
                 .memory_type_index(memory_type)
-                .push_next(&mut import_info);
+                .push_next(&mut import_info)
+                .push_next(&mut dedicated);
             unsafe {
                 self.device
                     .allocate_memory(&allocate_info, None)

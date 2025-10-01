@@ -179,8 +179,6 @@ pub enum VulkanError {
     InvalidStride,
     #[error("Shm stride and height do not match buffer size")]
     InvalidBufferSize,
-    #[error("Buffer format {0} is not supported for shm buffers in Vulkan context")]
-    UnsupportedShmFormat(&'static str),
     #[error("Only BO_USE_RENDERING and BO_USE_WRITE are supported")]
     UnsupportedBufferUsage,
     #[error("None of the supplied modifiers are supported")]
@@ -223,6 +221,8 @@ pub enum VulkanError {
     GetFl(#[source] OsError),
     #[error("GBM implementation cannot be used with software renderer")]
     SoftwareRendererNotUsable,
+    #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
+    DmaBufBufferOffsetAlignment,
 }
 
 impl From<VulkanError> for GfxError {
@@ -401,12 +401,13 @@ impl GfxContext for Context {
         dmabuf: &OwnedFd,
         offset: usize,
         size: usize,
+        format: &'static Format,
     ) -> Result<Rc<dyn GfxBuffer>, GfxError> {
         self.0.check_defunct()?;
-        let buffer = self
-            .0
-            .device
-            .create_dmabuf_buffer(dmabuf, offset as u64, size as u64)?;
+        let buffer =
+            self.0
+                .device
+                .create_dmabuf_buffer(dmabuf, offset as u64, size as u64, format)?;
         Ok(buffer)
     }
 }

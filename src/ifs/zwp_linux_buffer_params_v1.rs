@@ -1,8 +1,12 @@
 use {
     crate::{
         client::ClientError,
+        clientmem::{ClientMem, ClientMemError},
         gfx_api::GfxError,
-        ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
+        ifs::{
+            wl_buffer::{WlBuffer, WlBufferError},
+            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
+        },
         leaks::Tracker,
         object::Object,
         utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
@@ -102,25 +106,52 @@ impl ZwpLinuxBufferParamsV1 {
                 fd: p.fd,
             });
         }
-        let img = ctx.dmabuf_img(&dmabuf)?;
-        let (is_client_id, buffer_id) = match buffer_id {
-            Some(i) => (true, i),
-            None => (false, self.parent.client.new_id()?),
+        let get_id = || match buffer_id {
+            None => self.parent.client.new_id(),
+            Some(i) => Ok(i),
         };
-        let buffer = Rc::new(WlBuffer::new_dmabuf(
-            buffer_id,
-            &self.parent.client,
-            format.format,
-            dmabuf,
-            &img,
-        ));
+        let buffer = if format.supports_shm
+            && let Some(size) = dmabuf.udmabuf_size()
+        {
+            let p = &dmabuf.planes[0];
+            let client_mem = ClientMem::new(
+                &p.fd,
+                size,
+                true,
+                Some(&self.parent.client),
+                Some(&self.parent.client.state.cpu_worker),
+                true,
+            )
+            .map(Rc::new)
+            .map_err(ZwpLinuxBufferParamsV1Error::CreateClientMem)?;
+            Rc::new(WlBuffer::new_shm(
+                get_id()?,
+                &self.parent.client,
+                p.offset as usize,
+                dmabuf.width,
+                dmabuf.height,
+                p.stride as _,
+                format.format,
+                &client_mem,
+                Some((&p.fd, size)),
+            )?)
+        } else {
+            let img = ctx.dmabuf_img(&dmabuf)?;
+            Rc::new(WlBuffer::new_dmabuf(
+                get_id()?,
+                &self.parent.client,
+                format.format,
+                dmabuf,
+                &img,
+            ))
+        };
         track!(self.parent.client, buffer);
-        if is_client_id {
+        if buffer_id.is_some() {
             self.parent.client.add_client_obj(&buffer)?;
         } else {
             self.parent.client.add_server_obj(&buffer);
         }
-        Ok(buffer_id)
+        Ok(buffer.id)
     }
 }
 
@@ -218,5 +249,10 @@ pub enum ZwpLinuxBufferParamsV1Error {
     MissingPlane(usize),
     #[error("Could not import the buffer")]
     ImportError(#[from] GfxError),
+    #[error("Could not create ClientMem")]
+    CreateClientMem(#[source] ClientMemError),
+    #[error(transparent)]
+    WlBufferError(Box<WlBufferError>),
 }
 efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
+efrom!(ZwpLinuxBufferParamsV1Error, WlBufferError);

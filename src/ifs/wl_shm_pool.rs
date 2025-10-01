@@ -40,6 +40,7 @@ impl WlShmPool {
                 false,
                 Some(client),
                 Some(&client.state.cpu_worker),
+                false,
             )?)),
             fd,
             tracker: Default::default(),
@@ -53,10 +54,9 @@ impl WlShmPoolRequestHandler for WlShmPool {
 
     fn create_buffer(&self, req: CreateBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let drm_format = map_wayland_format_id(req.format);
-        let format = match formats().get(&drm_format) {
-            Some(f) if f.shm_info.is_some() => *f,
-            _ => return Err(WlShmPoolError::InvalidFormat(req.format)),
-        };
+        let format = formats()
+            .get(&drm_format)
+            .ok_or(WlShmPoolError::InvalidFormat(req.format))?;
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
             return Err(WlShmPoolError::NegativeParameters);
         }
@@ -69,6 +69,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             req.stride,
             format,
             &self.mem.get(),
+            None,
         )?);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
@@ -93,6 +94,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             false,
             Some(&self.client),
             Some(&self.client.state.cpu_worker),
+            false,
         )?));
         Ok(())
     }

@@ -345,6 +345,7 @@ impl VulkanDevice {
                                 )
                             })
                             .collect(),
+                        supports_shm: vk.shm.is_some(),
                     },
                 )
             })

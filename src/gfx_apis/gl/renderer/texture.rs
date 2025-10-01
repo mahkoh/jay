@@ -90,7 +90,7 @@ impl AsyncShmGfxTexture for Texture {
             (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             (gles.glPixelStorei)(
                 GL_UNPACK_ROW_LENGTH_EXT,
-                self.gl.stride / shm_info.bpp as GLint,
+                self.gl.stride / self.format.bpp as GLint,
             );
             (gles.glTexImage2D)(
                 GL_TEXTURE_2D,

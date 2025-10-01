@@ -1,7 +1,6 @@
 use {
     crate::{
         client::{Client, ClientError},
-        format::FORMATS,
         globals::{Global, GlobalName},
         ifs::wl_shm_pool::{WlShmPool, WlShmPoolError},
         leaks::Tracker,
@@ -44,12 +43,14 @@ impl WlShmGlobal {
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
-        for format in FORMATS {
-            if format.shm_info.is_some() {
-                client.event(Format {
-                    self_id: id,
-                    format: format.wl_id.unwrap_or(format.drm),
-                });
+        if let Some(ctx) = client.state.render_ctx.get() {
+            for format in ctx.formats().values() {
+                if format.supports_shm {
+                    client.event(Format {
+                        self_id: id,
+                        format: format.format.wl_id.unwrap_or(format.format.drm),
+                    });
+                }
             }
         }
         Ok(())

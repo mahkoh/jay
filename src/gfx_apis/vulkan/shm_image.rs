@@ -1,7 +1,7 @@
 use {
     crate::{
         cpu_worker::CpuWorker,
-        format::{Format, FormatShmInfo},
+        format::Format,
         gfx_api::SyncFile,
         gfx_apis::vulkan::{
             VulkanError,
@@ -22,18 +22,17 @@ use {
         CopyImageToBufferInfo2, DependencyInfoKHR, DeviceSize, Extent3D, ImageAspectFlags,
         ImageCreateInfo, ImageLayout, ImageSubresourceLayers, ImageSubresourceRange, ImageTiling,
         ImageType, ImageUsageFlags, ImageViewCreateInfo, ImageViewType, Offset3D,
-        PipelineStageFlags2, SampleCountFlags, SharingMode, SubmitInfo2,
+        PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, SampleCountFlags, SharingMode, SubmitInfo2,
     },
     gpu_alloc::UsageFlags,
     isnt::std_1::primitive::IsntSliceExt,
-    std::{cell::Cell, ptr, rc::Rc, slice},
+    std::{cell::Cell, mem, ptr, rc::Rc, slice},
 };
 
 pub struct VulkanShmImage {
     pub(super) size: DeviceSize,
     pub(super) stride: u32,
     pub(super) _allocation: VulkanAllocation,
-    pub(super) shm_info: &'static FormatShmInfo,
     pub(super) async_data: Option<VulkanShmImageAsyncData>,
 }
 
@@ -68,7 +67,7 @@ impl VulkanShmImage {
             if full {
                 builder = builder
                     .buffer_image_height(img.height)
-                    .buffer_row_length(img.stride / self.shm_info.bpp);
+                    .buffer_row_length(img.stride / img.format.bpp);
             }
             builder
         };
@@ -99,7 +98,7 @@ impl VulkanShmImage {
                     damage.width() as u32,
                     damage.height() as u32,
                 ));
-                total_size += damage.width() as u32 * damage.height() as u32 * self.shm_info.bpp;
+                total_size += damage.width() as u32 * damage.height() as u32 * img.format.bpp;
             }
             cpy = &cpy_many[..];
         } else {
@@ -124,7 +123,7 @@ impl VulkanShmImage {
                     let width = cpy.image_extent.width as usize;
                     let height = cpy.image_extent.height as usize;
                     let stride = self.stride as usize;
-                    let bpp = self.shm_info.bpp as usize;
+                    let bpp = img.format.bpp as usize;
                     for dy in 0..height {
                         let lo = (y + dy) * stride + x * bpp;
                         let len = width * bpp;
@@ -143,6 +142,7 @@ impl VulkanShmImage {
             cpy,
             false,
             TransferType::Upload,
+            false,
         )?;
         let future = img.renderer.eng.spawn(
             "await upload",
@@ -160,6 +160,7 @@ impl VulkanShmImage {
         regions: &[BufferImageCopy2],
         use_transfer_queue: bool,
         tt: TransferType,
+        foreign_buffer: bool,
     ) -> Result<
         (
             Rc<VulkanCommandBuffer>,
@@ -169,22 +170,50 @@ impl VulkanShmImage {
         ),
         VulkanError,
     > {
-        let memory_barrier = |sam, ssm, dam, dsm| {
-            BufferMemoryBarrier2::default()
-                .buffer(buffer)
-                .offset(0)
-                .size(size)
-                .src_access_mask(sam)
-                .src_stage_mask(ssm)
-                .dst_access_mask(dam)
-                .dst_stage_mask(dsm)
-        };
         let mut transfer_queue_family_idx = img.renderer.device.graphics_queue_idx;
         if use_transfer_queue
             && let Some(idx) = img.renderer.device.distinct_transfer_queue_family_idx
         {
             transfer_queue_family_idx = idx;
         }
+        let memory_barrier = |release| {
+            let mut sq;
+            let mut sam;
+            let mut ssm;
+            if foreign_buffer {
+                sq = QUEUE_FAMILY_FOREIGN_EXT;
+                sam = AccessFlags2::NONE;
+                ssm = PipelineStageFlags2::NONE;
+            } else {
+                sq = transfer_queue_family_idx;
+                sam = match tt {
+                    TransferType::Upload => AccessFlags2::HOST_WRITE,
+                    TransferType::Download => AccessFlags2::HOST_READ,
+                };
+                ssm = PipelineStageFlags2::HOST;
+            }
+            let mut dq = transfer_queue_family_idx;
+            let mut dam = match tt {
+                TransferType::Upload => AccessFlags2::TRANSFER_READ,
+                TransferType::Download => AccessFlags2::TRANSFER_WRITE,
+            };
+            let mut dsm = PipelineStageFlags2::TRANSFER;
+            if release {
+                mem::swap(&mut sq, &mut dq);
+                mem::swap(&mut sam, &mut dam);
+                mem::swap(&mut ssm, &mut dsm);
+            }
+            BufferMemoryBarrier2::default()
+                .buffer(buffer)
+                .offset(0)
+                .size(size)
+                .src_queue_family_index(sq)
+                .src_access_mask(sam)
+                .src_stage_mask(ssm)
+                .dst_queue_family_index(dq)
+                .dst_access_mask(dam)
+                .dst_stage_mask(dsm)
+        };
         let mut initial_image_barrier = image_barrier()
             .image(img.image)
             .src_queue_family_index(img.renderer.device.graphics_queue_idx)
@@ -208,18 +237,7 @@ impl VulkanShmImage {
                 .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
                 .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
         }
-        let initial_buffer_barrier = memory_barrier(
-            match tt {
-                TransferType::Upload => AccessFlags2::HOST_WRITE,
-                TransferType::Download => AccessFlags2::HOST_READ,
-            },
-            PipelineStageFlags2::HOST,
-            match tt {
-                TransferType::Upload => AccessFlags2::TRANSFER_READ,
-                TransferType::Download => AccessFlags2::TRANSFER_WRITE,
-            },
-            PipelineStageFlags2::TRANSFER,
-        );
+        let initial_buffer_barrier = memory_barrier(false);
         let initial_dep_info = DependencyInfoKHR::default()
             .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier))
             .image_memory_barriers(slice::from_ref(&initial_image_barrier));
@@ -248,18 +266,7 @@ impl VulkanShmImage {
                 })
                 .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
         }
-        let final_buffer_barrier = memory_barrier(
-            match tt {
-                TransferType::Upload => AccessFlags2::TRANSFER_READ,
-                TransferType::Download => AccessFlags2::TRANSFER_WRITE,
-            },
-            PipelineStageFlags2::TRANSFER,
-            match tt {
-                TransferType::Upload => AccessFlags2::HOST_WRITE,
-                TransferType::Download => AccessFlags2::HOST_READ,
-            },
-            PipelineStageFlags2::HOST,
-        );
+        let final_buffer_barrier = memory_barrier(true);
         let final_dep_info = DependencyInfoKHR::default()
             .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier))
             .image_memory_barriers(slice::from_ref(&final_image_barrier));
@@ -359,16 +366,13 @@ impl VulkanRenderer {
         for_download: bool,
         cpu_worker: Option<&Rc<CpuWorker>>,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
-        let Some(shm_info) = &format.shm_info else {
-            return Err(VulkanError::UnsupportedShmFormat(format.name));
-        };
         if width <= 0 || height <= 0 || stride <= 0 {
             return Err(VulkanError::NonPositiveImageSize);
         }
         let width = width as u32;
         let height = height as u32;
         let stride = stride as u32;
-        if stride % shm_info.bpp != 0 || stride / shm_info.bpp < width {
+        if stride % format.bpp != 0 || stride / format.bpp < width {
             return Err(VulkanError::InvalidStride);
         }
         let vk_format = self
@@ -453,7 +457,6 @@ impl VulkanRenderer {
             size,
             stride,
             _allocation: allocation,
-            shm_info,
             async_data,
         };
         destroy_image.forget();
