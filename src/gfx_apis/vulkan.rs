@@ -223,6 +223,8 @@ pub enum VulkanError {
     GetFl(#[source] OsError),
     #[error("GBM implementation cannot be used with software renderer")]
     SoftwareRendererNotUsable,
+    #[error("DMABUF buffer offsets must be aligned to 4 bytes")]
+    DmaBufBufferOffsetAlignment,
 }
 
 impl From<VulkanError> for GfxError {

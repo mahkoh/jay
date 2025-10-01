@@ -16,6 +16,8 @@ use {
     uapi::OwnedFd,
 };
 
+pub(super) const TRANSFER_QUEUE_BUFFER_ALIGNMENT: u64 = 4;
+
 pub struct VulkanDmabufBuffer {
     pub(super) device: Rc<VulkanDevice>,
     pub(super) size: u64,
@@ -31,6 +33,9 @@ impl VulkanDevice {
         offset: u64,
         size: u64,
     ) -> Result<Rc<VulkanDmabufBuffer>, VulkanError> {
+        if offset % TRANSFER_QUEUE_BUFFER_ALIGNMENT != 0 {
+            return Err(VulkanError::DmaBufBufferOffsetAlignment);
+        }
         let mut memory_fd_properties = MemoryFdPropertiesKHR::default();
         unsafe {
             self.external_memory_fd
