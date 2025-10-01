@@ -520,19 +520,26 @@ impl VulkanShmImage {
         }
         img.renderer.check_defunct()?;
         let regions = &*data.regions.borrow();
-        let (buffer, size) = match data.staging.get() {
+        let (buffer, size, foreign_buffer) = match data.staging.get() {
             Some(s) => {
                 let staging = s.staging.get().unwrap();
                 staging.upload(|_, _| ())?;
-                (staging.buffer, staging.size)
+                (staging.buffer, staging.size, false)
             }
             _ => {
                 let host_buffer = data.buffer.get().unwrap();
-                (host_buffer.buffer, host_buffer.size)
+                (host_buffer.buffer, host_buffer.size, true)
             }
         };
-        let (cmd, fence, sync_file, point) =
-            self.submit_buffer_image_copy(img, buffer, size, regions, true, TransferType::Upload)?;
+        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+            img,
+            buffer,
+            size,
+            regions,
+            true,
+            TransferType::Upload,
+            foreign_buffer,
+        )?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
             "await async upload",
@@ -566,6 +573,7 @@ impl VulkanShmImage {
             copies,
             true,
             TransferType::Download,
+            false,
         )?;
         img.queue_state.set(QueueState::Releasing);
         let future = img.renderer.eng.spawn(
