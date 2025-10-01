@@ -2,11 +2,15 @@ use {
     crate::{
         format::Format,
         utils::{compat::IoctlNumber, oserror::OsError},
-        video::Modifier,
+        video::{LINEAR_MODIFIER, Modifier},
     },
     arrayvec::ArrayVec,
-    std::rc::Rc,
-    uapi::{_IOW, _IOWR, OwnedFd, c::ioctl},
+    std::{rc::Rc, sync::OnceLock},
+    uapi::{
+        _IOW, _IOWR, OwnedFd,
+        c::{self, dev_t, ioctl},
+        format_ustr,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -51,6 +55,46 @@ impl DmaBuf {
             }
         }
         false
+    }
+
+    pub fn udmabuf_size(&self) -> Option<usize> {
+        if self.planes.len() != 1 {
+            return None;
+        }
+        if self.modifier != LINEAR_MODIFIER {
+            return None;
+        }
+        let stat = match uapi::fstat(self.planes[0].fd.raw()) {
+            Ok(s) => s,
+            _ => return None,
+        };
+        static DMABUF_DEV: OnceLock<dev_t> = OnceLock::new();
+        match DMABUF_DEV.get() {
+            Some(d) => {
+                if stat.st_dev != *d {
+                    return None;
+                }
+            }
+            None => {
+                if dma_buf_export_sync_file(&self.planes[0].fd, DMA_BUF_SYNC_READ).is_err() {
+                    return None;
+                }
+                let _ = DMABUF_DEV.set(stat.st_dev);
+            }
+        }
+        let path = format_ustr!("/sys/kernel/dmabuf/buffers/{}/exporter_name", stat.st_ino);
+        let Ok(file) = uapi::open(path, c::O_RDONLY, 0) else {
+            return None;
+        };
+        const MARKER: &[u8] = b"udmabuf\n";
+        let mut buf = [0u8; MARKER.len()];
+        if uapi::read(file.raw(), &mut buf).is_err() {
+            return None;
+        }
+        if buf != MARKER {
+            return None;
+        }
+        Some(stat.st_size as usize)
     }
 
     pub fn import_sync_file(&self, flags: u32, sync_file: &OwnedFd) -> Result<(), OsError> {

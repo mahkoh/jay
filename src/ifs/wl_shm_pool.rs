@@ -40,6 +40,7 @@ impl WlShmPool {
                 false,
                 Some(client),
                 Some(&client.state.cpu_worker),
+                false,
             )?)),
             fd,
             tracker: Default::default(),
@@ -68,6 +69,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             req.stride,
             format,
             &self.mem.get(),
+            None,
         )?);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
@@ -92,6 +94,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             false,
             Some(&self.client),
             Some(&self.client.state.cpu_worker),
+            false,
         )?));
         Ok(())
     }
