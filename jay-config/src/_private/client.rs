@@ -142,7 +142,7 @@ struct Interest {
 #[derive(Default)]
 struct Tasks {
     last_id: Cell<u64>,
-    ready_front: RefCell<VecDeque<u64>>,
+    ready_front: Cell<VecDeque<u64>>,
     ready_back: Arc<TasksBackBuffer>,
     tasks: RefCell<HashMap<u64, Rc<RefCell<Task>>>>,
 }
@@ -1848,9 +1848,9 @@ impl ConfigClient {
         if !futures.ready_back.any.load(Relaxed) {
             return;
         }
-        let mut ready = futures.ready_front.borrow_mut();
+        let mut ready = futures.ready_front.take();
         loop {
-            mem::swap(&mut *ready, &mut *futures.ready_back.tasks.lock().unwrap());
+            mem::swap(&mut ready, &mut *futures.ready_back.tasks.lock().unwrap());
             futures.ready_back.any.store(false, Relaxed);
             while let Some(id) = ready.pop_front() {
                 let fut = futures.tasks.borrow_mut().get(&id).cloned();
@@ -1863,19 +1863,20 @@ impl ConfigClient {
                     match res {
                         Err(_) => {
                             log::error!("A task panicked");
-                            futures.tasks.borrow_mut().remove(&id);
+                            let _tmp = futures.tasks.borrow_mut().remove(&id);
                         }
                         Ok(Poll::Ready(())) => {
-                            futures.tasks.borrow_mut().remove(&id);
+                            let _tmp = futures.tasks.borrow_mut().remove(&id);
                         }
                         Ok(_) => {}
                     }
                 }
             }
             if !futures.ready_back.any.load(Relaxed) {
-                return;
+                break;
             }
         }
+        futures.ready_front.set(ready);
     }
 
     pub fn spawn_task<T: 'static>(&self, f: impl Future<Output = T> + 'static) -> Rc<JoinSlot<T>> {
@@ -1910,7 +1911,7 @@ impl ConfigClient {
     }
 
     pub fn abort_task(&self, id: u64) {
-        self.tasks.tasks.borrow_mut().remove(&id);
+        let _tmp = self.tasks.tasks.borrow_mut().remove(&id);
     }
 
     fn handle_invoke_shortcut(

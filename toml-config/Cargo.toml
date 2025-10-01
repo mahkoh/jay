@@ -19,6 +19,7 @@ indexmap = "2.2.5"
 bstr = { version = "1.9.1", default-features = false }
 ahash = "0.8.11"
 run-on-drop = "1.0.0"
+uapi = "0.2.13"
 
 [dev-dependencies]
 simplelog = { version = "0.12.2", features = ["test"] }

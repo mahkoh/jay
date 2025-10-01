@@ -488,6 +488,7 @@ pub struct Config {
     pub env: Vec<(String, String)>,
     pub on_startup: Option<Action>,
     pub keymaps: Vec<ConfigKeymap>,
+    pub auto_reload: Option<bool>,
     pub log_level: Option<LogLevel>,
     pub theme: Theme,
     pub gfx_api: Option<GfxApi>,
