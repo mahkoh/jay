@@ -60,6 +60,10 @@ impl DmaBuf {
         })
     }
 
+    pub fn is_one_file(&self) -> bool {
+        !self.is_disjoint()
+    }
+
     pub fn udmabuf_size(&self) -> Option<usize> {
         if self.planes.len() != 1 {
             return None;
@@ -103,6 +107,9 @@ impl DmaBuf {
     pub fn import_sync_file(&self, flags: u32, sync_file: &OwnedFd) -> Result<(), OsError> {
         for plane in &self.planes {
             dma_buf_import_sync_file(&plane.fd, flags, sync_file)?;
+            if self.is_one_file() {
+                break;
+            }
         }
         Ok(())
     }
