@@ -1,5 +1,6 @@
 use {
     crate::{
+        format::Format,
         gfx_api::GfxBuffer,
         gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
         utils::on_drop::OnDrop,
@@ -32,8 +33,9 @@ impl VulkanDevice {
         dmabuf: &OwnedFd,
         offset: u64,
         size: u64,
+        format: &'static Format,
     ) -> Result<Rc<VulkanDmabufBuffer>, VulkanError> {
-        if offset % TRANSFER_QUEUE_BUFFER_ALIGNMENT != 0 {
+        if offset % TRANSFER_QUEUE_BUFFER_ALIGNMENT != 0 || offset % format.bpp as u64 != 0 {
             return Err(VulkanError::DmaBufBufferOffsetAlignment);
         }
         let mut memory_fd_properties = MemoryFdPropertiesKHR::default();

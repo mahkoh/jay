@@ -20,7 +20,6 @@ use {
 
 #[derive(Copy, Clone, Debug)]
 pub struct FormatShmInfo {
-    pub bpp: u32,
     pub gl_format: GLint,
     pub gl_internal_format: GLenum,
     pub gl_type: GLint,
@@ -38,6 +37,7 @@ pub struct Format {
     pub opaque: Option<&'static Format>,
     pub shm_info: Option<FormatShmInfo>,
     pub config: ConfigFormat,
+    pub bpp: u32,
 }
 
 const fn default(config: ConfigFormat) -> Format {
@@ -52,6 +52,7 @@ const fn default(config: ConfigFormat) -> Format {
         opaque: None,
         shm_info: None,
         config,
+        bpp: 4,
     }
 }
 
@@ -159,12 +160,12 @@ pub fn map_wayland_format_id(id: u32) -> u32 {
 pub static ARGB8888: &Format = &Format {
     name: "argb8888",
     shm_info: Some(FormatShmInfo {
-        bpp: 4,
         gl_format: GL_BGRA_EXT,
         gl_internal_format: GL_RGBA8,
         gl_type: GL_UNSIGNED_BYTE,
     }),
     vk_format: vk::Format::B8G8R8A8_UNORM,
+    bpp: 4,
     drm: ARGB8888_DRM,
     wl_id: Some(ARGB8888_ID),
     external_only_guess: false,
@@ -177,12 +178,12 @@ pub static ARGB8888: &Format = &Format {
 pub static XRGB8888: &Format = &Format {
     name: "xrgb8888",
     shm_info: Some(FormatShmInfo {
-        bpp: 4,
         gl_format: GL_BGRA_EXT,
         gl_internal_format: GL_RGBA8,
         gl_type: GL_UNSIGNED_BYTE,
     }),
     vk_format: vk::Format::B8G8R8A8_UNORM,
+    bpp: 4,
     drm: XRGB8888_DRM,
     wl_id: Some(XRGB8888_ID),
     external_only_guess: false,
@@ -195,12 +196,12 @@ pub static XRGB8888: &Format = &Format {
 static ABGR8888: &Format = &Format {
     name: "abgr8888",
     shm_info: Some(FormatShmInfo {
-        bpp: 4,
         gl_format: GL_RGBA,
         gl_internal_format: GL_RGBA8,
         gl_type: GL_UNSIGNED_BYTE,
     }),
     vk_format: vk::Format::R8G8B8A8_UNORM,
+    bpp: 4,
     drm: fourcc_code('A', 'B', '2', '4'),
     wl_id: None,
     external_only_guess: false,
@@ -213,12 +214,12 @@ static ABGR8888: &Format = &Format {
 static XBGR8888: &Format = &Format {
     name: "xbgr8888",
     shm_info: Some(FormatShmInfo {
-        bpp: 4,
         gl_format: GL_RGBA,
         gl_internal_format: GL_RGBA8,
         gl_type: GL_UNSIGNED_BYTE,
     }),
     vk_format: vk::Format::R8G8B8A8_UNORM,
+    bpp: 4,
     drm: fourcc_code('X', 'B', '2', '4'),
     wl_id: None,
     external_only_guess: false,
@@ -231,6 +232,7 @@ static XBGR8888: &Format = &Format {
 static R8: &Format = &Format {
     name: "r8",
     vk_format: vk::Format::R8_UNORM,
+    bpp: 1,
     drm: fourcc_code('R', '8', ' ', ' '),
     pipewire: SPA_VIDEO_FORMAT_GRAY8,
     ..default(ConfigFormat::R8)
@@ -239,6 +241,7 @@ static R8: &Format = &Format {
 static GR88: &Format = &Format {
     name: "gr88",
     vk_format: vk::Format::R8G8_UNORM,
+    bpp: 2,
     drm: fourcc_code('G', 'R', '8', '8'),
     ..default(ConfigFormat::GR88)
 };
@@ -246,6 +249,7 @@ static GR88: &Format = &Format {
 static RGB888: &Format = &Format {
     name: "rgb888",
     vk_format: vk::Format::B8G8R8_UNORM,
+    bpp: 3,
     drm: fourcc_code('R', 'G', '2', '4'),
     pipewire: SPA_VIDEO_FORMAT_BGR,
     ..default(ConfigFormat::RGB888)
@@ -254,6 +258,7 @@ static RGB888: &Format = &Format {
 static BGR888: &Format = &Format {
     name: "bgr888",
     vk_format: vk::Format::R8G8B8_UNORM,
+    bpp: 3,
     drm: fourcc_code('B', 'G', '2', '4'),
     pipewire: SPA_VIDEO_FORMAT_RGB,
     ..default(ConfigFormat::BGR888)
@@ -262,6 +267,7 @@ static BGR888: &Format = &Format {
 static RGBA4444: &Format = &Format {
     name: "rgba4444",
     vk_format: vk::Format::R4G4B4A4_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('R', 'A', '1', '2'),
     has_alpha: true,
     opaque: Some(RGBX4444),
@@ -271,6 +277,7 @@ static RGBA4444: &Format = &Format {
 static RGBX4444: &Format = &Format {
     name: "rgbx4444",
     vk_format: vk::Format::R4G4B4A4_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('R', 'X', '1', '2'),
     ..default(ConfigFormat::RGBX4444)
 };
@@ -278,6 +285,7 @@ static RGBX4444: &Format = &Format {
 static BGRA4444: &Format = &Format {
     name: "bgra4444",
     vk_format: vk::Format::B4G4R4A4_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('B', 'A', '1', '2'),
     has_alpha: true,
     opaque: Some(BGRX4444),
@@ -287,6 +295,7 @@ static BGRA4444: &Format = &Format {
 static BGRX4444: &Format = &Format {
     name: "bgrx4444",
     vk_format: vk::Format::B4G4R4A4_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('B', 'X', '1', '2'),
     ..default(ConfigFormat::BGRX4444)
 };
@@ -294,6 +303,7 @@ static BGRX4444: &Format = &Format {
 static RGB565: &Format = &Format {
     name: "rgb565",
     vk_format: vk::Format::R5G6B5_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('R', 'G', '1', '6'),
     pipewire: SPA_VIDEO_FORMAT_BGR16,
     ..default(ConfigFormat::RGB565)
@@ -302,6 +312,7 @@ static RGB565: &Format = &Format {
 static BGR565: &Format = &Format {
     name: "bgr565",
     vk_format: vk::Format::B5G6R5_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('B', 'G', '1', '6'),
     pipewire: SPA_VIDEO_FORMAT_RGB16,
     ..default(ConfigFormat::BGR565)
@@ -310,6 +321,7 @@ static BGR565: &Format = &Format {
 static RGBA5551: &Format = &Format {
     name: "rgba5551",
     vk_format: vk::Format::R5G5B5A1_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('R', 'A', '1', '5'),
     has_alpha: true,
     opaque: Some(RGBX5551),
@@ -319,6 +331,7 @@ static RGBA5551: &Format = &Format {
 static RGBX5551: &Format = &Format {
     name: "rgbx5551",
     vk_format: vk::Format::R5G5B5A1_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('R', 'X', '1', '5'),
     ..default(ConfigFormat::RGBX5551)
 };
@@ -326,6 +339,7 @@ static RGBX5551: &Format = &Format {
 static BGRA5551: &Format = &Format {
     name: "bgra5551",
     vk_format: vk::Format::B5G5R5A1_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('B', 'A', '1', '5'),
     has_alpha: true,
     opaque: Some(BGRX5551),
@@ -335,6 +349,7 @@ static BGRA5551: &Format = &Format {
 static BGRX5551: &Format = &Format {
     name: "bgrx5551",
     vk_format: vk::Format::B5G5R5A1_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('B', 'X', '1', '5'),
     ..default(ConfigFormat::BGRX5551)
 };
@@ -342,6 +357,7 @@ static BGRX5551: &Format = &Format {
 static ARGB1555: &Format = &Format {
     name: "argb1555",
     vk_format: vk::Format::A1R5G5B5_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('A', 'R', '1', '5'),
     has_alpha: true,
     opaque: Some(XRGB1555),
@@ -351,6 +367,7 @@ static ARGB1555: &Format = &Format {
 static XRGB1555: &Format = &Format {
     name: "xrgb1555",
     vk_format: vk::Format::A1R5G5B5_UNORM_PACK16,
+    bpp: 2,
     drm: fourcc_code('X', 'R', '1', '5'),
     pipewire: SPA_VIDEO_FORMAT_BGR15,
     ..default(ConfigFormat::XRGB1555)
@@ -359,6 +376,7 @@ static XRGB1555: &Format = &Format {
 static ARGB2101010: &Format = &Format {
     name: "argb2101010",
     vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
+    bpp: 4,
     drm: fourcc_code('A', 'R', '3', '0'),
     has_alpha: true,
     opaque: Some(XRGB2101010),
@@ -369,6 +387,7 @@ static ARGB2101010: &Format = &Format {
 static XRGB2101010: &Format = &Format {
     name: "xrgb2101010",
     vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
+    bpp: 4,
     drm: fourcc_code('X', 'R', '3', '0'),
     pipewire: SPA_VIDEO_FORMAT_xRGB_210LE,
     ..default(ConfigFormat::XRGB2101010)
@@ -377,6 +396,7 @@ static XRGB2101010: &Format = &Format {
 static ABGR2101010: &Format = &Format {
     name: "abgr2101010",
     vk_format: vk::Format::A2B10G10R10_UNORM_PACK32,
+    bpp: 4,
     drm: fourcc_code('A', 'B', '3', '0'),
     has_alpha: true,
     opaque: Some(XBGR2101010),
@@ -387,6 +407,7 @@ static ABGR2101010: &Format = &Format {
 static XBGR2101010: &Format = &Format {
     name: "xbgr2101010",
     vk_format: vk::Format::A2B10G10R10_UNORM_PACK32,
+    bpp: 4,
     drm: fourcc_code('X', 'B', '3', '0'),
     pipewire: SPA_VIDEO_FORMAT_xBGR_210LE,
     ..default(ConfigFormat::XBGR2101010)
@@ -395,6 +416,7 @@ static XBGR2101010: &Format = &Format {
 static ABGR16161616: &Format = &Format {
     name: "abgr16161616",
     vk_format: vk::Format::R16G16B16A16_UNORM,
+    bpp: 8,
     drm: fourcc_code('A', 'B', '4', '8'),
     has_alpha: true,
     opaque: Some(XBGR16161616),
@@ -404,6 +426,7 @@ static ABGR16161616: &Format = &Format {
 static XBGR16161616: &Format = &Format {
     name: "xbgr16161616",
     vk_format: vk::Format::R16G16B16A16_UNORM,
+    bpp: 8,
     drm: fourcc_code('X', 'B', '4', '8'),
     ..default(ConfigFormat::XBGR16161616)
 };
@@ -411,6 +434,7 @@ static XBGR16161616: &Format = &Format {
 pub static ABGR16161616F: &Format = &Format {
     name: "abgr16161616f",
     vk_format: vk::Format::R16G16B16A16_SFLOAT,
+    bpp: 8,
     drm: fourcc_code('A', 'B', '4', 'H'),
     has_alpha: true,
     opaque: Some(XBGR16161616F),
@@ -420,6 +444,7 @@ pub static ABGR16161616F: &Format = &Format {
 static XBGR16161616F: &Format = &Format {
     name: "xbgr16161616f",
     vk_format: vk::Format::R16G16B16A16_SFLOAT,
+    bpp: 8,
     drm: fourcc_code('X', 'B', '4', 'H'),
     ..default(ConfigFormat::XBGR16161616F)
 };

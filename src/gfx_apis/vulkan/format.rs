@@ -171,9 +171,6 @@ impl VulkanInstance {
         format: &Format,
         props: &FormatProperties,
     ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
-        if format.shm_info.is_none() {
-            return Ok(None);
-        }
         self.load_internal_format(phy_dev, format, props, SHM_FEATURES, SHM_USAGE)
     }
 

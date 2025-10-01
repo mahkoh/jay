@@ -80,6 +80,7 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
                     format,
                     read_modifiers: Default::default(),
                     write_modifiers: Default::default(),
+                    supports_shm: false,
                 },
             );
         }

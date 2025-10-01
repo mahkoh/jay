@@ -1,7 +1,7 @@
 use {
     crate::{
         cpu_worker::CpuWorker,
-        format::{Format, FormatShmInfo},
+        format::Format,
         gfx_api::SyncFile,
         gfx_apis::vulkan::{
             VulkanError,
@@ -33,7 +33,6 @@ pub struct VulkanShmImage {
     pub(super) size: DeviceSize,
     pub(super) stride: u32,
     pub(super) _allocation: VulkanAllocation,
-    pub(super) shm_info: &'static FormatShmInfo,
     pub(super) async_data: Option<VulkanShmImageAsyncData>,
 }
 
@@ -68,7 +67,7 @@ impl VulkanShmImage {
             if full {
                 builder = builder
                     .buffer_image_height(img.height)
-                    .buffer_row_length(img.stride / self.shm_info.bpp);
+                    .buffer_row_length(img.stride / img.format.bpp);
             }
             builder
         };
@@ -99,7 +98,7 @@ impl VulkanShmImage {
                     damage.width() as u32,
                     damage.height() as u32,
                 ));
-                total_size += damage.width() as u32 * damage.height() as u32 * self.shm_info.bpp;
+                total_size += damage.width() as u32 * damage.height() as u32 * img.format.bpp;
             }
             cpy = &cpy_many[..];
         } else {
@@ -124,7 +123,7 @@ impl VulkanShmImage {
                     let width = cpy.image_extent.width as usize;
                     let height = cpy.image_extent.height as usize;
                     let stride = self.stride as usize;
-                    let bpp = self.shm_info.bpp as usize;
+                    let bpp = img.format.bpp as usize;
                     for dy in 0..height {
                         let lo = (y + dy) * stride + x * bpp;
                         let len = width * bpp;
@@ -367,16 +366,13 @@ impl VulkanRenderer {
         for_download: bool,
         cpu_worker: Option<&Rc<CpuWorker>>,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
-        let Some(shm_info) = &format.shm_info else {
-            return Err(VulkanError::UnsupportedShmFormat(format.name));
-        };
         if width <= 0 || height <= 0 || stride <= 0 {
             return Err(VulkanError::NonPositiveImageSize);
         }
         let width = width as u32;
         let height = height as u32;
         let stride = stride as u32;
-        if stride % shm_info.bpp != 0 || stride / shm_info.bpp < width {
+        if stride % format.bpp != 0 || stride / format.bpp < width {
             return Err(VulkanError::InvalidStride);
         }
         let vk_format = self
@@ -461,7 +457,6 @@ impl VulkanRenderer {
             size,
             stride,
             _allocation: allocation,
-            shm_info,
             async_data,
         };
         destroy_image.forget();

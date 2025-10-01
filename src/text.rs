@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::cmm_eotf::Eotf,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
-        format::ARGB8888,
+        format::{ARGB8888, Format},
         gfx_api::{
             AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxBuffer, GfxContext, GfxError,
             GfxStagingBuffer, GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
@@ -125,7 +125,8 @@ struct Data {
     layout: PangoLayout,
 }
 
-const FORMAT: CairoFormat = CAIRO_FORMAT_ARGB32;
+const CAIRO_FORMAT: CairoFormat = CAIRO_FORMAT_ARGB32;
+const FORMAT: &Format = ARGB8888;
 
 fn create_data(
     memfd: &Memfd,
@@ -134,12 +135,12 @@ fn create_data(
     height: i32,
     scale: Option<f64>,
 ) -> Result<Data, TextError> {
-    let Some((stride, size)) = cairo_size(FORMAT, width, height) else {
+    let Some((stride, size)) = cairo_size(CAIRO_FORMAT, width, height) else {
         return Err(TextError::SizeOverflow);
     };
     let data = memfd.get_pointer_for_size(size)?;
     let image = match unsafe {
-        CairoImageSurface::new_image_surface_with_data(FORMAT, data, width, height, stride)
+        CairoImageSurface::new_image_surface_with_data(CAIRO_FORMAT, data, width, height, stride)
     } {
         Ok(s) => s,
         Err(e) => return Err(TextError::CreateImage(e)),
@@ -397,7 +398,7 @@ impl Shared {
                     break 'res None;
                 }
             };
-            match self.ctx.create_dmabuf_buffer(&dmabuf, 0, size) {
+            match self.ctx.create_dmabuf_buffer(&dmabuf, 0, size, FORMAT) {
                 Ok(b) => Some(b),
                 Err(e) => {
                     log::debug!("Could not create GfxBuffer: {}", ErrorFmt(e));
@@ -604,7 +605,7 @@ impl CpuJob for RenderJob {
             return;
         }
         if let Some(t) = &tex
-            && !t.compatible_with(ARGB8888, rt.width, rt.height, rt.stride)
+            && !t.compatible_with(FORMAT, rt.width, rt.height, rt.stride)
         {
             tex = None;
         }
@@ -614,7 +615,7 @@ impl CpuJob for RenderJob {
                 let tex = data
                     .ctx
                     .clone()
-                    .async_shmem_texture(ARGB8888, rt.width, rt.height, rt.stride, &data.cpu_worker)
+                    .async_shmem_texture(FORMAT, rt.width, rt.height, rt.stride, &data.cpu_worker)
                     .map_err(TextError::CreateTexture);
                 match tex {
                     Ok(t) => t,

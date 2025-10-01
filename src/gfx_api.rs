@@ -824,10 +824,12 @@ pub trait GfxContext: Debug {
         dmabuf: &OwnedFd,
         offset: usize,
         size: usize,
+        format: &'static Format,
     ) -> Result<Rc<dyn GfxBuffer>, GfxError> {
         let _ = dmabuf;
         let _ = offset;
         let _ = size;
+        let _ = format;
 
         #[derive(Debug, Error)]
         #[error("Host buffers are not supported")]
@@ -850,6 +852,7 @@ pub struct GfxFormat {
     pub format: &'static Format,
     pub read_modifiers: IndexSet<Modifier>,
     pub write_modifiers: IndexMap<Modifier, GfxWriteModifier>,
+    pub supports_shm: bool,
 }
 
 #[derive(Error)]
@@ -879,6 +882,7 @@ impl GfxFormat {
                 .map(|(m, v)| (*m, v.clone()))
                 .filter(|(m, _)| other.read_modifiers.contains(m))
                 .collect(),
+            supports_shm: self.supports_shm && other.supports_shm,
         }
     }
 }

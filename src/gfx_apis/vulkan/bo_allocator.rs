@@ -457,10 +457,7 @@ impl Allocator for VulkanBoAllocator {
 impl VulkanBo {
     fn map(self: &Rc<Self>, write: bool) -> Result<VulkanBoMapping, VulkanError> {
         let format = self.buf.format;
-        let Some(shm_info) = &format.shm_info else {
-            return Err(VulkanError::ShmNotSupported);
-        };
-        let stride = self.buf.width as u32 * shm_info.bpp;
+        let stride = self.buf.width as u32 * format.bpp;
         let size = self.buf.height as u32 * stride;
         let data = &self.allocator;
         let staging =

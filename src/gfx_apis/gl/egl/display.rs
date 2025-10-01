@@ -201,13 +201,17 @@ impl EglDisplay {
                     }
                     read_modifiers.insert(modifier.modifier);
                 }
-                if !read_modifiers.is_empty() || !write_modifiers.is_empty() {
+                if !read_modifiers.is_empty()
+                    || !write_modifiers.is_empty()
+                    || format.format.shm_info.is_some()
+                {
                     formats.insert(
                         drm,
                         GfxFormat {
                             format: format.format,
                             read_modifiers,
                             write_modifiers,
+                            supports_shm: format.format.shm_info.is_some(),
                         },
                     );
                 }

@@ -13,7 +13,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             command::VulkanCommandBuffer,
-            dmabuf_buffer::VulkanDmabufBuffer,
+            dmabuf_buffer::{TRANSFER_QUEUE_BUFFER_ALIGNMENT, VulkanDmabufBuffer},
             fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::image_barrier,
@@ -227,8 +227,25 @@ impl VulkanShmImage {
         let mut copies_ref = data.regions.borrow_mut();
         let copies = &mut *copies_ref;
         copies.clear();
-        let mut copy = |x, y, width, height| {
-            let buffer_offset = (y as u32 * img.stride + x as u32 * self.shm_info.bpp) as u64;
+        let mut copy = |mut x, mut y, mut width, mut height| {
+            let x_orig = x;
+            let width_orig = width;
+            let mut buffer_offset;
+            loop {
+                buffer_offset = (y as u32 * img.stride + x as u32 * img.format.bpp) as u64;
+                if buffer_offset.is_multiple_of(TRANSFER_QUEUE_BUFFER_ALIGNMENT) {
+                    break;
+                }
+                if x > 0 {
+                    x -= 1;
+                    width += 1;
+                } else {
+                    y -= 1;
+                    height += 1;
+                    x = x_orig;
+                    width = width_orig;
+                }
+            }
             let copy = BufferImageCopy2::default()
                 .buffer_offset(buffer_offset + extra_offset)
                 .image_offset(Offset3D { x, y, z: 0 })
@@ -244,7 +261,7 @@ impl VulkanShmImage {
                     layer_count: 1,
                 })
                 .buffer_image_height(img.height)
-                .buffer_row_length(img.stride / self.shm_info.bpp);
+                .buffer_row_length(img.stride / img.format.bpp);
             copies.push(copy);
         };
         let (width_mask, height_mask) = img.renderer.device.transfer_granularity_mask;
@@ -451,7 +468,7 @@ impl VulkanShmImage {
                 }
                 job.work.width = img.width as _;
                 job.work.stride = img.stride as _;
-                job.work.bpp = self.shm_info.bpp as _;
+                job.work.bpp = img.format.bpp as _;
                 job.work.rects.clear();
                 for copy in copies {
                     job.work.rects.push(
@@ -472,7 +489,7 @@ impl VulkanShmImage {
                 for copy in copies {
                     min_offset = min_offset.min(copy.buffer_offset);
                     let len = img.stride * (copy.image_extent.height - 1)
-                        + copy.image_extent.width * self.shm_info.bpp;
+                        + copy.image_extent.width * img.format.bpp;
                     max_offset = max_offset.max(copy.buffer_offset + len as u64);
                 }
                 let mut job = data.io_job.take().unwrap_or_else(|| {

@@ -30,8 +30,6 @@ pub enum UdmabufError {
     Open(#[source] OsError),
     #[error("Only the linear modifier can be allocated")]
     Modifier,
-    #[error("Format {0} is not supported")]
-    Format(&'static str),
     #[error("Could not create a memfd")]
     Memfd(#[source] OsError),
     #[error("Size calculation overflowed")]
@@ -131,16 +129,13 @@ impl Allocator for Udmabuf {
         if !modifiers.contains(&LINEAR_MODIFIER) {
             return Err(UdmabufError::Modifier.into());
         }
-        let Some(shm_info) = &format.shm_info else {
-            return Err(UdmabufError::Format(format.name).into());
-        };
         let height = height as u64;
         let width = width as u64;
         if height > 1 << 16 || width > 1 << 16 {
             return Err(UdmabufError::Overflow.into());
         }
         let stride_mask = 255;
-        let stride = (width * shm_info.bpp as u64 + stride_mask) & !stride_mask;
+        let stride = (width * format.bpp as u64 + stride_mask) & !stride_mask;
         let size_mask = page_size() as u64 - 1;
         let size = (height * stride + size_mask) & !size_mask;
         let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
@@ -186,9 +181,6 @@ impl Allocator for Udmabuf {
             return Err(UdmabufError::Modifier.into());
         }
         let plane = &dmabuf.planes[0];
-        let Some(shm_info) = &dmabuf.format.shm_info else {
-            return Err(UdmabufError::Format(dmabuf.format.name).into());
-        };
         let height = dmabuf.height as u64;
         let width = dmabuf.width as u64;
         let stride = plane.stride as u64;
@@ -196,7 +188,7 @@ impl Allocator for Udmabuf {
         if height > 1 << 16 || width > 1 << 16 {
             return Err(UdmabufError::Overflow.into());
         }
-        if stride < width * shm_info.bpp as u64 {
+        if stride < width * dmabuf.format.bpp as u64 {
             return Err(UdmabufError::Stride.into());
         }
         let size = offset + stride * height;
