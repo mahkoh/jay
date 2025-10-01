@@ -9,7 +9,7 @@ use {
         vk::{
             self, BufferCreateInfo, BufferUsageFlags, ExternalMemoryBufferCreateInfo,
             ExternalMemoryHandleTypeFlags, ImportMemoryFdInfoKHR, MemoryAllocateInfo,
-            MemoryFdPropertiesKHR, MemoryPropertyFlags,
+            MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryPropertyFlags,
         },
     },
     std::{any::Any, rc::Rc},
@@ -66,13 +66,15 @@ impl VulkanDevice {
         let fd =
             uapi::fcntl_dupfd_cloexec(dmabuf.raw(), 0).map_err(|e| VulkanError::Dupfd(e.into()))?;
         let memory = {
+            let mut dedicated = MemoryDedicatedAllocateInfo::default().buffer(buffer);
             let mut import_info = ImportMemoryFdInfoKHR::default()
                 .fd(fd.raw())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
             let allocate_info = MemoryAllocateInfo::default()
                 .allocation_size(requirements.size)
                 .memory_type_index(memory_type)
-                .push_next(&mut import_info);
+                .push_next(&mut import_info)
+                .push_next(&mut dedicated);
             unsafe {
                 self.device
                     .allocate_memory(&allocate_info, None)
