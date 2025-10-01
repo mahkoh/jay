@@ -5,7 +5,7 @@ use {
         video::{LINEAR_MODIFIER, Modifier},
     },
     arrayvec::ArrayVec,
-    std::{rc::Rc, sync::OnceLock},
+    std::{cell::OnceCell, rc::Rc, sync::OnceLock},
     uapi::{
         _IOW, _IOWR, OwnedFd,
         c::{self, dev_t, ioctl},
@@ -30,6 +30,7 @@ pub struct DmaBuf {
     pub format: &'static Format,
     pub modifier: Modifier,
     pub planes: PlaneVec<DmaBufPlane>,
+    pub is_disjoint: OnceCell<bool>,
 }
 
 pub const MAX_PLANES: usize = 4;
@@ -38,23 +39,25 @@ pub type PlaneVec<T> = ArrayVec<T, MAX_PLANES>;
 
 impl DmaBuf {
     pub fn is_disjoint(&self) -> bool {
-        if self.planes.len() <= 1 {
-            return false;
-        }
-        let stat = match uapi::fstat(self.planes[0].fd.raw()) {
-            Ok(s) => s,
-            _ => return true,
-        };
-        for plane in &self.planes[1..] {
-            let stat2 = match uapi::fstat(plane.fd.raw()) {
+        *self.is_disjoint.get_or_init(|| {
+            if self.planes.len() <= 1 {
+                return false;
+            }
+            let stat = match uapi::fstat(self.planes[0].fd.raw()) {
                 Ok(s) => s,
                 _ => return true,
             };
-            if stat2.st_ino != stat.st_ino {
-                return true;
+            for plane in &self.planes[1..] {
+                let stat2 = match uapi::fstat(plane.fd.raw()) {
+                    Ok(s) => s,
+                    _ => return true,
+                };
+                if stat2.st_ino != stat.st_ino {
+                    return true;
+                }
             }
-        }
-        false
+            false
+        })
     }
 
     pub fn udmabuf_size(&self) -> Option<usize> {

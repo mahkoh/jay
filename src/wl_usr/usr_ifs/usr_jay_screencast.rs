@@ -155,6 +155,7 @@ impl JayScreencastEventHandler for UsrJayScreencast {
             format,
             modifier: ev.modifier,
             planes: mem::take(self.pending_planes.borrow_mut().deref_mut()),
+            is_disjoint: Default::default(),
         });
         Ok(())
     }

@@ -69,6 +69,7 @@ async fn run(screenshot: Rc<Screenshot>) {
             format: XRGB8888,
             modifier: ev.modifier,
             planes,
+            is_disjoint: Default::default(),
         };
         res.push(Ok((buf, Some(ev.drm_dev))));
     });
@@ -96,6 +97,7 @@ async fn run(screenshot: Rc<Screenshot>) {
                 format: XRGB8888,
                 modifier: ev.modifier,
                 planes: planes.take(),
+                is_disjoint: Default::default(),
             };
             res.push(Ok((buf, dev.take())))
         },
