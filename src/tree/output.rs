@@ -530,7 +530,7 @@ impl OutputNode {
         let active_id = self.workspace.get().map(|w| w.id);
         for ws in self.workspaces.iter() {
             let tex = &mut *ws.title_texture.borrow_mut();
-            let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state.cpu_worker, &ctx));
+            let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
                 true => theme.colors.focused_title_text.get(),
                 false => theme.colors.unfocused_title_text.get(),
@@ -548,7 +548,7 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         let tex = rd.status.get_or_insert_with(|| OutputStatus {
             tex_x: 0,
-            tex: TextTexture::new(&self.state.cpu_worker, &ctx),
+            tex: TextTexture::new(&self.state, &ctx),
         });
         let status = self.status.get();
         let tc = self.state.theme.colors.bar_text.get();

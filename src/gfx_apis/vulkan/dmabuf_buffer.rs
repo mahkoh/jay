@@ -27,7 +27,7 @@ pub struct VulkanDmabufBuffer {
 impl VulkanDevice {
     pub fn create_dmabuf_buffer(
         self: &Rc<Self>,
-        dmabuf: &Rc<OwnedFd>,
+        dmabuf: &OwnedFd,
         offset: u64,
         size: u64,
     ) -> Result<Rc<VulkanDmabufBuffer>, VulkanError> {

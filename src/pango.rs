@@ -7,7 +7,10 @@ use {
     },
     std::{cell::Cell, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{IntoUstr, c},
+    uapi::{
+        IntoUstr,
+        c::{self, memset},
+    },
 };
 
 pub mod consts;
@@ -26,6 +29,13 @@ unsafe extern "C" {
         width: c::c_int,
         height: c::c_int,
     ) -> *mut cairo_surface_t;
+    fn cairo_image_surface_create_for_data(
+        data: *mut u8,
+        format: cairo_format_t,
+        width: c::c_int,
+        height: c::c_int,
+        stride: c::c_int,
+    ) -> *mut cairo_surface_t;
     fn cairo_image_surface_get_height(surface: *mut cairo_surface_t) -> c::c_int;
     fn cairo_image_surface_get_stride(surface: *mut cairo_surface_t) -> c::c_int;
     fn cairo_image_surface_get_data(surface: *mut cairo_surface_t) -> *mut u8;
@@ -41,6 +51,8 @@ unsafe extern "C" {
     fn cairo_set_operator(cr: *mut cairo_t, op: cairo_operator_t);
     fn cairo_set_source_rgba(cr: *mut cairo_t, red: f64, green: f64, blue: f64, alpha: f64);
     fn cairo_move_to(cr: *mut cairo_t, x: f64, y: f64);
+
+    fn cairo_format_stride_for_width(format: cairo_format_t, width: c::c_int) -> c::c_int;
 }
 
 #[repr(transparent)]
@@ -133,6 +145,30 @@ impl CairoImageSurface {
     ) -> Result<Rc<Self>, PangoError> {
         unsafe {
             let s = cairo_image_surface_create(format.raw() as _, width as _, height as _);
+            let status = cairo_surface_status(s);
+            if status != 0 {
+                return Err(PangoError::CreateSurface(status as _));
+            }
+            Ok(Rc::new(Self { s }))
+        }
+    }
+
+    pub unsafe fn new_image_surface_with_data(
+        format: CairoFormat,
+        data: *mut u8,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> Result<Rc<Self>, PangoError> {
+        unsafe {
+            memset(data.cast(), 0, (stride * height) as usize);
+            let s = cairo_image_surface_create_for_data(
+                data,
+                format.raw() as _,
+                width as _,
+                height as _,
+                stride as _,
+            );
             let status = cairo_surface_status(s);
             if status != 0 {
                 return Err(PangoError::CreateSurface(status as _));
@@ -371,4 +407,14 @@ impl Drop for PangoLayout {
             g_object_unref(self.l as _);
         }
     }
+}
+
+pub fn cairo_size(format: CairoFormat, width: i32, height: i32) -> Option<(i32, usize)> {
+    let stride = unsafe { cairo_format_stride_for_width(format.raw() as _, width as _) };
+    if stride < 0 {
+        return None;
+    }
+    let stride = stride as i32;
+    let size = height.checked_mul(stride)? as usize;
+    Some((stride, size))
 }

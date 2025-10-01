@@ -111,8 +111,7 @@ impl PlaceholderNode {
         let rect = self.toplevel.pos.get();
         let mut textures = self.textures.borrow_mut();
         for (scale, _) in scales.iter() {
-            let tex = textures
-                .get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
+            let tex = textures.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut width = rect.width();
             let mut height = rect.height();
             if *scale != 1 {

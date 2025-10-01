@@ -821,7 +821,7 @@ pub trait GfxContext: Debug {
 
     fn create_dmabuf_buffer(
         &self,
-        dmabuf: &Rc<OwnedFd>,
+        dmabuf: &OwnedFd,
         offset: usize,
         size: usize,
     ) -> Result<Rc<dyn GfxBuffer>, GfxError> {

@@ -215,8 +215,7 @@ impl FloatNode {
         let tr = self.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
         for (scale, _) in scales.iter() {
-            let tex =
-                tt.get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
+            let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();

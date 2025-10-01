@@ -287,7 +287,7 @@ impl WlBuffer {
             if *udmabuf_impossible {
                 return Ok(None);
             }
-            let Some(dev) = self.client.state.udmabuf() else {
+            let Some(dev) = self.client.state.udmabuf.get() else {
                 return Ok(None);
             };
             let mask = page_size() - 1;

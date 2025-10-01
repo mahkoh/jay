@@ -725,8 +725,7 @@ impl ContainerNode {
             let title = child.title.borrow_mut();
             let tt = &mut *child.title_tex.borrow_mut();
             for (scale, _) in scales.iter() {
-                let tex = tt
-                    .get_or_insert_with(*scale, || TextTexture::new(&self.state.cpu_worker, &ctx));
+                let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
                 let mut th = th;
                 let mut scalef = None;
                 let mut width = rect.width();
