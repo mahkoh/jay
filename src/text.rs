@@ -4,20 +4,24 @@ use {
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
         format::ARGB8888,
         gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxContext, GfxError, GfxStagingBuffer,
-            GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
+            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxBuffer, GfxContext, GfxError,
+            GfxStagingBuffer, GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
         },
         pango::{
             CairoContext, CairoImageSurface, PangoCairoContext, PangoError, PangoFontDescription,
-            PangoLayout,
+            PangoLayout, cairo_size,
             consts::{
-                CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
+                CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, CairoFormat, PANGO_ELLIPSIZE_END,
+                PANGO_SCALE,
             },
         },
         rect::{Rect, Region},
+        state::State,
         theme::Color,
+        udmabuf::UdmabufHolder,
         utils::{
-            clonecell::CloneCell, double_buffered::DoubleBuffered, on_drop_event::OnDropEvent,
+            clonecell::CloneCell, double_buffered::DoubleBuffered, errorfmt::ErrorFmt,
+            on_drop_event::OnDropEvent, oserror::OsError, page_size::page_size,
         },
     },
     std::{
@@ -25,10 +29,20 @@ use {
         cell::{Cell, RefCell},
         mem,
         ops::Neg,
+        ptr,
         rc::{Rc, Weak},
-        sync::Arc,
+        slice,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering::Relaxed},
+        },
     },
     thiserror::Error,
+    uapi::{
+        OwnedFd,
+        c::{self, off_t},
+        ftruncate,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -41,14 +55,18 @@ pub enum TextError {
     PangoContext(#[source] PangoError),
     #[error("Could not create a pango layout")]
     CreateLayout(#[source] PangoError),
-    #[error("Could not access the cairo image data")]
-    ImageData(#[source] PangoError),
     #[error("Texture upload failed")]
     Upload(#[source] GfxError),
     #[error("Could not create a texture")]
     CreateTexture(#[source] GfxError),
     #[error("Rendering is not scheduled or not yet completed")]
     NotScheduled,
+    #[error("The size calculation overflowed")]
+    SizeOverflow,
+    #[error("Could not resize the memfd")]
+    ResizeMemfd(#[source] OsError),
+    #[error("Could not map the memfd")]
+    MapMemfd(#[source] OsError),
 }
 
 impl<'a> Config<'a> {
@@ -107,8 +125,22 @@ struct Data {
     layout: PangoLayout,
 }
 
-fn create_data(font: &str, width: i32, height: i32, scale: Option<f64>) -> Result<Data, TextError> {
-    let image = match CairoImageSurface::new_image_surface(CAIRO_FORMAT_ARGB32, width, height) {
+const FORMAT: CairoFormat = CAIRO_FORMAT_ARGB32;
+
+fn create_data(
+    memfd: &Memfd,
+    font: &str,
+    width: i32,
+    height: i32,
+    scale: Option<f64>,
+) -> Result<Data, TextError> {
+    let Some((stride, size)) = cairo_size(FORMAT, width, height) else {
+        return Err(TextError::SizeOverflow);
+    };
+    let data = memfd.get_pointer_for_size(size)?;
+    let image = match unsafe {
+        CairoImageSurface::new_image_surface_with_data(FORMAT, data, width, height, stride)
+    } {
         Ok(s) => s,
         Err(e) => return Err(TextError::CreateImage(e)),
     };
@@ -139,12 +171,13 @@ fn create_data(font: &str, width: i32, height: i32, scale: Option<f64>) -> Resul
 }
 
 fn measure(
+    memfd: &Memfd,
     font: &str,
     text: &str,
     markup: bool,
     scale: Option<f64>,
 ) -> Result<TextMeasurement, TextError> {
-    let data = create_data(font, 1, 1, scale)?;
+    let data = create_data(memfd, font, 1, 1, scale)?;
     if markup {
         data.layout.set_markup(text);
     } else {
@@ -156,6 +189,7 @@ fn measure(
 }
 
 fn render(
+    memfd: &Memfd,
     x: i32,
     y: Option<i32>,
     width: i32,
@@ -173,10 +207,9 @@ fn render(
             width,
             height,
             stride: width * 4,
-            data: vec![],
         });
     }
-    let data = create_data(font, width, height, scale)?;
+    let data = create_data(memfd, font, width, height, scale)?;
     if ellipsize {
         data.layout
             .set_width((width - 2 * padding).max(0) * PANGO_SCALE);
@@ -199,11 +232,11 @@ fn render(
         width,
         height,
         stride: data.image.stride(),
-        data: data.image.data().map_err(TextError::ImageData)?.to_vec(),
     })
 }
 
 fn render_fitting(
+    memfd: &Memfd,
     height: Option<i32>,
     font: &str,
     text: &str,
@@ -211,7 +244,7 @@ fn render_fitting(
     markup: bool,
     scale: Option<f64>,
 ) -> Result<RenderedText, TextError> {
-    let measurement = measure(font, text, markup, scale)?;
+    let measurement = measure(memfd, font, text, markup, scale)?;
     let x = measurement.ink_rect.x1().neg();
     let y = match height {
         Some(_) => None,
@@ -220,7 +253,7 @@ fn render_fitting(
     let width = measurement.ink_rect.width();
     let height = height.unwrap_or(measurement.ink_rect.height());
     render(
-        x, y, width, height, 0, font, text, color, false, markup, scale,
+        memfd, x, y, width, height, 0, font, text, color, false, markup, scale,
     )
 }
 
@@ -233,11 +266,10 @@ struct RenderedText {
     width: i32,
     height: i32,
     stride: i32,
-    data: Vec<Cell<u8>>,
 }
 
-#[derive(Default)]
 struct RenderWork {
+    memfd: Arc<Memfd>,
     config: Config<'static>,
     result: Option<Result<RenderedText, TextError>>,
 }
@@ -265,7 +297,7 @@ impl RenderWork {
                 color,
                 markup,
                 scale,
-            } => render_fitting(height, font, text, color, markup, scale),
+            } => render_fitting(&self.memfd, height, font, text, color, markup, scale),
             Config::Render {
                 x,
                 y,
@@ -279,7 +311,18 @@ impl RenderWork {
                 markup,
                 scale,
             } => render(
-                x, y, width, height, padding, font, text, color, ellipsize, markup, scale,
+                &self.memfd,
+                x,
+                y,
+                width,
+                height,
+                padding,
+                font,
+                text,
+                color,
+                ellipsize,
+                markup,
+                scale,
             ),
         }
     }
@@ -303,6 +346,7 @@ impl Drop for TextTexture {
 struct Shared {
     cpu_worker: Rc<CpuWorker>,
     ctx: Rc<dyn GfxContext>,
+    udmabuf: Rc<UdmabufHolder>,
     staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     textures: DoubleBuffered<TextBuffer>,
     pending_render: Cell<Option<PendingJob>>,
@@ -312,6 +356,15 @@ struct Shared {
     waiter: Cell<Option<Rc<dyn OnCompleted>>>,
     busy: Cell<bool>,
     flip_is_noop: Cell<bool>,
+    memfd: Arc<Memfd>,
+    gfx_buffer: CloneCell<Option<Option<Rc<dyn GfxBuffer>>>>,
+}
+
+struct Memfd {
+    fd: OwnedFd,
+    size: AtomicUsize,
+    size_changed: AtomicBool,
+    mapping: AtomicPtr<u8>,
 }
 
 impl Shared {
@@ -324,6 +377,36 @@ impl Shared {
         if let Some(waiter) = self.waiter.take() {
             waiter.completed();
         }
+    }
+
+    fn get_gfx_buffer(&self) -> Option<Rc<dyn GfxBuffer>> {
+        if self.memfd.size_changed.load(Relaxed) {
+            self.gfx_buffer.take();
+            self.memfd.size_changed.store(false, Relaxed);
+        }
+        if let Some(res) = self.gfx_buffer.get() {
+            return res;
+        }
+        let size = self.memfd.size.load(Relaxed);
+        let udmabuf = self.udmabuf.get()?;
+        let res = 'res: {
+            let dmabuf = match udmabuf.create_dmabuf_from_memfd(&self.memfd.fd, 0, size) {
+                Ok(b) => b,
+                Err(e) => {
+                    log::error!("Could not create udmabuf: {}", ErrorFmt(e));
+                    break 'res None;
+                }
+            };
+            match self.ctx.create_dmabuf_buffer(&dmabuf, 0, size) {
+                Ok(b) => Some(b),
+                Err(e) => {
+                    log::debug!("Could not create GfxBuffer: {}", ErrorFmt(e));
+                    None
+                }
+            }
+        };
+        self.gfx_buffer.set(Some(res.clone()));
+        res
     }
 }
 
@@ -365,10 +448,14 @@ pub trait OnCompleted {
 }
 
 impl TextTexture {
-    pub fn new(cpu_worker: &Rc<CpuWorker>, ctx: &Rc<dyn GfxContext>) -> Self {
+    pub fn new(state: &Rc<State>, ctx: &Rc<dyn GfxContext>) -> Self {
+        let memfd = uapi::memfd_create("text", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING)
+            .expect("Could not create memfd");
+        let _ = uapi::fcntl_add_seals(memfd.raw(), c::F_SEAL_SHRINK);
         let data = Rc::new(Shared {
-            cpu_worker: cpu_worker.clone(),
+            cpu_worker: state.cpu_worker.clone(),
             ctx: ctx.clone(),
+            udmabuf: state.udmabuf.clone(),
             staging: Default::default(),
             textures: Default::default(),
             pending_render: Default::default(),
@@ -378,6 +465,13 @@ impl TextTexture {
             waiter: Default::default(),
             busy: Default::default(),
             flip_is_noop: Default::default(),
+            memfd: Arc::new(Memfd {
+                fd: memfd,
+                size: Default::default(),
+                size_changed: Default::default(),
+                mapping: Default::default(),
+            }),
+            gfx_buffer: Default::default(),
         });
         Self { data }
     }
@@ -403,13 +497,18 @@ impl TextTexture {
         }
         let mut job = self.data.render_job.take().unwrap_or_else(|| {
             Box::new(RenderJob {
-                work: Default::default(),
+                work: RenderWork {
+                    memfd: self.data.memfd.clone(),
+                    config: Default::default(),
+                    result: Default::default(),
+                },
                 data: Rc::downgrade(&self.data),
             })
         });
         job.work = RenderWork {
             config: config.to_static(),
             result: None,
+            ..job.work
         };
         let pending = self.data.cpu_worker.submit(job);
         self.data.pending_render.set(Some(pending));
@@ -527,29 +626,36 @@ impl CpuJob for RenderJob {
             }
         };
         let mut staging_opt = data.staging.take();
-        if let Some(staging) = &staging_opt
-            && staging.size() != tex.staging_size()
-        {
-            staging_opt = None;
-        }
-        let staging = match staging_opt {
-            Some(s) => s,
-            None => data
-                .ctx
-                .create_staging_buffer(tex.staging_size(), STAGING_UPLOAD),
+        let pending = if let Some(gfx_buffer) = data.get_gfx_buffer() {
+            tex.clone()
+                .async_upload_from_buffer(
+                    &gfx_buffer,
+                    data.clone(),
+                    Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+                )
+                .map_err(TextError::Upload)
+        } else {
+            if let Some(staging) = &staging_opt
+                && staging.size() != tex.staging_size()
+            {
+                staging_opt = None;
+            }
+            let staging = staging_opt.get_or_insert_with(|| {
+                data.ctx
+                    .create_staging_buffer(tex.staging_size(), STAGING_UPLOAD)
+            });
+            tex.clone()
+                .async_upload(
+                    &staging,
+                    data.clone(),
+                    Rc::new(data.memfd.data(rt.stride, rt.height)),
+                    Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+                )
+                .map_err(TextError::Upload)
         };
-        let pending = tex
-            .clone()
-            .async_upload(
-                &staging,
-                data.clone(),
-                Rc::new(rt.data),
-                Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
-            )
-            .map_err(TextError::Upload);
         if pending.is_ok() {
             data.textures.back().tex.set(Some(tex));
-            data.staging.set(Some(staging));
+            data.staging.set(staging_opt);
         }
         match pending {
             Ok(Some(p)) => data.pending_upload.set(Some(p)),
@@ -569,5 +675,68 @@ impl AsyncShmGfxTextureCallback for Shared {
 impl OnCompleted for OnDropEvent {
     fn completed(self: Rc<Self>) {
         // nothing
+    }
+}
+
+impl Memfd {
+    fn get_pointer_for_size(&self, size: usize) -> Result<*mut u8, TextError> {
+        let old_size = self.size.load(Relaxed);
+        if old_size >= size {
+            return Ok(self.mapping.load(Relaxed));
+        }
+        let Some(size) = size.checked_next_multiple_of(page_size()) else {
+            return Err(TextError::SizeOverflow);
+        };
+        let Ok(isize) = off_t::try_from(size) else {
+            return Err(TextError::SizeOverflow);
+        };
+        if let Err(e) = ftruncate(self.fd.raw(), isize) {
+            return Err(TextError::ResizeMemfd(e.into()));
+        }
+        let old_ptr = self.mapping.load(Relaxed);
+        let new_ptr = if old_ptr.is_null() {
+            unsafe {
+                c::mmap(
+                    ptr::null_mut(),
+                    size,
+                    c::PROT_READ | c::PROT_WRITE,
+                    c::MAP_SHARED,
+                    self.fd.raw(),
+                    0,
+                )
+            }
+        } else {
+            unsafe { c::mremap(old_ptr.cast(), old_size, size, c::MREMAP_MAYMOVE) }
+        };
+        if new_ptr == c::MAP_FAILED {
+            return Err(TextError::MapMemfd(OsError::default()));
+        }
+        let new_ptr = new_ptr.cast();
+        self.mapping.store(new_ptr, Relaxed);
+        self.size.store(size, Relaxed);
+        self.size_changed.store(true, Relaxed);
+        Ok(new_ptr)
+    }
+
+    fn data(&self, stride: i32, height: i32) -> Vec<Cell<u8>> {
+        let size = (stride * height) as usize;
+        assert!(size <= self.size.load(Relaxed));
+        if size == 0 {
+            return vec![];
+        }
+        let mapping = self.mapping.load(Relaxed);
+        unsafe { slice::from_raw_parts(mapping.cast(), size).to_vec() }
+    }
+}
+
+impl Drop for Memfd {
+    fn drop(&mut self) {
+        let ptr = self.mapping.load(Relaxed);
+        if ptr.is_null() {
+            return;
+        }
+        unsafe {
+            c::munmap(ptr.cast(), self.size.load(Relaxed));
+        }
     }
 }

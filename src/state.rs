@@ -99,7 +99,7 @@ use {
             TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode,
             generic_node_visitor,
         },
-        udmabuf::{Udmabuf, UdmabufError},
+        udmabuf::UdmabufHolder,
         utils::{
             activation_token::ActivationToken,
             asyncevent::AsyncEvent,
@@ -112,7 +112,6 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::LinkedList,
             numcell::NumCell,
-            oserror::OsError,
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
@@ -152,7 +151,7 @@ use {
         time::Duration,
     },
     thiserror::Error,
-    uapi::{OwnedFd, c},
+    uapi::OwnedFd,
 };
 
 pub struct State {
@@ -290,7 +289,7 @@ pub struct State {
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
-    pub udmabuf: CloneCell<Option<Option<Rc<Udmabuf>>>>,
+    pub udmabuf: Rc<UdmabufHolder>,
 }
 
 // impl Drop for State {
@@ -1567,25 +1566,6 @@ impl State {
         let node = found_tree.pop().unwrap();
         found_tree.clear();
         node
-    }
-
-    pub fn udmabuf(&self) -> Option<Rc<Udmabuf>> {
-        if let Some(u) = self.udmabuf.get() {
-            return u;
-        }
-        match Udmabuf::new() {
-            Ok(u) => {
-                let u = Rc::new(u);
-                self.udmabuf.set(Some(Some(u.clone())));
-                Some(u)
-            }
-            Err(UdmabufError::Open(OsError(c::EPERM))) => None,
-            Err(e) => {
-                log::error!("Could not create udmabuf device: {}", ErrorFmt(e));
-                self.udmabuf.set(Some(None));
-                None
-            }
-        }
     }
 }
 

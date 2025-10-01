@@ -2,7 +2,10 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
         format::Format,
-        utils::{compat::IoctlNumber, oserror::OsError, page_size::page_size},
+        utils::{
+            clonecell::CloneCell, compat::IoctlNumber, errorfmt::ErrorFmt, oserror::OsError,
+            page_size::page_size,
+        },
         video::{
             LINEAR_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
@@ -49,6 +52,32 @@ pub enum UdmabufError {
     Size,
     #[error("Could not map dmabuf")]
     Map(#[source] OsError),
+}
+
+#[derive(Default)]
+pub struct UdmabufHolder {
+    udmabuf: CloneCell<Option<Option<Rc<Udmabuf>>>>,
+}
+
+impl UdmabufHolder {
+    pub fn get(&self) -> Option<Rc<Udmabuf>> {
+        if let Some(u) = self.udmabuf.get() {
+            return u;
+        }
+        match Udmabuf::new() {
+            Ok(u) => {
+                let u = Rc::new(u);
+                self.udmabuf.set(Some(Some(u.clone())));
+                Some(u)
+            }
+            Err(UdmabufError::Open(OsError(c::EPERM))) => None,
+            Err(e) => {
+                log::error!("Could not create udmabuf device: {}", ErrorFmt(e));
+                self.udmabuf.set(Some(None));
+                None
+            }
+        }
+    }
 }
 
 pub struct Udmabuf {
