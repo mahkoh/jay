@@ -9,7 +9,10 @@ use {
         object::{Object, Version},
         rect::{Rect, Region},
         utils::{errorfmt::ErrorFmt, page_size::page_size},
-        video::dmabuf::DmaBuf,
+        video::{
+            LINEAR_MODIFIER,
+            dmabuf::{DmaBuf, DmaBufPlane},
+        },
         wire::{WlBufferId, wl_buffer::*},
     },
     std::{
@@ -41,6 +44,8 @@ pub struct DmabufBufferParams {
     udmabuf_impossible: bool,
     host_buffer: Option<Rc<dyn GfxBuffer>>,
     host_buffer_impossible: bool,
+    tex: Option<Rc<dyn GfxTexture>>,
+    tex_impossible: bool,
 }
 
 pub struct WlBuffer {
@@ -120,15 +125,18 @@ impl WlBuffer {
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
         }
+        let udmabuf_impossible = !mem.pool().is_sealed_memfd();
         let dmabuf_buffer_params = match udmabuf {
             None => DmabufBufferParams {
                 size: bytes as usize,
                 udmabuf: None,
                 udmabuf_offset: 0,
                 udmabuf_size: 0,
-                udmabuf_impossible: !mem.pool().is_sealed_memfd(),
+                udmabuf_impossible,
                 host_buffer: None,
-                host_buffer_impossible: !mem.pool().is_sealed_memfd(),
+                host_buffer_impossible: udmabuf_impossible,
+                tex: None,
+                tex_impossible: udmabuf_impossible,
             },
             Some((udmabuf, size)) => DmabufBufferParams {
                 size,
@@ -138,6 +146,8 @@ impl WlBuffer {
                 udmabuf_impossible: false,
                 host_buffer: None,
                 host_buffer_impossible: false,
+                tex: None,
+                tex_impossible: false,
             },
         };
         Ok(Self {
@@ -209,20 +219,22 @@ impl WlBuffer {
                         udmabuf_impossible,
                         host_buffer,
                         host_buffer_impossible,
+                        tex,
+                        tex_impossible,
                         ..
                     },
                 ..
             } => {
                 host_buffer.take();
                 *host_buffer_impossible = *udmabuf_impossible;
-                return match surface {
-                    Some(s) => {
-                        s.shm_staging.take();
-                        s.shm_textures.back().tex.take();
-                        s.shm_textures.front().tex.take().is_some()
-                    }
-                    None => false,
-                };
+                let mut had_texture = tex.take().is_some();
+                *tex_impossible = *udmabuf_impossible;
+                if let Some(s) = surface {
+                    s.shm_staging.take();
+                    s.shm_textures.back().tex.take();
+                    had_texture |= s.shm_textures.front().tex.take().is_some();
+                }
+                return had_texture;
             }
             WlBufferStorage::Dmabuf { tex, .. } => tex.is_some(),
         };
@@ -255,7 +267,13 @@ impl WlBuffer {
         match &*self.storage.borrow() {
             None => None,
             Some(s) => match s {
-                WlBufferStorage::Shm { .. } => {
+                WlBufferStorage::Shm {
+                    dmabuf_buffer_params,
+                    ..
+                } => {
+                    if let Some(tex) = &dmabuf_buffer_params.tex {
+                        return Some(tex.clone());
+                    }
                     surface.shm_textures.front().tex.get().map(|t| t as _)
                 }
                 WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
@@ -269,68 +287,144 @@ impl WlBuffer {
         }
     }
 
-    pub fn get_gfx_buffer(
-        self: &Rc<Self>,
-        ctx: &Rc<dyn GfxContext>,
+    pub fn get_udmabuf(
+        &self,
         mem: &Rc<ClientMemOffset>,
         dmabuf_buffer_params: &mut DmabufBufferParams,
-    ) -> Result<Option<Rc<dyn GfxBuffer>>, GfxError> {
+    ) -> Option<Rc<OwnedFd>> {
         let DmabufBufferParams {
             size,
             udmabuf,
             udmabuf_offset,
             udmabuf_size,
             udmabuf_impossible,
+            ..
+        } = dmabuf_buffer_params;
+        if let Some(b) = udmabuf {
+            return Some(b.clone());
+        }
+        if *udmabuf_impossible {
+            return None;
+        }
+        let dev = self.client.state.udmabuf.get()?;
+        let mask = page_size() - 1;
+        let offset = mem.offset() & mask;
+        let base = mem.offset() & !mask;
+        let end = (mem.offset() + *size + mask) & !mask;
+        let len = end - base;
+        match dev.create_dmabuf_from_memfd(mem.pool().fd(), base, len) {
+            Ok(b) => {
+                let b = Rc::new(b);
+                *udmabuf_offset = offset;
+                *udmabuf_size = len;
+                *udmabuf = Some(b.clone());
+                Some(b)
+            }
+            Err(e) => {
+                *udmabuf_impossible = true;
+                log::debug!("Could not create udmabuf: {}", ErrorFmt(e));
+                None
+            }
+        }
+    }
+
+    pub fn get_gfx_buffer(
+        &self,
+        ctx: &Rc<dyn GfxContext>,
+        mem: &Rc<ClientMemOffset>,
+        dmabuf_buffer_params: &mut DmabufBufferParams,
+    ) -> Option<Rc<dyn GfxBuffer>> {
+        let DmabufBufferParams {
             host_buffer,
             host_buffer_impossible,
+            ..
         } = dmabuf_buffer_params;
         if let Some(hb) = host_buffer {
-            return Ok(Some(hb.clone()));
+            return Some(hb.clone());
         }
         if *host_buffer_impossible {
-            return Ok(None);
+            return None;
         }
-        let udmabuf = 'udmabuf: {
-            if let Some(b) = udmabuf {
-                break 'udmabuf b.clone();
-            }
-            if *udmabuf_impossible {
-                return Ok(None);
-            }
-            let Some(dev) = self.client.state.udmabuf.get() else {
-                return Ok(None);
-            };
-            let mask = page_size() - 1;
-            let offset = mem.offset() & mask;
-            let base = mem.offset() & !mask;
-            let end = (mem.offset() + *size + mask) & !mask;
-            let len = end - base;
-            match dev.create_dmabuf_from_memfd(mem.pool().fd(), base, len) {
-                Ok(b) => {
-                    let b = Rc::new(b);
-                    *udmabuf_offset = offset;
-                    *udmabuf_size = len;
-                    *udmabuf = Some(b.clone());
-                    b
-                }
-                Err(e) => {
-                    *udmabuf_impossible = true;
-                    log::debug!("Could not create udmabuf: {}", ErrorFmt(e));
-                    return Ok(None);
-                }
-            }
-        };
+        let udmabuf = self.get_udmabuf(mem, dmabuf_buffer_params)?;
+        let DmabufBufferParams {
+            udmabuf_offset,
+            udmabuf_size,
+            host_buffer,
+            host_buffer_impossible,
+            ..
+        } = dmabuf_buffer_params;
         let hb =
             match ctx.create_dmabuf_buffer(&udmabuf, *udmabuf_offset, *udmabuf_size, self.format) {
                 Ok(hb) => hb,
                 Err(e) => {
                     *host_buffer_impossible = true;
                     log::debug!("Could not create gfx host buffer: {}", ErrorFmt(e));
-                    return Ok(None);
+                    return None;
                 }
             };
         *host_buffer = Some(hb.clone());
-        Ok(Some(hb))
+        Some(hb)
+    }
+
+    pub fn import_udmabuf_texture(
+        &self,
+        ctx: &Rc<dyn GfxContext>,
+        mem: &Rc<ClientMemOffset>,
+        stride: i32,
+        dmabuf_buffer_params: &mut DmabufBufferParams,
+    ) -> bool {
+        let DmabufBufferParams {
+            tex,
+            tex_impossible,
+            ..
+        } = dmabuf_buffer_params;
+        if tex.is_some() {
+            return true;
+        }
+        if *tex_impossible {
+            return false;
+        }
+        let Some(udmabuf) = self.get_udmabuf(mem, dmabuf_buffer_params) else {
+            return false;
+        };
+        let DmabufBufferParams {
+            udmabuf_offset,
+            tex,
+            tex_impossible,
+            ..
+        } = dmabuf_buffer_params;
+        let mut dmabuf = DmaBuf {
+            id: self.client.state.dma_buf_ids.next(),
+            width: self.width,
+            height: self.height,
+            format: self.format,
+            modifier: LINEAR_MODIFIER,
+            planes: Default::default(),
+            is_disjoint: Default::default(),
+        };
+        dmabuf.planes.push(DmaBufPlane {
+            offset: *udmabuf_offset as _,
+            stride: stride as _,
+            fd: udmabuf,
+        });
+        let img = match ctx.clone().dmabuf_img(&dmabuf) {
+            Ok(i) => i,
+            Err(e) => {
+                *tex_impossible = true;
+                log::debug!("Could not import udmabuf as GfxImage: {}", ErrorFmt(e));
+                return false;
+            }
+        };
+        let tex_ = match img.to_texture() {
+            Ok(i) => i,
+            Err(e) => {
+                *tex_impossible = true;
+                log::debug!("Could not import udmabuf as GfxTexture: {}", ErrorFmt(e));
+                return false;
+            }
+        };
+        *tex = Some(tex_);
+        true
     }
 
     fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {
@@ -340,19 +434,33 @@ impl WlBuffer {
             _ => return Ok(()),
         };
         match storage {
-            WlBufferStorage::Shm { mem, stride, .. } => {
-                if sync_shm && let Some(ctx) = self.client.state.render_ctx.get() {
-                    let tex = ctx.async_shmem_texture(
-                        self.format,
-                        self.width,
-                        self.height,
-                        *stride,
-                        &self.client.state.cpu_worker,
-                    )?;
-                    mem.access(|mem| tex.clone().sync_upload(mem, Region::new(self.rect)))??;
-                    surface.shm_textures.front().tex.set(Some(tex));
-                    surface.shm_textures.front().damage.clear();
+            WlBufferStorage::Shm {
+                mem,
+                stride,
+                dmabuf_buffer_params,
+                ..
+            } => {
+                if !sync_shm {
+                    return Ok(());
                 }
+                let Some(ctx) = self.client.state.render_ctx.get() else {
+                    return Ok(());
+                };
+                if ctx.fast_ram_access()
+                    && self.import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+                {
+                    return Ok(());
+                }
+                let tex = ctx.async_shmem_texture(
+                    self.format,
+                    self.width,
+                    self.height,
+                    *stride,
+                    &self.client.state.cpu_worker,
+                )?;
+                mem.access(|mem| tex.clone().sync_upload(mem, Region::new(self.rect)))??;
+                surface.shm_textures.front().tex.set(Some(tex));
+                surface.shm_textures.front().damage.clear();
             }
             WlBufferStorage::Dmabuf { img, tex, .. } => {
                 if tex.is_none() {

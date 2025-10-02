@@ -257,6 +257,10 @@ impl GfxContext for GlRenderContext {
         self.formats()
     }
 
+    fn fast_ram_access(&self) -> bool {
+        self.ctx.dpy.fast_ram_access
+    }
+
     fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         (&self)
             .dmabuf_fb(buf)

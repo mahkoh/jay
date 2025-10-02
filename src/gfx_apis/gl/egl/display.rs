@@ -68,6 +68,7 @@ pub struct EglDisplay {
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
+    pub fast_ram_access: bool,
 }
 
 impl EglDisplay {
@@ -106,16 +107,20 @@ impl EglDisplay {
                 gbm: Rc::new(gbm),
                 dpy,
                 explicit_sync: false,
+                fast_ram_access: false,
             };
             let mut major = 0;
             let mut minor = 0;
             if (egl.eglInitialize)(dpy.dpy, &mut major, &mut minor) != EGL_TRUE {
                 return Err(RenderError::Initialize);
             }
-            if !software && EXTS.contains(EXT_DEVICE_QUERY) {
-                if get_device_ext(procs, dpy.dpy)?.contains(MESA_DEVICE_SOFTWARE) {
+            if EXTS.contains(EXT_DEVICE_QUERY)
+                && get_device_ext(procs, dpy.dpy)?.contains(MESA_DEVICE_SOFTWARE)
+            {
+                if !software {
                     return Err(RenderError::NoHardwareRenderer);
                 }
+                dpy.fast_ram_access = true;
             }
             dpy.exts = get_display_ext(dpy.dpy);
             if !dpy.exts.intersects(KHR_IMAGE_BASE) {

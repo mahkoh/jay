@@ -83,6 +83,7 @@ pub struct VulkanDevice {
     pub(super) uniform_buffer_offset_mask: DeviceSize,
     pub(super) uniform_buffer_descriptor_size: usize,
     pub(super) lost: Cell<bool>,
+    pub(super) fast_ram_access: bool,
 }
 
 impl Drop for VulkanDevice {
@@ -129,7 +130,7 @@ impl VulkanInstance {
         }
     }
 
-    fn find_dev(&self, drm: &Drm) -> Result<PhysicalDevice, VulkanError> {
+    fn find_dev(&self, drm: &Drm) -> Result<(PhysicalDevice, PhysicalDeviceType), VulkanError> {
         let dev = drm.dev();
         log::log!(
             self.log_level,
@@ -188,7 +189,7 @@ impl VulkanInstance {
                     Some(&extensions),
                     Some(&driver_props),
                 );
-                return Ok(phy_dev);
+                return Ok((phy_dev, props.device_type));
             }
             devices.push((props, Some(extensions), Some(driver_props)));
         }
@@ -210,7 +211,7 @@ impl VulkanInstance {
         Err(VulkanError::NoDeviceFound(dev))
     }
 
-    fn find_software_renderer(&self) -> Result<PhysicalDevice, VulkanError> {
+    fn find_software_renderer(&self) -> Result<(PhysicalDevice, PhysicalDeviceType), VulkanError> {
         let phy_devs = unsafe { self.instance.enumerate_physical_devices() };
         let phy_devs = match phy_devs {
             Ok(d) => d,
@@ -222,7 +223,7 @@ impl VulkanInstance {
                 continue;
             }
             if props.device_type == PhysicalDeviceType::CPU {
-                return Ok(phy_dev);
+                return Ok((phy_dev, props.device_type));
             }
         }
         Err(VulkanError::NoSoftwareRenderer)
@@ -344,7 +345,7 @@ impl VulkanInstance {
             .ok_or(VulkanError::NoRenderNode)
             .map(Rc::new)?;
         let gbm = GbmDevice::new(drm).map_err(VulkanError::Gbm)?;
-        let phy_dev = match software {
+        let (phy_dev, dev_ty) = match software {
             true => self.find_software_renderer()?,
             false => self.find_dev(drm)?,
         };
@@ -543,6 +544,11 @@ impl VulkanInstance {
                 "Created queues with priorities {max_graphics_priority:?}/{max_transfer_priority:?}",
             );
         }
+        let fast_ram_access = match dev_ty {
+            PhysicalDeviceType::CPU => true,
+            PhysicalDeviceType::INTEGRATED_GPU => true,
+            _ => false,
+        };
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
@@ -572,6 +578,7 @@ impl VulkanInstance {
             uniform_buffer_offset_mask,
             uniform_buffer_descriptor_size,
             lost: Cell::new(false),
+            fast_ram_access,
         }))
     }
 }

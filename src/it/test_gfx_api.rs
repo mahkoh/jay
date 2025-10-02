@@ -107,6 +107,10 @@ impl GfxContext for TestGfxCtx {
         self.formats.clone()
     }
 
+    fn fast_ram_access(&self) -> bool {
+        true
+    }
+
     fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
