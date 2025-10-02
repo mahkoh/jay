@@ -274,7 +274,7 @@ impl WlBuffer {
         ctx: &Rc<dyn GfxContext>,
         mem: &Rc<ClientMemOffset>,
         dmabuf_buffer_params: &mut DmabufBufferParams,
-    ) -> Result<Option<Rc<dyn GfxBuffer>>, GfxError> {
+    ) -> Option<Rc<dyn GfxBuffer>> {
         let DmabufBufferParams {
             size,
             udmabuf,
@@ -285,20 +285,20 @@ impl WlBuffer {
             host_buffer_impossible,
         } = dmabuf_buffer_params;
         if let Some(hb) = host_buffer {
-            return Ok(Some(hb.clone()));
+            return Some(hb.clone());
         }
         if *host_buffer_impossible {
-            return Ok(None);
+            return None;
         }
         let udmabuf = 'udmabuf: {
             if let Some(b) = udmabuf {
                 break 'udmabuf b.clone();
             }
             if *udmabuf_impossible {
-                return Ok(None);
+                return None;
             }
             let Some(dev) = self.client.state.udmabuf.get() else {
-                return Ok(None);
+                return None;
             };
             let mask = page_size() - 1;
             let offset = mem.offset() & mask;
@@ -316,7 +316,7 @@ impl WlBuffer {
                 Err(e) => {
                     *udmabuf_impossible = true;
                     log::debug!("Could not create udmabuf: {}", ErrorFmt(e));
-                    return Ok(None);
+                    return None;
                 }
             }
         };
@@ -326,11 +326,11 @@ impl WlBuffer {
                 Err(e) => {
                     *host_buffer_impossible = true;
                     log::debug!("Could not create gfx host buffer: {}", ErrorFmt(e));
-                    return Ok(None);
+                    return None;
                 }
             };
         *host_buffer = Some(hb.clone());
-        Ok(Some(hb))
+        Some(hb)
     }
 
     fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {

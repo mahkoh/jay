@@ -14,7 +14,6 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
@@ -649,19 +648,10 @@ fn schedule_async_upload(
             back_tex
         }
     };
-    match buf.get_gfx_buffer(&ctx, mem, dmabuf_buffer_params) {
-        Ok(Some(hb)) => {
-            return back_tex
-                .async_upload_from_buffer(&hb, node_ref.clone(), back.damage.get())
-                .map_err(WlSurfaceError::PrepareAsyncUpload);
-        }
-        Ok(None) => {}
-        Err(e) => {
-            log::error!(
-                "Could not create GPU mapping of host buffer: {}",
-                ErrorFmt(e),
-            );
-        }
+    if let Some(hb) = buf.get_gfx_buffer(&ctx, mem, dmabuf_buffer_params) {
+        return back_tex
+            .async_upload_from_buffer(&hb, node_ref.clone(), back.damage.get())
+            .map_err(WlSurfaceError::PrepareAsyncUpload);
     }
     let mut staging_opt = surface.shm_staging.get();
     if let Some(staging) = &staging_opt
