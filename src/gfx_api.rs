@@ -749,6 +749,8 @@ pub trait GfxContext: Debug {
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
 
+    fn fast_ram_access(&self) -> bool;
+
     fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         self.dmabuf_img(buf)?.to_framebuffer()
     }

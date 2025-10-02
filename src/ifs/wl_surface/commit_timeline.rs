@@ -608,6 +608,20 @@ fn schedule_async_upload(
         return Ok(None);
     };
     let back = surface.shm_textures.back();
+    let state = &surface.client.state;
+    let ctx = state
+        .render_ctx
+        .get()
+        .ok_or(WlSurfaceError::NoRenderContext)?;
+    if ctx.fast_ram_access() && buf.import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+    {
+        back.damage.clear();
+        back.tex.take();
+        if surface.shm_textures.front().tex.is_none() {
+            surface.shm_staging.take();
+        }
+        return Ok(None);
+    }
     let mut back_tex_opt = back.tex.get();
     if let Some(back_tex) = &back_tex_opt
         && !back_tex.compatible_with(buf.format, buf.rect.width(), buf.rect.height(), *stride)
@@ -618,11 +632,6 @@ fn schedule_async_upload(
         back.damage.clear();
         back.damage.damage(slice::from_ref(&buf.rect));
     };
-    let state = &surface.client.state;
-    let ctx = state
-        .render_ctx
-        .get()
-        .ok_or(WlSurfaceError::NoRenderContext)?;
     let back_tex = match back_tex_opt {
         Some(b) => {
             if pending.damage_full || pending.surface_damage.is_not_empty() {

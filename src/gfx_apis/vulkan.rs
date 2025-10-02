@@ -280,6 +280,10 @@ impl GfxContext for Context {
         self.0.formats.clone()
     }
 
+    fn fast_ram_access(&self) -> bool {
+        self.0.device.fast_ram_access
+    }
+
     fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
         self.0
             .import_dmabuf(buf)
