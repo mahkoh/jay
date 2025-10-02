@@ -3,8 +3,8 @@ use {
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
         format::Format,
         utils::{
-            clonecell::CloneCell, compat::IoctlNumber, errorfmt::ErrorFmt, oserror::OsError,
-            page_size::page_size,
+            clonecell::CloneCell, compat::IoctlNumber, errorfmt::ErrorFmt, once::Once,
+            oserror::OsError, page_size::page_size,
         },
         video::{
             LINEAR_MODIFIER, Modifier,
@@ -54,6 +54,7 @@ pub enum UdmabufError {
 
 #[derive(Default)]
 pub struct UdmabufHolder {
+    logged: Once,
     udmabuf: CloneCell<Option<Option<Rc<Udmabuf>>>>,
 }
 
@@ -64,14 +65,18 @@ impl UdmabufHolder {
         }
         match Udmabuf::new() {
             Ok(u) => {
+                log::info!("Opened /dev/udmabuf");
                 let u = Rc::new(u);
                 self.udmabuf.set(Some(Some(u.clone())));
                 Some(u)
             }
-            Err(UdmabufError::Open(OsError(c::EPERM))) => None,
             Err(e) => {
-                log::error!("Could not create udmabuf device: {}", ErrorFmt(e));
-                self.udmabuf.set(Some(None));
+                self.logged.exec(|| {
+                    log::warn!("Unable to open /dev/udmabuf: {}", ErrorFmt(&e));
+                });
+                if !matches!(e, UdmabufError::Open(OsError(c::EPERM))) {
+                    self.udmabuf.set(Some(None));
+                }
                 None
             }
         }
