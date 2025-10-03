@@ -553,7 +553,7 @@ object_base! {
 }
 
 impl Object for WlOutput {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.xdg_outputs.clear();
         self.remove_binding();
     }

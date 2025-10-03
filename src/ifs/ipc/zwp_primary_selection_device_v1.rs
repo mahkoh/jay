@@ -161,9 +161,9 @@ object_base! {
 }
 
 impl Object for ZwpPrimarySelectionDeviceV1 {
-    fn break_loops(&self) {
-        break_device_loops::<PrimarySelectionIpc>(self);
-        self.seat.remove_primary_selection_device(self);
+    fn break_loops(self: Rc<Self>) {
+        break_device_loops::<PrimarySelectionIpc>(&*self);
+        self.seat.remove_primary_selection_device(&*self);
     }
 }
 

@@ -7,9 +7,9 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
             FramebufferRect, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
-            ShmMemory, SyncFile,
+            GfxFramebuffer, GfxHostBuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer,
+            GfxTexture, GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus,
+            ShmGfxTexture, ShmMemory, SyncFile,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -311,6 +311,15 @@ impl AsyncShmGfxTexture for TestGfxImage {
         })
         .map_err(TestGfxError::AccessFailed)?;
         res.map(|_| None)
+    }
+
+    fn async_upload2(
+        self: Rc<Self>,
+        _buf: &Rc<dyn GfxHostBuffer>,
+        _callback: Rc<dyn AsyncShmGfxTextureCallback>,
+        _damage: Region,
+    ) -> Result<Option<PendingShmTransfer>, GfxError> {
+        unreachable!()
     }
 
     fn sync_upload(self: Rc<Self>, mem: &[Cell<u8>], _damage: Region) -> Result<(), GfxError> {

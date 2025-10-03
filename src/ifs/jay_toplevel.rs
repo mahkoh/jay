@@ -78,7 +78,7 @@ object_base! {
 }
 
 impl Object for JayToplevel {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

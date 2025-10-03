@@ -903,15 +903,15 @@ impl Wm {
         }
     }
 
-    async fn handle_xwayland_configure(&mut self, window: Rc<Xwindow>) {
-        if window.data.destroyed.get() {
+    async fn handle_xwayland_configure(&mut self, window: Rc<XwindowData>) {
+        if window.destroyed.get() {
             return;
         }
         self.send_configure(window).await;
     }
 
-    async fn send_configure(&mut self, window: Rc<Xwindow>) {
-        let extents = window.data.info.extents.get();
+    async fn send_configure(&mut self, window: Rc<XwindowData>) {
+        let extents = window.info.extents.get();
         // log::info!("xwin {} send_configure {:?}", window.data.window_id, extents);
         let mut x = extents.x1();
         let mut y = extents.y1();
@@ -919,7 +919,7 @@ impl Wm {
         let mut height = extents.height();
         logical_to_client_wire_scale!(self.client, x, y, width, height);
         let cw = ConfigureWindow {
-            window: window.data.window_id,
+            window: window.window_id,
             values: ConfigureWindowValues {
                 x: Some(x),
                 y: Some(y),
@@ -2134,7 +2134,7 @@ impl Wm {
         if data.info.override_redirect.replace(or) != or
             && let Some(window) = data.window.get()
         {
-            window.tl_destroy();
+            window.clone().tl_destroy();
             window.update_toplevel();
             window.map_status_changed();
         }
@@ -2266,7 +2266,8 @@ impl Wm {
             client_wire_scale_to_logical!(self.client, x, y, width, height);
             let extents = Rect::new_sized(x, y, width, height).unwrap();
             if let Some(window) = data.window.get() {
-                window.tl_change_extents(&extents);
+                let tt = &self.state.tree_transaction();
+                window.tl_request_config(tt, &extents);
                 self.state.tree_changed();
             } else {
                 data.info.pending_extents.set(extents);
@@ -2462,7 +2463,8 @@ impl Wm {
         if fullscreen != data.info.fullscreen.get()
             && let Some(w) = data.window.get()
         {
-            w.tl_set_fullscreen(fullscreen, None);
+            let tt = &self.state.tree_transaction();
+            w.tl_set_fullscreen(tt, fullscreen, None);
         }
         data.info.fullscreen.set(fullscreen);
         data.info.maximized_horz.set(maximized_horz);

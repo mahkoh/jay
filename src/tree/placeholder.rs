@@ -13,7 +13,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            default_tile_drag_destination, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -108,7 +108,7 @@ impl PlaceholderNode {
             return on_completed.event();
         };
         let scales = self.toplevel.state.scales.lock();
-        let rect = self.toplevel.pos.get();
+        let rect = self.toplevel.content_size.get();
         let mut textures = self.textures.borrow_mut();
         for (scale, _) in scales.iter() {
             let tex = textures.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
@@ -143,7 +143,7 @@ impl PlaceholderNode {
             }
         }
         if self.node_visible() {
-            self.state.damage(self.node_absolute_position());
+            self.state.damage(self.node_mapped_position());
         }
     }
 }
@@ -169,8 +169,8 @@ impl Node for PlaceholderNode {
         self.toplevel.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.toplevel.pos.get()
+    fn node_mapped_position(&self) -> Rect {
+        self.toplevel.mapped_position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -215,8 +215,8 @@ impl Node for PlaceholderNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel.make_visible(&*self);
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel.make_visible(&*self, tt);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -242,12 +242,16 @@ impl ToplevelNodeBase for PlaceholderNode {
         self.location.set(ws.node_location());
     }
 
-    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
-        self.toplevel.pos.set(*rect);
+    fn tl_set_mapped_position_impl(self: Rc<Self>, rect: &Rect) {
+        self.toplevel.content_size.set(*rect);
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
         self.schedule_update_texture();
+    }
+
+    fn tl_request_config_impl(self: Rc<Self>, _tt: &TreeTransaction, _rect: &Rect) {
+        // nothing
     }
 
     fn tl_close(self: Rc<Self>) {
@@ -257,7 +261,7 @@ impl ToplevelNodeBase for PlaceholderNode {
         });
     }
 
-    fn tl_set_visible_impl(&self, _visible: bool) {
+    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, _visible: bool) {
         // nothing
     }
 

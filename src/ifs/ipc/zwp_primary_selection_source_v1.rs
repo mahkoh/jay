@@ -99,8 +99,8 @@ object_base! {
 }
 
 impl Object for ZwpPrimarySelectionSourceV1 {
-    fn break_loops(&self) {
-        break_source_loops::<PrimarySelectionIpc>(self);
+    fn break_loops(self: Rc<Self>) {
+        break_source_loops::<PrimarySelectionIpc>(&*self);
     }
 }
 

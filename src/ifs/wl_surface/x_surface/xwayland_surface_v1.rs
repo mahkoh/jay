@@ -48,7 +48,7 @@ object_base! {
 }
 
 impl Object for XwaylandSurfaceV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.x.xwayland_surface.set(None);
     }
 }

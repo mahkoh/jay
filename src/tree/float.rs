@@ -16,7 +16,9 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, OutputNode, PinnedNode, StackedNode, TileDragDestination,
-            ToplevelNode, WorkspaceNode, toplevel_set_floating, walker::NodeVisitor,
+            ToplevelNode, TreeSerial, WorkspaceNode, toplevel_set_floating,
+            transaction::{TreeTransaction, TreeTransactionOp, TreeTransactionTimeline},
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -39,13 +41,16 @@ tree_id!(FloatNodeId);
 pub struct FloatNode {
     pub id: FloatNodeId,
     pub state: Rc<State>,
-    pub visible: Cell<bool>,
-    pub position: Cell<Rect>,
+    visible: Cell<bool>,
+    mapped: Cell<bool>,
+    pending_position: Cell<Rect>,
+    pub mapped_position: Cell<Rect>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub location: Cell<NodeLocation>,
+    pub mapped_child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
@@ -56,6 +61,7 @@ pub struct FloatNode {
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
     pub attention_requested: Cell<bool>,
+    timeline: TreeTransactionTimeline,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -93,7 +99,8 @@ pub async fn float_layout(state: Rc<State>) {
     loop {
         let node = state.pending_float_layout.pop().await;
         if node.layout_scheduled.get() {
-            node.perform_layout();
+            let tt = &state.tree_transaction();
+            node.perform_layout(tt);
         }
     }
 }
@@ -109,9 +116,23 @@ pub async fn float_titles(state: Rc<State>) {
     }
 }
 
+pub struct FloatTreeOp {
+    node: Rc<FloatNode>,
+    ty: FloatTreeOpKind,
+}
+
+enum FloatTreeOpKind {
+    Map(Rc<dyn ToplevelNode>),
+    Mapped(bool),
+    Replace(Rc<dyn ToplevelNode>),
+    Unmap,
+    SetPos(Rect),
+}
+
 impl FloatNode {
     pub fn new(
         state: &Rc<State>,
+        tt: &TreeTransaction,
         ws: &Rc<WorkspaceNode>,
         position: Rect,
         child: Rc<dyn ToplevelNode>,
@@ -120,12 +141,15 @@ impl FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
             visible: Cell::new(ws.float_visible()),
-            position: Cell::new(position),
+            mapped: Cell::new(false),
+            pending_position: Cell::new(position),
+            mapped_position: Cell::new(position),
             display_link: RefCell::new(None),
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
             location: Cell::new(ws.location()),
+            mapped_child: Default::default(),
             child: CloneCell::new(Some(child.clone())),
             active: Cell::new(false),
             seat_state: Default::default(),
@@ -136,22 +160,17 @@ impl FloatNode {
             title_textures: Default::default(),
             cursors: Default::default(),
             attention_requested: Cell::new(false),
+            timeline: state.tree_transactions.timeline(),
         });
         floater.pull_child_properties();
-        *floater.display_link.borrow_mut() = Some(state.root.stacked.add_last(floater.clone()));
-        floater
-            .workspace_link
-            .set(Some(ws.stacked.add_last(floater.clone())));
-        child.tl_set_parent(floater.clone());
-        child.tl_set_visible(floater.visible.get());
-        child.tl_restack_popups();
-        floater.schedule_layout();
-        if floater.visible.get() {
-            state.damage(position);
-        }
+        child.clone().tl_set_parent(tt, floater.clone());
+        child.clone().tl_set_visible(tt, floater.visible.get());
         if child.tl_data().pinned.get() {
             floater.toggle_pinned();
         }
+        floater.push_change(tt, FloatTreeOpKind::Map(child));
+        floater.perform_layout(tt);
+        floater.push_change(tt, FloatTreeOpKind::Mapped(floater.visible.get()));
         floater
     }
 
@@ -169,12 +188,12 @@ impl FloatNode {
         }
     }
 
-    fn perform_layout(self: &Rc<Self>) {
+    fn perform_layout(self: &Rc<Self>, tt: &TreeTransaction) {
         let child = match self.child.get() {
             Some(c) => c,
             _ => return,
         };
-        let pos = self.position.get();
+        let pos = self.pending_position.get();
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
         let th = theme.sizes.title_height.get();
@@ -185,11 +204,9 @@ impl FloatNode {
             (pos.height() - 2 * bw - th - 1).max(0),
         )
         .unwrap();
-        let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
-        child.clone().tl_change_extents(&cpos);
-        self.title_rect.set(tr);
+        child.clone().tl_request_config(tt, &cpos);
+        self.push_change(tt, FloatTreeOpKind::SetPos(pos));
         self.layout_scheduled.set(false);
-        self.schedule_render_titles();
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
@@ -257,8 +274,8 @@ impl FloatNode {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
             }
         }
-        let pos = self.position.get();
-        if self.visible.get() && pos.width() >= 2 * bw {
+        let pos = self.mapped_position.get();
+        if self.mapped.get() && pos.width() >= 2 * bw {
             let tr =
                 Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
             self.state.damage(tr);
@@ -292,7 +309,7 @@ impl FloatNode {
         });
         seat_state.x = x;
         seat_state.y = y;
-        let pos = self.position.get();
+        let pos = self.mapped_position.get();
         if seat_state.op_active {
             let mut x1 = pos.x1();
             let mut y1 = pos.y1();
@@ -349,12 +366,9 @@ impl FloatNode {
                 }
             }
             let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
-            self.position.set(new_pos);
-            if self.visible.get() {
-                self.state.damage(pos);
-                self.state.damage(new_pos);
+            if self.pending_position.replace(new_pos) != new_pos {
+                self.schedule_layout();
             }
-            self.schedule_layout();
             return;
         }
         let resize_left = x < bw;
@@ -406,6 +420,7 @@ impl FloatNode {
 
     fn set_workspace_(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         ws: &Rc<WorkspaceNode>,
         update_pinned: bool,
         update_visible: bool,
@@ -418,7 +433,7 @@ impl FloatNode {
         self.workspace.set(ws.clone());
         self.location.set(ws.location());
         if update_visible {
-            self.stacked_set_visible(ws.float_visible());
+            self.clone().stacked_set_visible(tt, ws.float_visible());
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.output.get().pinned.add_last_existing(pl);
@@ -432,7 +447,7 @@ impl FloatNode {
         if output.is_dummy {
             return;
         }
-        let pos = self.position.get();
+        let pos = self.pending_position.get();
         let opos = output.global.pos.get();
         if pos.intersects(&opos) {
             return;
@@ -463,11 +478,7 @@ impl FloatNode {
             y2 += y1 - pos.y1();
         }
         let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
-        self.position.set(new_pos);
-        if self.visible.get() {
-            self.state.damage(pos);
-            self.state.damage(new_pos);
-        }
+        self.pending_position.set(new_pos);
         self.schedule_layout();
     }
 
@@ -516,7 +527,7 @@ impl FloatNode {
             if dl.next().is_none() {
                 return;
             }
-            self.state.damage(self.position.get());
+            self.state.damage(self.mapped_position.get());
             self.state.root.stacked.add_last_existing(&dl);
             if let Some(tl) = self.child.get() {
                 tl.tl_restack_popups();
@@ -603,7 +614,7 @@ impl FloatNode {
                 return;
             }
             cursor_data.op_active = true;
-            let pos = self.position.get();
+            let pos = self.mapped_position.get();
             match cursor_data.op_type {
                 OpType::Move => {
                     self.restack();
@@ -633,8 +644,9 @@ impl FloatNode {
             }
         } else if !pressed {
             cursor_data.op_active = false;
-            let ws = cursor.output().ensure_workspace();
-            self.set_workspace_(&ws, true, true);
+            let tt = &self.state.tree_transaction();
+            let ws = cursor.output().ensure_workspace(tt);
+            self.set_workspace_(tt, &ws, true, true);
         }
     }
 
@@ -648,7 +660,7 @@ impl FloatNode {
         let theme = &self.state.theme.sizes;
         let bw = theme.border_width.get();
         let th = theme.title_height.get();
-        let pos = self.position.get();
+        let pos = self.mapped_position.get();
         let body = Rect::new(
             pos.x1() + bw,
             pos.y1() + bw + th + 1,
@@ -656,6 +668,16 @@ impl FloatNode {
             pos.y2() - bw,
         )?;
         child.tl_tile_drag_destination(source, None, body, abs_x, abs_y)
+    }
+
+    fn push_change(self: &Rc<Self>, tt: &TreeTransaction, ty: FloatTreeOpKind) {
+        tt.add_op(
+            &self.timeline,
+            FloatTreeOp {
+                node: self.clone(),
+                ty,
+            },
+        );
     }
 }
 
@@ -685,11 +707,11 @@ impl Node for FloatNode {
     }
 
     fn node_visible(&self) -> bool {
-        self.visible.get()
+        self.mapped.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.position.get()
+    fn node_mapped_position(&self) -> Rect {
+        self.mapped_position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -734,7 +756,7 @@ impl Node for FloatNode {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
-        let pos = self.position.get();
+        let pos = self.mapped_position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
         }
@@ -763,11 +785,11 @@ impl Node for FloatNode {
         renderer.render_floating(self, x, y)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if self.visible.get() {
             return;
         }
-        self.workspace.get().cnode_make_visible(&*self);
+        self.workspace.get().cnode_make_visible(tt, &*self);
     }
 
     fn node_on_button(
@@ -883,27 +905,29 @@ impl Node for FloatNode {
 }
 
 impl ContainingNode for FloatNode {
-    fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+    fn cnode_replace_child(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        _old: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
         self.discard_child_properties();
         self.child.set(Some(new.clone()));
-        new.tl_set_parent(self.clone());
+        new.clone().tl_set_parent(tt, self.clone());
         self.pull_child_properties();
-        new.tl_set_visible(self.visible.get());
-        self.schedule_layout();
-        if self.visible.get() {
-            self.state.damage(self.position.get());
-        }
+        new.clone().tl_set_visible(tt, self.visible.get());
+        self.push_change(tt, FloatTreeOpKind::Replace(new));
+        self.perform_layout(tt);
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        self.discard_child_properties();
+    fn cnode_remove_child2(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        _child: &dyn Node,
+        _preserve_focus: bool,
+    ) {
         self.child.set(None);
-        self.display_link.borrow_mut().take();
-        self.workspace_link.set(None);
-        self.pinned_link.take();
-        if self.visible.get() {
-            self.state.damage(self.position.get());
-        }
+        self.push_change(tt, FloatTreeOpKind::Unmap);
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
@@ -922,27 +946,32 @@ impl ContainingNode for FloatNode {
         self.workspace.get()
     }
 
-    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
-        self.node_make_visible();
+    fn cnode_make_visible(self: Rc<Self>, tt: &TreeTransaction, _child: &dyn Node) {
+        self.node_make_visible(tt);
     }
 
-    fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
+    fn cnode_set_child_position(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        _child: &dyn Node,
+        x: i32,
+        y: i32,
+    ) {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
         let (x, y) = (x - bw, y - th - bw - 1);
-        let pos = self.position.get();
+        let pos = self.pending_position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
-            self.position.set(new_pos);
-            self.state.damage(pos);
-            self.state.damage(new_pos);
-            self.schedule_layout();
+            self.pending_position.set(new_pos);
+            self.perform_layout(tt);
         }
     }
 
     fn cnode_resize_child(
         self: Rc<Self>,
+        tt: &TreeTransaction,
         _child: &dyn Node,
         new_x1: Option<i32>,
         new_y1: Option<i32>,
@@ -952,7 +981,7 @@ impl ContainingNode for FloatNode {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
-        let pos = self.position.get();
+        let pos = self.pending_position.get();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -971,12 +1000,8 @@ impl ContainingNode for FloatNode {
         }
         let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
         if new_pos != pos {
-            self.position.set(new_pos);
-            if self.visible.get() {
-                self.state.damage(pos);
-                self.state.damage(new_pos);
-            }
-            self.schedule_layout();
+            self.pending_position.set(new_pos);
+            self.perform_layout(tt);
         }
     }
 
@@ -997,14 +1022,15 @@ impl ContainingNode for FloatNode {
 }
 
 impl StackedNode for FloatNode {
-    fn stacked_set_visible(&self, visible: bool) {
+    fn stacked_set_visible(self: Rc<Self>, tt: &TreeTransaction, visible: bool) {
         if self.visible.replace(visible) != visible {
-            self.state.damage(self.position.get());
+            self.state.damage(self.mapped_position.get());
+            self.push_change(tt, FloatTreeOpKind::Mapped(visible));
         }
         if let Some(child) = self.child.get() {
-            child.tl_set_visible(visible);
+            child.tl_set_visible(tt, visible);
         }
-        self.seat_state.set_visible(self, visible);
+        self.seat_state.set_visible(&*self, visible);
     }
 
     fn stacked_has_workspace_link(&self) -> bool {
@@ -1013,8 +1039,13 @@ impl StackedNode for FloatNode {
 }
 
 impl PinnedNode for FloatNode {
-    fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool) {
-        self.set_workspace_(workspace, false, update_visible);
+    fn set_workspace(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        workspace: &Rc<WorkspaceNode>,
+        update_visible: bool,
+    ) {
+        self.set_workspace_(tt, workspace, false, update_visible);
     }
 }
 
@@ -1025,5 +1056,54 @@ impl dyn Node {
         {
             float.restack();
         }
+    }
+}
+
+impl TreeTransactionOp for FloatTreeOp {
+    fn unblocked(self, _serial: TreeSerial, _timeout: bool) {
+        let f = &self.node;
+        if f.mapped.get() {
+            f.state.damage(f.mapped_position.get());
+        }
+        match self.ty {
+            FloatTreeOpKind::Map(new) => {
+                f.mapped_child.set(Some(new.clone()));
+                *f.display_link.borrow_mut() = Some(f.state.root.stacked.add_last(f.clone()));
+                f.workspace_link
+                    .set(Some(f.workspace.get().stacked.add_last(f.clone())));
+                new.tl_restack_popups();
+                f.schedule_render_titles();
+            }
+            FloatTreeOpKind::Replace(new) => {
+                f.mapped_child.set(Some(new.clone()));
+                f.schedule_render_titles();
+            }
+            FloatTreeOpKind::Unmap => {
+                f.discard_child_properties();
+                f.mapped_child.set(None);
+                f.display_link.borrow_mut().take();
+                f.workspace_link.set(None);
+                f.pinned_link.take();
+            }
+            FloatTreeOpKind::SetPos(pos) => {
+                if f.mapped.get() {
+                    f.state.damage(pos);
+                }
+                f.mapped_position.set(pos);
+                let theme = &f.state.theme;
+                let bw = theme.sizes.border_width.get();
+                let th = theme.sizes.title_height.get();
+                let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
+                f.title_rect.set(tr);
+                f.schedule_render_titles();
+            }
+            FloatTreeOpKind::Mapped(mapped) => {
+                f.mapped.set(mapped);
+                if mapped {
+                    f.state.damage(f.mapped_position.get());
+                }
+            }
+        }
+        f.state.tree_changed();
     }
 }

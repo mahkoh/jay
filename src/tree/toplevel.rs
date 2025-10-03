@@ -28,7 +28,8 @@ use {
         state::State,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
-            NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode,
+            NodeLayerLink, OutputNode, PlaceholderNode, TreeSerial, WorkspaceNode,
+            transaction::{TreeTransaction, TreeTransactionOp, TreeTransactionTimeline},
         },
         utils::{
             array_to_tuple::ArrayToTuple,
@@ -58,20 +59,26 @@ tree_id!(ToplevelNodeId);
 
 pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_surface_active_changed(&self, active: bool);
-    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, ws: Option<Rc<WorkspaceNode>>);
+    fn tl_set_fullscreen(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        fullscreen: bool,
+        ws: Option<Rc<WorkspaceNode>>,
+    );
     fn tl_title_changed(&self);
-    fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>);
+    fn tl_set_parent(self: Rc<Self>, tt: &TreeTransaction, parent: Rc<dyn ContainingNode>);
     fn tl_extents_changed(&self);
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>);
     fn tl_workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>);
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect);
-    fn tl_set_visible(&self, visible: bool);
-    fn tl_destroy(&self);
+    fn tl_set_mapped_position(self: Rc<Self>, rect: &Rect);
+    fn tl_request_config(self: Rc<Self>, tt: &TreeTransaction, pos: &Rect);
+    fn tl_set_visible(self: Rc<Self>, tt: &TreeTransaction, visible: bool);
+    fn tl_destroy(self: Rc<Self>);
     fn tl_pinned(&self) -> bool;
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
-    fn tl_mark_fullscreen(&self, fullscreen: bool);
+    fn tl_mark_fullscreen(self: Rc<Self>, tt: &TreeTransaction, fullscreen: bool);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -82,14 +89,19 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         });
     }
 
-    fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, ws: Option<Rc<WorkspaceNode>>) {
+    fn tl_set_fullscreen(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        fullscreen: bool,
+        ws: Option<Rc<WorkspaceNode>>,
+    ) {
         let data = self.tl_data();
         if fullscreen {
             if let Some(ws) = ws.or_else(|| data.workspace.get()) {
-                data.set_fullscreen2(&data.state, self.clone(), &ws);
+                data.set_fullscreen2(&data.state, tt, self.clone(), &ws);
             }
         } else {
-            data.unset_fullscreen(&data.state, self.clone());
+            data.unset_fullscreen(&data.state, tt, self.clone());
         }
     }
 
@@ -110,8 +122,13 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         data.property_changed(TL_CHANGED_TITLE);
     }
 
-    fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
+    fn tl_set_parent(self: Rc<Self>, tt: &TreeTransaction, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
+        data.add_op(
+            self.clone(),
+            tt,
+            ToplevelTreeOpKind::SetParent(Some(parent.clone())),
+        );
         if !data.is_fullscreen.get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
@@ -144,7 +161,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_extents_changed(&self) {
         let data = self.tl_data();
         if let Some(parent) = data.parent.get() {
-            let pos = data.pos.get();
+            let pos = data.content_size.get();
             parent.node_child_size_changed(self, pos.width(), pos.height());
             data.state.tree_changed();
         }
@@ -182,9 +199,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         }
     }
 
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+    fn tl_set_mapped_position(self: Rc<Self>, rect: &Rect) {
         let data = self.tl_data();
-        let prev = data.desired_extents.replace(*rect);
+        let prev = data.mapped_position.replace(*rect);
         if prev.size() != rect.size() {
             for sc in data.jay_screencasts.lock().values() {
                 sc.schedule_realloc_or_reconfigure();
@@ -197,16 +214,24 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             data.float_width.set(rect.width());
             data.float_height.set(rect.height());
         }
-        self.tl_change_extents_impl(rect)
+        self.tl_set_mapped_position_impl(rect)
     }
 
-    fn tl_set_visible(&self, visible: bool) {
-        self.tl_set_visible_impl(visible);
-        self.tl_data().set_visible(self, visible);
+    fn tl_request_config(self: Rc<Self>, tt: &TreeTransaction, pos: &Rect) {
+        let data = self.tl_data();
+        data.unpushed_pos.set(Some(*pos));
+        data.push_config(&self, tt);
     }
 
-    fn tl_destroy(&self) {
-        self.tl_data().destroy_node(self);
+    fn tl_set_visible(self: Rc<Self>, tt: &TreeTransaction, visible: bool) {
+        let data = self.tl_data();
+        self.tl_set_visible_impl(tt, visible);
+        data.set_visible(&*self, visible);
+        data.push_config(&self, tt);
+    }
+
+    fn tl_destroy(self: Rc<Self>) {
+        self.tl_data().destroy_node(self.clone());
         self.tl_destroy_impl();
     }
 
@@ -244,10 +269,10 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_mark_ancestor_fullscreen_ext(fullscreen);
     }
 
-    fn tl_mark_fullscreen(&self, fullscreen: bool) {
+    fn tl_mark_fullscreen(self: Rc<Self>, tt: &TreeTransaction, fullscreen: bool) {
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
-        self.tl_mark_fullscreen_ext();
+        self.tl_mark_fullscreen_ext(tt);
     }
 }
 
@@ -270,11 +295,13 @@ pub trait ToplevelNodeBase: Node {
         let _ = ws;
     }
 
-    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect);
+    fn tl_set_mapped_position_impl(self: Rc<Self>, rect: &Rect);
+
+    fn tl_request_config_impl(self: Rc<Self>, tt: &TreeTransaction, rect: &Rect);
 
     fn tl_close(self: Rc<Self>);
 
-    fn tl_set_visible_impl(&self, visible: bool);
+    fn tl_set_visible_impl(&self, tt: &TreeTransaction, visible: bool);
     fn tl_destroy_impl(&self);
 
     fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode>;
@@ -304,9 +331,9 @@ pub trait ToplevelNodeBase: Node {
 
     fn tl_render_bounds(&self) -> Option<Rect> {
         self.tl_data()
-            .parent
+            .mapped_parent
             .is_some()
-            .then_some(self.node_absolute_position())
+            .then_some(self.node_mapped_position())
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
@@ -317,8 +344,8 @@ pub trait ToplevelNodeBase: Node {
         let _ = fullscreen;
     }
 
-    fn tl_mark_fullscreen_ext(&self) {
-        // nothing
+    fn tl_mark_fullscreen_ext(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 }
 
@@ -344,6 +371,7 @@ impl ToplevelOpt {
     }
 }
 
+#[derive(Clone)]
 pub enum ToplevelType {
     Container,
     Placeholder(Option<ToplevelIdentifier>),
@@ -381,9 +409,10 @@ pub struct ToplevelData {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
+    pub mapped_parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub mapped_during_iteration: Cell<u64>,
-    pub pos: Cell<Rect>,
-    pub desired_extents: Cell<Rect>,
+    pub content_size: Cell<Rect>,
+    pub mapped_position: Cell<Rect>,
     pub seat_state: NodeSeatState,
     pub wants_attention: Cell<bool>,
     pub requested_attention: Cell<bool>,
@@ -404,6 +433,9 @@ pub struct ToplevelData {
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
     pub content_type: Cell<Option<ContentType>>,
+    pub requested_pos: Cell<Option<Rect>>,
+    unpushed_pos: Cell<Option<Rect>>,
+    pub transaction_timeline: TreeTransactionTimeline,
 }
 
 impl ToplevelData {
@@ -437,9 +469,10 @@ impl ToplevelData {
             workspace: Default::default(),
             title: RefCell::new(title),
             parent: Default::default(),
+            mapped_parent: Default::default(),
             mapped_during_iteration: Cell::new(0),
-            pos: Default::default(),
-            desired_extents: Default::default(),
+            content_size: Default::default(),
+            mapped_position: Default::default(),
             seat_state: Default::default(),
             wants_attention: Cell::new(false),
             requested_attention: Cell::new(false),
@@ -457,6 +490,9 @@ impl ToplevelData {
             just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
             content_type: Default::default(),
+            unpushed_pos: Cell::new(None),
+            transaction_timeline: state.tree_transactions.timeline(),
+            requested_pos: Cell::new(None),
         }
     }
 
@@ -512,7 +548,7 @@ impl ToplevelData {
         }
     }
 
-    pub fn destroy_node(&self, node: &dyn Node) {
+    pub fn destroy_node(&self, node: Rc<dyn ToplevelNode>) {
         for jay_tl in self.jay_toplevels.lock().drain_values() {
             jay_tl.destroy();
         }
@@ -544,16 +580,17 @@ impl ToplevelData {
         self.property_changed(TL_CHANGED_DESTROYED);
     }
 
-    pub fn detach_node(&self, node: &dyn Node) {
+    pub fn detach_node(&self, node: Rc<dyn ToplevelNode>) {
+        let tt = &self.state.tree_transaction();
         if let Some(fd) = self.fullscrceen_data.borrow_mut().take() {
             fd.placeholder.tl_destroy();
         }
-        if let Some(parent) = self.parent.take() {
-            parent.cnode_remove_child(node);
+        if let Some(parent) = self.clear_parent(node.clone(), tt) {
+            parent.cnode_remove_child(tt, &*node);
         }
         self.float.take();
         self.workspace.take();
-        self.seat_state.destroy_node(node);
+        self.seat_state.destroy_node(&*node);
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -708,19 +745,21 @@ impl ToplevelData {
     pub fn set_fullscreen(
         &self,
         state: &Rc<State>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         output: &Rc<OutputNode>,
     ) {
-        self.set_fullscreen2(state, node, &output.ensure_workspace());
+        self.set_fullscreen2(state, tt, node, &output.ensure_workspace(tt));
     }
 
     pub fn set_fullscreen2(
         &self,
         state: &Rc<State>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if ws.fullscreen.is_some() {
+        if ws.pending_fullscreen.is_some() {
             log::info!(
                 "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
             );
@@ -748,7 +787,7 @@ impl ToplevelData {
         }
         let placeholder =
             Rc::new_cyclic(|weak| PlaceholderNode::new_for(state, node.clone(), weak));
-        parent.cnode_replace_child(&*node, placeholder.clone());
+        parent.cnode_replace_child(tt, &*node, placeholder.clone());
         let mut kb_foci = Default::default();
         if ws.visible.get() {
             if let Some(container) = ws.container.get() {
@@ -763,12 +802,10 @@ impl ToplevelData {
             workspace: ws.clone(),
         });
         drop(data);
-        node.tl_mark_fullscreen(true);
+        node.clone().tl_mark_fullscreen(tt, true);
         self.property_changed(TL_CHANGED_FULLSCREEN);
-        node.tl_set_parent(ws.clone());
-        ws.set_fullscreen_node(&node);
-        node.clone()
-            .tl_change_extents(&ws.output.get().global.pos.get());
+        node.clone().tl_set_parent(tt, ws.clone());
+        ws.set_fullscreen_node(tt, &node);
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -778,7 +815,12 @@ impl ToplevelData {
         }
     }
 
-    pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
+    pub fn unset_fullscreen(
+        &self,
+        state: &Rc<State>,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+    ) {
         if !self.is_fullscreen.get() {
             log::warn!("Cannot unset fullscreen on a node that is not fullscreen");
             return;
@@ -790,9 +832,9 @@ impl ToplevelData {
                 return;
             }
         };
-        node.tl_mark_fullscreen(false);
+        node.clone().tl_mark_fullscreen(tt, false);
         self.property_changed(TL_CHANGED_FULLSCREEN);
-        match fd.workspace.fullscreen.get() {
+        match fd.workspace.pending_fullscreen.get() {
             None => {
                 log::error!(
                     "Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node."
@@ -807,13 +849,18 @@ impl ToplevelData {
             }
             _ => {}
         }
-        fd.workspace.remove_fullscreen_node();
+        let tt = &self.state.tree_transaction();
+        fd.workspace.remove_fullscreen_node(tt);
         if fd.placeholder.is_destroyed() {
-            state.map_tiled(node);
+            state.map_tiled(tt, node);
             return;
         }
-        let parent = fd.placeholder.tl_data().parent.take().unwrap();
-        parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
+        let parent = fd
+            .placeholder
+            .tl_data()
+            .clear_parent(node.clone(), tt)
+            .unwrap();
+        parent.cnode_replace_child(tt, fd.placeholder.deref(), node.clone());
         if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
             for seat in kb_foci {
@@ -830,6 +877,9 @@ impl ToplevelData {
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
         if self.visible.replace(visible) != visible {
             self.property_changed(TL_CHANGED_VISIBLE);
+            if visible {
+                self.requested_pos.take();
+            }
         }
         self.seat_state.set_visible(node, visible);
         for sc in self.jay_screencasts.lock().values() {
@@ -880,8 +930,8 @@ impl ToplevelData {
         self.workspace.get().map(|ws| ws.output.get())
     }
 
-    pub fn desired_pixel_size(&self) -> (i32, i32) {
-        let (dw, dh) = self.desired_extents.get().size();
+    pub fn mapped_pixel_size(&self) -> (i32, i32) {
+        let (dw, dh) = self.mapped_position.get().size();
         if let Some(ws) = self.workspace.get() {
             let scale = ws.output.get().global.persistent.scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
@@ -899,12 +949,12 @@ impl ToplevelData {
         }
     }
 
-    pub fn make_visible(&self, slf: &dyn Node) {
+    pub fn make_visible(&self, slf: &dyn Node, tt: &TreeTransaction) {
         if self.visible.get() {
             return;
         }
         if let Some(parent) = self.parent.get() {
-            parent.cnode_make_visible(slf);
+            parent.cnode_make_visible(tt, slf);
         }
     }
 
@@ -916,6 +966,46 @@ impl ToplevelData {
             return float.node_layer();
         }
         NodeLayerLink::Tiled
+    }
+
+    fn push_config(&self, slf: &Rc<impl ToplevelNode>, tt: &TreeTransaction) {
+        if !self.visible.get() {
+            return;
+        }
+        let Some(pos) = self.unpushed_pos.take() else {
+            return;
+        };
+        let old = self.requested_pos.replace(Some(pos));
+        if old == Some(pos) {
+            return;
+        }
+        self.add_op(slf.clone(), tt, ToplevelTreeOpKind::SetPos(pos));
+        slf.clone().tl_request_config_impl(tt, &pos);
+    }
+
+    fn add_op(&self, slf: Rc<dyn ToplevelNode>, tt: &TreeTransaction, kind: ToplevelTreeOpKind) {
+        tt.add_op(
+            &self.transaction_timeline,
+            ToplevelTreeOp {
+                toplevel: slf,
+                kind,
+            },
+        );
+    }
+
+    pub fn clear_parent(
+        &self,
+        slf: Rc<dyn ToplevelNode>,
+        tt: &TreeTransaction,
+    ) -> Option<Rc<dyn ContainingNode>> {
+        self.add_op(slf, tt, ToplevelTreeOpKind::SetParent(None));
+        self.parent.take()
+    }
+
+    pub fn unambiguous_parent(&self) -> Option<Rc<dyn ContainingNode>> {
+        let parent = self.parent.get()?;
+        let mapped_parent = self.mapped_parent.get()?;
+        rc_eq(&parent, &mapped_parent).then_some(parent)
     }
 }
 
@@ -959,8 +1049,8 @@ pub enum TddType {
 pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
     const FACTOR: i32 = 5;
     match split {
-        ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
-        ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+        ContainerSplit::Horizontal => t.node_mapped_position().width() / FACTOR,
+        ContainerSplit::Vertical => t.node_mapped_position().height() / FACTOR,
     }
 }
 
@@ -986,8 +1076,9 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         _ => return,
     };
     if let Some(pn) = pn.node_into_containing_node() {
-        let cn = ContainerNode::new(state, &ws, tl.clone(), axis);
-        pn.cnode_replace_child(&*tl, cn);
+        let tt = &state.tree_transaction();
+        let cn = ContainerNode::new(state, tt, &ws, tl.clone(), axis);
+        pn.cnode_replace_child(tt, &*tl, cn);
     }
 }
 
@@ -1003,34 +1094,40 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
         Some(p) => p,
         _ => return,
     };
+    let tt = &state.tree_transaction();
     if !floating {
-        parent.cnode_remove_child2(&*tl, true);
-        state.map_tiled(tl);
+        parent.cnode_remove_child2(tt, &*tl, true);
+        state.map_tiled(tt, tl);
     } else if let Some(ws) = data.workspace.get() {
-        parent.cnode_remove_child2(&*tl, true);
+        parent.cnode_remove_child2(tt, &*tl, true);
         let (width, height) = data.float_size(&ws);
-        state.map_floating(tl, width, height, &ws, None);
+        state.map_floating(tt, tl, width, height, &ws, None);
     }
 }
 
-pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
-    let old_ws = match tl.tl_data().workspace.get() {
+pub fn toplevel_set_workspace(
+    state: &Rc<State>,
+    tt: &TreeTransaction,
+    tl: Rc<dyn ToplevelNode>,
+    ws: &Rc<WorkspaceNode>,
+) {
+    let data = tl.tl_data();
+    let old_ws = match data.workspace.get() {
         Some(ws) => ws,
         _ => return,
     };
     if old_ws.id == ws.id {
         return;
     }
-    let data = tl.tl_data();
     let fullscreen = data.is_fullscreen.get();
     if fullscreen {
-        if let Some(old) = ws.fullscreen.get() {
-            old.tl_set_fullscreen(false, None);
+        if let Some(old) = ws.pending_fullscreen.get() {
+            old.tl_set_fullscreen(tt, false, None);
         }
-        if ws.fullscreen.is_some() {
+        if ws.pending_fullscreen.is_some() {
             return;
         }
-        tl.clone().tl_set_fullscreen(false, None);
+        tl.clone().tl_set_fullscreen(tt, false, None);
         if data.is_fullscreen.get() {
             return;
         }
@@ -1040,7 +1137,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
         _ => return,
     };
     let kb_foci = collect_kb_foci(tl.clone());
-    cn.cnode_remove_child2(&*tl, true);
+    cn.cnode_remove_child2(tt, &*tl, true);
     if !ws.visible.get() {
         for focus in kb_foci {
             old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
@@ -1048,11 +1145,35 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     }
     if tl.tl_data().parent_is_float.get() {
         let (width, height) = tl.tl_data().float_size(ws);
-        state.map_floating(tl.clone(), width, height, ws, None);
+        state.map_floating(tt, tl.clone(), width, height, ws, None);
     } else {
-        state.map_tiled_on(tl.clone(), ws);
+        state.map_tiled_on(tt, tl.clone(), ws);
     }
     if fullscreen {
-        tl.tl_set_fullscreen(true, Some(ws.clone()));
+        tl.tl_set_fullscreen(tt, true, Some(ws.clone()));
+    }
+}
+
+pub struct ToplevelTreeOp {
+    toplevel: Rc<dyn ToplevelNode>,
+    kind: ToplevelTreeOpKind,
+}
+
+enum ToplevelTreeOpKind {
+    SetParent(Option<Rc<dyn ContainingNode>>),
+    SetPos(Rect),
+}
+
+impl TreeTransactionOp for ToplevelTreeOp {
+    fn unblocked(self, _serial: TreeSerial, _timeout: bool) {
+        let data = self.toplevel.tl_data();
+        match self.kind {
+            ToplevelTreeOpKind::SetParent(p) => {
+                data.mapped_parent.set(p);
+            }
+            ToplevelTreeOpKind::SetPos(p) => {
+                self.toplevel.tl_set_mapped_position(&p);
+            }
+        }
     }
 }

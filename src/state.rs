@@ -15,6 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        configurable::ConfigureGroups,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
@@ -64,7 +65,6 @@ use {
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
-                xdg_surface::XdgSurfaceConfigureEvent,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -98,6 +98,7 @@ use {
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, TreeSerial, TreeSerials,
             VrrMode, WorkspaceNode, generic_node_visitor,
+            transaction::{TreeTransaction, TreeTransactions},
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -286,11 +287,12 @@ pub struct State {
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
-    pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub tree_serials: TreeSerials,
+    pub tree_transactions: Rc<TreeTransactions>,
+    pub configure_groups: Rc<ConfigureGroups>,
 }
 
 // impl Drop for State {
@@ -450,6 +452,7 @@ impl ConnectorData {
     pub fn modify_state(
         &self,
         state: &State,
+        tt: &TreeTransaction,
         f: impl FnOnce(&mut BackendConnectorState),
     ) -> Result<(), BackendConnectorTransactionError> {
         let old = self.state.get();
@@ -462,11 +465,11 @@ impl ConnectorData {
         let mut tran = self.connector.create_transaction()?;
         tran.add(&self.connector, s)?;
         tran.prepare()?.apply()?.commit();
-        self.set_state(state, s);
+        self.set_state(tt, state, s);
         Ok(())
     }
 
-    pub fn set_state(&self, state: &State, s: BackendConnectorState) {
+    pub fn set_state(&self, tt: &TreeTransaction, state: &State, s: BackendConnectorState) {
         let old = self.state.get();
         if old.serial >= s.serial {
             return;
@@ -504,7 +507,7 @@ impl ConnectorData {
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
-            node.update_state(old, s);
+            node.update_state(tt, old, s);
         }
     }
 }
@@ -522,8 +525,7 @@ impl DrmDevData {
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.children
-            .iter()
+        node.current_children()
             .for_each(|c| c.title_tex.borrow_mut().clear());
         node.schedule_render_titles();
         node.node_visit_children(self);
@@ -652,8 +654,7 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
-                    node.children
-                        .iter()
+                    node.current_children()
                         .for_each(|c| c.title_tex.borrow_mut().clear());
                     node.node_visit_children(self);
                 }
@@ -778,28 +779,42 @@ impl State {
         }
     }
 
-    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+    pub fn ensure_map_workspace(
+        &self,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Rc<WorkspaceNode> {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap()
-            .ensure_workspace()
+            .ensure_workspace(tt)
     }
 
-    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
+    pub fn map_tiled(self: &Rc<Self>, tt: &TreeTransaction, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
-        self.do_map_tiled(seat.as_deref(), node.clone());
+        self.do_map_tiled(tt, seat.as_deref(), node.clone());
         self.focus_after_map(node, seat.as_deref());
     }
 
-    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
-        let ws = self.ensure_map_workspace(seat);
-        self.map_tiled_on(node, &ws);
+    fn do_map_tiled(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        node: Rc<dyn ToplevelNode>,
+    ) {
+        let ws = self.ensure_map_workspace(tt, seat);
+        self.map_tiled_on(tt, node, &ws);
     }
 
-    pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+    pub fn map_tiled_on(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
         if let Some(c) = ws.container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
@@ -808,18 +823,19 @@ impl State {
                 .get()
                 .and_then(|n| n.node_into_container());
             if let Some(lap) = lap {
-                lap.add_child_after(&*la, node);
+                lap.add_child_after(tt, &*la, node);
             } else {
-                c.append_child(node);
+                c.append_child(tt, node);
             }
         } else {
-            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
-            ws.set_container(&container);
+            let container = ContainerNode::new(self, tt, ws, node, ContainerSplit::Horizontal);
+            ws.set_container(tt, &container);
         }
     }
 
     pub fn map_floating(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         mut width: i32,
         mut height: i32,
@@ -855,11 +871,12 @@ impl State {
             }
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
-        FloatNode::new(self, workspace, position, node.clone());
-        self.focus_after_map(node, self.seat_queue.last().as_deref());
+        FloatNode::new(self, tt, workspace, position, node);
+        // TODO
+        // self.focus_after_map(node, self.seat_queue.last().as_deref());
     }
 
-    fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
+    pub fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
         if !node.node_visible() {
             return;
         }
@@ -876,6 +893,7 @@ impl State {
 
     pub fn show_workspace2(
         &self,
+        tt: &TreeTransaction,
         seat: Option<&Rc<WlSeatGlobal>>,
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
@@ -893,7 +911,7 @@ impl State {
                     }));
             }
         }
-        let did_change = output.show_workspace(&ws);
+        let did_change = output.show_workspace(tt, &ws);
         if !pinned_is_focused && let Some(seat) = seat {
             ws.clone().node_do_focus(seat, Direction::Unspecified);
         }
@@ -908,6 +926,7 @@ impl State {
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
+        let tt = &self.tree_transaction();
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
             _ => {
@@ -916,23 +935,23 @@ impl State {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
                 }
-                output.create_workspace(name)
+                output.create_workspace(tt, name)
             }
         };
-        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
+        self.show_workspace2(tt, Some(seat), &ws.output.get(), &ws);
     }
 
-    pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
+    pub fn float_map_ws(&self, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_output();
             if !output.is_dummy {
-                return output.ensure_workspace();
+                return output.ensure_workspace(tt);
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_workspace();
+            return output.ensure_workspace(tt);
         }
-        self.dummy_output.get().unwrap().ensure_workspace()
+        self.dummy_output.get().unwrap().ensure_workspace(tt)
     }
 
     pub fn set_status(&self, status: &str) {
@@ -1010,11 +1029,13 @@ impl State {
     pub fn do_unlock(&self) {
         self.lock.locked.set(false);
         self.lock.lock.take();
+        let tt = &self.tree_transaction();
         for output in self.root.outputs.lock().values() {
-            if let Some(surface) = output.set_lock_surface(None) {
+            if let Some(surface) = output.set_lock_surface(tt, None) {
                 surface.destroy_node();
             }
         }
+        // TODO
         self.tree_changed();
         self.damage(self.root.extents.get());
     }
@@ -1102,7 +1123,8 @@ impl State {
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
         self.wait_for_sync_obj.clear();
-        self.xdg_surface_configure_events.clear();
+        self.tree_transactions.clear();
+        self.configure_groups.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1567,14 +1589,6 @@ impl State {
         let node = found_tree.pop().unwrap();
         found_tree.clear();
         node
-    }
-
-    pub fn next_tree_serial(&self) -> TreeSerial {
-        let mut s = self.tree_serials.next();
-        if s.raw() as u32 == 0 {
-            s = self.tree_serials.next();
-        }
-        s
     }
 
     pub fn validate_tree_serial32(&self, s: u32) -> Option<TreeSerial> {

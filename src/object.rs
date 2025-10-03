@@ -49,7 +49,7 @@ pub trait ObjectBase: Any {
 }
 
 pub trait Object: ObjectBase + 'static {
-    fn break_loops(&self) {}
+    fn break_loops(self: Rc<Self>) {}
 }
 
 #[derive(Copy, Clone, Debug)]

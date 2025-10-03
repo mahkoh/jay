@@ -942,7 +942,7 @@ pub fn create_render_pass(
     let mut renderer = Renderer {
         base: renderer_base(physical_size, &mut ops, scale, transform),
         state,
-        logical_extents: node.node_absolute_position().at_point(0, 0),
+        logical_extents: node.node_mapped_position().at_point(0, 0),
         pixel_extents: {
             let (width, height) = logical_size(physical_size, transform);
             Rect::new(0, 0, width, height).unwrap()

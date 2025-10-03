@@ -345,7 +345,8 @@ impl JayRandrRequestHandler for JayRandr {
             self.send_error(&format!("Unknown transform {}", req.transform));
             return Ok(());
         };
-        c.update_transform(transform);
+        let tt = &self.state.tree_transaction();
+        c.update_transform(tt, transform);
         Ok(())
     }
 
@@ -353,7 +354,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_preferred_scale(Scale::from_wl(req.scale));
+        let tt = &self.state.tree_transaction();
+        c.set_preferred_scale(tt, Scale::from_wl(req.scale));
         Ok(())
     }
 
@@ -361,7 +363,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        let res = c.modify_state(&self.state, |s| {
+        let tt = &self.state.tree_transaction();
+        let res = c.modify_state(&self.state, tt, |s| {
             s.mode = backend::Mode {
                 width: req.width,
                 height: req.height,
@@ -386,7 +389,8 @@ impl JayRandrRequestHandler for JayRandr {
             self.send_error(&format!("x and y cannot be greater than {MAX_EXTENTS}"));
             return Ok(());
         }
-        c.set_position(req.x, req.y);
+        let tt = &self.state.tree_transaction();
+        c.set_position(tt, req.x, req.y);
         Ok(())
     }
 
@@ -394,7 +398,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        let res = c.modify_state(&self.state, |s| s.enabled = req.enabled != 0);
+        let tt = &self.state.tree_transaction();
+        let res = c.modify_state(&self.state, tt, |s| s.enabled = req.enabled != 0);
         if let Err(e) = res {
             self.send_error(&format!("Could not en/disable connector: {}", ErrorFmt(e)));
         }
@@ -411,7 +416,8 @@ impl JayRandrRequestHandler for JayRandr {
             _ => Some(true),
         };
         c.connector.before_non_desktop_override_update(non_desktop);
-        let res = c.modify_state(&self.state, |s| {
+        let tt = &self.state.tree_transaction();
+        let res = c.modify_state(&self.state, tt, |s| {
             s.non_desktop_override = non_desktop;
         });
         if let Err(e) = res {
@@ -427,7 +433,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_vrr_mode(mode);
+        let tt = &self.state.tree_transaction();
+        c.set_vrr_mode(tt, mode);
         return Ok(());
     }
 
@@ -454,7 +461,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_tearing_mode(mode);
+        let tt = &self.state.tree_transaction();
+        c.set_tearing_mode(tt, mode);
         return Ok(());
     }
 
@@ -465,7 +473,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        let res = c.modify_state(&self.state, |s| s.format = format);
+        let tt = &self.state.tree_transaction();
+        let res = c.modify_state(&self.state, tt, |s| s.format = format);
         if let Err(e) = res {
             self.send_error(&format!("Could not modify connector format: {}", e));
         }
@@ -502,7 +511,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        let res = c.modify_state(&self.state, |s| {
+        let tt = &self.state.tree_transaction();
+        let res = c.modify_state(&self.state, tt, |s| {
             s.color_space = cs;
             s.eotf = tf;
         });
