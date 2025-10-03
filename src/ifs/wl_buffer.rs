@@ -424,6 +424,7 @@ impl WlBuffer {
             }
         };
         *tex = Some(tex_);
+        log::debug!("Using zero-copy wl_shm path");
         true
     }
 
