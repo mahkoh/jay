@@ -147,7 +147,7 @@ impl Global for ExtImageCopyCaptureManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn required_caps(&self) -> ClientCaps {
