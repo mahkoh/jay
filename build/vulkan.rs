@@ -1,7 +1,12 @@
-use {anyhow::bail, std::process::Command};
+mod hash;
+
+use {crate::vulkan::hash::unchanged, anyhow::bail, std::process::Command};
 
 pub fn main() -> anyhow::Result<()> {
     if !std::fs::exists("compile-shaders")? {
+        return Ok(());
+    }
+    if unchanged() {
         return Ok(());
     }
     let code = Command::new("cargo")

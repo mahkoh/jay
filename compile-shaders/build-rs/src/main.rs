@@ -1,14 +1,7 @@
-use {
-    anyhow::bail,
-    compile_shaders_core::{ROOT, unchanged},
-    std::process::Command,
-};
+use {anyhow::bail, compile_shaders_core::ROOT, std::process::Command};
 
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed={}", ROOT);
-    if unchanged() {
-        return Ok(());
-    }
     let code = Command::new("cargo")
         .args([
             "run",
