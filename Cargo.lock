@@ -637,6 +637,7 @@ dependencies = [
  "tiny-skia",
  "tracy-client-sys",
  "uapi",
+ "walkdir",
  "with_builtin_macros",
 ]
 
