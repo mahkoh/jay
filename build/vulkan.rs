@@ -1,8 +1,13 @@
 mod hash;
 
-use {crate::vulkan::hash::unchanged, anyhow::bail, std::process::Command};
+use {
+    crate::vulkan::hash::{ROOT, unchanged},
+    anyhow::bail,
+    std::process::Command,
+};
 
 pub fn main() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed={}", ROOT);
     if !std::fs::exists("compile-shaders")? {
         return Ok(());
     }
@@ -15,7 +20,7 @@ pub fn main() -> anyhow::Result<()> {
             "--manifest-path",
             "compile-shaders/Cargo.toml",
             "-p",
-            "compile-shaders-build-rs",
+            "compile-shaders-compile",
         ])
         .status()?;
     if !code.success() {
