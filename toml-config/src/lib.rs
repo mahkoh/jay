@@ -235,9 +235,26 @@ impl Action {
             }
             Action::Exec { exec } => b.new(move || create_command(&exec).spawn()),
             Action::SwitchToVt { num } => b.new(move || switch_to_vt(num)),
-            Action::ShowWorkspace { name } => {
+            Action::ShowWorkspace { name, output } => {
                 let workspace = get_workspace(&name);
-                b.new(move || s.show_workspace(workspace))
+                let state = state.clone();
+                b.new(move || {
+                    let output = 'get_output: {
+                        let Some(output) = &output else {
+                            break 'get_output None;
+                        };
+                        for connector in connectors() {
+                            if connector.connected() && output.matches(connector, &state) {
+                                break 'get_output Some(connector);
+                            }
+                        }
+                        None
+                    };
+                    match output {
+                        Some(o) => s.show_workspace_on(workspace, o),
+                        _ => s.show_workspace(workspace),
+                    }
+                })
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);

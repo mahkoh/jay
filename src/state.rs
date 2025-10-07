@@ -906,11 +906,16 @@ impl State {
         }
     }
 
-    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
+    pub fn show_workspace(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        name: &str,
+        output: Option<Rc<OutputNode>>,
+    ) {
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
             _ => {
-                let output = seat.get_output();
+                let output = output.unwrap_or_else(|| seat.get_output());
                 if output.is_dummy {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;

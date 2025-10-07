@@ -239,17 +239,36 @@ Action:
           description: |
             Switches to a workspace.
             
-            - Example:
+            - Example 1:
             
               ```toml
               [shortcuts]
               alt-F1 = { type = "show-workspace", name = "1" }
+              ```
+            
+            - Example 2:
+            
+              ```toml
+              [shortcuts]
+              alt-F1 = { type = "show-workspace", name = "1", output.name = "left" }
               ```
           fields:
             name:
               description: The name of the workspace.
               required: true
               kind: string
+            output:
+              description: |
+                The output to show a newly created workspace on. This has no effect on
+                workspaces that already exist.
+                
+                If this is not set, then a new workspace is shown on the output that
+                contains the cursor.
+                
+                If multiple outputs match, the workspace is shown on the first matching
+                output.
+              required: false
+              ref: OutputMatch
         move-to-workspace:
           description: |
             Moves the currently focused window to a workspace.

@@ -1006,10 +1006,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
+    fn handle_show_workspace(
+        &self,
+        seat: Seat,
+        ws: Workspace,
+        output: Option<Connector>,
+    ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
-        self.state.show_workspace(&seat, &name);
+        let output = output.map(|o| self.get_output_node(o)).transpose()?;
+        self.state.show_workspace(&seat, &name, output);
         Ok(())
     }
 
@@ -2725,7 +2731,7 @@ impl ConfigProxyHandler {
             }
             ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
             ClientMessage::ShowWorkspace { seat, workspace } => self
-                .handle_show_workspace(seat, workspace)
+                .handle_show_workspace(seat, workspace, None)
                 .wrn("show_workspace")?,
             ClientMessage::SetSeatWorkspace { seat, workspace } => self
                 .handle_set_seat_workspace(seat, workspace)
@@ -3203,6 +3209,13 @@ impl ConfigProxyHandler {
             ClientMessage::SetClientMatcherBoundingCapabilities { matcher, caps } => self
                 .handle_set_client_matcher_bounding_capabilities(matcher, caps)
                 .wrn("set_client_matcher_bounding_capabilities")?,
+            ClientMessage::ShowWorkspaceOn {
+                seat,
+                workspace,
+                connector,
+            } => self
+                .handle_show_workspace(seat, workspace, Some(connector))
+                .wrn("show_workspace_on")?,
         }
         Ok(())
     }

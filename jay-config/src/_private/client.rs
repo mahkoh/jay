@@ -122,6 +122,7 @@ pub(crate) struct ConfigClient {
     window_match_handlers: RefCell<HashMap<WindowMatcher, WindowMatchHandler>>,
 
     feat_mod_mask: Cell<bool>,
+    feat_show_workspace_on: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -266,6 +267,7 @@ pub unsafe extern "C" fn init(
         client_match_handlers: Default::default(),
         window_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
+        feat_show_workspace_on: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -589,6 +591,18 @@ impl ConfigClient {
 
     pub fn show_workspace(&self, seat: Seat, workspace: Workspace) {
         self.send(&ClientMessage::ShowWorkspace { seat, workspace });
+    }
+
+    pub fn show_workspace_on(&self, seat: Seat, workspace: Workspace, connector: Connector) {
+        if self.feat_show_workspace_on.get() && connector.connected() {
+            self.send(&ClientMessage::ShowWorkspaceOn {
+                seat,
+                workspace,
+                connector,
+            });
+        } else {
+            self.show_workspace(seat, workspace);
+        }
     }
 
     pub fn set_seat_workspace(&self, seat: Seat, workspace: Workspace) {
@@ -2086,6 +2100,7 @@ impl ConfigClient {
                     match feat {
                         ServerFeature::NONE => {}
                         ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
+                        ServerFeature::SHOW_WORKSPACE_ON => self.feat_show_workspace_on.set(true),
                         _ => {}
                     }
                 }
