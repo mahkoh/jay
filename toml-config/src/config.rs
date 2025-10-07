@@ -141,6 +141,7 @@ pub enum Action {
     },
     ShowWorkspace {
         name: String,
+        output: Option<OutputMatch>,
     },
     SimpleCommand {
         cmd: SimpleCommand,

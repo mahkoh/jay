@@ -88,6 +88,8 @@ pub enum ActionParserError {
     JumpToMark(#[source] MarkIdParserError),
     #[error("Could not parse a copy-mark action")]
     CopyMark(#[source] MarkIdParserError),
+    #[error("Could not parse a show-workspace action")]
+    ShowWorkspace(#[source] OutputMatchParserError),
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -184,8 +186,15 @@ impl ActionParser<'_> {
     }
 
     fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let name = ext.extract(str("name"))?.value.to_string();
-        Ok(Action::ShowWorkspace { name })
+        let (name, output) = ext.extract((str("name"), opt(val("output"))))?;
+        let name = name.value.to_string();
+        let output = output
+            .map(|o| {
+                o.parse_map(&mut OutputMatchParser(self.0))
+                    .map_spanned_err(ActionParserError::ShowWorkspace)
+            })
+            .transpose()?;
+        Ok(Action::ShowWorkspace { name, output })
     }
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {

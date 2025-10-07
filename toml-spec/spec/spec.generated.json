@@ -125,7 +125,7 @@
               ]
             },
             {
-              "description": "Switches to a workspace.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"show-workspace\", name = \"1\" }\n  ```\n",
+              "description": "Switches to a workspace.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"show-workspace\", name = \"1\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"show-workspace\", name = \"1\", output.name = \"left\" }\n  ```\n",
               "type": "object",
               "properties": {
                 "type": {
@@ -134,6 +134,10 @@
                 "name": {
                   "type": "string",
                   "description": "The name of the workspace."
+                },
+                "output": {
+                  "description": "The output to show a newly created workspace on. This has no effect on\nworkspaces that already exist.\n\nIf this is not set, then a new workspace is shown on the output that\ncontains the cursor.\n\nIf multiple outputs match, the workspace is shown on the first matching\noutput.\n",
+                  "$ref": "#/$defs/OutputMatch"
                 }
               },
               "required": [

@@ -439,6 +439,15 @@ impl Seat {
         get!().show_workspace(self, workspace)
     }
 
+    /// Shows the workspace and sets the keyboard focus of the seat to that workspace.
+    ///
+    /// If the workspace doesn't currently exist and the connector is connected, the
+    /// workspace is created on the given connector. If the connector is not connected,
+    /// the workspace is created on the output that contains the seat's cursor.
+    pub fn show_workspace_on(self, workspace: Workspace, connector: Connector) {
+        get!().show_workspace_on(self, workspace, connector)
+    }
+
     /// Moves the currently focused window to the workspace.
     pub fn set_workspace(self, workspace: Workspace) {
         get!().set_seat_workspace(self, workspace)

@@ -232,11 +232,18 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
   Switches to a workspace.
   
-  - Example:
+  - Example 1:
   
     ```toml
     [shortcuts]
     alt-F1 = { type = "show-workspace", name = "1" }
+    ```
+  
+  - Example 2:
+  
+    ```toml
+    [shortcuts]
+    alt-F1 = { type = "show-workspace", name = "1", output.name = "left" }
     ```
 
   The table has the following fields:
@@ -246,6 +253,19 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The name of the workspace.
 
     The value of this field should be a string.
+
+  - `output` (optional):
+
+    The output to show a newly created workspace on. This has no effect on
+    workspaces that already exist.
+    
+    If this is not set, then a new workspace is shown on the output that
+    contains the cursor.
+    
+    If multiple outputs match, the workspace is shown on the first matching
+    output.
+
+    The value of this field should be a [OutputMatch](#types-OutputMatch).
 
 - `move-to-workspace`:
 

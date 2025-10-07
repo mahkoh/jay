@@ -30,6 +30,7 @@ pub struct ServerFeature(u16);
 impl ServerFeature {
     pub const NONE: Self = Self(0);
     pub const MOD_MASK: Self = Self(1);
+    pub const SHOW_WORKSPACE_ON: Self = Self(2);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -781,6 +782,11 @@ pub enum ClientMessage<'a> {
     SetClientMatcherBoundingCapabilities {
         matcher: ClientMatcher,
         caps: ClientCapabilities,
+    },
+    ShowWorkspaceOn {
+        seat: Seat,
+        workspace: Workspace,
+        connector: Connector,
     },
 }
 
