@@ -189,7 +189,7 @@ impl TestTransport {
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
-        let mut fmt = MsgFormatter::new(&mut swapchain.cur, &mut fds);
+        let mut fmt = MsgFormatter::new(&mut swapchain.cur, &mut fds, false);
         msg.format(&mut fmt);
         fmt.write_len();
         if swapchain.cur.is_full() {
