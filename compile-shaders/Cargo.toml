@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["build-rs", "compile", "core", "shaderc-sys"]
+members = ["compile", "core", "shaderc-sys"]
 
 [patch."crates-io"]
 shaderc-sys.path = "shaderc-sys"
