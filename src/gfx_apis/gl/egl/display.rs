@@ -1,6 +1,7 @@
 use {
     crate::{
-        format::{Format, formats},
+        allocator::BufferObject,
+        format::{Format, XRGB8888, formats},
         gfx_api::{GfxFormat, GfxWriteModifier},
         gfx_apis::gl::{
             RenderError,
@@ -38,11 +39,18 @@ use {
                 EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR, Egl, GLESV2, GlesV2,
             },
         },
-        video::{INVALID_MODIFIER, Modifier, dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice},
+        utils::bitflags::BitflagsExt,
+        video::{
+            INVALID_MODIFIER, Modifier,
+            dmabuf::{DmaBuf, DmaBufIds},
+            drm::Drm,
+            gbm::{GBM_BO_USE_RENDERING, GbmDevice},
+        },
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     std::{ptr, rc::Rc},
+    uapi::c::O_RDWR,
 };
 
 #[derive(Debug)]
@@ -139,6 +147,23 @@ impl EglDisplay {
                 return Err(RenderError::SurfacelessContext);
             }
             dpy.formats = query_formats(procs, dpy.dpy)?;
+            if dpy.fast_ram_access {
+                dpy.fast_ram_access = false;
+                if let Some(formats) = dpy.formats.get(&XRGB8888.drm)
+                    && let Ok(bo) = dpy.gbm.create_bo(
+                        &DmaBufIds::default(),
+                        1,
+                        1,
+                        XRGB8888,
+                        formats.modifiers.keys(),
+                        GBM_BO_USE_RENDERING,
+                    )
+                    && let Ok(fl) = uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw())
+                    && fl.contains(O_RDWR)
+                {
+                    dpy.fast_ram_access = true;
+                }
+            }
             dpy.explicit_sync = dpy
                 .exts
                 .contains(KHR_FENCE_SYNC | KHR_WAIT_SYNC | ANDROID_NATIVE_FENCE_SYNC);
