@@ -15,7 +15,7 @@ use {
             api_version_minor, api_version_patch, api_version_variant,
         },
     },
-    isnt::std_1::collections::IsntHashMap2Ext,
+    isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     once_cell::sync::Lazy,
     std::{

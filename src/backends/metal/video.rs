@@ -60,7 +60,7 @@ use {
     arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
     indexmap::{IndexMap, IndexSet, indexset},
-    isnt::std_1::collections::IsntHashMap2Ext,
+    isnt::std_1::collections::IsntHashMapExt,
     jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},

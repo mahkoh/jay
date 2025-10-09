@@ -9,7 +9,7 @@ use {
             jay_head_manager_ext_format_setter_v1::JayHeadManagerExtFormatSetterV1RequestHandler,
         },
     },
-    isnt::std_1::primitive::IsntSlice2Ext,
+    isnt::std_1::primitive::IsntSliceExt,
     std::rc::Rc,
 };
 

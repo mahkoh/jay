@@ -44,7 +44,7 @@ use {
             Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
         },
     },
-    isnt::std_1::collections::IsntHashMap2Ext,
+    isnt::std_1::collections::IsntHashMapExt,
     std::{
         cell::Cell,
         ffi::{CStr, CString},
