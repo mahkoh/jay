@@ -295,7 +295,7 @@ object_base! {
 }
 
 impl Object for ZwpTextInputV3 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

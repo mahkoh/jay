@@ -126,7 +126,7 @@ object_base! {
 dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
 
 impl Object for XdgWmBase {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.surfaces.clear();
     }
 }

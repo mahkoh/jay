@@ -178,7 +178,7 @@ object_base! {
 simple_add_obj!(ZwlrScreencopyFrameV1);
 
 impl Object for ZwlrScreencopyFrameV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

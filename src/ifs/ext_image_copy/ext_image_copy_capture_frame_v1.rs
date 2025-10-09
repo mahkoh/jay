@@ -238,7 +238,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 self.client.state.color_manager.srgb_gamma22(),
                 node,
                 &self.client.state,
-                Some(node.node_absolute_position()),
+                Some(node.node_mapped_position()),
                 scale,
                 true,
                 true,

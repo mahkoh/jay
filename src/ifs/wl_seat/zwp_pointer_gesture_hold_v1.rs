@@ -59,7 +59,7 @@ object_base! {
 }
 
 impl Object for ZwpPointerGestureHoldV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

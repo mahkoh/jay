@@ -25,7 +25,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     );
 
     tassert_eq!(
-        window.tl.server.node_absolute_position(),
+        window.tl.server.node_mapped_position(),
         Rect::new_sized(
             0,
             2 * (run.state.theme.sizes.title_height.get() + 1),

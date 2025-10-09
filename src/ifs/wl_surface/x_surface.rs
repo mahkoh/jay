@@ -45,7 +45,7 @@ impl SurfaceExt for XSurface {
         }
         self.surface.unset_ext();
         if let Some(xwindow) = self.xwindow.take() {
-            xwindow.tl_destroy();
+            xwindow.clone().tl_destroy();
             xwindow.data.window.set(None);
             xwindow.data.surface_id.set(None);
             xwindow
@@ -63,7 +63,10 @@ impl SurfaceExt for XSurface {
 
     fn extents_changed(&self) {
         if let Some(xwindow) = self.xwindow.get() {
-            xwindow.toplevel_data.pos.set(self.surface.extents.get());
+            xwindow
+                .toplevel_data
+                .content_size
+                .set(self.surface.extents.get());
             xwindow.tl_extents_changed();
         }
     }

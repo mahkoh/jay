@@ -74,7 +74,7 @@ object_base! {
 }
 
 impl Object for WpDrmLeaseConnectorV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

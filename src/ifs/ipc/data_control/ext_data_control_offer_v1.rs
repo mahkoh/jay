@@ -62,8 +62,8 @@ object_base! {
 }
 
 impl Object for ExtDataControlOfferV1 {
-    fn break_loops(&self) {
-        logic::data_offer_break_loops(self);
+    fn break_loops(self: Rc<Self>) {
+        logic::data_offer_break_loops(&*self);
     }
 }
 

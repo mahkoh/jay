@@ -84,7 +84,7 @@ use {
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
             NodeLocation, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
             generic_node_visitor, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            toplevel_set_floating, toplevel_set_workspace, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -451,12 +451,12 @@ impl WlSeatGlobal {
         self.keyboard_node.get().node_output()
     }
 
-    pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
+    pub fn set_workspace(&self, tt: &TreeTransaction, ws: &Rc<WorkspaceNode>) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
         };
-        toplevel_set_workspace(&self.state, tl, ws);
+        toplevel_set_workspace(&self.state, tt, tl, ws);
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {
@@ -512,7 +512,8 @@ impl WlSeatGlobal {
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            tl.tl_set_fullscreen(fullscreen, None);
+            let tt = &self.state.tree_transaction();
+            tl.tl_set_fullscreen(tt, fullscreen, None);
         }
     }
 
@@ -620,11 +621,12 @@ impl WlSeatGlobal {
     }
 
     pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container().map(|c| c.mono_child.is_some())
+        self.kb_parent_container()
+            .map(|c| c.cur.mono_child.is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container().map(|c| c.split.get())
+        self.kb_parent_container().map(|c| c.cur.split.get())
     }
 
     pub fn set_mono(&self, mono: bool) {
@@ -632,8 +634,9 @@ impl WlSeatGlobal {
             && let Some(parent) = tl.tl_data().parent.get()
             && let Some(container) = parent.node_into_container()
         {
+            let tt = &self.state.tree_transaction();
             let node = if mono { Some(tl.deref()) } else { None };
-            container.set_mono(node);
+            container.set_mono(tt, node);
         }
     }
 
@@ -713,7 +716,8 @@ impl WlSeatGlobal {
             tl.node_do_focus(self, direction);
         } else if let Some(p) = tl.tl_data().parent.get() {
             if let Some(c) = p.node_into_container() {
-                c.move_focus_from_child(self, tl.deref(), direction);
+                let tt = &self.state.tree_transaction();
+                c.move_focus_from_child(tt, self, tl.deref(), direction);
             }
         }
     }
@@ -724,7 +728,8 @@ impl WlSeatGlobal {
             && let Some(parent) = tl.tl_data().parent.get()
             && let Some(c) = parent.node_into_container()
         {
-            c.move_child(tl, direction);
+            let tt = &self.state.tree_transaction();
+            c.move_child(tt, tl, direction);
         }
     }
 
@@ -839,7 +844,8 @@ impl WlSeatGlobal {
             self.focus_history_rotate.fetch_sub(1);
         });
         if !visible {
-            node.clone().node_make_visible();
+            let tt = &self.state.tree_transaction();
+            node.clone().node_make_visible(tt);
             if !node.node_visible() {
                 return;
             }
@@ -952,7 +958,7 @@ impl WlSeatGlobal {
                     .map(|n| n as Rc<dyn Node>),
                 NodeLayer::Fullscreen => ws
                     .as_ref()
-                    .and_then(|w| w.fullscreen.get())
+                    .and_then(|w| w.pending_fullscreen.get())
                     .map(|n| n as Rc<dyn Node>),
                 NodeLayer::Stacked => handle_stacked(&self.state.root.stacked),
                 NodeLayer::Layer2 => handle_layer_shell(&output.layers[2]),
@@ -1010,7 +1016,7 @@ impl WlSeatGlobal {
         let Some(ws) = output.workspace.get() else {
             return;
         };
-        let node = match ws.fullscreen.get() {
+        let node = match ws.pending_fullscreen.get() {
             Some(fs) => fs as Rc<dyn Node>,
             _ => match ws.container.get() {
                 Some(c) => c,
@@ -1312,7 +1318,8 @@ impl WlSeatGlobal {
         if let Some(tl_drag) = self.toplevel_drag()
             && let Some(tl) = tl_drag.toplevel.get()
         {
-            tl.tl_set_visible(visible);
+            let tt = &self.state.tree_transaction();
+            tl.tl_set_visible(tt, visible);
         }
         if let Some(im) = self.input_method.get() {
             for (_, popup) in &im.popups {
@@ -1604,7 +1611,7 @@ object_base! {
 }
 
 impl Object for WlSeat {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         {
             let mut bindings = self.global.bindings.borrow_mut();
             if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {

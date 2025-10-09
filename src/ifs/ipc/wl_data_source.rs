@@ -229,8 +229,8 @@ object_base! {
 }
 
 impl Object for WlDataSource {
-    fn break_loops(&self) {
-        break_source_loops::<ClipboardIpc>(self);
+    fn break_loops(self: Rc<Self>) {
+        break_source_loops::<ClipboardIpc>(&*self);
         self.toplevel_drag.take();
     }
 }

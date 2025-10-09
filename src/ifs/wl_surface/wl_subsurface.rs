@@ -145,8 +145,7 @@ impl WlSubsurface {
             client_wire_scale_to_logical!(self.surface.client, x, y);
             self.position.set((x, y));
             let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();
-            self.surface
-                .set_absolute_position(parent_x + x, parent_y + y);
+            self.surface.set_mapped_position(parent_x + x, parent_y + y);
             self.parent.need_extents_update.set(true);
             position_changed = true;
         }
@@ -188,7 +187,7 @@ impl WlSubsurface {
         self.surface.ext.set(self.clone());
         update_children_attach(self)?;
         let (x, y) = self.parent.buffer_abs_pos.get().position();
-        self.surface.set_absolute_position(x, y);
+        self.surface.set_mapped_position(x, y);
         self.surface
             .set_output(&self.parent.output.get(), self.parent.location.get());
         Ok(())
@@ -279,7 +278,7 @@ impl WlSubsurface {
         let (x, y) = self.surface.buffer_abs_pos.get().position();
         let mut rect = self.surface.extents.get().move_(x, y);
         if let Some(tl) = self.surface.toplevel.get() {
-            rect = rect.intersect(tl.node_absolute_position());
+            rect = rect.intersect(tl.node_mapped_position());
         }
         self.surface.client.state.damage(rect);
     }
@@ -355,7 +354,7 @@ object_base! {
 }
 
 impl Object for WlSubsurface {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         *self.node.borrow_mut() = None;
         self.latest_node.take();
     }

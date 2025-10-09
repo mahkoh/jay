@@ -42,6 +42,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},
+            hash_map_ext::HashMapExt,
         },
         wire::{
             ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
@@ -147,11 +148,10 @@ impl Objects {
                 tl.tl_destroy();
             }
         }
-        for obj in self.registry.lock().values_mut() {
+        for obj in self.registry.lock().drain_values() {
             obj.break_loops();
         }
         self.display.set(None);
-        self.registry.clear();
         self.registries.clear();
         self.outputs.clear();
         self.zwlr_output_heads.clear();

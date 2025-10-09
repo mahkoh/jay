@@ -18,6 +18,7 @@ use {
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
+        tree::transaction::TreeTransaction,
         utils::{linkedlist::NodeRef, numcell::NumCell},
     },
     jay_config::Direction as JayDirection,
@@ -40,6 +41,7 @@ mod output;
 mod placeholder;
 mod stacked;
 mod toplevel;
+pub mod transaction;
 mod walker;
 mod workspace;
 
@@ -205,7 +207,7 @@ pub trait Node: 'static {
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
-    fn node_absolute_position(&self) -> Rect;
+    fn node_mapped_position(&self) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
     fn node_location(&self) -> Option<NodeLocation>;
     fn node_layer(&self) -> NodeLayerLink;
@@ -242,7 +244,7 @@ pub trait Node: 'static {
         FindTreeResult::Other
     }
 
-    fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
+    fn node_child_size_changed(self: Rc<Self>, child: &dyn Node, width: i32, height: i32) {
         let _ = (child, width, height);
     }
 
@@ -273,8 +275,8 @@ pub trait Node: 'static {
         None
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        // nothing
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     // EVENT HANDLERS
