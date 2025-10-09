@@ -9,7 +9,7 @@ use {
             testrun::TestRun,
         },
     },
-    isnt::std_1::collections::IsntHashSet2Ext,
+    isnt::std_1::collections::IsntHashSetExt,
     std::rc::Rc,
 };
 

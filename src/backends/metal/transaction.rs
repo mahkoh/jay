@@ -24,7 +24,7 @@ use {
     },
     arrayvec::ArrayVec,
     bstr::ByteSlice,
-    isnt::std_1::collections::IsntHashMap2Ext,
+    isnt::std_1::collections::IsntHashMapExt,
     std::{any::Any, cell::Cell, mem, rc::Rc, slice},
     uapi::c,
 };

@@ -14,7 +14,7 @@ use {
             jay_head_manager_ext_drm_color_space_setter_v1::JayHeadManagerExtDrmColorSpaceSetterV1RequestHandler,
         },
     },
-    isnt::std_1::primitive::IsntSlice2Ext,
+    isnt::std_1::primitive::IsntSliceExt,
     std::rc::Rc,
 };
 
