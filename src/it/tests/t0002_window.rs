@@ -23,7 +23,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         window.tl.core.height.get(),
         600 - 2
             * (run.state.theme.sizes.title_height.get()
-                + run.state.theme.show_title_separator() as i32)
+                + run.state.show_title_separator().get() as i32)
     );
 
     tassert_eq!(
@@ -31,7 +31,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         Rect::new_sized(
             0,
             2 * (run.state.theme.sizes.title_height.get()
-                + run.state.theme.show_title_separator() as i32),
+                + run.state.show_title_separator().get() as i32),
             window.tl.core.width.get(),
             window.tl.core.height.get(),
         )
