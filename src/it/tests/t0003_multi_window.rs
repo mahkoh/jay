@@ -22,8 +22,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     window2.map().await?;
 
     let otop = 2
-        * (run.state.theme.sizes.title_height.get()
-            + run.state.show_title_separator().get() as i32);
+        * (run.state.theme.sizes.title_height.get() + run.state.show_title_separator.get() as i32);
     let bw = run.state.theme.sizes.border_width.get();
 
     tassert_eq!(
