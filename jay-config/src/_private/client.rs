@@ -1006,6 +1006,16 @@ impl ConfigClient {
         show
     }
 
+    pub fn set_show_title_separator(&self, show: bool) {
+        self.send(&ClientMessage::SetShowTitleSeparator { show });
+    }
+
+    pub fn get_show_title_separator(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetShowTitleSeparator);
+        get_response!(res, true, GetShowTitleSeparator { show });
+        show
+    }
+
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }

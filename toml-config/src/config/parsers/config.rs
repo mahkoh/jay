@@ -139,7 +139,13 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
-            (middle_click_paste, input_modes_val, workspace_display_order_val, auto_reload),
+            (
+                middle_click_paste,
+                input_modes_val,
+                workspace_display_order_val,
+                auto_reload,
+                show_title_separator,
+            ),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -194,6 +200,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("modes")),
                 opt(val("workspace-display-order")),
                 recover(opt(bol("auto-reload"))),
+                recover(opt(bol("show-title-separator"))),
             ),
         ))?;
         let mut keymap = None;
@@ -545,6 +552,7 @@ impl Parser for ConfigParser<'_> {
             pointer_revert_key,
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
+            show_title_separator: show_title_separator.despan(),
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,

@@ -727,6 +727,10 @@ pub enum ClientMessage<'a> {
         show: bool,
     },
     GetShowBar,
+    SetShowTitleSeparator {
+        show: bool,
+    },
+    GetShowTitleSeparator,
     SeatFocusHistory {
         seat: Seat,
         timeline: Timeline,
@@ -1018,6 +1022,9 @@ pub enum Response {
         kind: ContentType,
     },
     GetShowBar {
+        show: bool,
+    },
+    GetShowTitleSeparator {
         show: bool,
     },
 }

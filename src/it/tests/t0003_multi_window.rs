@@ -23,7 +23,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
 
     let otop = 2
         * (run.state.theme.sizes.title_height.get()
-            + run.state.theme.sizes.title_height.get().signum());
+            + run.state.theme.show_title_separator() as i32);
     let bw = run.state.theme.sizes.border_width.get();
 
     tassert_eq!(
