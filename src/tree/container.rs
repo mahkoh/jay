@@ -468,16 +468,24 @@ impl ContainerNode {
             body_size = body_size.min(remaining_content_size);
             remaining_content_size -= body_size;
             let (x1, y1, width, height) = match split {
-                ContainerSplit::Horizontal => {
-                    (pos, title_height + 1, body_size, other_content_size)
-                }
-                _ => (0, pos + title_height + 1, other_content_size, body_size),
+                ContainerSplit::Horizontal => (
+                    pos,
+                    title_height + title_height.signum(),
+                    body_size,
+                    other_content_size,
+                ),
+                _ => (
+                    0,
+                    pos + title_height + title_height.signum(),
+                    other_content_size,
+                    body_size,
+                ),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
             child.body.set(body);
             pos += body_size + border_width;
             if split == ContainerSplit::Vertical {
-                pos += title_height + 1;
+                pos += title_height + title_height.signum();
             }
         }
         if remaining_content_size > 0 {
@@ -494,13 +502,19 @@ impl ContainerNode {
                 let (x1, y1, width, height, size) = match split {
                     ContainerSplit::Horizontal => {
                         let width = body.width() + add;
-                        (pos, title_height + 1, width, other_content_size, width)
+                        (
+                            pos,
+                            title_height + title_height.signum(),
+                            width,
+                            other_content_size,
+                            width,
+                        )
                     }
                     _ => {
                         let height = body.height() + add;
                         (
                             0,
-                            pos + title_height + 1,
+                            pos + title_height + title_height.signum(),
                             other_content_size,
                             height,
                             height,
@@ -511,7 +525,7 @@ impl ContainerNode {
                 child.body.set(body);
                 pos += size + border_width;
                 if split == ContainerSplit::Vertical {
-                    pos += title_height + 1;
+                    pos += title_height + title_height.signum();
                 }
             }
         }
@@ -521,7 +535,7 @@ impl ContainerNode {
             child.title_rect.set(
                 Rect::new_sized(
                     body.x1(),
-                    body.y1() - title_height - 1,
+                    body.y1() - title_height - title_height.signum(),
                     body.width(),
                     title_height,
                 )
@@ -541,14 +555,23 @@ impl ContainerNode {
             ContainerSplit::Horizontal => {
                 let new_content_size = self.width.get().sub((nc - 1) as i32 * border_width).max(0);
                 self.content_width.set(new_content_size);
-                self.content_height
-                    .set(self.height.get().sub(title_height + 1).max(0));
+                self.content_height.set(
+                    self.height
+                        .get()
+                        .sub(title_height + title_height.signum())
+                        .max(0),
+                );
             }
             ContainerSplit::Vertical => {
                 let new_content_size = self
                     .height
                     .get()
-                    .sub(title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1))
+                    .sub(
+                        title_height
+                            + title_height.signum()
+                            + (nc - 1) as i32
+                                * (border_width + title_height + title_height.signum()),
+                    )
                     .max(0);
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
@@ -557,9 +580,12 @@ impl ContainerNode {
         self.mono_body.set(
             Rect::new_sized(
                 0,
-                title_height + 1,
+                title_height + title_height.signum(),
                 self.width.get(),
-                self.height.get().sub(title_height + 1).max(0),
+                self.height
+                    .get()
+                    .sub(title_height + title_height.signum())
+                    .max(0),
             )
             .unwrap(),
         );
@@ -648,7 +674,7 @@ impl ContainerNode {
         let new_cursor = if self.mono_child.is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
-            if y < title_height + 1 {
+            if y < title_height + title_height.signum() {
                 KnownCursor::Default
             } else {
                 KnownCursor::EwResize
@@ -658,7 +684,7 @@ impl ContainerNode {
             for child in self.children.iter() {
                 let body = child.body.get();
                 if body.y1() > y {
-                    if body.y1() - y > title_height + 1 {
+                    if body.y1() - y > title_height + title_height.signum() {
                         cursor = KnownCursor::NsResize
                     }
                     break;
@@ -820,7 +846,7 @@ impl ContainerNode {
                     abs_x,
                     abs_y + rect.y1(),
                     cwidth,
-                    rect.height() + 1,
+                    rect.height() + rect.height().signum(),
                 ));
             }
             if i > 0 {
@@ -859,8 +885,12 @@ impl ContainerNode {
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
         }
         if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
-            self.state
-                .damage(Rect::new_sized_unchecked(abs_x, abs_y, cwidth, th + 1));
+            self.state.damage(Rect::new_sized_unchecked(
+                abs_x,
+                abs_y,
+                cwidth,
+                th + th.signum(),
+            ));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
     }
@@ -1986,7 +2016,7 @@ impl ContainingNode for ContainerNode {
         };
         let th = self.state.theme.sizes.title_height.get();
         if self.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - th - 1);
+            parent.cnode_set_child_position(&*self, x, y - th - th.signum());
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -2049,7 +2079,7 @@ impl ContainingNode for ContainerNode {
             }
             let (new_delta, between) = match split {
                 ContainerSplit::Horizontal => (self.abs_x1.get(), bw),
-                ContainerSplit::Vertical => (self.abs_y1.get(), bw + th + 1),
+                ContainerSplit::Vertical => (self.abs_y1.get(), bw + th + th.signum()),
             };
             let new_i1 = new_i1.map(|v| v - new_delta);
             let new_i2 = new_i2.map(|v| v - new_delta);
@@ -2117,10 +2147,10 @@ impl ContainingNode for ContainerNode {
             x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - th - 1).min(pos.y2() - th - 1));
+            y1 = new_y1.map(|v| (v - th - th.signum()).min(pos.y2() - th - th.signum()));
         }
         if bottom_outside {
-            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + th + 1));
+            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + th + th.signum()));
         }
         if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))

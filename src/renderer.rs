@@ -584,9 +584,9 @@ impl Renderer<'_> {
         }
         let body = Rect::new_sized(
             x + bw,
-            y + bw + th + 1,
+            y + bw + th + th.signum(),
             pos.width() - 2 * bw,
-            pos.height() - 2 * bw - th - 1,
+            pos.height() - 2 * bw - th - th.signum(),
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);

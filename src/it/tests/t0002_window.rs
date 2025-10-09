@@ -21,14 +21,17 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     tassert_eq!(window.tl.core.width.get(), 800);
     tassert_eq!(
         window.tl.core.height.get(),
-        600 - 2 * (run.state.theme.sizes.title_height.get() + 1)
+        600 - 2
+            * (run.state.theme.sizes.title_height.get()
+                + run.state.theme.sizes.title_height.get().signum())
     );
 
     tassert_eq!(
         window.tl.server.node_absolute_position(),
         Rect::new_sized(
             0,
-            2 * (run.state.theme.sizes.title_height.get() + 1),
+            2 * (run.state.theme.sizes.title_height.get()
+                + run.state.theme.sizes.title_height.get().signum()),
             window.tl.core.width.get(),
             window.tl.core.height.get(),
         )

@@ -826,7 +826,9 @@ impl State {
         abs_pos: Option<(i32, i32)>,
     ) {
         width += 2 * self.theme.sizes.border_width.get();
-        height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
+        height += 2 * self.theme.sizes.border_width.get()
+            + self.theme.sizes.title_height.get()
+            + self.theme.sizes.title_height.get().signum();
         let output = workspace.output.get();
         let output_rect = output.global.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
@@ -836,7 +838,9 @@ impl State {
             if y1 > output_rect.y2() {
                 y1 = output_rect.y2();
             }
-            y1 -= self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
+            y1 -= self.theme.sizes.border_width.get()
+                + self.theme.sizes.title_height.get()
+                + self.theme.sizes.title_height.get().signum();
             x1 -= self.theme.sizes.border_width.get();
             Rect::new_sized(x1, y1, width, height).unwrap()
         } else {

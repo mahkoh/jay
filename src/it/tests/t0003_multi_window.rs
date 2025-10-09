@@ -21,7 +21,9 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let window2 = client.create_window().await?;
     window2.map().await?;
 
-    let otop = 2 * (run.state.theme.sizes.title_height.get() + 1);
+    let otop = 2
+        * (run.state.theme.sizes.title_height.get()
+            + run.state.theme.sizes.title_height.get().signum());
     let bw = run.state.theme.sizes.border_width.get();
 
     tassert_eq!(
