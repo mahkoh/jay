@@ -183,7 +183,7 @@ impl FloatNode {
             pos.x1() + bw,
             pos.y1() + bw + ((th + 1) * st),
             (pos.width() - 2 * bw).max(0),
-            (pos.height() - 2 * bw - ((th - 1) * st)).max(0),
+            (pos.height() - 2 * bw - ((th + 1) * st)).max(0),
         )
         .unwrap();
         let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
@@ -315,7 +315,7 @@ impl FloatNode {
                 }
                 OpType::ResizeTop => {
                     y1 += y - seat_state.dist_ver;
-                    y1 = y1.min(y2 - 2 * bw - ((th - 1) * st));
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
@@ -329,13 +329,13 @@ impl FloatNode {
                     x1 += x - seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
                     x1 = x1.min(x2 - 2 * bw);
-                    y1 = y1.min(y2 - 2 * bw - ((th - 1) * st));
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeTopRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
                     x2 = x2.max(x1 + 2 * bw);
-                    y1 = y1.min(y2 - 2 * bw - ((th - 1) * st));
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeBottomLeft => {
                     x1 += x - seat_state.dist_hor;

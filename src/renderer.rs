@@ -587,7 +587,7 @@ impl Renderer<'_> {
             x + bw,
             y + bw + ((th + 1) * st),
             pos.width() - 2 * bw,
-            pos.height() - 2 * bw - ((th - 1) * st),
+            pos.height() - 2 * bw - ((th + 1) * st),
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);

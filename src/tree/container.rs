@@ -536,7 +536,7 @@ impl ContainerNode {
             child.title_rect.set(
                 Rect::new_sized(
                     body.x1(),
-                    body.y1() - ((title_height - 1) * show_titles),
+                    body.y1() - ((title_height + 1) * show_titles),
                     body.width(),
                     title_height,
                 )
@@ -2019,7 +2019,7 @@ impl ContainingNode for ContainerNode {
         let th = self.state.theme.sizes.title_height.get();
         let st = self.state.show_titles.get() as i32;
         if self.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - ((th - 1) * st));
+            parent.cnode_set_child_position(&*self, x, y - ((th + 1) * st));
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -2151,7 +2151,7 @@ impl ContainingNode for ContainerNode {
             x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - ((th - 1) * st)).min(pos.y2() - ((th - 1) * st)));
+            y1 = new_y1.map(|v| (v - ((th + 1) * st)).min(pos.y2() - ((th + 1) * st)));
         }
         if bottom_outside {
             y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + ((th + 1) * st)));
