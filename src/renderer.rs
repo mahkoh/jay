@@ -522,10 +522,10 @@ impl Renderer<'_> {
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         self.base.fill_boxes(&borders, &bc, srgb);
-        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
+        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th * st).unwrap()];
         self.base.fill_boxes(&title, &tc, srgb);
         let title_underline =
-            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
+            [Rect::new_sized(x + bw, y + bw + (th * st), pos.width() - 2 * bw, st).unwrap()];
         self.base.fill_boxes(&title_underline, &uc, srgb);
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
