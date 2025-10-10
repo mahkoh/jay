@@ -561,7 +561,7 @@ impl Renderer<'_> {
                     srgb_srgb,
                 );
             }
-            x1 += th;
+            x1 += th * st;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
             && let Some(texture) = title.texture()

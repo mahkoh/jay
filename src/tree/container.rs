@@ -427,6 +427,7 @@ impl ContainerNode {
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
         let th = self.state.theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = self.state.theme.sizes.border_width.get();
         let num_children = self.num_children.get() as i32;
         let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
@@ -441,7 +442,7 @@ impl ContainerNode {
             }
             child
                 .title_rect
-                .set(Rect::new_sized(pos, 0, width, th).unwrap());
+                .set(Rect::new_sized(pos, 0, width, th * st).unwrap());
             pos += width + bw;
         }
     }
@@ -538,7 +539,7 @@ impl ContainerNode {
                     body.x1(),
                     body.y1() - ((title_height + 1) * show_titles),
                     body.width(),
-                    title_height,
+                    title_height * show_titles,
                 )
                 .unwrap(),
             );
@@ -734,6 +735,7 @@ impl ContainerNode {
         };
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let font = theme.title_font();
         let last_active = self.focus_history.last().map(|v| v.node.node_id());
         let have_active = self.children.iter().any(|c| c.active.get());
@@ -767,7 +769,7 @@ impl ContainerNode {
                     1,
                     None,
                     width,
-                    th,
+                    th * st,
                     1,
                     &font,
                     title.deref(),
@@ -853,7 +855,7 @@ impl ContainerNode {
             }
             if i > 0 {
                 let rect = if mono {
-                    Rect::new_sized(rect.x1() - bw, 0, bw, th)
+                    Rect::new_sized(rect.x1() - bw, 0, bw, th * st)
                 } else if split == ContainerSplit::Horizontal {
                     Rect::new_sized(rect.x1() - bw, 0, bw, cheight)
                 } else {
@@ -884,7 +886,7 @@ impl ContainerNode {
         }
         if mono {
             rd.underline_rects
-                .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
+                .push(Rect::new_sized(0, th * st, cwidth, st).unwrap());
         }
         if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
             self.state.damage(Rect::new_sized_unchecked(
@@ -1225,7 +1227,10 @@ impl ContainerNode {
         };
         if button == BTN_RIGHT && pressed {
             if self.mono_child.is_some() || self.split.get() == ContainerSplit::Horizontal {
-                if seat_data.y < self.state.theme.sizes.title_height.get() {
+                if seat_data.y
+                    < self.state.theme.sizes.title_height.get()
+                        * self.state.show_titles.get() as i32
+                {
                     self.toggle_mono();
                 }
             } else {
@@ -1346,7 +1351,7 @@ impl ContainerNode {
             prev_center,
             0,
             self.width.get(),
-            self.state.theme.sizes.title_height.get(),
+            self.state.theme.sizes.title_height.get() * self.state.show_titles.get() as i32,
         )?
         .move_(self.abs_x1.get(), self.abs_y1.get())
         .intersect(abs_bounds);
@@ -1371,7 +1376,7 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.sizes.title_height.get();
+        let th = self.state.theme.sizes.title_height.get() * self.state.show_titles.get() as i32;
         if abs_y < self.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
@@ -1726,7 +1731,9 @@ impl Node for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.sizes.title_height.get() {
+        if seat_data.y
+            > self.state.theme.sizes.title_height.get() * self.state.show_titles.get() as i32
+        {
             return;
         }
         let cur_mc = match self.mono_child.get() {
