@@ -1381,14 +1381,14 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_set_show_title_separator(&self, show: bool) {
-        self.state.show_title_separator.set(show);
+    fn handle_set_show_titles(&self, show: bool) {
+        self.state.show_titles.set(show);
         self.spaces_change();
     }
 
-    fn handle_get_show_title_separator(&self) {
-        self.respond(Response::GetShowTitleSeparator {
-            show: self.state.show_title_separator.get(),
+    fn handle_get_show_titles(&self) {
+        self.respond(Response::GetShowTitles {
+            show: self.state.show_titles.get(),
         });
     }
 
@@ -3173,10 +3173,8 @@ impl ConfigProxyHandler {
                 .wrn("get_content_type")?,
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
-            ClientMessage::SetShowTitleSeparator { show } => {
-                self.handle_set_show_title_separator(show)
-            }
-            ClientMessage::GetShowTitleSeparator => self.handle_get_show_title_separator(),
+            ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
+            ClientMessage::GetShowTitles => self.handle_get_show_titles(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
                 .wrn("seat_focus_history")?,

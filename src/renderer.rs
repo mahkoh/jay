@@ -502,7 +502,7 @@ impl Renderer<'_> {
         let pos = floating.position.get();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
-        let ts = self.state.show_title_separator.get() as i32;
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
         let bc = theme.colors.border.get();
         let tc = if floating.active.get() {
@@ -585,9 +585,9 @@ impl Renderer<'_> {
         }
         let body = Rect::new_sized(
             x + bw,
-            y + bw + th + ts,
+            y + bw + ((th + 1) * st),
             pos.width() - 2 * bw,
-            pos.height() - 2 * bw - th - ts,
+            pos.height() - 2 * bw - ((th - 1) * st),
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);

@@ -356,7 +356,7 @@ fn start_compositor2(
         head_managers: Default::default(),
         head_managers_async: Default::default(),
         show_bar: Cell::new(true),
-        show_title_separator: Cell::new(true),
+        show_titles: Cell::new(true),
         enable_primary_selection: Cell::new(true),
         xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),

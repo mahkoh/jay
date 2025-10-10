@@ -1006,13 +1006,13 @@ impl ConfigClient {
         show
     }
 
-    pub fn set_show_title_separator(&self, show: bool) {
-        self.send(&ClientMessage::SetShowTitleSeparator { show });
+    pub fn set_show_titles(&self, show: bool) {
+        self.send(&ClientMessage::SetShowTitles { show });
     }
 
-    pub fn get_show_title_separator(&self) -> bool {
-        let res = self.send_with_response(&ClientMessage::GetShowTitleSeparator);
-        get_response!(res, true, GetShowTitleSeparator { show });
+    pub fn get_show_titles(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetShowTitles);
+        get_response!(res, true, GetShowTitles { show });
         show
     }
 

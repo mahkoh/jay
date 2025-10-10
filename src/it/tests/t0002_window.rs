@@ -22,16 +22,15 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     tassert_eq!(
         window.tl.core.height.get(),
         600 - 2
-            * (run.state.theme.sizes.title_height.get()
-                + run.state.show_title_separator.get() as i32)
+            * ((run.state.theme.sizes.title_height.get() + 1) * run.state.show_titles.get() as i32)
     );
 
     tassert_eq!(
         window.tl.server.node_absolute_position(),
         Rect::new_sized(
             0,
-            2 * (run.state.theme.sizes.title_height.get()
-                + run.state.show_title_separator.get() as i32),
+            2 * ((run.state.theme.sizes.title_height.get() + 1)
+                * run.state.show_titles.get() as i32),
             window.tl.core.width.get(),
             window.tl.core.height.get(),
         )

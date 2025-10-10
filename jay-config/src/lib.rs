@@ -336,22 +336,22 @@ pub fn toggle_show_bar() {
     get.set_show_bar(!get.get_show_bar());
 }
 
-/// Sets whether a separator under the titlebar is shown.
+/// Sets whether title bars on windows are shown.
 ///
 /// The default is `true`.
-pub fn set_show_title_separator(show: bool) {
-    get!().set_show_title_separator(show)
+pub fn set_show_titles(show: bool) {
+    get!().set_show_titles(show)
 }
 
-/// Returns whether a separator under the titlebar is shown.
-pub fn get_show_title_separator() -> bool {
-    get!(true).get_show_title_separator()
+/// Returns whether title bars on windows are shown.
+pub fn get_show_titles() -> bool {
+    get!(true).get_show_titles()
 }
 
-/// Toggles whether a separator under the titlebar is shown.
-pub fn toggle_show_title_separator() {
+/// Toggles whether title bars on windows are shown.
+pub fn toggle_show_titles() {
     let get = get!();
-    get.set_show_title_separator(!get.get_show_title_separator());
+    get.set_show_titles(!get.get_show_titles());
 }
 
 /// Sets a callback to run when this config is unloaded.
