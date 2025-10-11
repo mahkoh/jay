@@ -1604,7 +1604,7 @@ object_base! {
 }
 
 impl Object for WlSeat {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         {
             let mut bindings = self.global.bindings.borrow_mut();
             if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {

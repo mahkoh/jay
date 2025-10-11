@@ -585,7 +585,7 @@ object_base! {
 }
 
 impl Object for JayHeadManagerSessionV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach(false);
     }
 }

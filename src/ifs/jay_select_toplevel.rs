@@ -116,7 +116,7 @@ object_base! {
 }
 
 impl Object for JaySelectToplevel {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
     }
 }

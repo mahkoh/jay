@@ -215,9 +215,9 @@ object_base! {
 }
 
 impl Object for WlDataDevice {
-    fn break_loops(&self) {
-        break_device_loops::<ClipboardIpc>(self);
-        self.seat.remove_data_device(self);
+    fn break_loops(self: Rc<Self>) {
+        break_device_loops::<ClipboardIpc>(&*self);
+        self.seat.remove_data_device(&*self);
     }
 }
 

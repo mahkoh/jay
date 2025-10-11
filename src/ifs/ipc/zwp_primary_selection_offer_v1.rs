@@ -89,8 +89,8 @@ object_base! {
 }
 
 impl Object for ZwpPrimarySelectionOfferV1 {
-    fn break_loops(&self) {
-        break_offer_loops::<PrimarySelectionIpc>(self);
+    fn break_loops(self: Rc<Self>) {
+        break_offer_loops::<PrimarySelectionIpc>(&*self);
     }
 }
 

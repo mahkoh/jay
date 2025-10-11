@@ -776,7 +776,7 @@ object_base! {
 }
 
 impl Object for ZwlrLayerSurfaceV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.link.borrow_mut().take();
     }

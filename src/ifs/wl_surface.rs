@@ -1753,7 +1753,7 @@ object_base! {
 }
 
 impl Object for WlSurface {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.unset_dnd_icons();
         self.unset_cursors();
         self.destroy_node();

@@ -285,7 +285,7 @@ object_base! {
 }
 
 impl Object for XdgPopup {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.destroy_node();
     }
 }

@@ -756,7 +756,7 @@ object_base! {
 }
 
 impl Object for JayScreencast {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

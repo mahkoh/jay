@@ -144,8 +144,8 @@ object_base! {
 }
 
 impl Object for ExtDataControlDeviceV1 {
-    fn break_loops(&self) {
-        logic::data_device_break_loops(self);
+    fn break_loops(self: Rc<Self>) {
+        logic::data_device_break_loops(&*self);
     }
 }
 

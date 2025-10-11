@@ -197,8 +197,8 @@ object_base! {
 }
 
 impl Object for WlDataOffer {
-    fn break_loops(&self) {
-        break_offer_loops::<ClipboardIpc>(self);
+    fn break_loops(self: Rc<Self>) {
+        break_offer_loops::<ClipboardIpc>(&*self);
     }
 }
 

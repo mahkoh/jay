@@ -519,7 +519,7 @@ object_base! {
 }
 
 impl Object for XdgToplevel {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.tl_destroy();
         self.parent.set(None);
         self.dialog.set(None);

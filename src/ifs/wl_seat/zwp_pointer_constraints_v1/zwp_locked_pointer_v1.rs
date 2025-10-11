@@ -62,7 +62,7 @@ object_base! {
 }
 
 impl Object for ZwpLockedPointerV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.constraint.detach();
     }
 }
