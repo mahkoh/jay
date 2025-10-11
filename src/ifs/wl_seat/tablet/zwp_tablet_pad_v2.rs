@@ -112,7 +112,7 @@ object_base! {
 }
 
 impl Object for ZwpTabletPadV2 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

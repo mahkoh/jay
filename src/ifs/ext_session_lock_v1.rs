@@ -115,7 +115,7 @@ object_base! {
 }
 
 impl Object for ExtSessionLockV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         if !self.finished.get() {
             self.client.state.lock.lock.take();
         }

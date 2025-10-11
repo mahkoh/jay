@@ -103,7 +103,7 @@ object_base! {
 }
 
 impl Object for ExtWorkspaceGroupHandleV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

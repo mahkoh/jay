@@ -136,7 +136,7 @@ object_base! {
 }
 
 impl Object for XdgSessionV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.disown_to_peer();
     }
 }

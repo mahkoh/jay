@@ -542,7 +542,7 @@ object_base! {
 }
 
 impl Object for JaySeatEvents {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.client
             .state
             .testers
