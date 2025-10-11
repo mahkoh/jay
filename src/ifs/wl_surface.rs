@@ -78,7 +78,7 @@ use {
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
             OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, TreeSerial,
-            VblankListener,
+            VblankListener, transaction::TreeTransaction,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -1466,7 +1466,8 @@ impl WlSurface {
             && let Some(tl) = self.toplevel.get()
             && tl.tl_data().is_fullscreen.get()
         {
-            self.output.get().update_presentation_type();
+            let tt = &self.client.state.tree_transaction();
+            self.output.get().update_presentation_type(tt);
         }
         if self.need_extents_propagation.take() {
             self.ext.get().extents_changed();
@@ -1848,9 +1849,9 @@ impl Node for WlSurface {
         self.ext.get().tray_item()
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(tl) = self.toplevel.get() {
-            tl.node_make_visible();
+            tl.node_make_visible(tt);
         }
     }
 

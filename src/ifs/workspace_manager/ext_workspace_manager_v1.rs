@@ -243,6 +243,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
     type Error = ExtWorkspaceManagerV1Error;
 
     fn commit(&self, _req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let tt = &self.client.state.tree_transaction();
         while let Some(change) = self.pending.pop() {
             match change {
                 WorkspaceChange::ActivateWorkspace(w) => {
@@ -253,7 +254,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state
-                        .show_workspace2(seat.as_ref(), &output, &ws);
+                        .show_workspace2(tt, seat.as_ref(), &output, &ws);
                 }
                 WorkspaceChange::AssignWorkspace(w, o) => {
                     let Some(ws) = w.get() else {
@@ -272,7 +273,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                         source_is_destroyed: false,
                         before: None,
                     };
-                    move_ws_to_output(&link, &o, config);
+                    move_ws_to_output(tt, &link, &o, config);
                     ws.desired_output.set(o.global.output_id.clone());
                     self.client.state.tree_changed();
                 }
@@ -283,7 +284,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(output) = output.node() else {
                         return Ok(());
                     };
-                    output.create_workspace(&name);
+                    output.create_workspace(tt, &name);
                 }
             }
         }

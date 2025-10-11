@@ -63,7 +63,8 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
             if !toplevel.node_visible() {
-                toplevel.clone().node_make_visible();
+                let tt = &self.client.state.tree_transaction();
+                toplevel.clone().node_make_visible(tt);
                 if !toplevel.node_visible() {
                     return Ok(());
                 }
@@ -87,23 +88,25 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn set_fullscreen(&self, req: SetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
+            let tt = &self.client.state.tree_transaction();
             let ws = if req.output.is_some() {
                 self.client
                     .lookup(req.output)?
                     .global
                     .node()
-                    .map(|node| node.ensure_workspace())
+                    .map(|node| node.ensure_workspace(tt))
             } else {
                 None
             };
-            toplevel.tl_set_fullscreen(true, ws);
+            toplevel.tl_set_fullscreen(tt, true, ws);
         }
         Ok(())
     }
 
     fn unset_fullscreen(&self, _req: UnsetFullscreen, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            toplevel.tl_set_fullscreen(false, None);
+            let tt = &self.client.state.tree_transaction();
+            toplevel.tl_set_fullscreen(tt, false, None);
         }
         Ok(())
     }

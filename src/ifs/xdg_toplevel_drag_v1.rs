@@ -60,7 +60,8 @@ impl XdgToplevelDragV1 {
             }
             let extents = tl.xdg.absolute_desired_extents.get();
             let extents = extents.at_point(x - self.x_off.get(), y - self.y_off.get());
-            tl.clone().tl_change_extents(&extents);
+            let tt = &self.client.state.tree_transaction();
+            tl.clone().tl_change_extents(tt, &extents);
             if tl.node_visible() {
                 tl.xdg.damage();
             }

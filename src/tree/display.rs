@@ -71,12 +71,13 @@ impl DisplayNode {
 
     pub fn update_visible(&self, state: &State) {
         let visible = state.root_visible();
+        let tt = &state.tree_transaction();
         for output in self.outputs.lock().values() {
-            output.update_visible();
+            output.update_visible(tt);
         }
         for stacked in self.stacked.iter() {
             if !stacked.stacked_has_workspace_link() {
-                stacked.stacked_set_visible(visible);
+                stacked.stacked_set_visible(tt, visible);
             }
         }
         for seat in state.globals.seats.lock().values() {

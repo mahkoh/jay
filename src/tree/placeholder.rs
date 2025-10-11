@@ -13,7 +13,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            default_tile_drag_destination, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -215,8 +215,8 @@ impl Node for PlaceholderNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel.make_visible(&*self);
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel.make_visible(&*self, tt);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -257,7 +257,7 @@ impl ToplevelNodeBase for PlaceholderNode {
         });
     }
 
-    fn tl_set_visible_impl(&self, _visible: bool) {
+    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, _visible: bool) {
         // nothing
     }
 

@@ -2266,7 +2266,8 @@ impl Wm {
             client_wire_scale_to_logical!(self.client, x, y, width, height);
             let extents = Rect::new_sized(x, y, width, height).unwrap();
             if let Some(window) = data.window.get() {
-                window.tl_change_extents(&extents);
+                let tt = &self.state.tree_transaction();
+                window.tl_change_extents(tt, &extents);
                 self.state.tree_changed();
             } else {
                 data.info.pending_extents.set(extents);
@@ -2462,7 +2463,8 @@ impl Wm {
         if fullscreen != data.info.fullscreen.get()
             && let Some(w) = data.window.get()
         {
-            w.tl_set_fullscreen(fullscreen, None);
+            let tt = &self.state.tree_transaction();
+            w.tl_set_fullscreen(tt, fullscreen, None);
         }
         data.info.fullscreen.set(fullscreen);
         data.info.maximized_horz.set(maximized_horz);

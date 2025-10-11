@@ -18,6 +18,7 @@ use {
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
+        tree::transaction::TreeTransaction,
         utils::{linkedlist::NodeRef, numcell::NumCell},
     },
     jay_config::Direction as JayDirection,
@@ -274,8 +275,8 @@ pub trait Node: 'static {
         None
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        // nothing
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     // EVENT HANDLERS

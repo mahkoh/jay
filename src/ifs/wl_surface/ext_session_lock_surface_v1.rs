@@ -15,7 +15,7 @@ use {
         rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, TreeSerial,
+            NodeVisitor, OutputNode, TreeSerial, transaction::TreeTransaction,
         },
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
@@ -48,13 +48,9 @@ impl ExtSessionLockSurfaceV1 {
         Ok(())
     }
 
-    pub fn change_extents(self: &Rc<Self>, rect: Rect) {
+    pub fn change_extents(self: &Rc<Self>, tt: &TreeTransaction, rect: Rect) {
         self.surface.set_absolute_position(rect.x1(), rect.y1());
-        self.client
-            .state
-            .tree_transaction()
-            .configure_group()
-            .add(self, rect.size2());
+        tt.configure_group().add(self, rect.size2());
     }
 
     fn send_configure(&self, serial: TreeSerial, width: i32, height: i32) {
@@ -94,7 +90,8 @@ impl ExtSessionLockSurfaceV1 {
             && let Some(ls) = output.lock_surface.get()
             && ls.node_id == self.node_id
         {
-            output.set_lock_surface(None);
+            let tt = &self.client.state.tree_transaction();
+            output.set_lock_surface(tt, None);
             self.client.state.tree_changed();
         }
         self.surface.destroy_node();

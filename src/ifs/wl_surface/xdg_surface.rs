@@ -21,7 +21,7 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, OutputNode, StackedNode,
-            TreeSerial, WorkspaceNode,
+            TreeSerial, WorkspaceNode, transaction::TreeTransaction,
         },
         utils::{
             cell_ext::CellExt,
@@ -159,9 +159,9 @@ impl XdgPopupParent for Popup {
         self.parent.surface.visible.get()
     }
 
-    fn make_visible(self: Rc<Self>) {
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(ext) = self.parent.ext.get() {
-            ext.make_visible();
+            ext.make_visible(tt);
         }
     }
 
@@ -227,7 +227,7 @@ pub trait XdgSurfaceExt: Debug {
         geometry
     }
 
-    fn make_visible(self: Rc<Self>);
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction);
 
     fn node_layer(&self) -> NodeLayerLink;
 

@@ -98,10 +98,11 @@ impl ZwlrOutputConfigurationV1 {
     }
 
     fn apply_transaction(&self) -> Result<(), ConfigError> {
+        let tt = &self.client.state.tree_transaction();
         self.prepare_transaction()?
             .apply()
             .map_err(ConfigError::ApplyTransaction)?
-            .commit();
+            .commit(tt);
         for output in self.client.state.outputs.lock().values() {
             let Some(config) = self.enabled_outputs.get(&output.connector.id) else {
                 continue;
@@ -109,16 +110,16 @@ impl ZwlrOutputConfigurationV1 {
             let config = *config.config.borrow();
             if let Some(node) = &output.node {
                 if let Some(v) = config.transform {
-                    node.update_transform(v);
+                    node.update_transform(tt, v);
                 }
                 if let Some(v) = config.scale {
-                    node.set_preferred_scale(v);
+                    node.set_preferred_scale(tt, v);
                 }
                 if let Some(v) = config.vrr_mode {
-                    node.set_vrr_mode(v);
+                    node.set_vrr_mode(tt, v);
                 }
                 if let Some(v) = config.pos {
-                    node.set_position(v.0, v.1);
+                    node.set_position(tt, v.0, v.1);
                 }
             } else {
                 let mi = &output.monitor_info;

@@ -44,7 +44,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
-            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
+            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, transaction::TreeTransaction,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -238,7 +239,7 @@ impl OutputNode {
         }
     }
 
-    pub fn update_exclusive_zones(self: &Rc<Self>) {
+    pub fn update_exclusive_zones(self: &Rc<Self>, tt: &TreeTransaction) {
         let mut exclusive = ExclusiveSize::default();
         for layer in &self.layers {
             for surface in layer.iter() {
@@ -249,11 +250,11 @@ impl OutputNode {
             self.update_rects();
             for layer in &self.layers {
                 for surface in layer.iter() {
-                    surface.exclusive_zones_changed();
+                    surface.exclusive_zones_changed(tt);
                 }
             }
             if let Some(c) = self.workspace.get() {
-                c.change_extents(&self.workspace_rect.get());
+                c.change_extents(tt, &self.workspace_rect.get());
             }
             if self.node_visible() {
                 self.state.damage(self.global.pos.get());
@@ -460,17 +461,17 @@ impl OutputNode {
         self.render_data.borrow_mut().clear();
     }
 
-    pub fn on_spaces_changed(self: &Rc<Self>) {
+    pub fn on_spaces_changed(self: &Rc<Self>, tt: &TreeTransaction) {
         self.update_rects();
         if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect.get());
+            c.change_extents(tt, &self.workspace_rect.get());
         }
         for item in self.tray_items.iter() {
-            item.deref().clone().send_current_configure();
+            item.deref().clone().send_current_configure(tt);
         }
     }
 
-    pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
+    pub fn set_preferred_scale(self: &Rc<Self>, tt: &TreeTransaction, scale: Scale) {
         let old_scale = self.global.persistent.scale.replace(scale);
         if scale == old_scale {
             return;
@@ -482,7 +483,7 @@ impl OutputNode {
         self.state.remove_output_scale(old_scale);
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
-        self.change_extents_(&rect);
+        self.change_extents_(tt, &rect);
         let mut visitor = SurfaceSendPreferredScaleVisitor;
         self.node_visit_children(&mut visitor);
         for ws in self.workspaces.iter() {
@@ -660,16 +661,16 @@ impl OutputNode {
         }
     }
 
-    pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn ensure_workspace(self: &Rc<Self>, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
             if !ws.is_dummy {
                 return ws;
             }
         }
-        self.generate_workspace()
+        self.generate_workspace(tt)
     }
 
-    pub fn generate_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn generate_workspace(self: &Rc<Self>, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         let name = 'name: {
             for i in 1.. {
                 let name = i.to_string();
@@ -679,10 +680,10 @@ impl OutputNode {
             }
             unreachable!();
         };
-        self.create_workspace(&name)
+        self.create_workspace(tt, &name)
     }
 
-    pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
+    pub fn show_workspace(&self, tt: &TreeTransaction, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
         if let Some(old) = self.workspace.set(Some(ws.clone())) {
             if old.id == ws.id {
@@ -690,7 +691,7 @@ impl OutputNode {
             }
             collect_kb_foci2(old.clone(), &mut seats);
             for pinned in self.pinned.iter() {
-                pinned.deref().clone().set_workspace(ws, false);
+                pinned.deref().clone().set_workspace(tt, ws, false);
             }
             if old.is_empty() {
                 for jw in old.jay_workspaces.lock().values() {
@@ -703,15 +704,15 @@ impl OutputNode {
                 old.clear();
                 self.state.workspaces.remove(&old.name);
             } else {
-                old.set_visible(false);
+                old.set_visible(tt, false);
                 old.flush_jay_workspaces();
             }
         }
-        self.update_visible();
+        self.update_visible(tt);
         if let Some(fs) = ws.fullscreen.get() {
-            fs.tl_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(tt, &self.global.pos.get());
         }
-        ws.change_extents(&self.workspace_rect.get());
+        ws.change_extents(tt, &self.workspace_rect.get());
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -732,7 +733,11 @@ impl OutputNode {
         None
     }
 
-    pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
+    pub fn create_workspace(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        name: &str,
+    ) -> Rc<WorkspaceNode> {
         let ws = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
             state: self.state.clone(),
@@ -768,7 +773,7 @@ impl OutputNode {
         *ws.output_link.borrow_mut() = Some(link);
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
-            self.show_workspace(&ws);
+            self.show_workspace(tt, &ws);
         }
         let mut clients_to_kill = AHashMap::new();
         for watcher in self.state.workspace_watchers.lock().values() {
@@ -813,27 +818,32 @@ impl OutputNode {
         self.schedule_update_render_data();
     }
 
-    pub fn set_position(self: &Rc<Self>, x: i32, y: i32) {
+    pub fn set_position(self: &Rc<Self>, tt: &TreeTransaction, x: i32, y: i32) {
         let pos = self.global.pos.get();
         if (pos.x1(), pos.y1()) == (x, y) {
             return;
         }
         let rect = pos.at_point(x, y);
-        self.change_extents_(&rect);
+        self.change_extents_(tt, &rect);
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_position_change(x, y);
         }
     }
 
-    pub fn update_mode(self: &Rc<Self>, mode: Mode) {
-        self.update_mode_and_transform(mode, self.global.persistent.transform.get());
+    pub fn update_mode(self: &Rc<Self>, tt: &TreeTransaction, mode: Mode) {
+        self.update_mode_and_transform(tt, mode, self.global.persistent.transform.get());
     }
 
-    pub fn update_transform(self: &Rc<Self>, transform: Transform) {
-        self.update_mode_and_transform(self.global.mode.get(), transform);
+    pub fn update_transform(self: &Rc<Self>, tt: &TreeTransaction, transform: Transform) {
+        self.update_mode_and_transform(tt, self.global.mode.get(), transform);
     }
 
-    pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
+    pub fn update_mode_and_transform(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        mode: Mode,
+        transform: Transform,
+    ) {
         let old_mode = self.global.mode.get();
         let old_transform = self.global.persistent.transform.get();
         if (old_mode, old_transform) == (mode, transform) {
@@ -844,7 +854,7 @@ impl OutputNode {
         self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
         let (new_width, new_height) = self.global.pixel_size();
-        self.change_extents_(&self.calculate_extents());
+        self.change_extents_(tt, &self.calculate_extents());
 
         if (old_width, old_height) != (new_width, new_height) {
             for sc in self.screencasts.lock().values() {
@@ -887,7 +897,7 @@ impl OutputNode {
         Rect::new_sized(pos.0, pos.1, width, height).unwrap()
     }
 
-    fn change_extents_(self: &Rc<Self>, rect: &Rect) {
+    fn change_extents_(self: &Rc<Self>, tt: &TreeTransaction, rect: &Rect) {
         let visible = self.node_visible();
         if visible {
             let old_pos = self.global.pos.get();
@@ -902,17 +912,17 @@ impl OutputNode {
         self.state.output_extents_changed();
         self.update_rects();
         if let Some(ls) = self.lock_surface.get() {
-            ls.change_extents(*rect);
+            ls.change_extents(tt, *rect);
         }
         if let Some(c) = self.workspace.get() {
             if let Some(fs) = c.fullscreen.get() {
-                fs.tl_change_extents(rect);
+                fs.tl_change_extents(tt, rect);
             }
-            c.change_extents(&self.workspace_rect.get());
+            c.change_extents(tt, &self.workspace_rect.get());
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.output_resized();
+                surface.output_resized(tt);
             }
         }
         self.global.send_mode();
@@ -926,13 +936,18 @@ impl OutputNode {
             .handle_position_size_change(self);
     }
 
-    pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
+    pub fn update_state(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        old: BackendConnectorState,
+        state: BackendConnectorState,
+    ) {
         self.update_btf_and_bcs(state.eotf, state.color_space);
         if old.vrr != state.vrr {
             self.schedule.set_vrr_enabled(state.vrr);
         }
         if old.mode != state.mode {
-            self.update_mode(state.mode);
+            self.update_mode(tt, state.mode);
         }
         self.global.format.set(state.format);
     }
@@ -1065,15 +1080,16 @@ impl OutputNode {
 
     pub fn set_lock_surface(
         &self,
+        tt: &TreeTransaction,
         surface: Option<Rc<ExtSessionLockSurfaceV1>>,
     ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
         let prev = self.lock_surface.set(surface);
-        self.update_visible();
+        self.update_visible(tt);
         prev
     }
 
-    pub fn fullscreen_changed(&self) {
-        self.update_visible();
+    pub fn fullscreen_changed(&self, tt: &TreeTransaction) {
+        self.update_visible(tt);
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
         }
@@ -1091,7 +1107,7 @@ impl OutputNode {
         self.schedule_update_render_data();
     }
 
-    pub fn update_visible(&self) {
+    pub fn update_visible(&self, tt: &TreeTransaction) {
         let mut visible = self.state.root_visible();
         if self.state.lock.locked.get() {
             if let Some(surface) = self.lock_surface.get() {
@@ -1119,7 +1135,7 @@ impl OutputNode {
             item.set_visible(lower_visible);
         }
         if let Some(ws) = self.workspace.get() {
-            ws.set_visible(visible);
+            ws.set_visible(tt, visible);
         }
         set_layer_visible!(self.layers[3], visible);
     }
@@ -1148,15 +1164,16 @@ impl OutputNode {
             }
             return;
         };
-        self.state.show_workspace2(Some(seat), &self, &ws);
+        let tt = &self.state.tree_transaction();
+        self.state.show_workspace2(tt, Some(seat), &self, &ws);
     }
 
-    pub fn update_presentation_type(&self) {
-        self.update_vrr_state();
-        self.update_tearing();
+    pub fn update_presentation_type(&self, tt: &TreeTransaction) {
+        self.update_vrr_state(tt);
+        self.update_tearing(tt);
     }
 
-    fn update_vrr_state(&self) {
+    fn update_vrr_state(&self, tt: &TreeTransaction) {
         let enabled = match self.global.persistent.vrr_mode.get() {
             VrrMode::Never => false,
             VrrMode::Always => true,
@@ -1189,13 +1206,13 @@ impl OutputNode {
         let res = self
             .global
             .connector
-            .modify_state(&self.state, |s| s.vrr = enabled);
+            .modify_state(&self.state, tt, |s| s.vrr = enabled);
         if let Err(e) = res {
             log::error!("Could not set vrr mode: {}", e);
         }
     }
 
-    fn update_tearing(&self) {
+    fn update_tearing(&self, tt: &TreeTransaction) {
         let enabled = match self.global.persistent.tearing_mode.get() {
             TearingMode::Never => false,
             TearingMode::Always => true,
@@ -1222,7 +1239,7 @@ impl OutputNode {
         let res = self
             .global
             .connector
-            .modify_state(&self.state, |s| s.tearing = enabled);
+            .modify_state(&self.state, tt, |s| s.tearing = enabled);
         if let Err(e) = res {
             log::error!("Could not set tearing mode: {}", e);
         }
@@ -1414,10 +1431,10 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn set_vrr_mode(&self, mode: &'static VrrMode) {
+    pub fn set_vrr_mode(&self, tt: &TreeTransaction, mode: &'static VrrMode) {
         let old = self.global.persistent.vrr_mode.replace(mode);
         if old != mode {
-            self.update_presentation_type();
+            self.update_presentation_type(tt);
             self.global
                 .connector
                 .head_managers
@@ -1428,10 +1445,10 @@ impl OutputNode {
         }
     }
 
-    pub fn set_tearing_mode(&self, mode: &'static TearingMode) {
+    pub fn set_tearing_mode(&self, tt: &TreeTransaction, mode: &'static TearingMode) {
         let old = self.global.persistent.tearing_mode.replace(mode);
         if old != mode {
-            self.update_presentation_type();
+            self.update_presentation_type(tt);
             self.global
                 .connector
                 .head_managers
@@ -1725,7 +1742,8 @@ impl Node for OutputNode {
                 None => break,
             };
         }
-        self.state.show_workspace2(Some(seat), &self, &ws);
+        let tt = &self.state.tree_transaction();
+        self.state.show_workspace2(tt, Some(seat), &self, &ws);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {

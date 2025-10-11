@@ -23,7 +23,7 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId,
             PlaceholderNode, StackedNode, ToplevelNode, container::ContainerNode,
-            walker::NodeVisitor,
+            transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -162,15 +162,15 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
+    pub fn set_container(self: &Rc<Self>, tt: &TreeTransaction, container: &Rc<ContainerNode>) {
         if let Some(prev) = self.container.get() {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**container);
         let pos = self.position.get();
-        container.clone().tl_change_extents(&pos);
-        container.tl_set_parent(self.clone());
-        container.tl_set_visible(self.container_visible());
+        container.clone().tl_change_extents(tt, &pos);
+        container.tl_set_parent(tt, self.clone());
+        container.tl_set_visible(tt, self.container_visible());
         self.container.set(Some(container.clone()));
         self.state.damage(self.position.get());
     }
@@ -187,10 +187,10 @@ impl WorkspaceNode {
         self.visible.get() && (self.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
-    pub fn change_extents(&self, rect: &Rect) {
+    pub fn change_extents(&self, tt: &TreeTransaction, rect: &Rect) {
         self.position.set(*rect);
         if let Some(c) = self.container.get() {
-            c.tl_change_extents(rect);
+            c.tl_change_extents(tt, rect);
         }
     }
 
@@ -200,7 +200,7 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_visible(&self, visible: bool) {
+    pub fn set_visible(&self, tt: &TreeTransaction, visible: bool) {
         self.visible.set(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
@@ -212,49 +212,50 @@ impl WorkspaceNode {
             stacked.stacked_prepare_set_visible();
         }
         if let Some(fs) = self.fullscreen.get() {
-            fs.tl_set_visible(visible);
+            fs.tl_set_visible(tt, visible);
         }
         if let Some(container) = self.container.get() {
-            container.tl_set_visible(self.container_visible());
+            container.tl_set_visible(tt, self.container_visible());
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked.stacked_set_visible(self.float_visible());
+                stacked.stacked_set_visible(tt, self.float_visible());
             }
         }
         self.seat_state.set_visible(self, visible);
     }
 
-    pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
+    pub fn set_fullscreen_node(&self, tt: &TreeTransaction, node: &Rc<dyn ToplevelNode>) {
         if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
             self.discard_child_properties(&*prev);
         }
+        let output = self.output.get();
         self.pull_child_properties(&**node);
         if self.visible.get() {
-            self.output.get().fullscreen_changed();
+            output.fullscreen_changed(tt);
         } else {
-            node.tl_set_visible(false);
+            node.tl_set_visible(tt, false);
         }
         if let Some(surface) = node.tl_scanout_surface()
             && let Some(fb) = self.output.get().global.connector.connector.drm_feedback()
         {
             surface.send_feedback(&fb);
         }
-        self.output.get().update_presentation_type();
+        self.output.get().update_presentation_type(tt);
     }
 
-    pub fn remove_fullscreen_node(&self) {
+    pub fn remove_fullscreen_node(&self, tt: &TreeTransaction) {
         if let Some(node) = self.fullscreen.take() {
             self.discard_child_properties(&*node);
             if self.visible.get() {
-                self.output.get().fullscreen_changed();
+                self.output.get().fullscreen_changed(tt);
             }
             if let Some(surface) = node.tl_scanout_surface()
                 && let Some(fb) = surface.client.state.drm_feedback.get()
             {
                 surface.send_feedback(&fb);
             }
-            self.output.get().update_presentation_type();
+            self.output.get().update_presentation_type(tt);
         }
     }
 
@@ -339,7 +340,8 @@ impl Node for WorkspaceNode {
         } else if let Some(float) = self
             .stacked
             .rev_iter()
-            .find_map(|node| (*node).clone().node_into_float())
+            .filter_map(|node| (*node).clone().node_into_float())
+            .find(|node| node.child.is_some())
         {
             if let Some(child) = float.child.get() {
                 child.node_do_focus(seat, direction);
@@ -369,11 +371,12 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if self.is_dummy {
             return;
         }
-        self.state.show_workspace2(None, &self.output.get(), &self);
+        self.state
+            .show_workspace2(tt, None, &self.output.get(), &self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -405,7 +408,12 @@ impl Node for WorkspaceNode {
 }
 
 impl ContainingNode for WorkspaceNode {
-    fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+    fn cnode_replace_child(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        old: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
         if let Some(container) = self.container.get()
             && container.node_id() == old.node_id()
         {
@@ -416,13 +424,18 @@ impl ContainingNode for WorkspaceNode {
                     return;
                 }
             };
-            self.set_container(&new);
+            self.set_container(tt, &new);
             return;
         }
         log::error!("Trying to replace child that's not a child");
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+    fn cnode_remove_child2(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        _preserve_focus: bool,
+    ) {
         if let Some(container) = self.container.get()
             && container.node_id() == child.node_id()
         {
@@ -434,7 +447,7 @@ impl ContainingNode for WorkspaceNode {
         if let Some(fs) = self.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
-            self.remove_fullscreen_node();
+            self.remove_fullscreen_node(tt);
             return;
         }
         log::error!("Trying to remove child that's not a child");
@@ -452,8 +465,8 @@ impl ContainingNode for WorkspaceNode {
         self
     }
 
-    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
-        self.node_make_visible();
+    fn cnode_make_visible(self: Rc<Self>, tt: &TreeTransaction, _child: &dyn Node) {
+        self.node_make_visible(tt);
     }
 }
 
@@ -465,6 +478,7 @@ pub struct WsMoveConfig {
 }
 
 pub fn move_ws_to_output(
+    tt: &TreeTransaction,
     ws: &NodeRef<Rc<WorkspaceNode>>,
     target: &Rc<OutputNode>,
     config: WsMoveConfig,
@@ -483,12 +497,15 @@ pub fn move_ws_to_output(
             .find(|c| c.id != ws.id)
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
-            new_source_ws = Some(source.generate_workspace());
+            new_source_ws = Some(source.generate_workspace(tt));
         }
     }
     if let Some(new_source_ws) = &new_source_ws {
         for pinned in source.pinned.iter() {
-            pinned.deref().clone().set_workspace(new_source_ws, false);
+            pinned
+                .deref()
+                .clone()
+                .set_workspace(tt, new_source_ws, false);
         }
     }
     ws.set_output(&target);
@@ -512,13 +529,13 @@ pub fn move_ws_to_output(
         && (config.make_visible_always
             || (config.make_visible_if_empty && target.workspace.is_none()));
     if make_visible {
-        ws.state.show_workspace2(None, target, &ws);
+        ws.state.show_workspace2(tt, None, target, &ws);
     } else {
-        ws.set_visible(false);
+        ws.set_visible(tt, false);
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {
-        ws.state.show_workspace2(None, &source, &ws);
+        ws.state.show_workspace2(tt, None, &source, &ws);
     }
     if !target.is_dummy {
         target.schedule_update_render_data();

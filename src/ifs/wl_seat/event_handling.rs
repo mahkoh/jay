@@ -1038,7 +1038,8 @@ impl WlSeatGlobal {
             && node.node_id() != self.keyboard_node.get().node_id()
         {
             if !node.node_visible() {
-                node.clone().node_make_visible();
+                let tt = &self.state.tree_transaction();
+                node.clone().node_make_visible(tt);
                 if !node.node_visible() {
                     return;
                 }

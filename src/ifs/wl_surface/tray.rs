@@ -13,7 +13,7 @@ use {
         rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, StackedNode, TreeSerial,
+            NodeVisitor, OutputNode, StackedNode, TreeSerial, transaction::TreeTransaction,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -73,7 +73,7 @@ impl TrayItemData {
 }
 
 pub trait DynTrayItem: Node {
-    fn send_current_configure(self: Rc<Self>);
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction);
     fn data(&self) -> &TrayItemData;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
@@ -82,7 +82,7 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(self: Rc<Self>) {
+    fn send_current_configure(self: Rc<Self>, _tt: &TreeTransaction) {
         let data = self.tray_item_data();
         let state = &data.client.state;
         let size = state.tray_icon_size().max(1);
@@ -215,8 +215,8 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         self.parent.node_visible()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        // nothing
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -358,8 +358,9 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
+        let tt = &data.client.state.tree_transaction();
         item.send_initial_configure_prefix();
-        item.clone().send_current_configure();
+        item.clone().send_current_configure(tt);
     }
     Ok(())
 }

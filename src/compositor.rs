@@ -803,7 +803,8 @@ fn create_dummy_output(state: &Rc<State>) {
     });
     *dummy_workspace.output_link.borrow_mut() =
         Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
-    dummy_output.show_workspace(&dummy_workspace);
+    let tt = &state.tree_transaction();
+    dummy_output.show_workspace(tt, &dummy_workspace);
     state.dummy_output.set(Some(dummy_output));
 }
 

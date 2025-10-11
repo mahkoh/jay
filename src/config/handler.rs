@@ -31,7 +31,7 @@ use {
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
             TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
             move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            toplevel_set_floating, toplevel_set_workspace, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -436,7 +436,8 @@ impl ConfigProxyHandler {
         fullscreen: bool,
     ) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
-        tl.tl_set_fullscreen(fullscreen, None);
+        let tt = &self.state.tree_transaction();
+        tl.tl_set_fullscreen(tt, fullscreen, None);
         Ok(())
     }
 
@@ -638,7 +639,8 @@ impl ConfigProxyHandler {
     fn handle_window_move(&self, window: Window, direction: Direction) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_parent_container(&*window) {
-            c.move_child(window, direction.into());
+            let tt = &self.state.tree_transaction();
+            c.move_child(tt, window, direction.into());
         }
         Ok(())
     }
@@ -1022,25 +1024,27 @@ impl ConfigProxyHandler {
     fn handle_set_seat_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
+        let tt = &self.state.tree_transaction();
         let workspace = match self.state.workspaces.get(name.deref()) {
             Some(ws) => ws,
-            _ => seat.get_output().create_workspace(name.deref()),
+            _ => seat.get_output().create_workspace(tt, name.deref()),
         };
-        seat.set_workspace(&workspace);
+        seat.set_workspace(tt, &workspace);
         Ok(())
     }
 
     fn handle_set_window_workspace(&self, window: Window, ws: Workspace) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         let name = self.get_workspace(ws)?;
+        let tt = &self.state.tree_transaction();
         let workspace = match self.state.workspaces.get(name.deref()) {
             Some(ws) => ws,
             _ => match window.node_output() {
-                Some(o) => o.create_workspace(name.deref()),
+                Some(o) => o.create_workspace(tt, name.deref()),
                 _ => return Ok(()),
             },
         };
-        toplevel_set_workspace(&self.state, window, &workspace);
+        toplevel_set_workspace(&self.state, tt, window, &workspace);
         Ok(())
     }
 
@@ -1101,7 +1105,8 @@ impl ConfigProxyHandler {
             source_is_destroyed: false,
             before: None,
         };
-        move_ws_to_output(&link, &output, config);
+        let tt = &self.state.tree_transaction();
+        move_ws_to_output(tt, &link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.state.tree_changed();
         Ok(())
@@ -1169,8 +1174,9 @@ impl ConfigProxyHandler {
         mode: WireMode,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.mode = backend::Mode {
                     width: mode.width,
                     height: mode.height,
@@ -1283,7 +1289,8 @@ impl ConfigProxyHandler {
         }
         let scale = Scale::from_f64(scale);
         let connector = self.get_output_node(connector)?;
-        connector.set_preferred_scale(scale);
+        let tt = &self.state.tree_transaction();
+        connector.set_preferred_scale(tt, scale);
         Ok(())
     }
 
@@ -1296,8 +1303,9 @@ impl ConfigProxyHandler {
             return Err(CphError::UnknownFormat(format));
         };
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| s.format = format)
+            .modify_state(&self.state, tt, |s| s.format = format)
             .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
@@ -1319,8 +1327,9 @@ impl ConfigProxyHandler {
             _ => return Err(CphError::UnknownEotf(eotf)),
         };
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.color_space = bcs;
                 s.eotf = btf;
             })
@@ -1370,8 +1379,9 @@ impl ConfigProxyHandler {
 
     fn handle_set_show_bar(&self, show: bool) {
         self.state.show_bar.set(show);
+        let tt = &self.state.tree_transaction();
         for output in self.state.root.outputs.lock().values() {
-            output.on_spaces_changed();
+            output.on_spaces_changed(tt);
         }
     }
 
@@ -1436,7 +1446,8 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.set_vrr_mode(mode);
+                let tt = &self.state.tree_transaction();
+                connector.set_vrr_mode(tt, mode);
             }
             _ => self.state.default_vrr_mode.set(mode),
         }
@@ -1474,7 +1485,8 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.set_tearing_mode(mode);
+                let tt = &self.state.tree_transaction();
+                connector.set_tearing_mode(tt, mode);
             }
             _ => self.state.default_tearing_mode.set(mode),
         }
@@ -1487,7 +1499,8 @@ impl ConfigProxyHandler {
         transform: Transform,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        connector.update_transform(transform);
+        let tt = &self.state.tree_transaction();
+        connector.update_transform(tt, transform);
         Ok(())
     }
 
@@ -1501,7 +1514,8 @@ impl ConfigProxyHandler {
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
-        connector.set_position(x, y);
+        let tt = &self.state.tree_transaction();
+        connector.set_position(tt, x, y);
         Ok(())
     }
 
@@ -1518,8 +1532,9 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.enabled = enabled;
             })
             .map_err(CphError::ModifyConnectorState)?;
@@ -1620,7 +1635,8 @@ impl ConfigProxyHandler {
     fn handle_set_window_mono(&self, window: Window, mono: bool) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_parent_container(&*window) {
-            c.set_mono(mono.then_some(window.as_ref()));
+            let tt = &self.state.tree_transaction();
+            c.set_mono(tt, mono.then_some(window.as_ref()));
         }
         Ok(())
     }
@@ -2282,14 +2298,14 @@ impl ConfigProxyHandler {
     }
 
     fn spaces_change(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
+        struct V<'a>(&'a TreeTransaction<'a>);
+        impl NodeVisitorBase for V<'_> {
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
+                node.on_spaces_changed(self.0);
                 node.node_visit_children(self);
             }
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
+                node.on_spaces_changed(self.0);
                 node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
@@ -2297,7 +2313,8 @@ impl ConfigProxyHandler {
                 node.node_visit_children(self);
             }
         }
-        self.state.root.clone().node_visit(&mut V);
+        let tt = &self.state.tree_transaction();
+        self.state.root.clone().node_visit(&mut V(tt));
         self.state.damage(self.state.root.extents.get());
         self.state.icons.update_sizes(&self.state);
     }

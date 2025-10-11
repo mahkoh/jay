@@ -14,7 +14,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            default_tile_drag_destination, transaction::TreeTransaction,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -277,6 +277,7 @@ impl Xwindow {
             None => self.data.info.wants_floating.get(),
             Some(m) => m == TileState::Floating,
         };
+        let tt = &self.data.state.tree_transaction();
         match map_change {
             Change::None => return,
             Change::Unmap => {
@@ -288,32 +289,37 @@ impl Xwindow {
             }
             Change::Map if override_redirect => {
                 self.clone()
-                    .tl_change_extents(&self.data.info.pending_extents.get());
+                    .tl_change_extents(tt, &self.data.info.pending_extents.get());
                 *self.display_link.borrow_mut() =
                     Some(self.data.state.root.stacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
             Change::Map if map_floating => {
-                let ws = self.data.state.float_map_ws();
+                let ws = self.data.state.float_map_ws(tt);
                 let ext = self.data.info.pending_extents.get();
-                self.data
-                    .state
-                    .map_floating(self.clone(), ext.width(), ext.height(), &ws, None);
+                self.data.state.map_floating(
+                    tt,
+                    self.clone(),
+                    ext.width(),
+                    ext.height(),
+                    &ws,
+                    None,
+                );
                 self.data.title_changed();
             }
             Change::Map => {
-                self.data.state.map_tiled(self.clone());
+                self.data.state.map_tiled(tt, self.clone());
                 if self.data.info.fullscreen.get() {
-                    self.clone().tl_set_fullscreen(true, None);
+                    self.clone().tl_set_fullscreen(tt, true, None);
                 }
                 self.data.title_changed();
             }
         }
         match map_change {
-            Change::Unmap => self.tl_set_visible(false),
+            Change::Unmap => self.tl_set_visible(tt, false),
             Change::Map => {
                 if override_redirect {
-                    self.tl_set_visible(true);
+                    self.tl_set_visible(tt, true);
                 }
                 self.toplevel_data.broadcast(self.clone());
             }
@@ -423,8 +429,8 @@ impl Node for Xwindow {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel_data.make_visible(&*self, tt);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -500,7 +506,7 @@ impl ToplevelNodeBase for Xwindow {
             .push(XWaylandEvent::Close(self.data.clone()));
     }
 
-    fn tl_set_visible_impl(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, visible: bool) {
         self.x.surface.set_visible(visible);
     }
 
@@ -534,9 +540,9 @@ impl ToplevelNodeBase for Xwindow {
 }
 
 impl StackedNode for Xwindow {
-    fn stacked_set_visible(&self, visible: bool) {
+    fn stacked_set_visible(&self, tt: &TreeTransaction, visible: bool) {
         self.damage_override_redirect();
-        self.tl_set_visible(visible);
+        self.tl_set_visible(tt, visible);
     }
 
     fn stacked_has_workspace_link(&self) -> bool {

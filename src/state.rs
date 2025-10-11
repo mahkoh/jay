@@ -97,7 +97,8 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, TreeSerial, TreeSerials,
-            VrrMode, WorkspaceNode, generic_node_visitor, transaction::TreeTransactions,
+            VrrMode, WorkspaceNode, generic_node_visitor,
+            transaction::{TreeTransaction, TreeTransactions},
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -451,6 +452,7 @@ impl ConnectorData {
     pub fn modify_state(
         &self,
         state: &State,
+        tt: &TreeTransaction,
         f: impl FnOnce(&mut BackendConnectorState),
     ) -> Result<(), BackendConnectorTransactionError> {
         let old = self.state.get();
@@ -463,11 +465,11 @@ impl ConnectorData {
         let mut tran = self.connector.create_transaction()?;
         tran.add(&self.connector, s)?;
         tran.prepare()?.apply()?.commit();
-        self.set_state(state, s);
+        self.set_state(tt, state, s);
         Ok(())
     }
 
-    pub fn set_state(&self, state: &State, s: BackendConnectorState) {
+    pub fn set_state(&self, tt: &TreeTransaction, state: &State, s: BackendConnectorState) {
         let old = self.state.get();
         if old.serial >= s.serial {
             return;
@@ -505,7 +507,7 @@ impl ConnectorData {
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
-            node.update_state(old, s);
+            node.update_state(tt, old, s);
         }
     }
 }
@@ -779,28 +781,42 @@ impl State {
         }
     }
 
-    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+    pub fn ensure_map_workspace(
+        &self,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Rc<WorkspaceNode> {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap()
-            .ensure_workspace()
+            .ensure_workspace(tt)
     }
 
-    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
+    pub fn map_tiled(self: &Rc<Self>, tt: &TreeTransaction, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
-        self.do_map_tiled(seat.as_deref(), node.clone());
+        self.do_map_tiled(tt, seat.as_deref(), node.clone());
         self.focus_after_map(node, seat.as_deref());
     }
 
-    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
-        let ws = self.ensure_map_workspace(seat);
-        self.map_tiled_on(node, &ws);
+    fn do_map_tiled(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        node: Rc<dyn ToplevelNode>,
+    ) {
+        let ws = self.ensure_map_workspace(tt, seat);
+        self.map_tiled_on(tt, node, &ws);
     }
 
-    pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+    pub fn map_tiled_on(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
         if let Some(c) = ws.container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
@@ -809,18 +825,19 @@ impl State {
                 .get()
                 .and_then(|n| n.node_into_container());
             if let Some(lap) = lap {
-                lap.add_child_after(&*la, node);
+                lap.add_child_after(tt, &*la, node);
             } else {
-                c.append_child(node);
+                c.append_child(tt, node);
             }
         } else {
-            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
-            ws.set_container(&container);
+            let container = ContainerNode::new(self, tt, ws, node, ContainerSplit::Horizontal);
+            ws.set_container(tt, &container);
         }
     }
 
     pub fn map_floating(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         mut width: i32,
         mut height: i32,
@@ -856,7 +873,7 @@ impl State {
             }
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
-        FloatNode::new(self, workspace, position, node.clone());
+        FloatNode::new(self, tt, workspace, position, node.clone());
         self.focus_after_map(node, self.seat_queue.last().as_deref());
     }
 
@@ -877,6 +894,7 @@ impl State {
 
     pub fn show_workspace2(
         &self,
+        tt: &TreeTransaction,
         seat: Option<&Rc<WlSeatGlobal>>,
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
@@ -894,7 +912,7 @@ impl State {
                     }));
             }
         }
-        let did_change = output.show_workspace(&ws);
+        let did_change = output.show_workspace(tt, &ws);
         if !pinned_is_focused && let Some(seat) = seat {
             ws.clone().node_do_focus(seat, Direction::Unspecified);
         }
@@ -914,6 +932,7 @@ impl State {
         name: &str,
         output: Option<Rc<OutputNode>>,
     ) {
+        let tt = &self.tree_transaction();
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
             _ => {
@@ -922,23 +941,23 @@ impl State {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
                 }
-                output.create_workspace(name)
+                output.create_workspace(tt, name)
             }
         };
-        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
+        self.show_workspace2(tt, Some(seat), &ws.output.get(), &ws);
     }
 
-    pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
+    pub fn float_map_ws(&self, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_output();
             if !output.is_dummy {
-                return output.ensure_workspace();
+                return output.ensure_workspace(tt);
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_workspace();
+            return output.ensure_workspace(tt);
         }
-        self.dummy_output.get().unwrap().ensure_workspace()
+        self.dummy_output.get().unwrap().ensure_workspace(tt)
     }
 
     pub fn set_status(&self, status: &str) {
@@ -1016,8 +1035,9 @@ impl State {
     pub fn do_unlock(&self) {
         self.lock.locked.set(false);
         self.lock.lock.take();
+        let tt = &self.tree_transaction();
         for output in self.root.outputs.lock().values() {
-            if let Some(surface) = output.set_lock_surface(None) {
+            if let Some(surface) = output.set_lock_surface(tt, None) {
                 surface.destroy_node();
             }
         }

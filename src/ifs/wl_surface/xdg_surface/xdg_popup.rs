@@ -20,7 +20,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, OutputNode, StackedNode, transaction::TreeTransaction,
         },
         utils::clonecell::CloneCell,
         wire::{XdgPopupId, xdg_popup::*},
@@ -45,7 +45,7 @@ pub trait XdgPopupParent {
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
     fn visible(&self) -> bool;
-    fn make_visible(self: Rc<Self>);
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction);
     fn node_layer(&self) -> NodeLayerLink;
     fn tray_item(&self) -> Option<TrayItemId> {
         None
@@ -354,9 +354,9 @@ impl Node for XdgPopup {
         Some(self.xdg.surface.client.clone())
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(parent) = self.parent.get() {
-            parent.make_visible();
+            parent.make_visible(tt);
         }
     }
 
@@ -389,7 +389,7 @@ impl StackedNode for XdgPopup {
         self.set_visible_prepared.get()
     }
 
-    fn stacked_set_visible(&self, visible: bool) {
+    fn stacked_set_visible(&self, _tt: &TreeTransaction, visible: bool) {
         if visible {
             if let Some(parent) = self.parent.get()
                 && !parent.visible()
@@ -446,8 +446,8 @@ impl XdgSurfaceExt for XdgPopup {
         self.parent.get()?.tray_item()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.node_make_visible(tt);
     }
 
     fn node_layer(&self) -> NodeLayerLink {
