@@ -244,7 +244,7 @@ pub trait Node: 'static {
         FindTreeResult::Other
     }
 
-    fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
+    fn node_child_size_changed(self: Rc<Self>, child: &dyn Node, width: i32, height: i32) {
         let _ = (child, width, height);
     }
 

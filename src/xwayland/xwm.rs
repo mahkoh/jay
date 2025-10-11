@@ -2134,7 +2134,7 @@ impl Wm {
         if data.info.override_redirect.replace(or) != or
             && let Some(window) = data.window.get()
         {
-            window.tl_destroy();
+            window.clone().tl_destroy();
             window.update_toplevel();
             window.map_status_changed();
         }

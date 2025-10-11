@@ -169,8 +169,10 @@ impl WorkspaceNode {
         self.pull_child_properties(&**container);
         let pos = self.position.get();
         container.clone().tl_change_extents(tt, &pos);
-        container.tl_set_parent(tt, self.clone());
-        container.tl_set_visible(tt, self.container_visible());
+        container.clone().tl_set_parent(tt, self.clone());
+        container
+            .clone()
+            .tl_set_visible(tt, self.container_visible());
         self.container.set(Some(container.clone()));
         self.state.damage(self.position.get());
     }
@@ -219,13 +221,16 @@ impl WorkspaceNode {
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked.stacked_set_visible(tt, self.float_visible());
+                stacked
+                    .deref()
+                    .clone()
+                    .stacked_set_visible(tt, self.float_visible());
             }
         }
         self.seat_state.set_visible(self, visible);
     }
 
-    pub fn set_fullscreen_node(&self, tt: &TreeTransaction, node: &Rc<dyn ToplevelNode>) {
+    pub fn set_fullscreen_node(self: &Rc<Self>, tt: &TreeTransaction, node: &Rc<dyn ToplevelNode>) {
         if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
             self.discard_child_properties(&*prev);
         }
@@ -234,7 +239,7 @@ impl WorkspaceNode {
         if self.visible.get() {
             output.fullscreen_changed(tt);
         } else {
-            node.tl_set_visible(tt, false);
+            node.clone().tl_set_visible(tt, false);
         }
         if let Some(surface) = node.tl_scanout_surface()
             && let Some(fb) = self.output.get().global.connector.connector.drm_feedback()
@@ -244,7 +249,7 @@ impl WorkspaceNode {
         self.output.get().update_presentation_type(tt);
     }
 
-    pub fn remove_fullscreen_node(&self, tt: &TreeTransaction) {
+    pub fn remove_fullscreen_node(self: &Rc<Self>, tt: &TreeTransaction) {
         if let Some(node) = self.fullscreen.take() {
             self.discard_child_properties(&*node);
             if self.visible.get() {

@@ -77,7 +77,7 @@ impl DisplayNode {
         }
         for stacked in self.stacked.iter() {
             if !stacked.stacked_has_workspace_link() {
-                stacked.stacked_set_visible(tt, visible);
+                stacked.deref().clone().stacked_set_visible(tt, visible);
             }
         }
         for seat in state.globals.seats.lock().values() {

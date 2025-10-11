@@ -232,13 +232,13 @@ impl Xwindow {
         Ok(slf)
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(self: &Rc<Self>) {
         self.break_loops();
         self.data.window.take();
     }
 
-    pub fn break_loops(&self) {
-        self.tl_destroy();
+    pub fn break_loops(self: &Rc<Self>) {
+        self.clone().tl_destroy();
         self.x.surface.set_toplevel(None);
         self.x.xwindow.set(None);
         self.x
@@ -285,7 +285,7 @@ impl Xwindow {
                     .info
                     .pending_extents
                     .set(self.data.info.extents.take());
-                self.tl_destroy();
+                self.clone().tl_destroy();
             }
             Change::Map if override_redirect => {
                 self.clone()
@@ -316,10 +316,10 @@ impl Xwindow {
             }
         }
         match map_change {
-            Change::Unmap => self.tl_set_visible(tt, false),
+            Change::Unmap => self.clone().tl_set_visible(tt, false),
             Change::Map => {
                 if override_redirect {
-                    self.tl_set_visible(tt, true);
+                    self.clone().tl_set_visible(tt, true);
                 }
                 self.toplevel_data.broadcast(self.clone());
             }
@@ -540,7 +540,7 @@ impl ToplevelNodeBase for Xwindow {
 }
 
 impl StackedNode for Xwindow {
-    fn stacked_set_visible(&self, tt: &TreeTransaction, visible: bool) {
+    fn stacked_set_visible(self: Rc<Self>, tt: &TreeTransaction, visible: bool) {
         self.damage_override_redirect();
         self.tl_set_visible(tt, visible);
     }

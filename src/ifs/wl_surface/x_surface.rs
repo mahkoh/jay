@@ -45,7 +45,7 @@ impl SurfaceExt for XSurface {
         }
         self.surface.unset_ext();
         if let Some(xwindow) = self.xwindow.take() {
-            xwindow.tl_destroy();
+            xwindow.clone().tl_destroy();
             xwindow.data.window.set(None);
             xwindow.data.surface_id.set(None);
             xwindow
