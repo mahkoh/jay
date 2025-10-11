@@ -372,7 +372,7 @@ impl EiSeat {
         for output in self.client.state.root.outputs.lock().values() {
             device.send_region_mapping_id(&output.global.connector.name);
             device.send_region(
-                output.node_absolute_position(),
+                output.node_mapped_position(),
                 output.global.persistent.scale.get(),
             );
         }

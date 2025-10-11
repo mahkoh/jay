@@ -688,7 +688,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.pos.get()
     }
 

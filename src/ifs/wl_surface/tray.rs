@@ -312,8 +312,8 @@ impl<T: TrayItem> Node for T {
         self.tray_item_data().surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.tray_item_data().surface.node_absolute_position()
+    fn node_mapped_position(&self) -> Rect {
+        self.tray_item_data().surface.node_mapped_position()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {

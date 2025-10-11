@@ -313,7 +313,7 @@ impl Node for XdgPopup {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
 

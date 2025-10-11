@@ -548,7 +548,7 @@ impl Node for XdgToplevel {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
 
@@ -762,7 +762,7 @@ impl XdgSurfaceExt for XdgToplevel {
             .surface
             .client
             .state
-            .damage(self.node_absolute_position());
+            .damage(self.node_mapped_position());
     }
 
     fn effective_geometry(&self, geometry: Rect) -> Rect {
@@ -772,7 +772,7 @@ impl XdgSurfaceExt for XdgToplevel {
         let output = self
             .toplevel_data
             .output()
-            .node_absolute_position()
+            .node_mapped_position()
             .at_point(0, 0);
         let x_overflow = output.width() - geometry.width();
         let y_overflow = output.height() - geometry.height();

@@ -20,8 +20,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     win2.map2().await?;
     client.sync().await;
 
-    let win1pos = win1.tl.server.node_absolute_position().position();
-    let win2pos = win2.tl.server.node_absolute_position().position();
+    let win1pos = win1.tl.server.node_mapped_position().position();
+    let win2pos = win2.tl.server.node_mapped_position().position();
     ds.mouse.abs(
         &ds.connector,
         win1pos.0 as f64 + 2.0,

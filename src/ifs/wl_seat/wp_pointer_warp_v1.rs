@@ -88,7 +88,7 @@ impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
         }
         let (x, y) = (req.x, req.y);
         let surface = self.client.lookup(req.surface)?;
-        let buffer = surface.node_absolute_position();
+        let buffer = surface.node_mapped_position();
         let (x_int, y_int) = buffer.translate_inv(x.round_down(), y.round_down());
         self.client
             .state

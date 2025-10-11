@@ -143,7 +143,7 @@ impl PlaceholderNode {
             }
         }
         if self.node_visible() {
-            self.state.damage(self.node_absolute_position());
+            self.state.damage(self.node_mapped_position());
         }
     }
 }
@@ -169,7 +169,7 @@ impl Node for PlaceholderNode {
         self.toplevel.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.toplevel.pos.get()
     }
 

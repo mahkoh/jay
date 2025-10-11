@@ -318,7 +318,7 @@ pub trait ToplevelNodeBase: Node {
         self.tl_data()
             .parent
             .is_some()
-            .then_some(self.node_absolute_position())
+            .then_some(self.node_mapped_position())
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
@@ -978,8 +978,8 @@ pub enum TddType {
 pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
     const FACTOR: i32 = 5;
     match split {
-        ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
-        ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+        ContainerSplit::Horizontal => t.node_mapped_position().width() / FACTOR,
+        ContainerSplit::Vertical => t.node_mapped_position().height() / FACTOR,
     }
 }
 

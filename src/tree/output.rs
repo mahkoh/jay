@@ -1005,7 +1005,7 @@ impl OutputNode {
         }
         let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
         for stacked in stack.rev_iter() {
-            let ext = stacked.node_absolute_position();
+            let ext = stacked.node_mapped_position();
             if !stacked.node_visible() {
                 continue;
             }
@@ -1261,7 +1261,7 @@ impl OutputNode {
             if !float.node_visible() {
                 continue;
             }
-            let pos = float.node_absolute_position();
+            let pos = float.node_mapped_position();
             if !pos.contains(x_abs, y_abs) {
                 continue;
             }
@@ -1549,7 +1549,7 @@ impl Node for OutputNode {
         self.state.root_visible()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.global.pos.get()
     }
 

@@ -279,7 +279,7 @@ impl WlSubsurface {
         let (x, y) = self.surface.buffer_abs_pos.get().position();
         let mut rect = self.surface.extents.get().move_(x, y);
         if let Some(tl) = self.surface.toplevel.get() {
-            rect = rect.intersect(tl.node_absolute_position());
+            rect = rect.intersect(tl.node_mapped_position());
         }
         self.surface.client.state.damage(rect);
     }

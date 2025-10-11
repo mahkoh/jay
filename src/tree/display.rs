@@ -95,7 +95,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_mapped_position();
             if pos.contains(x, y) {
                 return output.tile_drag_destination(source, x, y);
             }
@@ -110,7 +110,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<WorkspaceDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_mapped_position();
             if pos.contains(x, y) {
                 return output.workspace_drag_destination(source, x, y);
             }
@@ -146,7 +146,7 @@ impl Node for DisplayNode {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.extents.get()
     }
 

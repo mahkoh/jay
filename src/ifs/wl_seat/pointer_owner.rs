@@ -465,7 +465,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pointer_cursor.position();
-        let pos = self.node.node_absolute_position();
+        let pos = self.node.node_mapped_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
         // log::info!("apply_changes");
         self.node
@@ -880,11 +880,11 @@ impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
             if !tl.tl_admits_children() {
                 seat.pointer_cursor().set_known(KnownCursor::Pointer);
             }
-            seat.state.damage(tl.node_absolute_position());
+            seat.state.damage(tl.node_mapped_position());
         }
         if let Some(prev) = self.latest.set(tl) {
             prev.tl_data().render_highlight.fetch_sub(1);
-            seat.state.damage(prev.node_absolute_position());
+            seat.state.damage(prev.node_mapped_position());
         }
     }
 }
@@ -894,7 +894,7 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.tl_data().render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.node_absolute_position());
+                seat.state.damage(prev.node_mapped_position());
             }
         }
     }
@@ -957,7 +957,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
         let Some(tl) = pn.clone().node_into_toplevel() else {
             return false;
         };
-        let pos = tl.node_absolute_position();
+        let pos = tl.node_mapped_position();
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
         let (mut dx, mut dy) = pos.translate(x, y);
@@ -1150,7 +1150,7 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
     ) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
-        let pos = tl.node_absolute_position();
+        let pos = tl.node_mapped_position();
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;

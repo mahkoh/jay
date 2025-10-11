@@ -177,7 +177,7 @@ impl Renderer<'_> {
                 for stacked in $stack.iter() {
                     if stacked.node_visible() {
                         self.base.ops.push(GfxApiOpt::Sync);
-                        let pos = stacked.node_absolute_position();
+                        let pos = stacked.node_mapped_position();
                         if pos.intersects(&opos) {
                             let (x, y) = opos.translate(pos.x1(), pos.y1());
                             stacked.node_render(self, x, y, None);

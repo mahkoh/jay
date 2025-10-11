@@ -207,7 +207,7 @@ pub trait Node: 'static {
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
-    fn node_absolute_position(&self) -> Rect;
+    fn node_mapped_position(&self) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
     fn node_location(&self) -> Option<NodeLocation>;
     fn node_layer(&self) -> NodeLayerLink;

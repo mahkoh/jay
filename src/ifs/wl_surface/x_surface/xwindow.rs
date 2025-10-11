@@ -369,7 +369,7 @@ impl Node for Xwindow {
         self.x.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.data.info.extents.get()
     }
 

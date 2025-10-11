@@ -142,8 +142,8 @@ impl Node for ExtSessionLockSurfaceV1 {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.surface.node_absolute_position()
+    fn node_mapped_position(&self) -> Rect {
+        self.surface.node_mapped_position()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {

@@ -74,7 +74,7 @@ impl JayTreeQuery {
     }
 
     fn send_node_position(&self, node: &dyn Node) {
-        let rect = node.node_absolute_position();
+        let rect = node.node_mapped_position();
         self.send_position(rect);
     }
 

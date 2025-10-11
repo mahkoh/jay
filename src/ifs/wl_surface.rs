@@ -1423,7 +1423,7 @@ impl WlSurface {
                 .with_size(max_surface_size.0, max_surface_size.1)
                 .unwrap();
             if let Some(tl) = self.toplevel.get() {
-                damage = damage.intersect(tl.node_absolute_position());
+                damage = damage.intersect(tl.node_mapped_position());
             }
             self.client.state.damage(damage);
         }
@@ -1811,7 +1811,7 @@ impl Node for WlSurface {
         self.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.buffer_abs_pos.get()
     }
 
