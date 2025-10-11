@@ -340,7 +340,7 @@ object_base! {
 }
 
 impl Object for XdgPopup {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.jay_popup_ext.take();
         self.destroy_node();
     }

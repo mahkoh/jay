@@ -54,7 +54,7 @@ object_base! {
 }
 
 impl Object for JayOutput {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.remove_from_node();
     }
 }

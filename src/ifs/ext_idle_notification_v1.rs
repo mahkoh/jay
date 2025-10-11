@@ -57,7 +57,7 @@ object_base! {
 }
 
 impl Object for ExtIdleNotificationV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }

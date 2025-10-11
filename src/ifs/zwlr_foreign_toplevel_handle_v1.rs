@@ -195,7 +195,7 @@ object_base! {
 }
 
 impl Object for ZwlrForeignToplevelHandleV1 {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
