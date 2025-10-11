@@ -50,7 +50,7 @@ impl ZxdgToplevelDecorationV1 {
             Decoration::Server => SERVER_SIDE,
         };
         self.send_configure(mode);
-        self.toplevel.send_current_configure();
+        self.toplevel.xdg.schedule_configure();
     }
 }
 

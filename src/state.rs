@@ -19,6 +19,7 @@ use {
         },
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
+        configurable::ConfigureGroups,
         control_center::{
             CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
             CCI_OUTPUTS, CCI_WORKSPACES, CCI_XWAYLAND, ControlCenters,
@@ -73,11 +74,8 @@ use {
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
-                xdg_surface::{
-                    XdgSurfaceConfigureEvent,
-                    xdg_toplevel::xdg_toplevel_icon_v1::{
-                        ToplevelIconId, ToplevelIconIds, XdgToplevelIconV1,
-                    },
+                xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::{
+                    ToplevelIconId, ToplevelIconIds, XdgToplevelIconV1,
                 },
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
@@ -296,7 +294,6 @@ pub struct State {
     pub head_names: HeadNames,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
-    pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
@@ -317,6 +314,7 @@ pub struct State {
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree_serials: TreeSerials,
+    pub configure_groups: Rc<ConfigureGroups>,
 }
 
 // impl Drop for State {
@@ -1337,7 +1335,6 @@ impl State {
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
         self.wait_for_syncobj.clear();
-        self.xdg_surface_configure_events.clear();
         self.lazy_event_sources.clear();
         self.bo_drop_queue.kill();
         self.egg_state.clear();
@@ -1350,6 +1347,7 @@ impl State {
         if let Some(sqlite) = &self.sqlite {
             sqlite.clear();
         }
+        self.configure_groups.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
