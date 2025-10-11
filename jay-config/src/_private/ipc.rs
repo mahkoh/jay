@@ -727,10 +727,6 @@ pub enum ClientMessage<'a> {
         show: bool,
     },
     GetShowBar,
-    SetShowTitles {
-        show: bool,
-    },
-    GetShowTitles,
     SeatFocusHistory {
         seat: Seat,
         timeline: Timeline,
@@ -792,6 +788,10 @@ pub enum ClientMessage<'a> {
         workspace: Workspace,
         connector: Connector,
     },
+    SetShowTitles {
+        show: bool,
+    },
+    GetShowTitles,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
