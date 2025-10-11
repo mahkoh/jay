@@ -174,8 +174,8 @@ impl FloatNode {
         floater
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
-        child.tl_set_parent(tt, floater.clone());
-        child.tl_set_visible(tt, floater.visible.get());
+        child.clone().tl_set_parent(tt, floater.clone());
+        child.clone().tl_set_visible(tt, floater.visible.get());
         child.tl_restack_popups();
         floater.schedule_layout();
         if floater.visible.get() {
@@ -480,7 +480,7 @@ impl FloatNode {
         }
         self.location.set(ws.location());
         if update_visible {
-            self.stacked_set_visible(tt, ws.float_visible());
+            self.clone().stacked_set_visible(tt, ws.float_visible());
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.output.get().pinned.add_last_existing(pl);
@@ -1016,7 +1016,7 @@ impl ContainingNode for FloatNode {
     ) {
         self.discard_child_properties(tt);
         self.child.set(Some(new.clone()));
-        new.tl_set_parent(tt, self.clone());
+        new.clone().tl_set_parent(tt, self.clone());
         new.tl_update_icon(&self.icon);
         self.pull_child_properties(tt);
         new.tl_set_visible(tt, self.visible.get());
@@ -1150,7 +1150,7 @@ impl ContainingNode for FloatNode {
 }
 
 impl StackedNode for FloatNode {
-    fn stacked_set_visible(&self, tt: &TreeTransaction, visible: bool) {
+    fn stacked_set_visible(self: Rc<Self>, tt: &TreeTransaction, visible: bool) {
         if self.visible.replace(visible) != visible {
             self.state.damage(self.position.get());
             if visible {
@@ -1160,7 +1160,7 @@ impl StackedNode for FloatNode {
         if let Some(child) = self.child.get() {
             child.tl_set_visible(tt, visible);
         }
-        self.seat_state.set_visible(self, visible);
+        self.seat_state.set_visible(&*self, visible);
     }
 
     fn stacked_has_workspace_link(&self) -> bool {

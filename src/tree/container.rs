@@ -395,9 +395,10 @@ impl ContainerNode {
             r
         };
         new.tl_update_icon(&new_ref.icon);
-        new.tl_set_parent(tt, self.clone());
+        new.clone().tl_set_parent(tt, self.clone());
         self.pull_child_properties(tt, &new_ref);
-        new.tl_set_visible(tt, self.toplevel_data.visible.get());
+        new.clone()
+            .tl_set_visible(tt, self.toplevel_data.visible.get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -987,7 +988,7 @@ impl ContainerNode {
             }
             if !preserve_focus {
                 let seats = collect_kb_foci(mc.node.clone());
-                mc.node.tl_set_visible(tt, false);
+                mc.node.clone().tl_set_visible(tt, false);
                 for seat in seats {
                     child
                         .node
@@ -997,7 +998,7 @@ impl ContainerNode {
             }
             self.mono_child.set(Some(child.clone()));
             if self.toplevel_data.visible.get() {
-                child.node.tl_set_visible(tt, true);
+                child.node.clone().tl_set_visible(tt, true);
             }
             child.node.tl_restack_popups();
             // log::info!("activate_child2");
@@ -1029,7 +1030,7 @@ impl ContainerNode {
                 for other in self.children.iter() {
                     if other.node.node_id() != child_id {
                         collect_kb_foci2(other.node.clone(), &mut seats);
-                        other.node.tl_set_visible(tt, false);
+                        other.node.clone().tl_set_visible(tt, false);
                     }
                 }
                 for seat in seats {
@@ -1041,7 +1042,7 @@ impl ContainerNode {
                 child.node.tl_restack_popups();
             } else {
                 for child in self.children.iter() {
-                    child.node.tl_set_visible(tt, true);
+                    child.node.clone().tl_set_visible(tt, true);
                 }
             }
         }
@@ -1849,7 +1850,7 @@ impl Node for ContainerNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
+    fn node_child_size_changed(self: Rc<Self>, child: &dyn Node, width: i32, height: i32) {
         let cn = self.child_nodes.borrow();
         if let Some(node) = cn.get(&child.node_id()) {
             let tt = &self.state.tree_transaction();
@@ -2121,9 +2122,9 @@ impl ContainingNode for ContainerNode {
         let link_ref = link.to_ref();
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
         new.tl_update_icon(&link_ref.icon);
-        new.tl_set_parent(tt, self.clone());
+        new.clone().tl_set_parent(tt, self.clone());
         self.pull_child_properties(tt, &link_ref);
-        new.tl_set_visible(tt, visible);
+        new.clone().tl_set_visible(tt, visible);
         if let Some(body) = body {
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
             new.clone().tl_change_extents(tt, &body);
@@ -2476,10 +2477,10 @@ impl ToplevelNodeBase for ContainerNode {
 
     fn tl_set_visible_impl(&self, tt: &TreeTransaction, visible: bool) {
         if let Some(mc) = self.mono_child.get() {
-            mc.node.tl_set_visible(tt, visible);
+            mc.node.clone().tl_set_visible(tt, visible);
         } else {
             for child in self.children.iter() {
-                child.node.tl_set_visible(tt, visible);
+                child.node.clone().tl_set_visible(tt, visible);
             }
         }
     }
@@ -2488,7 +2489,7 @@ impl ToplevelNodeBase for ContainerNode {
         mem::take(self.cursors.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for n in cn.drain_values() {
-            n.node.tl_destroy(tt);
+            n.node.clone().tl_destroy(tt);
         }
     }
 

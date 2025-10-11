@@ -241,10 +241,10 @@ impl XdgToplevel {
 impl XdgToplevelRequestHandler for XdgToplevel {
     type Error = XdgToplevelError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.disown_session();
         let tt = &self.state.tree_transaction();
-        self.tl_destroy(tt);
+        slf.clone().tl_destroy(tt);
         self.xdg.unset_ext();
         {
             let mut children = self.children.borrow_mut();
@@ -469,14 +469,14 @@ impl XdgToplevel {
         }
     }
 
-    pub fn prepare_toplevel_drag(&self) {
+    pub fn prepare_toplevel_drag(self: &Rc<Self>) {
         if self.toplevel_data.parent.get().is_none() {
             return;
         }
         let tt = &self.state.tree_transaction();
-        self.toplevel_data.detach_node(tt, self);
+        self.toplevel_data.detach_node(tt, self.clone());
         self.xdg.detach_node();
-        self.tl_set_visible(tt, self.state.root_visible());
+        self.clone().tl_set_visible(tt, self.state.root_visible());
     }
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
@@ -509,14 +509,14 @@ impl XdgToplevel {
                     }
                     self.toplevel_data.broadcast(self.clone());
                     let tt = &self.state.tree_transaction();
-                    self.tl_set_visible(tt, self.state.root_visible());
+                    self.clone().tl_set_visible(tt, self.state.root_visible());
                     self.xdg.damage();
                 }
                 self.extents_changed();
             } else {
                 if self.is_mapped.replace(false) {
                     let tt = &self.state.tree_transaction();
-                    self.tl_set_visible(tt, false);
+                    self.clone().tl_set_visible(tt, false);
                     self.xdg.damage();
                 }
             }
@@ -527,7 +527,7 @@ impl XdgToplevel {
         }
         let tt = &self.state.tree_transaction();
         if !should_be_mapped {
-            self.tl_destroy(tt);
+            self.clone().tl_destroy(tt);
             {
                 let new_parent = self.parent.get();
                 let mut children = self.children.borrow_mut();
@@ -565,7 +565,7 @@ object_base! {
 impl Object for XdgToplevel {
     fn break_loops(self: Rc<Self>, tt: &TreeTransaction) {
         self.toplevel_data.disown_session();
-        self.tl_destroy(tt);
+        self.clone().tl_destroy(tt);
         self.parent.set(None);
         self.dialog.set(None);
         self.icon.set(None);
@@ -802,7 +802,7 @@ impl ToplevelNodeBase for XdgToplevel {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
 
-    fn tl_mark_fullscreen_ext(&self, _tt: &TreeTransaction) {
+    fn tl_mark_fullscreen_ext(self: Rc<Self>, _tt: &TreeTransaction) {
         self.xdg.update_effective_geometry();
     }
 

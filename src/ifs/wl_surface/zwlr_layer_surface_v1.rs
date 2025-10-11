@@ -397,7 +397,10 @@ impl ZwlrLayerSurfaceV1 {
         }
     }
 
-    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
+    fn pre_commit(
+        self: &Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
         if let Some(size) = pending.size.take() {
             self.size.set(size);

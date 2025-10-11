@@ -263,7 +263,7 @@ impl ToplevelNodeBase for PlaceholderNode {
         let slf = self.clone();
         self.toplevel.state.run_toplevel.schedule(move || {
             let tt = &slf.state.tree_transaction();
-            slf.tl_destroy(tt);
+            slf.clone().tl_destroy(tt);
         });
     }
 

@@ -2158,7 +2158,7 @@ impl Wm {
             && let Some(window) = data.window.get()
         {
             let tt = &self.state.tree_transaction();
-            window.tl_destroy(tt);
+            window.clone().tl_destroy(tt);
             window.update_toplevel(tt);
             window.map_status_changed(Some(tt));
         }
