@@ -21,6 +21,7 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            transaction::TreeTransaction,
         },
         utils::{
             bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -30,7 +31,6 @@ use {
     },
     std::{
         cell::{Cell, RefCell, RefMut},
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -357,7 +357,7 @@ impl ZwlrLayerSurfaceV1 {
         self.exclusive_size.get()
     }
 
-    fn update_exclusive_size(&self) {
+    fn update_exclusive_size(&self, tt: &TreeTransaction) {
         let exclusive_edge = {
             if let Some(ee) = self.exclusive_edge.get() {
                 Some(ee)
@@ -393,7 +393,7 @@ impl ZwlrLayerSurfaceV1 {
         if self.exclusive_size.replace(exclusive_size) != exclusive_size
             && let Some(output) = self.output.node.get()
         {
-            output.update_exclusive_zones();
+            output.update_exclusive_zones(tt);
         }
     }
 
@@ -439,11 +439,12 @@ impl ZwlrLayerSurfaceV1 {
         {
             return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
         }
-        self.configure();
+        let tt = &self.client.state.tree_transaction();
+        self.configure(tt);
         Ok(())
     }
 
-    fn configure(&self) {
+    fn configure(&self, _tt: &TreeTransaction) {
         let Some(node) = self.output.node() else {
             return;
         };
@@ -533,16 +534,16 @@ impl ZwlrLayerSurfaceV1 {
         self.need_position_update.set(false);
     }
 
-    pub fn output_resized(&self) {
-        self.configure();
+    pub fn output_resized(self: &Rc<Self>, tt: &TreeTransaction) {
+        self.configure(tt);
         self.compute_position();
     }
 
-    pub fn exclusive_zones_changed(&self) {
+    pub fn exclusive_zones_changed(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.exclusive_zone.get() != ExclusiveZone::MoveSelf {
             return;
         }
-        self.output_resized();
+        self.output_resized(tt);
     }
 
     pub fn destroy_node(&self) {
@@ -555,7 +556,8 @@ impl ZwlrLayerSurfaceV1 {
         if self.exclusive_size.take().is_not_empty()
             && let Some(node) = self.output.node()
         {
-            node.update_exclusive_zones();
+            let tt = &self.client.state.tree_transaction();
+            node.update_exclusive_zones(tt);
         }
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();
@@ -597,7 +599,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        self.deref().pre_commit(pending)?;
+        self.pre_commit(pending)?;
         Ok(())
     }
 
@@ -605,6 +607,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         let Some(output) = self.output.node() else {
             return;
         };
+        let tt = &self.client.state.tree_transaction();
         let buffer_is_some = self.surface.buffer.is_some();
         let was_mapped = self.mapped.get();
         if self.mapped.get() {
@@ -617,17 +620,17 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                 if self.need_position_update.get() {
                     self.compute_position();
                 }
-                self.update_exclusive_size();
+                self.update_exclusive_size(tt);
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
             *self.link.borrow_mut() = Some(layer.add_last(self.clone()));
             self.mapped.set(true);
             self.compute_position();
-            self.update_exclusive_size();
+            self.update_exclusive_size(tt);
         }
         if self.mapped.get() != was_mapped {
-            output.update_visible();
+            output.update_visible(tt);
             if self.mapped.get() {
                 let (x, y) = self.surface.buffer_abs_pos.get().position();
                 let extents = self.surface.extents.get().move_(x, y);
@@ -640,7 +643,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                     let was_active = self.surface.seat_state.is_active();
                     self.surface.seat_state.release_kb_focus();
                     if was_active {
-                        self.surface.node_active_changed(false);
+                        self.surface.node_active_changed(tt, false);
                     }
                 }
                 KI_ON_DEMAND => self.surface.seat_state.release_kb_grab(),
@@ -713,7 +716,12 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.keyboard_interactivity.get() != KI_NONE
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        _tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        _direction: Direction,
+    ) {
         seat.focus_node(self.surface.clone())
     }
 
@@ -780,8 +788,8 @@ impl XdgPopupParent for Popup {
         self.parent.node_visible()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        // nothing
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -802,7 +810,7 @@ object_base! {
 }
 
 impl Object for ZwlrLayerSurfaceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.destroy_node();
         self.link.borrow_mut().take();
     }

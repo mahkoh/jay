@@ -3,6 +3,7 @@ use {
         client::{Client, ClientError, ClientId},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{
             JayEiSessionId,
             jay_ei_session::{Created, Destroyed, Failed, JayEiSessionRequestHandler, Release},
@@ -66,7 +67,7 @@ object_base! {
 }
 
 impl Object for JayEiSession {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.kill(false);
     }
 }

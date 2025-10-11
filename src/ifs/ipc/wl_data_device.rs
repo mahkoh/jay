@@ -12,6 +12,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId, wl_data_device::*},
     },
     std::rc::Rc,
@@ -215,7 +216,7 @@ object_base! {
 }
 
 impl Object for WlDataDevice {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         break_device_loops::<ClipboardIpc>(&*self);
         self.seat.remove_data_device(&*self);
     }

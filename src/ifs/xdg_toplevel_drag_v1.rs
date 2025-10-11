@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
-        tree::{Node, ToplevelNode},
+        tree::{Node, ToplevelNode, transaction::TreeTransaction},
         utils::clonecell::CloneCell,
         wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
     },
@@ -60,7 +60,8 @@ impl XdgToplevelDragV1 {
             }
             let extents = tl.xdg.absolute_desired_extents.get();
             let extents = extents.at_point(x - self.x_off.get(), y - self.y_off.get());
-            tl.clone().tl_change_extents(&extents);
+            let tt = &self.client.state.tree_transaction();
+            tl.clone().tl_change_extents(tt, &extents);
             if tl.node_visible() {
                 tl.xdg.damage();
             }
@@ -155,7 +156,7 @@ object_base! {
 }
 
 impl Object for XdgToplevelDragV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

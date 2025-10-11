@@ -17,7 +17,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         time::Time,
-        tree::{LatchListener, OutputNode, PresentationListener},
+        tree::{LatchListener, OutputNode, PresentationListener, transaction::TreeTransaction},
         utils::{cell_ext::CellExt, clonecell::CloneCell, event_listener::EventListener},
         video::Modifier,
         wire::{ExtImageCopyCaptureSessionV1Id, ext_image_copy_capture_session_v1::*},
@@ -324,7 +324,7 @@ object_base! {
 }
 
 impl Object for ExtImageCopyCaptureSessionV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

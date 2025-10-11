@@ -71,10 +71,11 @@ impl WorkspacesPane {
                         }
                     });
                     bool(ui, "Visible", ws.visible.get(), |v| {
+                        let tt = &self.state.tree_transaction();
                         if v {
-                            ws.clone().node_make_visible();
+                            ws.clone().node_make_visible(tt);
                         } else if ws.ty == WorkspaceType::Overlay {
-                            ws.output.get().hide_overlay();
+                            ws.output.get().hide_overlay(tt);
                         }
                     });
                     row(ui, "Output", |ui| {
@@ -89,7 +90,8 @@ impl WorkspacesPane {
                             }
                         });
                         if output.id != new.id {
-                            self.state.move_ws_to_output(&ws, new);
+                            let tt = &self.state.tree_transaction();
+                            self.state.move_ws_to_output(tt, &ws, new);
                         }
                     });
                 });

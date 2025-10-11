@@ -13,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpTabletSeatV2Id, zwp_tablet_seat_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -233,7 +234,7 @@ object_base! {
 }
 
 impl Object for ZwpTabletSeatV2 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

@@ -49,6 +49,7 @@ use {
             xdg_wm_base::XdgWmBase,
         },
         object::{Object, ObjectId},
+        state::State,
         utils::{
             clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},
@@ -161,14 +162,15 @@ impl Objects {
         }
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(&self, state: &State) {
+        let tt = &state.tree_transaction();
         for surface in self.surfaces.lock().values() {
             if let Some(tl) = surface.get_toplevel() {
-                tl.tl_destroy();
+                tl.tl_destroy(tt);
             }
         }
         for obj in self.registry.lock().drain_values() {
-            obj.break_loops();
+            obj.break_loops(tt);
         }
         self.display.set(None);
         self.registries.clear();

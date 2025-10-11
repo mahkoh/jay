@@ -13,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpPrimarySelectionSourceV1Id, zwp_primary_selection_source_v1::*},
     },
     std::rc::Rc,
@@ -99,7 +100,7 @@ object_base! {
 }
 
 impl Object for ZwpPrimarySelectionSourceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         break_source_loops::<PrimarySelectionIpc>(&*self);
     }
 }

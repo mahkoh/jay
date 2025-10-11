@@ -7,6 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{WpColorManagementOutputV1Id, wp_color_management_output_v1::*},
     },
     std::rc::Rc,
@@ -74,7 +75,7 @@ object_base! {
 }
 
 impl Object for WpColorManagementOutputV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

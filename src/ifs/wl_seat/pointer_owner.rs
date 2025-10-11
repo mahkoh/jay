@@ -1050,9 +1050,10 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         ws: Option<&Rc<WorkspaceNode>>,
         reason: WorkspaceChangeReason,
     ) {
+        let tt = &seat.state.tree_transaction();
         grab.node
             .clone()
-            .node_grab_workspace_changed(seat, on, ws, reason);
+            .node_grab_workspace_changed(tt, seat, on, ws, reason);
     }
 }
 
@@ -1405,7 +1406,8 @@ impl WindowManagementGrabUsecase for MoveToplevelGrabPointerOwner {
     ) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down() - self.dx, y.round_down() - self.dy);
-        parent.cnode_set_child_position(&**tl, x, y);
+        let tt = &seat.state.tree_transaction();
+        parent.cnode_set_child_position(tt, &**tl, x, y);
     }
 }
 
@@ -1460,7 +1462,8 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
             }
         }
         if x1.is_some() || x2.is_some() || y1.is_some() || y2.is_some() {
-            parent.cnode_resize_child(&**tl, x1, y1, x2, y2);
+            let tt = &seat.state.tree_transaction();
+            parent.cnode_resize_child(tt, &**tl, x1, y1, x2, y2);
         }
     }
 }
@@ -1486,8 +1489,9 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
             }
             return;
         };
-        let ws = output.ensure_workspace();
-        toplevel_set_workspace(&seat.state, tl.clone(), &ws);
+        let tt = &seat.state.tree_transaction();
+        let ws = output.ensure_workspace(tt);
+        toplevel_set_workspace(&seat.state, tt, tl.clone(), &ws);
     }
 }
 
@@ -1572,22 +1576,24 @@ impl UiDragUsecase for TileDragUsecase {
         let Some(src_parent) = src.tl_data().parent.get() else {
             return;
         };
+        let tt = &seat.state.tree_transaction();
         let detach = || {
             let placeholder = Rc::new_cyclic(|weak| PlaceholderNode::new_empty(&seat.state, weak));
             src_parent
                 .clone()
-                .cnode_replace_child(&*src, placeholder.clone());
+                .cnode_replace_child(tt, &*src, placeholder.clone());
             placeholder
         };
         let new_container = |workspace: &Rc<WorkspaceNode>| {
-            src_parent.clone().cnode_remove_child2(&*src, true);
+            src_parent.clone().cnode_remove_child2(tt, &*src, true);
             let cn = ContainerNode::new(
                 &seat.state,
+                tt,
                 &workspace,
                 src.clone(),
                 ContainerSplit::Horizontal,
             );
-            workspace.set_container(&cn);
+            workspace.set_container(tt, &cn);
         };
         match dest {
             TddType::Replace(dst) => {
@@ -1595,8 +1601,8 @@ impl UiDragUsecase for TileDragUsecase {
                     return;
                 };
                 let placeholder = detach();
-                dst_parent.cnode_replace_child(&*dst, src);
-                src_parent.cnode_replace_child(&*placeholder, dst);
+                dst_parent.cnode_replace_child(tt, &*dst, src);
+                src_parent.cnode_replace_child(tt, &*placeholder, dst);
             }
             TddType::Split {
                 node,
@@ -1611,13 +1617,13 @@ impl UiDragUsecase for TileDragUsecase {
                     return;
                 };
                 let placeholder = detach();
-                let cn = ContainerNode::new(&seat.state, &ws, node.clone(), split);
-                pn.cnode_replace_child(&*node, cn.clone());
+                let cn = ContainerNode::new(&seat.state, tt, &ws, node.clone(), split);
+                pn.cnode_replace_child(tt, &*node, cn.clone());
                 match before {
-                    true => cn.add_child_before(&*node, src),
-                    false => cn.add_child_after(&*node, src),
+                    true => cn.add_child_before(tt, &*node, src),
+                    false => cn.add_child_after(tt, &*node, src),
                 }
-                src_parent.cnode_remove_child(&*placeholder);
+                src_parent.cnode_remove_child(tt, &*placeholder);
             }
             TddType::Insert {
                 container,
@@ -1626,25 +1632,25 @@ impl UiDragUsecase for TileDragUsecase {
             } => {
                 let placeholder = detach();
                 match before {
-                    true => container.add_child_before(&*neighbor, src),
-                    false => container.add_child_after(&*neighbor, src),
+                    true => container.add_child_before(tt, &*neighbor, src),
+                    false => container.add_child_after(tt, &*neighbor, src),
                 };
-                src_parent.cnode_remove_child(&*placeholder);
+                src_parent.cnode_remove_child(tt, &*placeholder);
             }
             TddType::NewWorkspace { output } => {
-                new_container(&output.ensure_normal_workspace());
+                new_container(&output.ensure_normal_workspace(tt));
             }
             TddType::NewContainer { workspace } => {
                 new_container(&workspace);
             }
             TddType::MoveToWorkspace { workspace } => {
-                src_parent.cnode_remove_child(&*src);
-                seat.state.map_tiled_on(src, &workspace);
+                src_parent.cnode_remove_child(tt, &*src);
+                seat.state.map_tiled_on(tt, src, &workspace);
             }
             TddType::MoveToNewWorkspace { output } => {
-                let ws = output.generate_normal_workspace();
-                src_parent.cnode_remove_child(&*src);
-                seat.state.map_tiled_on(src, &ws);
+                let ws = output.generate_normal_workspace(tt);
+                src_parent.cnode_remove_child(tt, &*src);
+                seat.state.map_tiled_on(tt, src, &ws);
             }
         }
     }
@@ -1716,7 +1722,8 @@ impl UiDragUsecase for WorkspaceDragUsecase {
             source_is_destroyed: false,
             before: dest.before.clone(),
         };
-        move_ws_to_output(&ws, &output, config);
+        let tt = &self.ws.state.tree_transaction();
+        move_ws_to_output(tt, &ws, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
     }
 

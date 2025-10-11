@@ -87,7 +87,7 @@ use {
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
             NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceChangeReason,
             WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            toplevel_set_floating, toplevel_set_workspace, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -564,12 +564,12 @@ impl WlSeatGlobal {
         self.get_cursor_workspace()
     }
 
-    pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    pub fn set_workspace(self: &Rc<Self>, tt: &TreeTransaction, ws: &Rc<WorkspaceNode>) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
         };
-        toplevel_set_workspace(&self.state, tl, ws);
+        toplevel_set_workspace(&self.state, tt, tl, ws);
         self.maybe_schedule_warp_mouse_to_focus();
     }
 
@@ -626,7 +626,8 @@ impl WlSeatGlobal {
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            tl.tl_set_fullscreen(fullscreen, None);
+            let tt = &self.state.tree_transaction();
+            tl.tl_set_fullscreen(tt, fullscreen, None);
         }
     }
 
@@ -746,8 +747,9 @@ impl WlSeatGlobal {
             && let Some(parent) = tl.tl_data().parent.get()
             && let Some(container) = parent.node_into_container()
         {
+            let tt = &self.state.tree_transaction();
             let node = if mono { Some(tl.deref()) } else { None };
-            container.set_mono(node);
+            container.set_mono(tt, node);
         }
     }
 
@@ -821,7 +823,7 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn move_focus(self: &Rc<Self>, direction: Direction) {
+    pub fn move_focus(self: &Rc<Self>, tt: &TreeTransaction, direction: Direction) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => {
@@ -830,25 +832,25 @@ impl WlSeatGlobal {
                         .state
                         .find_output_in_direction(&ws.output.get(), direction)
                 {
-                    target.take_keyboard_navigation_focus(self, direction);
+                    target.take_keyboard_navigation_focus(tt, self, direction);
                     self.maybe_schedule_warp_mouse_to_focus();
                 }
                 return;
             }
         };
         if direction == Direction::Down && tl.node_is_container() {
-            tl.node_do_focus(self, direction);
+            tl.node_do_focus(tt, self, direction);
         } else {
             let data = tl.tl_data();
             if data.is_fullscreen.get()
                 && let Some(output) = data.output_opt()
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
-                target.take_keyboard_navigation_focus(self, direction);
+                target.take_keyboard_navigation_focus(tt, self, direction);
             } else if let Some(p) = data.parent.get()
                 && let Some(c) = p.node_into_container()
             {
-                c.move_focus_from_child(self, tl.deref(), direction);
+                c.move_focus_from_child(tt, self, tl.deref(), direction);
             }
         }
         self.maybe_schedule_warp_mouse_to_focus();
@@ -866,7 +868,7 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn move_focused(self: &Rc<Self>, direction: Direction) {
+    pub fn move_focused(self: &Rc<Self>, tt: &TreeTransaction, direction: Direction) {
         let kb_node = self.keyboard_node.get();
         let Some(tl) = kb_node.node_toplevel() else {
             if let Some(ws) = self.keyboard_node.get().node_into_workspace()
@@ -874,7 +876,7 @@ impl WlSeatGlobal {
                     .state
                     .find_output_in_direction(&ws.output.get(), direction)
             {
-                self.state.move_ws_to_output(&ws, &target);
+                self.state.move_ws_to_output(tt, &ws, &target);
             }
             return;
         };
@@ -883,13 +885,14 @@ impl WlSeatGlobal {
             && let Some(output) = data.output_opt()
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
-            let ws = target.ensure_workspace();
-            toplevel_set_workspace(&self.state, tl, &ws);
+            let ws = target.ensure_workspace(tt);
+            toplevel_set_workspace(&self.state, tt, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
         } else if let Some(parent) = data.parent.get()
             && let Some(c) = parent.node_into_container()
         {
-            c.move_child(tl, direction);
+            let tt = &self.state.tree_transaction();
+            c.move_child(tt, tl, direction);
             self.maybe_schedule_warp_mouse_to_focus();
         }
     }
@@ -1010,7 +1013,8 @@ impl WlSeatGlobal {
             self.focus_history_rotate.fetch_sub(1);
         });
         if !visible {
-            node.clone().node_make_visible();
+            let tt = &self.state.tree_transaction();
+            node.clone().node_make_visible(tt);
             if !node.node_visible() {
                 return;
             }
@@ -1060,6 +1064,8 @@ impl WlSeatGlobal {
         LI: Iterator<Item = NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
         SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
     {
+        let tt = &self.state.tree_transaction();
+
         fn node_viable(n: &(impl Node + ?Sized)) -> bool {
             n.node_visible() && n.node_accepts_focus()
         }
@@ -1079,7 +1085,7 @@ impl WlSeatGlobal {
                 {
                     n.deref()
                         .clone()
-                        .node_do_focus(self, Direction::Unspecified);
+                        .node_do_focus(tt, self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1092,7 +1098,7 @@ impl WlSeatGlobal {
                     if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
                         n.deref()
                             .clone()
-                            .node_do_focus(self, Direction::Unspecified);
+                            .node_do_focus(tt, self, Direction::Unspecified);
                         self.maybe_schedule_warp_mouse_to_focus();
                         return;
                     }
@@ -1180,7 +1186,7 @@ impl WlSeatGlobal {
             };
             if let Some(n) = node {
                 if node_viable(&*n) {
-                    n.node_do_focus(self, Direction::Unspecified);
+                    n.node_do_focus(tt, self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1235,7 +1241,7 @@ impl WlSeatGlobal {
                 },
             };
             if node.node_visible() && node.node_accepts_focus() {
-                node.node_do_focus(self, Direction::Unspecified);
+                node.node_do_focus(&self.state.tree_transaction(), self, Direction::Unspecified);
                 self.maybe_schedule_warp_mouse_to_focus();
                 break;
             }
@@ -1550,7 +1556,8 @@ impl WlSeatGlobal {
         if let Some(tl_drag) = self.toplevel_drag()
             && let Some(tl) = tl_drag.toplevel.get()
         {
-            tl.tl_set_visible(visible);
+            let tt = &self.state.tree_transaction();
+            tl.tl_set_visible(tt, visible);
         }
         if let Some(im) = self.input_method.get() {
             for (_, popup) in im.popups() {
@@ -1704,11 +1711,11 @@ impl WlSeatGlobal {
         tl.tl_pinned()
     }
 
-    pub fn set_pinned(&self, pinned: bool) {
+    pub fn set_pinned(&self, tt: &TreeTransaction, pinned: bool) {
         let Some(tl) = self.keyboard_node.get().node_toplevel() else {
             return;
         };
-        tl.tl_set_pinned(true, pinned);
+        tl.tl_set_pinned(tt, true, pinned);
     }
 
     pub fn set_pointer_revert_key(&self, key: KeySym) {
@@ -1871,7 +1878,7 @@ object_base! {
 }
 
 impl Object for WlSeat {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         {
             let mut bindings = self.global.bindings.borrow_mut();
             if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {

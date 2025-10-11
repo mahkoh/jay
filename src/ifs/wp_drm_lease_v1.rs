@@ -4,6 +4,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::clonecell::CloneCell,
         wire::{WpDrmLeaseV1Id, wp_drm_lease_v1::*},
     },
@@ -77,7 +78,7 @@ object_base! {
 }
 
 impl Object for WpDrmLeaseV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

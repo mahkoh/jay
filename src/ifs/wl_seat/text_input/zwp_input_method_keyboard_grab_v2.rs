@@ -9,6 +9,7 @@ use {
         keyboard::{KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::errorfmt::ErrorFmt,
         wire::{ZwpInputMethodKeyboardGrabV2Id, zwp_input_method_keyboard_grab_v2::*},
     },
@@ -135,7 +136,7 @@ object_base! {
 }
 
 impl Object for ZwpInputMethodKeyboardGrabV2 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

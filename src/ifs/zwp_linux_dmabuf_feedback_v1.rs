@@ -5,6 +5,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -128,7 +129,7 @@ object_base! {
 }
 
 impl Object for ZwpLinuxDmabufFeedbackV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

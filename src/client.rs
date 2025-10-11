@@ -299,7 +299,7 @@ pub struct ClientHolder {
 
 impl Drop for ClientHolder {
     fn drop(&mut self) {
-        self.data.objects.destroy();
+        self.data.objects.destroy(&self.data.state);
         self.data.flush_request.clear();
         self.data.shutdown.clear();
         self.data.surfaces_by_xwayland_serial.clear();

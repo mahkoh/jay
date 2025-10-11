@@ -4,6 +4,7 @@ use {
         ifs::wl_seat::tablet::{Tablet, zwp_tablet_seat_v2::ZwpTabletSeatV2},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpTabletV2Id, zwp_tablet_v2::*},
     },
     std::rc::Rc,
@@ -78,7 +79,7 @@ object_base! {
 }
 
 impl Object for ZwpTabletV2 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

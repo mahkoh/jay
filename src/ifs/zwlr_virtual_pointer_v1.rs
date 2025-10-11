@@ -12,6 +12,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::{copyhashmap::CopyHashMap, syncqueue::SyncQueue},
         wire::{ZwlrVirtualPointerV1Id, zwlr_virtual_pointer_v1::*},
     },
@@ -188,7 +189,7 @@ object_base! {
 }
 
 impl Object for ZwlrVirtualPointerV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

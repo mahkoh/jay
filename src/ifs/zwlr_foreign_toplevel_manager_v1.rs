@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{NodeVisitorBase, ToplevelOpt},
+        tree::{NodeVisitorBase, ToplevelOpt, transaction::TreeTransaction},
         wire::{ZwlrForeignToplevelManagerV1Id, zwlr_foreign_toplevel_manager_v1::*},
     },
     std::rc::Rc,
@@ -145,7 +145,7 @@ object_base! {
 }
 
 impl Object for ZwlrForeignToplevelManagerV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

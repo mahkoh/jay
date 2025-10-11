@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode},
+        tree::{OutputNode, WorkspaceNode, transaction::TreeTransaction},
         utils::clonecell::CloneCell,
         wire::{JayWorkspaceId, jay_workspace::*},
     },
@@ -86,7 +86,7 @@ object_base! {
 }
 
 impl Object for JayWorkspace {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.remove_from_node();
     }
 }

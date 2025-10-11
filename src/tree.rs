@@ -25,6 +25,7 @@ use {
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
+        tree::transaction::TreeTransaction,
         utils::{linkedlist::NodeRef, numcell::NumCell, static_text::StaticText},
     },
     jay_config::{
@@ -429,7 +430,13 @@ pub trait Node: 'static {
         self.node_output().map(|o| o.id)
     }
 
-    fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
+    fn node_child_title_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        title: &str,
+    ) {
+        let _ = tt;
         let _ = child;
         let _ = title;
     }
@@ -438,12 +445,19 @@ pub trait Node: 'static {
         true
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) {
+        let _ = tt;
         let _ = seat;
         let _ = direction;
     }
 
-    fn node_active_changed(&self, active: bool) {
+    fn node_active_changed(&self, tt: &TreeTransaction, active: bool) {
+        let _ = tt;
         let _ = active;
     }
 
@@ -465,8 +479,14 @@ pub trait Node: 'static {
         let _ = (child, width, height);
     }
 
-    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
-        let _ = (child, active, depth);
+    fn node_child_active_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        active: bool,
+        depth: u32,
+    ) {
+        let _ = (tt, child, active, depth);
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
@@ -492,17 +512,19 @@ pub trait Node: 'static {
         None
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        // nothing
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_grab_workspace_changed(
         self: Rc<Self>,
+        tt: &TreeTransaction,
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
         reason: WorkspaceChangeReason,
     ) {
+        let _ = tt;
         let _ = seat;
         let _ = on;
         let _ = ws;

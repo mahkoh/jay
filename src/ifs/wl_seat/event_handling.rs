@@ -220,7 +220,8 @@ impl NodeSeatState {
                 .set_kb_node(&seat, seat.state.root.clone(), seat.state.next_serial(None));
             // log::info!("keyboard_node = root");
             if focus_last {
-                output.node_do_focus(&seat, Direction::Unspecified);
+                let tt = &seat.state.tree_transaction();
+                output.node_do_focus(tt, &seat, Direction::Unspecified);
             }
         }
     }
@@ -1085,7 +1086,8 @@ impl WlSeatGlobal {
             && node.node_id() != self.keyboard_node.get().node_id()
         {
             if !node.node_visible() {
-                node.clone().node_make_visible();
+                let tt = &self.state.tree_transaction();
+                node.clone().node_make_visible(tt);
                 if !node.node_visible() {
                     return;
                 }

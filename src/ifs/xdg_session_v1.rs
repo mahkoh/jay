@@ -4,6 +4,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         sm::{Session, SessionGetStatus, SessionManagementError, SessionName, SessionOwner},
+        tree::transaction::TreeTransaction,
         utils::{clonecell::CloneCell, linkedlist::LinkedNode},
         wire::{
             XdgSessionV1Id,
@@ -136,7 +137,7 @@ object_base! {
 }
 
 impl Object for XdgSessionV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.disown_to_peer();
     }
 }

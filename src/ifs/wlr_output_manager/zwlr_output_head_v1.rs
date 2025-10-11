@@ -11,7 +11,7 @@ use {
         object::{Object, Version},
         scale,
         state::OutputData,
-        tree::{self, VrrMode},
+        tree::{self, VrrMode, transaction::TreeTransaction},
         utils::copyhashmap::CopyHashMap,
         wire::{ZwlrOutputHeadV1Id, zwlr_output_head_v1::*},
     },
@@ -241,7 +241,7 @@ object_base! {
 }
 
 impl Object for ZwlrOutputHeadV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

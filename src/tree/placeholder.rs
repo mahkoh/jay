@@ -13,7 +13,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            default_tile_drag_destination, transaction::TreeTransaction,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -189,12 +189,17 @@ impl Node for PlaceholderNode {
         self.toplevel.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        _tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        _direction: Direction,
+    ) {
         seat.focus_toplevel(self.clone());
     }
 
-    fn node_active_changed(&self, active: bool) {
-        self.toplevel.update_self_active(self, active);
+    fn node_active_changed(&self, tt: &TreeTransaction, active: bool) {
+        self.toplevel.update_self_active(tt, self, active);
     }
 
     fn node_find_tree_at(
@@ -219,8 +224,8 @@ impl Node for PlaceholderNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel.make_visible(&*self);
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel.make_visible(&*self, tt);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -257,15 +262,16 @@ impl ToplevelNodeBase for PlaceholderNode {
     fn tl_close(self: Rc<Self>) {
         let slf = self.clone();
         self.toplevel.state.run_toplevel.schedule(move || {
-            slf.tl_destroy();
+            let tt = &slf.state.tree_transaction();
+            slf.tl_destroy(tt);
         });
     }
 
-    fn tl_set_visible_impl(&self, _visible: bool) {
+    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, _visible: bool) {
         // nothing
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(&self, _tt: &TreeTransaction) {
         self.destroyed.set(true);
     }
 

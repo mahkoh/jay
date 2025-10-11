@@ -95,7 +95,8 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
             );
             return Ok(());
         }
-        surface.request_activation();
+        let tt = &self.client.state.tree_transaction();
+        surface.request_activation(tt);
         Ok(())
     }
 }

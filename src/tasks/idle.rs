@@ -142,7 +142,8 @@ impl Idle {
             state.active = !idle;
             tran.add(&connector.connector, state)?;
         }
-        tran.prepare()?.apply()?.commit();
+        let tt = &self.state.tree_transaction();
+        tran.prepare()?.apply()?.commit(tt);
         self.state.set_backend_idle(idle);
         Ok(())
     }

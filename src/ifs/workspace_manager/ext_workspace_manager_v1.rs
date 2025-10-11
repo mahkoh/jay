@@ -11,7 +11,10 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output},
+        tree::{
+            OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output,
+            transaction::TreeTransaction,
+        },
         utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
         wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
     },
@@ -226,7 +229,7 @@ object_base! {
 }
 
 impl Object for ExtWorkspaceManagerV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }
@@ -237,6 +240,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
     type Error = ExtWorkspaceManagerV1Error;
 
     fn commit(&self, _req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let tt = &self.client.state.tree_transaction();
         while let Some(change) = self.pending.pop() {
             match change {
                 WorkspaceChange::ActivateWorkspace(w) => {
@@ -247,7 +251,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state
-                        .show_workspace2(seat.as_ref(), &output, &ws);
+                        .show_workspace2(tt, seat.as_ref(), &output, &ws);
                 }
                 WorkspaceChange::AssignWorkspace(w, o) => {
                     let Some(ws) = w.get() else {
@@ -262,7 +266,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                         source_is_destroyed: false,
                         before: None,
                     };
-                    move_ws_to_output(&ws, &o, config);
+                    move_ws_to_output(tt, &ws, &o, config);
                     ws.desired_output.set(o.global.output_id.clone());
                     self.client.state.tree_changed();
                 }
@@ -273,7 +277,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(output) = output.node() else {
                         return Ok(());
                     };
-                    output.create_normal_workspace(&name);
+                    output.create_normal_workspace(tt, &name);
                 }
             }
         }

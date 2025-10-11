@@ -4,7 +4,7 @@ use {
         ifs::{jay_workspace::JayWorkspace, wl_seat::WorkspaceSelector},
         leaks::Tracker,
         object::{Object, Version},
-        tree::WorkspaceNode,
+        tree::{WorkspaceNode, transaction::TreeTransaction},
         utils::clonecell::CloneCell,
         wire::{JaySelectWorkspaceId, JayWorkspaceId, jay_select_workspace::*},
     },
@@ -90,7 +90,7 @@ object_base! {
 }
 
 impl Object for JaySelectWorkspace {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.destroyed.set(true);
     }
 }

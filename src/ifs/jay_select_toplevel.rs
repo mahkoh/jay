@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::ToplevelNode,
+        tree::{ToplevelNode, transaction::TreeTransaction},
         utils::clonecell::CloneCell,
         wire::{JaySelectToplevelId, JayToplevelId, jay_select_toplevel::*},
     },
@@ -116,7 +116,7 @@ object_base! {
 }
 
 impl Object for JaySelectToplevel {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.destroyed.set(true);
     }
 }

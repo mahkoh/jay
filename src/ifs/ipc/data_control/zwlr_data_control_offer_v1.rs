@@ -9,6 +9,7 @@ use {
         },
         leaks::Tracker,
         object::Object,
+        tree::transaction::TreeTransaction,
         wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
     },
     std::rc::Rc,
@@ -62,7 +63,7 @@ object_base! {
 }
 
 impl Object for ZwlrDataControlOfferV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         logic::data_offer_break_loops(&*self);
     }
 }

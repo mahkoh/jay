@@ -21,7 +21,10 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
-        tree::{OutputNode, TearingMode, Transform, VrrMode, calculate_logical_size},
+        tree::{
+            OutputNode, TearingMode, Transform, VrrMode, calculate_logical_size,
+            transaction::TreeTransaction,
+        },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, ordered_float::F64,
             rc_eq::rc_eq,
@@ -604,7 +607,7 @@ object_base! {
 }
 
 impl Object for WlOutput {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.xdg_outputs.clear();
         self.remove_binding();
     }

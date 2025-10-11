@@ -31,6 +31,7 @@ use {
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination, TileState,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
+            transaction::TreeTransaction,
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt,
@@ -231,7 +232,8 @@ impl XdgToplevel {
 
     fn icon_changed(&self) {
         if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.cnode_child_icon_changed(self);
+            let tt = &self.state.tree_transaction();
+            parent.cnode_child_icon_changed(tt, self);
         }
     }
 }
@@ -241,7 +243,8 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.disown_session();
-        self.tl_destroy();
+        let tt = &self.state.tree_transaction();
+        self.tl_destroy(tt);
         self.xdg.unset_ext();
         {
             let mut children = self.children.borrow_mut();
@@ -263,7 +266,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             }
         }
         self.xdg.surface.client.remove_obj(self)?;
-        self.xdg.surface.set_toplevel(None);
+        self.xdg.surface.set_toplevel(tt, None);
         if let Some(icon) = self.icon.set(None) {
             icon.toplevels.remove(&self.id);
         }
@@ -281,7 +284,8 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn set_title(&self, req: SetTitle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_title(req.title);
-        self.tl_title_changed();
+        let tt = &self.state.tree_transaction();
+        self.tl_title_changed(tt);
         Ok(())
     }
 
@@ -348,6 +352,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
     fn set_fullscreen(&self, req: SetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let client = &self.xdg.surface.client;
         self.states.or_assign(state_bits(STATE_FULLSCREEN));
+        let tt = &self.state.tree_transaction();
         'set_fullscreen: {
             let output = if req.output.is_some() {
                 match client.lookup(req.output)?.global.node() {
@@ -364,8 +369,9 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             };
             self.toplevel_data.set_fullscreen(
                 &client.state,
+                tt,
                 slf.clone(),
-                &output.ensure_normal_workspace(),
+                &output.ensure_normal_workspace(tt),
             );
         }
         self.xdg.schedule_configure();
@@ -374,8 +380,9 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn unset_fullscreen(&self, _req: UnsetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.states.and_assign(!state_bits(STATE_FULLSCREEN));
+        let tt = &self.state.tree_transaction();
         self.toplevel_data
-            .unset_fullscreen(&self.state, slf.clone());
+            .unset_fullscreen(&self.state, tt, slf.clone());
         self.xdg.schedule_configure();
         Ok(())
     }
@@ -388,13 +395,14 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 impl XdgToplevel {
     fn map(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         parent: Option<&XdgToplevel>,
         pos: Option<(&Rc<OutputNode>, i32, i32)>,
     ) {
         if let Some(session) = self.toplevel_data.session.get()
             && self
                 .state
-                .map_restore(self.clone(), &session, parent.is_some())
+                .map_restore(tt, self.clone(), &session, parent.is_some())
         {
             return;
         }
@@ -405,49 +413,59 @@ impl XdgToplevel {
                     if let Some(parent) = parent {
                         ws = parent.xdg.workspace.get();
                     }
-                    let ws = ws.unwrap_or_else(|| self.state.ensure_map_workspace(None));
-                    self.map_floating(&ws, pos.map(|p| (p.1, p.2)));
+                    let ws = ws.unwrap_or_else(|| self.state.ensure_map_workspace(tt, None));
+                    self.map_floating(tt, &ws, pos.map(|p| (p.1, p.2)));
                 }
-                _ => self.map_tiled(),
+                _ => self.map_tiled(tt),
             }
             return;
         }
         if let Some(ws) = self.state.get_map_workspace(None)
             && ws.ty == WorkspaceType::Overlay
         {
-            self.map_floating(&ws, None);
+            self.map_floating(tt, &ws, None);
             return;
         }
         match parent {
-            None => self.map_tiled(),
-            Some(p) => self.map_child(p, pos),
+            None => self.map_tiled(tt),
+            Some(p) => self.map_child(tt, p, pos),
         }
     }
 
-    fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
+    fn map_floating(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        workspace: &Rc<WorkspaceNode>,
+        abs_pos: Option<(i32, i32)>,
+    ) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
-            .map_floating(self.clone(), width, height, workspace, abs_pos);
+            .map_floating(&tt, self.clone(), width, height, workspace, abs_pos);
     }
 
-    fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
+    fn map_child(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        parent: &XdgToplevel,
+        pos: Option<(&Rc<OutputNode>, i32, i32)>,
+    ) {
         if let Some((output, x, y)) = pos {
-            let w = output.ensure_workspace();
-            self.map_floating(&w, Some((x, y)));
+            let w = output.ensure_workspace(tt);
+            self.map_floating(tt, &w, Some((x, y)));
             return;
         }
         match parent.xdg.workspace.get() {
-            Some(w) => self.map_floating(&w, None),
-            _ => self.map_tiled(),
+            Some(w) => self.map_floating(tt, &w, None),
+            _ => self.map_tiled(tt),
         }
     }
 
-    fn map_tiled(self: &Rc<Self>) {
-        self.state.map_tiled(self.clone());
+    fn map_tiled(self: &Rc<Self>, tt: &TreeTransaction) {
+        self.state.map_tiled(tt, self.clone());
         let fullscreen = self.states.get().contains(state_bits(STATE_FULLSCREEN));
         if fullscreen && let Some(ws) = self.xdg.workspace.get() {
             self.toplevel_data
-                .set_fullscreen(&self.state, self.clone(), &ws);
+                .set_fullscreen(&self.state, tt, self.clone(), &ws);
         }
     }
 
@@ -455,9 +473,10 @@ impl XdgToplevel {
         if self.toplevel_data.parent.get().is_none() {
             return;
         }
-        self.toplevel_data.detach_node(self);
+        let tt = &self.state.tree_transaction();
+        self.toplevel_data.detach_node(tt, self);
         self.xdg.detach_node();
-        self.tl_set_visible(self.state.root_visible());
+        self.tl_set_visible(tt, self.state.root_visible());
     }
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
@@ -489,13 +508,15 @@ impl XdgToplevel {
                         self.xdg.set_output(&seat.get_cursor_output());
                     }
                     self.toplevel_data.broadcast(self.clone());
-                    self.tl_set_visible(self.state.root_visible());
+                    let tt = &self.state.tree_transaction();
+                    self.tl_set_visible(tt, self.state.root_visible());
                     self.xdg.damage();
                 }
                 self.extents_changed();
             } else {
                 if self.is_mapped.replace(false) {
-                    self.tl_set_visible(false);
+                    let tt = &self.state.tree_transaction();
+                    self.tl_set_visible(tt, false);
                     self.xdg.damage();
                 }
             }
@@ -504,8 +525,9 @@ impl XdgToplevel {
         if self.is_mapped.replace(should_be_mapped) == should_be_mapped {
             return;
         }
+        let tt = &self.state.tree_transaction();
         if !should_be_mapped {
-            self.tl_destroy();
+            self.tl_destroy(tt);
             {
                 let new_parent = self.parent.get();
                 let mut children = self.children.borrow_mut();
@@ -515,7 +537,7 @@ impl XdgToplevel {
             }
             self.state.tree_changed();
         } else {
-            self.map(self.parent.get().as_deref(), pos);
+            self.map(tt, self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();
@@ -541,9 +563,9 @@ object_base! {
 }
 
 impl Object for XdgToplevel {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, tt: &TreeTransaction) {
         self.toplevel_data.disown_session();
-        self.tl_destroy();
+        self.tl_destroy(tt);
         self.parent.set(None);
         self.dialog.set(None);
         self.icon.set(None);
@@ -594,12 +616,17 @@ impl Node for XdgToplevel {
         self.toplevel_data.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        _tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        _direction: Direction,
+    ) {
         seat.focus_toplevel(self.clone());
     }
 
-    fn node_active_changed(&self, active: bool) {
-        self.toplevel_data.update_self_active(self, active);
+    fn node_active_changed(&self, tt: &TreeTransaction, active: bool) {
+        self.toplevel_data.update_self_active(tt, self, active);
     }
 
     fn node_find_tree_at(
@@ -630,8 +657,8 @@ impl Node for XdgToplevel {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self)
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel_data.make_visible(&*self, tt)
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -701,7 +728,7 @@ impl ToplevelNodeBase for XdgToplevel {
         self.send_close();
     }
 
-    fn tl_set_visible_impl(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, visible: bool) {
         // log::info!("set_visible {}", visible);
         // if !visible {
         //     log::info!("\n{:?}", Backtrace::new());
@@ -717,7 +744,7 @@ impl ToplevelNodeBase for XdgToplevel {
         }
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(&self, _tt: &TreeTransaction) {
         if let Some(drag) = self.drag.take() {
             self.xdg.damage();
             drag.toplevel.take();
@@ -775,7 +802,7 @@ impl ToplevelNodeBase for XdgToplevel {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
 
-    fn tl_mark_fullscreen_ext(&self) {
+    fn tl_mark_fullscreen_ext(&self, _tt: &TreeTransaction) {
         self.xdg.update_effective_geometry();
     }
 
@@ -827,8 +854,8 @@ impl XdgSurfaceExt for XdgToplevel {
         )
     }
 
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.node_make_visible(tt);
     }
 
     fn node_layer(&self) -> NodeLayerLink {

@@ -4,6 +4,7 @@ use {
         ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{XdgDialogV1Id, XdgToplevelId, xdg_dialog_v1::*},
     },
     std::{fmt::Debug, rc::Rc},
@@ -56,7 +57,7 @@ object_base! {
 }
 
 impl Object for XdgDialogV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

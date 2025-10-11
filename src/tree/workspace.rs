@@ -24,7 +24,7 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, PlaceholderNode,
             StackedNode, ToplevelNode, WorkspaceDisplayOrder, container::ContainerNode,
-            walker::NodeVisitor,
+            transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -133,7 +133,7 @@ impl WorkspaceNode {
         self.title_texture.take();
     }
 
-    pub fn update_has_captures(&self) {
+    pub fn update_has_captures(&self, tt: &TreeTransaction) {
         if self.ty != WorkspaceType::Normal {
             return;
         }
@@ -154,12 +154,12 @@ impl WorkspaceNode {
             }
         }
         if self.has_capture.replace(has_capture) != has_capture {
-            output.schedule_update_render_data();
+            output.schedule_update_render_data(tt);
             output.state.damage(output.global.pos.get());
         }
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>) {
+    pub fn set_output(&self, tt: &TreeTransaction, output: &Rc<OutputNode>) {
         let old = self.output.set(output.clone());
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
@@ -167,9 +167,10 @@ impl WorkspaceNode {
         for jw in self.jay_workspaces.lock().values() {
             jw.send_output(output);
         }
-        self.update_has_captures();
-        self.change_extents(&output.workspace_rect.get(), output);
+        self.update_has_captures(tt);
+        self.change_extents(tt, &output.workspace_rect.get(), output);
         struct OutputSetter<'a> {
+            tt: &'a TreeTransaction<'a>,
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
             new: &'a Rc<OutputNode>,
@@ -191,7 +192,7 @@ impl WorkspaceNode {
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
                 if self.ws.ty == WorkspaceType::Normal {
-                    node.after_ws_move(self.new);
+                    node.after_ws_move(self.tt, self.new);
                 }
                 node.node_visit_children(self);
             }
@@ -207,6 +208,7 @@ impl WorkspaceNode {
             }
         }
         let mut visitor = OutputSetter {
+            tt,
             ws: self,
             old: &old,
             new: output,
@@ -218,15 +220,15 @@ impl WorkspaceNode {
         self.state.trigger_cci(CCI_WORKSPACES);
     }
 
-    pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
+    pub fn set_container(self: &Rc<Self>, tt: &TreeTransaction, container: &Rc<ContainerNode>) {
         if let Some(prev) = self.container.get() {
-            self.discard_child_properties(&*prev);
+            self.discard_child_properties(tt, &*prev);
         }
-        self.pull_child_properties(&**container);
+        self.pull_child_properties(tt, &**container);
         let pos = self.position.get();
-        container.clone().tl_change_extents(&pos);
-        container.tl_set_parent(self.clone());
-        container.tl_set_visible(self.container_visible());
+        container.clone().tl_change_extents(tt, &pos);
+        container.tl_set_parent(tt, self.clone());
+        container.tl_set_visible(tt, self.container_visible());
         self.container.set(Some(container.clone()));
         self.state.damage(self.position.get());
     }
@@ -243,13 +245,13 @@ impl WorkspaceNode {
         self.visible.get() && (self.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
-    pub fn change_extents(&self, rect: &Rect, output: &Rc<OutputNode>) {
+    pub fn change_extents(&self, tt: &TreeTransaction, rect: &Rect, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
         }
         let old = self.position.replace(*rect);
         if let Some(c) = self.container.get() {
-            c.tl_change_extents(rect);
+            c.tl_change_extents(tt, rect);
         }
         if old != *rect {
             let mut dx = 0;
@@ -261,7 +263,7 @@ impl WorkspaceNode {
             for stacked in self.stacked.iter() {
                 if let Some(float) = stacked.deref().clone().node_into_float() {
                     if (dx, dy) != (0, 0) {
-                        float.move_(dx, dy);
+                        float.move_(tt, dx, dy);
                     }
                     float.ensure_on_output(&output);
                 }
@@ -276,7 +278,7 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_visible(&self, visible: bool) {
+    pub fn set_visible(&self, tt: &TreeTransaction, visible: bool) {
         self.visible.set(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
@@ -288,72 +290,73 @@ impl WorkspaceNode {
             stacked.stacked_prepare_set_visible();
         }
         if let Some(fs) = self.fullscreen.get() {
-            fs.tl_set_visible(visible);
+            fs.tl_set_visible(tt, visible);
         }
         if let Some(container) = self.container.get() {
-            container.tl_set_visible(self.container_visible());
+            container.tl_set_visible(tt, self.container_visible());
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked.stacked_set_visible(self.float_visible());
+                stacked.stacked_set_visible(tt, self.float_visible());
             }
         }
         self.seat_state.set_visible(self, visible);
         self.state.trigger_cci(CCI_WORKSPACES);
     }
 
-    pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
+    pub fn set_fullscreen_node(&self, tt: &TreeTransaction, node: &Rc<dyn ToplevelNode>) {
         if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
-            self.discard_child_properties(&*prev);
+            self.discard_child_properties(tt, &*prev);
         }
-        self.pull_child_properties(&**node);
+        let output = self.output.get();
+        self.pull_child_properties(tt, &**node);
         if self.visible.get() {
-            self.output.get().fullscreen_changed();
+            output.fullscreen_changed(tt);
         } else {
-            node.tl_set_visible(false);
+            node.tl_set_visible(tt, false);
         }
         if let Some(surface) = node.tl_scanout_surface()
             && let Some(fb) = self.output.get().global.connector.connector.drm_feedback()
         {
             surface.send_feedback(&fb);
         }
-        self.output.get().update_presentation_type();
+        self.output.get().update_presentation_type(tt);
     }
 
-    pub fn remove_fullscreen_node(&self) {
+    pub fn remove_fullscreen_node(&self, tt: &TreeTransaction) {
         if let Some(node) = self.fullscreen.take() {
-            self.discard_child_properties(&*node);
+            self.discard_child_properties(tt, &*node);
             if self.visible.get() {
-                self.output.get().fullscreen_changed();
+                self.output.get().fullscreen_changed(tt);
             }
             if let Some(surface) = node.tl_scanout_surface()
                 && let Some(fb) = surface.client.state.drm_feedback.get()
             {
                 surface.send_feedback(&fb);
             }
-            self.output.get().update_presentation_type();
+            self.output.get().update_presentation_type(tt);
         }
     }
 
-    fn pull_child_properties(&self, child: &dyn ToplevelNode) {
+    fn pull_child_properties(&self, tt: &TreeTransaction, child: &dyn ToplevelNode) {
         if child.tl_data().wants_attention.get() {
-            self.mod_attention_requested(true);
+            self.mod_attention_requested(tt, true);
         }
     }
 
-    fn discard_child_properties(&self, child: &dyn ToplevelNode) {
+    fn discard_child_properties(&self, tt: &TreeTransaction, child: &dyn ToplevelNode) {
         if child.tl_data().wants_attention.get() {
-            self.mod_attention_requested(false);
+            self.mod_attention_requested(tt, false);
         }
     }
 
-    fn mod_attention_requested(&self, set: bool) {
+    fn mod_attention_requested(&self, tt: &TreeTransaction, set: bool) {
         let crossed_threshold = self.attention_requests.adj(set);
         if crossed_threshold {
             for wh in self.ext_workspaces.lock().values() {
                 wh.handle_urgent_changed();
             }
-            self.output.get().schedule_update_render_data();
+            self.output.get().schedule_update_render_data(tt);
         }
     }
 
@@ -374,22 +377,27 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
+    pub fn do_focus(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) -> bool {
         if let Some(fs) = self.fullscreen.get() {
-            fs.node_do_focus(seat, direction);
+            fs.node_do_focus(tt, seat, direction);
         } else if self.stacked.is_not_empty()
             && let Some(last) = seat.get_last_focus_on_workspace(&self)
         {
             seat.focus_node(last);
         } else if let Some(container) = self.container.get() {
-            container.node_do_focus(seat, direction);
+            container.node_do_focus(tt, seat, direction);
         } else if let Some(child) = self
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
             .find_map(|float| float.child.get())
         {
-            child.node_do_focus(seat, direction);
+            child.node_do_focus(tt, seat, direction);
         } else if self.ty == WorkspaceType::Normal {
             seat.focus_node(self.clone());
         } else {
@@ -448,11 +456,16 @@ impl Node for WorkspaceNode {
         NodeLayerLink::Workspace
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        self.do_focus(seat, direction);
+    fn node_do_focus(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) {
+        self.do_focus(tt, seat, direction);
     }
 
-    fn node_active_changed(&self, _active: bool) {
+    fn node_active_changed(&self, _tt: &TreeTransaction, _active: bool) {
         let output = self.output.get();
         self.state.damage(output.bar_separator_rect.get());
     }
@@ -479,11 +492,12 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if self.ty != WorkspaceType::Normal {
             return;
         }
-        self.state.show_workspace2(None, &self.output.get(), &self);
+        self.state
+            .show_workspace2(tt, None, &self.output.get(), &self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -515,7 +529,12 @@ impl Node for WorkspaceNode {
 }
 
 impl ContainingNode for WorkspaceNode {
-    fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+    fn cnode_replace_child(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        old: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
         if let Some(container) = self.container.get()
             && container.node_id() == old.node_id()
         {
@@ -526,17 +545,22 @@ impl ContainingNode for WorkspaceNode {
                     return;
                 }
             };
-            self.set_container(&new);
+            self.set_container(tt, &new);
             return;
         }
         log::error!("Trying to replace child that's not a child");
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+    fn cnode_remove_child2(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        _preserve_focus: bool,
+    ) {
         if let Some(container) = self.container.get()
             && container.node_id() == child.node_id()
         {
-            self.discard_child_properties(&*container);
+            self.discard_child_properties(tt, &*container);
             self.container.set(None);
             self.state.damage(self.position.get());
             return;
@@ -544,7 +568,7 @@ impl ContainingNode for WorkspaceNode {
         if let Some(fs) = self.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
-            self.remove_fullscreen_node();
+            self.remove_fullscreen_node(tt);
             return;
         }
         log::error!("Trying to remove child that's not a child");
@@ -554,16 +578,21 @@ impl ContainingNode for WorkspaceNode {
         node.node_is_container()
     }
 
-    fn cnode_child_attention_request_changed(self: Rc<Self>, _node: &dyn Node, set: bool) {
-        self.mod_attention_requested(set);
+    fn cnode_child_attention_request_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        _node: &dyn Node,
+        set: bool,
+    ) {
+        self.mod_attention_requested(tt, set);
     }
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self
     }
 
-    fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
-        self.node_make_visible();
+    fn cnode_make_visible(self: Rc<Self>, tt: &TreeTransaction, _child: &dyn Node) {
+        self.node_make_visible(tt);
     }
 }
 
@@ -574,9 +603,14 @@ pub struct WsMoveConfig {
     pub before: Option<Rc<WorkspaceNode>>,
 }
 
-pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config: WsMoveConfig) {
+pub fn move_ws_to_output(
+    tt: &TreeTransaction,
+    ws: &Rc<WorkspaceNode>,
+    target: &Rc<OutputNode>,
+    config: WsMoveConfig,
+) {
     if ws.ty == WorkspaceType::Overlay {
-        target.show_workspace(&ws);
+        target.show_workspace(tt, &ws);
         return;
     }
     let ws = &match &*ws.output_link.borrow() {
@@ -597,7 +631,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             .find(|c| c.id != ws.id)
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
-            new_source_ws = Some(source.generate_normal_workspace());
+            new_source_ws = Some(source.generate_normal_workspace(tt));
         }
     }
     if source.overlay.is_none() {
@@ -610,10 +644,13 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     }
     if let Some(new_source_ws) = &new_source_ws {
         for pinned in source.pinned.iter() {
-            pinned.deref().clone().set_workspace(new_source_ws, false);
+            pinned
+                .deref()
+                .clone()
+                .set_workspace(tt, new_source_ws, false);
         }
     }
-    ws.set_output(&target);
+    ws.set_output(tt, &target);
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
         target
             .find_workspace_insertion_point(&ws.name)
@@ -634,19 +671,19 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         && (config.make_visible_always
             || (config.make_visible_if_empty && target.workspace.is_none()));
     if make_visible {
-        ws.state.show_workspace2(None, target, &ws);
+        ws.state.show_workspace2(tt, None, target, &ws);
     } else {
-        ws.set_visible(false);
+        ws.set_visible(tt, false);
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {
-        ws.state.show_workspace2(None, &source, &ws);
+        ws.state.show_workspace2(tt, None, &source, &ws);
     }
     if !target.is_dummy {
-        target.schedule_update_render_data();
+        target.schedule_update_render_data(tt);
     }
     if !source.is_dummy {
-        source.schedule_update_render_data();
+        source.schedule_update_render_data(tt);
     }
     if source.node_visible() {
         target.state.damage(source.global.pos.get());

@@ -10,7 +10,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode},
+        tree::{OutputNode, WorkspaceNode, transaction::TreeTransaction},
         utils::{clonecell::CloneCell, opt::Opt},
         wire::{ExtWorkspaceHandleV1Id, ext_workspace_handle_v1::*},
     },
@@ -154,7 +154,7 @@ object_base! {
 }
 
 impl Object for ExtWorkspaceHandleV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

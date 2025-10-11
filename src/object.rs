@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        tree::transaction::TreeTransaction,
         utils::buffd::MsgParser,
         wire::WlDisplayId,
     },
@@ -49,7 +50,9 @@ pub trait ObjectBase: Any {
 }
 
 pub trait Object: ObjectBase + 'static {
-    fn break_loops(self: Rc<Self>) {}
+    fn break_loops(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -462,7 +462,8 @@ impl ConfigProxyHandler {
         fullscreen: bool,
     ) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
-        tl.tl_set_fullscreen(fullscreen, None);
+        let tt = &self.state.tree_transaction();
+        tl.tl_set_fullscreen(tt, fullscreen, None);
         Ok(())
     }
 
@@ -662,20 +663,23 @@ impl ConfigProxyHandler {
 
     fn handle_seat_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.move_focus(direction.into());
+        let tt = &self.state.tree_transaction();
+        seat.move_focus(tt, direction.into());
         Ok(())
     }
 
     fn handle_seat_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.move_focused(direction.into());
+        let tt = &self.state.tree_transaction();
+        seat.move_focused(tt, direction.into());
         Ok(())
     }
 
     fn handle_window_move(&self, window: Window, direction: Direction) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_parent_container(&*window) {
-            c.move_child(window, direction.into());
+            let tt = &self.state.tree_transaction();
+            c.move_child(tt, window, direction.into());
         }
         Ok(())
     }
@@ -981,8 +985,9 @@ impl ConfigProxyHandler {
             .filter(|o| o.overlay.is_some())
             .cloned()
             .collect();
+        let tt = &self.state.tree_transaction();
         for output in outputs {
-            output.hide_overlay();
+            output.hide_overlay(tt);
         }
     }
 
@@ -991,7 +996,8 @@ impl ConfigProxyHandler {
             return Ok(());
         };
         if ws.ty == WorkspaceType::Overlay && ws.output.id() != self.state.dummy_output_id {
-            ws.output.get().hide_overlay();
+            let tt = &self.state.tree_transaction();
+            ws.output.get().hide_overlay(tt);
         }
         Ok(())
     }
@@ -1029,7 +1035,8 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         if let Some(ws) = self.get_existing_workspace(workspace)? {
             ws.may_capture.set(capture);
-            ws.update_has_captures();
+            let tt = &self.state.tree_transaction();
+            ws.update_has_captures(tt);
         }
         Ok(())
     }
@@ -1164,6 +1171,7 @@ impl ConfigProxyHandler {
         } = v1;
         let WorkspaceShowOpV2 { toggle } = v2;
         let toggle = toggle.unwrap_or(false);
+        let tt = &self.state.tree_transaction();
         struct Params {
             move_: bool,
             ws: Rc<WorkspaceNode>,
@@ -1209,7 +1217,7 @@ impl ConfigProxyHandler {
                     if ws.output.id() == self.state.dummy_output_id {
                         move_to_connector = true;
                     } else if toggle {
-                        ws.output.get().hide_overlay();
+                        ws.output.get().hide_overlay(tt);
                         return Ok(());
                     }
                 }
@@ -1235,7 +1243,7 @@ impl ConfigProxyHandler {
             Params {
                 move_: false,
                 ws: match ws.ty.get() {
-                    WorkspaceType::Normal => output.create_normal_workspace(&ws.name),
+                    WorkspaceType::Normal => output.create_normal_workspace(tt, &ws.name),
                     WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
                 },
                 output,
@@ -1245,6 +1253,7 @@ impl ConfigProxyHandler {
         let mut did_focus = false;
         if move_ {
             move_ws_to_output(
+                tt,
                 &ws,
                 &output,
                 WsMoveConfig {
@@ -1255,14 +1264,14 @@ impl ConfigProxyHandler {
                 },
             );
             if let Some(seat) = &seat {
-                did_focus = ws.do_focus(seat, crate::tree::Direction::Unspecified);
+                did_focus = ws.do_focus(tt, seat, crate::tree::Direction::Unspecified);
             }
             if !output.is_dummy {
                 ws.desired_output.set(output.global.output_id.clone());
             }
             self.state.tree_changed();
         } else {
-            did_focus = self.state.show_workspace2(seat.as_ref(), &output, &ws);
+            did_focus = self.state.show_workspace2(tt, seat.as_ref(), &output, &ws);
         }
         if (did_focus || ws.ty == WorkspaceType::Normal)
             && let Some(seat) = &seat
@@ -1275,33 +1284,35 @@ impl ConfigProxyHandler {
     fn handle_set_seat_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let ws = self.get_workspace(ws)?;
+        let tt = &self.state.tree_transaction();
         let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
             _ => match ws.ty.get() {
-                WorkspaceType::Normal => {
-                    seat.get_fallback_output().create_normal_workspace(&ws.name)
-                }
+                WorkspaceType::Normal => seat
+                    .get_fallback_output()
+                    .create_normal_workspace(tt, &ws.name),
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
-        seat.set_workspace(&workspace);
+        seat.set_workspace(tt, &workspace);
         Ok(())
     }
 
     fn handle_set_window_workspace(&self, window: Window, ws: Workspace) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         let ws = self.get_workspace(ws)?;
+        let tt = &self.state.tree_transaction();
         let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
             _ => match ws.ty.get() {
                 WorkspaceType::Normal => match window.node_output() {
-                    Some(o) => o.create_normal_workspace(&ws.name),
+                    Some(o) => o.create_normal_workspace(tt, &ws.name),
                     _ => return Ok(()),
                 },
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
-        toplevel_set_workspace(&self.state, window, &workspace);
+        toplevel_set_workspace(&self.state, tt, window, &workspace);
         Ok(())
     }
 
@@ -1346,7 +1357,8 @@ impl ConfigProxyHandler {
                 _ => return Ok(()),
             },
         };
-        self.state.move_ws_to_output(&ws, &output);
+        let tt = &self.state.tree_transaction();
+        self.state.move_ws_to_output(tt, &ws, &output);
         Ok(())
     }
 
@@ -1416,8 +1428,9 @@ impl ConfigProxyHandler {
         mode: WireMode,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.mode = backend::Mode {
                     width: mode.width,
                     height: mode.height,
@@ -1541,7 +1554,8 @@ impl ConfigProxyHandler {
         }
         let scale = Scale::from_f64(scale);
         let connector = self.get_output_node_or_persistent(connector)?;
-        connector.set_preferred_scale(scale);
+        let tt = &self.state.tree_transaction();
+        connector.set_preferred_scale(tt, scale);
         Ok(())
     }
 
@@ -1554,8 +1568,9 @@ impl ConfigProxyHandler {
             return Err(CphError::UnknownFormat(format));
         };
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| s.format = format)
+            .modify_state(&self.state, tt, |s| s.format = format)
             .map_err(CphError::ModifyConnectorState)?;
         Ok(())
     }
@@ -1577,8 +1592,9 @@ impl ConfigProxyHandler {
             _ => return Err(CphError::UnknownEotf(eotf)),
         };
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.color_space = bcs;
                 s.eotf = btf;
             })
@@ -1683,7 +1699,8 @@ impl ConfigProxyHandler {
 
     fn handle_set_seat_float_pinned(&self, seat: Seat, pinned: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.set_pinned(pinned);
+        let tt = &self.state.tree_transaction();
+        seat.set_pinned(tt, pinned);
         Ok(())
     }
 
@@ -1697,7 +1714,8 @@ impl ConfigProxyHandler {
 
     fn handle_set_window_float_pinned(&self, window: Window, pinned: bool) -> Result<(), CphError> {
         let window = self.get_window(window)?;
-        window.tl_set_pinned(true, pinned);
+        let tt = &self.state.tree_transaction();
+        window.tl_set_pinned(tt, true, pinned);
         Ok(())
     }
 
@@ -1712,7 +1730,8 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node_or_persistent(c)?;
-                connector.set_vrr_mode(mode);
+                let tt = &self.state.tree_transaction();
+                connector.set_vrr_mode(tt, mode);
             }
             _ => self.state.default_vrr_mode.set(*mode),
         }
@@ -1748,7 +1767,8 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node_or_persistent(c)?;
-                connector.set_tearing_mode(mode);
+                let tt = &self.state.tree_transaction();
+                connector.set_tearing_mode(tt, mode);
             }
             _ => self.state.default_tearing_mode.set(*mode),
         }
@@ -1761,7 +1781,8 @@ impl ConfigProxyHandler {
         transform: Transform,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node_or_persistent(connector)?;
-        connector.update_transform(transform.into());
+        let tt = &self.state.tree_transaction();
+        connector.update_transform(tt, transform.into());
         Ok(())
     }
 
@@ -1775,7 +1796,8 @@ impl ConfigProxyHandler {
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
-        connector.set_position(x, y);
+        let tt = &self.state.tree_transaction();
+        connector.set_position(tt, x, y);
         Ok(())
     }
 
@@ -1792,8 +1814,9 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
+        let tt = &self.state.tree_transaction();
         connector
-            .modify_state(&self.state, |s| {
+            .modify_state(&self.state, tt, |s| {
                 s.enabled = enabled;
             })
             .map_err(CphError::ModifyConnectorState)?;
@@ -1942,7 +1965,8 @@ impl ConfigProxyHandler {
     fn handle_set_window_mono(&self, window: Window, mono: bool) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_parent_container(&*window) {
-            c.set_mono(mono.then_some(window.as_ref()));
+            let tt = &self.state.tree_transaction();
+            c.set_mono(tt, mono.then_some(window.as_ref()));
         }
         Ok(())
     }
@@ -2867,7 +2891,8 @@ impl ConfigProxyHandler {
         dx2: i32,
         dy2: i32,
     ) -> Result<(), CphError> {
-        self.get_window(window)?.tl_resize(dx1, dy1, dx2, dy2);
+        let tt = &self.state.tree_transaction();
+        self.get_window(window)?.tl_resize(tt, dx1, dy1, dx2, dy2);
         Ok(())
     }
 

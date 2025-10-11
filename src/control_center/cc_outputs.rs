@@ -837,7 +837,8 @@ impl OutputsPaneInner {
     }
 
     fn commit_transaction(&self) -> Result<(), HeadTransactionError> {
-        self.prepare_transaction()?.apply()?.commit();
+        let tt = &self.state.tree_transaction();
+        self.prepare_transaction()?.apply()?.commit(tt);
         for head in self.heads.values() {
             let Some(desired) = &head.changed_state else {
                 continue;
@@ -846,11 +847,11 @@ impl OutputsPaneInner {
             if let Some(output) = self.state.outputs.get(&head.id)
                 && let Some(node) = &output.node
             {
-                node.set_position(desired.position.0, desired.position.1);
-                node.set_preferred_scale(desired.scale);
-                node.update_transform(desired.transform);
-                node.set_vrr_mode(&desired.vrr_mode);
-                node.set_tearing_mode(&desired.tearing_mode);
+                node.set_position(tt, desired.position.0, desired.position.1);
+                node.set_preferred_scale(tt, desired.scale);
+                node.update_transform(tt, desired.transform);
+                node.set_vrr_mode(tt, &desired.vrr_mode);
+                node.set_tearing_mode(tt, &desired.tearing_mode);
                 node.set_brightness(desired.brightness);
                 node.set_blend_space(desired.blend_space);
                 node.set_use_native_gamut(desired.use_native_gamut);

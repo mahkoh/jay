@@ -5,6 +5,7 @@ use {
         ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpPointerGesturePinchV1Id, zwp_pointer_gesture_pinch_v1::*},
     },
     std::rc::Rc,
@@ -78,7 +79,7 @@ object_base! {
 }
 
 impl Object for ZwpPointerGesturePinchV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

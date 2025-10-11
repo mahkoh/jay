@@ -84,7 +84,7 @@ use {
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
             OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform, TreeSerial,
-            VblankListener, WorkspaceNode,
+            VblankListener, WorkspaceNode, transaction::TreeTransaction,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -851,17 +851,17 @@ impl WlSurface {
         }
     }
 
-    fn set_toplevel(&self, tl: Option<Rc<dyn ToplevelNode>>) {
+    fn set_toplevel(&self, tt: &TreeTransaction, tl: Option<Rc<dyn ToplevelNode>>) {
         let ch = self.children.borrow();
         if let Some(ch) = &*ch {
             for ss in ch.subsurfaces.values() {
-                ss.surface.set_toplevel(tl.clone());
+                ss.surface.set_toplevel(tt, tl.clone());
             }
         }
         if self.seat_state.is_active()
             && let Some(tl) = &tl
         {
-            tl.tl_surface_active_changed(true);
+            tl.tl_surface_active_changed(tt, true);
         }
         self.toplevel.set(tl);
     }
@@ -1493,7 +1493,8 @@ impl WlSurface {
             && let Some(tl) = self.toplevel.get()
             && tl.tl_data().is_fullscreen.get()
         {
-            self.output.get().update_presentation_type();
+            let tt = &self.client.state.tree_transaction();
+            self.output.get().update_presentation_type(tt);
         }
         if self.need_extents_propagation.take() {
             self.ext.get().extents_changed();
@@ -1717,9 +1718,9 @@ impl WlSurface {
         self.pending.borrow_mut().content_type = Some(content_type);
     }
 
-    pub fn request_activation(&self) {
+    pub fn request_activation(&self, tt: &TreeTransaction) {
         if let Some(tl) = self.toplevel.get() {
-            tl.tl_data().request_attention(&*tl);
+            tl.tl_data().request_attention(tt, &*tl);
         }
     }
 
@@ -1793,7 +1794,7 @@ object_base! {
 }
 
 impl Object for WlSurface {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.unset_dnd_icons();
         self.unset_cursors();
         self.destroy_node();
@@ -1871,9 +1872,9 @@ impl Node for WlSurface {
         self.ext.get().node_layer()
     }
 
-    fn node_active_changed(&self, active: bool) {
+    fn node_active_changed(&self, tt: &TreeTransaction, active: bool) {
         if let Some(tl) = self.toplevel.get() {
-            tl.tl_surface_active_changed(active);
+            tl.tl_surface_active_changed(tt, active);
         }
     }
 
@@ -1893,9 +1894,9 @@ impl Node for WlSurface {
         self.ext.get().tray_item()
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(tl) = self.toplevel.get() {
-            tl.node_make_visible();
+            tl.node_make_visible(tt);
         }
     }
 

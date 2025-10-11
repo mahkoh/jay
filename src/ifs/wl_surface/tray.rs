@@ -17,6 +17,7 @@ use {
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
             NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            transaction::TreeTransaction,
         },
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, linkedlist::LinkedNode},
         wire::{WlSeatId, XdgPopupId},
@@ -72,16 +73,16 @@ impl TrayItemData {
 }
 
 pub trait DynTrayItem: Node {
-    fn send_current_configure(self: Rc<Self>);
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction);
     fn data(&self) -> &TrayItemData;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
-    fn destroy_node(&self);
+    fn destroy_node(&self, tt: &TreeTransaction);
     fn set_visible(&self, visible: bool);
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(self: Rc<Self>) {
+    fn send_current_configure(self: Rc<Self>, _tt: &TreeTransaction) {
         let data = self.tray_item_data();
         let state = &data.client.state;
         let size = state.tray_icon_size().max(1);
@@ -113,7 +114,7 @@ impl<T: TrayItem> DynTrayItem for T {
         }
     }
 
-    fn destroy_node(&self) {
+    fn destroy_node(&self, tt: &TreeTransaction) {
         let data = self.tray_item_data();
         data.linked_node.take();
         data.attached.set(false);
@@ -122,7 +123,7 @@ impl<T: TrayItem> DynTrayItem for T {
         data.seat_state.destroy_node(self);
         data.client.state.tree_changed();
         if let Some(node) = data.output.node() {
-            node.update_tray_positions();
+            node.update_tray_positions(tt);
         }
     }
 
@@ -214,8 +215,8 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         self.parent.node_visible()
     }
 
-    fn make_visible(self: Rc<Self>) {
-        // nothing
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        let _ = tt;
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -266,7 +267,8 @@ impl<T: TrayItem> SurfaceExt for T {
         let data = self.tray_item_data();
         if data.surface.visible.get() {
             if data.surface.buffer.is_none() {
-                self.destroy_node();
+                let tt = &data.client.state.tree_transaction();
+                self.destroy_node(tt);
             }
         } else {
             if data.surface.buffer.is_some() {
@@ -276,7 +278,8 @@ impl<T: TrayItem> SurfaceExt for T {
                 {
                     let link = node.tray_items.add_last(self.clone());
                     data.linked_node.set(Some(link));
-                    node.update_tray_positions();
+                    let tt = &data.client.state.tree_transaction();
+                    node.update_tray_positions(tt);
                 }
             }
         }
@@ -369,8 +372,9 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
+        let tt = &data.client.state.tree_transaction();
         item.send_initial_configure_prefix();
-        item.clone().send_current_configure();
+        item.clone().send_current_configure(tt);
     }
     Ok(())
 }
@@ -379,9 +383,11 @@ fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
     if item.popups().is_not_empty() {
         return Err(TrayItemError::HasPopups);
     }
-    item.destroy_node();
-    item.tray_item_data().surface.unset_ext();
-    item.tray_item_data().surface.set_visible(false);
+    let data = item.tray_item_data();
+    let tt = &data.client.state.tree_transaction();
+    item.destroy_node(tt);
+    data.surface.unset_ext();
+    data.surface.set_visible(false);
     Ok(())
 }
 

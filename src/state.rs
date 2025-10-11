@@ -113,7 +113,8 @@ use {
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
             VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
-            generic_node_visitor, move_ws_to_output, transaction::TreeTransactions,
+            generic_node_visitor, move_ws_to_output,
+            transaction::{TreeTransaction, TreeTransactions},
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -487,6 +488,7 @@ impl ConnectorData {
     pub fn modify_state(
         &self,
         state: &State,
+        tt: &TreeTransaction,
         f: impl FnOnce(&mut BackendConnectorState),
     ) -> Result<(), BackendConnectorTransactionError> {
         let old = self.state.borrow().clone();
@@ -499,11 +501,11 @@ impl ConnectorData {
         let mut tran = self.connector.create_transaction()?;
         tran.add(&self.connector, s.clone())?;
         tran.prepare()?.apply()?.commit();
-        self.set_state(state, s);
+        self.set_state(tt, state, s);
         Ok(())
     }
 
-    pub fn set_state(&self, state: &State, s: BackendConnectorState) {
+    pub fn set_state(&self, tt: &TreeTransaction, state: &State, s: BackendConnectorState) {
         let old = self.state.borrow().clone();
         if old.serial >= s.serial {
             return;
@@ -550,7 +552,7 @@ impl ConnectorData {
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
         {
-            node.update_state(old, s);
+            node.update_state(tt, old, s);
         }
     }
 }
@@ -575,8 +577,8 @@ impl DrmDevData {
     }
 }
 
-struct UpdateTextTexturesVisitor;
-impl NodeVisitorBase for UpdateTextTexturesVisitor {
+struct UpdateTextTexturesVisitor<'a>(&'a TreeTransaction<'a>);
+impl NodeVisitorBase for UpdateTextTexturesVisitor<'_> {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
         node.children
             .iter()
@@ -585,12 +587,12 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.schedule_update_render_data();
+        node.schedule_update_render_data(self.0);
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
         node.title_textures.borrow_mut().clear();
-        node.schedule_render_titles();
+        node.schedule_render_titles(self.0);
         node.node_visit_children(self);
     }
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
@@ -620,15 +622,15 @@ impl State {
         )
     }
 
-    pub fn add_output_scale(&self, scale: Scale) {
+    pub fn add_output_scale(&self, tt: &TreeTransaction, scale: Scale) {
         if self.scales.add(scale) {
-            self.output_scales_changed();
+            self.output_scales_changed(tt);
         }
     }
 
-    pub fn remove_output_scale(&self, scale: Scale) {
+    pub fn remove_output_scale(&self, tt: &TreeTransaction, scale: Scale) {
         if self.scales.remove(&scale) {
-            self.output_scales_changed();
+            self.output_scales_changed(tt);
         }
     }
 
@@ -644,8 +646,8 @@ impl State {
         }
     }
 
-    fn output_scales_changed(&self) {
-        self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
+    fn output_scales_changed(&self, tt: &TreeTransaction) {
+        self.visit_all_nodes(&mut UpdateTextTexturesVisitor(tt));
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
@@ -699,6 +701,7 @@ impl State {
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
         self.virtual_outputs.handle_render_ctx_change(self);
+        let tt = &self.tree_transaction();
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -776,7 +779,7 @@ impl State {
 
         if ctx.is_some() {
             self.reload_cursors();
-            self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
+            self.visit_all_nodes(&mut UpdateTextTexturesVisitor(tt));
         }
 
         for cursor_user_groups in self.cursor_user_groups.lock().values() {
@@ -869,8 +872,12 @@ impl State {
             .unwrap()
     }
 
-    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
-        self.get_map_output(seat).ensure_workspace()
+    pub fn ensure_map_workspace(
+        &self,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Rc<WorkspaceNode> {
+        self.get_map_output(seat).ensure_workspace(tt)
     }
 
     pub fn get_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Option<Rc<WorkspaceNode>> {
@@ -879,6 +886,7 @@ impl State {
 
     pub fn map_restore(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         session: &Rc<ToplevelSession>,
         has_parent: bool,
@@ -896,7 +904,7 @@ impl State {
         };
         let ws = || {
             let Some(name) = s.workspace.get() else {
-                return Some(on()?.ensure_normal_workspace());
+                return Some(on()?.ensure_normal_workspace(tt));
             };
             let ty = s.workspace_ty.get().unwrap_or(WorkspaceType::Normal);
             match self.workspaces.get(&*name) {
@@ -917,7 +925,7 @@ impl State {
                                     }
                                 }
                             }
-                            Some(on()?.ensure_normal_workspace())
+                            Some(on()?.ensure_normal_workspace(tt))
                         }
                         WorkspaceType::Overlay => Some(ws),
                     }
@@ -926,12 +934,12 @@ impl State {
                     WorkspaceType::Normal => {
                         let on = on()?;
                         if session.session.reason() == SessionReason::Recover {
-                            return Some(on.create_normal_workspace(&name));
+                            return Some(on.create_normal_workspace(tt, &name));
                         }
                         if let Some(ws) = on.workspace.get() {
                             return Some(ws);
                         }
-                        Some(on.create_normal_workspace(&name))
+                        Some(on.create_normal_workspace(tt, &name))
                     }
                     WorkspaceType::Overlay => Some(self.create_overlay_workspace(&name)),
                 },
@@ -943,6 +951,7 @@ impl State {
             };
             let op = ws.output.get().node_absolute_position();
             self.map_floating(
+                tt,
                 node.clone(),
                 pos.width(),
                 pos.height(),
@@ -954,36 +963,46 @@ impl State {
             let Some(ws) = ws() else {
                 return false;
             };
-            self.map_tiled_on(node.clone(), &ws);
-            data.set_fullscreen(self, node.clone(), &ws);
+            self.map_tiled_on(tt, node.clone(), &ws);
+            data.set_fullscreen(self, tt, node.clone(), &ws);
             ws
         } else if !has_parent {
             let Some(ws) = ws() else {
                 return false;
             };
-            self.map_tiled_on(node.clone(), &ws);
+            self.map_tiled_on(tt, node.clone(), &ws);
             ws
         } else {
             return false;
         };
         if ws.ty == WorkspaceType::Normal && ws.output.get().workspace.id() != Some(ws.id) {
-            data.request_attention(&*node);
+            data.request_attention(tt, &*node);
         }
         true
     }
 
-    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
+    pub fn map_tiled(self: &Rc<Self>, tt: &TreeTransaction, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
-        self.do_map_tiled(seat.as_deref(), node.clone());
-        self.focus_after_map(node, seat.as_deref());
+        self.do_map_tiled(tt, seat.as_deref(), node.clone());
+        self.focus_after_map(tt, node, seat.as_deref());
     }
 
-    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
-        let ws = self.ensure_map_workspace(seat);
-        self.map_tiled_on(node, &ws);
+    fn do_map_tiled(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        node: Rc<dyn ToplevelNode>,
+    ) {
+        let ws = self.ensure_map_workspace(tt, seat);
+        self.map_tiled_on(tt, node, &ws);
     }
 
-    pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+    pub fn map_tiled_on(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
         if let Some(c) = ws.container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
@@ -992,18 +1011,19 @@ impl State {
                 .get()
                 .and_then(|n| n.node_into_container());
             if let Some(lap) = lap {
-                lap.add_child_after(&*la, node);
+                lap.add_child_after(tt, &*la, node);
             } else {
-                c.append_child(node);
+                c.append_child(tt, node);
             }
         } else {
-            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
-            ws.set_container(&container);
+            let container = ContainerNode::new(self, tt, ws, node, ContainerSplit::Horizontal);
+            ws.set_container(tt, &container);
         }
     }
 
     pub fn map_floating(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
         inner_width: i32,
         inner_height: i32,
@@ -1037,11 +1057,16 @@ impl State {
             }
             Rect::new_sized_saturating(x1, y1, width, height)
         };
-        FloatNode::new(self, workspace, position, node.clone());
-        self.focus_after_map(node, self.seat_queue.last().as_deref());
+        FloatNode::new(self, tt, workspace, position, node.clone());
+        self.focus_after_map(tt, node, self.seat_queue.last().as_deref());
     }
 
-    fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
+    fn focus_after_map(
+        &self,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) {
         if !node.node_visible() {
             return;
         }
@@ -1053,11 +1078,12 @@ impl State {
         {
             return;
         }
-        node.node_do_focus(&seat, Direction::Unspecified);
+        node.node_do_focus(tt, &seat, Direction::Unspecified);
     }
 
     pub fn show_workspace2(
         &self,
+        tt: &TreeTransaction,
         seat: Option<&Rc<WlSeatGlobal>>,
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
@@ -1077,17 +1103,17 @@ impl State {
                     }));
             }
         }
-        let did_change = output.show_workspace(&ws);
+        let did_change = output.show_workspace(tt, &ws);
         let mut did_focus = false;
         if !pinned_is_focused && let Some(seat) = seat {
-            did_focus = ws.do_focus(seat, Direction::Unspecified);
+            did_focus = ws.do_focus(tt, seat, Direction::Unspecified);
         }
         if !did_change {
             return did_focus;
         }
         ws.flush_jay_workspaces();
         if !output.is_dummy {
-            output.schedule_update_render_data();
+            output.schedule_update_render_data(tt);
             self.tree_changed();
         }
         did_focus
@@ -1105,6 +1131,7 @@ impl State {
                 .get_or_insert_with(|| seat.get_fallback_output())
                 .clone()
         };
+        let tt = &self.tree_transaction();
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
             _ => match ty {
@@ -1114,7 +1141,7 @@ impl State {
                         log::warn!("Not showing workspace because seat is on dummy output");
                         return;
                     }
-                    output.create_normal_workspace(name)
+                    output.create_normal_workspace(tt, name)
                 }
                 WorkspaceType::Overlay => self.create_overlay_workspace(name),
             },
@@ -1123,29 +1150,30 @@ impl State {
             WorkspaceType::Normal => ws.output.get(),
             WorkspaceType::Overlay => output(),
         };
-        self.show_workspace2(Some(seat), &output, &ws);
+        self.show_workspace2(tt, Some(seat), &output, &ws);
         seat.maybe_schedule_warp_mouse_to_focus();
     }
 
-    pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
+    pub fn float_map_ws(&self, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_fallback_output();
             if !output.is_dummy {
-                return output.ensure_workspace();
+                return output.ensure_workspace(tt);
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_workspace();
+            return output.ensure_workspace(tt);
         }
-        self.dummy_output.get().unwrap().ensure_normal_workspace()
+        self.dummy_output.get().unwrap().ensure_normal_workspace(tt)
     }
 
     pub fn set_status(&self, status: &str) {
         let status = Rc::new(status.to_owned());
         self.status.set(status.clone());
         let outputs = self.root.outputs.lock();
+        let tt = &self.tree_transaction();
         for output in outputs.values() {
-            output.set_status(&status);
+            output.set_status(tt, &status);
         }
     }
 
@@ -1242,8 +1270,9 @@ impl State {
     pub fn do_unlock(&self) {
         self.lock.locked.set(false);
         self.lock.lock.take();
+        let tt = &self.tree_transaction();
         for output in self.root.outputs.lock().values() {
-            if let Some(surface) = output.set_lock_surface(None) {
+            if let Some(surface) = output.set_lock_surface(tt, None) {
                 surface.destroy_node();
             }
         }
@@ -1873,7 +1902,12 @@ impl State {
         node
     }
 
-    pub fn move_ws_to_output(&self, ws: &Rc<WorkspaceNode>, output: &Rc<OutputNode>) {
+    pub fn move_ws_to_output(
+        &self,
+        tt: &TreeTransaction,
+        ws: &Rc<WorkspaceNode>,
+        output: &Rc<OutputNode>,
+    ) {
         if output.is_dummy {
             return;
         }
@@ -1886,7 +1920,7 @@ impl State {
             source_is_destroyed: false,
             before: None,
         };
-        move_ws_to_output(ws, &output, config);
+        move_ws_to_output(tt, ws, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.tree_changed();
     }
@@ -1934,24 +1968,25 @@ impl State {
     }
 
     fn colors_changed(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
+        let tt = &self.tree_transaction();
+        struct V<'a>(&'a TreeTransaction<'a>);
+        impl NodeVisitorBase for V<'_> {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.on_colors_changed();
                 node.node_visit_children(self);
             }
 
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_colors_changed();
+                node.on_colors_changed(self.0);
                 node.node_visit_children(self);
             }
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_colors_changed();
+                node.on_colors_changed(self.0);
                 node.node_visit_children(self);
             }
         }
-        self.visit_all_nodes(&mut V);
+        self.visit_all_nodes(&mut V(tt));
         self.damage(self.root.extents.get());
         self.icons.clear();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
@@ -1993,30 +2028,32 @@ impl State {
     }
 
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
+        let tt = &self.tree_transaction();
         self.workspace_display_order.set(order);
         for output in self.root.outputs.lock().values() {
-            output.handle_workspace_display_order_update();
+            output.handle_workspace_display_order_update(tt);
         }
         self.trigger_cci(CCI_COMPOSITOR);
     }
 
     fn spaces_changed(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
+        let tt = &self.tree_transaction();
+        struct V<'a>(&'a TreeTransaction<'a>);
+        impl NodeVisitorBase for V<'_> {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
+                node.on_spaces_changed(self.0);
                 node.node_visit_children(self);
             }
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
+                node.on_spaces_changed(self.0);
                 node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_spaces_changed();
+                node.on_spaces_changed(self.0);
                 node.node_visit_children(self);
             }
         }
-        self.visit_all_nodes(&mut V);
+        self.visit_all_nodes(&mut V(tt));
         self.damage(self.root.extents.get());
         self.icons.update_sizes(self);
         for client in self.clients.clients.borrow().values() {
@@ -2040,19 +2077,20 @@ impl State {
     }
 
     pub fn set_show_window_icons(&self, show: bool) {
+        let tt = &self.tree_transaction();
         self.theme.show_window_icons.set(show);
-        struct V;
-        impl NodeVisitorBase for V {
+        struct V<'a>(&'a TreeTransaction<'a>);
+        impl NodeVisitorBase for V<'_> {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.schedule_render_titles();
                 node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
+                node.schedule_render_titles(self.0);
                 node.node_visit_children(self);
             }
         }
-        self.visit_all_nodes(&mut V);
+        self.visit_all_nodes(&mut V(tt));
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2074,11 +2112,12 @@ impl State {
     }
 
     pub fn set_show_pin_icon(&self, show: bool) {
+        let tt = &self.tree_transaction();
         self.show_pin_icon.set(show);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
         for stacked in self.root.stacked.stacked.iter() {
             if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
+                float.schedule_render_titles(tt);
             }
         }
     }
@@ -2100,22 +2139,23 @@ impl State {
 
     fn fonts_changed(&self) {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        struct V;
-        impl NodeVisitorBase for V {
+        let tt = &self.tree_transaction();
+        struct V<'a>(&'a TreeTransaction<'a>);
+        impl NodeVisitorBase for V<'_> {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.schedule_render_titles();
                 node.node_visit_children(self);
             }
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.schedule_update_render_data();
+                node.schedule_update_render_data(self.0);
                 node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
+                node.schedule_render_titles(self.0);
                 node.node_visit_children(self);
             }
         }
-        self.visit_all_nodes(&mut V);
+        self.visit_all_nodes(&mut V(tt));
     }
 
     pub fn reset_fonts(&self) {

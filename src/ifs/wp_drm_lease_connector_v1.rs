@@ -5,6 +5,7 @@ use {
         ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::bindings::Bindings,
         wire::{WpDrmLeaseConnectorV1Id, wp_drm_lease_connector_v1::*},
     },
@@ -74,7 +75,7 @@ object_base! {
 }
 
 impl Object for WpDrmLeaseConnectorV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

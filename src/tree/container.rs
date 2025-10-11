@@ -26,7 +26,7 @@ use {
             NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceChangeReason,
             WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
-            walker::NodeVisitor,
+            transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -231,6 +231,7 @@ impl ContainerChild {
 impl ContainerNode {
     pub fn new(
         state: &Rc<State>,
+        tt: &TreeTransaction,
         workspace: &Rc<WorkspaceNode>,
         child: Rc<dyn ToplevelNode>,
         split: ContainerSplit,
@@ -293,29 +294,39 @@ impl ContainerNode {
             ),
             attention_requests: Default::default(),
         });
-        child.tl_set_parent(slf.clone());
-        slf.pull_child_properties(&child_node_ref);
+        child.tl_set_parent(tt, slf.clone());
+        slf.pull_child_properties(tt, &child_node_ref);
         slf
     }
 
-    pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
+    pub fn prepend_child(self: &Rc<Self>, tt: &TreeTransaction, new: Rc<dyn ToplevelNode>) {
         if let Some(child) = self.children.first() {
-            self.add_child_before_(&child, new);
+            self.add_child_before_(tt, &child, new);
         }
     }
 
-    pub fn append_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
+    pub fn append_child(self: &Rc<Self>, tt: &TreeTransaction, new: Rc<dyn ToplevelNode>) {
         if let Some(child) = self.children.last() {
-            self.add_child_after_(&child, new);
+            self.add_child_after_(tt, &child, new);
         }
     }
 
-    pub fn add_child_after(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        self.add_child_x(prev, new, |prev, new| self.add_child_after_(prev, new));
+    pub fn add_child_after(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        prev: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
+        self.add_child_x(prev, new, |prev, new| self.add_child_after_(tt, prev, new));
     }
 
-    pub fn add_child_before(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        self.add_child_x(prev, new, |prev, new| self.add_child_before_(prev, new));
+    pub fn add_child_before(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        prev: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
+        self.add_child_x(prev, new, |prev, new| self.add_child_before_(tt, prev, new));
     }
 
     fn add_child_x<F>(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn ToplevelNode>, f: F)
@@ -338,21 +349,23 @@ impl ContainerNode {
 
     fn add_child_after_(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         prev: &NodeRef<ContainerChild>,
         new: Rc<dyn ToplevelNode>,
     ) {
-        self.add_child(|cc| prev.append(cc), new);
+        self.add_child(tt, |cc| prev.append(cc), new);
     }
 
     fn add_child_before_(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         prev: &NodeRef<ContainerChild>,
         new: Rc<dyn ToplevelNode>,
     ) {
-        self.add_child(|cc| prev.prepend(cc), new);
+        self.add_child(tt, |cc| prev.prepend(cc), new);
     }
 
-    fn add_child<F>(self: &Rc<Self>, f: F, new: Rc<dyn ToplevelNode>)
+    fn add_child<F>(self: &Rc<Self>, tt: &TreeTransaction, f: F, new: Rc<dyn ToplevelNode>)
     where
         F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
     {
@@ -382,9 +395,9 @@ impl ContainerNode {
             r
         };
         new.tl_update_icon(&new_ref.icon);
-        new.tl_set_parent(self.clone());
-        self.pull_child_properties(&new_ref);
-        new.tl_set_visible(self.toplevel_data.visible.get());
+        new.tl_set_parent(tt, self.clone());
+        self.pull_child_properties(tt, &new_ref);
+        new.tl_set_visible(tt, self.toplevel_data.visible.get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -400,10 +413,10 @@ impl ContainerNode {
         }
         self.sum_factors.set(sum_factors);
         if self.mono_child.is_some() {
-            self.activate_child(&new_ref);
+            self.activate_child(tt, &new_ref);
         }
         // log::info!("add_child");
-        self.schedule_layout();
+        self.perform_layout(tt);
         self.cancel_seat_ops();
     }
 
@@ -414,7 +427,7 @@ impl ContainerNode {
         }
     }
 
-    pub fn on_spaces_changed(self: &Rc<Self>) {
+    pub fn on_spaces_changed(self: &Rc<Self>, tt: &TreeTransaction) {
         for child in self.child_nodes.borrow().values() {
             if child.icon.set_size(self.state.theme.title_icon_size()) {
                 child.node.tl_update_icon(&child.icon);
@@ -422,7 +435,7 @@ impl ContainerNode {
         }
         self.update_content_size();
         // log::info!("on_spaces_changed");
-        self.schedule_layout();
+        self.perform_layout(tt);
     }
 
     pub fn on_colors_changed(self: &Rc<Self>) {
@@ -449,15 +462,15 @@ impl ContainerNode {
         }
     }
 
-    fn perform_layout(self: &Rc<Self>) {
+    fn perform_layout(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.num_children.get() == 0 {
             return;
         }
         self.layout_scheduled.set(false);
         if let Some(child) = self.mono_child.get() {
-            self.perform_mono_layout(&child);
+            self.perform_mono_layout(tt, &child);
         } else {
-            self.perform_split_layout();
+            self.perform_split_layout(tt);
         }
         self.state.tree_changed();
         // log::info!("perform_layout");
@@ -465,12 +478,12 @@ impl ContainerNode {
         self.schedule_compute_render_positions();
     }
 
-    fn perform_mono_layout(self: &Rc<Self>, child: &ContainerChild) {
+    fn perform_mono_layout(self: &Rc<Self>, tt: &TreeTransaction, child: &ContainerChild) {
         let mb = self.mono_body.get();
         child
             .node
             .clone()
-            .tl_change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
+            .tl_change_extents(tt, &mb.move_(self.abs_x1.get(), self.abs_y1.get()));
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
@@ -494,7 +507,7 @@ impl ContainerNode {
         }
     }
 
-    fn perform_split_layout(self: &Rc<Self>) {
+    fn perform_split_layout(self: &Rc<Self>, tt: &TreeTransaction) {
         let sum_factors = self.sum_factors.get();
         let border_width = self.state.theme.sizes.border_width.get();
         let title_height_tmp = self.state.theme.title_height();
@@ -588,7 +601,7 @@ impl ContainerNode {
                 title_height_tmp,
             ));
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
-            child.node.clone().tl_change_extents(&body);
+            child.node.clone().tl_change_extents(tt, &body);
             child.position_content();
         }
     }
@@ -733,7 +746,7 @@ impl ContainerNode {
         }
     }
 
-    fn update_title(&self) {
+    fn update_title(&self, tt: &TreeTransaction) {
         let mut title = self.toplevel_data.title.borrow_mut();
         title.clear();
         let split = match (self.mono_child.is_some(), self.split.get()) {
@@ -751,7 +764,7 @@ impl ContainerNode {
         }
         title.push_str("]");
         drop(title);
-        self.tl_title_changed();
+        self.tl_title_changed(tt);
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
@@ -958,36 +971,41 @@ impl ContainerNode {
         rd.titles.remove_if(|_, v| v.is_empty());
     }
 
-    fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
-        self.activate_child2(child, false);
+    fn activate_child(self: &Rc<Self>, tt: &TreeTransaction, child: &NodeRef<ContainerChild>) {
+        self.activate_child2(tt, child, false);
     }
 
-    fn activate_child2(self: &Rc<Self>, child: &NodeRef<ContainerChild>, preserve_focus: bool) {
+    fn activate_child2(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        child: &NodeRef<ContainerChild>,
+        preserve_focus: bool,
+    ) {
         if let Some(mc) = self.mono_child.get() {
             if mc.node.node_id() == child.node.node_id() {
                 return;
             }
             if !preserve_focus {
                 let seats = collect_kb_foci(mc.node.clone());
-                mc.node.tl_set_visible(false);
+                mc.node.tl_set_visible(tt, false);
                 for seat in seats {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus(tt, &seat, Direction::Unspecified);
                 }
             }
             self.mono_child.set(Some(child.clone()));
             if self.toplevel_data.visible.get() {
-                child.node.tl_set_visible(true);
+                child.node.tl_set_visible(tt, true);
             }
             child.node.tl_restack_popups();
             // log::info!("activate_child2");
-            self.schedule_layout();
+            self.perform_layout(tt);
         }
     }
 
-    pub fn set_mono(self: &Rc<Self>, child: Option<&dyn ToplevelNode>) {
+    pub fn set_mono(self: &Rc<Self>, tt: &TreeTransaction, child: Option<&dyn ToplevelNode>) {
         if self.mono_child.is_some() == child.is_some() {
             return;
         }
@@ -1011,34 +1029,35 @@ impl ContainerNode {
                 for other in self.children.iter() {
                     if other.node.node_id() != child_id {
                         collect_kb_foci2(other.node.clone(), &mut seats);
-                        other.node.tl_set_visible(false);
+                        other.node.tl_set_visible(tt, false);
                     }
                 }
                 for seat in seats {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus(tt, &seat, Direction::Unspecified);
                 }
                 child.node.tl_restack_popups();
             } else {
                 for child in self.children.iter() {
-                    child.node.tl_set_visible(true);
+                    child.node.tl_set_visible(tt, true);
                 }
             }
         }
         self.mono_child.set(child);
         // log::info!("set_mono");
-        self.schedule_layout();
-        self.update_title();
+        self.perform_layout(tt);
+        self.update_title(tt);
     }
 
     pub fn set_split(self: &Rc<Self>, split: ContainerSplit) {
         if self.split.replace(split) != split {
+            let tt = &self.state.tree_transaction();
             self.update_content_size();
             // log::info!("set_split");
-            self.schedule_layout();
-            self.update_title();
+            self.perform_layout(tt);
+            self.update_title(tt);
         }
     }
 
@@ -1062,6 +1081,7 @@ impl ContainerNode {
 
     pub fn move_focus_from_child(
         self: Rc<Self>,
+        tt: &TreeTransaction,
         seat: &Rc<WlSeatGlobal>,
         child: &dyn ToplevelNode,
         direction: Direction,
@@ -1084,9 +1104,9 @@ impl ContainerNode {
         let focus_in_parent = || {
             if let Some(parent) = self.toplevel_data.parent.get() {
                 if let Some(c) = parent.node_into_container() {
-                    c.move_focus_from_child(seat, self.deref(), direction);
+                    c.move_focus_from_child(tt, seat, self.deref(), direction);
                 } else if let Some(output) = self.find_neighboring_output(direction) {
-                    output.take_keyboard_navigation_focus(seat, direction);
+                    output.take_keyboard_navigation_focus(tt, seat, direction);
                 }
             }
         };
@@ -1113,33 +1133,38 @@ impl ContainerNode {
             }
         };
         if mc.is_some() {
-            self.activate_child(&sibling);
+            self.activate_child(tt, &sibling);
         } else {
-            sibling.node.clone().node_do_focus(seat, direction);
+            sibling.node.clone().node_do_focus(tt, seat, direction);
         }
     }
 
     //
-    pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
+    pub fn move_child(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: Rc<dyn ToplevelNode>,
+        direction: Direction,
+    ) {
         let move_to_neighboring_output = |child: Rc<dyn ToplevelNode>| {
             let Some(output) = self.find_neighboring_output(direction) else {
                 return;
             };
-            let ws = output.ensure_workspace();
+            let ws = output.ensure_workspace(tt);
             let mut foci = SmallVec::new();
             let move_foci = !ws.container_visible();
             if move_foci {
                 collect_kb_foci2(child.clone(), &mut foci);
             }
             if let Some(c) = ws.container.get() {
-                self.clone().cnode_remove_child2(&*child, true);
-                c.insert_child(child, direction);
+                self.clone().cnode_remove_child2(tt, &*child, true);
+                c.insert_child(tt, child, direction);
             } else {
-                toplevel_set_workspace(&self.state, child, &ws);
+                toplevel_set_workspace(&self.state, tt, child, &ws);
             }
             if move_foci {
                 for seat in foci {
-                    ws.do_focus(&seat, Direction::Unspecified);
+                    ws.do_focus(tt, &seat, Direction::Unspecified);
                 }
             }
         };
@@ -1150,10 +1175,10 @@ impl ContainerNode {
                 && !self.toplevel_data.is_fullscreen.get()
             {
                 if parent.cnode_accepts_child(&*child) {
-                    parent.cnode_replace_child(self.deref(), child.clone());
+                    parent.cnode_replace_child(tt, self.deref(), child.clone());
                     self.toplevel_data.parent.take();
                     self.child_nodes.borrow_mut().clear();
-                    self.tl_destroy();
+                    self.tl_destroy(tt);
                 } else {
                     move_to_neighboring_output(child);
                 }
@@ -1180,10 +1205,10 @@ impl ContainerNode {
                     if let Some(mc) = self.mono_child.get()
                         && mc.node.node_id() == child.node_id()
                     {
-                        self.activate_child2(&neighbor, true);
+                        self.activate_child2(tt, &neighbor, true);
                     }
-                    self.cnode_remove_child2(&*child, true);
-                    cn.insert_child(child, direction);
+                    self.cnode_remove_child2(tt, &*child, true);
+                    cn.insert_child(tt, child, direction);
                     return;
                 }
                 match prev {
@@ -1191,7 +1216,7 @@ impl ContainerNode {
                     false => neighbor.append_existing(&cc),
                 }
                 // log::info!("move_child");
-                self.schedule_layout();
+                self.perform_layout(tt);
                 return;
             }
         }
@@ -1212,23 +1237,33 @@ impl ContainerNode {
                 return;
             }
         };
-        self.cnode_remove_child2(&*child, true);
+        self.cnode_remove_child2(tt, &*child, true);
         match prev {
-            true => parent.add_child_before(&*neighbor, child.clone()),
-            false => parent.add_child_after(&*neighbor, child.clone()),
+            true => parent.add_child_before(tt, &*neighbor, child.clone()),
+            false => parent.add_child_after(tt, &*neighbor, child.clone()),
         }
     }
 
-    pub fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
+    pub fn insert_child(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        node: Rc<dyn ToplevelNode>,
+        direction: Direction,
+    ) {
         let (split, right) = direction_to_split(direction);
         if split != self.split.get() || right {
-            self.append_child(node);
+            self.append_child(tt, node);
         } else {
-            self.prepend_child(node);
+            self.prepend_child(tt, node);
         }
     }
 
-    fn update_child_title(self: &Rc<Self>, child: &ContainerChild, title: &str) {
+    fn update_child_title(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        child: &ContainerChild,
+        title: &str,
+    ) {
         {
             let mut ct = child.title.borrow_mut();
             if ct.deref() == title {
@@ -1237,13 +1272,14 @@ impl ContainerNode {
             ct.clear();
             ct.push_str(title);
         }
-        self.update_title();
+        self.update_title(tt);
         // log::info!("node_child_title_changed");
         self.schedule_render_titles();
     }
 
     fn update_child_active(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         node: &NodeRef<ContainerChild>,
         active: bool,
         depth: u32,
@@ -1259,11 +1295,17 @@ impl ContainerNode {
         self.schedule_render_titles();
         self.schedule_compute_render_positions();
         if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.node_child_active_changed(self.deref(), active, depth + 1);
+            parent.node_child_active_changed(tt, self.deref(), active, depth + 1);
         }
     }
 
-    fn update_child_size(&self, node: &NodeRef<ContainerChild>, width: i32, height: i32) {
+    fn update_child_size(
+        &self,
+        _tt: &TreeTransaction,
+        node: &NodeRef<ContainerChild>,
+        width: i32,
+        height: i32,
+    ) {
         let rect = Rect::new_saturating(0, 0, width, height);
         node.content.set(rect);
         node.position_content();
@@ -1275,49 +1317,54 @@ impl ContainerNode {
         }
     }
 
-    fn pull_child_properties(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+    fn pull_child_properties(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        child: &NodeRef<ContainerChild>,
+    ) {
         let data = child.node.tl_data();
         {
             let attention_requested = data.wants_attention.get();
             child.attention_requested.set(attention_requested);
             if attention_requested {
-                self.mod_attention_requests(true);
+                self.mod_attention_requests(tt, true);
             }
         }
-        self.update_child_title(child, &data.title.borrow());
-        self.update_child_active(child, data.active(), 1);
+        self.update_child_title(tt, child, &data.title.borrow());
+        self.update_child_active(tt, child, data.active(), 1);
         {
             let pos = data.pos.get();
-            self.update_child_size(child, pos.width(), pos.height());
+            self.update_child_size(tt, child, pos.width(), pos.height());
         }
     }
 
-    fn discard_child_properties(&self, child: &ContainerChild) {
+    fn discard_child_properties(&self, tt: &TreeTransaction, child: &ContainerChild) {
         if child.attention_requested.get() {
-            self.mod_attention_requests(false);
+            self.mod_attention_requests(tt, false);
         }
     }
 
-    fn mod_attention_requests(&self, set: bool) {
+    fn mod_attention_requests(&self, tt: &TreeTransaction, set: bool) {
         let propagate = self.attention_requests.adj(set);
         if set || propagate {
             self.toplevel_data.set_wants_attention(set);
         }
         if propagate && let Some(parent) = self.toplevel_data.parent.get() {
-            parent.cnode_child_attention_request_changed(self, set);
+            parent.cnode_child_attention_request_changed(tt, self, set);
         }
     }
 
-    fn toggle_mono(self: &Rc<Self>) {
+    fn toggle_mono(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.mono_child.is_some() {
-            self.set_mono(None);
+            self.set_mono(tt, None);
         } else if let Some(last) = self.focus_history.last() {
-            self.set_mono(Some(&*last.node));
+            self.set_mono(tt, Some(&*last.node));
         }
     }
 
     fn button(
         self: Rc<Self>,
+        tt: &TreeTransaction,
         id: CursorType,
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
@@ -1332,12 +1379,12 @@ impl ContainerNode {
         if button == BTN_RIGHT && pressed {
             if self.mono_child.is_some() || self.split.get() == ContainerSplit::Horizontal {
                 if seat_data.y < self.state.theme.title_height() {
-                    self.toggle_mono();
+                    self.toggle_mono(tt);
                 }
             } else {
                 for child in self.children.iter() {
                     if child.title_rect.get().contains(seat_data.x, seat_data.y) {
-                        self.toggle_mono();
+                        self.toggle_mono(tt);
                     }
                 }
             }
@@ -1355,11 +1402,11 @@ impl ContainerNode {
                 for child in self.children.iter() {
                     let rect = child.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
-                        self.activate_child(&child);
+                        self.activate_child(tt, &child);
                         child
                             .node
                             .clone()
-                            .node_do_focus(seat, Direction::Unspecified);
+                            .node_do_focus(tt, seat, Direction::Unspecified);
                         break 'res (SeatOpKind::Move, child);
                     } else if !mono {
                         if self.split.get() == ContainerSplit::Horizontal {
@@ -1656,7 +1703,8 @@ pub async fn container_layout(state: Rc<State>) {
     loop {
         let container = state.pending_container_layout.pop().await;
         if container.layout_scheduled.get() {
-            container.perform_layout();
+            let tt = &state.tree_transaction();
+            container.perform_layout(tt);
         }
     }
 }
@@ -1729,13 +1777,23 @@ impl Node for ContainerNode {
         self.toplevel_data.node_layer()
     }
 
-    fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
+    fn node_child_title_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        title: &str,
+    ) {
         if let Some(child) = self.child_nodes.borrow().get(&child.node_id()) {
-            self.update_child_title(child, title);
+            self.update_child_title(tt, child, title);
         }
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) {
         let node = if let Some(cn) = self.mono_child.get() {
             Some(cn)
         } else {
@@ -1752,12 +1810,12 @@ impl Node for ContainerNode {
             }
         };
         if let Some(node) = node {
-            node.node.clone().node_do_focus(seat, direction);
+            node.node.clone().node_do_focus(tt, seat, direction);
         }
     }
 
-    fn node_active_changed(&self, active: bool) {
-        self.toplevel_data.update_self_active(self, active);
+    fn node_active_changed(&self, tt: &TreeTransaction, active: bool) {
+        self.toplevel_data.update_self_active(tt, self, active);
     }
 
     fn node_find_tree_at(
@@ -1794,13 +1852,20 @@ impl Node for ContainerNode {
     fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
         let cn = self.child_nodes.borrow();
         if let Some(node) = cn.get(&child.node_id()) {
-            self.update_child_size(node, width, height);
+            let tt = &self.state.tree_transaction();
+            self.update_child_size(tt, node, width, height);
         }
     }
 
-    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
+    fn node_child_active_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        active: bool,
+        depth: u32,
+    ) {
         if let Some(l) = self.child_nodes.borrow().get(&child.node_id()) {
-            self.update_child_active(l, active, depth);
+            self.update_child_active(tt, l, active, depth);
         }
     }
 
@@ -1812,12 +1877,13 @@ impl Node for ContainerNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: Rc<Self>, tt: &TreeTransaction) {
+        self.toplevel_data.make_visible(&*self, tt);
     }
 
     fn node_grab_workspace_changed(
         self: Rc<Self>,
+        _tt: &TreeTransaction,
         seat: &Rc<WlSeatGlobal>,
         _on: &Rc<OutputNode>,
         _ws: Option<&Rc<WorkspaceNode>>,
@@ -1845,8 +1911,16 @@ impl Node for ContainerNode {
         state: ButtonState,
         _serial: u64,
     ) {
+        let tt = &self.state.tree_transaction();
         let id = CursorType::Seat(seat.id());
-        self.button(id, seat, time_usec, state == ButtonState::Pressed, button);
+        self.clone().button(
+            tt,
+            id,
+            seat,
+            time_usec,
+            state == ButtonState::Pressed,
+            button,
+        );
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
@@ -1879,11 +1953,12 @@ impl Node for ContainerNode {
                 None => break,
             };
         }
-        self.activate_child(&new_mc);
+        let tt = &self.state.tree_transaction();
+        self.activate_child(tt, &new_mc);
         new_mc
             .node
             .clone()
-            .node_do_focus(seat, Direction::Unspecified);
+            .node_do_focus(tt, seat, Direction::Unspecified);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {
@@ -1973,7 +2048,9 @@ impl Node for ContainerNode {
         if let Some(changes) = changes
             && let Some(pressed) = changes.down
         {
-            self.button(id, tool.seat(), time_usec, pressed, BTN_LEFT);
+            let tt = &self.state.tree_transaction();
+            self.clone()
+                .button(tt, id, tool.seat(), time_usec, pressed, BTN_LEFT);
         }
     }
 
@@ -1995,7 +2072,12 @@ impl Node for ContainerNode {
 }
 
 impl ContainingNode for ContainerNode {
-    fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+    fn cnode_replace_child(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        old: &dyn Node,
+        new: Rc<dyn ToplevelNode>,
+    ) {
         let node = match self.child_nodes.borrow_mut().remove(&old.node_id()) {
             Some(c) => c,
             None => {
@@ -2007,7 +2089,7 @@ impl ContainingNode for ContainerNode {
             None => (false, false),
             Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
-        self.discard_child_properties(&node);
+        self.discard_child_properties(tt, &node);
         let link = node.append(ContainerChild {
             node: new.clone(),
             active: Cell::new(false),
@@ -2039,23 +2121,28 @@ impl ContainingNode for ContainerNode {
         let link_ref = link.to_ref();
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
         new.tl_update_icon(&link_ref.icon);
-        new.tl_set_parent(self.clone());
-        self.pull_child_properties(&link_ref);
-        new.tl_set_visible(visible);
+        new.tl_set_parent(tt, self.clone());
+        self.pull_child_properties(tt, &link_ref);
+        new.tl_set_visible(tt, visible);
         if let Some(body) = body {
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
-            new.clone().tl_change_extents(&body);
+            new.clone().tl_change_extents(tt, &body);
             self.state.damage(body);
         }
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
+    fn cnode_remove_child2(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        preserve_focus: bool,
+    ) {
         let node = match self.child_nodes.borrow_mut().remove(&child.node_id()) {
             Some(c) => c,
             None => return,
         };
         node.focus_history.set(None);
-        self.discard_child_properties(&node);
+        self.discard_child_properties(tt, &node);
         if let Some(mono) = self.mono_child.get() {
             if mono.node.node_id() == child.node_id() {
                 let mut new = self.focus_history.last().map(|n| n.deref().clone());
@@ -2066,7 +2153,7 @@ impl ContainingNode for ContainerNode {
                     }
                 }
                 if let Some(child) = &new {
-                    self.activate_child2(child, preserve_focus);
+                    self.activate_child2(tt, child, preserve_focus);
                 }
             }
         }
@@ -2077,7 +2164,7 @@ impl ContainingNode for ContainerNode {
         };
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
-            self.tl_destroy();
+            self.tl_destroy(tt);
             return;
         }
         self.update_content_size();
@@ -2097,9 +2184,9 @@ impl ContainingNode for ContainerNode {
             }
         }
         self.sum_factors.set(sum);
-        self.update_title();
+        self.update_title(tt);
         // log::info!("cnode_remove_child2");
-        self.schedule_layout();
+        self.perform_layout(tt);
         self.cancel_seat_ops();
     }
 
@@ -2107,7 +2194,12 @@ impl ContainingNode for ContainerNode {
         true
     }
 
-    fn cnode_child_attention_request_changed(self: Rc<Self>, child: &dyn Node, set: bool) {
+    fn cnode_child_attention_request_changed(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        set: bool,
+    ) {
         let children = self.child_nodes.borrow();
         let child = match children.get(&child.node_id()) {
             Some(c) => c,
@@ -2116,7 +2208,7 @@ impl ContainingNode for ContainerNode {
         if child.attention_requested.replace(set) == set {
             return;
         }
-        self.mod_attention_requests(set);
+        self.mod_attention_requests(tt, set);
         self.schedule_compute_render_positions();
     }
 
@@ -2124,7 +2216,7 @@ impl ContainingNode for ContainerNode {
         self.workspace.get()
     }
 
-    fn cnode_make_visible(self: Rc<Self>, child: &dyn Node) {
+    fn cnode_make_visible(self: Rc<Self>, tt: &TreeTransaction, child: &dyn Node) {
         let Some(child) = self
             .child_nodes
             .borrow()
@@ -2133,7 +2225,7 @@ impl ContainingNode for ContainerNode {
         else {
             return;
         };
-        self.toplevel_data.make_visible(&*self);
+        self.toplevel_data.make_visible(&*self, tt);
         if !self.node_visible() {
             return;
         }
@@ -2143,16 +2235,22 @@ impl ContainingNode for ContainerNode {
         if cur.node.node_id() == child.node.node_id() {
             return;
         }
-        self.activate_child(&child);
+        self.activate_child(tt, &child);
     }
 
-    fn cnode_set_child_position(self: Rc<Self>, child: &dyn Node, x: i32, y: i32) {
+    fn cnode_set_child_position(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        child: &dyn Node,
+        x: i32,
+        y: i32,
+    ) {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
         let tpuh = self.state.theme.title_plus_underline_height();
         if self.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - tpuh);
+            parent.cnode_set_child_position(tt, &*self, x, y - tpuh);
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -2160,12 +2258,13 @@ impl ContainingNode for ContainerNode {
             };
             let pos = child.body.get();
             let (x, y) = pos.translate(x, y);
-            parent.cnode_set_child_position(&*self, x, y);
+            parent.cnode_set_child_position(tt, &*self, x, y);
         }
     }
 
     fn cnode_resize_child(
         self: Rc<Self>,
+        tt: &TreeTransaction,
         child: &dyn Node,
         new_x1: Option<i32>,
         new_y1: Option<i32>,
@@ -2268,7 +2367,7 @@ impl ContainingNode for ContainerNode {
                 sum_factors = sum_factors - child.factor.get() + factor;
                 child.factor.set(factor);
                 self.sum_factors.set(sum_factors);
-                self.schedule_layout();
+                self.perform_layout(tt);
             }
         }
         let pos = self.node_absolute_position();
@@ -2294,7 +2393,7 @@ impl ContainingNode for ContainerNode {
             || (y2.is_some() && y2 != Some(pos.y2())))
             && let Some(parent) = self.toplevel_data.parent.get()
         {
-            parent.cnode_resize_child(&*self, x1, y1, x2, y2);
+            parent.cnode_resize_child(tt, &*self, x1, y1, x2, y2);
         }
     }
 
@@ -2302,8 +2401,8 @@ impl ContainingNode for ContainerNode {
         self.tl_pinned()
     }
 
-    fn cnode_set_pinned(self: Rc<Self>, pinned: bool) {
-        self.tl_set_pinned(false, pinned);
+    fn cnode_set_pinned(self: Rc<Self>, tt: &TreeTransaction, pinned: bool) {
+        self.tl_set_pinned(tt, false, pinned);
     }
 
     fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
@@ -2314,7 +2413,7 @@ impl ContainingNode for ContainerNode {
         self.tl_data().self_or_ancestor_is_fullscreen.get()
     }
 
-    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
+    fn cnode_child_icon_changed(self: Rc<Self>, _tt: &TreeTransaction, child: &dyn ToplevelNode) {
         let children = self.child_nodes.borrow();
         let Some(cc) = children.get(&child.node_id()) else {
             return;
@@ -2338,6 +2437,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
+        let tt = &self.state.tree_transaction();
         self.toplevel_data.pos.set(*rect);
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
@@ -2347,7 +2447,7 @@ impl ToplevelNodeBase for ContainerNode {
         if size_changed {
             self.update_content_size();
             // log::info!("tl_change_extents");
-            self.perform_layout();
+            self.perform_layout(tt);
             self.cancel_seat_ops();
             if let Some(parent) = self.toplevel_data.parent.get() {
                 parent.node_child_size_changed(self.deref(), rect.width(), rect.height());
@@ -2358,11 +2458,11 @@ impl ToplevelNodeBase for ContainerNode {
                     .mono_body
                     .get()
                     .move_(self.abs_x1.get(), self.abs_y1.get());
-                c.node.clone().tl_change_extents(&body);
+                c.node.clone().tl_change_extents(tt, &body);
             } else {
                 for child in self.children.iter() {
                     let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
-                    child.node.clone().tl_change_extents(&body);
+                    child.node.clone().tl_change_extents(tt, &body);
                 }
             }
         }
@@ -2374,21 +2474,21 @@ impl ToplevelNodeBase for ContainerNode {
         }
     }
 
-    fn tl_set_visible_impl(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, tt: &TreeTransaction, visible: bool) {
         if let Some(mc) = self.mono_child.get() {
-            mc.node.tl_set_visible(visible);
+            mc.node.tl_set_visible(tt, visible);
         } else {
             for child in self.children.iter() {
-                child.node.tl_set_visible(visible);
+                child.node.tl_set_visible(tt, visible);
             }
         }
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(&self, tt: &TreeTransaction) {
         mem::take(self.cursors.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for n in cn.drain_values() {
-            n.node.tl_destroy();
+            n.node.tl_destroy(tt);
         }
     }
 

@@ -10,6 +10,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::OutputData,
+        tree::transaction::TreeTransaction,
         utils::{
             bindings::Bindings,
             errorfmt::ErrorFmt,
@@ -192,7 +193,7 @@ object_base! {
 }
 
 impl Object for WpDrmLeaseDeviceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

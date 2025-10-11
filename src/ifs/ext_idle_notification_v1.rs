@@ -5,6 +5,7 @@ use {
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::asyncevent::AsyncEvent,
         wire::{ExtIdleNotificationV1Id, ext_idle_notification_v1::*},
     },
@@ -57,7 +58,7 @@ object_base! {
 }
 
 impl Object for ExtIdleNotificationV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

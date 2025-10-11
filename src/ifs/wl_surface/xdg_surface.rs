@@ -22,6 +22,7 @@ use {
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
             NodesStackElement, OutputNode, StackedNode, TreeSerial, WorkspaceNode, WorkspaceType,
+            transaction::TreeTransaction,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -158,9 +159,9 @@ impl XdgPopupParent for Popup {
         self.parent.surface.visible.get()
     }
 
-    fn make_visible(self: Rc<Self>) {
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction) {
         if let Some(ext) = self.parent.ext.get() {
-            ext.make_visible();
+            ext.make_visible(tt);
         }
     }
 
@@ -237,7 +238,7 @@ pub trait XdgSurfaceExt: Debug {
         geometry
     }
 
-    fn make_visible(self: Rc<Self>);
+    fn make_visible(self: Rc<Self>, tt: &TreeTransaction);
 
     fn node_layer(&self) -> NodeLayerLink;
 
@@ -473,7 +474,8 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         if self.base.version >= WM_CAPABILITIES_SINCE {
             toplevel.send_wm_capabilities();
         }
-        self.surface.set_toplevel(Some(toplevel));
+        let tt = &self.surface.client.state.tree_transaction();
+        self.surface.set_toplevel(tt, Some(toplevel));
         Ok(())
     }
 
@@ -626,7 +628,7 @@ object_base! {
 }
 
 impl Object for XdgSurface {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.ext.take();
         self.popups.clear();
         self.workspace.set(None);

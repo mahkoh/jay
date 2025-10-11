@@ -6,6 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpLockedPointerV1Id, zwp_locked_pointer_v1::*},
     },
     std::rc::Rc,
@@ -62,7 +63,7 @@ object_base! {
 }
 
 impl Object for ZwpLockedPointerV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.constraint.detach();
     }
 }

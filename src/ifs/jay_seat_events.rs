@@ -13,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{JaySeatEventsId, jay_seat_events::*},
     },
     linearize::LinearizeExt,
@@ -542,7 +543,7 @@ object_base! {
 }
 
 impl Object for JaySeatEvents {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.client
             .state
             .testers

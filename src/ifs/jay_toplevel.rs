@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::ToplevelNode,
+        tree::{ToplevelNode, transaction::TreeTransaction},
         wire::{JayToplevelId, jay_toplevel::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -78,7 +78,7 @@ object_base! {
 }
 
 impl Object for JayToplevel {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

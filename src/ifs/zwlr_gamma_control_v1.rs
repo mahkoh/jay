@@ -8,6 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwlrGammaControlV1Id, zwlr_gamma_control_v1::*},
     },
     std::rc::Rc,
@@ -58,13 +59,13 @@ impl ZwlrGammaControlV1 {
             .and_then(|node| node.global.connector.connector.gamma_lut_size())
     }
 
-    fn detach(&self) {
+    fn detach(&self, tt: &TreeTransaction) {
         if let Some(node) = self.output.node()
             && let Some(active_zwlr_gamma_control) = node.active_zwlr_gamma_control.get()
             && active_zwlr_gamma_control.id() == self.id()
         {
             node.active_zwlr_gamma_control.set(None);
-            let _ = node.set_gamma_lut(None);
+            let _ = node.set_gamma_lut(tt, None);
         }
     }
 }
@@ -91,8 +92,10 @@ impl ZwlrGammaControlV1RequestHandler for ZwlrGammaControlV1 {
     type Error = ZwlrGammaControlV1Error;
 
     fn set_gamma(&self, req: SetGamma, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let tt = &self.client.state.tree_transaction();
+
         let fail = || {
-            self.detach();
+            self.detach(tt);
             self.send_failed();
         };
 
@@ -127,7 +130,7 @@ impl ZwlrGammaControlV1RequestHandler for ZwlrGammaControlV1 {
 
         let gamma_lut = wayland_gamma_lut_to_drm_gamma_lut(&gamma_lut);
         let gamma_lut = Rc::new(BackendGammaLut::new(gamma_lut));
-        if node.set_gamma_lut(Some(gamma_lut)).is_err() {
+        if node.set_gamma_lut(tt, Some(gamma_lut)).is_err() {
             fail();
             return Ok(());
         }
@@ -136,7 +139,8 @@ impl ZwlrGammaControlV1RequestHandler for ZwlrGammaControlV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.detach();
+        let tt = &self.client.state.tree_transaction();
+        self.detach(tt);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -148,8 +152,8 @@ object_base! {
 }
 
 impl Object for ZwlrGammaControlV1 {
-    fn break_loops(self: Rc<Self>) {
-        self.detach();
+    fn break_loops(self: Rc<Self>, tt: &TreeTransaction) {
+        self.detach(tt);
     }
 }
 

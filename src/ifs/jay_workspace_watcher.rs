@@ -4,7 +4,7 @@ use {
         ifs::jay_workspace::JayWorkspace,
         leaks::Tracker,
         object::{Object, Version},
-        tree::WorkspaceNode,
+        tree::{WorkspaceNode, transaction::TreeTransaction},
         utils::clonecell::CloneCell,
         wire::{JayWorkspaceWatcherId, jay_workspace_watcher::*},
     },
@@ -64,7 +64,7 @@ object_base! {
 }
 
 impl Object for JayWorkspaceWatcher {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.remove_from_state();
     }
 }

@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::ToplevelOpt,
+        tree::{ToplevelOpt, transaction::TreeTransaction},
         wire::{ExtForeignToplevelHandleV1Id, ext_foreign_toplevel_handle_v1::*},
     },
     std::rc::Rc,
@@ -73,7 +73,7 @@ object_base! {
 }
 
 impl Object for ExtForeignToplevelHandleV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

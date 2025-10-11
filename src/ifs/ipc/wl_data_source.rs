@@ -16,6 +16,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::{bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell},
         wire::{WlDataSourceId, wl_data_source::*},
     },
@@ -229,7 +230,7 @@ object_base! {
 }
 
 impl Object for WlDataSource {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         break_source_loops::<ClipboardIpc>(&*self);
         self.toplevel_drag.take();
     }

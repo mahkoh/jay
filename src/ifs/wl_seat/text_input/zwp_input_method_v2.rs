@@ -16,6 +16,7 @@ use {
         keyboard::KeyboardStateId,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
         wire::{ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id, zwp_input_method_v2::*},
     },
@@ -260,7 +261,7 @@ object_base! {
 }
 
 impl Object for ZwpInputMethodV2 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

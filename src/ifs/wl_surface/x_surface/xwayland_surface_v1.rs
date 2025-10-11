@@ -4,6 +4,7 @@ use {
         ifs::wl_surface::{WlSurfaceError, x_surface::XSurface},
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::cell_ext::CellExt,
         wire::{XwaylandSurfaceV1Id, xwayland_surface_v1::*},
     },
@@ -48,7 +49,7 @@ object_base! {
 }
 
 impl Object for XwaylandSurfaceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.x.xwayland_surface.set(None);
     }
 }

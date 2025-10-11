@@ -1,6 +1,6 @@
 mod region;
-mod size;
 
+mod size;
 #[cfg(test)]
 mod tests;
 

@@ -14,6 +14,7 @@ use {
         state::State,
         tree::{
             LatchListener, OutputNode, ToplevelNode, Transform, WorkspaceNode, WorkspaceNodeId,
+            transaction::TreeTransaction,
         },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -376,7 +377,8 @@ impl JayScreencast {
         if let Some(target) = self.target.take() {
             match target {
                 Target::Output(output) => {
-                    output.remove_screencast(self);
+                    let tt = &self.client.state.tree_transaction();
+                    output.remove_screencast(tt, self);
                 }
                 Target::Toplevel(tl) => {
                     let data = tl.tl_data();
@@ -599,7 +601,8 @@ impl JayScreencastRequestHandler for JayScreencast {
                             self.do_destroy();
                             return Ok(());
                         };
-                        o.add_screencast(slf);
+                        let tt = &self.client.state.tree_transaction();
+                        o.add_screencast(tt, slf);
                         new_target = Some(Target::Output(o));
                     }
                     PendingTarget::Toplevel(t) => {
@@ -657,7 +660,8 @@ impl JayScreencastRequestHandler for JayScreencast {
         }
 
         if capture_rules_changed && let Some(Target::Output(o)) = self.target.get() {
-            o.screencast_changed();
+            let tt = &self.client.state.tree_transaction();
+            o.screencast_changed(tt);
         }
 
         if self.running.get() {
@@ -757,7 +761,7 @@ object_base! {
 }
 
 impl Object for JayScreencast {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

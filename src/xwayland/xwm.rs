@@ -23,7 +23,7 @@ use {
         io_uring::{IoUring, IoUringError},
         rect::Rect,
         state::State,
-        tree::{Node, ToplevelNode},
+        tree::{Node, ToplevelNode, transaction::TreeTransaction},
         utils::{
             bitflags::BitflagsExt,
             buf::Buf,
@@ -269,9 +269,10 @@ enum Initiator {
 
 impl Drop for Wm {
     fn drop(&mut self) {
+        let tt = &self.state.tree_transaction();
         for window in self.windows.drain_values() {
             if let Some(window) = window.window.take() {
-                window.break_loops();
+                window.break_loops(tt);
             }
             window.children.clear();
             window.parent.take();
@@ -1198,7 +1199,8 @@ impl Wm {
         let title = buf.as_bstr().to_string();
         if let Some(window) = data.window.get() {
             window.toplevel_data.set_title(&title);
-            window.tl_title_changed();
+            let tt = &self.state.tree_transaction();
+            window.tl_title_changed(tt);
         }
         *data.info.title.borrow_mut() = Some(title);
         data.title_changed();
@@ -1474,12 +1476,17 @@ impl Wm {
         self.update_wants_floating(data);
     }
 
-    async fn create_window(&mut self, data: &Rc<XwindowData>, surface: Rc<WlSurface>) {
+    async fn create_window(
+        &mut self,
+        tt: &TreeTransaction<'_>,
+        data: &Rc<XwindowData>,
+        surface: Rc<WlSurface>,
+    ) {
         if data.window.is_some() {
             log::error!("The xwindow has already been constructed");
             return;
         }
-        let window = match Xwindow::install(data, &surface) {
+        let window = match Xwindow::install(tt, data, &surface) {
             Ok(w) => w,
             Err(e) => {
                 log::error!(
@@ -1524,7 +1531,7 @@ impl Wm {
                 }
             }
         }
-        window.map_status_changed();
+        window.map_status_changed(Some(tt));
     }
 
     async fn handle_xwayland_surface_created(&mut self, surface: WlSurfaceId) {
@@ -1536,7 +1543,9 @@ impl Wm {
             Some(w) => w.clone(),
             _ => return,
         };
-        self.create_window(&data, surface).await;
+        let state = self.state.clone();
+        let tt = &state.tree_transaction();
+        self.create_window(tt, &data, surface).await;
     }
 
     async fn handle_xwayland_surface_serial_assigned(&mut self, surface: WlSurfaceId) {
@@ -1552,7 +1561,9 @@ impl Wm {
             Some(w) => w.clone(),
             _ => return,
         };
-        self.create_window(&data, surface).await;
+        let state = self.state.clone();
+        let tt = &state.tree_transaction();
+        self.create_window(tt, &data, surface).await;
     }
 
     fn handle_xwayland_surface_destroyed(&mut self, surface: WlSurfaceId, serial: Option<u64>) {
@@ -1878,7 +1889,7 @@ impl Wm {
         }
         data.info.mapped.set(false);
         if let Some(win) = data.window.get() {
-            win.map_status_changed();
+            win.map_status_changed(None);
         }
         self.set_wm_state(data, ICCCM_WM_STATE_WITHDRAWN).await;
         Ok(())
@@ -2146,9 +2157,10 @@ impl Wm {
         if data.info.override_redirect.replace(or) != or
             && let Some(window) = data.window.get()
         {
-            window.tl_destroy();
-            window.update_toplevel();
-            window.map_status_changed();
+            let tt = &self.state.tree_transaction();
+            window.tl_destroy(tt);
+            window.update_toplevel(tt);
+            window.map_status_changed(Some(tt));
         }
     }
 
@@ -2161,7 +2173,7 @@ impl Wm {
         self.update_override_redirect(&data, event.override_redirect);
         data.info.mapped.set(true);
         if let Some(win) = data.window.get() {
-            win.map_status_changed();
+            win.map_status_changed(None);
         }
         self.configure_stack_position(&data).await;
         Ok(())
@@ -2278,7 +2290,8 @@ impl Wm {
             client_wire_scale_to_logical!(self.client, x, y, width, height);
             let extents = Rect::new_sized_saturating(x, y, width, height);
             if let Some(window) = data.window.get() {
-                window.tl_change_extents(&extents);
+                let tt = &self.state.tree_transaction();
+                window.tl_change_extents(tt, &extents);
                 self.state.tree_changed();
             } else {
                 data.info.pending_extents.set(extents);
@@ -2419,7 +2432,8 @@ impl Wm {
                 seat.focus_toplevel(win.clone());
             }
         } else {
-            win.x.surface.request_activation();
+            let tt = &self.state.tree_transaction();
+            win.x.surface.request_activation(tt);
         }
         Ok(())
     }
@@ -2474,7 +2488,8 @@ impl Wm {
         if fullscreen != data.info.fullscreen.get()
             && let Some(w) = data.window.get()
         {
-            w.tl_set_fullscreen(fullscreen, None);
+            let tt = &self.state.tree_transaction();
+            w.tl_set_fullscreen(tt, fullscreen, None);
         }
         data.info.fullscreen.set(fullscreen);
         data.info.maximized_horz.set(maximized_horz);
@@ -2507,12 +2522,14 @@ impl Wm {
         if let Some(old) = data.surface_serial.replace(Some(serial)) {
             self.windows_by_surface_serial.remove(&old);
         }
+        let state = self.state.clone();
+        let tt = &state.tree_transaction();
         if let Some(old) = data.window.take() {
-            old.break_loops();
+            old.break_loops(tt);
         }
         self.windows_by_surface_serial.insert(serial, data.clone());
         if let Some(surface) = self.client.surfaces_by_xwayland_serial.get(&serial) {
-            self.create_window(&data, surface).await;
+            self.create_window(tt, &data, surface).await;
         }
         Ok(())
     }
@@ -2534,7 +2551,9 @@ impl Wm {
         data.surface_id.set(Some(surface_id));
         self.windows_by_surface_id.insert(surface_id, data.clone());
         if let Ok(surface) = self.client.lookup(surface_id) {
-            self.create_window(&data, surface).await;
+            let state = self.state.clone();
+            let tt = &state.tree_transaction();
+            self.create_window(tt, &data, surface).await;
         }
         Ok(())
     }

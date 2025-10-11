@@ -14,6 +14,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
+        tree::transaction::TreeTransaction,
         utils::{clonecell::CloneCell, numcell::NumCell},
         wire::{ZwpTextInputV3Id, zwp_text_input_v3::*},
     },
@@ -295,7 +296,7 @@ object_base! {
 }
 
 impl Object for ZwpTextInputV3 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

@@ -14,6 +14,7 @@ use {
         },
         leaks::Tracker,
         object::Object,
+        tree::transaction::TreeTransaction,
         utils::bitflags::BitflagsExt,
         wire::{WlDataOfferId, WlSurfaceId, wl_data_offer::*},
     },
@@ -197,7 +198,7 @@ object_base! {
 }
 
 impl Object for WlDataOffer {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         break_offer_loops::<ClipboardIpc>(&*self);
     }
 }

@@ -4,6 +4,7 @@ use {
         ifs::wl_output::OutputGlobalOpt,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{JayOutputId, jay_output::*},
     },
     std::rc::Rc,
@@ -54,7 +55,7 @@ object_base! {
 }
 
 impl Object for JayOutput {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.remove_from_node();
     }
 }

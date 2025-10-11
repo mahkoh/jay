@@ -14,6 +14,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{
             ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id, ZwlrDataControlSourceV1Id,
             zwlr_data_control_device_v1::*,
@@ -150,7 +151,7 @@ object_base! {
 }
 
 impl Object for ZwlrDataControlDeviceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         logic::data_device_break_loops(&*self);
     }
 }

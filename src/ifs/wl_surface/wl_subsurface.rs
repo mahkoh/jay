@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Node, NodeLayerLink, WorkspaceNode},
+        tree::{Node, NodeLayerLink, WorkspaceNode, transaction::TreeTransaction},
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
@@ -174,6 +174,7 @@ impl WlSubsurface {
         if self.surface.id == self.parent.get_root().id {
             return Err(WlSubsurfaceError::Ancestor(self.surface.id, self.parent.id));
         }
+        let tt = &self.surface.client.state.tree_transaction();
         if let Some(ss) = self.parent.ext.get().into_subsurface() {
             self.sync_ancestor.set(ss.sync());
             self.depth.set(ss.depth.get() + 1);
@@ -189,7 +190,7 @@ impl WlSubsurface {
         };
         self.latest_node.set(Some(node.to_ref()));
         self.pending().node = Some(node);
-        self.surface.set_toplevel(self.parent.toplevel.get());
+        self.surface.set_toplevel(tt, self.parent.toplevel.get());
         self.surface.ext.set(self.clone());
         update_children_attach(self)?;
         let (x, y) = self.parent.buffer_abs_pos.get().position();
@@ -381,7 +382,7 @@ object_base! {
 }
 
 impl Object for WlSubsurface {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         *self.node.borrow_mut() = None;
         self.latest_node.take();
     }

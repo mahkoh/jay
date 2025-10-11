@@ -10,6 +10,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
+        tree::transaction::TreeTransaction,
         utils::errorfmt::ErrorFmt,
         wire::{WlBufferId, ZwlrScreencopyFrameV1Id, zwlr_screencopy_frame_v1::*},
     },
@@ -123,14 +124,16 @@ impl ZwlrScreencopyFrameV1 {
         self.with_damage.set(with_damage);
         node.screencopies
             .set((self.client.id, self.id), self.clone());
-        node.screencast_changed();
+        let tt = &self.client.state.tree_transaction();
+        node.screencast_changed(tt);
         Ok(())
     }
 
     fn detach(&self) {
         if let Some(node) = self.output.node() {
             node.screencopies.remove(&(self.client.id, self.id));
-            node.screencast_changed();
+            let tt = &self.client.state.tree_transaction();
+            node.screencast_changed(tt);
         }
         self.pending.take();
     }
@@ -178,7 +181,7 @@ object_base! {
 simple_add_obj!(ZwlrScreencopyFrameV1);
 
 impl Object for ZwlrScreencopyFrameV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

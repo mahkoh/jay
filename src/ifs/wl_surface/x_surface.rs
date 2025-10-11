@@ -32,7 +32,7 @@ impl SurfaceExt for XSurface {
 
     fn after_apply_commit(self: Rc<Self>) {
         if let Some(xwindow) = self.xwindow.get() {
-            xwindow.map_status_changed();
+            xwindow.map_status_changed(None);
             xwindow
                 .toplevel_data
                 .set_content_type(self.surface.content_type.get());
@@ -45,7 +45,8 @@ impl SurfaceExt for XSurface {
         }
         self.surface.unset_ext();
         if let Some(xwindow) = self.xwindow.take() {
-            xwindow.tl_destroy();
+            let tt = &self.surface.client.state.tree_transaction();
+            xwindow.tl_destroy(tt);
             xwindow.data.window.set(None);
             xwindow.data.surface_id.set(None);
             xwindow

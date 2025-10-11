@@ -50,7 +50,7 @@ use {
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceType,
-            walker::NodeVisitor,
+            transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -261,7 +261,7 @@ impl OutputNode {
         }
     }
 
-    pub fn update_exclusive_zones(self: &Rc<Self>) {
+    pub fn update_exclusive_zones(self: &Rc<Self>, tt: &TreeTransaction) {
         let mut exclusive = ExclusiveSize::default();
         for layer in &self.layers {
             for surface in layer.iter() {
@@ -269,15 +269,15 @@ impl OutputNode {
             }
         }
         if self.exclusive_zones.replace(exclusive) != exclusive {
-            self.update_rects();
+            self.update_rects(tt);
             for layer in &self.layers {
                 for surface in layer.iter() {
-                    surface.exclusive_zones_changed();
+                    surface.exclusive_zones_changed(tt);
                 }
             }
             for layer in [&self.workspace, &self.overlay] {
                 if let Some(c) = layer.get() {
-                    c.change_extents(&self.workspace_rect.get(), self);
+                    c.change_extents(tt, &self.workspace_rect.get(), self);
                 }
             }
             if self.node_visible() {
@@ -286,19 +286,19 @@ impl OutputNode {
         }
     }
 
-    pub fn add_screencast(&self, sc: &Rc<JayScreencast>) {
+    pub fn add_screencast(&self, tt: &TreeTransaction, sc: &Rc<JayScreencast>) {
         self.screencasts.set((sc.client.id, sc.id), sc.clone());
-        self.screencast_changed();
+        self.screencast_changed(tt);
     }
 
-    pub fn remove_screencast(&self, sc: &JayScreencast) {
+    pub fn remove_screencast(&self, tt: &TreeTransaction, sc: &JayScreencast) {
         self.screencasts.remove(&(sc.client.id, sc.id));
-        self.screencast_changed();
+        self.screencast_changed(tt);
     }
 
-    pub fn screencast_changed(&self) {
+    pub fn screencast_changed(&self, tt: &TreeTransaction) {
         for ws in self.workspaces.iter() {
-            ws.update_has_captures();
+            ws.update_has_captures(tt);
         }
     }
 
@@ -463,7 +463,8 @@ impl OutputNode {
                 capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
             }
         }
-        self.screencast_changed();
+        let tt = &self.state.tree_transaction();
+        self.screencast_changed(tt);
     }
 
     pub fn clear(&self) {
@@ -487,23 +488,23 @@ impl OutputNode {
         self.render_data.borrow_mut().clear();
     }
 
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        self.update_rects();
+    pub fn on_spaces_changed(self: &Rc<Self>, tt: &TreeTransaction) {
+        self.update_rects(tt);
         for layer in [&self.workspace, &self.overlay] {
             if let Some(c) = layer.get() {
-                c.change_extents(&self.workspace_rect.get(), self);
+                c.change_extents(tt, &self.workspace_rect.get(), self);
             }
         }
         for item in self.tray_items.iter() {
-            item.deref().clone().send_current_configure();
+            item.deref().clone().send_current_configure(tt);
         }
     }
 
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_update_render_data();
+    pub fn on_colors_changed(self: &Rc<Self>, tt: &TreeTransaction) {
+        self.schedule_update_render_data(tt);
     }
 
-    pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
+    pub fn set_preferred_scale(self: &Rc<Self>, tt: &TreeTransaction, scale: Scale) {
         let old_scale = self.global.persistent.scale.replace(scale);
         if scale == old_scale {
             return;
@@ -512,12 +513,12 @@ impl OutputNode {
         if self.global.legacy_scale.replace(legacy_scale) != legacy_scale {
             self.global.send_mode();
         }
-        self.state.remove_output_scale(old_scale);
-        self.state.add_output_scale(scale);
+        self.state.remove_output_scale(tt, old_scale);
+        self.state.add_output_scale(tt, scale);
         let rect = self.calculate_extents();
-        self.change_extents_(&rect);
+        self.change_extents_(tt, &rect);
         self.visit_children(&mut SurfaceSendPreferredScaleVisitor);
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
         self.global
             .connector
             .head_manager
@@ -528,7 +529,7 @@ impl OutputNode {
         }
     }
 
-    pub fn schedule_update_render_data(self: &Rc<Self>) {
+    pub fn schedule_update_render_data(self: &Rc<Self>, _tt: &TreeTransaction) {
         if !self.update_render_data_scheduled.replace(true) {
             self.state.pending_output_render_data.push(self.clone());
         }
@@ -722,12 +723,12 @@ impl OutputNode {
         }
     }
 
-    pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn ensure_workspace(self: &Rc<Self>, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         self.workspace()
-            .unwrap_or_else(|| self.generate_normal_workspace())
+            .unwrap_or_else(|| self.generate_normal_workspace(tt))
     }
 
-    pub fn ensure_normal_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn ensure_normal_workspace(self: &Rc<Self>, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
             return ws;
         }
@@ -736,10 +737,10 @@ impl OutputNode {
         {
             return ws.deref().clone();
         }
-        self.generate_normal_workspace()
+        self.generate_normal_workspace(tt)
     }
 
-    pub fn generate_normal_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn generate_normal_workspace(self: &Rc<Self>, tt: &TreeTransaction) -> Rc<WorkspaceNode> {
         let name = 'name: {
             for i in 1.. {
                 let name = i.to_string();
@@ -749,7 +750,7 @@ impl OutputNode {
             }
             unreachable!();
         };
-        self.create_normal_workspace(&name)
+        self.create_normal_workspace(tt, &name)
     }
 
     pub fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -759,17 +760,21 @@ impl OutputNode {
         self.workspace.get()
     }
 
-    pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
+    pub fn show_workspace(self: &Rc<Self>, tt: &TreeTransaction, ws: &Rc<WorkspaceNode>) -> bool {
         if self.is_dummy {
             return false;
         }
         match ws.ty {
-            WorkspaceType::Normal => self.show_normal_workspace(ws),
-            WorkspaceType::Overlay => self.show_overlay_workspace(ws),
+            WorkspaceType::Normal => self.show_normal_workspace(tt, ws),
+            WorkspaceType::Overlay => self.show_overlay_workspace(tt, ws),
         }
     }
 
-    fn show_normal_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
+    fn show_normal_workspace(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        ws: &Rc<WorkspaceNode>,
+    ) -> bool {
         let mut seats = SmallVec::new();
         if self.workspace.id() == Some(ws.id) {
             return false;
@@ -783,7 +788,7 @@ impl OutputNode {
         if let Some(old) = old {
             seats = old.collect_kb_foci();
             for pinned in self.pinned.iter() {
-                pinned.deref().clone().set_workspace(ws, false);
+                pinned.deref().clone().set_workspace(tt, ws, false);
             }
             if old.is_empty() {
                 for jw in old.jay_workspaces.lock().values() {
@@ -797,18 +802,18 @@ impl OutputNode {
                 self.state.workspaces.remove(&*old.name);
                 self.state.trigger_cci(CCI_WORKSPACES);
             } else {
-                old.set_visible(false);
+                old.set_visible(tt, false);
                 old.flush_jay_workspaces();
             }
         }
-        self.update_visible();
-        self.update_presentation_type();
+        self.update_visible(tt);
+        self.update_presentation_type(tt);
         if let Some(fs) = ws.fullscreen.get() {
-            fs.tl_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(tt, &self.global.pos.get());
         }
-        ws.change_extents(&self.workspace_rect.get(), self);
+        ws.change_extents(tt, &self.workspace_rect.get(), self);
         for seat in seats {
-            ws.do_focus(&seat, Direction::Unspecified);
+            ws.do_focus(tt, &seat, Direction::Unspecified);
         }
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
@@ -816,15 +821,19 @@ impl OutputNode {
         true
     }
 
-    fn show_overlay_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
+    fn show_overlay_workspace(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        ws: &Rc<WorkspaceNode>,
+    ) -> bool {
         if self.overlay.id() == Some(ws.id) {
             return false;
         }
         if self.overlay.is_some() {
-            self.move_pinned_to_normal_workspace();
+            self.move_pinned_to_normal_workspace(tt);
         }
         let mut seats = SmallVec::new();
-        ws.output.get().hide_overlay2(false, &mut seats);
+        ws.output.get().hide_overlay2(tt, false, &mut seats);
         let old = self.overlay.set(Some(ws.clone()));
         if let Some(old) = &old {
             old.collect_kb_foci2(&mut seats);
@@ -833,51 +842,52 @@ impl OutputNode {
             user.workspace_changed(self, Some(ws));
         }
         if let Some(old) = old {
-            self.clear_old_overlay(old);
+            self.clear_old_overlay(tt, old);
         }
-        self.update_visible();
-        self.update_presentation_type();
-        ws.set_output(self);
+        self.update_visible(tt);
+        self.update_presentation_type(tt);
+        ws.set_output(tt, self);
         if let Some(fs) = ws.fullscreen.get() {
-            fs.tl_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(tt, &self.global.pos.get());
         }
-        ws.change_extents(&self.workspace_rect.get(), self);
+        ws.change_extents(tt, &self.workspace_rect.get(), self);
         for seat in seats {
-            ws.clone().node_do_focus(&seat, Direction::Unspecified);
+            ws.clone().node_do_focus(tt, &seat, Direction::Unspecified);
         }
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
         }
         true
     }
 
-    pub fn hide_overlay(self: &Rc<Self>) {
+    pub fn hide_overlay(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.overlay.is_none() {
             return;
         }
         let mut seats = SmallVec::new();
-        self.hide_overlay2(true, &mut seats);
+        self.hide_overlay2(tt, true, &mut seats);
         if let Some(ws) = self.workspace() {
             for seat in seats {
-                ws.clone().node_do_focus(&seat, Direction::Unspecified);
+                ws.clone().node_do_focus(tt, &seat, Direction::Unspecified);
             }
         }
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
         self.state.tree_changed();
     }
 
     fn hide_overlay2(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         clear_old: bool,
         seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>,
     ) {
         if self.overlay.is_none() {
             return;
         }
-        self.hide_overlay3(clear_old, seats);
-        self.update_visible();
-        self.update_presentation_type();
+        self.hide_overlay3(tt, clear_old, seats);
+        self.update_visible(tt);
+        self.update_presentation_type(tt);
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
         }
@@ -885,13 +895,14 @@ impl OutputNode {
 
     fn hide_overlay3(
         self: &Rc<Self>,
+        tt: &TreeTransaction,
         clear_old: bool,
         seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>,
     ) {
         let Some(ws) = self.overlay.set(None) else {
             return;
         };
-        self.move_pinned_to_normal_workspace();
+        self.move_pinned_to_normal_workspace(tt);
         if clear_old {
             ws.collect_kb_foci2(seats);
         }
@@ -899,27 +910,27 @@ impl OutputNode {
             user.workspace_changed(self, self.workspace().as_ref());
         }
         if clear_old {
-            self.clear_old_overlay(ws);
+            self.clear_old_overlay(tt, ws);
         }
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
     }
 
-    fn clear_old_overlay(&self, ws: Rc<WorkspaceNode>) {
+    fn clear_old_overlay(&self, tt: &TreeTransaction, ws: Rc<WorkspaceNode>) {
         if ws.is_empty() {
             ws.clear();
             self.state.workspaces.remove(&*ws.name);
             self.state.trigger_cci(CCI_WORKSPACES);
         } else {
-            ws.set_visible(false);
-            ws.set_output(&self.state.dummy_output.get().unwrap());
+            ws.set_visible(tt, false);
+            ws.set_output(tt, &self.state.dummy_output.get().unwrap());
         }
     }
 
-    fn move_pinned_to_normal_workspace(self: &Rc<Self>) {
+    fn move_pinned_to_normal_workspace(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.pinned.is_not_empty() {
-            let ws = self.ensure_normal_workspace();
+            let ws = self.ensure_normal_workspace(tt);
             for pinned in self.pinned.iter() {
-                pinned.deref().clone().set_workspace(&ws, false);
+                pinned.deref().clone().set_workspace(tt, &ws, false);
             }
         }
     }
@@ -935,10 +946,14 @@ impl OutputNode {
         None
     }
 
-    pub fn create_normal_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
+    pub fn create_normal_workspace(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        name: &str,
+    ) -> Rc<WorkspaceNode> {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
-        ws.update_has_captures();
+        ws.update_has_captures(tt);
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
             before.prepend(ws.clone())
         } else {
@@ -948,7 +963,7 @@ impl OutputNode {
         self.state.workspaces.set(name.to_string(), ws.clone());
         self.state.trigger_cci(CCI_WORKSPACES);
         if self.workspace.is_none() {
-            self.show_workspace(&ws);
+            self.show_workspace(tt, &ws);
         }
         let mut clients_to_kill = AHashMap::new();
         for watcher in self.state.workspace_watchers.lock().values() {
@@ -960,11 +975,11 @@ impl OutputNode {
             client.error(e);
         }
         self.state.workspace_managers.announce_workspace(self, &ws);
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
         ws
     }
 
-    pub fn update_rects(self: &Rc<Self>) {
+    pub fn update_rects(self: &Rc<Self>, tt: &TreeTransaction) {
         let rect = self.global.pos.get();
         let bh = self.state.theme.sizes.bar_height();
         let bsw = self.state.theme.sizes.bar_separator_width();
@@ -1021,31 +1036,36 @@ impl OutputNode {
         self.bar_separator_rect_rel.set(bar_separator_rect_rel);
         self.workspace_rect.set(workspace_rect);
         self.workspace_rect_rel.set(workspace_rect_rel);
-        self.update_tray_positions();
-        self.schedule_update_render_data();
+        self.update_tray_positions(tt);
+        self.schedule_update_render_data(tt);
     }
 
-    pub fn set_position(self: &Rc<Self>, x: i32, y: i32) {
+    pub fn set_position(self: &Rc<Self>, tt: &TreeTransaction, x: i32, y: i32) {
         let pos = self.global.pos.get();
         if (pos.x1(), pos.y1()) == (x, y) {
             return;
         }
         let rect = pos.at_point(x, y);
-        self.change_extents_(&rect);
+        self.change_extents_(tt, &rect);
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_position_change(x, y);
         }
     }
 
-    pub fn update_mode(self: &Rc<Self>, mode: Mode) {
-        self.update_mode_and_transform(mode, self.global.persistent.transform.get());
+    pub fn update_mode(self: &Rc<Self>, tt: &TreeTransaction, mode: Mode) {
+        self.update_mode_and_transform(tt, mode, self.global.persistent.transform.get());
     }
 
-    pub fn update_transform(self: &Rc<Self>, transform: Transform) {
-        self.update_mode_and_transform(self.global.mode.get(), transform);
+    pub fn update_transform(self: &Rc<Self>, tt: &TreeTransaction, transform: Transform) {
+        self.update_mode_and_transform(tt, self.global.mode.get(), transform);
     }
 
-    pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
+    pub fn update_mode_and_transform(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        mode: Mode,
+        transform: Transform,
+    ) {
         let old_mode = self.global.mode.get();
         let old_transform = self.global.persistent.transform.get();
         if (old_mode, old_transform) == (mode, transform) {
@@ -1056,7 +1076,7 @@ impl OutputNode {
         self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
         let (new_width, new_height) = self.global.pixel_size();
-        self.change_extents_(&self.calculate_extents());
+        self.change_extents_(tt, &self.calculate_extents());
 
         if (old_width, old_height) != (new_width, new_height) {
             for sc in self.screencasts.lock().values() {
@@ -1100,7 +1120,7 @@ impl OutputNode {
         Rect::new_sized_saturating(pos.0, pos.1, width, height)
     }
 
-    fn change_extents_(self: &Rc<Self>, rect: &Rect) {
+    fn change_extents_(self: &Rc<Self>, tt: &TreeTransaction, rect: &Rect) {
         let visible = self.node_visible();
         if visible {
             let old_pos = self.global.pos.get();
@@ -1113,21 +1133,21 @@ impl OutputNode {
             self.state.damage(*rect);
         }
         self.state.output_extents_changed();
-        self.update_rects();
+        self.update_rects(tt);
         if let Some(ls) = self.lock_surface.get() {
-            ls.change_extents(*rect);
+            ls.change_extents(tt, *rect);
         }
         for layer in [&self.workspace, &self.overlay] {
             if let Some(c) = layer.get() {
                 if let Some(fs) = c.fullscreen.get() {
-                    fs.tl_change_extents(rect);
+                    fs.tl_change_extents(tt, rect);
                 }
-                c.change_extents(&self.workspace_rect.get(), self);
+                c.change_extents(tt, &self.workspace_rect.get(), self);
             }
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.output_resized();
+                surface.output_resized(tt);
             }
         }
         self.global.send_mode();
@@ -1142,13 +1162,18 @@ impl OutputNode {
         self.state.trigger_cci(CCI_OUTPUTS);
     }
 
-    pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
+    pub fn update_state(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        old: BackendConnectorState,
+        state: BackendConnectorState,
+    ) {
         self.update_btf_and_bcs(state.eotf, state.color_space);
         if old.vrr != state.vrr {
             self.schedule.set_vrr_enabled(state.vrr);
         }
         if old.mode != state.mode {
-            self.update_mode(state.mode);
+            self.update_mode(tt, state.mode);
         }
         self.global.format.set(state.format);
     }
@@ -1301,9 +1326,9 @@ impl OutputNode {
         FindTreeResult::Other
     }
 
-    pub fn set_status(self: &Rc<Self>, status: &Rc<String>) {
+    pub fn set_status(self: &Rc<Self>, tt: &TreeTransaction, status: &Rc<String>) {
         self.status.set(status.clone());
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
     }
 
     fn pointer_move(self: &Rc<Self>, id: PointerType, x: Fixed, y: Fixed) {
@@ -1325,21 +1350,22 @@ impl OutputNode {
 
     pub fn set_lock_surface(
         &self,
+        tt: &TreeTransaction,
         surface: Option<Rc<ExtSessionLockSurfaceV1>>,
     ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
         let prev = self.lock_surface.set(surface);
-        self.update_visible();
+        self.update_visible(tt);
         prev
     }
 
-    pub fn fullscreen_changed(&self) {
-        self.update_visible();
+    pub fn fullscreen_changed(&self, tt: &TreeTransaction) {
+        self.update_visible(tt);
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
         }
     }
 
-    pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
+    pub fn handle_workspace_display_order_update(self: &Rc<Self>, tt: &TreeTransaction) {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             let mut workspaces: Vec<_> = self.workspaces.iter().collect();
             workspaces.sort_by(|a, b| cmp(&a.name, &b.name));
@@ -1348,10 +1374,10 @@ impl OutputNode {
                 self.workspaces.add_last_existing(&ws_ref);
             }
         }
-        self.schedule_update_render_data();
+        self.schedule_update_render_data(tt);
     }
 
-    pub fn update_visible(&self) {
+    pub fn update_visible(&self, tt: &TreeTransaction) {
         let mut visible = self.state.root_visible();
         if self.state.lock.locked.get() {
             if let Some(surface) = self.lock_surface.get() {
@@ -1385,11 +1411,11 @@ impl OutputNode {
         }
         let ws_visible = visible && !have_overlay_fullscreen;
         if let Some(ws) = self.workspace.get() {
-            ws.set_visible(ws_visible);
+            ws.set_visible(tt, ws_visible);
         }
         set_layer_visible!(self.layers[3], ws_visible);
         if let Some(ws) = self.overlay.get() {
-            ws.set_visible(visible);
+            ws.set_visible(tt, visible);
         }
     }
 
@@ -1411,10 +1437,11 @@ impl OutputNode {
             }
             return true;
         };
+        let tt = &self.state.tree_transaction();
         if ws.ty == WorkspaceType::Overlay && button == BTN_MIDDLE {
-            ws.output.get().hide_overlay();
+            ws.output.get().hide_overlay(tt);
         } else {
-            self.state.show_workspace2(Some(seat), self, &ws);
+            self.state.show_workspace2(tt, Some(seat), self, &ws);
         }
         true
     }
@@ -1439,16 +1466,17 @@ impl OutputNode {
         if bar_rect_with_separator_rel.contains(x, y) {
             return;
         }
-        let ws = self.ensure_normal_workspace();
+        let tt = &self.state.tree_transaction();
+        let ws = self.ensure_normal_workspace(tt);
         seat.focus_node(ws);
     }
 
-    pub fn update_presentation_type(&self) {
-        self.update_vrr_state();
-        self.update_tearing();
+    pub fn update_presentation_type(&self, tt: &TreeTransaction) {
+        self.update_vrr_state(tt);
+        self.update_tearing(tt);
     }
 
-    fn update_vrr_state(&self) {
+    fn update_vrr_state(&self, tt: &TreeTransaction) {
         let enabled = match self.global.persistent.vrr_mode.get() {
             VrrMode::Never => false,
             VrrMode::Always => true,
@@ -1484,13 +1512,13 @@ impl OutputNode {
         let res = self
             .global
             .connector
-            .modify_state(&self.state, |s| s.vrr = enabled);
+            .modify_state(&self.state, tt, |s| s.vrr = enabled);
         if let Err(e) = res {
             log::error!("Could not set vrr mode: {}", e);
         }
     }
 
-    fn update_tearing(&self) {
+    fn update_tearing(&self, tt: &TreeTransaction) {
         let enabled = match self.global.persistent.tearing_mode.get() {
             TearingMode::Never => false,
             TearingMode::Always => true,
@@ -1520,7 +1548,7 @@ impl OutputNode {
         let res = self
             .global
             .connector
-            .modify_state(&self.state, |s| s.tearing = enabled);
+            .modify_state(&self.state, tt, |s| s.tearing = enabled);
         if let Err(e) = res {
             log::error!("Could not set tearing mode: {}", e);
         }
@@ -1708,7 +1736,7 @@ impl OutputNode {
         });
     }
 
-    pub fn update_tray_positions(self: &Rc<Self>) {
+    pub fn update_tray_positions(self: &Rc<Self>, tt: &TreeTransaction) {
         let bar_rect = self.bar_rect.get();
         let mut right = bar_rect.width();
         let mut have_any = false;
@@ -1738,15 +1766,15 @@ impl OutputNode {
                 );
                 self.state.damage(rect);
             }
-            self.schedule_update_render_data();
+            self.schedule_update_render_data(tt);
         }
         self.state.tree_changed();
     }
 
-    pub fn set_vrr_mode(&self, mode: &VrrMode) {
+    pub fn set_vrr_mode(&self, tt: &TreeTransaction, mode: &VrrMode) {
         let old = self.global.persistent.vrr_mode.replace(*mode);
         if old != *mode {
-            self.update_presentation_type();
+            self.update_presentation_type(tt);
             self.global
                 .connector
                 .head_manager
@@ -1758,10 +1786,10 @@ impl OutputNode {
         }
     }
 
-    pub fn set_tearing_mode(&self, mode: &TearingMode) {
+    pub fn set_tearing_mode(&self, tt: &TreeTransaction, mode: &TearingMode) {
         let old = self.global.persistent.tearing_mode.replace(*mode);
         if old != *mode {
-            self.update_presentation_type();
+            self.update_presentation_type(tt);
             self.global
                 .connector
                 .head_manager
@@ -1783,19 +1811,24 @@ impl OutputNode {
         }
     }
 
-    pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    pub fn take_keyboard_navigation_focus(
+        &self,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) {
         for layer in [&self.overlay, &self.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };
             if let Some(fs) = ws.fullscreen.get() {
                 if fs.node_visible() {
-                    fs.node_do_focus(seat, direction);
+                    fs.node_do_focus(tt, seat, direction);
                     return;
                 }
             } else if let Some(c) = ws.container.get() {
                 if c.node_visible() {
-                    c.node_do_focus(seat, direction);
+                    c.node_do_focus(tt, seat, direction);
                     return;
                 }
             } else if ws.ty == WorkspaceType::Normal {
@@ -1809,11 +1842,12 @@ impl OutputNode {
 
     pub fn set_gamma_lut(
         &self,
+        tt: &TreeTransaction,
         gamma_lut: Option<Rc<BackendGammaLut>>,
     ) -> Result<(), BackendConnectorTransactionError> {
         self.global
             .connector
-            .modify_state(&self.state, |s| s.gamma_lut = gamma_lut)
+            .modify_state(&self.state, tt, |s| s.gamma_lut = gamma_lut)
             .inspect_err(|e| {
                 log::error!("Could not set gamma_lut: {}", ErrorFmt(e));
             })
@@ -1929,7 +1963,12 @@ impl Node for OutputNode {
         NodeLayerLink::Output
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(
+        self: Rc<Self>,
+        tt: &TreeTransaction,
+        seat: &Rc<WlSeatGlobal>,
+        direction: Direction,
+    ) {
         if self.state.lock.locked.get() {
             if let Some(lock) = self.lock_surface.get() {
                 seat.focus_node(lock.surface.clone());
@@ -1937,7 +1976,7 @@ impl Node for OutputNode {
             return;
         }
         if let Some(ws) = self.workspace() {
-            ws.do_focus(seat, direction);
+            ws.do_focus(tt, seat, direction);
         }
     }
 
@@ -2140,7 +2179,8 @@ impl Node for OutputNode {
                 None => break,
             };
         }
-        self.state.show_workspace2(Some(seat), &self, &ws);
+        let tt = &self.state.tree_transaction();
+        self.state.show_workspace2(tt, Some(seat), &self, &ws);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {
@@ -2370,37 +2410,37 @@ pub enum OutputNodeOrPersistent {
 }
 
 impl OutputNodeOrPersistent {
-    pub fn set_position(&self, x: i32, y: i32) {
+    pub fn set_position(&self, tt: &TreeTransaction, x: i32, y: i32) {
         match self {
-            OutputNodeOrPersistent::Node(n) => n.set_position(x, y),
+            OutputNodeOrPersistent::Node(n) => n.set_position(tt, x, y),
             OutputNodeOrPersistent::Persistent(p) => p.pos.set((x, y)),
         }
     }
 
-    pub fn set_preferred_scale(&self, scale: Scale) {
+    pub fn set_preferred_scale(&self, tt: &TreeTransaction, scale: Scale) {
         match self {
-            OutputNodeOrPersistent::Node(n) => n.set_preferred_scale(scale),
+            OutputNodeOrPersistent::Node(n) => n.set_preferred_scale(tt, scale),
             OutputNodeOrPersistent::Persistent(p) => p.scale.set(scale),
         }
     }
 
-    pub fn update_transform(&self, transform: Transform) {
+    pub fn update_transform(&self, tt: &TreeTransaction, transform: Transform) {
         match self {
-            OutputNodeOrPersistent::Node(n) => n.update_transform(transform),
+            OutputNodeOrPersistent::Node(n) => n.update_transform(tt, transform),
             OutputNodeOrPersistent::Persistent(p) => p.transform.set(transform),
         }
     }
 
-    pub fn set_vrr_mode(&self, mode: &VrrMode) {
+    pub fn set_vrr_mode(&self, tt: &TreeTransaction, mode: &VrrMode) {
         match self {
-            OutputNodeOrPersistent::Node(n) => n.set_vrr_mode(mode),
+            OutputNodeOrPersistent::Node(n) => n.set_vrr_mode(tt, mode),
             OutputNodeOrPersistent::Persistent(p) => p.vrr_mode.set(*mode),
         }
     }
 
-    pub fn set_tearing_mode(&self, mode: &TearingMode) {
+    pub fn set_tearing_mode(&self, tt: &TreeTransaction, mode: &TearingMode) {
         match self {
-            OutputNodeOrPersistent::Node(n) => n.set_tearing_mode(mode),
+            OutputNodeOrPersistent::Node(n) => n.set_tearing_mode(tt, mode),
             OutputNodeOrPersistent::Persistent(p) => p.tearing_mode.set(*mode),
         }
     }

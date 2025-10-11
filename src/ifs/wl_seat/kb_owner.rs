@@ -77,6 +77,9 @@ impl KbOwner for DefaultKbOwner {
         if old.node_id() == node.node_id() {
             return;
         }
+
+        let tt = &seat.state.tree_transaction();
+
         // log::info!("unfocus {}", old.node_id());
         if old.node_is_xwayland_surface() && !node.node_is_xwayland_surface() {
             seat.state.xwayland.queue.push(XWaylandEvent::ActivateRoot);
@@ -84,11 +87,11 @@ impl KbOwner for DefaultKbOwner {
         old.node_on_unfocus(seat);
         notify_matcher!(old, data, data.seat_foci.remove(&seat.id));
         if old.node_seat_state().unfocus(seat) {
-            old.node_active_changed(false);
+            old.node_active_changed(tt, false);
         }
 
         if node.node_seat_state().focus(&node, seat) {
-            node.node_active_changed(true);
+            node.node_active_changed(tt, true);
         }
         // log::info!("focus {}", node.node_id());
         node.clone().node_on_focus(seat);

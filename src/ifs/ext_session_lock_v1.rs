@@ -6,7 +6,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::NodeLocation,
+        tree::{NodeLocation, transaction::TreeTransaction},
         wire::{ExtSessionLockV1Id, ext_session_lock_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -86,9 +86,10 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             if node.lock_surface.is_some() {
                 return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
             }
-            node.set_lock_surface(Some(new.clone()));
+            let tt = &self.client.state.tree_transaction();
+            node.set_lock_surface(tt, Some(new.clone()));
             let pos = node.global.pos.get();
-            new.change_extents(pos);
+            new.change_extents(tt, pos);
             new.surface.set_output(&node, NodeLocation::Output(node.id));
             self.client.state.tree_changed();
         }
@@ -117,7 +118,7 @@ object_base! {
 }
 
 impl Object for ExtSessionLockV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         if !self.finished.get() {
             self.client.state.lock.lock.take();
         }

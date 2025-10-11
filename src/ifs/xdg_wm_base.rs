@@ -8,6 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::copyhashmap::CopyHashMap,
         wire::{XdgSurfaceId, XdgWmBaseId, xdg_wm_base::*},
     },
@@ -122,7 +123,7 @@ object_base! {
 dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
 
 impl Object for XdgWmBase {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.surfaces.clear();
     }
 }

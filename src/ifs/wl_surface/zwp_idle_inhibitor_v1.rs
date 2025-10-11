@@ -4,6 +4,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ZwpIdleInhibitorV1Id, zwp_idle_inhibitor_v1::*},
     },
     std::rc::Rc,
@@ -59,7 +60,7 @@ object_base! {
 }
 
 impl Object for ZwpIdleInhibitorV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.deactivate();
     }
 }

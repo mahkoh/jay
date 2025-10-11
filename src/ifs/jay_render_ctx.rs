@@ -4,6 +4,7 @@ use {
         gfx_api::GfxContext,
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::errorfmt::ErrorFmt,
         wire::{JayRenderCtxId, jay_render_ctx::*},
     },
@@ -102,7 +103,7 @@ object_base! {
 }
 
 impl Object for JayRenderCtx {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.remove_from_state();
     }
 }

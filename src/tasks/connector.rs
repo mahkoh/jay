@@ -140,7 +140,10 @@ impl ConnectorHandler {
             self.data.connector.kernel_id(),
         );
         self.data.connected.set(true);
-        self.data.set_state(&self.state, info.state.clone());
+        {
+            let tt = &self.state.tree_transaction();
+            self.data.set_state(tt, &self.state, info.state.clone());
+        }
         *self.data.description.borrow_mut() = create_description(&info);
         let name = self.state.globals.name();
         if info.non_desktop_effective {
@@ -235,10 +238,11 @@ impl ConnectorHandler {
             active_zwlr_gamma_control: Default::default(),
             cursor_users: Default::default(),
         });
-        on.update_visible();
-        on.update_rects();
+        let tt = self.state.tree_transaction();
+        on.update_visible(&tt);
+        on.update_rects(&tt);
         self.state
-            .add_output_scale(on.global.persistent.scale.get());
+            .add_output_scale(&tt, on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: Rc::new(info),
@@ -246,7 +250,7 @@ impl ConnectorHandler {
             lease_connectors: Default::default(),
         });
         self.state.outputs.set(self.id, output_data.clone());
-        on.schedule_update_render_data();
+        on.schedule_update_render_data(&tt);
         self.state.root.outputs.set(self.id, on.clone());
         self.state.outputs_without_hc.fetch_add(1);
         self.state.output_extents_changed();
@@ -282,7 +286,7 @@ impl ConnectorHandler {
                 source_is_destroyed: false,
                 before: None,
             };
-            move_ws_to_output(&ws, &on, config);
+            move_ws_to_output(&tt, &ws, &on, config);
         }
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
@@ -290,7 +294,8 @@ impl ConnectorHandler {
         self.state.add_global(&global);
         self.state.add_global(&tray);
         self.state.tree_changed();
-        on.update_presentation_type();
+        on.update_presentation_type(&tt);
+        drop(tt);
         self.state.workspace_managers.announce_output(&on);
         self.data
             .head_manager
@@ -314,13 +319,15 @@ impl ConnectorHandler {
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {
-                        self.data.set_state(&self.state, state);
+                        let tt = &self.state.tree_transaction();
+                        self.data.set_state(tt, &self.state, state);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
             }
             self.data.async_event.triggered().await;
         }
+        let tt = &self.state.tree_transaction();
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
@@ -356,7 +363,7 @@ impl ConnectorHandler {
                 surface.send_closed();
             }
         }
-        on.hide_overlay();
+        on.hide_overlay(tt);
         let target = match self.state.root.outputs.lock().values().next() {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
@@ -371,7 +378,7 @@ impl ConnectorHandler {
                 source_is_destroyed: true,
                 before: None,
             };
-            move_ws_to_output(&ws, &target, config);
+            move_ws_to_output(tt, &ws, &target, config);
         }
         for group in on.ext_workspace_groups.lock().drain_values() {
             group.handle_destroyed();
@@ -380,10 +387,10 @@ impl ConnectorHandler {
             seat.cursor_group().output_disconnected(&on, &target);
         }
         for item in on.tray_items.iter() {
-            item.destroy_node();
+            item.destroy_node(tt);
         }
         self.state
-            .remove_output_scale(on.global.persistent.scale.get());
+            .remove_output_scale(tt, on.global.persistent.scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }

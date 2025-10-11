@@ -18,7 +18,7 @@ use {
         object::{Object, Version},
         rect::Size,
         theme::BarPosition,
-        tree::{NodeVisitor, TreeSerial},
+        tree::{NodeVisitor, TreeSerial, transaction::TreeTransaction},
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
@@ -151,8 +151,9 @@ object_base! {
 }
 
 impl Object for JayTrayItemV1 {
-    fn break_loops(self: Rc<Self>) {
-        self.destroy_node();
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
+        let tt = &self.data.client.state.tree_transaction();
+        self.destroy_node(tt);
     }
 }
 

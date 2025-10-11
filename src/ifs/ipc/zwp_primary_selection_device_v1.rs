@@ -11,6 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{
             ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id,
             zwp_primary_selection_device_v1::*,
@@ -161,7 +162,7 @@ object_base! {
 }
 
 impl Object for ZwpPrimarySelectionDeviceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         break_device_loops::<PrimarySelectionIpc>(&*self);
         self.seat.remove_primary_selection_device(&*self);
     }

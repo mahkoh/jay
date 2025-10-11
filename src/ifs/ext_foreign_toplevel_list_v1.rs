@@ -8,7 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{NodeVisitorBase, ToplevelOpt},
+        tree::{NodeVisitorBase, ToplevelOpt, transaction::TreeTransaction},
         wire::{
             ExtForeignToplevelHandleV1Id, ExtForeignToplevelListV1Id,
             ext_foreign_toplevel_list_v1::*,
@@ -153,7 +153,7 @@ object_base! {
 }
 
 impl Object for ExtForeignToplevelListV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

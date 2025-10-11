@@ -14,6 +14,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{
             ExtDataControlDeviceV1Id, ExtDataControlOfferV1Id, ExtDataControlSourceV1Id,
             ext_data_control_device_v1::*,
@@ -144,7 +145,7 @@ object_base! {
 }
 
 impl Object for ExtDataControlDeviceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         logic::data_device_break_loops(&*self);
     }
 }

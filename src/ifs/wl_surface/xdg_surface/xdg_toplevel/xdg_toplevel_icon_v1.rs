@@ -18,6 +18,7 @@ use {
         scale::Scale,
         state::State,
         theme::Color,
+        tree::transaction::TreeTransaction,
         utils::{
             clonecell::UnsafeCellCloneSafe, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             numcell::NumCell, obj_and_id::ObjWithId, oserror::OsError, smallmap::SmallMap,
@@ -553,7 +554,7 @@ object_base! {
 }
 
 impl Object for XdgToplevelIconV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.toplevels.clear();
         self.pending.clear();
     }

@@ -12,6 +12,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         utils::opt::Opt,
         wire::{ExtWorkspaceGroupHandleV1Id, ext_workspace_group_handle_v1::*},
     },
@@ -103,7 +104,7 @@ object_base! {
 }
 
 impl Object for ExtWorkspaceGroupHandleV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }

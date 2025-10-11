@@ -13,6 +13,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::transaction::TreeTransaction,
         wire::{ExtDataControlSourceV1Id, ext_data_control_source_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -89,7 +90,7 @@ object_base! {
 }
 
 impl Object for ExtDataControlSourceV1 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         logic::data_source_break_loops(&*self);
     }
 }

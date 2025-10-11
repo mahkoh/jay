@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
-        tree::{NodeLayerLink, WorkspaceNode},
+        tree::{NodeLayerLink, WorkspaceNode, transaction::TreeTransaction},
         wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -179,7 +179,7 @@ object_base! {
 }
 
 impl Object for ZwpInputPopupSurfaceV2 {
-    fn break_loops(self: Rc<Self>) {
+    fn break_loops(self: Rc<Self>, _tt: &TreeTransaction) {
         self.detach();
     }
 }
