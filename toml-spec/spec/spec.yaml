@@ -6,9 +6,9 @@ Keymap:
     - kind: string
       description: |
         Defines a keymap by its XKB representation.
-        
+
         - Example:
-        
+
           ```toml
           keymap = """
               xkb_keymap {
@@ -22,12 +22,12 @@ Keymap:
     - kind: table
       description: |
         Defines or references a keymap.
-        
+
         - Example:
-        
+
           ```toml
           keymap.name = "my-keymap"
-        
+
           [[keymaps]]
           name = "my-keymap"
           path = "./my-keymap.xkb"
@@ -38,10 +38,10 @@ Keymap:
           required: false
           description: |
             Defines a keymap name or references a defined keymap.
-            
+
             If the value is set in the top-level `keymaps` array, it defines a named
             keymap.
-            
+
             Otherwise it references a named keymap that should have been defined in the
             `keymaps` array.
         map:
@@ -49,7 +49,7 @@ Keymap:
           required: false
           description: |
             Defines a keymap by its XKB representation.
-            
+
             For each keymap defined in the top-level `keymaps` array, exactly one of `map`
             and `path` has to be defined.
         path:
@@ -57,10 +57,10 @@ Keymap:
           required: false
           description: |
             Loads a keymap's XKB representation from a file.
-            
+
             If the path is relative, it will be interpreted relative to the Jay config
             directory.
-            
+
             For each keymap defined in the top-level `keymaps` array, exactly one of `map`
             and `path` has to be defined.
 
@@ -82,9 +82,9 @@ Action:
       description: |
         The value should be the name of a `simple` action. See the description of that
         variant for more details.
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           alt-q = "quit"
@@ -93,15 +93,15 @@ Action:
       pattern: "^\\$.*$"
       description: |
         The value should be the name of a `named` action, prefixed with the `$` character.
-        
+
         This is the same as using the `named` action with the `$` removed.
-        
+
         - Example:
-        
+
           ```toml
           [actions]
           q = "quit"
-        
+
           [shortcuts]
           alt-q = "$q"
           ```
@@ -110,9 +110,9 @@ Action:
         ref: Action
       description: |
         A list of actions to execute in sequence.
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           alt-q = [
@@ -127,16 +127,16 @@ Action:
           description: |
             A simple action that takes no arguments. These are usually written as plain
             strings instead.
-            
+
             - Example 1:
-            
+
               ```toml
               [shortcuts]
               alt-q = { type = "simple", cmd = "quit" }
               ```
-            
+
             - Example 2:
-            
+
               ```toml
               [shortcuts]
               alt-q = "quit"
@@ -151,19 +151,19 @@ Action:
             A named action that was defined via the top-level `actions` table or a
             `define-action` action. These are usually written as plain strings with a `$`
             prefix.
-            
+
             - Example 1:
-            
+
               ```toml
               [actions]
               my-action = "quit"
-            
+
               [shortcuts]
               alt-q = { type = "named", name = "my-action" }
               ```
-            
+
             - Example 2:
-            
+
               ```toml
               [shortcuts]
               alt-q = [
@@ -204,9 +204,9 @@ Action:
         exec:
           description: |
             Executes a program.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               ctrl-a = { type = "exec", exec = "alacritty" }
@@ -220,9 +220,9 @@ Action:
         switch-to-vt:
           description: |
             Switches to a virtual terminal.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               ctrl-alt-F1 = { type = "switch-to-vt", num = 1 }
@@ -238,16 +238,16 @@ Action:
         show-workspace:
           description: |
             Switches to a workspace.
-            
+
             - Example 1:
-            
+
               ```toml
               [shortcuts]
               alt-F1 = { type = "show-workspace", name = "1" }
               ```
-            
+
             - Example 2:
-            
+
               ```toml
               [shortcuts]
               alt-F1 = { type = "show-workspace", name = "1", output.name = "left" }
@@ -261,10 +261,10 @@ Action:
               description: |
                 The output to show a newly created workspace on. This has no effect on
                 workspaces that already exist.
-                
+
                 If this is not set, then a new workspace is shown on the output that
                 contains the cursor.
-                
+
                 If multiple outputs match, the workspace is shown on the first matching
                 output.
               required: false
@@ -272,9 +272,9 @@ Action:
         move-to-workspace:
           description: |
             Moves the currently focused window to a workspace.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-F1 = { type = "move-to-workspace", name = "1" }
@@ -287,16 +287,16 @@ Action:
         move-to-output:
           description: |
             Moves a workspace to a different output.
-            
+
             - Example 1:
-            
+
               ```toml
               [shortcuts]
               alt-F1 = { type = "move-to-output", workspace = "1", output.name = "right" }
               ```
-            
+
             - Example 2:
-            
+
               ```toml
               [shortcuts]
               alt-F1 = { type = "move-to-output", output.name = "right" }
@@ -305,14 +305,14 @@ Action:
             workspace:
               description: |
                 The name of the workspace.
-                
+
                 If this is omitted, the currently active workspace is moved.
               required: false
               kind: string
             output:
               description: |
                 The output to move to.
-                
+
                 If multiple outputs match, the workspace is moved to the first matching
                 output.
               required: true
@@ -320,9 +320,9 @@ Action:
         configure-connector:
           description: |
             Applies a configuration to connectors.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
@@ -336,14 +336,14 @@ Action:
         configure-input:
           description: |
             Applies a configuration to input devices.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "configure-input", input = { match.tag = "mouse", left-handed = true } }
               alt-r = { type = "configure-input", input = { match.tag = "mouse", left-handed = false } }
-            
+
               [[inputs]]
               tag = "mouse"
               match.is-pointer = true
@@ -356,9 +356,9 @@ Action:
         configure-idle:
           description: |
             Configures the idle timeout.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "configure-idle", idle.minutes = 0 }
@@ -372,14 +372,14 @@ Action:
         configure-output:
           description: |
             Applies a configuration to input devices.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "configure-output", output = { match.name = "right", transform = "none" } }
               alt-r = { type = "configure-output", output = { match.name = "right", transform = "rotate-90" } }
-            
+
               [[outputs]]
               name = "right"
               match.serial-number = "33K03894SL0"
@@ -392,9 +392,9 @@ Action:
         set-env:
           description: |
             Sets environment variables for all programs started afterwards.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "set-env", env.GTK_THEME = "Adwaita:dark" }
@@ -409,9 +409,9 @@ Action:
         unset-env:
           description: |
             Unsets environment variables for all programs started afterwards.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "unset-env", env = ["Adwaita:dark"] }
@@ -426,18 +426,18 @@ Action:
         set-keymap:
           description: |
             Sets the keymap.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-keymap", keymap.name = "laptop" }
               alt-k = { type = "set-keymap", keymap.name = "external" }
-            
+
               [[keymaps]]
               name = "laptop"
               path = "./laptop-keymap.xkb"
-            
+
               [[keymaps]]
               name = "external"
               path = "./external-keymap.xkb"
@@ -452,7 +452,7 @@ Action:
             Sets the keyboard repeat rate.
 
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "set-repeat-rate", rate = { rate = 25, delay = 250 } }
@@ -465,9 +465,9 @@ Action:
         set-status:
           description: |
             Sets the status command.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-status", status = { exec = "i3status" } }
@@ -476,16 +476,16 @@ Action:
             status:
               description: |
                 The status setting.
-                
+
                 Omitting this causes the status to be reset to empty.
               required: false
               ref: Status
         set-theme:
           description: |
             Sets the theme.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-theme", theme.bg-color = "#ff0000" }
@@ -498,9 +498,9 @@ Action:
         set-log-level:
           description: |
             Sets the log level of the compositor..
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-log-level", level = "debug" }
@@ -513,11 +513,11 @@ Action:
         set-gfx-api:
           description: |
             Sets the graphics API used by new DRM devices.
-            
+
             Setting this after the compositor has started usually has no effect.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-gfx-api", api = "Vulan" }
@@ -530,9 +530,9 @@ Action:
         configure-direct-scanout:
           description: |
             Configure whether the compositor attempts direct scanout of client surfaces.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "configure-direct-scanout", enabled = false }
@@ -545,13 +545,13 @@ Action:
         configure-drm-device:
           description: |
             Applies a configuration to DRM devices.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "configure-drm-device", dev = { match.name = "integrated", gfx-api = "Vulkan" } }
-            
+
               [[drm-devices]]
               name = "integrated"
               match.syspath = "/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0"
@@ -564,16 +564,16 @@ Action:
         set-render-device:
           description: |
             Sets the render device used for compositing.
-            
+
             Changing this after the compositor has started might cause client windows to
             become invisible until they are resized.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-j = { type = "set-render-device", dev.name = "integrated" }
-            
+
               [[drm-devices]]
               name = "integrated"
               match.syspath = "/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0"
@@ -582,7 +582,7 @@ Action:
             dev:
               description: |
                 The rule to find the device.
-                
+
                 The first matching device is used.
               required: true
               ref: DrmDeviceMatch
@@ -590,14 +590,14 @@ Action:
           description: |
             Defines a name for an action. Usually you would define these by using the
             top-level `actions` table. This action can be used to re-define actions.
-            
+
             - Example:
-            
+
               ```toml
               [actions]
               a1 = "quit"
               a2 = "$a1"
-            
+
               [shortcuts]
               alt-q = [
                 { type = "define-action", name = "a2", action = [] },
@@ -624,20 +624,20 @@ Action:
         create-mark:
           description: |
             Creates a mark for the currently focused window.
-            
+
             - Example 1:
-            
+
               This example interactively selects a key that identifies the mark.
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "create-mark" }
               ```
-            
+
             - Example 2:
-            
+
               This example hard-codes a key.
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "create-mark", id.key = "a" }
@@ -646,27 +646,27 @@ Action:
             id:
               description: |
                 The identifier of the mark.
-                
+
                 If this field is omitted, the next pressed key identifies the mark.
               required: false
               ref: MarkId
         jump-to-mark:
           description: |
             Moves the keyboard focus to a window identified by a mark.
-            
+
             - Example 1:
-            
+
               This example interactively selects a key that identifies the mark.
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "jump-to-mark" }
               ```
-            
+
             - Example 2:
-            
+
               This example hard-codes a key.
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "jump-to-mark", id.key = "a" }
@@ -675,14 +675,14 @@ Action:
             id:
               description: |
                 The identifier of the mark.
-                
+
                 If this field is omitted, the next pressed key identifies the mark.
               required: false
               ref: MarkId
         copy-mark:
           description: |
             Copies a mark.
-            
+
             If the `src` id identifies a mark before this function is called, the `dst`
             id will identify the same mark afterwards.
           fields:
@@ -698,9 +698,9 @@ Action:
           description: |
             Pushes an input mode on top of the input-mode stack. The mode can be popped
             with the `pop-mode` action.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "push-mode", name = "navigation" }
@@ -714,9 +714,9 @@ Action:
           description: |
             Temporarily pushes an input mode on top of the input-mode stack. The new mode
             will automatically be popped when the next shortcut is invoked.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-x = { type = "latch-mode", name = "navigation" }
@@ -731,30 +731,30 @@ Action:
 Exec:
   description: |
     Describes how to execute a program.
-    
+
     - Example 1:
-    
+
       ```toml
       [shortcuts]
       ctrl-a = { type = "exec", exec = "alacritty" }
       ```
-    
+
     - Example 2:
-    
+
       ```toml
       [shortcuts]
       ctrl-a = { type = "exec", exec = ["notify-send", "hello world"] }
       ```
-    
+
     - Example 3:
-    
+
       ```toml
       [shortcuts]
       ctrl-a = { type = "exec", exec = { prog = "notify-send", args = ["hello world"], env.WAYLAND_DISPLAY = "2" } }
       ```
-    
+
     - Example 4:
-    
+
       ```toml
       [shortcuts]
       ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
@@ -764,9 +764,9 @@ Exec:
     - kind: string
       description: |
         The name of the executable to execute.
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           ctrl-a = { type = "exec", exec = "alacritty" }
@@ -776,9 +776,9 @@ Exec:
         kind: string
       description: |
         The name and arguments of the executable to execute.
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           ctrl-a = { type = "exec", exec = ["notify-send", "hello world"] }
@@ -786,7 +786,7 @@ Exec:
     - kind: table
       description: |
         The name, arguments, and environment variables of the executable to execute.
-        
+
         Exactly one of the `prog` or `shell` fields must be specified.
 
         - Example 1:
@@ -797,7 +797,7 @@ Exec:
           ```
 
         - Example 2:
-          
+
           ```toml
           [shortcuts]
           ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
@@ -820,7 +820,7 @@ Exec:
             kind: string
           description: |
             The arguments to pass to the executable.
-            
+
             This field must not be specified if a shell command is used.
         env:
           kind: map
@@ -833,17 +833,17 @@ Exec:
           required: false
           description: |
             If `true`, the executable gets access to privileged wayland protocols.
-            
+
             The default is `false`.
 
 
 SimpleActionName:
   description: |
     The name of a `simple` Action.
-    
+
     When used inside a window rule, the following actions apply to the matched window
     instead fo the focused window:
-    
+
     - `move-left`
     - `move-down`
     - `move-up`
@@ -869,7 +869,7 @@ SimpleActionName:
 
 
     - Example:
-    
+
       ```toml
       [shortcuts]
       alt-q = "quit"
@@ -944,20 +944,20 @@ SimpleActionName:
     - value: consume
       description: |
         Consume the current key event. Don't forward it to the focused application.
-        
+
         This action only has an effect in shortcuts.
-        
+
         Key-press events events that trigger shortcuts are consumed by default.
         Key-release events events that trigger shortcuts are forwarded by default.
-        
+
         Note that consuming key-release events can cause keys to get stuck in the focused
         application.
-        
+
         See the `forward` action to achieve the opposite effect.
     - value: forward
       description: |
         Forward the current key event to the focused application.
-        
+
         See the `consume` action for more details.
     - value: none
       description: |
@@ -988,7 +988,7 @@ SimpleActionName:
     - value: pin-float
       description: |
         Pins the currently focused floating window.
-        
+
         If a floating window is pinned, it will stay visible even when switching to a
         different workspace.
     - value: unpin-float
@@ -1000,7 +1000,7 @@ SimpleActionName:
     - value: kill-client
       description: |
         Kills a client.
-        
+
         Within a window rule, it applies to the client of the window. Within a client rule
         it applies to the matched client. Has no effect otherwise.
     - value: show-bar
@@ -1009,6 +1009,12 @@ SimpleActionName:
       description: Hides the built-in bar.
     - value: toggle-bar
       description: Toggles the built-in bar.
+    - value: show-titles
+      description: Shows window titles.
+    - value: hide-titles
+      description: Hides window titles.
+    - value: toggle-titles
+      description: Toggles window titles.
     - value: focus-prev
       description: Focuses the previous window in the focus history.
     - value: focus-next
@@ -1022,12 +1028,12 @@ SimpleActionName:
     - value: create-mark
       description: |
         Interactively creates a mark.
-        
+
         The next pressed key becomes the identifier for the mark.
     - value: jump-to-mark
       description: |
         Interactively jumps to a mark.
-        
+
         The next pressed key identifies the mark to jump to.
     - value: clear-modes
       description: Disables all previously set input modes, clearing the input-mode stack.
@@ -1039,9 +1045,9 @@ Color:
   kind: string
   description: |
     A color.
-    
+
     The format should be one of the following:
-    
+
     - `#rgb`
     - `#rrggbb`
     - `#rgba`
@@ -1061,11 +1067,11 @@ ConnectorMatch:
     - kind: table
       description: |
         Describes a rule that matches a subset of connectors.
-        
+
         This rule matches if all of the specified fields match.
-        
+
         - Example:
-        
+
           ```toml
           [[connectors]]
           match.name = "DP-1"
@@ -1076,7 +1082,7 @@ ConnectorMatch:
           required: false
           description: |
             The name of the connector.
-            
+
             These values are not necessarily stable. You can find out the value by running
             `jay randr`.
 
@@ -1085,9 +1091,9 @@ Connector:
   kind: table
   description: |
     Describes configuration to apply to a connector.
-    
+
     - Example: To disable the built-in display of a laptop:
-    
+
       ```toml
       [[connectors]]
       match.name = "eDP-1"
@@ -1119,11 +1125,11 @@ DrmDeviceMatch:
     - kind: table
       description: |
         Describes a rule that matches a subset of DRM devices.
-        
+
         This rule matches if all of the specified fields match.
-        
+
         - Example:
-        
+
           ```toml
           [[drm-devices]]
           name = "dedicated"
@@ -1135,19 +1141,19 @@ DrmDeviceMatch:
           required: false
           description: |
             The name of another DrmDeviceMatch rule.
-            
+
             For this rule to match, the referenced rule must match. The name of the rule
             should have been defined in the top-level `drm-devices` array.
-            
+
             This can be used to easily refer to DRM devices.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-v = { type = "configure-drm-device", dev = { match.name = "dedicated", gfx-api = "Vulkan" } }
               alt-o = { type = "configure-drm-device", dev = { match.name = "dedicated", gfx-api = "OpenGl" } }
-            
+
               [[drm-devices]]
               name = "dedicated"
               match = { pci-vendor = 0x1002, pci-model = 0x73ff }
@@ -1157,14 +1163,14 @@ DrmDeviceMatch:
           required: false
           description: |
             The syspath of the device.
-            
+
             This is useful if you have multiple copies of the same device installed so that
             the PCI numbers are not unique.
-            
+
             The values are usually stable unless you re-configure your hardware.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1175,11 +1181,11 @@ DrmDeviceMatch:
           required: false
           description: |
             The devnode of the device.
-            
+
             The values are usually not-stable across PC restarts.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1190,9 +1196,9 @@ DrmDeviceMatch:
           required: false
           description: |
             The name of the vendor.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1203,9 +1209,9 @@ DrmDeviceMatch:
           required: false
           description: |
             The name of the model.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1217,9 +1223,9 @@ DrmDeviceMatch:
           required: false
           description: |
             The PCI number of the vendor.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1231,9 +1237,9 @@ DrmDeviceMatch:
           required: false
           description: |
             The PCI number of the model.
-            
+
             - Example:
-            
+
               ```toml
               [[drm-devices]]
               name = "integrated"
@@ -1245,9 +1251,9 @@ DrmDevice:
   kind: table
   description: |
     Describes configuration to apply to a DRM device (graphics card).
-    
+
     - Example: To disable direct scanout on a device:
-    
+
       ```toml
       [[drm-devices]]
       match = { pci-vendor = 0x1002, pci-model = 0x73ff }
@@ -1259,7 +1265,7 @@ DrmDevice:
       required: false
       description: |
         Assigns a name to the rule in the `match` field.
-        
+
         This only has an effect when used in the top-level `drm-devices` array.
     match:
       ref: DrmDeviceMatch
@@ -1281,10 +1287,10 @@ DrmDevice:
       required: false
       description: |
         If specified, sets the flip margin of this device.
-        
+
         This is duration between the compositor initiating a page flip and the output's
         vblank event. This determines the minimum input latency. The default is 1.5 ms.
-        
+
         Note that if the margin is too small, the compositor will dynamically increase it.
 
 
@@ -1297,7 +1303,7 @@ GfxApi:
     - value: Vulkan
       description: |
         The Vulkan API.
-        
+
         Note that this API has the following restriction: If any of the DRM devices in
         the system use Vulkan, then all devices must support DRM format modifiers. This
         is usually the case but not for AMD devices older than RX 5xxx.
@@ -1316,11 +1322,11 @@ InputMatch:
     - kind: table
       description: |
         Describes a rule that matches a subset of input devices.
-        
+
         This rule matches if all of the specified fields match.
-        
+
         - Example:
-        
+
           ```toml
           [[inputs]]
           match.is-pointer = true
@@ -1332,19 +1338,19 @@ InputMatch:
           required: false
           description: |
             The tag of another InputMatch rule.
-            
+
             For this rule to match, the referenced rule must match. The name of the rule
             should have been defined in the top-level `inputs` array.
-            
+
             This can be used to easily refer to input devices.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "configure-input", input = { match.tag = "mouse", left-handed = true } }
               alt-r = { type = "configure-input", input = { match.tag = "mouse", left-handed = false } }
-            
+
               [[inputs]]
               tag = "mouse"
               match.is-pointer = true
@@ -1354,11 +1360,11 @@ InputMatch:
           required: false
           description: |
             The libinput name of the device.
-            
+
             You can find out the name of the devices by running `jay input`.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.name = "Logitech G300s Optical Gaming Mouse"
@@ -1369,14 +1375,14 @@ InputMatch:
           required: false
           description: |
             The syspath of the device.
-            
+
             This is useful if you have multiple copies of the same device installed so that
             the name is not unique.
-            
+
             The values are usually stable unless you re-configure your hardware.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.syspath = "/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.4/usb5/5-1/5-1.1/5-1.1.2/5-1.1.2:1.0"
@@ -1387,11 +1393,11 @@ InputMatch:
           required: false
           description: |
             The devnode of the device.
-            
+
             The values are usually not-stable across PC restarts.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.devnode = "/dev/input/event4"
@@ -1402,9 +1408,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a keyboard.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-keyboard = false
@@ -1415,9 +1421,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a pointer.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-pointer = false
@@ -1428,9 +1434,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a touch device.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-touch = true
@@ -1441,9 +1447,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a tablet tool.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-tablet-tool = true
@@ -1454,9 +1460,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a tablet pad.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-tablet-tool = true
@@ -1467,9 +1473,9 @@ InputMatch:
           required: false
           description: |
             Whether the devices has been identified as a switch.
-            
+
             - Example:
-            
+
               ```toml
               [[inputs]]
               match.is-switch = true
@@ -1480,9 +1486,9 @@ Input:
   kind: table
   description: |
     Describes configuration to apply to an input device.
-    
+
     - Example: To make mice left handed:
-    
+
       ```toml
       [[inputs]]
       match.is-pointer = true
@@ -1494,7 +1500,7 @@ Input:
       required: false
       description: |
         Assigns a name to the rule in the `match` field.
-        
+
         This only has an effect when used in the top-level `inputs` array.
     match:
       ref: InputMatch
@@ -1506,65 +1512,65 @@ Input:
       required: false
       description: |
         The acceleration profile to use.
-        
+
         See the libinput documentation for more details.
     accel-speed:
       kind: number
       required: false
       description: |
         The acceleration speed to use.
-        
+
         Values should be in the range -1 to 1.
-        
+
         See the libinput documentation for more details.
     tap-enabled:
       kind: boolean
       required: false
       description: |
         Whether tap is enabled for this device.
-        
+
         See the libinput documentation for more details.
     tap-drag-enabled:
       kind: boolean
       required: false
       description: |
         Whether tap drag is enabled for this device.
-        
+
         See the libinput documentation for more details.
     tap-drag-lock-enabled:
       kind: boolean
       required: false
       description: |
         Whether tap drag lock is enabled for this device.
-        
+
         See the libinput documentation for more details.
     left-handed:
       kind: boolean
       required: false
       description: |
         Whether the device is left handed.
-        
+
         See the libinput documentation for more details.
     natural-scrolling:
       kind: boolean
       required: false
       description: |
         Whether the device uses natural scrolling.
-        
+
         See the libinput documentation for more details.
     middle-button-emulation:
       kind: boolean
       required: false
       description: |
         Converts a simultaneous left and right button click into a middle button click.
-        
+
         See the libinput documentation for more details.
     click-method:
       ref: ClickMethod
       required: false
       description: |
         Defines how button events are triggered on a clickable touchpad.
-        
+
         See the libinput documentation for more details.
     px-per-wheel-scroll:
       kind: boolean
@@ -1581,9 +1587,9 @@ Input:
       description: |
         A transformation matrix to apply to each motion event of this device.
         The matrix should be 2x2.
-        
+
         - Example: To slow down the mouse to 35% of normal speed:
-        
+
           ```toml
           [[inputs]]
           match.is-pointer = true
@@ -1594,11 +1600,11 @@ Input:
       required: false
       description: |
         The keymap to use for this device.
-        
+
         This overrides the global keymap. The keymap becomes active when a key is pressed.
-        
+
         - Example:
-        
+
           ```toml
           [[inputs]]
           match.name = "ZSA Technology Labs Inc ErgoDox EZ"
@@ -1609,11 +1615,11 @@ Input:
       required: false
       description: |
         An action to execute when the laptop lid is closed.
-        
+
         This should only be used in the top-level inputs array.
-        
+
         - Example:
-        
+
           ```toml
           [[inputs]]
           match.name = "<switch name>"
@@ -1625,11 +1631,11 @@ Input:
       required: false
       description: |
         An action to execute when the laptop lid is opened.
-        
+
         This should only be used in the top-level inputs array.
-        
+
         - Example:
-        
+
           ```toml
           [[inputs]]
           match.name = "<switch name>"
@@ -1641,25 +1647,25 @@ Input:
       required: false
       description: |
         An action to execute when the convertible device is converted to a laptop.
-        
+
         This should only be used in the top-level inputs array.
     on-converted-to-tablet:
       ref: Action
       required: false
       description: |
         An action to execute when the convertible device is converted to a tablet.
-        
+
         This should only be used in the top-level inputs array.
     output:
       ref: OutputMatch
       required: false
       description: |
         Maps this input device to an output.
-        
+
         This is used to map touch screen and graphics tablets to outputs.
-        
+
         - Example:
-        
+
           ```toml
           [[inputs]]
           match.name = "Wacom Bamboo Comic 2FG Pen"
@@ -1670,11 +1676,11 @@ Input:
       required: false
       description: |
         Removes the mapping of from this device to an output.
-        
+
         This should only be used within `configure-input` actions.
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           alt-x = { type = "configure-input", input = { match.tag = "wacom", remove-mapping = true } }
@@ -1693,11 +1699,11 @@ Input:
       required: false
       description: |
         The calibration matrix of the device. This matrix should be 2x3.
-        
+
         See the libinput documentation for more details.
-        
+
         - Example: To flip the device 90 degrees:
-        
+
           ```toml
           [[inputs]]
           calibration-matrix = [[0, 1, 0], [-1, 0, 1]]
@@ -1713,7 +1719,7 @@ AccelProfile:
       description: The adaptive profile.
   description: |
     The acceleration profile to apply to an input device.
-    
+
     See the libinput documentation for more details.
 
 
@@ -1730,7 +1736,7 @@ ClickMethod:
         Clicking with 1, 2, 3 fingers triggers a left, right, or middle click, respectively.
   description: |
     The click method to apply to an input device.
-    
+
     See the libinput documentation for more details.
 
 
@@ -1754,9 +1760,9 @@ Mode:
   kind: table
   description: |
     The mode of a display.
-    
+
     - Example:
-    
+
       ```toml
       [[outputs]]
       match.serial-number = "33K03894SL0"
@@ -1792,11 +1798,11 @@ OutputMatch:
     - kind: table
       description: |
         Describes a rule that matches a subset of outputs.
-        
+
         This rule matches if all of the specified fields match.
-        
+
         - Example:
-        
+
           ```toml
           [[outputs]]
           name = "right"
@@ -1810,19 +1816,19 @@ OutputMatch:
           required: false
           description: |
             The name of another OutputMatch rule.
-            
+
             For this rule to match, the referenced rule must match. The name of the rule
             should have been defined in the top-level `outputs` array.
-            
+
             This can be used to easily refer to outputs.
-            
+
             - Example:
-            
+
               ```toml
               [shortcuts]
               alt-l = { type = "configure-output", output = { match.name = "right", transform = "none" } }
               alt-r = { type = "configure-output", output = { match.name = "right", transform = "rotate-90" } }
-            
+
               [[outputs]]
               name = "right"
               match.serial-number = "33K03894SL0"
@@ -1832,11 +1838,11 @@ OutputMatch:
           required: false
           description: |
             The name of the connector the output is connected to.
-            
+
             You can find out the name of the connector by running `jay randr`.
-            
+
             - Example:
-            
+
               ```toml
               [[outputs]]
               match.connector = "DP-1"
@@ -1847,11 +1853,11 @@ OutputMatch:
           required: false
           description: |
             The serial number of the output.
-            
+
             You can find out the serial number by running `jay randr`.
-            
+
             - Example:
-            
+
               ```toml
               [[outputs]]
               match.serial-number = "33K03894SL0"
@@ -1862,11 +1868,11 @@ OutputMatch:
           required: false
           description: |
             The manufacturer of the output.
-            
+
             You can find out the manufacturer by running `jay randr`.
-            
+
             - Example:
-            
+
               ```toml
               [[outputs]]
               match.manufacturer = "BNQ"
@@ -1877,11 +1883,11 @@ OutputMatch:
           required: false
           description: |
             The model of the output.
-            
+
             You can find out the model by running `jay randr`.
-            
+
             - Example:
-            
+
               ```toml
               [[outputs]]
               match.model = "BenQ GW2480"
@@ -1893,9 +1899,9 @@ Output:
   kind: table
   description: |
     Describes configuration to apply to an output.
-    
+
     - Example: To set the scale of an output.
-    
+
       ```toml
       [[outputs]]
       match.serial-number = "33K03894SL0"
@@ -1908,7 +1914,7 @@ Output:
       required: false
       description: |
         Assigns a name to the rule in the `match` field.
-        
+
         This only has an effect when used in the top-level `outputs` array.
     match:
       ref: OutputMatch
@@ -1946,7 +1952,7 @@ Output:
       required: false
       description: |
         The mode of the output.
-        
+
         If the refresh rate is not specified, the first mode with the specified width and
         height is used.
     vrr:
@@ -1954,11 +1960,11 @@ Output:
       required: false
       description: |
         Configures the VRR settings of this output.
-        
+
         By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
 
         - Example:
-        
+
           ```toml
           [[outputs]]
           match.serial-number = "33K03894SL0"
@@ -1969,11 +1975,11 @@ Output:
       required: false
       description: |
         Configures the tearing settings of this output.
-        
+
         By default, the tearing mode is `variant3`.
 
         - Example:
-        
+
           ```toml
           [[outputs]]
           match.serial-number = "33K03894SL0"
@@ -1984,11 +1990,11 @@ Output:
       required: false
       description: |
         Configures the framebuffer format of this output.
-        
+
         By default, the format is `xrgb8888`.
 
         - Example:
-        
+
           ```toml
           [[outputs]]
           match.serial-number = "33K03894SL0"
@@ -2009,14 +2015,14 @@ Output:
       required: false
       description: |
         The brightness of the output.
-        
+
         This setting has no effect unless the vulkan renderer is used.
     blend-space:
       ref: BlendSpace
       required: false
       description: |
         The blend space of the output.
-        
+
         The default is `srgb`.
 
 
@@ -2064,9 +2070,9 @@ Status:
   kind: table
   description: |
     The configuration of a status program whose output will be shown in the bar.
-    
+
     - Example:
-    
+
       ```toml
       [status]
       format = "i3bar"
@@ -2086,7 +2092,7 @@ Status:
       required: false
       description: |
         The separator to be used between i3bar components.
-        
+
         The default is ` | `.
 
 
@@ -2191,9 +2197,9 @@ Config:
   kind: table
   description: |
     This is the top-level table.
-    
+
     - Example:
-    
+
       ```toml
       keymap = """
         xkb_keymap {
@@ -2203,27 +2209,27 @@ Config:
             xkb_symbols  { include "pc+us+inet(evdev)"     };
         };
         """
-    
+
       on-graphics-initialized = { type = "exec", exec = "mako" }
-    
+
       [shortcuts]
       alt-h = "focus-left"
       alt-j = "focus-down"
       alt-k = "focus-up"
       alt-l = "focus-right"
-    
+
       alt-shift-h = "move-left"
       alt-shift-j = "move-down"
       alt-shift-k = "move-up"
       alt-shift-l = "move-right"
-    
+
       alt-d = "split-horizontal"
       alt-v = "split-vertical"
-    
+
       alt-t = "toggle-split"
       alt-m = "toggle-mono"
       alt-u = "toggle-fullscreen"
-    
+
       alt-f = "focus-parent"
       alt-shift-c = "close"
       alt-shift-f = "toggle-floating"
@@ -2231,15 +2237,15 @@ Config:
       alt-p = { type = "exec", exec = "bemenu-run" }
       alt-q = "quit"
       alt-shift-r = "reload-config-toml"
-    
+
       ctrl-alt-F1 = { type = "switch-to-vt", num = 1 }
       ctrl-alt-F2 = { type = "switch-to-vt", num = 2 }
       # ...
-    
+
       alt-F1 = { type = "show-workspace", name = "1" }
       alt-F2 = { type = "show-workspace", name = "2" }
       # ...
-    
+
       alt-shift-F1 = { type = "move-to-workspace", name = "1" }
       alt-shift-F2 = { type = "move-to-workspace", name = "2" }
       # ...
@@ -2250,9 +2256,9 @@ Config:
       required: false
       description: |
         The keymap to use.
-        
+
         - Example:
-        
+
           ```toml
           keymap = """
             xkb_keymap {
@@ -2270,7 +2276,7 @@ Config:
         The keyboard repeat rate.
 
         - Example:
-          
+
           ```toml
           repeat-rate = { rate = 25, delay = 250 }
           ```
@@ -2281,28 +2287,28 @@ Config:
       required: false
       description: |
         The compositor shortcuts.
-        
+
         The keys should be in the following format:
-        
+
         ```
         (MOD-)*KEYSYM
         ```
-        
+
         `MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,
         `mod5`, `caps`, `alt`, `num`, `logo`, or `release`.
-        
+
         Using the `release` modifier causes the shortcut to trigger when the key is
         released.
-        
+
         `KEYSYM` should be the name of a keysym. The authorative location for these names
         is [1] with the `XKB_KEY_` prefix removed.
-        
+
         The keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.
-        
+
         [1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h
-        
+
         - Example:
-        
+
           ```toml
           [shortcuts]
           alt-q = "quit"
@@ -2314,11 +2320,11 @@ Config:
       required: false
       description: |
         Complex compositor shortcuts.
-        
+
         The keys should have the same format as in the `shortcuts` table.
-        
+
         - Example:
-        
+
           ```toml
           [complex-shortcuts.XF86AudioRaiseVolume]
           mod-mask = "alt"
@@ -2329,11 +2335,11 @@ Config:
       required: false
       description: |
         An action to execute when the graphics have been initialized for the first time.
-        
+
         This is a good place to start graphical applications.
-        
+
         - Example:
-        
+
           ```toml
           on-graphics-initialized = { type = "exec", exec = "mako" }
           ```
@@ -2344,7 +2350,7 @@ Config:
         The status program that will be used for the status text.
 
         - Example:
-        
+
           ```toml
           [status]
           format = "i3bar"
@@ -2357,24 +2363,24 @@ Config:
       required: false
       description: |
         An array of output configurations.
-        
+
         This can be used to configure outputs and create named outputs that can be
         referred to in actions.
-        
+
         The configurations defined here will only be applied the first time matching
         outputs are connected to the compositor after the compositor has started.
         If you want change the configuration afterwards, use `jay randr` or a
         `configure-output` action.
-        
+
         - Example:
-        
+
           ```toml
           [[outputs]]
           name = "left"
           match.serial-number = "33K03894SL0"
           x = 0
           y = 0
-        
+
           [[outputs]]
           name = "right"
           match.serial-number = "ETW1M02062SL0"
@@ -2532,9 +2538,9 @@ Config:
       required: false
       description: |
         Configures whether the compositor supports explicit sync.
-        
+
         This cannot be changed after the compositor has started.
-        
+
         The default is `true`.
     render-device:
       ref: DrmDeviceMatch
@@ -2592,7 +2598,7 @@ Config:
       required: false
       description: |
         The configuration of the idle timeout.
-        
+
         Changing thise field after compositor startup has no effect. Use `jay idle`
         or a `configure-idle` action to change the idle timeout at runtime.
 
@@ -2617,9 +2623,9 @@ Config:
 
         In window management mode, floating windows can be moved by pressing the left
         mouse button and all windows can be resize by pressing the right mouse button.
-        
+
         - Example:
-        
+
           ```toml
           window-management-key = "Alt_L"
           ```
@@ -2628,13 +2634,13 @@ Config:
       required: false
       description: |
         Configures the default VRR settings.
-        
+
         This can be overwritten for individual outputs.
-        
+
         By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
 
         - Example:
-          
+
           ```toml
           vrr = { mode = "always", cursor-hz = 90 }
           ```
@@ -2643,13 +2649,13 @@ Config:
       required: false
       description: |
         Configures the default tearing settings.
-        
+
         This can be overwritten for individual outputs.
-        
+
         By default, the tearing mode is `variant3`.
 
         - Example:
-        
+
           ```toml
           tearing.mode = "never"
           ```
@@ -2658,9 +2664,9 @@ Config:
       required: false
       description: |
         Configures the libei settings.
-        
+
         - Example:
-        
+
           ```toml
           libei.enable-socket = true
           ```
@@ -2669,9 +2675,9 @@ Config:
       required: false
       description: |
         Configures the ui-drag settings.
-        
+
         - Example:
-        
+
           ```toml
           ui-drag = { enabled = false, threshold = 20 }
           ```
@@ -2682,7 +2688,7 @@ Config:
         Configures the Xwayland settings.
 
         - Example:
-        
+
           ```toml
           xwayland = { scaling-mode = "downscaled" }
           ```
@@ -2693,7 +2699,7 @@ Config:
         Configures the color-management settings.
 
         - Example:
-        
+
           ```toml
           [color-management]
           enabled = true
@@ -2705,7 +2711,7 @@ Config:
         Configures the settings of floating windows.
 
         - Example:
-        
+
           ```toml
           [float]
           show-pin-icon = true
@@ -2717,12 +2723,12 @@ Config:
       required: false
       description: |
         Named actions.
-        
+
         Named actions can be used everywhere an action can be used. This can be used to
         avoid repeating the same action multiple times.
-        
+
         - Example:
-        
+
           ```toml
           actions.switch-to-1 = [
             { type = "show-workspace", name = "1" },
@@ -2737,7 +2743,7 @@ Config:
             { type = "define-action", name = "switch-to-next", action = "$switch-to-1" },
           ]
           actions.switch-to-next = "$switch-to-1"
-        
+
           [shortcuts]
           alt-x = "$switch-to-next"
           ```
@@ -2757,11 +2763,11 @@ Config:
       required: false
       description: |
         An array of client rules.
-        
+
         These rules can be used to give names to clients and to manipulate them.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           name = "spotify"
@@ -2774,11 +2780,11 @@ Config:
       required: false
       description: |
         An array of window rules.
-        
+
         These rules can be used to give names to windows and to manipulate them.
-        
+
         - Example:
-        
+
           ```toml
           [[windows]]
           name = "spotify"
@@ -2790,19 +2796,19 @@ Config:
       required: false
       description: |
         Sets the keysym that can be used to revert the pointer to the default state.
-       
+
         Pressing this key cancels any grabs, drags, selections, etc.
-       
+
         The default is `Escape`. Setting this to `NoSymbol` effectively disables
         this functionality.
-        
+
         The value of the string should be the name of a keysym. The authoritative location
         for these names is [1] with the `XKB_KEY_` prefix removed.
-        
+
         [1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h
-        
+
         - Example:
-        
+
           ```toml
           pointer-revert-key = "NoSymbol"
           ```
@@ -2820,6 +2826,13 @@ Config:
         Configures whether the built-in bar is shown.
 
         The default is `true`.
+    show-titles:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether title bars on windows are shown.
+
+        The default is `true`.
     focus-history:
       ref: FocusHistory
       required: false
@@ -2827,7 +2840,7 @@ Config:
         Configures the focus-history settings.
 
         - Example:
-        
+
           ```toml
           [focus-history]
           only-visible: true
@@ -2838,7 +2851,7 @@ Config:
       required: false
       description: |
         Configures whether middle-click pasting is enabled.
-        
+
         Changing this has no effect on running applications.
 
         The default is `true`.
@@ -2849,12 +2862,12 @@ Config:
       required: false
       description: |
         Configures the input modes.
-        
+
         Modes can be used to define shortcuts that are only active when the mode is
         active.
-        
+
         - Example
-        
+
           ```toml
           [modes."navigation".shortcuts]
           w = "focus-up"
@@ -2887,12 +2900,12 @@ Idle:
   kind: table
   description: |
     The definition of an idle timeout.
-    
+
     Omitted values are set to 0. If any value is explicitly set and all values are 0, the
     idle timeout is disabled.
-    
+
     - Example:
-    
+
       ```toml
       idle.minutes = 10
       ```
@@ -2912,11 +2925,11 @@ Idle:
     grace-period:
       description: |
         The grace period after the timeout expires.
-        
+
         During the grace period, the screen goes black but the outputs are not yet
         disabled and the `on-idle` action does not yet run. This is a visual indicator
         that the system will soon get idle.
-        
+
         The default is 5 seconds.
       ref: GracePeriod
       required: false
@@ -2926,11 +2939,11 @@ GracePeriod:
   kind: table
   description: |
     The definition of a grace period.
-    
+
     Omitted values are set to 0. If all values are 0, the grace period is disabled.
-    
+
     - Example:
-    
+
       ```toml
       idle.grace-period.seconds = 3
       ```
@@ -2953,9 +2966,9 @@ RepeatRate:
   kind: table
   description: |
     Describes a keyboard repeat rate.
-    
+
     - Example:
-    
+
       ```toml
       repeat-rate = { rate = 25, delay = 250 }
       ```
@@ -2977,9 +2990,9 @@ ComplexShortcut:
   kind: table
   description: |
     Describes a complex shortcut.
-    
+
     - Example:
-    
+
       ```toml
       [complex-shortcuts.XF86AudioRaiseVolume]
       mod-mask = "alt"
@@ -2991,50 +3004,50 @@ ComplexShortcut:
       required: false
       description: |
         The mod mask to apply to this shortcut.
-        
+
         Should be a string containing modifiers concatenated by `-`. See the description
         of `Config.shortcuts` for more details.
-        
+
         If this field is omitted, all modifiers are included in the mask.
-        
+
         - Example:
-          
+
           To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless
           of any modifiers except `alt`:
-        
+
           ```toml
           [complex-shortcuts.XF86AudioRaiseVolume]
           mod-mask = "alt"
           action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
           ```
-        
+
           Set `mod-mask = ""` to ignore all modifiers.
     action:
       ref: Action
       required: false
       description: |
         The action to execute.
-        
+
         Omitting this is the same as setting it to `"none"`.
     latch:
       ref: Action
       required: false
       description: |
         An action to execute when the key is released.
-        
+
         This registers an action to be executed when the key triggering the shortcut is
         released. The active modifiers are ignored for this purpose.
-        
+
         - Example:
-        
+
           To mute audio while the key is pressed:
-        
+
           ```toml
           [complex-shortcuts.alt-x]
           action = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "1"] }
           latch = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "0"] }
           ```
-        
+
           Audio will be un-muted once `x` key is released, regardless of any other keys
           that are pressed at the time.
 
@@ -3043,9 +3056,9 @@ Vrr:
   kind: table
   description: |
     Describes VRR settings.
-    
+
     - Example:
-    
+
       ```toml
       vrr = { mode = "always", cursor-hz = 90 }
       ```
@@ -3059,7 +3072,7 @@ Vrr:
       required: false
       description: |
         The VRR cursor refresh rate.
-        
+
         Limits the rate at which cursors are updated on screen when VRR is active.
 
 
@@ -3068,7 +3081,7 @@ VrrMode:
     The VRR mode of an output.
 
     - Example:
-    
+
       ```toml
       vrr = { mode = "always", cursor-hz = 90 }
       ```
@@ -3091,13 +3104,13 @@ VrrHz:
     A VRR refresh rate limiter.
 
     - Example 1:
-    
+
       ```toml
       vrr = { cursor-hz = 90 }
       ```
 
     - Example 2:
-    
+
       ```toml
       vrr = { cursor-hz = "none" }
       ```
@@ -3113,9 +3126,9 @@ Tearing:
   kind: table
   description: |
     Describes tearing settings.
-    
+
     - Example:
-    
+
       ```toml
       tearing.mode = "never"
       ```
@@ -3131,7 +3144,7 @@ TearingMode:
     The tearing mode of an output.
 
     - Example:
-    
+
       ```toml
       tearing.mode = "never"
       ```
@@ -3155,9 +3168,9 @@ Libei:
   kind: table
   description: |
     Describes libei settings.
-    
+
     - Example:
-    
+
       ```toml
       libei.enable-socket = "true"
       ```
@@ -3176,11 +3189,11 @@ Libei:
 Format:
   description: |
     A graphics format.
-    
+
     These formats are documented in https://github.com/torvalds/linux/blob/master/include/uapi/drm/drm_fourcc.h
 
     - Example:
-    
+
       ```toml
       [[outputs]]
       match.serial-number = "33K03894SL0"
@@ -3250,9 +3263,9 @@ UiDrag:
   kind: table
   description: |
     Describes ui-drag settings.
-    
+
     - Example:
-    
+
       ```toml
       ui-drag = { enabled = false, threshold = 20 }
       ```
@@ -3262,7 +3275,7 @@ UiDrag:
       required: false
       description: |
         Enables or disables dragging of tiles and workspaces.
-        
+
         The default is `true`.
     threshold:
       kind: number
@@ -3270,7 +3283,7 @@ UiDrag:
       required: false
       description: |
         Sets the distance at which ui dragging starts.
-       
+
         The default is `10`.
 
 
@@ -3278,9 +3291,9 @@ Xwayland:
   kind: table
   description: |
     Describes Xwayland settings.
-    
+
     - Example:
-    
+
       ```toml
       xwayland = { scaling-mode = "downscaled" }
       ```
@@ -3296,7 +3309,7 @@ XScalingMode:
     The scaling mode of X windows.
 
     - Example:
-    
+
       ```toml
       xwayland = { scaling-mode = "downscaled" }
       ```
@@ -3305,20 +3318,20 @@ XScalingMode:
     - value: default
       description: |
         The default mode.
-        
+
         Currently this means that windows are rendered at the lowest scale and then upscaled
         if necessary.
     - value: downscaled
       description: |
         Windows are rendered at the highest integer scale and then downscaled.
-        
+
         This has significant performance implications unless the window is running on the
         output with the highest scale and that scale is an integer scale.
-        
+
         For example, on a 3840x2160 output with a 1.5 scale, a fullscreen window will be
         rendered at 3840x2160 * 2 / 1.5 = 5120x2880 pixels and then downscaled to
         3840x2160. This overhead gets worse the lower the scale of the output is.
-        
+
         Additionally, this mode requires the X window to scale its contents itself. In the
         example above, you might achieve this by setting the environment variable
         `GDK_SCALE=2`.
@@ -3328,9 +3341,9 @@ ColorManagement:
   kind: table
   description: |
     Describes color-management settings.
-    
+
     - Example:
-    
+
       ```toml
       [color-management]
       enabled = true
@@ -3339,9 +3352,9 @@ ColorManagement:
     enabled:
       description: |
         Whether the color management protocol is enabled.
-        
+
         This has no effect on running applications.
-        
+
         The default is `false`.
       kind: boolean
       required: false
@@ -3375,15 +3388,15 @@ Brightness:
     The brightness setting of an output.
   variants:
     - kind: string
-      description: | 
+      description: |
         The default brightness setting.
       values:
         - value: default
           description: |
-            The default brightness setting.       
-            
+            The default brightness setting.
+
             The behavior depends on the EOTF:
-            
+
             - `default`: The maximum brightness of the output.
             - `PQ`: 203 cd/m^2
     - kind: number
@@ -3395,9 +3408,9 @@ Float:
   kind: table
   description: |
     Describes settings of floating windows.
-    
+
     - Example:
-    
+
       ```toml
       [float]
       show-pin-icon = true
@@ -3406,7 +3419,7 @@ Float:
     show-pin-icon:
       description: |
         Sets whether floating windows always show a pin icon.
-        
+
         The default is `false`.
       kind: boolean
       required: false
@@ -3422,16 +3435,16 @@ ClientRule:
       required: false
       description: |
         The name of this rule.
-        
+
         This name can be referenced in other rules.
-        
+
         - Example
-        
+
           ```toml
           [[clients]]
           name = "spotify"
           match.sandbox-app-id = "com.spotify.Client"
-        
+
           [[clients]]
           match.name = "spotify"
           action = "kill-client"
@@ -3453,14 +3466,14 @@ ClientRule:
       required: false
       description: |
         Sets the capabilities granted to clients matching this matcher.
-        
+
         If multiple matchers match a client, the capabilities are added.
-        
+
         If no matcher matches a client, it is granted the default capabilities depending
         on whether it's sandboxed or not. If it is not sandboxed, it is granted the
         capabilities `layer-shell` and `drm-lease`. Otherwise it is granted the
         capability `drm-lease`.
-        
+
         Regardless of any capabilities set through this function, the capabilities of the
         client can never exceed its bounding capabilities.
     sandbox-bounding-capabilities:
@@ -3468,14 +3481,14 @@ ClientRule:
       required: false
       description: |
         Sets the upper capability bounds for clients in sandboxes created by this client.
-        
+
         If multiple matchers match a client, the capabilities are added.
-        
+
         If no matcher matches a client, the bounding capabilities for sandboxes depend on
         whether the client is itself sandboxed. If it is sandboxed, the bounding
         capabilities are the effective capabilities of the client. Otherwise the bounding
         capabilities are all capabilities.
-        
+
         Regardless of any capabilities set through this function, the capabilities set
         through this function can never exceed the client's bounding capabilities.
 
@@ -3484,7 +3497,7 @@ ClientMatch:
   kind: table
   description: |
     Criteria for matching clients.
-    
+
     If no fields are set, all clients are matched. If multiple fields are set, all fields
     must match the client.
   fields:
@@ -3493,14 +3506,14 @@ ClientMatch:
       required: false
       description: |
         Matches if the client rule with this name matches.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           name = "spotify"
           match.sandbox-app-id = "com.spotify.Client"
-        
+
           # Matches the same clients as the previous rule.
           [[clients]]
           match.name = "spotify"
@@ -3510,9 +3523,9 @@ ClientMatch:
       required: false
       description: |
         Matches if the contained criteria don't match.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           name = "not-spotify"
@@ -3525,9 +3538,9 @@ ClientMatch:
       required: false
       description: |
         Matches if all of the contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.all = [
@@ -3542,9 +3555,9 @@ ClientMatch:
       required: false
       description: |
         Matches if any of the contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.any = [
@@ -3557,9 +3570,9 @@ ClientMatch:
       required: false
       description: |
         Matches if a specific number of contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           # Matches any client that is either steam or sandboxed by flatpak but not both.
           [[clients]]
@@ -3574,9 +3587,9 @@ ClientMatch:
       required: false
       description: |
         Matches if the client is/isn't sandboxed.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.sandboxed = true
@@ -3586,9 +3599,9 @@ ClientMatch:
       required: false
       description: |
         Matches the engine name of the client's sandbox verbatim.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.sandbox-engine = "org.flatpak"
@@ -3598,9 +3611,9 @@ ClientMatch:
       required: false
       description: |
         Matches the engine name of the client's sandbox with a regular expression.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.sandbox-engine = "flatpak"
@@ -3610,9 +3623,9 @@ ClientMatch:
       required: false
       description: |
         Matches the app id of the client's sandbox verbatim.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.sandbox-app-id = "com.spotify.Client"
@@ -3622,9 +3635,9 @@ ClientMatch:
       required: false
       description: |
         Matches the app id of the client's sandbox with a regular expression.
-        
+
         - Example:
-        
+
           ```toml
           [[clients]]
           match.sandbox-app-id-regex = "(?i)spotify"
@@ -3698,16 +3711,16 @@ WindowRule:
       required: false
       description: |
         The name of this rule.
-        
+
         This name can be referenced in other rules.
-        
+
         - Example
-        
+
           ```toml
           [[windows]]
           name = "spotify"
           match.title-regex = "Spotify"
-        
+
           [[windows]]
           match.name = "spotify"
           action = "enter-fullscreen"
@@ -3729,7 +3742,7 @@ WindowRule:
       required: false
       description: |
         Whether newly mapped windows that match this rule get the keyboard focus.
-       
+
         If a window matches any rule for which this is false, the window will not be
         automatically focused.
     initial-tile-state:
@@ -3742,7 +3755,7 @@ WindowMatch:
   kind: table
   description: |
     Criteria for matching windows.
-    
+
     If no fields are set, all windows are matched. If multiple fields are set, all fields
     must match the window.
   fields:
@@ -3751,14 +3764,14 @@ WindowMatch:
       required: false
       description: |
         Matches if the window rule with this name matches.
-        
+
         - Example:
-        
+
           ```toml
           [[windows]]
           name = "spotify"
           match.title-regex = "Spotify"
-        
+
           # Matches the same windows as the previous rule.
           [[windows]]
           match.name = "spotify"
@@ -3768,9 +3781,9 @@ WindowMatch:
       required: false
       description: |
         Matches if the contained criteria don't match.
-        
+
         - Example:
-        
+
           ```toml
           [[windows]]
           name = "not-spotify"
@@ -3783,9 +3796,9 @@ WindowMatch:
       required: false
       description: |
         Matches if all of the contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           [[windows]]
           match.all = [
@@ -3800,9 +3813,9 @@ WindowMatch:
       required: false
       description: |
         Matches if any of the contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           [[windows]]
           match.any = [
@@ -3815,9 +3828,9 @@ WindowMatch:
       required: false
       description: |
         Matches if a specific number of contained criteria match.
-        
+
         - Example:
-        
+
           ```toml
           # Matches any window that is either Alacritty or on workspace 3 but not both.
           [[windows]]
@@ -3876,7 +3889,7 @@ WindowMatch:
       required: false
       description: |
         Matches if the window has/hasn't just been mapped.
-       
+
         This is true for one iteration of the compositor's main loop immediately after the
         window has been mapped.
     tag:
@@ -4006,9 +4019,9 @@ FocusHistory:
   kind: table
   description: |
     Describes settings of the focus history.
-    
+
     - Example:
-    
+
       ```toml
       [focus-history]
       only-visible: true
@@ -4018,16 +4031,16 @@ FocusHistory:
     only-visible:
       description: |
         Sets whether the focus history only moves to windows that are already visible.
-        
+
         If this is false, then the window will be made visible before focusing it.
-        
+
         The default is `false`.
       kind: boolean
       required: false
     same-workspace:
       description: |
         Sets whether the focus history only moves to windows on the same workspace.
-        
+
         The default is `false`.
       kind: boolean
       required: false
@@ -4037,11 +4050,11 @@ MarkId:
   kind: table
   description: |
     Identifies a mark.
-    
+
     Exactly one of the fields must be set.
-    
+
     - Example:
-    
+
       ```toml
       [shortcuts]
       alt-x = { type = "create-mark", id.key = "a" }
@@ -4050,10 +4063,10 @@ MarkId:
     key:
       description: |
         Identifies a mark by a key press.
-        
+
         The names of the keys can be found in [1] with the `KEY_` prefix removed. The key
         names must be written all lowercase.
-        
+
         [1]: https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
       kind: string
       required: false
@@ -4068,9 +4081,9 @@ InputMode:
   kind: table
   description: |
     Defines an input mode.
-    
+
     Modes can be used to define shortcuts that are only active when the mode is active.
-    
+
     - Example
 
       ```toml
@@ -4090,10 +4103,10 @@ InputMode:
       required: false
       description: |
         The parent of this input mode.
-        
+
         This mode inherits all shortcuts from this parent. If this field is not set, then
         it inherits the shortcuts from the top-level shortcuts.
-        
+
         Note that you can disable a shortcut by explicitly assigning it the action `none`.
     shortcuts:
       kind: map
@@ -4102,7 +4115,7 @@ InputMode:
       required: false
       description: |
         The shortcuts of this mode.
-        
+
         See the same field in the top-level `Config` object for a description.
     complex-shortcuts:
       kind: map
@@ -4111,7 +4124,7 @@ InputMode:
       required: false
       description: |
         The complex shortcuts of this mode.
-        
+
         See the same field in the top-level `Config` object for a description.
 
 
