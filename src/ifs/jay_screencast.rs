@@ -199,7 +199,7 @@ impl JayScreencast {
                     self.client.state.color_manager.srgb_gamma22(),
                     &*tl,
                     &self.client.state,
-                    Some(tl.node_absolute_position()),
+                    Some(tl.node_mapped_position()),
                     scale,
                     true,
                     true,
@@ -482,7 +482,7 @@ impl JayScreencast {
                     if !t.node_visible() {
                         return;
                     }
-                    t.node_absolute_position()
+                    t.node_mapped_position()
                 }
             };
             self.client.state.damage(rect);

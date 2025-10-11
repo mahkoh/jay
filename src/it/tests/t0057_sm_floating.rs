@@ -23,10 +23,10 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     tassert_eq!(win.workspace_id(), Some(ws1.id));
     win.set_workspace(&ws2);
     win.set_floating(true);
-    let old = win.tl.server.node_absolute_position();
+    let old = win.tl.server.node_mapped_position();
     win.tl.server.tl_resize(-10, -10, -10, -10);
     run.sync().await;
-    let new = win.tl.server.node_absolute_position();
+    let new = win.tl.server.node_mapped_position();
     tassert_ne!(old, new);
     let session = sm.get_session(REASON_LAUNCH, None)?;
     session.add_toplevel(&win, "win")?.destroy()?;
@@ -36,7 +36,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws2.id));
     tassert!(win.tl.server.tl_data().parent_is_float.get());
-    tassert_eq!(win.tl.server.node_absolute_position(), new);
+    tassert_eq!(win.tl.server.node_mapped_position(), new);
 
     Ok(())
 }

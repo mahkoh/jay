@@ -252,7 +252,7 @@ impl Renderer<'_> {
             ($stack:expr) => {
                 for stacked in $stack.iter_visible() {
                     self.base.sync();
-                    let pos = stacked.node_absolute_position();
+                    let pos = stacked.node_mapped_position();
                     if pos.intersects(&opos) {
                         let (x, y) = opos.translate(pos.x1(), pos.y1());
                         stacked.node_render(self, x, y, None);

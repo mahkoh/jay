@@ -82,7 +82,7 @@ impl TabletTool {
             prev.node_on_tablet_tool_leave(self, time_usec);
             prev.node_seat_state().remove_tablet_tool_focus(self);
             let (tool_x, tool_y) = self.cursor.position();
-            let (node_x, node_y) = node.node_absolute_position().position();
+            let (node_x, node_y) = node.node_mapped_position().position();
             node.node_seat_state().add_tablet_tool_focus(self);
             node.node_on_tablet_tool_enter(self, time_usec, tool_x - node_x, tool_y - node_y);
         }
@@ -161,7 +161,7 @@ impl ToolOwner for GrabToolOwner {
         changes: Option<&TabletToolChanges>,
     ) {
         let (x, y) = tool.cursor.position();
-        let node_pos = self.node.node_absolute_position();
+        let node_pos = self.node.node_mapped_position();
         self.node.clone().node_on_tablet_tool_apply_changes(
             tool,
             time_usec,

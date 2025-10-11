@@ -25,12 +25,12 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let bw = run.state.theme.sizes.border_width.get();
 
     tassert_eq!(
-        window.tl.server.node_absolute_position(),
+        window.tl.server.node_mapped_position(),
         Rect::new_sized(0, otop, (800 - bw) / 2, 600 - otop).unwrap()
     );
 
     tassert_eq!(
-        window2.tl.server.node_absolute_position(),
+        window2.tl.server.node_mapped_position(),
         Rect::new_sized((800 - bw) / 2 + bw, otop, (800 - bw) / 2, 600 - otop).unwrap()
     );
 

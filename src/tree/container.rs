@@ -1752,7 +1752,7 @@ impl Node for ContainerNode {
         self.toplevel_data.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         Rect::new_sized_saturating(
             self.abs_x1.get(),
             self.abs_y1.get(),
@@ -2370,7 +2370,7 @@ impl ContainingNode for ContainerNode {
                 self.perform_layout(tt);
             }
         }
-        let pos = self.node_absolute_position();
+        let pos = self.node_mapped_position();
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;

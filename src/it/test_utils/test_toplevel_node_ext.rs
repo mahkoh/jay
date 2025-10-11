@@ -6,6 +6,6 @@ pub trait TestToplevelNodeExt {
 
 impl TestToplevelNodeExt for dyn ToplevelNode {
     fn center(&self) -> (i32, i32) {
-        self.node_absolute_position().center()
+        self.node_mapped_position().center()
     }
 }

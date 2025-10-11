@@ -20,7 +20,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let win1 = client.create_window().await?;
     win1.map2().await?;
 
-    let (x, y) = win1.surface.server.node_absolute_position().position();
+    let (x, y) = win1.surface.server.node_mapped_position().position();
     ds.move_to(x, y);
     run.state.idle().await;
     client.sync().await;

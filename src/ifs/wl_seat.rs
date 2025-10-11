@@ -2126,9 +2126,9 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
             if node.node_is_display() {
                 continue;
             }
-            let (mut x, mut y) = node.node_absolute_position().center();
+            let (mut x, mut y) = node.node_mapped_position().center();
             if let Some(tl) = node.node_toplevel() {
-                (x, y) = tl.node_absolute_position().center();
+                (x, y) = tl.node_mapped_position().center();
             }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);

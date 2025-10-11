@@ -433,7 +433,7 @@ impl Node for WorkspaceNode {
         self.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_mapped_position(&self) -> Rect {
         self.position.get()
     }
 

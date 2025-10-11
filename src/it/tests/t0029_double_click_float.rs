@@ -21,7 +21,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     for i in ["1", "2"] {
-        let (x, y) = win1.tl.server.node_absolute_position().position();
+        let (x, y) = win1.tl.server.node_mapped_position().position();
         ds.move_to(x + 10, y - 3);
         ds.mouse.click(BTN_LEFT);
         ds.mouse.click(BTN_LEFT);

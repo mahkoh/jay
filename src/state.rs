@@ -949,7 +949,7 @@ impl State {
             let Some(ws) = ws() else {
                 return false;
             };
-            let op = ws.output.get().node_absolute_position();
+            let op = ws.output.get().node_mapped_position();
             self.map_floating(
                 tt,
                 node.clone(),
