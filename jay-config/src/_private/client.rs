@@ -1006,6 +1006,16 @@ impl ConfigClient {
         show
     }
 
+    pub fn set_show_titles(&self, show: bool) {
+        self.send(&ClientMessage::SetShowTitles { show });
+    }
+
+    pub fn get_show_titles(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetShowTitles);
+        get_response!(res, true, GetShowTitles { show });
+        show
+    }
+
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }

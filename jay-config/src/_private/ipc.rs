@@ -788,6 +788,10 @@ pub enum ClientMessage<'a> {
         workspace: Workspace,
         connector: Connector,
     },
+    SetShowTitles {
+        show: bool,
+    },
+    GetShowTitles,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1018,6 +1022,9 @@ pub enum Response {
         kind: ContentType,
     },
     GetShowBar {
+        show: bool,
+    },
+    GetShowTitles {
         show: bool,
     },
 }

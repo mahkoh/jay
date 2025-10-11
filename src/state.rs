@@ -285,6 +285,7 @@ pub struct State {
         CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
+    pub show_titles: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
@@ -826,7 +827,8 @@ impl State {
         abs_pos: Option<(i32, i32)>,
     ) {
         width += 2 * self.theme.sizes.border_width.get();
-        height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
+        height += 2 * self.theme.sizes.border_width.get()
+            + ((self.theme.sizes.title_height.get() + 1) * self.show_titles.get() as i32);
         let output = workspace.output.get();
         let output_rect = output.global.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
@@ -836,7 +838,8 @@ impl State {
             if y1 > output_rect.y2() {
                 y1 = output_rect.y2();
             }
-            y1 -= self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
+            y1 -= self.theme.sizes.border_width.get()
+                + ((self.theme.sizes.title_height.get() + 1) * self.show_titles.get() as i32);
             x1 -= self.theme.sizes.border_width.get();
             Rect::new_sized(x1, y1, width, height).unwrap()
         } else {

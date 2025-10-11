@@ -502,6 +502,7 @@ impl Renderer<'_> {
         let pos = floating.position.get();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
         let bc = theme.colors.border.get();
         let tc = if floating.active.get() {
@@ -521,10 +522,10 @@ impl Renderer<'_> {
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         self.base.fill_boxes(&borders, &bc, srgb);
-        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
+        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th * st).unwrap()];
         self.base.fill_boxes(&title, &tc, srgb);
         let title_underline =
-            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
+            [Rect::new_sized(x + bw, y + bw + (th * st), pos.width() - 2 * bw, st).unwrap()];
         self.base.fill_boxes(&title_underline, &uc, srgb);
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
@@ -560,7 +561,7 @@ impl Renderer<'_> {
                     srgb_srgb,
                 );
             }
-            x1 += th;
+            x1 += th * st;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
             && let Some(texture) = title.texture()
@@ -584,9 +585,9 @@ impl Renderer<'_> {
         }
         let body = Rect::new_sized(
             x + bw,
-            y + bw + th + 1,
+            y + bw + ((th + 1) * st),
             pos.width() - 2 * bw,
-            pos.height() - 2 * bw - th - 1,
+            pos.height() - 2 * bw - ((th + 1) * st),
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);

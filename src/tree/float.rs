@@ -178,14 +178,15 @@ impl FloatNode {
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let cpos = Rect::new_sized(
             pos.x1() + bw,
-            pos.y1() + bw + th + 1,
+            pos.y1() + bw + ((th + 1) * st),
             (pos.width() - 2 * bw).max(0),
-            (pos.height() - 2 * bw - th - 1).max(0),
+            (pos.height() - 2 * bw - ((th + 1) * st)).max(0),
         )
         .unwrap();
-        let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
+        let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th * st).unwrap();
         child.clone().tl_change_extents(&cpos);
         self.title_rect.set(tr);
         self.layout_scheduled.set(false);
@@ -249,6 +250,7 @@ impl FloatNode {
     fn render_title_phase2(&self) {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
         let title = self.title.borrow();
         let tt = &*self.title_textures.borrow();
@@ -259,8 +261,8 @@ impl FloatNode {
         }
         let pos = self.position.get();
         if self.visible.get() && pos.width() >= 2 * bw {
-            let tr =
-                Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
+            let tr = Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th * st)
+                .unwrap();
             self.state.damage(tr);
         }
     }
@@ -278,6 +280,7 @@ impl FloatNode {
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -313,7 +316,7 @@ impl FloatNode {
                 }
                 OpType::ResizeTop => {
                     y1 += y - seat_state.dist_ver;
-                    y1 = y1.min(y2 - 2 * bw - th - 1);
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
@@ -321,31 +324,31 @@ impl FloatNode {
                 }
                 OpType::ResizeBottom => {
                     y2 += y - pos.height() + seat_state.dist_ver;
-                    y2 = y2.max(y1 + 2 * bw + th + 1);
+                    y2 = y2.max(y1 + 2 * bw + ((th + 1) * st));
                 }
                 OpType::ResizeTopLeft => {
                     x1 += x - seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
                     x1 = x1.min(x2 - 2 * bw);
-                    y1 = y1.min(y2 - 2 * bw - th - 1);
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeTopRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
                     x2 = x2.max(x1 + 2 * bw);
-                    y1 = y1.min(y2 - 2 * bw - th - 1);
+                    y1 = y1.min(y2 - 2 * bw - ((th + 1) * st));
                 }
                 OpType::ResizeBottomLeft => {
                     x1 += x - seat_state.dist_hor;
                     y2 += y - pos.height() + seat_state.dist_ver;
                     x1 = x1.min(x2 - 2 * bw);
-                    y2 = y2.max(y1 + 2 * bw + th + 1);
+                    y2 = y2.max(y1 + 2 * bw + ((th + 1) * st));
                 }
                 OpType::ResizeBottomRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
                     y2 += y - pos.height() + seat_state.dist_ver;
                     x2 = x2.max(x1 + 2 * bw);
-                    y2 = y2.max(y1 + 2 * bw + th + 1);
+                    y2 = y2.max(y1 + 2 * bw + ((th + 1) * st));
                 }
             }
             let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
@@ -439,6 +442,7 @@ impl FloatNode {
         }
         let bw = self.state.theme.sizes.border_width.get();
         let th = self.state.theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -458,7 +462,7 @@ impl FloatNode {
         }
         adjust!(x1, x2);
         adjust!(y1, y2);
-        if y1 + bw + th <= opos.y1() {
+        if y1 + bw + th * st <= opos.y1() {
             y1 = opos.y1();
             y2 += y1 - pos.y1();
         }
@@ -554,8 +558,9 @@ impl FloatNode {
         };
         let bw = self.state.theme.sizes.border_width.get();
         let th = self.state.theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let mut is_icon_press = false;
-        if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
+        if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th * st {
             enum FloatIcon {
                 Pin,
             }
@@ -563,13 +568,13 @@ impl FloatNode {
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
                 icons.push(FloatIcon::Pin);
             }
-            let mut x2 = bw + th;
+            let mut x2 = bw + th * st;
             let icon = 'icon: {
                 for icon in icons {
                     if cursor_data.x < x2 {
                         break 'icon Some(icon);
                     }
-                    x2 += th;
+                    x2 += th * st;
                 }
                 None
             };
@@ -648,10 +653,11 @@ impl FloatNode {
         let theme = &self.state.theme.sizes;
         let bw = theme.border_width.get();
         let th = theme.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let pos = self.position.get();
         let body = Rect::new(
             pos.x1() + bw,
-            pos.y1() + bw + th + 1,
+            pos.y1() + bw + ((th + 1) * st),
             pos.x2() - bw,
             pos.y2() - bw,
         )?;
@@ -733,12 +739,13 @@ impl Node for FloatNode {
     ) -> FindTreeResult {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
         let pos = self.position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
         }
-        if y < bw + th + 1 || y >= pos.height() - bw {
+        if y < bw + ((th + 1) * st) || y >= pos.height() - bw {
             return FindTreeResult::AcceptsInput;
         }
         let child = match self.child.get() {
@@ -746,7 +753,7 @@ impl Node for FloatNode {
             _ => return FindTreeResult::Other,
         };
         let x = x - bw;
-        let y = y - bw - th - 1;
+        let y = y - bw - ((th + 1) * st);
         tree.push(FoundNode {
             node: child.clone(),
             x,
@@ -929,8 +936,9 @@ impl ContainingNode for FloatNode {
     fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
-        let (x, y) = (x - bw, y - th - bw - 1);
+        let (x, y) = (x - bw, y - ((th + 1) * st) - bw);
         let pos = self.position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
@@ -951,6 +959,7 @@ impl ContainingNode for FloatNode {
     ) {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let st = self.state.show_titles.get() as i32;
         let bw = theme.sizes.border_width.get();
         let pos = self.position.get();
         let mut x1 = pos.x1();
@@ -964,10 +973,10 @@ impl ContainingNode for FloatNode {
             x2 = (v + bw).max(x1 + bw + bw);
         }
         if let Some(v) = new_y1 {
-            y1 = (v - th - bw - 1).min(y2 - bw - th - bw - 1);
+            y1 = (v - ((th + 1) * st) - bw).min(y2 - bw - ((th + 1) * st) - bw);
         }
         if let Some(v) = new_y2 {
-            y2 = (v + bw).max(y1 + bw + th + bw + 1);
+            y2 = (v + bw).max(y1 + bw + ((th + 1) * st) + bw);
         }
         let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
         if new_pos != pos {
