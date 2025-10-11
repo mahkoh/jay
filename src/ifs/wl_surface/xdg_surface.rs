@@ -356,10 +356,11 @@ impl XdgSurface {
         let Some(ext) = self.ext.get() else {
             return;
         };
-        let state = &self.surface.client.state;
-        state
-            .configure_groups
-            .group(state.next_tree_serial())
+        self.surface
+            .client
+            .state
+            .tree_transaction()
+            .configure_group()
             .add(self, ext.configure_data());
     }
 

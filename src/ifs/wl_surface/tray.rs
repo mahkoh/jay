@@ -87,8 +87,8 @@ impl<T: TrayItem> DynTrayItem for T {
         let state = &data.client.state;
         let size = state.tray_icon_size().max(1);
         state
-            .configure_groups
-            .group(state.next_tree_serial())
+            .tree_transaction()
+            .configure_group()
             .add(&self, Size::new(size, size).unwrap());
     }
 

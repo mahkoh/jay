@@ -40,6 +40,7 @@ mod output;
 mod placeholder;
 mod stacked;
 mod toplevel;
+pub mod transaction;
 mod walker;
 mod workspace;
 

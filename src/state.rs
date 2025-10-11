@@ -97,7 +97,7 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, TreeSerial, TreeSerials,
-            VrrMode, WorkspaceNode, generic_node_visitor,
+            VrrMode, WorkspaceNode, generic_node_visitor, transaction::TreeTransactions,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -291,6 +291,7 @@ pub struct State {
     pub udmabuf: Rc<UdmabufHolder>,
     pub tree_serials: TreeSerials,
     pub configure_groups: Rc<ConfigureGroups>,
+    pub tree_transactions: Rc<TreeTransactions>,
 }
 
 // impl Drop for State {
@@ -1108,6 +1109,7 @@ impl State {
         self.cpu_worker.clear();
         self.wait_for_sync_obj.clear();
         self.configure_groups.clear();
+        self.tree_transactions.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
