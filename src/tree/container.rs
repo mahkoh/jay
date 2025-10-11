@@ -1190,7 +1190,7 @@ impl ContainerNode {
         self.update_child_title(child, &data.title.borrow());
         self.update_child_active(child, data.active(), 1);
         {
-            let pos = data.pos.get();
+            let pos = data.content_size.get();
             self.update_child_size(tt, child, pos.width(), pos.height());
         }
     }
@@ -2230,7 +2230,7 @@ impl ToplevelNodeBase for ContainerNode {
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         let tt = &self.state.tree_transaction();
-        self.toplevel_data.pos.set(*rect);
+        self.toplevel_data.content_size.set(*rect);
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
         let mut size_changed = false;

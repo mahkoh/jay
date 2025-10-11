@@ -155,7 +155,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_extents_changed(&self) {
         let data = self.tl_data();
         if let Some(parent) = data.parent.get() {
-            let pos = data.pos.get();
+            let pos = data.content_size.get();
             parent.node_child_size_changed(self, pos.width(), pos.height());
             data.state.tree_changed();
         }
@@ -394,7 +394,7 @@ pub struct ToplevelData {
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub mapped_during_iteration: Cell<u64>,
-    pub pos: Cell<Rect>,
+    pub content_size: Cell<Rect>,
     pub desired_extents: Cell<Rect>,
     pub seat_state: NodeSeatState,
     pub wants_attention: Cell<bool>,
@@ -450,7 +450,7 @@ impl ToplevelData {
             title: RefCell::new(title),
             parent: Default::default(),
             mapped_during_iteration: Cell::new(0),
-            pos: Default::default(),
+            content_size: Default::default(),
             desired_extents: Default::default(),
             seat_state: Default::default(),
             wants_attention: Cell::new(false),

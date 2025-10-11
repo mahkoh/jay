@@ -217,7 +217,7 @@ impl Xwindow {
                 id,
                 weak,
             );
-            tld.pos.set(surface.extents.get());
+            tld.content_size.set(surface.extents.get());
             tld.content_type.set(surface.content_type.get());
             Self {
                 id,

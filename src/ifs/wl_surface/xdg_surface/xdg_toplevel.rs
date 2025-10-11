@@ -154,7 +154,7 @@ impl XdgToplevel {
         toplevel_data
             .content_type
             .set(surface.surface.content_type.get());
-        toplevel_data.pos.set(surface.extents.get());
+        toplevel_data.content_size.set(surface.extents.get());
         Self {
             id,
             state: state.clone(),
@@ -753,7 +753,7 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn extents_changed(&self) {
-        self.toplevel_data.pos.set(self.xdg.extents.get());
+        self.toplevel_data.content_size.set(self.xdg.extents.get());
         self.tl_extents_changed();
     }
 

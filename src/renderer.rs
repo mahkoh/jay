@@ -215,7 +215,7 @@ impl Renderer<'_> {
         y: i32,
         bounds: Option<&Rect>,
     ) {
-        let pos = placeholder.tl_data().pos.get();
+        let pos = placeholder.tl_data().content_size.get();
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),

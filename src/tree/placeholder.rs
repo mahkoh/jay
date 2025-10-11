@@ -108,7 +108,7 @@ impl PlaceholderNode {
             return on_completed.event();
         };
         let scales = self.toplevel.state.scales.lock();
-        let rect = self.toplevel.pos.get();
+        let rect = self.toplevel.content_size.get();
         let mut textures = self.textures.borrow_mut();
         for (scale, _) in scales.iter() {
             let tex = textures.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
@@ -170,7 +170,7 @@ impl Node for PlaceholderNode {
     }
 
     fn node_mapped_position(&self) -> Rect {
-        self.toplevel.pos.get()
+        self.toplevel.content_size.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -243,7 +243,7 @@ impl ToplevelNodeBase for PlaceholderNode {
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
-        self.toplevel.pos.set(*rect);
+        self.toplevel.content_size.set(*rect);
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
