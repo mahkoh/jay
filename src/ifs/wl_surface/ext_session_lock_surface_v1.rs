@@ -50,10 +50,10 @@ impl ExtSessionLockSurfaceV1 {
 
     pub fn change_extents(self: &Rc<Self>, rect: Rect) {
         self.surface.set_absolute_position(rect.x1(), rect.y1());
-        let state = &self.client.state;
-        state
-            .configure_groups
-            .group(state.next_tree_serial())
+        self.client
+            .state
+            .tree_transaction()
+            .configure_group()
             .add(self, rect.size2());
     }
 

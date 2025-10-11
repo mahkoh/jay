@@ -113,7 +113,7 @@ use {
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
             VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
-            generic_node_visitor, move_ws_to_output,
+            generic_node_visitor, move_ws_to_output, transaction::TreeTransactions,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -315,6 +315,7 @@ pub struct State {
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree_serials: TreeSerials,
     pub configure_groups: Rc<ConfigureGroups>,
+    pub tree_transactions: Rc<TreeTransactions>,
 }
 
 // impl Drop for State {
@@ -1348,6 +1349,7 @@ impl State {
             sqlite.clear();
         }
         self.configure_groups.clear();
+        self.tree_transactions.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

@@ -61,6 +61,7 @@ use {
             WorkspaceDisplayOrder, container_layout, container_render_positions,
             container_render_titles, float_layout, float_titles, output_render_data,
             placeholder_render_textures,
+            transaction::{handle_tree_blocker_timeout, handle_tree_blocker_unblocked},
         },
         user_session::import_environment,
         utils::{
@@ -407,6 +408,7 @@ fn start_compositor2(
         toplevel_icons: Default::default(),
         tree_serials: Default::default(),
         configure_groups: Default::default(),
+        tree_transactions: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -625,6 +627,14 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "configurables timeout",
             Phase::PostLayout,
             handle_configurables_timeout(state.clone()),
+        ),
+        eng.spawn(
+            "tree blocker unblocked",
+            handle_tree_blocker_unblocked(state.clone()),
+        ),
+        eng.spawn(
+            "tree blocker timeout",
+            handle_tree_blocker_timeout(state.clone()),
         ),
     ]
 }
