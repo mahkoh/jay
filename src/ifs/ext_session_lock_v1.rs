@@ -74,6 +74,8 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             output: output.global.clone(),
             seat_state: Default::default(),
             version: self.version,
+            destroyed: Cell::new(false),
+            configurable_data: Default::default(),
         });
         track!(new.client, new);
         new.install()?;

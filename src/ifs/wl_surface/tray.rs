@@ -1,21 +1,21 @@
 use {
     crate::{
         client::{Client, ClientError, ClientId},
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
             },
         },
-        rect::Rect,
+        rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
             NodeVisitor, OutputNode, StackedNode, TreeSerial,
         },
         utils::{
-            cell_ext::CellExt,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
@@ -43,10 +43,9 @@ pub struct TrayItemData {
     pub surface: Rc<WlSurface>,
     output: Rc<OutputGlobalOpt>,
     attached: Cell<bool>,
-    sent_serial: Cell<Option<TreeSerial>>,
-    ack_serial: Cell<Option<TreeSerial>>,
     linked_node: Cell<Option<LinkedNode<Rc<dyn DynTrayItem>>>>,
     abs_pos: Cell<Rect>,
+    configurable: ConfigurableData<Size>,
     pub rel_pos: Cell<Rect>,
 }
 
@@ -61,10 +60,9 @@ impl TrayItemData {
             surface: surface.clone(),
             output: output.clone(),
             attached: Default::default(),
-            sent_serial: Default::default(),
-            ack_serial: Default::default(),
             linked_node: Default::default(),
             abs_pos: Default::default(),
+            configurable: Default::default(),
             rel_pos: Default::default(),
         }
     }
@@ -75,7 +73,7 @@ impl TrayItemData {
 }
 
 pub trait DynTrayItem: Node {
-    fn send_current_configure(&self);
+    fn send_current_configure(self: Rc<Self>);
     fn data(&self) -> &TrayItemData;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
@@ -84,16 +82,22 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(&self) {
-        <Self as TrayItem>::send_current_configure(self)
+    fn send_current_configure(self: Rc<Self>) {
+        let data = self.tray_item_data();
+        let state = &data.client.state;
+        let size = state.tray_icon_size().max(1);
+        state
+            .configure_groups
+            .group(state.next_tree_serial())
+            .add(&self, Size::new(size, size).unwrap());
     }
 
     fn data(&self) -> &TrayItemData {
-        <Self as TrayItem>::data(self)
+        <Self as TrayItem>::tray_item_data(self)
     }
 
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {
-        let data = self.data();
+        let data = self.tray_item_data();
         data.surface
             .set_absolute_position(abs_pos.x1(), abs_pos.y1());
         data.rel_pos.set(rel_pos);
@@ -111,7 +115,7 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 
     fn destroy_node(&self) {
-        let data = self.data();
+        let data = self.tray_item_data();
         data.linked_node.take();
         data.attached.set(false);
         self.destroy_popups();
@@ -124,7 +128,7 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 
     fn set_visible(&self, visible: bool) {
-        let data = self.data();
+        let data = self.tray_item_data();
         data.visible.set(visible);
         let visible = visible && data.surface.buffer.is_some();
         data.surface.set_visible(visible);
@@ -134,10 +138,9 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 }
 
-trait TrayItem: Sized + 'static {
-    fn send_initial_configure(&self);
-    fn send_current_configure(&self);
-    fn data(&self) -> &TrayItemData;
+trait TrayItem: SurfaceExt + Configurable<T = Size> + Sized + 'static {
+    fn send_initial_configure_prefix(&self);
+    fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
 }
@@ -161,7 +164,7 @@ struct Popup<T> {
 
 impl<T: TrayItem> XdgPopupParent for Popup<T> {
     fn position(&self) -> Rect {
-        self.parent.data().abs_pos.get()
+        self.parent.tray_item_data().abs_pos.get()
     }
 
     fn remove_popup(&self) {
@@ -170,7 +173,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     }
 
     fn output(&self) -> Rc<OutputNode> {
-        self.parent.data().surface.output.get()
+        self.parent.tray_item_data().surface.output.get()
     }
 
     fn has_workspace_link(&self) -> bool {
@@ -183,7 +186,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         let state = &surface.client.state;
         if surface.buffer.is_some() {
             if dl.is_none() {
-                let data = self.parent.data();
+                let data = self.parent.tray_item_data();
                 if data.surface.visible.get() {
                     self.popup.set_visible(true);
                     *dl = Some(self.stack.add_last(self.popup.clone()));
@@ -224,7 +227,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     }
 
     fn tray_item(&self) -> Option<TrayItemId> {
-        Some(self.parent.data().tray_item_id)
+        Some(self.parent.tray_item_data().tray_item_id)
     }
 
     fn allow_popup_focus(&self) -> bool {
@@ -237,6 +240,13 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
 }
 
 impl<T: TrayItem> SurfaceExt for T {
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+        if pending.serial.is_some() {
+            self.tray_item_data().configurable.ready();
+        }
+        CommitAction::ContinueCommit
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Output
     }
@@ -245,22 +255,17 @@ impl<T: TrayItem> SurfaceExt for T {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        if let Some(serial) = pending.serial.take() {
-            self.data().ack_serial.set(Some(serial));
-        }
+        pending.serial = None;
         Ok(())
     }
 
     fn after_apply_commit(self: Rc<Self>) {
-        let data = self.data();
+        let data = self.tray_item_data();
         if data.surface.visible.get() {
             if data.surface.buffer.is_none() {
                 self.destroy_node();
             }
         } else {
-            if data.ack_serial.is_none() || data.ack_serial.get() != data.sent_serial.get() {
-                return;
-            }
             if data.surface.buffer.is_some() {
                 data.surface.set_visible(data.visible.get());
                 if let Some(node) = data.output.node()
@@ -275,24 +280,24 @@ impl<T: TrayItem> SurfaceExt for T {
     }
 
     fn extents_changed(&self) {
-        let data = self.data();
+        let data = self.tray_item_data();
         if data.surface.visible.get() {
             data.client.state.tree_changed();
         }
     }
 
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
-        Some(self.data().tray_item_id)
+        Some(self.tray_item_data().tray_item_id)
     }
 }
 
 impl<T: TrayItem> Node for T {
     fn node_id(&self) -> NodeId {
-        self.data().node_id.into()
+        self.tray_item_data().node_id.into()
     }
 
     fn node_seat_state(&self) -> &NodeSeatState {
-        &self.data().seat_state
+        &self.tray_item_data().seat_state
     }
 
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
@@ -300,23 +305,23 @@ impl<T: TrayItem> Node for T {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        self.data().surface.clone().node_visit(visitor);
+        self.tray_item_data().surface.clone().node_visit(visitor);
     }
 
     fn node_visible(&self) -> bool {
-        self.data().surface.visible.get()
+        self.tray_item_data().surface.visible.get()
     }
 
     fn node_absolute_position(&self) -> Rect {
-        self.data().surface.node_absolute_position()
+        self.tray_item_data().surface.node_absolute_position()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.data().output.node()
+        self.tray_item_data().output.node()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
-        self.data().surface.node_location()
+        self.tray_item_data().surface.node_location()
     }
 
     fn node_layer(&self) -> NodeLayerLink {
@@ -330,20 +335,20 @@ impl<T: TrayItem> Node for T {
         tree: &mut Vec<FoundNode>,
         _usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        self.data().find_tree_at(x, y, tree)
+        self.tray_item_data().find_tree_at(x, y, tree)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
-        Some(self.data().client.clone())
+        Some(self.tray_item_data().client.clone())
     }
 
     fn node_client_id(&self) -> Option<ClientId> {
-        Some(self.data().client.id)
+        Some(self.tray_item_data().client.id)
     }
 }
 
 fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
-    let data = item.data();
+    let data = item.tray_item_data();
     data.surface.set_role(SurfaceRole::TrayItem)?;
     if data.surface.ext.get().is_some() {
         return Err(TrayItemError::Exists);
@@ -353,7 +358,8 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
-        item.send_initial_configure();
+        item.send_initial_configure_prefix();
+        item.clone().send_current_configure();
     }
     Ok(())
 }
@@ -363,13 +369,13 @@ fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
         return Err(TrayItemError::HasPopups);
     }
     item.destroy_node();
-    item.data().surface.unset_ext();
-    item.data().surface.set_visible(false);
+    item.tray_item_data().surface.unset_ext();
+    item.tray_item_data().surface.set_visible(false);
     Ok(())
 }
 
 fn ack_configure<T: TrayItem>(item: &T, serial: TreeSerial) {
-    item.data().surface.pending.borrow_mut().serial = Some(serial);
+    item.tray_item_data().surface.pending.borrow_mut().serial = Some(serial);
 }
 
 fn get_popup<T: TrayItem>(
@@ -379,7 +385,7 @@ fn get_popup<T: TrayItem>(
     serial: u32,
     focus: FocusHint,
 ) -> Result<(), TrayItemError> {
-    let data = item.data();
+    let data = item.tray_item_data();
     let popup = data.client.lookup(popup)?;
     let seat = data.client.lookup(seat)?;
     let seat = &seat.global;

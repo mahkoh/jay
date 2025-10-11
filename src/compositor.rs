@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        configurable::{handle_configurables, handle_configurables_timeout},
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
             CritMatcherIds,
@@ -35,10 +36,7 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
-            wl_surface::{
-                NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
-                zwp_input_popup_surface_v2::input_popup_positioning,
-            },
+            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -357,11 +355,11 @@ fn start_compositor2(
         head_managers_async: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
-        xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
         tree_serials: Default::default(),
+        configure_groups: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -556,9 +554,14 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             handle_jay_head_manager_done(state.clone()),
         ),
         eng.spawn2(
-            "xdg_surface configure events",
+            "configurables",
             Phase::PostLayout,
-            handle_xdg_surface_configure_events(state.clone()),
+            handle_configurables(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables timeout",
+            Phase::PostLayout,
+            handle_configurables_timeout(state.clone()),
         ),
     ]
 }

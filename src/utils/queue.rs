@@ -38,6 +38,15 @@ impl<T> AsyncQueue<T> {
         }
     }
 
+    pub fn push_front(&self, t: T) {
+        unsafe {
+            self.data.get().deref_mut().push_front(t);
+        }
+        if let Some(waiter) = self.waiter.take() {
+            waiter.wake();
+        }
+    }
+
     pub fn try_pop(&self) -> Option<T> {
         unsafe { self.data.get().deref_mut().pop_front() }
     }
@@ -68,6 +77,13 @@ impl<T> AsyncQueue<T> {
     pub fn move_to(&self, other: &mut VecDeque<T>) {
         unsafe {
             other.append(self.data.get().deref_mut());
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn swap(&self, other: &mut VecDeque<T>) {
+        unsafe {
+            mem::swap(other, self.data.get().deref_mut());
         }
     }
 }

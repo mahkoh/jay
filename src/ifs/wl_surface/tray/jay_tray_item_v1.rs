@@ -1,5 +1,6 @@
 use {
     crate::{
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_surface::{
@@ -13,11 +14,12 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::NodeVisitor,
+        rect::Size,
+        tree::{NodeVisitor, TreeSerial},
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -27,6 +29,8 @@ pub struct JayTrayItemV1 {
     version: Version,
     data: TrayItemData,
     popups: CopyHashMap<XdgPopupId, Rc<Popup<Self>>>,
+    configurable_data: ConfigurableData<Size>,
+    destroyed: Cell<bool>,
 }
 
 impl JayTrayItemV1 {
@@ -41,7 +45,9 @@ impl JayTrayItemV1 {
             tracker: Default::default(),
             version,
             popups: Default::default(),
+            configurable_data: Default::default(),
             data: TrayItemData::new(surface, output),
+            destroyed: Cell::new(false),
         }
     }
 
@@ -72,9 +78,7 @@ impl JayTrayItemV1 {
         });
     }
 
-    fn send_configure(&self) {
-        let serial = self.data.client.state.next_tree_serial();
-        self.data.sent_serial.set(Some(serial));
+    fn send_configure(&self, serial: TreeSerial) {
         self.data.client.event(Configure {
             self_id: self.id,
             serial: serial.raw() as _,
@@ -86,6 +90,7 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
     type Error = JayTrayItemV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
         destroy(self)?;
         Ok(())
     }
@@ -111,19 +116,12 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
 }
 
 impl TrayItem for JayTrayItemV1 {
-    fn send_initial_configure(&self) {
+    fn send_initial_configure_prefix(&self) {
         self.send_preferred_anchor();
         self.send_preferred_gravity();
-        <Self as TrayItem>::send_current_configure(self);
     }
 
-    fn send_current_configure(&self) {
-        let size = self.data.client.state.tray_icon_size().max(1);
-        self.send_configure_size(size, size);
-        self.send_configure();
-    }
-
-    fn data(&self) -> &TrayItemData {
+    fn tray_item_data(&self) -> &TrayItemData {
         &self.data
     }
 
@@ -157,4 +155,29 @@ pub enum JayTrayItemV1Error {
     InvalidFocusHint(u32),
     #[error("The serial is invalid")]
     InvalidSerial,
+}
+
+impl Configurable for JayTrayItemV1 {
+    type T = Size;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configurable_data
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.data.visible.get()
+    }
+
+    fn destroyed(&self) -> bool {
+        self.destroyed.get()
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        self.send_configure_size(data.width(), data.height());
+        self.send_configure(serial);
+    }
 }

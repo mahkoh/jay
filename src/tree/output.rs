@@ -466,7 +466,7 @@ impl OutputNode {
             c.change_extents(&self.workspace_rect.get());
         }
         for item in self.tray_items.iter() {
-            item.send_current_configure();
+            item.deref().clone().send_current_configure();
         }
     }
 

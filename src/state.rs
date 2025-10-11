@@ -15,6 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        configurable::ConfigureGroups,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
@@ -64,7 +65,6 @@ use {
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
-                xdg_surface::XdgSurfaceConfigureEvent,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -286,11 +286,11 @@ pub struct State {
     pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
-    pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub tree_serials: TreeSerials,
+    pub configure_groups: Rc<ConfigureGroups>,
 }
 
 // impl Drop for State {
@@ -1107,7 +1107,7 @@ impl State {
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
         self.wait_for_sync_obj.clear();
-        self.xdg_surface_configure_events.clear();
+        self.configure_groups.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

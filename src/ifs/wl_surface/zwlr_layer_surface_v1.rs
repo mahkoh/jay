@@ -1,18 +1,19 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
             },
             zwlr_layer_shell_v1::{OVERLAY, ZwlrLayerShellV1},
         },
         leaks::Tracker,
         object::Object,
-        rect::Rect,
+        rect::{Rect, Size},
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
@@ -70,6 +71,8 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_size: Cell<ExclusiveSize>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     need_position_update: Cell<bool>,
+    configurable_data: ConfigurableData<Size>,
+    destroyed: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -176,6 +179,8 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_size: Default::default(),
             popups: Default::default(),
             need_position_update: Default::default(),
+            configurable_data: Default::default(),
+            destroyed: Cell::new(false),
         }
     }
 
@@ -307,6 +312,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
         if self.popups.is_not_empty() {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
@@ -568,6 +574,13 @@ impl ZwlrLayerSurfaceV1 {
 }
 
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+        if pending.serial.is_some() {
+            self.configurable_data.ready();
+        }
+        CommitAction::ContinueCommit
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         let Some(link) = self.link.borrow().as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;
@@ -821,3 +834,27 @@ pub enum ZwlrLayerSurfaceV1Error {
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);
+
+impl Configurable for ZwlrLayerSurfaceV1 {
+    type T = Size;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configurable_data
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.surface.visible.get()
+    }
+
+    fn destroyed(&self) -> bool {
+        self.destroyed.get()
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        self.send_configure(serial, data.width() as _, data.height() as _);
+    }
+}

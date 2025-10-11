@@ -7,7 +7,7 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
-                xdg_surface::{XdgSurface, XdgSurfaceExt},
+                xdg_surface::{XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt},
             },
             xdg_positioner::{
                 CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
@@ -65,6 +65,7 @@ pub struct XdgPopup {
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
     set_visible_prepared: Cell<bool>,
+    reposition_token: Cell<Option<u32>>,
 }
 
 impl Debug for XdgPopup {
@@ -93,6 +94,7 @@ impl XdgPopup {
             tracker: Default::default(),
             seat_state: Default::default(),
             set_visible_prepared: Cell::new(false),
+            reposition_token: Default::default(),
         })
     }
 
@@ -242,9 +244,7 @@ impl XdgPopupRequestHandler for XdgPopup {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_repositioned(req.token);
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
+            self.reposition_token.set(Some(req.token));
             self.xdg.schedule_configure();
         }
         Ok(())
@@ -455,6 +455,23 @@ impl XdgSurfaceExt for XdgPopup {
             return NodeLayerLink::Display;
         };
         parent.node_layer()
+    }
+
+    fn configure_data(&self) -> XdgSurfaceConfigureData {
+        XdgSurfaceConfigureData::Popup {
+            repositioned: self.reposition_token.take(),
+            rect: self.relative_position.get(),
+        }
+    }
+
+    fn send_configure(&self, data: XdgSurfaceConfigureData) {
+        let XdgSurfaceConfigureData::Popup { repositioned, rect } = data else {
+            return;
+        };
+        if let Some(t) = repositioned {
+            self.send_repositioned(t);
+        }
+        self.send_configure(rect.x1(), rect.y1(), rect.width(), rect.height());
     }
 }
 
