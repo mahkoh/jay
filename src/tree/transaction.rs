@@ -1,6 +1,7 @@
 use {
     crate::{
         configurable::{ConfigureGroup, DEFAULT_TIMEOUT_NS},
+        ifs::wl_surface::WlSurfaceTreeOp,
         state::State,
         tree::TreeSerial,
         utils::{
@@ -110,7 +111,6 @@ impl TreeTransactions {
         }
     }
 
-    #[expect(dead_code)]
     pub fn timeline(&self) -> TreeTransactionTimeline {
         TreeTransactionTimeline {
             id: self.timeline_ids.next(),
@@ -268,12 +268,10 @@ impl TreeBarrier {
         self.version == self.blocker.version.get()
     }
 
-    #[expect(dead_code)]
     pub fn is_unblocked(&self) -> bool {
         !self.is_blocked()
     }
 
-    #[expect(dead_code)]
     pub fn timed_out(&self, now_ns: u64) -> bool {
         self.start_time_ns + self.blocker.transactions.timeout_ns.get() <= now_ns
     }
@@ -322,7 +320,6 @@ impl TreeBlocker {
 }
 
 impl TreeTransaction<'_> {
-    #[expect(dead_code)]
     pub fn add_op<T>(&self, timeline: &TreeTransactionTimeline, op: T)
     where
         T: CachedTreeTransactionOp,
@@ -355,7 +352,6 @@ impl TreeTransaction<'_> {
         self.barrier_(false)
     }
 
-    #[expect(dead_code)]
     pub fn weak_barrier(&self) -> TreeBarrier {
         self.barrier_(true)
     }
@@ -468,4 +464,5 @@ macro_rules! ops {
 
 ops! {
     BarrierDropper,
+    WlSurfaceTreeOp,
 }

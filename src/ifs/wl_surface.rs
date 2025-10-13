@@ -24,6 +24,7 @@ use {
         backend::KeyState,
         client::{Client, ClientError},
         cmm::cmm_description::ColorDescription,
+        configurable::ConfigurableDataCore,
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         drm_feedback::DrmFeedback,
@@ -78,12 +79,15 @@ use {
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
             OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, TreeSerial,
-            VblankListener, transaction::TreeTransaction,
+            VblankListener,
+            transaction::{
+                TreeBarrier, TreeTransaction, TreeTransactionOp, TreeTransactionTimeline,
+            },
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
+            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap, syncqueue::SyncQueue,
             transform_ext::TransformExt,
         },
         video::{
@@ -351,6 +355,12 @@ pub struct WlSurface {
     color_management_feedback:
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
+    tree_barriers: SyncQueue<(TreeSerial, TreeBarrier)>,
+    transaction_timeline: TreeTransactionTimeline,
+    unblocked_serial: Cell<TreeSerial>,
+    scheduled_serial: Cell<TreeSerial>,
+    acked_serial: Cell<TreeSerial>,
+    tardy: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -379,6 +389,10 @@ trait SurfaceExt {
     fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         let _ = pending;
         CommitAction::ContinueCommit
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        None
     }
 
     fn before_apply_commit(
@@ -703,6 +717,12 @@ impl WlSurface {
             color_management_surface: Default::default(),
             color_management_feedback: Default::default(),
             color_description: Default::default(),
+            tree_barriers: Default::default(),
+            transaction_timeline: client.state.tree_transactions.timeline(),
+            unblocked_serial: Cell::new(TreeSerial::from_raw(0)),
+            scheduled_serial: Cell::new(TreeSerial::from_raw(0)),
+            acked_serial: Cell::new(TreeSerial::from_raw(0)),
+            tardy: Cell::new(false),
         }
     }
 
@@ -1746,6 +1766,75 @@ impl WlSurface {
             fb.send_preferred_changed(&cd);
         }
     }
+
+    fn pop_tree_barriers(&self, mut cond: impl FnMut(TreeSerial, &TreeBarrier) -> bool) -> bool {
+        let mut popped_any = false;
+        while let Some(barrier) = self.tree_barriers.pop() {
+            if cond(barrier.0, &barrier.1) {
+                popped_any = true;
+                continue;
+            }
+            self.tree_barriers.push_front(barrier);
+            break;
+        }
+        popped_any
+    }
+
+    fn handle_acked_serial(&self, serial: TreeSerial) {
+        let now = self.client.state.now_nsec();
+        let mut non_tardy = !self.tardy.get();
+        while let Some(barrier) = self.tree_barriers.pop() {
+            if !non_tardy && barrier.1.timed_out(now) {
+                continue;
+            }
+            if barrier.0 <= serial {
+                non_tardy = true;
+                continue;
+            }
+            self.tree_barriers.push_front(barrier);
+            break;
+        }
+        self.acked_serial.set(serial);
+        if non_tardy && self.tardy.replace(false) {
+            if let Some(cd) = self.ext.get().configurable_data() {
+                cd.disable_tardy();
+            }
+        }
+    }
+
+    #[expect(dead_code)]
+    fn push_tree_blocker(self: &Rc<Self>, tt: &TreeTransaction, use_last_serial: bool) {
+        let ss = &self.scheduled_serial;
+        let serial;
+        if use_last_serial {
+            serial = ss.get();
+            if self.serial_is_unblocked(serial) {
+                return;
+            }
+        } else {
+            serial = tt.serial();
+        }
+        let barrier = if self.tardy.get() {
+            tt.weak_barrier()
+        } else {
+            tt.barrier()
+        };
+        self.tree_barriers.push((serial, barrier));
+        tt.add_op(
+            &self.transaction_timeline,
+            WlSurfaceTreeOp {
+                surface: self.clone(),
+            },
+        );
+    }
+
+    fn serial_is_unblocked(&self, tree_serial: TreeSerial) -> bool {
+        tree_serial <= self.unblocked_serial.get() || tree_serial > self.scheduled_serial.get()
+    }
+
+    fn serial_is_blocked(&self, tree_serial: TreeSerial) -> bool {
+        !self.serial_is_unblocked(tree_serial)
+    }
 }
 
 object_base! {
@@ -2246,5 +2335,35 @@ impl PresentationListener for WlSurface {
             let _ = pf.client.remove_obj(&*pf);
         }
         self.presentation_listener.detach();
+    }
+}
+
+pub struct WlSurfaceTreeOp {
+    surface: Rc<WlSurface>,
+}
+
+impl TreeTransactionOp for WlSurfaceTreeOp {
+    fn unblocked(self, serial: TreeSerial, timeout: bool) {
+        let surface = &self.surface;
+        if timeout {
+            let guilty = surface.acked_serial.get() < serial;
+            if guilty {
+                surface.tardy.set(true);
+                surface.tree_barriers.clear();
+                if let Some(cd) = surface.ext.get().configurable_data() {
+                    cd.enable_tardy();
+                }
+            } else {
+                surface.pop_tree_barriers(|_, barrier| barrier.is_unblocked());
+            }
+        } else if surface.tardy.get() {
+            let now = surface.client.state.now_nsec();
+            surface.pop_tree_barriers(|_, barrier| barrier.timed_out(now));
+        }
+        let us = &surface.unblocked_serial;
+        if serial > us.get() {
+            us.set(serial);
+            surface.commit_timeline.tree_unblocked(surface);
+        }
     }
 }

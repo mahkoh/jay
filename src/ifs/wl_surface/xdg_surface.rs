@@ -4,7 +4,7 @@ pub mod xdg_toplevel;
 use {
     crate::{
         client::ClientError,
-        configurable::{Configurable, ConfigurableData},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore},
         ifs::{
             wl_surface::{
                 CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
@@ -627,6 +627,10 @@ impl SurfaceExt for XdgSurface {
             self.configure_data.ready();
         }
         CommitAction::ContinueCommit
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(&self.configure_data)
     }
 
     fn before_apply_commit(

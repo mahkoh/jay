@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        configurable::{Configurable, ConfigurableData},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore},
         fixed::Fixed,
         ifs::{
             wl_output::OutputGlobalOpt,
@@ -100,6 +100,10 @@ impl ExtSessionLockSurfaceV1 {
 }
 
 impl SurfaceExt for ExtSessionLockSurfaceV1 {
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Lock
+    }
+
     fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         if pending.serial.is_some() {
             self.configurable_data.ready();
@@ -107,8 +111,8 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
         CommitAction::ContinueCommit
     }
 
-    fn node_layer(&self) -> NodeLayerLink {
-        NodeLayerLink::Lock
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(&self.configurable_data)
     }
 
     fn extents_changed(&self) {

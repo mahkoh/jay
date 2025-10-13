@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError, ClientId},
-        configurable::{Configurable, ConfigurableData},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -240,6 +240,10 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
 }
 
 impl<T: TrayItem> SurfaceExt for T {
+    fn node_layer(&self) -> NodeLayerLink {
+        NodeLayerLink::Output
+    }
+
     fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         if pending.serial.is_some() {
             self.tray_item_data().configurable.ready();
@@ -247,8 +251,8 @@ impl<T: TrayItem> SurfaceExt for T {
         CommitAction::ContinueCommit
     }
 
-    fn node_layer(&self) -> NodeLayerLink {
-        NodeLayerLink::Output
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(self.data())
     }
 
     fn before_apply_commit(

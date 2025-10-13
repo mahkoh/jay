@@ -10,7 +10,7 @@ use {
         io_uring::{
             IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
         },
-        tree::BeforeLatchResult,
+        tree::{BeforeLatchResult, TreeSerial},
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -66,6 +66,7 @@ pub struct CommitTimeline {
     fifo_barrier_set: Cell<bool>,
     fifo_waiter: Cell<Option<NodeRef<Entry>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
+    tree_block_waiter: Cell<Option<NodeRef<Entry>>>,
 }
 
 struct Inner {
@@ -148,6 +149,7 @@ impl CommitTimelines {
             fifo_barrier_set: Cell::new(false),
             fifo_waiter: Default::default(),
             commit_time_waiter: Default::default(),
+            tree_block_waiter: Default::default(),
         }
     }
 
@@ -181,6 +183,7 @@ impl CommitTimeline {
             ClearReason::BreakLoops => {
                 self.fifo_waiter.take();
                 self.commit_time_waiter.take();
+                self.tree_block_waiter.take();
                 break_loops(&self.own_timeline.entries)
             }
             ClearReason::Destroy => {
@@ -216,9 +219,13 @@ impl CommitTimeline {
             || pending_uploads > 0
             || implicit_dmabufs.is_not_empty()
             || has_commit_time;
-        let must_be_queued = has_dependencies
+        let mut must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
+        if !must_be_queued && let Some(serial) = pending.serial {
+            surface.handle_acked_serial(serial);
+            must_be_queued = surface.serial_is_blocked(serial);
+        }
         if !must_be_queued {
             return surface
                 .apply_state(pending)
@@ -232,11 +239,13 @@ impl CommitTimeline {
             true => CommitFifoState::Queued,
             false => CommitFifoState::Mailbox,
         };
+        let has_serial = pending.serial.is_some();
         let noderef = add_entry(
             &self.own_timeline.entries,
             &self.shared,
             EntryKind::Commit(Commit {
                 surface: surface.clone(),
+                serial: pending.serial,
                 pending: RefCell::new(mem::take(pending)),
                 sync_obj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
@@ -248,7 +257,7 @@ impl CommitTimeline {
                 commit_times: RefCell::new(CommitTimesState::Ready),
             }),
         );
-        let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
+        let mut needs_flush = commit_fifo_state == CommitFifoState::Queued || has_serial;
         if has_dependencies {
             let noderef = Rc::new(noderef.clone());
             let EntryKind::Commit(commit) = &noderef.kind else {
@@ -334,6 +343,12 @@ impl CommitTimeline {
             BeforeLatchResult::None
         }
     }
+
+    pub fn tree_unblocked(&self, surface: &WlSurface) {
+        if let Some(waiter) = self.tree_block_waiter.take() {
+            flush_surface(&waiter, surface);
+        }
+    }
 }
 
 impl SyncObjWaiter for NodeRef<Entry> {
@@ -351,11 +366,12 @@ impl SyncObjWaiter for NodeRef<Entry> {
 }
 
 fn flush_commit(node_ref: &NodeRef<Entry>, commit: &Commit) {
+    flush_surface(node_ref, &commit.surface);
+}
+
+fn flush_surface(node_ref: &NodeRef<Entry>, surface: &WlSurface) {
     if let Err(e) = flush_from(node_ref.clone()) {
-        commit
-            .surface
-            .client
-            .error(CommitTimelineError::DelayedCommit(e));
+        surface.client.error(CommitTimelineError::DelayedCommit(e));
     }
 }
 
@@ -440,6 +456,7 @@ enum CommitTimesState {
 struct Commit {
     surface: Rc<WlSurface>,
     pending: RefCell<Box<PendingState>>,
+    serial: Option<TreeSerial>,
     sync_obj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncObjHandle; 1]>>,
     pending_uploads: NumCell<usize>,
@@ -512,6 +529,13 @@ impl NodeRef<Entry> {
                 }
                 if has_unmet_dependencies {
                     return Ok(false);
+                }
+                if let Some(serial) = c.serial {
+                    c.surface.handle_acked_serial(serial);
+                    if c.surface.serial_is_blocked(serial) {
+                        tl.tree_block_waiter.set(Some(self.clone()));
+                        return Ok(false);
+                    }
                 }
                 c.surface.apply_state(c.pending.borrow_mut().deref_mut())?;
                 Ok(true)
