@@ -44,8 +44,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
-            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, transaction::TreeTransaction,
-            walker::NodeVisitor,
+            WorkspaceDragDestination, WorkspaceInOutput, WorkspaceNode, WorkspaceNodeId,
+            WorkspaceState, transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -83,7 +83,7 @@ pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
-    pub workspaces: LinkedList<Rc<WorkspaceNode>>,
+    pub workspaces: LinkedList<WorkspaceInOutput>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
@@ -273,7 +273,7 @@ impl OutputNode {
     }
 
     pub fn screencast_changed(&self) {
-        for ws in self.workspaces.iter() {
+        for ws in self.current_workspaces() {
             ws.update_has_captures();
         }
     }
@@ -445,7 +445,7 @@ impl OutputNode {
     pub fn clear(&self) {
         self.global.clear();
         self.workspace.set(None);
-        let workspaces: Vec<_> = self.workspaces.iter().collect();
+        let workspaces: Vec<_> = self.current_workspaces().collect();
         for workspace in workspaces {
             workspace.clear();
         }
@@ -486,7 +486,7 @@ impl OutputNode {
         self.change_extents_(tt, &rect);
         let mut visitor = SurfaceSendPreferredScaleVisitor;
         self.node_visit_children(&mut visitor);
-        for ws in self.workspaces.iter() {
+        for ws in self.current_workspaces() {
             for stacked in ws.stacked.iter() {
                 stacked.deref().clone().node_visit(&mut visitor);
             }
@@ -529,7 +529,7 @@ impl OutputNode {
             texture_height = (bh as f64 * scale).round() as _;
         }
         let active_id = self.workspace.get().map(|w| w.id);
-        for ws in self.workspaces.iter() {
+        for ws in self.mapped_workspaces() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
@@ -589,7 +589,7 @@ impl OutputNode {
         let non_exclusive_rect = self.non_exclusive_rect.get();
         let output_width = non_exclusive_rect.width();
         rd.underline = Rect::new_sized(0, bh, output_width, 1).unwrap();
-        for ws in self.workspaces.iter() {
+        for ws in self.mapped_workspaces() {
             let mut title_width = bh;
             let title = &*ws.title_texture.borrow();
             if let Some(title) = title {
@@ -613,7 +613,7 @@ impl OutputNode {
                         tex_x: x,
                         tex_y: 0,
                         tex: texture,
-                        ws: ws.deref().clone(),
+                        ws: ws.clone(),
                     });
                 }
             }
@@ -709,7 +709,7 @@ impl OutputNode {
             }
         }
         self.update_visible(tt);
-        if let Some(fs) = ws.fullscreen.get() {
+        if let Some(fs) = ws.current.fullscreen.get() {
             fs.tl_change_extents(tt, &self.global.pos.get());
         }
         ws.change_extents(tt, &self.workspace_rect.get());
@@ -722,7 +722,7 @@ impl OutputNode {
         true
     }
 
-    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<Rc<WorkspaceNode>>> {
+    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<WorkspaceInOutput>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             for existing_ws in self.workspaces.iter() {
                 if name < existing_ws.name.as_str() {
@@ -742,16 +742,9 @@ impl OutputNode {
             id: self.state.node_ids.next(),
             state: self.state.clone(),
             is_dummy: false,
-            output: CloneCell::new(self.clone()),
-            output_id: Cell::new(self.id),
-            position: Cell::new(Default::default()),
-            container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
             name: name.to_string(),
-            output_link: Default::default(),
-            visible: Cell::new(false),
-            fullscreen: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),
@@ -762,15 +755,34 @@ impl OutputNode {
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
             opt: Default::default(),
+            current: WorkspaceState {
+                output: CloneCell::new(self.clone()),
+                output_id: Cell::new(self.id),
+                position: Cell::new(Default::default()),
+                container: Default::default(),
+                output_link: Default::default(),
+                visible: Cell::new(false),
+                fullscreen: Default::default(),
+            },
+            mapped: WorkspaceState {
+                output: CloneCell::new(self.clone()),
+                output_id: Cell::new(self.id),
+                position: Cell::new(Default::default()),
+                container: Default::default(),
+                output_link: Default::default(),
+                visible: Cell::new(false),
+                fullscreen: Default::default(),
+            },
         });
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
+        let wio = WorkspaceInOutput::new(&ws);
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
-            before.prepend(ws.clone())
+            before.prepend(wio)
         } else {
-            self.workspaces.add_last(ws.clone())
+            self.workspaces.add_last(wio)
         };
-        *ws.output_link.borrow_mut() = Some(link);
+        ws.current.output_link.set(Some(Rc::new(link)));
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
             self.show_workspace(tt, &ws);
@@ -915,7 +927,7 @@ impl OutputNode {
             ls.change_extents(tt, *rect);
         }
         if let Some(c) = self.workspace.get() {
-            if let Some(fs) = c.fullscreen.get() {
+            if let Some(fs) = c.current.fullscreen.get() {
                 fs.tl_change_extents(tt, rect);
             }
             c.change_extents(tt, &self.workspace_rect.get());
@@ -1074,7 +1086,7 @@ impl OutputNode {
     pub fn has_fullscreen(&self) -> bool {
         self.workspace
             .get()
-            .map(|w| w.fullscreen.is_some())
+            .map(|w| w.current.fullscreen.is_some())
             .unwrap_or(false)
     }
 
@@ -1124,7 +1136,7 @@ impl OutputNode {
         }
         let mut have_fullscreen = false;
         if let Some(ws) = self.workspace.get() {
-            have_fullscreen = ws.fullscreen.is_some();
+            have_fullscreen = ws.current.fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
         self.title_visible.set(lower_visible);
@@ -1181,7 +1193,7 @@ impl OutputNode {
                 let Some(ws) = self.workspace.get() else {
                     break 'get false;
                 };
-                let Some(tl) = ws.fullscreen.get() else {
+                let Some(tl) = ws.current.fullscreen.get() else {
                     break 'get false;
                 };
                 if let Some(req) = surface {
@@ -1220,7 +1232,7 @@ impl OutputNode {
                 let Some(ws) = self.workspace.get() else {
                     break 'get false;
                 };
-                let Some(tl) = ws.fullscreen.get() else {
+                let Some(tl) = ws.current.fullscreen.get() else {
                     break 'get false;
                 };
                 if let Some(req) = surface {
@@ -1279,7 +1291,7 @@ impl OutputNode {
                 },
             });
         };
-        if ws.fullscreen.is_some() {
+        if ws.current.fullscreen.is_some() {
             return None;
         }
         let show_bar = self.state.show_bar.get();
@@ -1319,7 +1331,7 @@ impl OutputNode {
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
-        let Some(c) = ws.container.get() else {
+        let Some(c) = ws.current.container.get() else {
             return Some(TileDragDestination {
                 highlight: rect,
                 ty: TddType::NewContainer { workspace: ws },
@@ -1346,7 +1358,7 @@ impl OutputNode {
             return None;
         }
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            if self.workspaces.iter().any(|ws| ws.id == source) {
+            if self.current_workspaces().any(|ws| ws.id == source) {
                 return None;
             }
             return Some(WorkspaceDragDestination {
@@ -1468,6 +1480,20 @@ impl OutputNode {
             }
         }
     }
+
+    pub fn current_workspaces(&self) -> impl Iterator<Item = Rc<WorkspaceNode>> {
+        self.workspaces
+            .iter()
+            .filter(|ws| ws.is_current_link.get())
+            .map(|ws| ws.ws.clone())
+    }
+
+    pub fn mapped_workspaces(&self) -> impl Iterator<Item = Rc<WorkspaceNode>> {
+        self.workspaces
+            .iter()
+            .filter(|ws| ws.is_mapped_link.get())
+            .map(|ws| ws.ws.clone())
+    }
 }
 
 pub struct OutputTitle {
@@ -1532,8 +1558,8 @@ impl Node for OutputNode {
         if let Some(ls) = self.lock_surface.get() {
             visitor.visit_lock_surface(&ls);
         }
-        for ws in self.workspaces.iter() {
-            visitor.visit_workspace(ws.deref());
+        for ws in self.current_workspaces() {
+            visitor.visit_workspace(&ws);
         }
         for layers in &self.layers {
             for surface in layers.iter() {
@@ -1623,7 +1649,7 @@ impl Node for OutputNode {
         }
         let mut fullscreen = None;
         if let Some(ws) = self.workspace.get() {
-            fullscreen = ws.fullscreen.get();
+            fullscreen = ws.current.fullscreen.get();
         }
         {
             let mut layers = &[OVERLAY, TOP][..];

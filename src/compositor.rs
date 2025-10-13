@@ -53,9 +53,10 @@ use {
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
-            DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceNode,
-            container_layout, container_render_positions, container_render_titles, float_layout,
-            float_titles, output_render_data, placeholder_render_textures,
+            DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceInOutput,
+            WorkspaceNode, WorkspaceState, container_layout, container_render_positions,
+            container_render_titles, float_layout, float_titles, output_render_data,
+            placeholder_render_textures,
             transaction::{handle_tree_blocker_timeout, handle_tree_blocker_unblocked},
         },
         user_session::import_environment,
@@ -780,16 +781,9 @@ fn create_dummy_output(state: &Rc<State>) {
         id: state.node_ids.next(),
         state: state.clone(),
         is_dummy: true,
-        output: CloneCell::new(dummy_output.clone()),
-        output_id: Cell::new(dummy_output.id),
-        position: Default::default(),
-        container: Default::default(),
         stacked: Default::default(),
         seat_state: Default::default(),
         name: "dummy".to_string(),
-        output_link: Default::default(),
-        visible: Default::default(),
-        fullscreen: Default::default(),
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),
@@ -800,9 +794,30 @@ fn create_dummy_output(state: &Rc<State>) {
         render_highlight: Default::default(),
         ext_workspaces: Default::default(),
         opt: Default::default(),
+        current: WorkspaceState {
+            output: CloneCell::new(dummy_output.clone()),
+            output_id: Cell::new(dummy_output.id),
+            position: Default::default(),
+            container: Default::default(),
+            output_link: Default::default(),
+            visible: Default::default(),
+            fullscreen: Default::default(),
+        },
+        mapped: WorkspaceState {
+            output: CloneCell::new(dummy_output.clone()),
+            output_id: Cell::new(dummy_output.id),
+            position: Default::default(),
+            container: Default::default(),
+            output_link: Default::default(),
+            visible: Default::default(),
+            fullscreen: Default::default(),
+        },
     });
-    *dummy_workspace.output_link.borrow_mut() =
-        Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
+    dummy_workspace.current.output_link.set(Some(Rc::new(
+        dummy_output
+            .workspaces
+            .add_last(WorkspaceInOutput::new(&dummy_workspace)),
+    )));
     let tt = &state.tree_transaction();
     dummy_output.show_workspace(tt, &dummy_workspace);
     state.dummy_output.set(Some(dummy_output));

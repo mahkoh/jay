@@ -815,7 +815,7 @@ impl State {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if let Some(c) = ws.container.get() {
+        if let Some(c) = ws.current.container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
                 .tl_data()
@@ -844,7 +844,7 @@ impl State {
     ) {
         width += 2 * self.theme.sizes.border_width.get();
         height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
-        let output = workspace.output.get();
+        let output = workspace.current.output.get();
         let output_rect = output.global.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             if y1 <= output_rect.y1() {
@@ -942,7 +942,7 @@ impl State {
                 output.create_workspace(tt, name)
             }
         };
-        self.show_workspace2(tt, Some(seat), &ws.output.get(), &ws);
+        self.show_workspace2(tt, Some(seat), &ws.current.output.get(), &ws);
     }
 
     pub fn float_map_ws(&self, tt: &TreeTransaction) -> Rc<WorkspaceNode> {

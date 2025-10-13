@@ -954,11 +954,11 @@ impl WlSeatGlobal {
                 NodeLayer::Workspace => None,
                 NodeLayer::Tiled => ws
                     .as_ref()
-                    .and_then(|w| w.container.get())
+                    .and_then(|w| w.current.container.get())
                     .map(|n| n as Rc<dyn Node>),
                 NodeLayer::Fullscreen => ws
                     .as_ref()
-                    .and_then(|w| w.fullscreen.get())
+                    .and_then(|w| w.current.fullscreen.get())
                     .map(|n| n as Rc<dyn Node>),
                 NodeLayer::Stacked => handle_stacked(&self.state.root.stacked),
                 NodeLayer::Layer2 => handle_layer_shell(&output.layers[2]),
@@ -1016,9 +1016,9 @@ impl WlSeatGlobal {
         let Some(ws) = output.workspace.get() else {
             return;
         };
-        let node = match ws.fullscreen.get() {
+        let node = match ws.current.fullscreen.get() {
             Some(fs) => fs as Rc<dyn Node>,
-            _ => match ws.container.get() {
+            _ => match ws.current.container.get() {
                 Some(c) => c,
                 _ => return,
             },

@@ -291,7 +291,8 @@ impl XdgSurface {
 
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
-        self.surface.set_output(&ws.output.get(), ws.location());
+        self.surface
+            .set_output(&ws.current.output.get(), ws.location());
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_workspace(ws);

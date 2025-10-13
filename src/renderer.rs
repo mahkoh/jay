@@ -75,7 +75,7 @@ impl Renderer<'_> {
         }
         let mut fullscreen = None;
         if let Some(ws) = output.workspace.get() {
-            fullscreen = ws.fullscreen.get();
+            fullscreen = ws.current.fullscreen.get();
         }
         let theme = &self.state.theme;
         let bh = theme.sizes.bar_height();
@@ -196,14 +196,14 @@ impl Renderer<'_> {
             && ws.render_highlight.get() > 0
         {
             let color = self.state.theme.colors.highlight.get();
-            let bounds = ws.position.get().at_point(x, y + bh + 1);
+            let bounds = ws.current.position.get().at_point(x, y + bh + 1);
             self.base.ops.push(GfxApiOpt::Sync);
             self.base.fill_boxes(&[bounds], &color, srgb);
         }
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
-        if let Some(node) = workspace.container.get() {
+        if let Some(node) = workspace.current.container.get() {
             self.render_container(&node, x, y)
         }
     }

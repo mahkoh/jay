@@ -1092,13 +1092,9 @@ impl ConfigProxyHandler {
         if ws.is_dummy || output.is_dummy {
             return Ok(());
         }
-        if ws.output.get().id == output.id {
+        if ws.current.output_id.get() == output.id {
             return Ok(());
         }
-        let link = match &*ws.output_link.borrow() {
-            None => return Ok(()),
-            Some(l) => l.to_ref(),
-        };
         let config = WsMoveConfig {
             make_visible_always: false,
             make_visible_if_empty: true,
@@ -1106,7 +1102,7 @@ impl ConfigProxyHandler {
             before: None,
         };
         let tt = &self.state.tree_transaction();
-        move_ws_to_output(tt, &link, &output, config);
+        move_ws_to_output(tt, &ws, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.state.tree_changed();
         Ok(())
@@ -1573,8 +1569,7 @@ impl ConfigProxyHandler {
     fn handle_get_connector_workspaces(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
         let workspaces = output
-            .workspaces
-            .iter()
+            .current_workspaces()
             .map(|ws| self.get_workspace_by_name(&ws.name))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });
@@ -2493,7 +2488,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {
         let window = self
             .get_existing_workspace(ws)?
-            .and_then(|ws| ws.container.get())
+            .and_then(|ws| ws.current.container.get())
             .map(|c| self.tl_to_window(&*c))
             .unwrap_or(Window(0));
         self.respond(Response::GetWorkspaceWindow { window });
