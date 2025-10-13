@@ -26,7 +26,6 @@ pub struct ZwlrLayerShellV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
-    #[expect(dead_code)]
     pub bugs: &'static Bugs,
 }
 

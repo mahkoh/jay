@@ -28,8 +28,9 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
-            WorkspaceNode, default_tile_drag_destination, transaction::TreeTransaction,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType, TreeSerial,
+            WorkspaceNode, default_tile_drag_destination,
+            transaction::{TreeTransaction, TreeTransactionOp},
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt, numcell::NumCell,
@@ -113,6 +114,7 @@ pub struct XdgToplevel {
     dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
     extents_set: Cell<bool>,
     pub data: Rc<XdgToplevelToplevelData>,
+    mapped_fullscreen: Cell<bool>,
 }
 
 impl Debug for XdgToplevel {
@@ -176,6 +178,7 @@ impl XdgToplevel {
             dialog: Default::default(),
             extents_set: Cell::new(false),
             data,
+            mapped_fullscreen: Cell::new(false),
         }
     }
 
@@ -212,6 +215,16 @@ impl XdgToplevel {
             self_id: self.id,
             capabilities: &[CAP_FULLSCREEN],
         })
+    }
+
+    fn add_op(self: &Rc<Self>, tt: &TreeTransaction, op: XdgToplevelTreeOpKind) {
+        tt.add_op(
+            &self.toplevel_data.transaction_timeline,
+            XdgToplevelTreeOp {
+                tl: self.clone(),
+                kind: op,
+            },
+        );
     }
 }
 
@@ -341,7 +354,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             self.toplevel_data
                 .set_fullscreen(&client.state, tt, slf.clone(), &output);
         }
-        self.xdg.schedule_configure();
+        self.xdg.request_configure(tt);
         Ok(())
     }
 
@@ -350,7 +363,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         let tt = &self.state.tree_transaction();
         self.toplevel_data
             .unset_fullscreen(&self.state, tt, slf.clone());
-        self.xdg.schedule_configure();
+        self.xdg.request_configure(tt);
         Ok(())
     }
 
@@ -549,7 +562,7 @@ impl Node for XdgToplevel {
     }
 
     fn node_mapped_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+        self.xdg.absolute_extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -652,23 +665,20 @@ impl ToplevelNodeBase for XdgToplevel {
         self.xdg.set_workspace(ws);
     }
 
-    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
+    fn tl_set_mapped_position_impl(self: Rc<Self>, rect: &Rect) {
         self.extents_set.set(true);
-        let nw = rect.width();
-        let nh = rect.height();
-        let de = self.xdg.absolute_desired_extents.get();
-        self.xdg.set_absolute_desired_extents(rect);
-        if de.width() != nw || de.height() != nh {
-            self.xdg.schedule_configure();
-            // self.xdg.surface.client.flush();
-        }
+        self.xdg.set_absolute_extents(rect);
+    }
+
+    fn tl_request_config_impl(self: Rc<Self>, tt: &TreeTransaction, _rect: &Rect) {
+        self.xdg.request_configure(tt);
     }
 
     fn tl_close(self: Rc<Self>) {
         self.send_close();
     }
 
-    fn tl_set_visible_impl(&self, _tt: &TreeTransaction, visible: bool) {
+    fn tl_set_visible_impl(&self, tt: &TreeTransaction, visible: bool) {
         // log::info!("set_visible {}", visible);
         // if !visible {
         //     log::info!("\n{:?}", Backtrace::new());
@@ -680,7 +690,7 @@ impl ToplevelNodeBase for XdgToplevel {
             } else {
                 self.states.or_assign(state_bits(STATE_SUSPENDED));
             }
-            self.xdg.schedule_configure();
+            self.xdg.request_configure(tt);
         }
     }
 
@@ -742,8 +752,11 @@ impl ToplevelNodeBase for XdgToplevel {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
     }
 
-    fn tl_mark_fullscreen_ext(self: Rc<Self>, _tt: &TreeTransaction) {
-        self.xdg.update_effective_geometry();
+    fn tl_mark_fullscreen_ext(self: Rc<Self>, tt: &TreeTransaction) {
+        self.add_op(
+            tt,
+            XdgToplevelTreeOpKind::MarkFullscreen(self.toplevel_data.is_fullscreen.get()),
+        );
     }
 }
 
@@ -766,7 +779,7 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn effective_geometry(&self, geometry: Rect) -> Rect {
-        if !self.toplevel_data.is_fullscreen.get() {
+        if !self.mapped_fullscreen.get() {
             return geometry;
         }
         let output = self
@@ -792,7 +805,12 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         let initial = self.xdg.initial_commit_state.get() == InitialCommitState::Unmapped;
-        let size = self.xdg.absolute_desired_extents.get().size2();
+        let size = self
+            .toplevel_data
+            .requested_pos
+            .get()
+            .unwrap_or_default()
+            .size2();
         let mut w = size.width();
         let mut h = size.height();
         if initial {
@@ -846,3 +864,23 @@ pub enum XdgToplevelError {
     NonNegative,
 }
 efrom!(XdgToplevelError, ClientError);
+
+pub struct XdgToplevelTreeOp {
+    tl: Rc<XdgToplevel>,
+    kind: XdgToplevelTreeOpKind,
+}
+
+enum XdgToplevelTreeOpKind {
+    MarkFullscreen(bool),
+}
+
+impl TreeTransactionOp for XdgToplevelTreeOp {
+    fn unblocked(self, _serial: TreeSerial, _timeout: bool) {
+        match self.kind {
+            XdgToplevelTreeOpKind::MarkFullscreen(b) => {
+                self.tl.mapped_fullscreen.set(b);
+                self.tl.xdg.update_effective_geometry();
+            }
+        }
+    }
+}

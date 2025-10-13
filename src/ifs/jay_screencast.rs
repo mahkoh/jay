@@ -788,7 +788,7 @@ fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {
         return match target {
             Target::Output(o) => o.global.pixel_size(),
-            Target::Toplevel(t) => t.tl_data().desired_pixel_size(),
+            Target::Toplevel(t) => t.tl_data().mapped_pixel_size(),
         };
     }
     (0, 0)

@@ -447,7 +447,7 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn configure(&self, _tt: &TreeTransaction) {
+    fn configure(self: &Rc<Self>, tt: &TreeTransaction) {
         let Some(node) = self.output.node() else {
             return;
         };
@@ -479,8 +479,13 @@ impl ZwlrLayerSurfaceV1 {
         }
         height = height.min(available_height).max(1);
         if self.last_configure.replace((width, height)) != (width, height) {
-            let serial = self.client.state.next_tree_serial();
-            self.send_configure(serial, width as _, height as _);
+            if self.shell.bugs.immediate_configure {
+                self.send_configure(tt.serial(), width as _, height as _);
+            } else {
+                tt.configure_group()
+                    .add(self, Size::new(width, height).unwrap());
+            }
+            self.surface.push_tree_blocker(tt, false);
         }
     }
 
@@ -527,7 +532,7 @@ impl ZwlrLayerSurfaceV1 {
         let a_rect_old = self.pos.replace(a_rect);
         let abs_x = a_rect.x1() - extents.x1();
         let abs_y = a_rect.y1() - extents.y1();
-        self.surface.set_absolute_position(abs_x, abs_y);
+        self.surface.set_mapped_position(abs_x, abs_y);
         if a_rect_old != a_rect {
             for popup in self.popups.lock().values() {
                 popup.popup.update_absolute_position();

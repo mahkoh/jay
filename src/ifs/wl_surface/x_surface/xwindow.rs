@@ -477,7 +477,7 @@ impl ToplevelNodeBase for Xwindow {
             .set_output(&ws.current.output.get(), ws.location());
     }
 
-    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
+    fn tl_set_mapped_position_impl(self: Rc<Self>, rect: &Rect) {
         // log::info!("xwin {} change_extents {:?}", self.data.window_id, rect);
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
@@ -487,17 +487,23 @@ impl ToplevelNodeBase for Xwindow {
                 self.x
                     .surface
                     .set_output(&output, NodeLocation::Output(output.id));
-            } else {
-                self.data
-                    .state
-                    .xwayland
-                    .queue
-                    .push(XWaylandEvent::Configure(self.data.clone()));
             }
             if old.position() != rect.position() {
-                self.x.surface.set_absolute_position(rect.x1(), rect.y1());
+                self.x.surface.set_mapped_position(rect.x1(), rect.y1());
             }
         }
+    }
+
+    fn tl_request_config_impl(self: Rc<Self>, _tt: &TreeTransaction, rect: &Rect) {
+        let d = &self.data;
+        d.info.extents.set(*rect);
+        if d.info.override_redirect.get() {
+            return;
+        }
+        d.state
+            .xwayland
+            .queue
+            .push(XWaylandEvent::Configure(d.clone()));
     }
 
     fn tl_close(self: Rc<Self>) {

@@ -57,6 +57,7 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, NodeRef},
             on_drop_event::OnDropEvent,
+            rc_eq::rc_eq,
             scroller::Scroller,
             transform_ext::TransformExt,
         },
@@ -710,7 +711,8 @@ impl OutputNode {
         }
         self.update_visible(tt);
         if let Some(fs) = ws.current.fullscreen.get() {
-            fs.tl_change_extents(tt, &self.global.pos.get());
+            let pos = self.global.pos.get();
+            fs.tl_change_extents(tt, &pos);
         }
         ws.change_extents(tt, &self.workspace_rect.get());
         for seat in seats {
@@ -725,7 +727,7 @@ impl OutputNode {
     pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<WorkspaceInOutput>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             for existing_ws in self.workspaces.iter() {
-                if name < existing_ws.name.as_str() {
+                if existing_ws.is_current_link.get() && name < existing_ws.name.as_str() {
                     return Some(existing_ws);
                 }
             }
@@ -773,6 +775,7 @@ impl OutputNode {
                 visible: Cell::new(false),
                 fullscreen: Default::default(),
             },
+            timeline: self.state.tree_transactions.timeline(),
         });
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
@@ -782,7 +785,7 @@ impl OutputNode {
         } else {
             self.workspaces.add_last(wio)
         };
-        ws.current.output_link.set(Some(Rc::new(link)));
+        ws.set_current_output_link(tt, Some(link));
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
             self.show_workspace(tt, &ws);
@@ -924,7 +927,7 @@ impl OutputNode {
         self.state.output_extents_changed();
         self.update_rects();
         if let Some(ls) = self.lock_surface.get() {
-            ls.change_extents(tt, *rect);
+            ls.request_size(tt, rect);
         }
         if let Some(c) = self.workspace.get() {
             if let Some(fs) = c.current.fullscreen.get() {
@@ -1086,7 +1089,7 @@ impl OutputNode {
     pub fn has_fullscreen(&self) -> bool {
         self.workspace
             .get()
-            .map(|w| w.current.fullscreen.is_some())
+            .map(|w| w.mapped.fullscreen.is_some())
             .unwrap_or(false)
     }
 
@@ -1109,7 +1112,11 @@ impl OutputNode {
 
     pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            let mut workspaces: Vec<_> = self.workspaces.iter().collect();
+            let mut workspaces: Vec<_> = self
+                .workspaces
+                .iter()
+                .filter(|wio| wio.is_current_link.get())
+                .collect();
             workspaces.sort_by(|a, b| a.name.cmp(&b.name));
             for ws_ref in workspaces {
                 ws_ref.detach();
@@ -1337,7 +1344,12 @@ impl OutputNode {
                 ty: TddType::NewContainer { workspace: ws },
             });
         };
-        c.tile_drag_destination(source, rect, x_abs, y_abs)
+        if let Some(d) = ws.mapped.container.get()
+            && rc_eq(&c, &d)
+        {
+            return c.tile_drag_destination(source, rect, x_abs, y_abs);
+        }
+        None
     }
 
     pub fn workspace_drag_destination(
@@ -1649,7 +1661,7 @@ impl Node for OutputNode {
         }
         let mut fullscreen = None;
         if let Some(ws) = self.workspace.get() {
-            fullscreen = ws.current.fullscreen.get();
+            fullscreen = ws.mapped.fullscreen.get();
         }
         {
             let mut layers = &[OVERLAY, TOP][..];
@@ -1753,16 +1765,21 @@ impl Node for OutputNode {
             Some(ws) => ws,
             _ => return,
         };
-        let mut ws = 'ws: {
-            for r in self.workspaces.iter() {
-                if r.id == ws.id {
-                    break 'ws r;
-                }
-            }
+        let Some(ws) = ws.current.output_link.get() else {
             return;
         };
+        let mut ws = ws.to_ref();
+        let next = |ws: &NodeRef<WorkspaceInOutput>| {
+            if steps < 0 { ws.prev() } else { ws.next() }
+        };
         for _ in 0..steps.abs() {
-            let new = if steps < 0 { ws.prev() } else { ws.next() };
+            let mut new = next(&ws);
+            while let Some(n) = &new {
+                if n.is_current_link.get() {
+                    break;
+                }
+                new = next(n);
+            }
             ws = match new {
                 Some(n) => n,
                 None => break,

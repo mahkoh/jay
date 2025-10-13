@@ -75,7 +75,7 @@ impl Renderer<'_> {
         }
         let mut fullscreen = None;
         if let Some(ws) = output.workspace.get() {
-            fullscreen = ws.current.fullscreen.get();
+            fullscreen = ws.mapped.fullscreen.get();
         }
         let theme = &self.state.theme;
         let bh = theme.sizes.bar_height();
@@ -196,14 +196,14 @@ impl Renderer<'_> {
             && ws.render_highlight.get() > 0
         {
             let color = self.state.theme.colors.highlight.get();
-            let bounds = ws.current.position.get().at_point(x, y + bh + 1);
+            let bounds = ws.mapped.position.get().at_point(x, y + bh + 1);
             self.base.ops.push(GfxApiOpt::Sync);
             self.base.fill_boxes(&[bounds], &color, srgb);
         }
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
-        if let Some(node) = workspace.current.container.get() {
+        if let Some(node) = workspace.mapped.container.get() {
             self.render_container(&node, x, y)
         }
     }
@@ -215,7 +215,7 @@ impl Renderer<'_> {
         y: i32,
         bounds: Option<&Rect>,
     ) {
-        let pos = placeholder.tl_data().content_size.get();
+        let pos = placeholder.tl_data().mapped_position.get();
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
@@ -296,23 +296,24 @@ impl Renderer<'_> {
                 }
             }
         }
-        if let Some(child) = container.cur.mono_child.get() {
-            let body = container.cur.mono_body.get().move_(x, y);
+        if let Some(child) = container.mapped.mono_child.get() {
+            let body = container.mapped.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
-            let content = container.cur.mono_content.get();
+            let content = container.mapped.mono_content.get();
             child
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
-            for child in container.current_children() {
-                let body = child.cur.body.get();
-                if body.x1() >= container.cur.width.get() || body.y1() >= container.cur.height.get()
+            for child in container.mapped_children() {
+                let body = child.ms.body.get();
+                if body.x1() >= container.mapped.width.get()
+                    || body.y1() >= container.mapped.height.get()
                 {
                     break;
                 }
                 let body = body.move_(x, y);
                 let body = self.base.scale_rect(body);
-                let content = child.cur.content.get();
+                let content = child.ms.content.get();
                 child
                     .node
                     .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
@@ -496,11 +497,11 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        let child = match floating.current.child.get() {
+        let child = match floating.mapped.child.get() {
             Some(c) => c,
             _ => return,
         };
-        let pos = floating.current.position.get();
+        let pos = floating.mapped.position.get();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();

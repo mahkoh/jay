@@ -1,9 +1,12 @@
 use {
     crate::{
         configurable::{ConfigureGroup, DEFAULT_TIMEOUT_NS},
-        ifs::wl_surface::WlSurfaceTreeOp,
+        ifs::wl_surface::{
+            WlSurfaceTreeOp, ext_session_lock_surface_v1::ExtSessionLockSurfaceV1TreeOp,
+            xdg_surface::xdg_toplevel::XdgToplevelTreeOp,
+        },
         state::State,
-        tree::TreeSerial,
+        tree::{ContainerTreeOp, FloatTreeOp, ToplevelTreeOp, TreeSerial, WorkspaceTreeOp},
         utils::{
             asyncevent::AsyncEvent,
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -465,4 +468,10 @@ macro_rules! ops {
 ops! {
     BarrierDropper,
     WlSurfaceTreeOp,
+    FloatTreeOp,
+    ExtSessionLockSurfaceV1TreeOp,
+    WorkspaceTreeOp,
+    XdgToplevelTreeOp,
+    ContainerTreeOp,
+    ToplevelTreeOp,
 }

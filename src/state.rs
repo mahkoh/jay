@@ -871,11 +871,12 @@ impl State {
             }
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
-        FloatNode::new(self, tt, workspace, position, node.clone());
-        self.focus_after_map(node, self.seat_queue.last().as_deref());
+        FloatNode::new(self, tt, workspace, position, node);
+        // TODO
+        // self.focus_after_map(node, self.seat_queue.last().as_deref());
     }
 
-    fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
+    pub fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
         if !node.node_visible() {
             return;
         }
@@ -1039,6 +1040,7 @@ impl State {
                 surface.destroy_node();
             }
         }
+        // TODO
         self.tree_changed();
         self.damage(self.root.extents.get());
     }
@@ -1592,14 +1594,6 @@ impl State {
         let node = found_tree.pop().unwrap();
         found_tree.clear();
         node
-    }
-
-    pub fn next_tree_serial(&self) -> TreeSerial {
-        let mut s = self.tree_serials.next();
-        if s.raw() as u32 == 0 {
-            s = self.tree_serials.next();
-        }
-        s
     }
 
     pub fn validate_tree_serial32(&self, s: u32) -> Option<TreeSerial> {

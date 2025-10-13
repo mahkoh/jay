@@ -52,6 +52,5 @@ pub struct Bugs {
     pub respect_min_max_size: bool,
     pub min_width: Option<i32>,
     pub min_height: Option<i32>,
-    #[expect(dead_code)]
     pub immediate_configure: bool,
 }

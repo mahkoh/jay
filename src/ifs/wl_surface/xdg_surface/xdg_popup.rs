@@ -213,7 +213,7 @@ impl XdgPopup {
             }
         }
         self.relative_position.set(rel_pos);
-        self.xdg.set_absolute_desired_extents(&abs_pos);
+        self.xdg.set_absolute_extents(&abs_pos);
     }
 
     pub fn update_absolute_position(&self) {
@@ -221,7 +221,7 @@ impl XdgPopup {
             let rel = self.relative_position.get();
             let parent = parent.position();
             self.xdg
-                .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
+                .set_absolute_extents(&rel.move_(parent.x1(), parent.y1()));
         }
     }
 }
@@ -314,7 +314,7 @@ impl Node for XdgPopup {
     }
 
     fn node_mapped_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+        self.xdg.absolute_extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -420,8 +420,6 @@ impl XdgSurfaceExt for XdgPopup {
     fn initial_configure(self: Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
     }
 

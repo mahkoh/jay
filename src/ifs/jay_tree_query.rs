@@ -144,7 +144,7 @@ impl JayTreeQuery {
             self_id: self.id,
             id: &data.identifier.get().to_string(),
         });
-        self.send_position(data.desired_extents.get());
+        self.send_position(data.mapped_position.get());
         if let Some(cl) = data.client.as_ref().map(|c| c.id.raw()) {
             self.client.event(ClientId {
                 self_id: self.id,

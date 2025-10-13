@@ -15,7 +15,8 @@ use {
         rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, TreeSerial, transaction::TreeTransaction,
+            NodeVisitor, OutputNode, TreeSerial,
+            transaction::{TreeTransaction, TreeTransactionOp, TreeTransactionTimeline},
         },
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
@@ -34,6 +35,12 @@ pub struct ExtSessionLockSurfaceV1 {
     pub version: Version,
     pub destroyed: Cell<bool>,
     pub configurable_data: ConfigurableData<Size>,
+    pub timeline: TreeTransactionTimeline,
+}
+
+pub struct ExtSessionLockSurfaceV1TreeOp {
+    surface: Rc<ExtSessionLockSurfaceV1>,
+    pos: Rect,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -48,9 +55,16 @@ impl ExtSessionLockSurfaceV1 {
         Ok(())
     }
 
-    pub fn change_extents(self: &Rc<Self>, tt: &TreeTransaction, rect: Rect) {
-        self.surface.set_absolute_position(rect.x1(), rect.y1());
+    pub fn request_size(self: &Rc<Self>, tt: &TreeTransaction, rect: &Rect) {
         tt.configure_group().add(self, rect.size2());
+        self.surface.push_tree_blocker(tt, false);
+        tt.add_op(
+            &self.timeline,
+            ExtSessionLockSurfaceV1TreeOp {
+                surface: self.clone(),
+                pos: *rect,
+            },
+        );
     }
 
     fn send_configure(&self, serial: TreeSerial, width: i32, height: i32) {
@@ -202,6 +216,14 @@ pub enum ExtSessionLockSurfaceV1Error {
     AlreadyAttached(WlSurfaceId),
 }
 efrom!(ExtSessionLockSurfaceV1Error, ClientError);
+
+impl TreeTransactionOp for ExtSessionLockSurfaceV1TreeOp {
+    fn unblocked(self, _serial: TreeSerial, _timeout: bool) {
+        self.surface
+            .surface
+            .set_mapped_position(self.pos.x1(), self.pos.y1());
+    }
+}
 
 impl Configurable for ExtSessionLockSurfaceV1 {
     type T = Size;

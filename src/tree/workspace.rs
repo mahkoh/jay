@@ -22,8 +22,10 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId,
-            PlaceholderNode, StackedNode, ToplevelNode, container::ContainerNode,
-            transaction::TreeTransaction, walker::NodeVisitor,
+            PlaceholderNode, StackedNode, ToplevelNode, TreeSerial,
+            container::ContainerNode,
+            transaction::{TreeTransaction, TreeTransactionOp, TreeTransactionTimeline},
+            walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -35,6 +37,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    WorkspaceTreeOpKind::*,
     jay_config::workspace::WorkspaceDisplayOrder,
     std::{
         cell::{Cell, RefCell},
@@ -65,6 +68,7 @@ pub struct WorkspaceNode {
     pub opt: Rc<Opt<WorkspaceNode>>,
     pub current: WorkspaceState,
     pub mapped: WorkspaceState,
+    pub timeline: TreeTransactionTimeline,
 }
 
 pub struct WorkspaceState {
@@ -118,9 +122,8 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>) {
-        self.current.output_id.set(output.id);
-        let old = self.current.output.set(output.clone());
+    pub fn set_output(self: &Rc<Self>, tt: &TreeTransaction, output: &Rc<OutputNode>) {
+        let old = self.set_current_output(tt, output);
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
         }
@@ -185,14 +188,17 @@ impl WorkspaceNode {
         container
             .clone()
             .tl_set_visible(tt, self.container_visible());
-        self.current.container.set(Some(container.clone()));
-        self.state.damage(self.current.position.get());
+        self.set_current_container(tt, Some(container));
     }
 
     pub fn is_empty(&self) -> bool {
         self.stacked.is_empty()
             && self.current.fullscreen.is_none()
             && self.current.container.is_none()
+    }
+
+    pub fn damage(&self) {
+        self.state.damage(self.mapped.position.get());
     }
 
     pub fn container_visible(&self) -> bool {
@@ -204,8 +210,8 @@ impl WorkspaceNode {
             && (self.current.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
-    pub fn change_extents(&self, tt: &TreeTransaction, rect: &Rect) {
-        self.current.position.set(*rect);
+    pub fn change_extents(self: &Rc<Self>, tt: &TreeTransaction, rect: &Rect) {
+        self.set_current_position(tt, *rect);
         if let Some(c) = self.current.container.get() {
             c.tl_change_extents(tt, rect);
         }
@@ -217,8 +223,8 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_visible(&self, tt: &TreeTransaction, visible: bool) {
-        self.current.visible.set(visible);
+    pub fn set_visible(self: &Rc<Self>, tt: &TreeTransaction, visible: bool) {
+        self.set_current_visible(tt, visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
@@ -242,11 +248,11 @@ impl WorkspaceNode {
                     .stacked_set_visible(tt, self.float_visible());
             }
         }
-        self.seat_state.set_visible(self, visible);
+        self.seat_state.set_visible(&**self, visible);
     }
 
     pub fn set_fullscreen_node(self: &Rc<Self>, tt: &TreeTransaction, node: &Rc<dyn ToplevelNode>) {
-        if let Some(prev) = self.current.fullscreen.set(Some(node.clone())) {
+        if let Some(prev) = self.set_current_fullscreen(tt, Some(node)) {
             self.discard_child_properties(&*prev);
         }
         let output = self.current.output.get();
@@ -257,22 +263,17 @@ impl WorkspaceNode {
             node.clone().tl_set_visible(tt, false);
         }
         if let Some(surface) = node.tl_scanout_surface()
-            && let Some(fb) = self
-                .current
-                .output
-                .get()
-                .global
-                .connector
-                .connector
-                .drm_feedback()
+            && let Some(fb) = output.global.connector.connector.drm_feedback()
         {
             surface.send_feedback(&fb);
         }
-        self.current.output.get().update_presentation_type(tt);
+        output.update_presentation_type(tt);
+        let pos = output.global.pos.get();
+        node.clone().tl_change_extents(tt, &pos);
     }
 
     pub fn remove_fullscreen_node(self: &Rc<Self>, tt: &TreeTransaction) {
-        if let Some(node) = self.current.fullscreen.take() {
+        if let Some(node) = self.set_current_fullscreen(tt, None) {
             self.discard_child_properties(&*node);
             if self.current.visible.get() {
                 self.current.output.get().fullscreen_changed(tt);
@@ -311,6 +312,72 @@ impl WorkspaceNode {
     pub fn location(&self) -> NodeLocation {
         NodeLocation::Workspace(self.current.output_id.get(), self.id)
     }
+
+    fn add_op(self: &Rc<Self>, tt: &TreeTransaction, op: WorkspaceTreeOpKind) {
+        tt.add_op(
+            &self.timeline,
+            WorkspaceTreeOp {
+                ws: self.clone(),
+                kind: op,
+            },
+        );
+    }
+
+    fn set_current_output(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        new: &Rc<OutputNode>,
+    ) -> Rc<OutputNode> {
+        let changed = self.current.output_id.replace(new.id) != new.id;
+        let old = self.current.output.set(new.clone());
+        if changed {
+            self.add_op(tt, SetOutput(new.clone()));
+        }
+        old
+    }
+
+    pub fn set_current_output_link(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        link: Option<LinkedNode<WorkspaceInOutput>>,
+    ) {
+        let link = link.map(Rc::new);
+        if let Some(prev) = self.current.output_link.set(link.clone()) {
+            prev.is_current_link.set(false);
+        }
+        self.add_op(tt, SetOutputLink(link));
+    }
+
+    fn set_current_position(self: &Rc<Self>, tt: &TreeTransaction, pos: Rect) {
+        if self.current.position.replace(pos) != pos {
+            self.add_op(tt, SetPosition(pos));
+        }
+    }
+
+    fn set_current_container(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        container: Option<&Rc<ContainerNode>>,
+    ) {
+        self.current.container.set(container.cloned());
+        self.add_op(tt, SetContainer(container.cloned()));
+    }
+
+    fn set_current_visible(self: &Rc<Self>, tt: &TreeTransaction, visible: bool) {
+        if self.current.visible.replace(visible) != visible {
+            self.add_op(tt, SetVisible(visible));
+        }
+    }
+
+    fn set_current_fullscreen(
+        self: &Rc<Self>,
+        tt: &TreeTransaction,
+        new: Option<&Rc<dyn ToplevelNode>>,
+    ) -> Option<Rc<dyn ToplevelNode>> {
+        let old = self.current.fullscreen.set(new.cloned());
+        self.add_op(tt, SetFullscreen(new.cloned()));
+        old
+    }
 }
 
 impl Node for WorkspaceNode {
@@ -340,7 +407,7 @@ impl Node for WorkspaceNode {
     }
 
     fn node_mapped_position(&self) -> Rect {
-        self.current.position.get()
+        self.mapped.position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -383,7 +450,7 @@ impl Node for WorkspaceNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if let Some(n) = self.current.container.get() {
+        if let Some(n) = self.mapped.container.get() {
             tree.push(FoundNode {
                 node: n.clone(),
                 x,
@@ -467,8 +534,7 @@ impl ContainingNode for WorkspaceNode {
             && container.node_id() == child.node_id()
         {
             self.discard_child_properties(&*container);
-            self.current.container.set(None);
-            self.state.damage(self.current.position.get());
+            self.set_current_container(tt, None);
             return;
         }
         if let Some(fs) = self.current.fullscreen.get()
@@ -521,6 +587,7 @@ pub fn move_ws_to_output(
         new_source_ws = source
             .workspaces
             .iter()
+            .filter(|c| c.is_current_link.get())
             .find(|c| c.id != ws.id)
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
@@ -535,7 +602,7 @@ pub fn move_ws_to_output(
                 .set_workspace(tt, new_source_ws, false);
         }
     }
-    ws.set_output(&target);
+    ws.set_output(tt, &target);
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
         target
             .find_workspace_insertion_point(&ws.name)
@@ -552,7 +619,7 @@ pub fn move_ws_to_output(
     } else {
         target.workspaces.add_last(wio)
     };
-    ws.current.output_link.set(Some(Rc::new(link)));
+    ws.set_current_output_link(tt, Some(link));
     let make_visible = !target.is_dummy
         && (config.make_visible_always
             || (config.make_visible_if_empty && target.workspace.is_none()));
@@ -571,12 +638,6 @@ pub fn move_ws_to_output(
     if !source.is_dummy {
         source.schedule_update_render_data();
     }
-    if source.node_visible() {
-        target.state.damage(source.global.pos.get());
-    }
-    if target.node_visible() {
-        target.state.damage(target.global.pos.get());
-    }
 }
 
 pub struct WorkspaceInOutput {
@@ -590,7 +651,7 @@ impl WorkspaceInOutput {
         Self {
             ws: ws.clone(),
             is_current_link: Cell::new(true),
-            is_mapped_link: Cell::new(true),
+            is_mapped_link: Cell::new(false),
         }
     }
 }
@@ -607,4 +668,54 @@ pub struct WorkspaceDragDestination {
     pub highlight: Rect,
     pub output: Rc<OutputNode>,
     pub before: Option<Rc<WorkspaceNode>>,
+}
+
+pub struct WorkspaceTreeOp {
+    ws: Rc<WorkspaceNode>,
+    kind: WorkspaceTreeOpKind,
+}
+
+enum WorkspaceTreeOpKind {
+    SetOutput(Rc<OutputNode>),
+    SetOutputLink(Option<Rc<LinkedNode<WorkspaceInOutput>>>),
+    SetPosition(Rect),
+    SetContainer(Option<Rc<ContainerNode>>),
+    SetVisible(bool),
+    SetFullscreen(Option<Rc<dyn ToplevelNode>>),
+}
+
+impl TreeTransactionOp for WorkspaceTreeOp {
+    fn unblocked(self, _serial: TreeSerial, _timeout: bool) {
+        let ws = &self.ws;
+        let m = &ws.mapped;
+        match self.kind {
+            SetFullscreen(n) => {
+                m.fullscreen.set(n);
+            }
+            SetOutput(n) => {
+                m.output_id.set(n.id);
+                m.output.set(n);
+            }
+            SetContainer(n) => {
+                m.container.set(n.clone());
+            }
+            SetVisible(n) => {
+                m.visible.set(n);
+            }
+            SetPosition(n) => {
+                ws.damage();
+                m.position.set(n);
+            }
+            SetOutputLink(n) => {
+                if let Some(n) = &n {
+                    n.is_mapped_link.set(true);
+                }
+                if let Some(prev) = m.output_link.set(n) {
+                    prev.is_mapped_link.set(false);
+                }
+            }
+        }
+        ws.damage();
+        ws.state.tree_changed();
+    }
 }

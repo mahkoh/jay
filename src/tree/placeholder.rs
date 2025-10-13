@@ -170,7 +170,7 @@ impl Node for PlaceholderNode {
     }
 
     fn node_mapped_position(&self) -> Rect {
-        self.toplevel.content_size.get()
+        self.toplevel.mapped_position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -242,12 +242,16 @@ impl ToplevelNodeBase for PlaceholderNode {
         self.location.set(ws.node_location());
     }
 
-    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
+    fn tl_set_mapped_position_impl(self: Rc<Self>, rect: &Rect) {
         self.toplevel.content_size.set(*rect);
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
         self.schedule_update_texture();
+    }
+
+    fn tl_request_config_impl(self: Rc<Self>, _tt: &TreeTransaction, _rect: &Rect) {
+        // nothing
     }
 
     fn tl_close(self: Rc<Self>) {

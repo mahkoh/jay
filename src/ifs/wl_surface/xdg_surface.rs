@@ -74,7 +74,7 @@ pub struct XdgSurface {
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
     effective_geometry: Cell<Rect>,
-    pub absolute_desired_extents: Cell<Rect>,
+    pub absolute_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<LinkedList<Rc<dyn StackedNode>>>>,
     is_above_layers: Cell<bool>,
@@ -84,6 +84,7 @@ pub struct XdgSurface {
     initial_commit_state: Cell<InitialCommitState>,
     destroyed: Cell<bool>,
     configure_data: ConfigurableData<XdgSurfaceConfigureData>,
+    last_configure_data: Cell<Option<XdgSurfaceConfigureData>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -103,7 +104,7 @@ struct Popup {
 
 impl XdgPopupParent for Popup {
     fn position(&self) -> Rect {
-        self.parent.absolute_desired_extents.get()
+        self.parent.absolute_extents.get()
     }
 
     fn remove_popup(&self) {
@@ -260,7 +261,7 @@ impl XdgSurface {
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
             effective_geometry: Default::default(),
-            absolute_desired_extents: Cell::new(Default::default()),
+            absolute_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
             is_above_layers: Cell::new(false),
@@ -270,20 +271,21 @@ impl XdgSurface {
             initial_commit_state: Default::default(),
             destroyed: Default::default(),
             configure_data: Default::default(),
+            last_configure_data: Default::default(),
         }
     }
 
     fn update_surface_position(&self) {
-        let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
+        let (mut x1, mut y1) = self.absolute_extents.get().position();
         let geo = self.effective_geometry.get();
         x1 -= geo.x1();
         y1 -= geo.y1();
-        self.surface.set_absolute_position(x1, y1);
+        self.surface.set_mapped_position(x1, y1);
         self.update_popup_positions();
     }
 
-    fn set_absolute_desired_extents(&self, ext: &Rect) {
-        let prev = self.absolute_desired_extents.replace(*ext);
+    fn set_absolute_extents(&self, ext: &Rect) {
+        let prev = self.absolute_extents.replace(*ext);
         if ext.position() != prev.position() {
             self.update_surface_position();
         }
@@ -353,19 +355,32 @@ impl XdgSurface {
         self.effective_geometry.get()
     }
 
-    pub fn schedule_configure(self: &Rc<Self>) {
+    pub fn request_configure(self: &Rc<Self>, tt: &TreeTransaction) {
         let Some(ext) = self.ext.get() else {
             return;
         };
-        self.surface
-            .client
-            .state
-            .tree_transaction()
-            .configure_group()
-            .add(self, ext.configure_data());
+        let cd = ext.configure_data();
+        let mut use_last_serial = false;
+        if self.last_configure_data.replace(Some(cd)) == Some(cd) {
+            use_last_serial = true;
+        } else {
+            tt.configure_group().add(self, cd);
+        }
+        self.surface.push_tree_blocker(tt, use_last_serial);
+    }
+
+    pub fn schedule_configure(self: &Rc<Self>) {
+        let tt = &self.surface.client.state.tree_transaction();
+        self.request_configure(tt);
     }
 
     pub fn send_configure(&self, serial: TreeSerial) {
+        // log::info!(
+        //     "{:?}, {:?}: send_configure({:?})",
+        //     self.surface.client.id,
+        //     self.id,
+        //     serial
+        // );
         self.surface.client.event(Configure {
             self_id: self.id,
             serial: serial.raw() as _,
@@ -643,6 +658,7 @@ impl SurfaceExt for XdgSurface {
             if let Some(geometry) = pending.geometry.take() {
                 let prev = self.geometry.replace(Some(geometry));
                 if prev != Some(geometry) {
+                    // log::info!("{:?}: new geometry {:?}", (self.surface.client.id, self.surface.id), geometry);
                     self.update_effective_geometry();
                     self.update_extents();
                 }

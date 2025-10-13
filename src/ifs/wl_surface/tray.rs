@@ -82,14 +82,12 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(self: Rc<Self>, _tt: &TreeTransaction) {
+    fn send_current_configure(self: Rc<Self>, tt: &TreeTransaction) {
         let data = self.tray_item_data();
-        let state = &data.client.state;
-        let size = state.tray_icon_size().max(1);
-        state
-            .tree_transaction()
-            .configure_group()
+        let size = data.client.state.tray_icon_size().max(1);
+        tt.configure_group()
             .add(&self, Size::new(size, size).unwrap());
+        data.surface.push_tree_blocker(tt, false);
     }
 
     fn data(&self) -> &TrayItemData {
@@ -98,8 +96,7 @@ impl<T: TrayItem> DynTrayItem for T {
 
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {
         let data = self.tray_item_data();
-        data.surface
-            .set_absolute_position(abs_pos.x1(), abs_pos.y1());
+        data.surface.set_mapped_position(abs_pos.x1(), abs_pos.y1());
         data.rel_pos.set(rel_pos);
         if data.abs_pos.replace(abs_pos) != abs_pos {
             for popup in self.popups().lock().values() {

@@ -812,6 +812,7 @@ fn create_dummy_output(state: &Rc<State>) {
             visible: Default::default(),
             fullscreen: Default::default(),
         },
+        timeline: state.tree_transactions.timeline(),
     });
     dummy_workspace.current.output_link.set(Some(Rc::new(
         dummy_output

@@ -225,7 +225,10 @@ impl CommitTimeline {
         let mut must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
+        // let mut pop_tree_barriers = true;
         if !must_be_queued && let Some(serial) = pending.serial {
+            // pop_tree_barriers = false;
+            // log::info!("{:?}: pop until {:?}", (surface.client.id, surface.id), serial);
             surface.handle_acked_serial(serial);
             must_be_queued = surface.serial_is_blocked(serial);
         }
@@ -258,6 +261,7 @@ impl CommitTimeline {
                 pending_polls: Cell::new(Default::default()),
                 fifo_state: Cell::new(commit_fifo_state),
                 commit_times: RefCell::new(CommitTimesState::Ready),
+                // pop_tree_barriers: Cell::new(pop_tree_barriers),
             }),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued || has_serial;
@@ -349,6 +353,7 @@ impl CommitTimeline {
 
     pub fn tree_unblocked(&self, surface: &WlSurface) {
         if let Some(waiter) = self.tree_block_waiter.take() {
+            // log::info!("flush surface");
             flush_surface(&waiter, surface);
         }
     }
@@ -478,6 +483,7 @@ struct Commit {
     pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
     fifo_state: Cell<CommitFifoState>,
     commit_times: RefCell<CommitTimesState>,
+    // pop_tree_barriers: Cell<bool>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -541,14 +547,20 @@ impl NodeRef<Entry> {
                     }
                 }
                 if has_unmet_dependencies {
+                    // log::info!("has unmet dependencies");
                     return Ok(false);
                 }
                 if let Some(serial) = c.serial {
+                    // if c.pop_tree_barriers.replace(false) {
+                    // log::info!("{:?}: pop until {:?}", (c.surface.client.id, c.surface.id), serial);
                     c.surface.handle_acked_serial(serial);
+                    // }
                     if c.surface.serial_is_blocked(serial) {
+                        // log::info!("serial {:?} is blocked", serial);
                         tl.tree_block_waiter.set(Some(self.clone()));
                         return Ok(false);
                     }
+                    // log::info!("serial {:?} is OK", serial);
                 }
                 c.surface.apply_state(c.pending.borrow_mut().deref_mut())?;
                 Ok(true)
