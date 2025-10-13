@@ -400,7 +400,7 @@ impl WorkspaceNode {
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
-            .find_map(|float| float.child.get())
+            .find_map(|float| float.current.child.get())
         {
             child.node_do_focus(tt, seat, direction);
         } else if self.ty == WorkspaceType::Normal {

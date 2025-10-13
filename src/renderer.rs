@@ -646,11 +646,11 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        let child = match floating.child.get() {
+        let child = match floating.current.child.get() {
             Some(c) => c,
             _ => return,
         };
-        let pos = floating.position.get();
+        let pos = floating.current.position.get();
         let theme = &self.state.theme;
         let th = theme.title_height();
         let tpuh = theme.title_plus_underline_height();
