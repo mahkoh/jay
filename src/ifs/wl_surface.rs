@@ -356,6 +356,7 @@ pub struct WlSurface {
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
     tree_barriers: SyncQueue<(TreeSerial, TreeBarrier)>,
+    flush_frame_requests: Cell<bool>,
     transaction_timeline: TreeTransactionTimeline,
     unblocked_serial: Cell<TreeSerial>,
     scheduled_serial: Cell<TreeSerial>,
@@ -630,6 +631,18 @@ impl PendingState {
     fn has_damage(&self) -> bool {
         self.damage_full || self.buffer_damage.is_not_empty() || self.surface_damage.is_not_empty()
     }
+
+    fn flush_frame_requests(&mut self, now_msec: u32) {
+        for fr in self.frame_request.drain(..) {
+            fr.send_done(now_msec);
+            let _ = fr.client.remove_obj(&*fr);
+        }
+        for ss in self.subsurfaces.values_mut() {
+            if let Some(s) = &mut ss.pending.state {
+                s.flush_frame_requests(now_msec);
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -718,6 +731,7 @@ impl WlSurface {
             color_management_feedback: Default::default(),
             color_description: Default::default(),
             tree_barriers: Default::default(),
+            flush_frame_requests: Default::default(),
             transaction_timeline: client.state.tree_transactions.timeline(),
             unblocked_serial: Cell::new(TreeSerial::from_raw(0)),
             scheduled_serial: Cell::new(TreeSerial::from_raw(0)),
@@ -1132,6 +1146,11 @@ impl WlSurfaceRequestHandler for WlSurface {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
         self.verify_explicit_sync(pending)?;
+        if let Some(serial) = pending.serial
+            && serial >= self.scheduled_serial.get()
+        {
+            self.flush_frame_requests.set(false);
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1813,6 +1832,15 @@ impl WlSurface {
             }
         } else {
             serial = tt.serial();
+            if ss.replace(serial) != serial {
+                self.flush_frame_requests.set(true);
+                let now = self.client.state.now_msec();
+                for fr in self.frame_requests.borrow_mut().drain(..) {
+                    fr.send_done(now as _);
+                    let _ = self.client.remove_obj(&*fr);
+                }
+                self.commit_timeline.flush_frame_requests(now);
+            }
         }
         let barrier = if self.tardy.get() {
             tt.weak_barrier()

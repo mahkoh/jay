@@ -203,6 +203,9 @@ impl CommitTimeline {
         surface: &Rc<WlSurface>,
         pending: &mut Box<PendingState>,
     ) -> Result<(), CommitTimelineError> {
+        if surface.flush_frame_requests.get() {
+            pending.flush_frame_requests(surface.client.state.now_msec() as _);
+        }
         let mut collector = CommitDataCollector {
             acquire_points: Default::default(),
             shm_uploads: 0,
@@ -347,6 +350,16 @@ impl CommitTimeline {
     pub fn tree_unblocked(&self, surface: &WlSurface) {
         if let Some(waiter) = self.tree_block_waiter.take() {
             flush_surface(&waiter, surface);
+        }
+    }
+
+    pub fn flush_frame_requests(&self, now_msec: u64) {
+        for entry in self.own_timeline.entries.iter() {
+            if let EntryKind::Commit(commit) = &entry.kind
+                && let Ok(mut p) = commit.pending.try_borrow_mut()
+            {
+                p.flush_frame_requests(now_msec as u32);
+            }
         }
     }
 }
