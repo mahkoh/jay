@@ -314,7 +314,8 @@ impl XdgSurface {
                 }
             }
         }
-        self.surface.set_output(&ws.output.get(), ws.location());
+        self.surface
+            .set_output(&ws.node_state.output.get(), ws.location());
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_workspace(ws);

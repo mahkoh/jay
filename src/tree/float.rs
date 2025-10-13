@@ -485,7 +485,7 @@ impl FloatNode {
             self.stacked_set_visible(ws.float_visible());
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
-            ws.output.get().pinned.add_last_existing(pl);
+            ws.node_state.output.get().pinned.add_last_existing(pl);
         }
     }
 
@@ -609,7 +609,7 @@ impl FloatNode {
         *pl = if pl.is_some() {
             None
         } else {
-            let output = self.workspace.get().output.get();
+            let output = self.workspace.get().node_state.output.get();
             Some(output.pinned.add_last(self.clone()))
         };
         if let Some(tl) = self.node_state.child.get() {
@@ -777,7 +777,7 @@ impl Node for FloatNode {
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        Some(self.workspace.get().output.get())
+        Some(self.workspace.get().node_state.output.get())
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {

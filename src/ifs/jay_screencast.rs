@@ -187,7 +187,7 @@ impl JayScreencast {
         };
         let scale = match tl.tl_data().workspace.get() {
             None => Scale::default(),
-            Some(w) => w.output.get().global.persistent.scale.get(),
+            Some(w) => w.node_state.output.get().global.persistent.scale.get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {

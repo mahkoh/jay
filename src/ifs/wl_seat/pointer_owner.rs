@@ -1169,11 +1169,11 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
             seat.pointer_cursor().set_known(KnownCursor::Pointer);
-            seat.state.damage(ws.position.get());
+            seat.state.damage(ws.node_state.position.get());
         }
         if let Some(prev) = self.latest.set(ws) {
             prev.render_highlight.fetch_sub(1);
-            seat.state.damage(prev.position.get());
+            seat.state.damage(prev.node_state.position.get());
         }
     }
 }
@@ -1183,7 +1183,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.position.get());
+                seat.state.damage(prev.node_state.position.get());
             }
         }
     }
