@@ -12,7 +12,7 @@ pub trait TestContainerExt {
 
 impl TestContainerExt for ContainerNode {
     fn first_toplevel(&self) -> TestResult<Rc<dyn ToplevelNode>> {
-        match self.children.first() {
+        match self.current_children().next() {
             None => bail!("container does not have children"),
             Some(c) => Ok(c.node.clone()),
         }
