@@ -345,6 +345,7 @@ pub struct WlSurface {
     color_representation_surface: CloneCell<Option<Rc<WpColorRepresentationSurfaceV1>>>,
     alpha_mode: Cell<AlphaMode>,
     tree_barriers: SyncQueue<(TreeSerial, TreeBarrier)>,
+    flush_frame_requests: Cell<bool>,
     transaction_timeline: TreeTransactionTimeline,
     unblocked_serial: Cell<TreeSerial>,
     scheduled_serial: Cell<TreeSerial>,
@@ -621,6 +622,15 @@ impl PendingState {
     fn has_damage(&self) -> bool {
         self.damage_full || self.buffer_damage.is_not_empty() || self.surface_damage.is_not_empty()
     }
+
+    fn flush_frame_requests(&mut self, now_msec: u32) {
+        self.frame_request.clear();
+        for ss in self.subsurfaces.values_mut() {
+            if let Some(s) = &mut ss.pending.state {
+                s.flush_frame_requests(now_msec);
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -712,6 +722,7 @@ impl WlSurface {
             color_representation_surface: Default::default(),
             alpha_mode: Default::default(),
             tree_barriers: Default::default(),
+            flush_frame_requests: Default::default(),
             transaction_timeline: client.state.tree_transactions.timeline(),
             unblocked_serial: Cell::new(TreeSerial::from_raw(0)),
             scheduled_serial: Cell::new(TreeSerial::from_raw(0)),
@@ -1149,6 +1160,11 @@ impl WlSurfaceRequestHandler for WlSurface {
         }
         if pending.sync_file_release.is_some() && not_matches!(pending.buffer, Some(Some(_))) {
             return Err(WlSurfaceError::SyncFileReleaseWithoutAttach);
+        }
+        if let Some(serial) = pending.serial
+            && serial >= self.scheduled_serial.get()
+        {
+            self.flush_frame_requests.set(false);
         }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
@@ -1853,6 +1869,12 @@ impl WlSurface {
             }
         } else {
             serial = tt.serial();
+            if ss.replace(serial) != serial {
+                self.flush_frame_requests.set(true);
+                let now = self.client.state.now_msec();
+                self.frame_requests.borrow_mut().clear();
+                self.commit_timeline.flush_frame_requests(now);
+            }
         }
         let barrier = if self.tardy.get() {
             tt.weak_barrier()
