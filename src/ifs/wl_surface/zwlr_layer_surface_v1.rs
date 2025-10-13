@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        configurable::{Configurable, ConfigurableData},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -579,13 +579,6 @@ impl ZwlrLayerSurfaceV1 {
 }
 
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
-    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
-        if pending.serial.is_some() {
-            self.configurable_data.ready();
-        }
-        CommitAction::ContinueCommit
-    }
-
     fn node_layer(&self) -> NodeLayerLink {
         let Some(link) = self.link.borrow().as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;
@@ -596,6 +589,17 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             2 => NodeLayerLink::Layer2(link),
             _ => NodeLayerLink::Layer3(link),
         }
+    }
+
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+        if pending.serial.is_some() {
+            self.configurable_data.ready();
+        }
+        CommitAction::ContinueCommit
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(&self.configurable_data)
     }
 
     fn before_apply_commit(

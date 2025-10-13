@@ -198,13 +198,11 @@ impl ConfigurableDataCore {
         }
     }
 
-    #[expect(dead_code)]
     pub fn enable_tardy(&self) {
         self.tardy.set(true);
         self.ready();
     }
 
-    #[expect(dead_code)]
     pub fn disable_tardy(&self) {
         self.tardy.set(false);
     }
