@@ -304,7 +304,7 @@ impl Renderer<'_> {
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
-            for child in container.children.iter() {
+            for child in container.current_children() {
                 let body = child.cur.body.get();
                 if body.x1() >= container.cur.width.get() || body.y1() >= container.cur.height.get()
                 {

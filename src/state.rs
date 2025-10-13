@@ -525,8 +525,7 @@ impl DrmDevData {
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.children
-            .iter()
+        node.current_children()
             .for_each(|c| c.title_tex.borrow_mut().clear());
         node.schedule_render_titles();
         node.node_visit_children(self);
@@ -655,8 +654,7 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
-                    node.children
-                        .iter()
+                    node.current_children()
                         .for_each(|c| c.title_tex.borrow_mut().clear());
                     node.node_visit_children(self);
                 }

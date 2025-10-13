@@ -2610,7 +2610,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_children(&self, window: Window) -> Result<(), CphError> {
         let mut windows = vec![];
         if let Some(c) = self.get_window(window)?.node_into_container() {
-            for c in c.children.iter() {
+            for c in c.current_children() {
                 windows.push(self.tl_to_window(&*c.node));
             }
         }
