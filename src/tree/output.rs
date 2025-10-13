@@ -49,8 +49,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
-            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceType,
-            transaction::TreeTransaction, walker::NodeVisitor,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceInOutput, WorkspaceNode,
+            WorkspaceType, transaction::TreeTransaction, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -86,7 +86,7 @@ pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
-    pub workspaces: LinkedList<Rc<WorkspaceNode>>,
+    pub workspaces: LinkedList<WorkspaceInOutput>,
     pub workspace: ObjAndId<Option<Rc<WorkspaceNode>>>,
     pub overlay: ObjAndId<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
@@ -297,7 +297,7 @@ impl OutputNode {
     }
 
     pub fn screencast_changed(&self, tt: &TreeTransaction) {
-        for ws in self.workspaces.iter() {
+        for ws in self.current_workspaces() {
             ws.update_has_captures(tt);
         }
     }
@@ -472,7 +472,7 @@ impl OutputNode {
         self.workspace.set(None);
         self.overlay.set(None);
         self.cursor_users.clear();
-        let workspaces: Vec<_> = self.workspaces.iter().collect();
+        let workspaces: Vec<_> = self.current_workspaces().collect();
         for workspace in workspaces {
             workspace.clear();
         }
@@ -557,7 +557,7 @@ impl OutputNode {
             texture_height = (bh as f64 * scale).round() as _;
         }
         let active_id = self.workspace.id();
-        for ws in self.workspaces.iter() {
+        for ws in self.mapped_workspaces() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
@@ -697,7 +697,7 @@ impl OutputNode {
             }
             pos += title_width;
         };
-        for ws in self.workspaces.iter() {
+        for ws in self.mapped_workspaces() {
             handle_workspace(&ws, false);
         }
         if let Some(ws) = self.overlay.get() {
@@ -733,9 +733,9 @@ impl OutputNode {
             return ws;
         }
         if self.is_dummy
-            && let Some(ws) = self.workspaces.last()
+            && let Some(ws) = self.current_workspaces().last()
         {
-            return ws.deref().clone();
+            return ws;
         }
         self.generate_normal_workspace(tt)
     }
@@ -808,7 +808,7 @@ impl OutputNode {
         }
         self.update_visible(tt);
         self.update_presentation_type(tt);
-        if let Some(fs) = ws.fullscreen.get() {
+        if let Some(fs) = ws.current.fullscreen.get() {
             fs.tl_change_extents(tt, &self.global.pos.get());
         }
         ws.change_extents(tt, &self.workspace_rect.get(), self);
@@ -833,7 +833,7 @@ impl OutputNode {
             self.move_pinned_to_normal_workspace(tt);
         }
         let mut seats = SmallVec::new();
-        ws.output.get().hide_overlay2(tt, false, &mut seats);
+        ws.current.output.get().hide_overlay2(tt, false, &mut seats);
         let old = self.overlay.set(Some(ws.clone()));
         if let Some(old) = &old {
             old.collect_kb_foci2(&mut seats);
@@ -847,7 +847,7 @@ impl OutputNode {
         self.update_visible(tt);
         self.update_presentation_type(tt);
         ws.set_output(tt, self);
-        if let Some(fs) = ws.fullscreen.get() {
+        if let Some(fs) = ws.current.fullscreen.get() {
             fs.tl_change_extents(tt, &self.global.pos.get());
         }
         ws.change_extents(tt, &self.workspace_rect.get(), self);
@@ -935,7 +935,7 @@ impl OutputNode {
         }
     }
 
-    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<Rc<WorkspaceNode>>> {
+    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<WorkspaceInOutput>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             for existing_ws in self.workspaces.iter() {
                 if cmp(name, &existing_ws.name) == std::cmp::Ordering::Less {
@@ -954,12 +954,13 @@ impl OutputNode {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures(tt);
+        let wio = WorkspaceInOutput::new(&ws);
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
-            before.prepend(ws.clone())
+            before.prepend(wio)
         } else {
-            self.workspaces.add_last(ws.clone())
+            self.workspaces.add_last(wio)
         };
-        *ws.output_link.borrow_mut() = Some(link);
+        *ws.current.output_link.borrow_mut() = Some(Rc::new(link));
         self.state.workspaces.set(name.to_string(), ws.clone());
         self.state.trigger_cci(CCI_WORKSPACES);
         if self.workspace.is_none() {
@@ -1139,7 +1140,7 @@ impl OutputNode {
         }
         for layer in [&self.workspace, &self.overlay] {
             if let Some(c) = layer.get() {
-                if let Some(fs) = c.fullscreen.get() {
+                if let Some(fs) = c.current.fullscreen.get() {
                     fs.tl_change_extents(tt, rect);
                 }
                 c.change_extents(tt, &self.workspace_rect.get(), self);
@@ -1339,12 +1340,12 @@ impl OutputNode {
     pub fn has_fullscreen(&self) -> bool {
         self.workspace
             .get()
-            .map(|w| w.fullscreen.is_some())
+            .map(|w| w.current.fullscreen.is_some())
             .unwrap_or(false)
             || self
                 .overlay
                 .get()
-                .map(|w| w.fullscreen.is_some())
+                .map(|w| w.current.fullscreen.is_some())
                 .unwrap_or(false)
     }
 
@@ -1395,11 +1396,11 @@ impl OutputNode {
         let mut have_fullscreen = false;
         let mut have_overlay_fullscreen = false;
         if let Some(ws) = self.overlay.get() {
-            have_fullscreen = ws.fullscreen.is_some();
+            have_fullscreen = ws.current.fullscreen.is_some();
             have_overlay_fullscreen = have_fullscreen;
         }
         if !have_fullscreen && let Some(ws) = self.workspace.get() {
-            have_fullscreen = ws.fullscreen.is_some();
+            have_fullscreen = ws.current.fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
         self.title_visible.set(lower_visible);
@@ -1439,7 +1440,7 @@ impl OutputNode {
         };
         let tt = &self.state.tree_transaction();
         if ws.ty == WorkspaceType::Overlay && button == BTN_MIDDLE {
-            ws.output.get().hide_overlay(tt);
+            ws.current.output.get().hide_overlay(tt);
         } else {
             self.state.show_workspace2(tt, Some(seat), self, &ws);
         }
@@ -1485,7 +1486,7 @@ impl OutputNode {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
-                    let Some(tl) = ws.fullscreen.get() else {
+                    let Some(tl) = ws.current.fullscreen.get() else {
                         continue;
                     };
                     if let Some(req) = surface {
@@ -1527,7 +1528,7 @@ impl OutputNode {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
-                    let Some(tl) = ws.fullscreen.get() else {
+                    let Some(tl) = ws.current.fullscreen.get() else {
                         continue;
                     };
                     if let Some(req) = surface {
@@ -1579,12 +1580,12 @@ impl OutputNode {
             }
         }
         if let Some(ws) = self.overlay.get() {
-            if ws.fullscreen.is_some() {
+            if ws.current.fullscreen.is_some() {
                 return None;
             }
             let rect = self.workspace_rect.get();
             if rect.contains(x_abs, y_abs) {
-                let Some(c) = ws.container.get() else {
+                let Some(c) = ws.current.container.get() else {
                     return Some(TileDragDestination {
                         highlight: rect,
                         ty: TddType::NewContainer { workspace: ws },
@@ -1605,7 +1606,7 @@ impl OutputNode {
                 },
             });
         };
-        if ws.fullscreen.is_some() {
+        if ws.current.fullscreen.is_some() {
             return None;
         }
         let bar_rect_with_separator = self.bar_rect_with_separator.get();
@@ -1646,7 +1647,7 @@ impl OutputNode {
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
-        let Some(c) = ws.container.get() else {
+        let Some(c) = ws.current.container.get() else {
             return Some(TileDragDestination {
                 highlight: rect,
                 ty: TddType::NewContainer { workspace: ws },
@@ -1680,7 +1681,7 @@ impl OutputNode {
             });
         }
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            if self.workspaces.iter().any(|ws| ws.id == source.id) {
+            if self.current_workspaces().any(|ws| ws.id == source.id) {
                 return None;
             }
             return Some(WorkspaceDragDestination {
@@ -1821,12 +1822,12 @@ impl OutputNode {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            if let Some(fs) = ws.fullscreen.get() {
+            if let Some(fs) = ws.current.fullscreen.get() {
                 if fs.node_visible() {
                     fs.node_do_focus(tt, seat, direction);
                     return;
                 }
-            } else if let Some(c) = ws.container.get() {
+            } else if let Some(c) = ws.current.container.get() {
                 if c.node_visible() {
                     c.node_do_focus(tt, seat, direction);
                     return;
@@ -1856,6 +1857,20 @@ impl OutputNode {
     pub fn set_flip_margin(&self, margin_ns: u64) {
         self.flip_margin_ns.set(Some(margin_ns));
         self.state.trigger_cci(CCI_OUTPUTS);
+    }
+
+    pub fn current_workspaces(&self) -> impl Iterator<Item = Rc<WorkspaceNode>> {
+        self.workspaces
+            .iter()
+            .filter(|ws| ws.is_current_link.get())
+            .map(|ws| ws.ws.clone())
+    }
+
+    pub fn mapped_workspaces(&self) -> impl Iterator<Item = Rc<WorkspaceNode>> {
+        self.workspaces
+            .iter()
+            .filter(|ws| ws.is_mapped_link.get())
+            .map(|ws| ws.ws.clone())
     }
 }
 
@@ -1923,8 +1938,8 @@ impl Node for OutputNode {
         if let Some(ls) = self.lock_surface.get() {
             visitor.visit_lock_surface(&ls);
         }
-        for ws in self.workspaces.iter() {
-            visitor.visit_workspace(ws.deref());
+        for ws in self.current_workspaces() {
+            visitor.visit_workspace(&ws);
         }
         if let Some(ws) = self.overlay.get() {
             visitor.visit_workspace(&ws);
@@ -2030,7 +2045,7 @@ impl Node for OutputNode {
             }
         }
         if let Some(ws) = self.overlay.get() {
-            if let Some(fs) = ws.fullscreen.get() {
+            if let Some(fs) = ws.current.fullscreen.get() {
                 tree.push(FoundNode {
                     node: fs.clone(),
                     x,
@@ -2062,7 +2077,7 @@ impl Node for OutputNode {
         }
         let mut fullscreen = None;
         if let Some(ws) = self.workspace.get() {
-            fullscreen = ws.fullscreen.get();
+            fullscreen = ws.current.fullscreen.get();
         }
         {
             let mut layers = &[OVERLAY, TOP][..];

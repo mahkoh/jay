@@ -914,7 +914,7 @@ impl State {
                     match ty {
                         WorkspaceType::Normal => {
                             if ws.ty == ty {
-                                let ws_on = ws.output.get();
+                                let ws_on = ws.current.output.get();
                                 if ws_on.global.output_id.hash == o {
                                     if session.session.reason() == SessionReason::Recover {
                                         return Some(ws);
@@ -948,7 +948,7 @@ impl State {
             let Some(ws) = ws() else {
                 return false;
             };
-            let op = ws.output.get().node_mapped_position();
+            let op = ws.current.output.get().node_mapped_position();
             self.map_floating(
                 tt,
                 node.clone(),
@@ -974,7 +974,7 @@ impl State {
         } else {
             return false;
         };
-        if ws.ty == WorkspaceType::Normal && ws.output.get().workspace.id() != Some(ws.id) {
+        if ws.ty == WorkspaceType::Normal && ws.current.output.get().workspace.id() != Some(ws.id) {
             data.request_attention(tt, &*node);
         }
         true
@@ -1002,7 +1002,7 @@ impl State {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if let Some(c) = ws.container.get() {
+        if let Some(c) = ws.current.container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
                 .tl_data()
@@ -1033,7 +1033,7 @@ impl State {
         let mut height = inner_height
             + 2 * self.theme.sizes.border_width.get()
             + self.theme.title_plus_underline_height();
-        let output = workspace.output.get();
+        let output = workspace.current.output.get();
         let output_rect = output.global.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
@@ -1146,7 +1146,7 @@ impl State {
             },
         };
         let output = match ty {
-            WorkspaceType::Normal => ws.output.get(),
+            WorkspaceType::Normal => ws.current.output.get(),
             WorkspaceType::Overlay => output(),
         };
         self.show_workspace2(tt, Some(seat), &output, &ws);
@@ -1910,7 +1910,7 @@ impl State {
         if output.is_dummy {
             return;
         }
-        if ws.output.id() == output.id {
+        if ws.current.output.id() == output.id {
             return;
         }
         let config = WsMoveConfig {
@@ -2260,10 +2260,10 @@ impl State {
         self.root.clone().node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
             for ws in output.workspaces.iter() {
-                ws.deref().clone().node_visit(visitor);
+                ws.ws.clone().node_visit(visitor);
             }
             for ws in self.workspaces.lock().values() {
-                if ws.ty == WorkspaceType::Overlay && ws.output.id() == output.id {
+                if ws.ty == WorkspaceType::Overlay && ws.current.output.id() == output.id {
                     ws.clone().node_visit(visitor);
                 }
             }

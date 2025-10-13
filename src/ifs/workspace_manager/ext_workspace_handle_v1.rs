@@ -76,7 +76,7 @@ impl ExtWorkspaceHandleV1 {
             return;
         };
         let mut state = 0;
-        let output = ws.output.get();
+        let output = ws.current.output.get();
         if let Some(active) = output.workspace.get()
             && active.id == ws.id
         {

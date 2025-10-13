@@ -1106,7 +1106,7 @@ impl ContainerNode {
             return None;
         }
         self.state
-            .find_output_in_direction(&self.workspace.get().output.get(), direction)
+            .find_output_in_direction(&self.workspace.get().current.output.get(), direction)
     }
 
     pub fn move_focus_from_child(
@@ -1186,7 +1186,7 @@ impl ContainerNode {
             if move_foci {
                 collect_kb_foci2(child.clone(), &mut foci);
             }
-            if let Some(c) = ws.container.get() {
+            if let Some(c) = ws.current.container.get() {
                 self.clone().cnode_remove_child2(tt, &*child, true);
                 c.insert_child(tt, child, direction);
             } else {

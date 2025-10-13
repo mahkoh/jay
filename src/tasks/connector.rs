@@ -17,7 +17,6 @@ use {
         cell::{Cell, RefCell},
         collections::VecDeque,
         fmt,
-        ops::Deref,
         rc::Rc,
     },
 };
@@ -262,17 +261,17 @@ impl ConnectorHandler {
                 seat.cursor_group().first_output_connected(&on);
             }
             let dummy = self.state.dummy_output.get().unwrap();
-            for ws in dummy.workspaces.iter() {
-                ws_to_move.push_back(ws.deref().clone());
+            for ws in dummy.current_workspaces() {
+                ws_to_move.push_back(ws);
             }
         }
         for source in self.state.root.outputs.lock().values() {
             if source.id == on.id {
                 continue;
             }
-            for ws in source.workspaces.iter() {
+            for ws in source.current_workspaces() {
                 if ws.desired_output.get() == global.output_id {
-                    ws_to_move.push_back(ws.deref().clone());
+                    ws_to_move.push_back(ws);
                 }
             }
         }
@@ -368,13 +367,13 @@ impl ConnectorHandler {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
-        for ws in on.workspaces.iter() {
+        for ws in on.current_workspaces() {
             if ws.desired_output.get() == output_id {
-                ws.visible_on_desired_output.set(ws.visible.get());
+                ws.visible_on_desired_output.set(ws.current.visible.get());
             }
             let config = WsMoveConfig {
                 make_visible_always: false,
-                make_visible_if_empty: ws.visible.get(),
+                make_visible_if_empty: ws.current.visible.get(),
                 source_is_destroyed: true,
                 before: None,
             };

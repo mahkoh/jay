@@ -12,7 +12,7 @@ pub trait TestWorkspaceNodeExt {
 
 impl TestWorkspaceNodeExt for WorkspaceNode {
     fn container(&self) -> TestResult<Rc<ContainerNode>> {
-        match self.container.get() {
+        match self.current.container.get() {
             None => bail!("workspace does not have a container"),
             Some(c) => Ok(c),
         }

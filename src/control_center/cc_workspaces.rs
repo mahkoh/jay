@@ -31,7 +31,7 @@ impl WorkspacesPane {
         let mut outputs: Vec<_> = self.state.root.outputs.lock().values().cloned().collect();
         outputs.sort_unstable_by_key(|o| o.global.connector.name.clone());
         for ws in ws {
-            let output = ws.output.get();
+            let output = ws.current.output.get();
             let ty = match ws.ty {
                 WorkspaceType::Normal => "Normal",
                 WorkspaceType::Overlay => "Overlay",
@@ -57,7 +57,7 @@ impl WorkspacesPane {
                 grid(ui, "settings", |ui| {
                     label(ui, "Type", ty);
                     row(ui, "Position", |ui| {
-                        let p = ws.position.get();
+                        let p = ws.current.position.get();
                         if output.is_dummy {
                             ui.label("hidden");
                         } else {
@@ -70,12 +70,12 @@ impl WorkspacesPane {
                             ));
                         }
                     });
-                    bool(ui, "Visible", ws.visible.get(), |v| {
+                    bool(ui, "Visible", ws.current.visible.get(), |v| {
                         let tt = &self.state.tree_transaction();
                         if v {
                             ws.clone().node_make_visible(tt);
                         } else if ws.ty == WorkspaceType::Overlay {
-                            ws.output.get().hide_overlay(tt);
+                            ws.current.output.get().hide_overlay(tt);
                         }
                     });
                     row(ui, "Output", |ui| {

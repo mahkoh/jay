@@ -56,7 +56,7 @@ impl Drop for JayWorkspaceSelector {
                 track!(self.jsw.client, jw);
                 self.jsw.client.add_server_obj(&jw);
                 self.jsw
-                    .send_selected(ws.output.get().global.name.raw(), id);
+                    .send_selected(ws.current.output.get().global.name.raw(), id);
                 ws.jay_workspaces
                     .set((self.jsw.client.id, jw.id), jw.clone());
                 jw.send_initial_properties(&ws);

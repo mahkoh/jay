@@ -75,7 +75,7 @@ impl ExtWorkspaceManagerV1Global {
             .managers
             .set(obj.manager_id, obj.clone());
         let dummy_output = client.state.dummy_output.get().unwrap();
-        for ws in dummy_output.workspaces.iter() {
+        for ws in dummy_output.current_workspaces() {
             obj.announce_workspace(&dummy_output, &ws);
         }
         for output in client.state.root.outputs.lock().values() {
@@ -116,7 +116,7 @@ impl ExtWorkspaceManagerV1 {
                 group.send_output_enter(wl_output);
             }
         }
-        for ws in node.workspaces.iter() {
+        for ws in node.current_workspaces() {
             if let Some(ws) = ws.ext_workspaces.get(&self.manager_id) {
                 ws.handle_new_output(node);
             } else {
@@ -247,7 +247,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(ws) = w.get() else {
                         continue;
                     };
-                    let output = ws.output.get();
+                    let output = ws.current.output.get();
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state

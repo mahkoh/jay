@@ -831,7 +831,7 @@ impl WlSeatGlobal {
                 if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                     && let Some(target) = self
                         .state
-                        .find_output_in_direction(&ws.output.get(), direction)
+                        .find_output_in_direction(&ws.current.output.get(), direction)
                 {
                     target.take_keyboard_navigation_focus(tt, self, direction);
                     self.maybe_schedule_warp_mouse_to_focus();
@@ -875,7 +875,7 @@ impl WlSeatGlobal {
             if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                 && let Some(target) = self
                     .state
-                    .find_output_in_direction(&ws.output.get(), direction)
+                    .find_output_in_direction(&ws.current.output.get(), direction)
             {
                 self.state.move_ws_to_output(tt, &ws, &target);
             }
@@ -1152,11 +1152,11 @@ impl WlSeatGlobal {
             }};
         }
         let handle_tiled = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.container.get())
+            ws.and_then(|w| w.current.container.get())
                 .map(|n| n as Rc<dyn Node>)
         };
         let handle_fullscreen = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.fullscreen.get())
+            ws.and_then(|w| w.current.fullscreen.get())
                 .map(|n| n as Rc<dyn Node>)
         };
         let ws = output.workspace.get();
@@ -1234,9 +1234,9 @@ impl WlSeatGlobal {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            let node = match ws.fullscreen.get() {
+            let node = match ws.current.fullscreen.get() {
                 Some(fs) => fs as Rc<dyn Node>,
-                _ => match ws.container.get() {
+                _ => match ws.current.container.get() {
                     Some(c) => c,
                     _ => continue,
                 },
