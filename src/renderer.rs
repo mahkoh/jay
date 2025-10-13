@@ -296,22 +296,23 @@ impl Renderer<'_> {
                 }
             }
         }
-        if let Some(child) = container.mono_child.get() {
-            let body = container.mono_body.get().move_(x, y);
+        if let Some(child) = container.cur.mono_child.get() {
+            let body = container.cur.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
-            let content = container.mono_content.get();
+            let content = container.cur.mono_content.get();
             child
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
             for child in container.children.iter() {
-                let body = child.body.get();
-                if body.x1() >= container.width.get() || body.y1() >= container.height.get() {
+                let body = child.cur.body.get();
+                if body.x1() >= container.cur.width.get() || body.y1() >= container.cur.height.get()
+                {
                     break;
                 }
                 let body = body.move_(x, y);
                 let body = self.base.scale_rect(body);
-                let content = child.content.get();
+                let content = child.cur.content.get();
                 child
                     .node
                     .node_render(self, x + content.x1(), y + content.y1(), Some(&body));

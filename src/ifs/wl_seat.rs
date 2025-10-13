@@ -621,11 +621,12 @@ impl WlSeatGlobal {
     }
 
     pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container().map(|c| c.mono_child.is_some())
+        self.kb_parent_container()
+            .map(|c| c.cur.mono_child.is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container().map(|c| c.split.get())
+        self.kb_parent_container().map(|c| c.cur.split.get())
     }
 
     pub fn set_mono(&self, mono: bool) {
