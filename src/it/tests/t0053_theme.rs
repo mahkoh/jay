@@ -26,7 +26,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         .find_map(|n| Rc::clone(&n).node_into_float())
         .unwrap();
 
-    let pos = float_node.position.get();
+    let pos = float_node.node_state.position.get();
 
     // 1. Huge borders: Ensure renderer doesn't crash when borders are larger than window
     let huge_bw = pos.width() / 2 + 10;
