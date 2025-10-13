@@ -346,9 +346,9 @@ impl Node for WorkspaceNode {
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
-            .find(|node| node.child.is_some())
+            .find(|node| node.current.child.is_some())
         {
-            if let Some(child) = float.child.get() {
+            if let Some(child) = float.current.child.get() {
                 child.node_do_focus(seat, direction);
             }
         }

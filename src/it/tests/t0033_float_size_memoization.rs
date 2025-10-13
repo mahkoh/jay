@@ -21,8 +21,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let (w1, h1) = (win1.tl.core.width.get(), win1.tl.core.height.get());
 
     let float = win1.tl.float_parent()?;
-    let pos = float.position.get();
+    let pos = float.current.position.get();
     float
+        .current
         .position
         .set(Rect::new_sized(pos.x1(), pos.x2(), pos.width() / 2, pos.height() / 2).unwrap());
     float.schedule_layout();

@@ -25,8 +25,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     {
         let parent = win1.tl.float_parent()?;
-        let rect = parent.position.get();
-        parent.position.set(rect.at_point(100, 100));
+        let rect = parent.current.position.get();
+        parent.current.position.set(rect.at_point(100, 100));
         parent.schedule_layout();
     }
 
