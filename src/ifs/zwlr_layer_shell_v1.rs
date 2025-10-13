@@ -1,5 +1,6 @@
 use {
     crate::{
+        bugs::{self, Bugs},
         client::{CAP_LAYER_SHELL, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
@@ -25,6 +26,8 @@ pub struct ZwlrLayerShellV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
+    #[expect(dead_code)]
+    pub bugs: &'static Bugs,
 }
 
 impl ZwlrLayerShellV1Global {
@@ -43,6 +46,7 @@ impl ZwlrLayerShellV1Global {
             client: client.clone(),
             version,
             tracker: Default::default(),
+            bugs: bugs::get_by_comm(&client.pid_info.comm),
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;

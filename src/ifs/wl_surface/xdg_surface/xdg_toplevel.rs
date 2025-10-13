@@ -262,7 +262,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn set_app_id(&self, req: SetAppId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_app_id(req.app_id);
-        self.bugs.set(bugs::get(req.app_id));
+        self.bugs.set(bugs::get_by_app_id(req.app_id));
         Ok(())
     }
 
