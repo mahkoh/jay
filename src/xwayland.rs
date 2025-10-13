@@ -9,7 +9,7 @@ use {
         ifs::{
             ipc::{DataOfferId, DataSourceId, IpcLocation, x_data_offer::XDataOffer},
             wl_seat::SeatId,
-            wl_surface::x_surface::xwindow::{Xwindow, XwindowData},
+            wl_surface::x_surface::xwindow::XwindowData,
         },
         io_uring::IoUringError,
         security_context_acceptor::AcceptorMetadata,
@@ -279,7 +279,7 @@ pub enum XWaylandEvent {
     SurfaceCreated(WlSurfaceId),
     SurfaceSerialAssigned(WlSurfaceId),
     SurfaceDestroyed(WlSurfaceId, Option<u64>),
-    Configure(Rc<Xwindow>),
+    Configure(Rc<XwindowData>),
     Activate(Rc<XwindowData>),
     ActivateRoot,
     Close(Rc<XwindowData>),

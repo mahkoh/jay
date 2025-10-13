@@ -490,7 +490,7 @@ impl ToplevelNodeBase for Xwindow {
                     .state
                     .xwayland
                     .queue
-                    .push(XWaylandEvent::Configure(self.clone()));
+                    .push(XWaylandEvent::Configure(self.data.clone()));
             }
             if old.position() != rect.position() {
                 self.x.surface.set_absolute_position(rect.x1(), rect.y1());
