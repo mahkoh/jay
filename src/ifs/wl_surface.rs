@@ -1029,7 +1029,7 @@ impl WlSurface {
                 .state
                 .xwayland
                 .queue
-                .push(XWaylandEvent::Configure(window));
+                .push(XWaylandEvent::Configure(window.data.clone()));
         }
     }
 
