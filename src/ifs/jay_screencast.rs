@@ -188,7 +188,7 @@ impl JayScreencast {
         };
         let scale = match tl.tl_data().workspace.get() {
             None => Scale::default(),
-            Some(w) => w.current.output.get().global.persistent.scale.get(),
+            Some(w) => w.current.output.get().current.scale.get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -322,7 +322,7 @@ impl JayScreencast {
             return;
         }
         if !self.show_all.get() {
-            let ws = match on.workspace.get() {
+            let ws = match on.current.workspace.get() {
                 Some(ws) => ws,
                 _ => return,
             };
@@ -344,13 +344,13 @@ impl JayScreencast {
                     ReleaseSync::Implicit,
                     Transform::None,
                     self.client.state.color_manager.srgb_gamma22(),
-                    on.global.pos.get(),
+                    on.current.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,
                     size,
-                    on.global.persistent.transform.get(),
-                    on.global.persistent.scale.get(),
+                    on.current.transform.get(),
+                    on.current.scale.get(),
                 );
                 match res {
                     Ok(_) => {
@@ -477,7 +477,7 @@ impl JayScreencast {
     fn damage(&self) {
         if let Some(target) = self.target.get() {
             let rect = match target {
-                Target::Output(o) => o.global.pos.get(),
+                Target::Output(o) => o.current.pos.get(),
                 Target::Toplevel(t) => {
                     if !t.node_visible() {
                         return;
@@ -792,7 +792,7 @@ efrom!(JayScreencastError, ClientError);
 fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {
         return match target {
-            Target::Output(o) => o.global.pixel_size(),
+            Target::Output(o) => o.pixel_size(),
             Target::Toplevel(t) => t.tl_data().desired_pixel_size(),
         };
     }

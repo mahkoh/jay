@@ -27,7 +27,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     client.sync().await;
 
-    let name = ds.output.workspace.get().map(|ws| ws.name.clone());
+    let name = ds.output.current.workspace.get().map(|ws| ws.name.clone());
     tassert_eq!(name.as_deref().map(String::as_str), Some("1"));
 
     let pos = {
@@ -39,7 +39,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     client.sync().await;
 
-    let name = ds.output.workspace.get().map(|ws| ws.name.clone());
+    let name = ds.output.current.workspace.get().map(|ws| ws.name.clone());
     tassert_eq!(name.as_deref().map(String::as_str), Some("2"));
 
     Ok(())

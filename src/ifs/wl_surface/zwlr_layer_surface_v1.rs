@@ -454,8 +454,8 @@ impl ZwlrLayerSurfaceV1 {
         let (mut width, mut height) = self.size.get();
         let (mt, mr, mb, ml) = self.margin.get();
         let (mut available_width, mut available_height) = match self.exclusive_zone.get() {
-            ExclusiveZone::MoveSelf => node.non_exclusive_rect.get().size(),
-            _ => node.global.pos.get().size(),
+            ExclusiveZone::MoveSelf => node.current.non_exclusive_rect.get().size(),
+            _ => node.current.pos.get().size(),
         };
         let anchor = self.anchor.get();
         if anchor.contains(LEFT) {
@@ -499,9 +499,9 @@ impl ZwlrLayerSurfaceV1 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
         let (mt, mr, mb, ml) = self.margin.get();
-        let opos = output.global.pos.get();
+        let opos = output.current.pos.get();
         let rect = match self.exclusive_zone.get() {
-            ExclusiveZone::MoveSelf => output.non_exclusive_rect.get(),
+            ExclusiveZone::MoveSelf => output.current.non_exclusive_rect.get(),
             _ => opos,
         };
         let (owidth, oheight) = rect.size();

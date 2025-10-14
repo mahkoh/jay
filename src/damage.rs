@@ -3,13 +3,12 @@ use {
         async_engine::AsyncEngine,
         cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
         fixed::Fixed,
-        ifs::wl_output::WlOutputGlobal,
         rect::{Rect, Region},
         renderer::renderer_base::RendererBase,
         state::State,
         theme::Color,
         time::Time,
-        tree::Transform,
+        tree::{OutputNode, Transform},
         utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt, timer::TimerFd},
     },
     isnt::std_1::primitive::IsntSliceExt,
@@ -58,13 +57,11 @@ pub async fn visualize_damage(state: Rc<State>) {
 }
 
 fn damage_all(state: &State) {
-    for connector in state.connectors.lock().values() {
-        if connector.connected.get() {
-            let damage = &mut *connector.damage.borrow_mut();
-            damage.clear();
-            damage.push(connector.damage_intersect.get());
-            connector.damage();
-        }
+    for node in state.root.outputs.lock().values() {
+        let damage = &mut *node.global.connector.damage.borrow_mut();
+        damage.clear();
+        damage.push(node.current.connector_damage_intersect.get());
+        node.global.connector.damage();
     }
 }
 
@@ -182,13 +179,13 @@ impl DamageVisualizer {
         }
     }
 
-    pub fn copy_damage(&self, output: &WlOutputGlobal) {
+    pub fn copy_damage(&self, output: &OutputNode) {
         if !self.enabled.get() {
             return;
         }
         self.trim();
         let entries = &*self.entries.borrow();
-        let pos = output.pos.get();
+        let pos = output.current.pos.get();
         for entry in entries {
             if entry.rect.intersects(&pos) {
                 output.add_damage_area(&entry.rect);

@@ -196,9 +196,9 @@ impl ZwlrOutputManagerV1 {
         }
         if let Some(node) = &output.node {
             let p = &node.global.persistent;
-            head.send_scale(p.scale.get());
+            head.send_scale(node.current.scale.get());
             head.send_position(p.pos.get().0, p.pos.get().1);
-            head.send_transform(p.transform.get());
+            head.send_transform(node.current.transform.get());
             if head.version >= ADAPTIVE_SYNC_SINCE {
                 head.send_adaptive_sync(&p.vrr_mode.get());
             }

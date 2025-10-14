@@ -101,13 +101,14 @@ impl ZwlrScreencopyManagerV1 {
         region: Option<Rect>,
     ) -> Result<(), ZwlrScreencopyManagerV1Error> {
         let output = self.client.lookup(output)?;
-        let Some(global) = output.global.get() else {
+        let Some(node) = output.global.node() else {
             return Ok(());
         };
+        let global = &node.global;
         let mode = global.mode.get();
         let mut rect = Rect::new_sized_saturating(0, 0, mode.width, mode.height);
         if let Some(region) = region {
-            let scale = global.persistent.scale.get().to_f64();
+            let scale = node.current.scale.get().to_f64();
             let x1 = (region.x1() as f64 * scale).round() as i32;
             let y1 = (region.y1() as f64 * scale).round() as i32;
             let x2 = (region.x2() as f64 * scale).round() as i32;

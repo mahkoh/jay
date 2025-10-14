@@ -102,15 +102,15 @@ impl JayRandr {
             }
         };
         let global = &node.global;
-        let pos = global.pos.get();
+        let pos = node.current.pos.get();
         self.client.event(Output {
             self_id: self.id,
-            scale: global.persistent.scale.get().to_wl(),
+            scale: node.current.scale.get().to_wl(),
             width: pos.width(),
             height: pos.height(),
             x: pos.x1(),
             y: pos.y1(),
-            transform: global.persistent.transform.get().to_wl(),
+            transform: node.current.transform.get().to_wl(),
             manufacturer: &output.monitor_info.output_id.manufacturer,
             product: &output.monitor_info.output_id.model,
             serial_number: &output.monitor_info.output_id.serial_number,
@@ -185,7 +185,7 @@ impl JayRandr {
             }
             self.client.event(CurrentEotf {
                 self_id: self.id,
-                eotf: node.global.btf.get().name(),
+                eotf: node.current.btf.get().name(),
             });
             for cs in &node.global.color_spaces {
                 self.client.event(SupportedColorSpace {
@@ -195,7 +195,7 @@ impl JayRandr {
             }
             self.client.event(CurrentColorSpace {
                 self_id: self.id,
-                color_space: node.global.bcs.get().name(),
+                color_space: node.current.bcs.get().name(),
             });
         }
         if self.version >= BRIGHTNESS_SINCE {
@@ -207,7 +207,7 @@ impl JayRandr {
                     max_fall: lum.max_fall,
                 });
             }
-            if let Some(lux) = node.global.persistent.brightness.get() {
+            if let Some(lux) = node.current.brightness.get() {
                 self.client.event(Brightness {
                     self_id: self.id,
                     lux,
@@ -217,7 +217,7 @@ impl JayRandr {
         if self.version >= BLEND_SPACE_SINCE {
             self.client.event(BlendSpace {
                 self_id: self.id,
-                blend_space: node.global.persistent.blend_space.get().name(),
+                blend_space: node.current.blend_space.get().name(),
             });
         }
         if self.version >= NATIVE_GAMUT_SINCE {

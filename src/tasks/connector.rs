@@ -75,7 +75,6 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damaged: Cell::new(false),
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
-        damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
         head_manager: HeadManager::new(state.head_names.next(), head_state),
         wlr_output_heads: Default::default(),
@@ -187,61 +186,9 @@ impl ConnectorHandler {
             name: self.state.globals.name(),
             output: global.opt.clone(),
         });
-        let on = Rc::new(OutputNode {
-            id: self.state.node_ids.next(),
-            workspaces: Default::default(),
-            workspace: Default::default(),
-            overlay: Default::default(),
-            seat_state: Default::default(),
-            global: global.clone(),
-            layers: Default::default(),
-            exclusive_zones: Default::default(),
-            workspace_rect: Default::default(),
-            workspace_rect_rel: Default::default(),
-            non_exclusive_rect: Default::default(),
-            non_exclusive_rect_rel: Default::default(),
-            bar_rect: Default::default(),
-            bar_rect_rel: Default::default(),
-            bar_rect_with_separator: Default::default(),
-            bar_rect_with_separator_rel: Default::default(),
-            bar_separator_rect: Default::default(),
-            bar_separator_rect_rel: Default::default(),
-            render_data: Default::default(),
-            state: self.state.clone(),
-            is_dummy: false,
-            status: self.state.status.clone(),
-            scroll: Default::default(),
-            pointer_positions: Default::default(),
-            pointer_down: Default::default(),
-            lock_surface: Default::default(),
-            hardware_cursor: Default::default(),
-            jay_outputs: Default::default(),
-            screencasts: Default::default(),
-            update_render_data_scheduled: Cell::new(false),
-            hardware_cursor_needs_render: Cell::new(false),
-            screencopies: Default::default(),
-            title_visible: Default::default(),
-            schedule,
-            latch_event: Default::default(),
-            vblank_event: Default::default(),
-            presentation_event: Default::default(),
-            render_margin_ns: Default::default(),
-            flip_margin_ns: Default::default(),
-            ext_copy_sessions: Default::default(),
-            before_latch_event: Default::default(),
-            tray_start_rel: Default::default(),
-            tray_items: Default::default(),
-            ext_workspace_groups: Default::default(),
-            pinned: Default::default(),
-            tearing: Default::default(),
-            active_zwlr_gamma_control: Default::default(),
-            cursor_users: Default::default(),
-        });
         let tt = self.state.tree_transaction();
-        on.update_visible(&tt);
-        on.update_rects(&tt);
-        self.state
-            .add_output_scale(&tt, on.global.persistent.scale.get());
+        let on = OutputNode::new(&tt, &global, &schedule);
+        self.state.add_output_scale(&tt, on.current.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: Rc::new(info),
@@ -301,7 +248,7 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        global.add_damage_area(&global.pos.get());
+        on.add_damage_area(&on.current.pos.get());
         self.data.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
@@ -351,7 +298,7 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);
-        on.lock_surface.take();
+        on.current.lock_surface.take();
         {
             let mut surfaces = vec![];
             for layer in &on.layers {
@@ -388,8 +335,7 @@ impl ConnectorHandler {
         for item in on.tray_items.iter() {
             item.destroy_node(tt);
         }
-        self.state
-            .remove_output_scale(tt, on.global.persistent.scale.get());
+        self.state.remove_output_scale(tt, on.current.scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }

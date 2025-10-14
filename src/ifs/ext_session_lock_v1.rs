@@ -83,12 +83,12 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         if !self.finished.get()
             && let Some(node) = output.global.node()
         {
-            if node.lock_surface.is_some() {
+            if node.current.lock_surface.is_some() {
                 return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
             }
             let tt = &self.client.state.tree_transaction();
             node.set_lock_surface(tt, Some(new.clone()));
-            let pos = node.global.pos.get();
+            let pos = node.current.pos.get();
             new.change_extents(tt, pos);
             new.surface.set_output(&node, NodeLocation::Output(node.id));
             self.client.state.tree_changed();

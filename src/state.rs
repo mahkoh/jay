@@ -453,7 +453,6 @@ pub struct ConnectorData {
     pub damaged: Cell<bool>,
     pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
-    pub damage_intersect: Cell<Rect>,
     pub state: RefCell<BackendConnectorState>,
     pub head_manager: HeadManager,
     pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
@@ -919,7 +918,7 @@ impl State {
                                     if session.session.reason() == SessionReason::Recover {
                                         return Some(ws);
                                     }
-                                    if ws_on.workspace.id() == Some(ws.id) {
+                                    if ws_on.current.workspace.id() == Some(ws.id) {
                                         return Some(ws);
                                     }
                                 }
@@ -935,7 +934,7 @@ impl State {
                         if session.session.reason() == SessionReason::Recover {
                             return Some(on.create_normal_workspace(tt, &name));
                         }
-                        if let Some(ws) = on.workspace.get() {
+                        if let Some(ws) = on.current.workspace.get() {
                             return Some(ws);
                         }
                         Some(on.create_normal_workspace(tt, &name))
@@ -974,7 +973,9 @@ impl State {
         } else {
             return false;
         };
-        if ws.ty == WorkspaceType::Normal && ws.current.output.get().workspace.id() != Some(ws.id) {
+        if ws.ty == WorkspaceType::Normal
+            && ws.current.output.get().current.workspace.id() != Some(ws.id)
+        {
             data.request_attention(tt, &*node);
         }
         true
@@ -1034,7 +1035,7 @@ impl State {
             + 2 * self.theme.sizes.border_width.get()
             + self.theme.title_plus_underline_height();
         let output = workspace.current.output.get();
-        let output_rect = output.global.pos.get();
+        let output_rect = output.current.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
             x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
@@ -1252,11 +1253,11 @@ impl State {
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
-            if output.global.pos.get().intersects(&rect) {
+            if output.current.pos.get().intersects(&rect) {
                 if skip_hc && output.hardware_cursor.is_some() {
                     continue;
                 }
-                output.global.add_damage_area(&rect);
+                output.add_damage_area(&rect);
                 if cursor && output.schedule.defer_cursor_updates() {
                     output.schedule.software_cursor_changed();
                 } else {
@@ -1449,8 +1450,8 @@ impl State {
             cd,
             output,
             self,
-            Some(output.global.pos.get()),
-            output.global.persistent.scale.get(),
+            Some(output.current.pos.get()),
+            output.current.scale.get(),
             render_hw_cursor,
             true,
             blend_buffer,
@@ -1629,7 +1630,7 @@ impl State {
         let mut optimal_output = None;
         let outputs = self.root.outputs.lock();
         for output in outputs.values() {
-            let pos = output.global.pos.get();
+            let pos = output.current.pos.get();
             let dist = pos.dist_squared(x, y);
             if dist == 0 {
                 if pos.contains(x, y) {
@@ -1642,7 +1643,7 @@ impl State {
             }
         }
         if let Some(output) = optimal_output {
-            let pos = output.global.pos.get();
+            let pos = output.current.pos.get();
             if pos.is_empty() {
                 return (output, pos.x1(), pos.y1());
             }
@@ -1831,7 +1832,7 @@ impl State {
 
         let outputs = self.root.outputs.lock();
 
-        let ref_box = source_output.global.pos.get();
+        let ref_box = source_output.current.pos.get();
         let ref_x1 = ref_box.x1();
         let ref_y1 = ref_box.y1();
         let ref_x2 = ref_box.x2();
@@ -1849,7 +1850,7 @@ impl State {
                 continue;
             }
 
-            let box_pos = output.global.pos.get();
+            let box_pos = output.current.pos.get();
             let box_x1 = box_pos.x1();
             let box_y1 = box_pos.y1();
             let box_x2 = box_pos.x2();
@@ -2231,7 +2232,7 @@ impl State {
             .outputs
             .lock()
             .values()
-            .map(|o| o.global.pos.get().x2())
+            .map(|o| o.current.pos.get().x2())
             .max()
             .unwrap_or(0);
         Rc::new(PersistentOutputState {

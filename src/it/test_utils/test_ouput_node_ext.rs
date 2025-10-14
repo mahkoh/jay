@@ -19,7 +19,7 @@ pub trait TestOutputNodeExt {
 
 impl TestOutputNodeExt for OutputNode {
     fn workspace2(&self) -> TestResult<Rc<WorkspaceNode>> {
-        match self.workspace.get() {
+        match self.current.workspace.get() {
             None => bail!("Output node does not have a container"),
             Some(w) => Ok(w),
         }

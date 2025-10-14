@@ -42,7 +42,7 @@ impl WpFractionalScaleV1 {
     pub fn send_preferred_scale(&self) {
         let scale = match self.client.wire_scale.is_some() {
             true => Scale::from_int(1),
-            false => self.surface.output.get().global.persistent.scale.get(),
+            false => self.surface.output.get().current.scale.get(),
         };
         self.client.event(PreferredScale {
             self_id: self.id,

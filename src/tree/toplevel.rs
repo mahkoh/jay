@@ -555,7 +555,7 @@ impl ToplevelData {
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
-        let output = ws.current.output.get().global.pos.get();
+        let output = ws.current.output.get().current.pos.get();
         let mut width = self.float_width.get();
         let mut height = self.float_height.get();
         if width == 0 {
@@ -957,7 +957,7 @@ impl ToplevelData {
     pub fn desired_pixel_size(&self) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
         if let Some(ws) = self.workspace.get() {
-            let scale = ws.current.output.get().global.persistent.scale.get();
+            let scale = ws.current.output.get().current.scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)

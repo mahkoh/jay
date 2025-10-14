@@ -172,9 +172,8 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
-        if let Some(global) = output.global.get() {
-            global
-                .color_description_listeners
+        if let Some(node) = output.global.node() {
+            node.color_description_listeners
                 .set((self.client.id, req.id), obj);
         }
         Ok(())

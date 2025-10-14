@@ -371,10 +371,7 @@ impl EiSeat {
         apply!(EI_CAP_TOUCHSCREEN, create_touchscreen);
         for output in self.client.state.root.outputs.lock().values() {
             device.send_region_mapping_id(&output.global.connector.name);
-            device.send_region(
-                output.node_mapped_position(),
-                output.global.persistent.scale.get(),
-            );
+            device.send_region(output.node_mapped_position(), output.current.scale.get());
         }
         if let Some(kb) = self.keyboard.get() {
             kb.send_keymap(kb_state);

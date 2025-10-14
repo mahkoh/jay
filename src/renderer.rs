@@ -53,7 +53,7 @@ impl Renderer<'_> {
         let ext = display.extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
-            let opos = output.global.pos.get();
+            let opos = output.current.pos.get();
             let (ox, oy) = ext.translate(opos.x1(), opos.y1());
             self.render_output(output, x + ox, y + oy);
         }
@@ -61,14 +61,14 @@ impl Renderer<'_> {
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         if self.state.lock.locked.get() {
-            if let Some(surface) = output.lock_surface.get()
+            if let Some(surface) = output.current.lock_surface.get()
                 && surface.surface.buffer.is_some()
             {
                 self.render_surface(&surface.surface, x, y, None);
             }
             return;
         }
-        let opos = output.global.pos.get();
+        let opos = output.current.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {
@@ -80,12 +80,12 @@ impl Renderer<'_> {
         }
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
-        if let Some(ws) = output.overlay.get() {
+        if let Some(ws) = output.current.overlay.get() {
             fullscreen = ws.current.fullscreen.get();
             fullscreen_is_overlay = ws.current.fullscreen.is_some();
         }
         if fullscreen.is_none()
-            && let Some(ws) = output.workspace.get()
+            && let Some(ws) = output.current.workspace.get()
         {
             fullscreen = ws.current.fullscreen.get();
         }
@@ -100,11 +100,11 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let ws = output.workspace.get();
+            let ws = output.current.workspace.get();
             if self.state.show_bar.get() {
-                let non_exclusive_rect_rel = output.non_exclusive_rect_rel.get();
+                let non_exclusive_rect_rel = output.current.non_exclusive_rect_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
-                let bar_rect = output.bar_rect_rel.get();
+                let bar_rect = output.current.bar_rect_rel.get();
                 let bar_bg = bar_rect.move_(
                     x - non_exclusive_rect_rel.x1(),
                     y - non_exclusive_rect_rel.y1(),
@@ -163,7 +163,7 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let scale = output.global.persistent.scale.get();
+                let scale = output.current.scale.get();
                 for title in &rd.titles {
                     if let Some(icon_x) = title.icon_x
                         && let Some(icons) = &self.bar_icons
@@ -243,7 +243,7 @@ impl Renderer<'_> {
                 }
             }
             if let Some(ws) = &ws {
-                let ws_rect = output.workspace_rect_rel.get();
+                let ws_rect = output.current.workspace_rect_rel.get();
                 let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);
             }
@@ -272,19 +272,19 @@ impl Renderer<'_> {
             && fullscreen_is_overlay
         {
             fs.node_render(self, x, y, None);
-        } else if let Some(ws) = output.overlay.get() {
-            let ws_rect = output.workspace_rect_rel.get();
+        } else if let Some(ws) = output.current.overlay.get() {
+            let ws_rect = output.current.workspace_rect_rel.get();
             let (x, y) = ws_rect.translate_inv(x, y);
             self.base.sync();
             self.render_workspace(&ws, x, y);
         }
         render_stacked!(self.state.root.stacked_in_overlay);
-        for layer in [&output.workspace, &output.overlay] {
+        for layer in [&output.current.workspace, &output.current.overlay] {
             if let Some(ws) = layer.get()
                 && ws.render_highlight.get() > 0
             {
                 let color = self.state.theme.colors.highlight.get();
-                let bounds = output.workspace_rect_rel.get().move_(x, y);
+                let bounds = output.current.workspace_rect_rel.get().move_(x, y);
                 self.base.sync();
                 self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
             }

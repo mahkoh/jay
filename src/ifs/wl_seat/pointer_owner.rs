@@ -1482,7 +1482,7 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
             let (x, y) = seat.pointer_cursor.position_int();
             let outputs = seat.state.root.outputs.lock();
             for output in outputs.values() {
-                let pos = output.global.pos.get();
+                let pos = output.current.pos.get();
                 if pos.contains(x, y) {
                     break 'output output.clone();
                 }

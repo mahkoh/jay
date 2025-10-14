@@ -4,32 +4,16 @@ use {
     crate::{
         backend::{self, BackendColorSpace, BackendEotfs, BackendLuminance},
         client::{Client, ClientError, ClientId},
-        cmm::{
-            cmm_description::ColorDescription,
-            cmm_eotf::Eotf,
-            cmm_luminance::Luminance,
-            cmm_primaries::{NamedPrimaries, Primaries},
-        },
-        damage::DamageMatrix,
+        cmm::cmm_primaries::Primaries,
         format::{Format, XRGB8888},
         globals::{Global, GlobalName},
-        ifs::{
-            color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
-            wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1,
-        },
+        ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
         leaks::Tracker,
         object::{Object, Version},
-        rect::Rect,
         state::{ConnectorData, State},
-        tree::{
-            OutputNode, TearingMode, Transform, VrrMode, calculate_logical_size,
-            transaction::TreeTransaction,
-        },
-        utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, ordered_float::F64,
-            rc_eq::rc_eq,
-        },
-        wire::{WlOutputId, WpColorManagementOutputV1Id, ZxdgOutputV1Id, wl_output::*},
+        tree::{OutputNode, TearingMode, Transform, VrrMode, transaction::TreeTransaction},
+        utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
+        wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
     ahash::AHashMap,
     linearize::Linearize,
@@ -71,7 +55,6 @@ pub struct WlOutputGlobal {
     pub name: GlobalName,
     pub state: Rc<State>,
     pub connector: Rc<ConnectorData>,
-    pub pos: Cell<Rect>,
     pub output_id: Rc<OutputId>,
     pub mode: Cell<backend::Mode>,
     pub refresh_nsec: Cell<u64>,
@@ -86,16 +69,8 @@ pub struct WlOutputGlobal {
     pub luminance: Option<BackendLuminance>,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
     pub destroyed: Cell<bool>,
-    pub legacy_scale: Cell<u32>,
     pub persistent: Rc<PersistentOutputState>,
     pub opt: Rc<OutputGlobalOpt>,
-    pub damage_matrix: Cell<DamageMatrix>,
-    pub btf: Cell<BackendEotfs>,
-    pub bcs: Cell<BackendColorSpace>,
-    pub color_description: CloneCell<Rc<ColorDescription>>,
-    pub linear_color_description: CloneCell<Rc<ColorDescription>>,
-    pub color_description_listeners:
-        CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
 }
 
 impl PartialEq for WlOutputGlobal {
@@ -125,9 +100,10 @@ impl OutputGlobalOpt {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize, Default)]
 pub enum BlendSpace {
     Linear,
+    #[default]
     Srgb,
 }
 
@@ -236,7 +212,6 @@ impl WlOutputGlobal {
     pub fn clear(&self) {
         self.opt.clear();
         self.bindings.borrow_mut().clear();
-        self.color_description_listeners.clear();
     }
 
     pub fn new(
@@ -253,19 +228,11 @@ impl WlOutputGlobal {
         primaries: Primaries,
         luminance: Option<BackendLuminance>,
     ) -> Self {
-        let (x, y) = persistent_state.pos.get();
-        let scale = persistent_state.scale.get();
         let connector_state = connector.state.borrow();
-        let (width, height) = calculate_logical_size(
-            (connector_state.mode.width, connector_state.mode.height),
-            persistent_state.transform.get(),
-            scale,
-        );
-        let global = Self {
+        Self {
             name,
             state: state.clone(),
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_sized_saturating(x, y, width, height)),
             output_id: output_id.clone(),
             mode: Cell::new(connector_state.mode),
             refresh_nsec: Cell::new(connector_state.mode.refresh_nsec()),
@@ -280,23 +247,9 @@ impl WlOutputGlobal {
             luminance,
             bindings: Default::default(),
             destroyed: Cell::new(false),
-            legacy_scale: Cell::new(scale.round_up()),
             persistent: persistent_state.clone(),
             opt: Default::default(),
-            damage_matrix: Default::default(),
-            btf: Cell::new(connector_state.eotf),
-            bcs: Cell::new(connector_state.color_space),
-            color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
-            linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
-            color_description_listeners: Default::default(),
-        };
-        global.update_damage_matrix();
-        global.update_color_description();
-        global
-    }
-
-    pub fn position(&self) -> Rect {
-        self.pos.get()
+        }
     }
 
     pub fn for_each_binding<F: FnMut(&Rc<WlOutput>)>(&self, client: ClientId, mut f: F) {
@@ -368,104 +321,6 @@ impl WlOutputGlobal {
         }
         Ok(())
     }
-
-    pub fn pixel_size(&self) -> (i32, i32) {
-        let mode = self.mode.get();
-        self.persistent
-            .transform
-            .get()
-            .maybe_swap((mode.width, mode.height))
-    }
-
-    pub fn update_damage_matrix(&self) {
-        let pos = self.pos.get();
-        let mode = self.mode.get();
-        let matrix = DamageMatrix::new(
-            self.persistent.transform.get().inverse(),
-            1,
-            pos.width(),
-            pos.height(),
-            None,
-            mode.width,
-            mode.height,
-        );
-        self.damage_matrix.set(matrix);
-        self.connector
-            .damage_intersect
-            .set(Rect::new_sized_saturating(0, 0, mode.width, mode.height));
-    }
-
-    pub fn add_damage_area(&self, area: &Rect) {
-        let pos = self.pos.get();
-        let rect = area.move_(-pos.x1(), -pos.y1());
-        let mut rect = self.damage_matrix.get().apply(0, 0, rect);
-        let damage = &mut *self.connector.damage.borrow_mut();
-        const MAX_CONNECTOR_DAMAGE: usize = 32;
-        if damage.len() >= MAX_CONNECTOR_DAMAGE {
-            rect = rect.union(damage.pop().unwrap());
-        }
-        damage.push(rect.intersect(self.connector.damage_intersect.get()));
-    }
-
-    pub fn add_visualizer_damage(&self) {
-        self.state.damage_visualizer.copy_damage(self);
-    }
-
-    pub fn update_color_description(&self) -> bool {
-        let (mut luminance, tf) = match self.btf.get() {
-            BackendEotfs::Default => (Luminance::SRGB, Eotf::Gamma22),
-            BackendEotfs::Pq => (Luminance::ST2084_PQ, Eotf::St2084Pq),
-        };
-        if let Some(brightness) = self.persistent.brightness.get() {
-            luminance.white.0 = brightness;
-        }
-        let mut target_luminance = luminance.to_target();
-        let mut max_cll = None;
-        let mut max_fall = None;
-        if let Some(l) = self.luminance
-            && self.btf.get() == BackendEotfs::Pq
-        {
-            target_luminance.min = F64(l.min);
-            target_luminance.max = F64(l.max);
-            max_cll = Some(F64(l.max));
-            max_fall = Some(F64(l.max_fall));
-        }
-        let named_primaries;
-        let primaries;
-        let target_primaries;
-        match self.bcs.get() {
-            BackendColorSpace::Default => {
-                if self.persistent.use_native_gamut.get()
-                    && self.primaries != NamedPrimaries::Srgb.primaries()
-                {
-                    named_primaries = None;
-                    primaries = self.primaries;
-                } else {
-                    named_primaries = Some(NamedPrimaries::Srgb);
-                    primaries = NamedPrimaries::Srgb.primaries();
-                }
-                target_primaries = primaries;
-            }
-            BackendColorSpace::Bt2020 => {
-                named_primaries = Some(NamedPrimaries::Bt2020);
-                primaries = NamedPrimaries::Bt2020.primaries();
-                target_primaries = self.primaries;
-            }
-        }
-        let cd = self.state.color_manager.get_description(
-            named_primaries,
-            primaries,
-            luminance,
-            tf,
-            target_primaries,
-            target_luminance,
-            max_cll,
-            max_fall,
-        );
-        let cd_linear = self.state.color_manager.get_with_tf(&cd, Eotf::Linear);
-        self.linear_color_description.set(cd_linear.clone());
-        self.color_description.set(cd.clone()).id != cd.id
-    }
 }
 
 global_base!(WlOutputGlobal, WlOutput, WlOutputError);
@@ -510,10 +365,11 @@ impl WlOutput {
     }
 
     fn send_geometry(&self) {
-        let Some(global) = self.global.get() else {
+        let Some(node) = self.global.node() else {
             return;
         };
-        let pos = global.pos.get();
+        let global = &node.global;
+        let pos = node.current.pos.get();
         let mut x = pos.x1();
         let mut y = pos.y1();
         logical_to_client_wire_scale!(self.client, x, y);
@@ -526,7 +382,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &global.output_id.manufacturer,
             model: &global.output_id.model,
-            transform: global.persistent.transform.get().to_wl(),
+            transform: node.current.transform.get().to_wl(),
         };
         self.client.event(event);
     }
@@ -548,12 +404,12 @@ impl WlOutput {
     }
 
     fn send_scale(&self) {
-        let Some(global) = self.global.get() else {
+        let Some(node) = self.global.node() else {
             return;
         };
         let factor = match self.client.wire_scale.is_some() {
             true => 1,
-            false => global.legacy_scale.get() as _,
+            false => node.current.legacy_scale.get() as _,
         };
         let event = Scale {
             self_id: self.id,

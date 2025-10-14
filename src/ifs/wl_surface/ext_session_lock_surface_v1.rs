@@ -87,7 +87,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
 impl ExtSessionLockSurfaceV1 {
     pub fn destroy_node(&self) {
         if let Some(output) = &self.output.node()
-            && let Some(ls) = output.lock_surface.get()
+            && let Some(ls) = output.current.lock_surface.get()
             && ls.node_id == self.node_id
         {
             let tt = &self.client.state.tree_transaction();

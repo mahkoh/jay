@@ -445,8 +445,8 @@ impl VirtualOutput {
                 continue;
             };
             let fb = &fbs.fbs[FbType::Primary];
-            let cd = on.global.color_description.get();
-            let linear_cd = on.global.linear_color_description.get();
+            let cd = on.current.color_description.get();
+            let linear_cd = on.current.linear_color_description.get();
             let blend_cd = match on.global.persistent.blend_space.get() {
                 BlendSpace::Linear => &linear_cd,
                 BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),
@@ -574,7 +574,7 @@ impl VirtualOutput {
         }
         let damage = {
             on.global.connector.damaged.set(false);
-            on.global.add_visualizer_damage();
+            on.add_visualizer_damage();
             let damage = &mut *on.global.connector.damage.borrow_mut();
             let region = Region::from_rects2(damage);
             damage.clear();
@@ -584,7 +584,7 @@ impl VirtualOutput {
             on.global.mode.get().size(),
             &**on,
             &self.state,
-            Some(on.global.pos.get()),
+            Some(on.current.pos.get()),
             on.global.persistent.scale.get(),
             true,
             false,
@@ -971,7 +971,7 @@ impl PreparedTransaction {
                 ]);
                 o.damage();
                 if let Some(on) = self.state.root.outputs.get(&o.id) {
-                    on.global.add_damage_area(&on.global.pos.get());
+                    on.add_damage_area(&on.current.pos.get());
                     on.global.connector.damage();
                 }
             } else {

@@ -642,7 +642,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             node.has_fullscreen(),
             fill_black_in_grace_period,
-            node.global.persistent.transform.get(),
+            node.current.transform.get(),
             blend_buffer,
             blend_cd,
         )

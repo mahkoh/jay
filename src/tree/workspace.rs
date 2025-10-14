@@ -177,7 +177,7 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data(tt);
-            output.state.damage(output.global.pos.get());
+            output.state.damage(output.current.pos.get());
         }
     }
 
@@ -190,7 +190,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures(tt);
-        self.change_extents(tt, &output.workspace_rect.get(), output);
+        self.change_extents(tt, &output.current.workspace_rect.get(), output);
         struct OutputSetter<'a> {
             tt: &'a TreeTransaction<'a>,
             ws: &'a WorkspaceNode,
@@ -504,7 +504,7 @@ impl Node for WorkspaceNode {
 
     fn node_active_changed(&self, _tt: &TreeTransaction, _active: bool) {
         let output = self.current.output.get();
-        self.state.damage(output.bar_separator_rect.get());
+        self.state.damage(output.current.bar_separator_rect.get());
     }
 
     fn node_find_tree_at(
@@ -655,13 +655,13 @@ pub fn move_ws_to_output(
         Some(l) => l.to_ref(),
     };
     let source = ws.current.output.get();
-    if let Some(visible) = source.workspace.id()
+    if let Some(visible) = source.current.workspace.id()
         && visible == ws.id
     {
-        source.workspace.set(None);
+        source.current.workspace.set(None);
     }
     let mut new_source_ws = None;
-    if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
+    if !config.source_is_destroyed && !source.is_dummy && source.current.workspace.is_none() {
         new_source_ws = source
             .workspaces
             .iter()
@@ -671,11 +671,11 @@ pub fn move_ws_to_output(
             new_source_ws = Some(source.generate_normal_workspace(tt));
         }
     }
-    if source.overlay.is_none() {
+    if source.current.overlay.is_none() {
         for user in source.cursor_users.lock().values() {
             user.workspace_changed(&source, new_source_ws.as_ref());
             if new_source_ws.is_none() {
-                new_source_ws = source.workspace.get();
+                new_source_ws = source.current.workspace.get();
             }
         }
     }
@@ -707,7 +707,7 @@ pub fn move_ws_to_output(
     *ws.current.output_link.borrow_mut() = Some(Rc::new(link));
     let make_visible = !target.is_dummy
         && (config.make_visible_always
-            || (config.make_visible_if_empty && target.workspace.is_none()));
+            || (config.make_visible_if_empty && target.current.workspace.is_none()));
     if make_visible {
         ws.state.show_workspace2(tt, None, target, &ws);
     } else {
@@ -724,10 +724,10 @@ pub fn move_ws_to_output(
         source.schedule_update_render_data(tt);
     }
     if source.node_visible() {
-        target.state.damage(source.global.pos.get());
+        target.state.damage(source.current.pos.get());
     }
     if target.node_visible() {
-        target.state.damage(target.global.pos.get());
+        target.state.damage(target.current.pos.get());
     }
 }
 
