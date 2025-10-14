@@ -816,7 +816,7 @@
       "properties": {
         "mod-mask": {
           "type": "string",
-          "description": "The mod mask to apply to this shortcut.\n\nShould be a string containing modifiers concatenated by `-`. See the description\nof `Config.shortcuts` for more details.\n\nIf this field is omitted, all modifiers are included in the mask.\n\n- Example:\n  \n  To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless\n  of any modifiers except `alt`:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n\n  Set `mod-mask = \"\"` to ignore all modifiers.\n"
+          "description": "The mod mask to apply to this shortcut.\n\nShould be a string containing modifiers concatenated by `-`. See the description\nof `Config.shortcuts` for more details.\n\nIf this field is omitted, all modifiers are included in the mask.\n\n- Example:\n\n  To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless\n  of any modifiers except `alt`:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n\n  Set `mod-mask = \"\"` to ignore all modifiers.\n"
         },
         "action": {
           "description": "The action to execute.\n\nOmitting this is the same as setting it to `\"none\"`.\n",
@@ -838,7 +838,7 @@
           "$ref": "#/$defs/Keymap"
         },
         "repeat-rate": {
-          "description": "The keyboard repeat rate.\n\n- Example:\n  \n  ```toml\n  repeat-rate = { rate = 25, delay = 250 }\n  ```\n",
+          "description": "The keyboard repeat rate.\n\n- Example:\n\n  ```toml\n  repeat-rate = { rate = 25, delay = 250 }\n  ```\n",
           "$ref": "#/$defs/RepeatRate"
         },
         "shortcuts": {
@@ -962,7 +962,7 @@
           "description": "Configures a key that will enable window management mode while pressed.\n\nIn window management mode, floating windows can be moved by pressing the left\nmouse button and all windows can be resize by pressing the right mouse button.\n\n- Example:\n\n  ```toml\n  window-management-key = \"Alt_L\"\n  ```\n"
         },
         "vrr": {
-          "description": "Configures the default VRR settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n  \n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
+          "description": "Configures the default VRR settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n\n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
           "$ref": "#/$defs/Vrr"
         },
         "tearing": {
@@ -1219,7 +1219,7 @@
           }
         },
         {
-          "description": "The name, arguments, and environment variables of the executable to execute.\n\nExactly one of the `prog` or `shell` fields must be specified.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n\n- Example 2:\n  \n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { shell = \"grim - | wl-copy\", privileged = true } }\n  ```\n",
+          "description": "The name, arguments, and environment variables of the executable to execute.\n\nExactly one of the `prog` or `shell` fields must be specified.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { shell = \"grim - | wl-copy\", privileged = true } }\n  ```\n",
           "type": "object",
           "properties": {
             "prog": {

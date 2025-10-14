@@ -797,7 +797,7 @@ Exec:
           ```
 
         - Example 2:
-          
+        
           ```toml
           [shortcuts]
           ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
@@ -2270,7 +2270,7 @@ Config:
         The keyboard repeat rate.
 
         - Example:
-          
+        
           ```toml
           repeat-rate = { rate = 25, delay = 250 }
           ```
@@ -2634,7 +2634,7 @@ Config:
         By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
 
         - Example:
-          
+        
           ```toml
           vrr = { mode = "always", cursor-hz = 90 }
           ```
@@ -2790,9 +2790,9 @@ Config:
       required: false
       description: |
         Sets the keysym that can be used to revert the pointer to the default state.
-       
+        
         Pressing this key cancels any grabs, drags, selections, etc.
-       
+        
         The default is `Escape`. Setting this to `NoSymbol` effectively disables
         this functionality.
         
@@ -2998,7 +2998,7 @@ ComplexShortcut:
         If this field is omitted, all modifiers are included in the mask.
         
         - Example:
-          
+        
           To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless
           of any modifiers except `alt`:
         
@@ -3270,7 +3270,7 @@ UiDrag:
       required: false
       description: |
         Sets the distance at which ui dragging starts.
-       
+        
         The default is `10`.
 
 
@@ -3375,7 +3375,7 @@ Brightness:
     The brightness setting of an output.
   variants:
     - kind: string
-      description: | 
+      description: |
         The default brightness setting.
       values:
         - value: default
@@ -3729,7 +3729,7 @@ WindowRule:
       required: false
       description: |
         Whether newly mapped windows that match this rule get the keyboard focus.
-       
+        
         If a window matches any rule for which this is false, the window will not be
         automatically focused.
     initial-tile-state:
@@ -3876,7 +3876,7 @@ WindowMatch:
       required: false
       description: |
         Matches if the window has/hasn't just been mapped.
-       
+        
         This is true for one iteration of the compositor's main loop immediately after the
         window has been mapped.
     tag:
