@@ -1382,7 +1382,7 @@ The table has the following fields:
   If this field is omitted, all modifiers are included in the mask.
   
   - Example:
-    
+  
     To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless
     of any modifiers except `alt`:
   
@@ -1513,7 +1513,7 @@ The table has the following fields:
   The keyboard repeat rate.
   
   - Example:
-    
+  
     ```toml
     repeat-rate = { rate = 25, delay = 250 }
     ```
@@ -1884,7 +1884,7 @@ The table has the following fields:
   By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
   
   - Example:
-    
+  
     ```toml
     vrr = { mode = "always", cursor-hz = 90 }
     ```
@@ -2550,7 +2550,7 @@ Exactly one of the `prog` or `shell` fields must be specified.
   ```
 
 - Example 2:
-  
+
   ```toml
   [shortcuts]
   ctrl-a = { type = "exec", exec = { shell = "grim - | wl-copy", privileged = true } }
