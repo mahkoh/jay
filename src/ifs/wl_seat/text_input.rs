@@ -1,12 +1,13 @@
 use {
-    crate::ifs::{
-        wl_seat::{
-            WlSeatGlobal,
-            text_input::{
-                zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
-            },
+    crate::{
+        backend::KeyState,
+        ifs::{
+            wl_seat::{WlSeatGlobal, text_input::zwp_text_input_v3::ZwpTextInputV3},
+            wl_surface::{WlSurface, zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2},
         },
-        wl_surface::WlSurface,
+        keyboard::KeyboardState,
+        utils::smallmap::SmallMap,
+        wire::ZwpInputPopupSurfaceV2Id,
     },
     std::rc::Rc,
 };
@@ -22,8 +23,25 @@ const MAX_TEXT_SIZE: usize = 4000;
 pub struct TextInputConnection {
     pub seat: Rc<WlSeatGlobal>,
     pub text_input: Rc<ZwpTextInputV3>,
-    pub input_method: Rc<ZwpInputMethodV2>,
+    pub input_method: Rc<dyn InputMethod>,
     pub surface: Rc<WlSurface>,
+}
+
+pub trait InputMethod {
+    fn set_connection(&self, con: Option<&Rc<TextInputConnection>>);
+    fn popups(&self) -> &SmallMap<ZwpInputPopupSurfaceV2Id, Rc<ZwpInputPopupSurfaceV2>, 1>;
+    fn activate(&self);
+    fn deactivate(&self);
+    fn content_type(&self, hint: u32, purpose: u32);
+    fn text_change_cause(&self, cause: u32);
+    fn surrounding_text(&self, text: &str, cursor: u32, anchor: u32);
+    fn done(self: Rc<Self>, seat: &WlSeatGlobal);
+}
+
+pub trait InputMethodKeyboardGrab {
+    fn on_key(&self, time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) -> bool;
+    fn on_modifiers(&self, kb_state: &KeyboardState) -> bool;
+    fn on_repeat_info(&self);
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -67,7 +85,7 @@ impl WlSeatGlobal {
 
 impl TextInputConnection {
     fn connect(self: &Rc<Self>, reason: TextConnectReason) {
-        self.input_method.connection.set(Some(self.clone()));
+        self.input_method.set_connection(Some(self));
         self.text_input.connection.set(Some(self.clone()));
         self.surface
             .text_input_connections
@@ -75,20 +93,20 @@ impl TextInputConnection {
 
         self.input_method.activate();
         if reason == TextConnectReason::InputMethodCreated {
-            self.text_input.send_all_to(&self.input_method);
-            self.input_method.send_done();
+            self.text_input.send_all_to(&*self.input_method);
+            self.input_method.clone().done(&self.seat);
         }
     }
 
     pub fn disconnect(&self, reason: TextDisconnectReason) {
         self.text_input.connection.take();
-        self.input_method.connection.take();
+        self.input_method.set_connection(None);
         self.surface.text_input_connections.remove(&self.seat.id);
 
         if reason != TextDisconnectReason::InputMethodDestroyed {
-            self.input_method.send_deactivate();
-            self.input_method.send_done();
-            for (_, popup) in &self.input_method.popups {
+            self.input_method.deactivate();
+            self.input_method.clone().done(&self.seat);
+            for (_, popup) in self.input_method.popups() {
                 popup.update_visible();
             }
         }

@@ -981,15 +981,19 @@ impl WlSeatGlobal {
                 }
             }
             self.send_components(&mut components_changed, &kbvm_state);
-            match self.input_method_grab.get() {
-                Some(g) => g.on_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state),
-                _ => self.keyboard_node.get().node_on_key(
+            let mut forward_to_node = true;
+            if let Some(g) = self.input_method_grab.get() {
+                forward_to_node =
+                    g.on_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
+            }
+            if forward_to_node {
+                self.keyboard_node.get().node_on_key(
                     self,
                     time_usec,
                     kc.to_evdev(),
                     key_state,
                     &kbvm_state.kb_state,
-                ),
+                )
             }
             self.for_each_ei_seat(|ei_seat| {
                 ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
@@ -1064,9 +1068,12 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_modifiers(self.id, &kb_state.mods);
         });
-        match self.input_method_grab.get() {
-            Some(g) => g.on_modifiers(kb_state),
-            _ => self.keyboard_node.get().node_on_mods(self, kb_state),
+        let mut forward_to_node = true;
+        if let Some(g) = self.input_method_grab.get() {
+            forward_to_node = g.on_modifiers(kb_state);
+        }
+        if forward_to_node {
+            self.keyboard_node.get().node_on_mods(self, kb_state)
         }
     }
 

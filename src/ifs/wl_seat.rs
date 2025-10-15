@@ -52,8 +52,7 @@ use {
                 pointer_owner::PointerOwnerHolder,
                 tablet::TabletSeatData,
                 text_input::{
-                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
-                    zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
+                    InputMethod, InputMethodKeyboardGrab, zwp_text_input_v3::ZwpTextInputV3,
                 },
                 touch_owner::TouchOwnerHolder,
                 wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardError},
@@ -216,8 +215,8 @@ pub struct WlSeatGlobal {
     last_input_usec: Cell<u64>,
     text_inputs: RefCell<AHashMap<ClientId, CopyHashMap<ZwpTextInputV3Id, Rc<ZwpTextInputV3>>>>,
     text_input: CloneCell<Option<Rc<ZwpTextInputV3>>>,
-    input_method: CloneCell<Option<Rc<ZwpInputMethodV2>>>,
-    input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
+    input_method: CloneCell<Option<Rc<dyn InputMethod>>>,
+    input_method_grab: CloneCell<Option<Rc<dyn InputMethodKeyboardGrab>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
@@ -371,7 +370,7 @@ impl WlSeatGlobal {
         self.seat_kb_map.get()
     }
 
-    pub fn input_method(&self) -> Option<Rc<ZwpInputMethodV2>> {
+    pub fn input_method(&self) -> Option<Rc<dyn InputMethod>> {
         self.input_method.get()
     }
 
@@ -693,7 +692,7 @@ impl WlSeatGlobal {
             }
         }
         if let Some(grab) = self.input_method_grab.get() {
-            grab.send_repeat_info();
+            grab.on_repeat_info();
         }
     }
 
@@ -1315,7 +1314,7 @@ impl WlSeatGlobal {
             tl.tl_set_visible(visible);
         }
         if let Some(im) = self.input_method.get() {
-            for (_, popup) in &im.popups {
+            for (_, popup) in im.popups() {
                 popup.update_visible();
             }
         }

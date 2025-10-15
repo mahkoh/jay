@@ -784,7 +784,7 @@ impl WlSurface {
             }
         }
         for (_, con) in &self.text_input_connections {
-            for (_, popup) in &con.input_method.popups {
+            for (_, popup) in con.input_method.popups() {
                 popup.schedule_positioning();
             }
         }
