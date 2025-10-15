@@ -110,5 +110,10 @@ impl TextInputConnection {
                 popup.update_visible();
             }
         }
+        if reason != TextDisconnectReason::TextInputDisabled {
+            self.text_input.send_preedit_string(None, 0, 0);
+            self.text_input.send_commit_string(None);
+            self.text_input.send_done();
+        }
     }
 }
