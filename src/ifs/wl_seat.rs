@@ -52,7 +52,8 @@ use {
                 pointer_owner::PointerOwnerHolder,
                 tablet::TabletSeatData,
                 text_input::{
-                    InputMethod, InputMethodKeyboardGrab, zwp_text_input_v3::ZwpTextInputV3,
+                    InputMethod, InputMethodKeyboardGrab, simple_im::SimpleIm,
+                    zwp_text_input_v3::ZwpTextInputV3,
                 },
                 touch_owner::TouchOwnerHolder,
                 wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardError},
@@ -237,6 +238,7 @@ pub struct WlSeatGlobal {
     marks: CopyHashMap<Keycode, Rc<dyn Node>>,
     modifiers_listener: EventListener<dyn LedsListener>,
     modifiers_forward: EventSource<dyn LedsListener>,
+    simple_im: CloneCell<Option<Rc<SimpleIm>>>,
 }
 
 #[derive(Copy, Clone)]
@@ -258,6 +260,7 @@ impl WlSeatGlobal {
         let cursor_user_group = CursorUserGroup::create(state);
         let cursor_user = cursor_user_group.create_user();
         cursor_user.activate();
+        let simple_im = SimpleIm::new(&state.kb_ctx.ctx);
         let slf = Rc::new_cyclic(|slf: &Weak<WlSeatGlobal>| Self {
             id: state.seat_ids.next(),
             name,
@@ -305,7 +308,7 @@ impl WlSeatGlobal {
             data_control_devices: Default::default(),
             text_inputs: Default::default(),
             text_input: Default::default(),
-            input_method: Default::default(),
+            input_method: CloneCell::new(simple_im.clone().map(|im| im as _)),
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
@@ -326,6 +329,7 @@ impl WlSeatGlobal {
             marks: Default::default(),
             modifiers_listener: EventListener::new(slf.clone()),
             modifiers_forward: Default::default(),
+            simple_im: CloneCell::new(simple_im),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener

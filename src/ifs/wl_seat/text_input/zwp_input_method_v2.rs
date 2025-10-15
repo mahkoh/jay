@@ -53,7 +53,7 @@ impl ZwpInputMethodV2 {
         }
         self.popups.clear();
         if !self.inert {
-            self.seat.input_method.take();
+            self.seat.remove_input_method();
         }
     }
 
@@ -135,6 +135,14 @@ impl InputMethod for ZwpInputMethodV2 {
 
     fn done(self: Rc<Self>, _seat: &WlSeatGlobal) {
         (*self).send_done();
+    }
+
+    fn is_simple(&self) -> bool {
+        false
+    }
+
+    fn cancel_simple(&self, _seat: &WlSeatGlobal) {
+        unreachable!();
     }
 }
 

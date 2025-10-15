@@ -2,7 +2,7 @@ use {
     crate::{
         client::{CAP_INPUT_METHOD, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
-        ifs::wl_seat::text_input::{TextConnectReason, zwp_input_method_v2::ZwpInputMethodV2},
+        ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2,
         leaks::Tracker,
         object::{Object, Version},
         wire::{ZwpInputMethodManagerV2Id, zwp_input_method_manager_v2::*},
@@ -72,7 +72,7 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
 
     fn get_input_method(&self, req: GetInputMethod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
-        let inert = seat.global.input_method.is_some();
+        let inert = seat.global.cannot_set_new_im();
         let im = Rc::new(ZwpInputMethodV2 {
             id: req.input_method,
             client: self.client.clone(),
@@ -90,9 +90,7 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
         if inert {
             im.send_unavailable();
         } else {
-            seat.global.input_method.set(Some(im));
-            seat.global
-                .create_text_input_connection(TextConnectReason::InputMethodCreated);
+            seat.global.set_input_method(im);
         }
         Ok(())
     }

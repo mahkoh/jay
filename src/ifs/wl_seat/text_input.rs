@@ -12,6 +12,7 @@ use {
     std::rc::Rc,
 };
 
+pub mod simple_im;
 pub mod zwp_input_method_keyboard_grab_v2;
 pub mod zwp_input_method_manager_v2;
 pub mod zwp_input_method_v2;
@@ -36,6 +37,8 @@ pub trait InputMethod {
     fn text_change_cause(&self, cause: u32);
     fn surrounding_text(&self, text: &str, cursor: u32, anchor: u32);
     fn done(self: Rc<Self>, seat: &WlSeatGlobal);
+    fn is_simple(&self) -> bool;
+    fn cancel_simple(&self, seat: &WlSeatGlobal);
 }
 
 pub trait InputMethodKeyboardGrab {
@@ -58,6 +61,32 @@ pub enum TextDisconnectReason {
 }
 
 impl WlSeatGlobal {
+    fn can_set_new_im(&self) -> bool {
+        match self.input_method.get() {
+            None => true,
+            Some(im) => im.is_simple(),
+        }
+    }
+
+    fn cannot_set_new_im(&self) -> bool {
+        !self.can_set_new_im()
+    }
+
+    fn set_input_method(self: &Rc<Self>, im: Rc<dyn InputMethod>) {
+        if let Some(old) = self.input_method.take() {
+            old.cancel_simple(self);
+        }
+        self.input_method.set(Some(im));
+        self.create_text_input_connection(TextConnectReason::InputMethodCreated);
+    }
+
+    fn remove_input_method(self: &Rc<Self>) {
+        self.input_method.take();
+        if let Some(im) = self.simple_im.get() {
+            self.set_input_method(im);
+        }
+    }
+
     fn create_text_input_connection(self: &Rc<Self>, text_connect_reason: TextConnectReason) {
         let Some(im) = self.input_method.get() else {
             return;
