@@ -538,7 +538,7 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
 - `set-log-level`:
 
-  Sets the log level of the compositor..
+  Sets the log level of the compositor.
   
   - Example:
   
@@ -2144,6 +2144,24 @@ The table has the following fields:
     ```
 
   The value of this field should be a [WorkspaceDisplayOrder](#types-WorkspaceDisplayOrder).
+
+- `simple-im` (optional):
+
+  Configures the simple, XCompose based input method.
+  
+  By default, the input method is enabled. 
+  
+  Even if the input method is enabled, it will only be used if there is no
+  running external IM.
+  
+  - Example:
+  
+    ```toml
+    [simple-im]
+    enabled = false
+    ```
+
+  The value of this field should be a [SimpleIm](#types-SimpleIm).
 
 
 <a name="types-Connector"></a>
@@ -4177,6 +4195,53 @@ The string should have one of the following values:
 
   Pops the topmost mode from the input-mode stack.
 
+- `enable-simple-im`:
+
+  Enables the simple, XCompose based input method.
+  
+  Even if the input method is enabled, it will only be used if there is no
+  running external IM.
+
+- `disable-simple-im`:
+
+  Disables the simple, XCompose based input method.
+
+- `toggle-simple-im-enabled`:
+
+  Toggles whether the simple, XCompose based input method is enabled.
+
+- `reload-simple-im`:
+
+  Reloads the simple, XCompose based input method.
+  
+  This is useful if you change the XCompose files after starting the compositor.
+
+
+
+<a name="types-SimpleIm"></a>
+### `SimpleIm`
+
+Describes the settings of the simple, XCompose based input method.
+
+- Example:
+
+  ```toml
+  [simple-im]
+  enabled = false
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `enabled` (optional):
+
+  Whether the input method is enabled.
+  
+  Even if the input method is enabled, it will only be used if there is no
+  running external IM.
+
+  The value of this field should be a boolean.
 
 
 <a name="types-Status"></a>

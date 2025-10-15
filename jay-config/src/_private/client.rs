@@ -1026,6 +1026,20 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatCopyMark { seat, src, dst });
     }
 
+    pub fn seat_set_simple_im_enabled(&self, seat: Seat, enabled: bool) {
+        self.send(&ClientMessage::SeatSetSimpleImEnabled { seat, enabled });
+    }
+
+    pub fn seat_get_simple_im_enabled(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::SeatGetSimpleImEnabled { seat });
+        get_response!(res, false, SeatGetSimpleImEnabled { enabled });
+        enabled
+    }
+
+    pub fn seat_reload_simple_im(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatReloadSimpleIm { seat });
+    }
+
     pub fn set_show_float_pin_icon(&self, show: bool) {
         self.send(&ClientMessage::SetShowFloatPinIcon { show });
     }

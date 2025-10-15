@@ -85,6 +85,9 @@ pub enum SimpleCommand {
     CreateMark,
     JumpToMark,
     PopMode(bool),
+    EnableSimpleIm(bool),
+    ToggleSimpleImEnabled,
+    ReloadSimpleIm,
 }
 
 #[derive(Debug, Clone)]
@@ -447,6 +450,11 @@ pub struct Vrr {
 }
 
 #[derive(Debug, Clone)]
+pub struct SimpleIm {
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Xwayland {
     pub scaling_mode: Option<XScalingMode>,
 }
@@ -520,6 +528,7 @@ pub struct Config {
     pub middle_click_paste: Option<bool>,
     pub input_modes: AHashMap<String, InputMode>,
     pub workspace_display_order: Option<WorkspaceDisplayOrder>,
+    pub simple_im: Option<SimpleIm>,
 }
 
 #[derive(Debug, Error)]

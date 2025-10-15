@@ -239,6 +239,7 @@ pub struct WlSeatGlobal {
     modifiers_listener: EventListener<dyn LedsListener>,
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
+    simple_im_enabled: Cell<bool>,
 }
 
 #[derive(Copy, Clone)]
@@ -330,6 +331,7 @@ impl WlSeatGlobal {
             modifiers_listener: EventListener::new(slf.clone()),
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
+            simple_im_enabled: Cell::new(true),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener

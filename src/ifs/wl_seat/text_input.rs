@@ -2,7 +2,10 @@ use {
     crate::{
         backend::KeyState,
         ifs::{
-            wl_seat::{WlSeatGlobal, text_input::zwp_text_input_v3::ZwpTextInputV3},
+            wl_seat::{
+                WlSeatGlobal,
+                text_input::{simple_im::SimpleIm, zwp_text_input_v3::ZwpTextInputV3},
+            },
             wl_surface::{WlSurface, zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2},
         },
         keyboard::KeyboardState,
@@ -61,6 +64,42 @@ pub enum TextDisconnectReason {
 }
 
 impl WlSeatGlobal {
+    pub fn set_simple_im_enabled(self: &Rc<Self>, enabled: bool) {
+        if self.simple_im_enabled.replace(enabled) == enabled {
+            return;
+        }
+        if enabled {
+            if self.input_method.is_none()
+                && let Some(im) = self.simple_im.get()
+            {
+                self.set_input_method(im);
+            }
+        } else {
+            if let Some(im) = self.input_method.get()
+                && im.is_simple()
+            {
+                self.input_method.take();
+                im.cancel_simple(self);
+            }
+        }
+    }
+
+    pub fn simple_im_enabled(&self) -> bool {
+        self.simple_im_enabled.get()
+    }
+
+    pub fn reload_simple_im(self: &Rc<Self>) {
+        let im = SimpleIm::new(&self.state.kb_ctx.ctx);
+        self.simple_im.set(im.clone());
+        if self.simple_im_enabled.get() && self.can_set_new_im() {
+            if let Some(im) = im {
+                self.set_input_method(im);
+            } else if let Some(old) = self.input_method.take() {
+                old.cancel_simple(self);
+            }
+        }
+    }
+
     fn can_set_new_im(&self) -> bool {
         match self.input_method.get() {
             None => true,
@@ -82,7 +121,9 @@ impl WlSeatGlobal {
 
     fn remove_input_method(self: &Rc<Self>) {
         self.input_method.take();
-        if let Some(im) = self.simple_im.get() {
+        if self.simple_im_enabled.get()
+            && let Some(im) = self.simple_im.get()
+        {
             self.set_input_method(im);
         }
     }

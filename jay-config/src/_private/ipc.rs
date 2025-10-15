@@ -788,6 +788,16 @@ pub enum ClientMessage<'a> {
         workspace: Workspace,
         connector: Connector,
     },
+    SeatSetSimpleImEnabled {
+        seat: Seat,
+        enabled: bool,
+    },
+    SeatGetSimpleImEnabled {
+        seat: Seat,
+    },
+    SeatReloadSimpleIm {
+        seat: Seat,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1019,6 +1029,9 @@ pub enum Response {
     },
     GetShowBar {
         show: bool,
+    },
+    SeatGetSimpleImEnabled {
+        enabled: bool,
     },
 }
 

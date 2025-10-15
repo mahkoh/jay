@@ -361,7 +361,7 @@
               ]
             },
             {
-              "description": "Sets the log level of the compositor..\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-log-level\", level = \"debug\" }\n  ```\n",
+              "description": "Sets the log level of the compositor.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-log-level\", level = \"debug\" }\n  ```\n",
               "type": "object",
               "properties": {
                 "type": {
@@ -1049,6 +1049,10 @@
         "workspace-display-order": {
           "description": "Configures the order of workspaces displayed.\n\nThe default is `manual`.\n\n- Example:\n\n  ```toml\n  workspace-display-order = \"sorted\"\n  ```\n",
           "$ref": "#/$defs/WorkspaceDisplayOrder"
+        },
+        "simple-im": {
+          "description": "Configures the simple, XCompose based input method.\n\nBy default, the input method is enabled. \n\nEven if the input method is enabled, it will only be used if there is no\nrunning external IM.\n\n- Example:\n\n  ```toml\n  [simple-im]\n  enabled = false\n  ```\n",
+          "$ref": "#/$defs/SimpleIm"
         }
       },
       "required": []
@@ -1835,8 +1839,23 @@
         "create-mark",
         "jump-to-mark",
         "clear-modes",
-        "pop-mode"
+        "pop-mode",
+        "enable-simple-im",
+        "disable-simple-im",
+        "toggle-simple-im-enabled",
+        "reload-simple-im"
       ]
+    },
+    "SimpleIm": {
+      "description": "Describes the settings of the simple, XCompose based input method.\n\n- Example:\n\n  ```toml\n  [simple-im]\n  enabled = false\n  ```\n",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the input method is enabled.\n\nEven if the input method is enabled, it will only be used if there is no\nrunning external IM.\n"
+        }
+      },
+      "required": []
     },
     "Status": {
       "description": "The configuration of a status program whose output will be shown in the bar.\n\n- Example:\n\n  ```toml\n  [status]\n  format = \"i3bar\"\n  exec = \"i3status\"\n  ```\n",
