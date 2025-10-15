@@ -857,6 +857,10 @@ The string should have one of the following values:
   
   - `default`: The maximum brightness of the output.
   - `PQ`: 203 cd/m^2
+  
+  When used with the default transfer function, the default brightness is anchored
+  at 80 cd/m^2. That is, setting this to 40 cd/m^2 makes everything appear half as
+  bright as normal and creates 50% HDR headroom.
 
 
 #### A number

@@ -304,6 +304,10 @@ impl Connector {
     /// This should only be used with the PQ transfer function. If the default transfer
     /// function is used, you should instead calibrate the hardware directly.
     ///
+    /// When used with the default transfer function, the default brightness is anchored
+    /// at 80 cd/m^2. That is, setting this to 40 cd/m^2 makes everything appear half as
+    /// bright as normal and creates 50% HDR headroom.
+    ///
     /// This has no effect unless the vulkan renderer is used.
     pub fn set_brightness(self, brightness: Option<f64>) {
         get!().connector_set_brightness(self, brightness);
