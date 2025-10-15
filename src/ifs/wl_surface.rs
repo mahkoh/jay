@@ -795,7 +795,8 @@ impl WlSurface {
         self.xwayland_serial.get()
     }
 
-    fn set_absolute_position(&self, x1: i32, y1: i32) {
+    fn set_mapped_position(&self, x1: i32, y1: i32) {
+        // log::info!("{x1}x{y1}");
         let old_pos = self.buffer_abs_pos.get();
         let new_pos = old_pos.at_point(x1, y1);
         if self.visible.get() && self.toplevel.is_none() {
@@ -806,7 +807,7 @@ impl WlSurface {
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
-                ss.surface.set_absolute_position(x1 + pos.0, y1 + pos.1);
+                ss.surface.set_mapped_position(x1 + pos.0, y1 + pos.1);
             }
         }
         for (_, con) in &self.text_input_connections {
@@ -1215,6 +1216,9 @@ impl WlSurfaceRequestHandler for WlSurface {
 
 impl WlSurface {
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        // if let Some(serial) = pending.serial && APPLYING.get() != serial {
+        //     log::info!("XXXXXXXXXXXXX {:?}: {:?}", (self.client.id, self.id), serial);
+        // }
         for (_, pending) in &mut pending.subsurfaces {
             pending.subsurface.apply_state(&mut pending.pending)?;
         }
@@ -1826,6 +1830,7 @@ impl WlSurface {
     fn pop_tree_barriers(&self, mut cond: impl FnMut(TreeSerial, &TreeBarrier) -> bool) -> bool {
         let mut popped_any = false;
         while let Some(barrier) = self.tree_barriers.pop() {
+            // log::warn!("pop barrier {}", barrier.serial());
             if cond(barrier.0, &barrier.1) {
                 popped_any = true;
                 continue;
@@ -1858,7 +1863,6 @@ impl WlSurface {
         }
     }
 
-    #[expect(dead_code)]
     fn push_tree_blocker(self: &Rc<Self>, tt: &TreeTransaction, use_last_serial: bool) {
         let ss = &self.scheduled_serial;
         let serial;
@@ -2492,6 +2496,7 @@ impl TreeTransactionOp for WlSurfaceTreeOp {
             surface.pop_tree_barriers(|_, barrier| barrier.timed_out(now));
         }
         let us = &surface.unblocked_serial;
+        // log::info!("{:?}: {:?} -> {:?}", (self.surface.client.id, self.surface.id), us.get(), serial);
         if serial > us.get() {
             us.set(serial);
             surface.commit_timeline.tree_unblocked(surface);

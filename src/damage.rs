@@ -60,7 +60,7 @@ fn damage_all(state: &State) {
     for node in state.root.outputs.lock().values() {
         let damage = &mut *node.global.connector.damage.borrow_mut();
         damage.clear();
-        damage.push(node.current.connector_damage_intersect.get());
+        damage.push(node.mapped.connector_damage_intersect.get());
         node.global.connector.damage();
     }
 }

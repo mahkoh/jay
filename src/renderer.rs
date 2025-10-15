@@ -53,7 +53,7 @@ impl Renderer<'_> {
         let ext = display.extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
-            let opos = output.current.pos.get();
+            let opos = output.mapped.pos.get();
             let (ox, oy) = ext.translate(opos.x1(), opos.y1());
             self.render_output(output, x + ox, y + oy);
         }
@@ -61,14 +61,14 @@ impl Renderer<'_> {
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         if self.state.lock.locked.get() {
-            if let Some(surface) = output.current.lock_surface.get()
+            if let Some(surface) = output.mapped.lock_surface.get()
                 && surface.surface.buffer.is_some()
             {
                 self.render_surface(&surface.surface, x, y, None);
             }
             return;
         }
-        let opos = output.current.pos.get();
+        let opos = output.mapped.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {
@@ -80,14 +80,14 @@ impl Renderer<'_> {
         }
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
-        if let Some(ws) = output.current.overlay.get() {
-            fullscreen = ws.current.fullscreen.get();
-            fullscreen_is_overlay = ws.current.fullscreen.is_some();
+        if let Some(ws) = output.mapped.overlay.get() {
+            fullscreen = ws.mapped.fullscreen.get();
+            fullscreen_is_overlay = ws.mapped.fullscreen.is_some();
         }
         if fullscreen.is_none()
-            && let Some(ws) = output.current.workspace.get()
+            && let Some(ws) = output.mapped.workspace.get()
         {
-            fullscreen = ws.current.fullscreen.get();
+            fullscreen = ws.mapped.fullscreen.get();
         }
         let theme = &self.state.theme;
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
@@ -100,11 +100,11 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let ws = output.current.workspace.get();
+            let ws = output.mapped.workspace.get();
             if self.state.show_bar.get() {
-                let non_exclusive_rect_rel = output.current.non_exclusive_rect_rel.get();
+                let non_exclusive_rect_rel = output.mapped.non_exclusive_rect_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
-                let bar_rect = output.current.bar_rect_rel.get();
+                let bar_rect = output.mapped.bar_rect_rel.get();
                 let bar_bg = bar_rect.move_(
                     x - non_exclusive_rect_rel.x1(),
                     y - non_exclusive_rect_rel.y1(),
@@ -163,7 +163,7 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let scale = output.current.scale.get();
+                let scale = output.mapped.scale.get();
                 for title in &rd.titles {
                     if let Some(icon_x) = title.icon_x
                         && let Some(icons) = &self.bar_icons
@@ -243,7 +243,7 @@ impl Renderer<'_> {
                 }
             }
             if let Some(ws) = &ws {
-                let ws_rect = output.current.workspace_rect_rel.get();
+                let ws_rect = output.mapped.workspace_rect_rel.get();
                 let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);
             }
@@ -272,19 +272,19 @@ impl Renderer<'_> {
             && fullscreen_is_overlay
         {
             fs.node_render(self, x, y, None);
-        } else if let Some(ws) = output.current.overlay.get() {
-            let ws_rect = output.current.workspace_rect_rel.get();
+        } else if let Some(ws) = output.mapped.overlay.get() {
+            let ws_rect = output.mapped.workspace_rect_rel.get();
             let (x, y) = ws_rect.translate_inv(x, y);
             self.base.sync();
             self.render_workspace(&ws, x, y);
         }
         render_stacked!(self.state.root.stacked_in_overlay);
-        for layer in [&output.current.workspace, &output.current.overlay] {
+        for layer in [&output.mapped.workspace, &output.mapped.overlay] {
             if let Some(ws) = layer.get()
                 && ws.render_highlight.get() > 0
             {
                 let color = self.state.theme.colors.highlight.get();
-                let bounds = output.current.workspace_rect_rel.get().move_(x, y);
+                let bounds = output.mapped.workspace_rect_rel.get().move_(x, y);
                 self.base.sync();
                 self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
             }
@@ -292,7 +292,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
-        if let Some(node) = workspace.current.container.get() {
+        if let Some(node) = workspace.mapped.container.get() {
             self.render_container(&node, x, y)
         }
     }
@@ -304,7 +304,7 @@ impl Renderer<'_> {
         y: i32,
         bounds: Option<&Rect>,
     ) {
-        let pos = placeholder.tl_data().content_size.get();
+        let pos = placeholder.tl_data().mapped_position.get();
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
@@ -439,23 +439,24 @@ impl Renderer<'_> {
                 }
             }
         }
-        if let Some(child) = container.cur.mono_child.get() {
-            let body = container.cur.mono_body.get().move_(x, y);
+        if let Some(child) = container.mapped.mono_child.get() {
+            let body = container.mapped.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
-            let content = container.cur.mono_content.get();
+            let content = container.mapped.mono_content.get();
             child
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
-            for child in container.current_children() {
-                let body = child.cur.body.get();
-                if body.x1() >= container.cur.width.get() || body.y1() >= container.cur.height.get()
+            for child in container.mapped_children() {
+                let body = child.ms.body.get();
+                if body.x1() >= container.mapped.width.get()
+                    || body.y1() >= container.mapped.height.get()
                 {
                     break;
                 }
                 let body = body.move_(x, y);
                 let body = self.base.scale_rect(body);
-                let content = child.cur.content.get();
+                let content = child.ms.content.get();
                 child
                     .node
                     .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
@@ -647,11 +648,11 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        let child = match floating.current.child.get() {
+        let child = match floating.mapped.child.get() {
             Some(c) => c,
             _ => return,
         };
-        let pos = floating.current.position.get();
+        let pos = floating.mapped.position.get();
         let theme = &self.state.theme;
         let th = theme.title_height();
         let tpuh = theme.title_plus_underline_height();

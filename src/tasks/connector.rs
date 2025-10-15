@@ -298,7 +298,7 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);
-        on.current.lock_surface.take();
+        on.set_current_lock_surface(&tt, None);
         {
             let mut surfaces = vec![];
             for layer in &on.layers {

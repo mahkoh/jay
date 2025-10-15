@@ -511,7 +511,7 @@ impl ToplevelSession {
                 None
             } else {
                 let on = on.node_mapped_position();
-                let rect = data.desired_extents.get().move_(-on.x1(), -on.y1());
+                let rect = data.mapped_position.get().move_(-on.x1(), -on.y1());
                 Some(rect)
             }
         } else {

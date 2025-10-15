@@ -76,6 +76,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             version: self.version,
             destroyed: Cell::new(false),
             configurable_data: Default::default(),
+            timeline: self.client.state.tree_transactions.timeline(),
         });
         track!(new.client, new);
         new.install()?;
@@ -87,7 +88,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
                 return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
             }
             let tt = &self.client.state.tree_transaction();
-            node.set_lock_surface(tt, Some(new.clone()));
+            node.set_lock_surface(tt, Some(&new));
             let pos = node.current.pos.get();
             new.change_extents(tt, pos);
             new.surface.set_output(&node, NodeLocation::Output(node.id));

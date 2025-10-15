@@ -602,7 +602,7 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        let pos = output.current.pos.get();
+        let pos = output.mapped.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
         self.motion_event_abs(time_usec, x, y, Motion);

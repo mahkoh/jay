@@ -195,9 +195,9 @@ impl MetalConnector {
         let next_buffer_idx = ((connector_drm_state.fb_idx + 1) % buffers.len() as u64) as usize;
         let buffer = &buffers[next_buffer_idx];
 
-        let cd = node.current.color_description.get();
-        let linear_cd = node.current.linear_color_description.get();
-        let blend_cd = match node.current.blend_space.get() {
+        let cd = node.mapped.color_description.get();
+        let linear_cd = node.mapped.linear_color_description.get();
+        let blend_cd = match node.mapped.blend_space.get() {
             BlendSpace::Linear => &linear_cd,
             BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),
         };
@@ -602,13 +602,13 @@ impl MetalConnector {
             (mode.width, mode.height),
             &**node,
             &self.state,
-            Some(node.current.pos.get()),
-            node.current.scale.get(),
+            Some(node.mapped.pos.get()),
+            node.mapped.scale.get(),
             true,
             render_hw_cursor,
             node.has_fullscreen(),
             true,
-            node.current.transform.get(),
+            node.mapped.transform.get(),
             Some(&self.state.damage_visualizer),
         );
         Some(Latched {

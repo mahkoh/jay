@@ -495,10 +495,10 @@ impl CursorUser {
             return;
         };
         let (x, y) = self.pos.get();
-        let transform = output.current.transform.get();
+        let transform = output.mapped.transform.get();
         let render = output.hardware_cursor_needs_render.take();
-        let scale = output.current.scale.get();
-        let cd = output.current.color_description.get();
+        let scale = output.mapped.scale.get();
+        let cd = output.mapped.color_description.get();
         if render {
             cursor.tick();
         }
@@ -511,7 +511,7 @@ impl CursorUser {
                 return;
             }
         }
-        let opos = output.current.pos.get();
+        let opos = output.mapped.pos.get();
         let (x_rel, y_rel);
         if scale == 1 {
             x_rel = x.round_down() - opos.x1();

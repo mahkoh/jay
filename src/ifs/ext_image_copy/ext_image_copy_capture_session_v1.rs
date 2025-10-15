@@ -100,7 +100,7 @@ impl ExtImageCopyCaptureSessionV1 {
                 let Some(node) = o.get() else {
                     return;
                 };
-                node.tl_data().desired_pixel_size()
+                node.tl_data().mapped_pixel_size()
             }
         };
         self.send_buffer_size(width, height);
@@ -291,7 +291,7 @@ impl LatchListener for ExtImageCopyCaptureSessionV1 {
             self.force_capture.set(true);
             return;
         }
-        frame.copy_node(on, &*tl, data.desired_pixel_size());
+        frame.copy_node(on, &*tl, data.mapped_pixel_size());
     }
 }
 

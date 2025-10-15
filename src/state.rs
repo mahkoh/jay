@@ -1058,10 +1058,10 @@ impl State {
             Rect::new_sized_saturating(x1, y1, width, height)
         };
         FloatNode::new(self, tt, workspace, position, node.clone());
-        self.focus_after_map(tt, node, self.seat_queue.last().as_deref());
+        // self.focus_after_map(tt, node, self.seat_queue.last().as_deref());
     }
 
-    fn focus_after_map(
+    pub fn focus_after_map(
         &self,
         tt: &TreeTransaction,
         node: Rc<dyn ToplevelNode>,
@@ -1253,7 +1253,7 @@ impl State {
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
-            if output.current.pos.get().intersects(&rect) {
+            if output.mapped.pos.get().intersects(&rect) {
                 if skip_hc && output.hardware_cursor.is_some() {
                     continue;
                 }
@@ -1276,6 +1276,7 @@ impl State {
                 surface.destroy_node();
             }
         }
+        // TODO
         self.tree_changed();
         self.damage(self.root.extents.get());
     }
@@ -1316,7 +1317,6 @@ impl State {
         self.pending_container_render_positions.clear();
         self.pending_container_render_title.clear();
         self.pending_output_render_data.clear();
-        self.pending_float_layout.clear();
         self.pending_float_titles.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
@@ -1450,8 +1450,8 @@ impl State {
             cd,
             output,
             self,
-            Some(output.current.pos.get()),
-            output.current.scale.get(),
+            Some(output.mapped.pos.get()),
+            output.mapped.scale.get(),
             render_hw_cursor,
             true,
             blend_buffer,
@@ -2278,14 +2278,6 @@ impl State {
         self.workspaces.set(name.to_string(), ws.clone());
         self.trigger_cci(CCI_WORKSPACES);
         ws
-    }
-
-    pub fn next_tree_serial(&self) -> TreeSerial {
-        let mut s = self.tree_serials.next();
-        if s.raw() as u32 == 0 {
-            s = self.tree_serials.next();
-        }
-        s
     }
 
     pub fn validate_tree_serial32(&self, s: u32) -> Option<TreeSerial> {

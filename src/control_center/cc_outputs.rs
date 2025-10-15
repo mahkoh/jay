@@ -852,9 +852,9 @@ impl OutputsPaneInner {
                 node.update_transform(tt, desired.transform);
                 node.set_vrr_mode(tt, &desired.vrr_mode);
                 node.set_tearing_mode(tt, &desired.tearing_mode);
-                node.set_brightness(desired.brightness);
-                node.set_blend_space(desired.blend_space);
-                node.set_use_native_gamut(desired.use_native_gamut);
+                node.set_brightness(tt, desired.brightness);
+                node.set_blend_space(tt, desired.blend_space);
+                node.set_use_native_gamut(tt, desired.use_native_gamut);
                 node.schedule
                     .set_cursor_hz(&self.state, desired.vrr_cursor_hz.unwrap_or(f64::INFINITY));
             } else if let Some(mi) = &desired.monitor_info {

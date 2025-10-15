@@ -1170,11 +1170,11 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
             seat.pointer_cursor().set_known(KnownCursor::Pointer);
-            seat.state.damage(ws.current.position.get());
+            seat.state.damage(ws.mapped.position.get());
         }
         if let Some(prev) = self.latest.set(ws) {
             prev.render_highlight.fetch_sub(1);
-            seat.state.damage(prev.current.position.get());
+            seat.state.damage(prev.mapped.position.get());
         }
     }
 }
@@ -1184,7 +1184,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.current.position.get());
+                seat.state.damage(prev.mapped.position.get());
             }
         }
     }
@@ -1360,7 +1360,7 @@ where
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
-        let Some(parent) = self.tl.tl_data().parent.get() else {
+        let Some(parent) = self.tl.tl_data().unambiguous_parent() else {
             return;
         };
         self.usecase.apply_changes(seat, parent, &self.tl);
@@ -1482,7 +1482,7 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
             let (x, y) = seat.pointer_cursor.position_int();
             let outputs = seat.state.root.outputs.lock();
             for output in outputs.values() {
-                let pos = output.current.pos.get();
+                let pos = output.mapped.pos.get();
                 if pos.contains(x, y) {
                     break 'output output.clone();
                 }
@@ -1573,7 +1573,7 @@ impl UiDragUsecase for TileDragUsecase {
             return;
         };
         let src = self.tl.clone();
-        let Some(src_parent) = src.tl_data().parent.get() else {
+        let Some(src_parent) = src.tl_data().unambiguous_parent() else {
             return;
         };
         let tt = &seat.state.tree_transaction();
@@ -1597,7 +1597,7 @@ impl UiDragUsecase for TileDragUsecase {
         };
         match dest {
             TddType::Replace(dst) => {
-                let Some(dst_parent) = dst.tl_data().parent.get() else {
+                let Some(dst_parent) = dst.tl_data().unambiguous_parent() else {
                     return;
                 };
                 let placeholder = detach();
@@ -1610,7 +1610,7 @@ impl UiDragUsecase for TileDragUsecase {
                 before,
             } => {
                 let data = node.tl_data();
-                let Some(pn) = data.parent.get() else {
+                let Some(pn) = data.unambiguous_parent() else {
                     return;
                 };
                 let Some(ws) = data.workspace.get() else {

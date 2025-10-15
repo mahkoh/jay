@@ -204,7 +204,7 @@ impl ExtImageCopyCaptureFrameV1 {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        let transform = on.current.transform.get();
+        let transform = on.mapped.transform.get();
         let req_size = size.unwrap_or(transform.maybe_swap(texture.size()));
         self.copy(on, req_size, |fb, aq, re| {
             self.client.state.perform_screencopy(
@@ -218,19 +218,19 @@ impl ExtImageCopyCaptureFrameV1 {
                 re,
                 tree::Transform::None,
                 self.client.state.color_manager.srgb_gamma22(),
-                on.current.pos.get(),
+                on.mapped.pos.get(),
                 render_hardware_cursors,
                 x_off,
                 y_off,
                 size,
                 transform,
-                on.current.scale.get(),
+                on.mapped.scale.get(),
             )
         });
     }
 
     pub(super) fn copy_node(self: &Rc<Self>, on: &OutputNode, node: &dyn Node, size: (i32, i32)) {
-        let scale = on.current.scale.get();
+        let scale = on.mapped.scale.get();
         self.copy(on, size, |fb, aq, re| {
             fb.render_node(
                 aq,

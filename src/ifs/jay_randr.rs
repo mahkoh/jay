@@ -564,7 +564,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_brightness(Some(req.lux));
+        let tt = &self.state.tree_transaction();
+        c.set_brightness(tt, Some(req.lux));
         Ok(())
     }
 
@@ -576,7 +577,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_brightness(None);
+        let tt = &self.state.tree_transaction();
+        c.set_brightness(tt, None);
         Ok(())
     }
 
@@ -593,7 +595,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_blend_space(space);
+        let tt = &self.state.tree_transaction();
+        c.set_blend_space(tt, space);
         Ok(())
     }
 
@@ -605,7 +608,8 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_use_native_gamut(req.use_native_gamut != 0);
+        let tt = &self.state.tree_transaction();
+        c.set_use_native_gamut(tt, req.use_native_gamut != 0);
         Ok(())
     }
 

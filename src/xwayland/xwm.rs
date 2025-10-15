@@ -2432,7 +2432,7 @@ impl Wm {
                 seat.focus_toplevel(win.clone());
             }
         } else {
-            let tt = &self.state.tree_transaction();
+            let tt = &self.client.state.tree_transaction();
             win.x.surface.request_activation(tt);
         }
         Ok(())

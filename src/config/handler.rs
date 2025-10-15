@@ -1612,8 +1612,9 @@ impl ConfigProxyHandler {
             ConfigBlendSpace::LINEAR => BlendSpace::Linear,
             _ => return Err(CphError::UnknownBlendSpace(blend_space)),
         };
+        let tt = &self.state.tree_transaction();
         let connector = self.get_output_node_or_persistent(connector)?;
-        connector.set_blend_space(blend_space);
+        connector.set_blend_space(tt, blend_space);
         Ok(())
     }
 
@@ -1623,7 +1624,8 @@ impl ConfigProxyHandler {
         brightness: Option<f64>,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node_or_persistent(connector)?;
-        connector.set_brightness(brightness);
+        let tt = &self.state.tree_transaction();
+        connector.set_brightness(tt, brightness);
         Ok(())
     }
 
@@ -1633,7 +1635,8 @@ impl ConfigProxyHandler {
         use_native_gamut: bool,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node_or_persistent(connector)?;
-        connector.set_use_native_gamut(use_native_gamut);
+        let tt = &self.state.tree_transaction();
+        connector.set_use_native_gamut(tt, use_native_gamut);
         Ok(())
     }
 
