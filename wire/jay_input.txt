@@ -134,6 +134,15 @@ request set_middle_button_emulation (since = 19) {
     enabled: u32,
 }
 
+request set_simple_im_enabled (since = 22) {
+    seat: str,
+    enabled: u32,
+}
+
+request reload_simple_im (since = 22) {
+    seat: str,
+}
+
 # events
 
 event seat {

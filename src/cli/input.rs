@@ -83,6 +83,28 @@ pub enum SeatCommand {
     UseHardwareCursor(UseHardwareCursorArgs),
     /// Set the size of the cursor.
     SetCursorSize(SetCursorSizeArgs),
+    /// Configure the simple, XCompose based input method.
+    SimpleIm(SimpleImArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SimpleImArgs {
+    #[clap(subcommand)]
+    pub command: SimpleImCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum SimpleImCommand {
+    /// Enable the simple IM.
+    ///
+    /// Even if the IM is enabled, it will not be used if an external IM is running.
+    Enable,
+    /// Disable the simple IM.
+    Disable,
+    /// Reload the simple IM.
+    ///
+    /// This is useful if you change the XCompose files after starting the compositor.
+    Reload,
 }
 
 impl Default for SeatCommand {
@@ -460,6 +482,27 @@ impl Input {
                     size: a.size,
                 });
             }
+            SeatCommand::SimpleIm(a) => match a.command {
+                SimpleImCommand::Enable | SimpleImCommand::Disable => {
+                    self.handle_error(input, |e| {
+                        eprintln!("Could not enable/disable the simple IM: {}", e);
+                    });
+                    tc.send(jay_input::SetSimpleImEnabled {
+                        self_id: input,
+                        seat: &args.seat,
+                        enabled: matches!(a.command, SimpleImCommand::Enable) as _,
+                    });
+                }
+                SimpleImCommand::Reload => {
+                    self.handle_error(input, |e| {
+                        eprintln!("Could not reload the simple IM: {}", e);
+                    });
+                    tc.send(jay_input::ReloadSimpleIm {
+                        self_id: input,
+                        seat: &args.seat,
+                    });
+                }
+            },
         }
         tc.round_trip().await;
     }

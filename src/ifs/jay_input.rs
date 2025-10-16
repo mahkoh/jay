@@ -515,6 +515,30 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_simple_im_enabled(
+        &self,
+        req: SetSimpleImEnabled<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let seat = self.seat(req.seat)?;
+            seat.set_simple_im_enabled(req.enabled != 0);
+            Ok(())
+        })
+    }
+
+    fn reload_simple_im(
+        &self,
+        req: ReloadSimpleIm<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let seat = self.seat(req.seat)?;
+            seat.reload_simple_im();
+            Ok(())
+        })
+    }
 }
 
 object_base! {
