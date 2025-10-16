@@ -1381,6 +1381,17 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_show_titles(&self, show: bool) {
+        self.state.theme.show_titles.set(show);
+        self.spaces_change();
+    }
+
+    fn handle_get_show_titles(&self) {
+        self.respond(Response::GetShowTitles {
+            show: self.state.theme.show_titles.get(),
+        });
+    }
+
     fn handle_set_show_float_pin_icon(&self, show: bool) {
         self.state.show_pin_icon.set(show);
         for stacked in self.state.root.stacked.iter() {
@@ -3188,6 +3199,8 @@ impl ConfigProxyHandler {
                 .wrn("get_content_type")?,
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
+            ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
+            ClientMessage::GetShowTitles => self.handle_get_show_titles(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
                 .wrn("seat_focus_history")?,

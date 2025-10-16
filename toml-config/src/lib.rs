@@ -39,12 +39,12 @@ use {
         on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
         set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
         set_idle, set_idle_grace_period, set_middle_click_paste_enabled, set_show_bar,
-        set_show_float_pin_icon, set_ui_drag_enabled, set_ui_drag_threshold,
+        set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
         theme::{reset_colors, reset_font, reset_sizes, set_bar_font, set_font, set_title_font},
-        toggle_float_above_fullscreen, toggle_show_bar,
+        toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
             ColorSpace, Connector, DrmDevice, Eotf, connectors, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
@@ -200,6 +200,8 @@ impl Action {
                 SimpleCommand::KillClient => client_action!(c, c.kill()),
                 SimpleCommand::ShowBar(show) => b.new(move || set_show_bar(show)),
                 SimpleCommand::ToggleBar => b.new(toggle_show_bar),
+                SimpleCommand::ShowTitles(show) => b.new(move || set_show_titles(show)),
+                SimpleCommand::ToggleTitles => b.new(toggle_show_titles),
                 SimpleCommand::FocusHistory(timeline) => {
                     let persistent = state.persistent.clone();
                     b.new(move || persistent.seat.focus_history(timeline))
@@ -1560,6 +1562,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_bar {
         set_show_bar(v);
+    }
+    if let Some(v) = config.show_titles {
+        set_show_titles(v);
     }
     if let Some(v) = config.focus_history {
         if let Some(v) = v.only_visible {

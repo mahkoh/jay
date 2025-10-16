@@ -851,7 +851,7 @@ The string should have one of the following values:
 
 - `default`:
 
-  The default brightness setting.       
+  The default brightness setting.
   
   The behavior depends on the EOTF:
   
@@ -2081,6 +2081,14 @@ The table has the following fields:
 - `show-bar` (optional):
 
   Configures whether the built-in bar is shown.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
+- `show-titles` (optional):
+
+  Configures whether title bars on windows are shown.
   
   The default is `true`.
 
@@ -4158,6 +4166,18 @@ The string should have one of the following values:
 - `toggle-bar`:
 
   Toggles the built-in bar.
+
+- `show-titles`:
+
+  Shows window titles.
+
+- `hide-titles`:
+
+  Hides window titles.
+
+- `toggle-titles`:
+
+  Toggles window titles.
 
 - `focus-prev`:
 

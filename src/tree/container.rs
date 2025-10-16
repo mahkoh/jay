@@ -426,7 +426,7 @@ impl ContainerNode {
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
-        let th = self.state.theme.sizes.title_height.get();
+        let th = self.state.theme.title_height();
         let bw = self.state.theme.sizes.border_width.get();
         let num_children = self.num_children.get() as i32;
         let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
@@ -449,7 +449,8 @@ impl ContainerNode {
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
         let border_width = self.state.theme.sizes.border_width.get();
-        let title_height = self.state.theme.sizes.title_height.get();
+        let title_height_tmp = self.state.theme.title_height();
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
         let split = self.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (self.content_width.get(), self.content_height.get()),
@@ -468,16 +469,24 @@ impl ContainerNode {
             body_size = body_size.min(remaining_content_size);
             remaining_content_size -= body_size;
             let (x1, y1, width, height) = match split {
-                ContainerSplit::Horizontal => {
-                    (pos, title_height + 1, body_size, other_content_size)
-                }
-                _ => (0, pos + title_height + 1, other_content_size, body_size),
+                ContainerSplit::Horizontal => (
+                    pos,
+                    title_plus_underline_height,
+                    body_size,
+                    other_content_size,
+                ),
+                _ => (
+                    0,
+                    pos + title_plus_underline_height,
+                    other_content_size,
+                    body_size,
+                ),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
             child.body.set(body);
             pos += body_size + border_width;
             if split == ContainerSplit::Vertical {
-                pos += title_height + 1;
+                pos += title_plus_underline_height;
             }
         }
         if remaining_content_size > 0 {
@@ -494,13 +503,19 @@ impl ContainerNode {
                 let (x1, y1, width, height, size) = match split {
                     ContainerSplit::Horizontal => {
                         let width = body.width() + add;
-                        (pos, title_height + 1, width, other_content_size, width)
+                        (
+                            pos,
+                            title_plus_underline_height,
+                            width,
+                            other_content_size,
+                            width,
+                        )
                     }
                     _ => {
                         let height = body.height() + add;
                         (
                             0,
-                            pos + title_height + 1,
+                            pos + title_plus_underline_height,
                             other_content_size,
                             height,
                             height,
@@ -511,7 +526,7 @@ impl ContainerNode {
                 child.body.set(body);
                 pos += size + border_width;
                 if split == ContainerSplit::Vertical {
-                    pos += title_height + 1;
+                    pos += title_plus_underline_height;
                 }
             }
         }
@@ -521,9 +536,9 @@ impl ContainerNode {
             child.title_rect.set(
                 Rect::new_sized(
                     body.x1(),
-                    body.y1() - title_height - 1,
+                    body.y1() - title_plus_underline_height,
                     body.width(),
-                    title_height,
+                    title_height_tmp,
                 )
                 .unwrap(),
             );
@@ -535,20 +550,23 @@ impl ContainerNode {
 
     fn update_content_size(&self) {
         let border_width = self.state.theme.sizes.border_width.get();
-        let title_height = self.state.theme.sizes.title_height.get();
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
         let nc = self.num_children.get();
         match self.split.get() {
             ContainerSplit::Horizontal => {
                 let new_content_size = self.width.get().sub((nc - 1) as i32 * border_width).max(0);
                 self.content_width.set(new_content_size);
                 self.content_height
-                    .set(self.height.get().sub(title_height + 1).max(0));
+                    .set(self.height.get().sub(title_plus_underline_height).max(0));
             }
             ContainerSplit::Vertical => {
                 let new_content_size = self
                     .height
                     .get()
-                    .sub(title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1))
+                    .sub(
+                        title_plus_underline_height
+                            + (nc - 1) as i32 * (border_width + title_plus_underline_height),
+                    )
                     .max(0);
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
@@ -557,9 +575,9 @@ impl ContainerNode {
         self.mono_body.set(
             Rect::new_sized(
                 0,
-                title_height + 1,
+                title_plus_underline_height,
                 self.width.get(),
-                self.height.get().sub(title_height + 1).max(0),
+                self.height.get().sub(title_plus_underline_height).max(0),
             )
             .unwrap(),
         );
@@ -576,7 +594,7 @@ impl ContainerNode {
     ) {
         let mut x = x.round_down();
         let mut y = y.round_down();
-        let title_height = self.state.theme.sizes.title_height.get();
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -648,7 +666,7 @@ impl ContainerNode {
         let new_cursor = if self.mono_child.is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
-            if y < title_height + 1 {
+            if y < title_plus_underline_height {
                 KnownCursor::Default
             } else {
                 KnownCursor::EwResize
@@ -658,7 +676,7 @@ impl ContainerNode {
             for child in self.children.iter() {
                 let body = child.body.get();
                 if body.y1() > y {
-                    if body.y1() - y > title_height + 1 {
+                    if body.y1() - y > title_plus_underline_height {
                         cursor = KnownCursor::NsResize
                     }
                     break;
@@ -706,7 +724,7 @@ impl ContainerNode {
             return on_completed.event();
         };
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let th = theme.title_height();
         let font = theme.title_font();
         let last_active = self.focus_history.last().map(|v| v.node.node_id());
         let have_active = self.children.iter().any(|c| c.active.get());
@@ -794,7 +812,9 @@ impl ContainerNode {
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let th = theme.title_height();
+        let tpuh = theme.title_plus_underline_height();
+        let tuh = theme.title_underline_height();
         let bw = theme.sizes.border_width.get();
         let cwidth = self.width.get();
         let cheight = self.height.get();
@@ -820,7 +840,7 @@ impl ContainerNode {
                     abs_x,
                     abs_y + rect.y1(),
                     cwidth,
-                    rect.height() + 1,
+                    rect.height() + tuh,
                 ));
             }
             if i > 0 {
@@ -856,11 +876,11 @@ impl ContainerNode {
         }
         if mono {
             rd.underline_rects
-                .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
+                .push(Rect::new_sized(0, th, cwidth, tuh).unwrap());
         }
         if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
             self.state
-                .damage(Rect::new_sized_unchecked(abs_x, abs_y, cwidth, th + 1));
+                .damage(Rect::new_sized_unchecked(abs_x, abs_y, cwidth, tpuh));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
     }
@@ -1193,7 +1213,7 @@ impl ContainerNode {
         };
         if button == BTN_RIGHT && pressed {
             if self.mono_child.is_some() || self.split.get() == ContainerSplit::Horizontal {
-                if seat_data.y < self.state.theme.sizes.title_height.get() {
+                if seat_data.y < self.state.theme.title_height() {
                     self.toggle_mono();
                 }
             } else {
@@ -1314,7 +1334,7 @@ impl ContainerNode {
             prev_center,
             0,
             self.width.get(),
-            self.state.theme.sizes.title_height.get(),
+            self.state.theme.title_height(),
         )?
         .move_(self.abs_x1.get(), self.abs_y1.get())
         .intersect(abs_bounds);
@@ -1339,7 +1359,7 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.sizes.title_height.get();
+        let th = self.state.theme.title_height();
         if abs_y < self.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
@@ -1694,7 +1714,7 @@ impl Node for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.sizes.title_height.get() {
+        if seat_data.y > self.state.theme.title_height() {
             return;
         }
         let cur_mc = match self.mono_child.get() {
@@ -1984,9 +2004,9 @@ impl ContainingNode for ContainerNode {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
-        let th = self.state.theme.sizes.title_height.get();
+        let tpuh = self.state.theme.title_plus_underline_height();
         if self.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - th - 1);
+            parent.cnode_set_child_position(&*self, x, y - tpuh);
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -2007,7 +2027,7 @@ impl ContainingNode for ContainerNode {
         new_y2: Option<i32>,
     ) {
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let tpuh = theme.title_plus_underline_height();
         let bw = theme.sizes.border_width.get();
         let mut left_outside = false;
         let mut right_outside = false;
@@ -2049,7 +2069,7 @@ impl ContainingNode for ContainerNode {
             }
             let (new_delta, between) = match split {
                 ContainerSplit::Horizontal => (self.abs_x1.get(), bw),
-                ContainerSplit::Vertical => (self.abs_y1.get(), bw + th + 1),
+                ContainerSplit::Vertical => (self.abs_y1.get(), bw + tpuh),
             };
             let new_i1 = new_i1.map(|v| v - new_delta);
             let new_i2 = new_i2.map(|v| v - new_delta);
@@ -2117,10 +2137,10 @@ impl ContainingNode for ContainerNode {
             x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - th - 1).min(pos.y2() - th - 1));
+            y1 = new_y1.map(|v| (v - tpuh).min(pos.y2() - tpuh));
         }
         if bottom_outside {
-            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + th + 1));
+            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + tpuh));
         }
         if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))
