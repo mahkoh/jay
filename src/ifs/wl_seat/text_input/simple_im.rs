@@ -11,7 +11,7 @@ use {
             wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
         },
         keyboard::KeyboardState,
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
+        utils::{clonecell::CloneCell, debug_fn::debug_fn, smallmap::SmallMap},
         wire::ZwpInputPopupSurfaceV2Id,
     },
     kbvm::{
@@ -154,7 +154,14 @@ impl UnicodeInput {
         let _ = write!(self.text, "U+{:x}", self.cp);
         self.cursor = self.text.len() as _;
         if let Some(char) = char::from_u32(self.cp) {
-            let _ = write!(self.text, " = {}", char);
+            let s = debug_fn(|f| {
+                if char == '\n' {
+                    f.write_str("\\n")
+                } else {
+                    f.write_char(char)
+                }
+            });
+            let _ = write!(self.text, " = {}", s);
         }
     }
 
