@@ -466,6 +466,7 @@ pub struct Theme {
     pub bar_font: CloneCell<Option<Arc<String>>>,
     pub title_font: CloneCell<Option<Arc<String>>>,
     pub default_font: Arc<String>,
+    pub show_titles: Cell<bool>,
 }
 
 impl Default for Theme {
@@ -478,6 +479,7 @@ impl Default for Theme {
             bar_font: Default::default(),
             title_font: Default::default(),
             default_font,
+            show_titles: Cell::new(true),
         }
     }
 }
@@ -489,5 +491,25 @@ impl Theme {
 
     pub fn bar_font(&self) -> Arc<String> {
         self.bar_font.get().unwrap_or_else(|| self.font.get())
+    }
+
+    pub fn title_height(&self) -> i32 {
+        if self.show_titles.get() {
+            self.sizes.title_height.get()
+        } else {
+            0
+        }
+    }
+
+    pub fn title_underline_height(&self) -> i32 {
+        if self.show_titles.get() { 1 } else { 0 }
+    }
+
+    pub fn title_plus_underline_height(&self) -> i32 {
+        if self.show_titles.get() {
+            self.sizes.title_height.get() + 1
+        } else {
+            0
+        }
     }
 }

@@ -336,6 +336,24 @@ pub fn toggle_show_bar() {
     get.set_show_bar(!get.get_show_bar());
 }
 
+/// Sets whether title bars on windows are shown.
+///
+/// The default is `true`.
+pub fn set_show_titles(show: bool) {
+    get!().set_show_titles(show)
+}
+
+/// Returns whether title bars on windows are shown.
+pub fn get_show_titles() -> bool {
+    get!(true).get_show_titles()
+}
+
+/// Toggles whether title bars on windows are shown.
+pub fn toggle_show_titles() {
+    let get = get!();
+    get.set_show_titles(!get.get_show_titles());
+}
+
 /// Sets a callback to run when this config is unloaded.
 ///
 /// Only one callback can be set at a time. If another callback is already set, it will be

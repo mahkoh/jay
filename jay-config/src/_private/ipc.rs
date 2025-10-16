@@ -801,6 +801,10 @@ pub enum ClientMessage<'a> {
     SeatEnableUnicodeInput {
         seat: Seat,
     },
+    SetShowTitles {
+        show: bool,
+    },
+    GetShowTitles,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1035,6 +1039,9 @@ pub enum Response {
     },
     SeatGetSimpleImEnabled {
         enabled: bool,
+    },
+    GetShowTitles {
+        show: bool,
     },
 }
 

@@ -501,7 +501,9 @@ impl Renderer<'_> {
         };
         let pos = floating.position.get();
         let theme = &self.state.theme;
-        let th = theme.sizes.title_height.get();
+        let th = theme.title_height();
+        let tpuh = theme.title_plus_underline_height();
+        let tuh = theme.title_underline_height();
         let bw = theme.sizes.border_width.get();
         let bc = theme.colors.border.get();
         let tc = if floating.active.get() {
@@ -524,7 +526,7 @@ impl Renderer<'_> {
         let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
         self.base.fill_boxes(&title, &tc, srgb);
         let title_underline =
-            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
+            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, tuh).unwrap()];
         self.base.fill_boxes(&title_underline, &uc, srgb);
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
@@ -584,9 +586,9 @@ impl Renderer<'_> {
         }
         let body = Rect::new_sized(
             x + bw,
-            y + bw + th + 1,
+            y + bw + tpuh,
             pos.width() - 2 * bw,
-            pos.height() - 2 * bw - th - 1,
+            pos.height() - 2 * bw - tpuh,
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);

@@ -1009,6 +1009,12 @@ SimpleActionName:
       description: Hides the built-in bar.
     - value: toggle-bar
       description: Toggles the built-in bar.
+    - value: show-titles
+      description: Shows window titles.
+    - value: hide-titles
+      description: Hides window titles.
+    - value: toggle-titles
+      description: Toggles window titles.
     - value: focus-prev
       description: Focuses the previous window in the focus history.
     - value: focus-next
@@ -1053,7 +1059,7 @@ SimpleActionName:
     - value: enable-unicode-input
       description: |
         Enables Unicode input in the simple, XCompose based input method.
-       
+        
         This has no effect if the simple IM is not currently active.
 
 
@@ -2842,6 +2848,13 @@ Config:
         Configures whether the built-in bar is shown.
 
         The default is `true`.
+    show-titles:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether title bars on windows are shown.
+        
+        The default is `true`.
     focus-history:
       ref: FocusHistory
       required: false
@@ -3419,7 +3432,7 @@ Brightness:
       values:
         - value: default
           description: |
-            The default brightness setting.       
+            The default brightness setting.
             
             The behavior depends on the EOTF:
             

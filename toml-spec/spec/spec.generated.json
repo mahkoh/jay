@@ -1030,6 +1030,10 @@
           "type": "boolean",
           "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
         },
+        "show-titles": {
+          "type": "boolean",
+          "description": "Configures whether title bars on windows are shown.\n\nThe default is `true`.\n"
+        },
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
           "$ref": "#/$defs/FocusHistory"
@@ -1831,6 +1835,9 @@
         "show-bar",
         "hide-bar",
         "toggle-bar",
+        "show-titles",
+        "hide-titles",
+        "toggle-titles",
         "focus-prev",
         "focus-next",
         "focus-below",

@@ -49,7 +49,7 @@ pub enum IconsError {
 impl Icons {
     pub fn update_sizes(&self, state: &State) {
         let mut sizes = AHashSet::new();
-        let height = state.theme.sizes.title_height.get();
+        let height = state.theme.title_height();
         for &(scale, _) in &*state.scales.lock() {
             let [size] = scale.pixel_size([height]);
             if size > 0 {
@@ -64,7 +64,7 @@ impl Icons {
     }
 
     pub fn get(&self, state: &State, scale: Scale) -> Option<Rc<SizedIcons>> {
-        let [size] = scale.pixel_size([state.theme.sizes.title_height.get()]);
+        let [size] = scale.pixel_size([state.theme.title_height()]);
         if let Some(icons) = self.icons.get(&size) {
             return icons;
         }
