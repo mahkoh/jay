@@ -69,6 +69,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
             state: match state {
                 KeyState::Released => wl_keyboard::RELEASED,
                 KeyState::Pressed => wl_keyboard::PRESSED,
+                KeyState::Repeated => return,
             },
         })
     }

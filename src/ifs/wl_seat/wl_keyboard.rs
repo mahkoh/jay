@@ -18,6 +18,7 @@ use {
 };
 
 pub const REPEAT_INFO_SINCE: Version = Version(4);
+pub const REPEATED_SINCE: Version = Version(10);
 
 #[expect(dead_code)]
 const NO_KEYMAP: u32 = 0;
@@ -25,6 +26,7 @@ pub const XKB_V1: u32 = 1;
 
 pub const RELEASED: u32 = 0;
 pub const PRESSED: u32 = 1;
+pub const REPEATED: u32 = 2;
 
 pub struct WlKeyboard {
     id: WlKeyboardId,
@@ -132,6 +134,9 @@ impl WlKeyboard {
     }
 
     fn send_key(&self, serial: u64, time: u32, key: u32, state: KeyState) {
+        if state == KeyState::Repeated && self.seat.version < REPEATED_SINCE {
+            return;
+        }
         {
             let pk = &mut self.pressed_keys.borrow_mut();
             match state {
@@ -145,6 +150,11 @@ impl WlKeyboard {
                         return;
                     }
                 }
+                KeyState::Repeated => {
+                    if !pk.contains(&key) {
+                        return;
+                    }
+                }
             }
         }
         self.seat.client.event(Key {
@@ -155,6 +165,7 @@ impl WlKeyboard {
             state: match state {
                 KeyState::Released => RELEASED,
                 KeyState::Pressed => PRESSED,
+                KeyState::Repeated => REPEATED,
             },
         })
     }
@@ -178,7 +189,11 @@ impl WlKeyboard {
         })
     }
 
-    pub fn send_repeat_info(self: &Rc<Self>, rate: i32, delay: i32) {
+    pub fn send_repeat_info(self: &Rc<Self>, mut rate: i32, mut delay: i32) {
+        if self.seat.version >= REPEATED_SINCE {
+            rate = 0;
+            delay = 0;
+        }
         self.seat.client.event(RepeatInfo {
             self_id: self.id,
             rate,

@@ -59,6 +59,7 @@ impl EiKeyboard {
             state: match state {
                 KeyState::Released => 0,
                 KeyState::Pressed => 1,
+                KeyState::Repeated => return,
             },
         });
     }

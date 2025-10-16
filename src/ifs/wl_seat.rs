@@ -188,6 +188,12 @@ pub struct WlSeatGlobal {
     >,
     data_control_devices: CopyHashMap<DataControlDeviceId, Rc<dyn DynDataControlDevice>>,
     repeat_rate: Cell<(i32, i32)>,
+    key_repeater: Cell<Option<SpawnedFuture<()>>>,
+    repeat_key: Cell<Option<Keycode>>,
+    repeat_key_state: CloneCell<Option<Rc<RefCell<KbvmState>>>>,
+    repeat_key_version: NumCell<u64>,
+    repeat_key_start_ns: Cell<u64>,
+    have_repeat_key: AsyncEvent,
     seat_kb_map: CloneCell<Rc<KbvmMap>>,
     seat_kb_state: CloneCell<Rc<RefCell<KbvmState>>>,
     latest_kb_state: CloneCell<Rc<dyn DynKeyboardState>>,
@@ -280,6 +286,12 @@ impl WlSeatGlobal {
             data_devices: RefCell::new(Default::default()),
             primary_selection_devices: RefCell::new(Default::default()),
             repeat_rate: Cell::new((25, 250)),
+            key_repeater: Default::default(),
+            repeat_key: Default::default(),
+            repeat_key_state: Default::default(),
+            repeat_key_version: Default::default(),
+            repeat_key_start_ns: Default::default(),
+            have_repeat_key: Default::default(),
             seat_kb_map: CloneCell::new(state.default_keymap.clone()),
             seat_kb_state: CloneCell::new(seat_kb_state.clone()),
             latest_kb_state: CloneCell::new(seat_kb_state.clone()),
@@ -336,6 +348,7 @@ impl WlSeatGlobal {
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
             .attach(&seat_kb_state.borrow().kb_state.leds_changed);
+        slf.create_repeat_handler();
         let seat = slf.clone();
         let future = state.eng.spawn("seat handler", async move {
             loop {
@@ -684,8 +697,9 @@ impl WlSeatGlobal {
         self.repeat_rate.get()
     }
 
-    pub fn set_rate(&self, rate: i32, delay: i32) {
+    pub fn set_rate(self: &Rc<Self>, rate: i32, delay: i32) {
         self.repeat_rate.set((rate, delay));
+        self.create_repeat_handler();
         let bindings = self.bindings.borrow_mut();
         for client in bindings.values() {
             for seat in client.values() {
@@ -1252,6 +1266,8 @@ impl WlSeatGlobal {
         self.tablet_clear();
         self.ei_seats.clear();
         self.marks.clear();
+        self.key_repeater.take();
+        self.repeat_key_state.take();
     }
 
     pub fn id(&self) -> SeatId {
@@ -1482,7 +1498,7 @@ impl Global for WlSeatGlobal {
     }
 
     fn version(&self) -> u32 {
-        9
+        10
     }
 }
 

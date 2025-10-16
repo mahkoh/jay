@@ -315,6 +315,7 @@ pub enum BackendEvent {
 pub enum KeyState {
     Released,
     Pressed,
+    Repeated,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

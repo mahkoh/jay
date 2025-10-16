@@ -46,6 +46,7 @@ impl TestVirtualKeyboard {
         let state = match state {
             KeyState::Released => wl_keyboard::RELEASED,
             KeyState::Pressed => wl_keyboard::PRESSED,
+            KeyState::Repeated => wl_keyboard::REPEATED,
         };
         self.tran.send(Key {
             self_id: self.id,

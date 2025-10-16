@@ -168,7 +168,7 @@ impl UnicodeInput {
 
 impl InputMethodKeyboardGrab for SimpleIm {
     fn on_key(&self, _time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) -> bool {
-        if state != KeyState::Pressed {
+        if state == KeyState::Released {
             return true;
         }
         let Some(con) = self.con.get() else {
