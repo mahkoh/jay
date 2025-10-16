@@ -1,7 +1,8 @@
 use {
     crate::{
         backend::{
-            AXIS_120, AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis,
+            AXIS_120, AxisSource, ButtonState, ConnectorId, InputDeviceId, InputEvent, KeyState,
+            ScrollAxis,
         },
         client::ClientId,
         config::InvokedShortcut,
@@ -672,7 +673,7 @@ impl WlSeatGlobal {
         self.motion_event_abs(time_usec, x, y, false);
     }
 
-    pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
+    pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: ButtonState) {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_button(time_usec, button, state);
         });
@@ -901,6 +902,7 @@ impl WlSeatGlobal {
                 match key_state {
                     KeyState::Released => pk.remove(&kc.to_evdev()),
                     KeyState::Pressed => pk.insert(kc.to_evdev()),
+                    KeyState::Repeated => unreachable!(),
                 }
             };
             if key_state == KeyState::Pressed
@@ -921,6 +923,7 @@ impl WlSeatGlobal {
                 continue;
             }
             shortcuts.clear();
+            let repeats;
             {
                 let mut mods = kbvm_state.kb_state.mods.mods.0 & !(CAPS.0 | NUM.0);
                 if key_state == KeyState::Released {
@@ -932,6 +935,7 @@ impl WlSeatGlobal {
                     ModifierMask::default(),
                     kc,
                 );
+                repeats = keysyms.repeats();
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
                     let sym = props.keysym().0;
@@ -981,26 +985,42 @@ impl WlSeatGlobal {
                 }
             }
             self.send_components(&mut components_changed, &kbvm_state);
-            let mut forward_to_node = true;
-            if let Some(g) = self.input_method_grab.get() {
-                forward_to_node =
-                    g.on_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
-            }
-            if forward_to_node {
-                self.keyboard_node.get().node_on_key(
-                    self,
-                    time_usec,
-                    kc.to_evdev(),
-                    key_state,
-                    &kbvm_state.kb_state,
-                )
-            }
+            self.send_key(time_usec, kc, key_state, &kbvm_state.kb_state);
             self.for_each_ei_seat(|ei_seat| {
                 ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
             });
             update_pressed_keys(&mut kbvm_state);
+            match key_state {
+                KeyState::Released => {
+                    if self.repeat_key.get() == Some(kc) {
+                        self.clear_repeat_key();
+                    }
+                }
+                KeyState::Pressed => {
+                    if repeats {
+                        self.set_repeat_key(kc, kbvm_state_rc);
+                    }
+                }
+                KeyState::Repeated => {}
+            }
         }
         self.send_components(&mut components_changed, &kbvm_state);
+    }
+
+    fn send_key(&self, time_usec: u64, kc: Keycode, key_state: KeyState, kb_state: &KeyboardState) {
+        let mut forward_to_node = true;
+        if let Some(g) = self.input_method_grab.get() {
+            forward_to_node = g.on_key(time_usec, kc.to_evdev(), key_state, kb_state);
+        }
+        if forward_to_node {
+            self.keyboard_node.get().node_on_key(
+                self,
+                time_usec,
+                kc.to_evdev(),
+                key_state,
+                kb_state,
+            )
+        }
     }
 
     pub fn create_mark_interactive(&self) {
@@ -1305,6 +1325,82 @@ impl WlSeatGlobal {
         }
         self.changes.set(0);
     }
+
+    pub(super) fn set_repeat_key(&self, key: Keycode, state: &Rc<RefCell<KbvmState>>) {
+        self.repeat_key_version.fetch_add(1);
+        self.repeat_key_start_ns.set(self.state.now_nsec());
+        self.repeat_key_state.set(Some(state.clone()));
+        let old = self.repeat_key.replace(Some(key));
+        if old.is_none() {
+            self.have_repeat_key.trigger();
+        }
+    }
+
+    pub(super) fn clear_repeat_key(&self) {
+        self.repeat_key_version.fetch_add(1);
+        self.repeat_key_state.take();
+        self.repeat_key.take();
+    }
+
+    pub(super) fn create_repeat_handler(self: &Rc<Self>) {
+        self.clear_repeat_key();
+        let (rate, delay_ms) = self.repeat_rate.get();
+        self.key_repeater.take();
+        if rate == 0 {
+            return;
+        }
+        let delay_first_repeat_ns = delay_ms as u64 * 1_000_000;
+        let delay_subsequent_repeat_ns = 1_000_000_000 / rate as u64;
+        let slf = self.clone();
+        let handle = self.state.eng.spawn("key repeat", async move {
+            'outer: loop {
+                let Some(key) = slf.repeat_key.get() else {
+                    slf.have_repeat_key.triggered().await;
+                    continue;
+                };
+                let mut base_ns = slf.repeat_key_start_ns.get();
+                let kbvm_state = slf.repeat_key_state.get().unwrap();
+                let version = slf.repeat_key_version.get();
+                macro_rules! check_version {
+                    () => {
+                        if slf.repeat_key_version.get() != version {
+                            continue 'outer;
+                        }
+                    };
+                }
+                let target_ns = base_ns + delay_first_repeat_ns;
+                slf.state.ring.timeout(target_ns).await.unwrap();
+                check_version!();
+                let send_key = |now_ns: u64| {
+                    slf.send_key(
+                        now_ns / 1_000,
+                        key,
+                        KeyState::Repeated,
+                        &kbvm_state.borrow().kb_state,
+                    );
+                };
+                send_key(target_ns);
+                base_ns = target_ns;
+                let mut now_ns = slf.state.now_nsec();
+                loop {
+                    let max_sleep_ns = now_ns + delay_first_repeat_ns;
+                    let target_ns = base_ns + delay_subsequent_repeat_ns;
+                    slf.state
+                        .ring
+                        .timeout(target_ns.min(max_sleep_ns))
+                        .await
+                        .unwrap();
+                    check_version!();
+                    now_ns = slf.state.now_nsec();
+                    if now_ns >= target_ns {
+                        send_key(target_ns);
+                        base_ns = target_ns;
+                    }
+                }
+            }
+        });
+        self.key_repeater.set(Some(handle));
+    }
 }
 
 // Button callbacks
@@ -1314,12 +1410,12 @@ impl WlSeatGlobal {
         surface: &Rc<WlSurface>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         serial: u64,
     ) {
         let (state, pressed) = match state {
-            KeyState::Released => (wl_pointer::RELEASED, false),
-            KeyState::Pressed => {
+            ButtonState::Released => (wl_pointer::RELEASED, false),
+            ButtonState::Pressed => {
                 surface.client.focus_stealing_serial.set(Some(serial));
                 (wl_pointer::PRESSED, true)
             }

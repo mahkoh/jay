@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::{ButtonState, KeyState},
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
@@ -346,7 +346,7 @@ pub trait Node: 'static {
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         serial: u64,
     ) {
         let _ = seat;

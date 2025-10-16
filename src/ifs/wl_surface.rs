@@ -21,7 +21,7 @@ pub mod zwp_input_popup_surface_v2;
 
 use {
     crate::{
-        backend::KeyState,
+        backend::{ButtonState, KeyState},
         client::{Client, ClientError},
         cmm::cmm_description::ColorDescription,
         cursor_user::{CursorUser, CursorUserId},
@@ -1907,7 +1907,7 @@ impl Node for WlSurface {
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         serial: u64,
     ) {
         seat.button_surface(&self, time_usec, button, state, serial);

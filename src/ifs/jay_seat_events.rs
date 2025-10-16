@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{InputDeviceId, KeyState, ScrollAxis},
+        backend::{ButtonState, InputDeviceId, KeyState, ScrollAxis},
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{
@@ -79,7 +79,7 @@ impl JaySeatEvents {
         });
     }
 
-    pub fn send_button(&self, seat: SeatId, time_usec: u64, button: u32, state: KeyState) {
+    pub fn send_button(&self, seat: SeatId, time_usec: u64, button: u32, state: ButtonState) {
         self.client.event(Button {
             self_id: self.id,
             seat: seat.raw(),

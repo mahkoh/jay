@@ -213,6 +213,9 @@ impl PhysicalKeyboardState {
                         return;
                     }
                 }
+                KeyState::Repeated => {
+                    return;
+                }
             }
             let state = &mut *self.state.borrow_mut();
             state.map.state_machine.handle_key(
@@ -222,6 +225,7 @@ impl PhysicalKeyboardState {
                 match key_state {
                     KeyState::Released => Direction::Up,
                     KeyState::Pressed => Direction::Down,
+                    KeyState::Repeated => unreachable!(),
                 },
             );
             self.events.append(&mut inner.event_stash);

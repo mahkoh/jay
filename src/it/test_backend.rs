@@ -3,10 +3,10 @@ use {
         allocator::{Allocator, AllocatorError},
         async_engine::SpawnedFuture,
         backend::{
-            AxisSource, Backend, BackendConnectorState, BackendEvent, Connector, ConnectorEvent,
-            ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
-            InputDeviceCapability, InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState,
-            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            AxisSource, Backend, BackendConnectorState, BackendEvent, ButtonState, Connector,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice,
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
+            InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -423,7 +423,7 @@ impl Drop for TestMouseClick {
         self.mouse.common.event(InputEvent::Button {
             time_usec: self.mouse.common.state.now_usec(),
             button: self.button,
-            state: KeyState::Released,
+            state: ButtonState::Released,
         });
     }
 }
@@ -460,7 +460,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::Button {
             time_usec: self.common.state.now_usec(),
             button,
-            state: KeyState::Pressed,
+            state: ButtonState::Pressed,
         });
         TestMouseClick {
             mouse: self.clone(),

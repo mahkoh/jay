@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::ButtonState,
         cursor::KnownCursor,
         cursor_user::CursorUser,
         fixed::Fixed,
@@ -1700,11 +1700,11 @@ impl Node for ContainerNode {
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         _serial: u64,
     ) {
         let id = CursorType::Seat(seat.id());
-        self.button(id, seat, time_usec, state == KeyState::Pressed, button);
+        self.button(id, seat, time_usec, state == ButtonState::Pressed, button);
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {

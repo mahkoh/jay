@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::ButtonState,
         cursor::KnownCursor,
         cursor_user::CursorUser,
         fixed::Fixed,
@@ -776,10 +776,10 @@ impl Node for FloatNode {
         seat: &Rc<WlSeatGlobal>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         _serial: u64,
     ) {
-        if button == BTN_RIGHT && state == KeyState::Pressed {
+        if button == BTN_RIGHT && state == ButtonState::Pressed {
             self.toggle_pinned();
         }
         if button != BTN_LEFT {
@@ -790,7 +790,7 @@ impl Node for FloatNode {
             seat.pointer_cursor(),
             seat,
             time_usec,
-            state == KeyState::Pressed,
+            state == ButtonState::Pressed,
         );
     }
 

@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::ButtonState,
         ei::{
             ei_client::{EiClient, EiClientError},
             ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
@@ -27,7 +27,7 @@ pub struct EiButton {
 ei_device_interface!(EiButton, ei_button, button);
 
 impl EiButton {
-    pub fn send_button(&self, button: u32, state: KeyState) {
+    pub fn send_button(&self, button: u32, state: ButtonState) {
         self.client.event(ServerButton {
             self_id: self.id,
             button,
@@ -46,8 +46,8 @@ impl EiButtonRequestHandler for EiButton {
 
     fn client_button(&self, req: ClientButton, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pressed = match req.state {
-            0 => KeyState::Released,
-            1 => KeyState::Pressed,
+            0 => ButtonState::Released,
+            1 => ButtonState::Pressed,
             _ => return Err(EiButtonError::InvalidButtonState(req.state)),
         };
         self.device.button_changes.push((req.button, pressed));

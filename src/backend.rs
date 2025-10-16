@@ -315,6 +315,13 @@ pub enum BackendEvent {
 pub enum KeyState {
     Released,
     Pressed,
+    Repeated,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ButtonState {
+    Released,
+    Pressed,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
@@ -369,7 +376,7 @@ pub enum InputEvent {
     Button {
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
     },
 
     AxisPx {

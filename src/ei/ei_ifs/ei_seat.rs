@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::{ButtonState, KeyState},
         ei::{
             EiContext,
             ei_client::{EiClient, EiClientError},
@@ -150,7 +150,7 @@ impl EiSeat {
         }
     }
 
-    pub fn handle_button(&self, time_usec: u64, button: u32, state: KeyState) {
+    pub fn handle_button(&self, time_usec: u64, button: u32, state: ButtonState) {
         if self.is_sender() {
             return;
         }
