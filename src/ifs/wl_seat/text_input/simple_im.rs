@@ -206,6 +206,7 @@ impl InputMethodKeyboardGrab for SimpleIm {
                     con.text_input.send_done();
                 } else if sym == syms::Escape
                     || (sym == syms::c && is_control)
+                    || (ui.chars == 0 && sym == syms::BackSpace)
                     || (ui.chars == 0 && matches!(sym, syms::w | syms::d) && is_control)
                 {
                     self.unicode_input_enabled.set(false);
