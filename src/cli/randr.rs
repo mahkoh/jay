@@ -386,6 +386,10 @@ pub struct BrightnessArgs {
     /// When using the default EOTF, you likely want to set this to `default`
     /// and adjust the display hardware brightness setting instead.
     ///
+    /// When used with the default transfer function, the default brightness is anchored
+    /// at 80 cd/m^2. That is, setting this to 40 cd/m^2 makes everything appear half as
+    /// bright as normal and creates 50% HDR headroom.
+    ///
     /// This has no effect unless the vulkan renderer is used.
     #[clap(verbatim_doc_comment, value_parser = parse_brightness)]
     brightness: Brightness,

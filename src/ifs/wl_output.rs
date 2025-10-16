@@ -361,30 +361,19 @@ impl WlOutputGlobal {
     }
 
     pub fn update_color_description(&self) -> bool {
-        let mut luminance = Luminance::SRGB;
-        let tf = match self.btf.get() {
-            BackendEotfs::Default => {
-                if let Some(brightness) = self.persistent.brightness.get() {
-                    let output_max = match self.luminance {
-                        None => 80.0,
-                        Some(v) => v.max,
-                    };
-                    luminance.white.0 = luminance.max.0 * brightness / output_max;
-                }
-                Eotf::Gamma22
-            }
-            BackendEotfs::Pq => {
-                luminance = Luminance::ST2084_PQ;
-                if let Some(brightness) = self.persistent.brightness.get() {
-                    luminance.white.0 = brightness;
-                }
-                Eotf::St2084Pq
-            }
+        let (mut luminance, tf) = match self.btf.get() {
+            BackendEotfs::Default => (Luminance::SRGB, Eotf::Gamma22),
+            BackendEotfs::Pq => (Luminance::ST2084_PQ, Eotf::St2084Pq),
         };
+        if let Some(brightness) = self.persistent.brightness.get() {
+            luminance.white.0 = brightness;
+        }
         let mut target_luminance = luminance.to_target();
         let mut max_cll = None;
         let mut max_fall = None;
-        if let Some(l) = self.luminance {
+        if let Some(l) = self.luminance
+            && self.btf.get() == BackendEotfs::Pq
+        {
             target_luminance.min = F64(l.min);
             target_luminance.max = F64(l.max);
             max_cll = Some(F64(l.max));
