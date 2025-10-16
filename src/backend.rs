@@ -317,6 +317,12 @@ pub enum KeyState {
     Pressed,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ButtonState {
+    Released,
+    Pressed,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
 pub enum ScrollAxis {
     Horizontal = HORIZONTAL_SCROLL as _,
@@ -369,7 +375,7 @@ pub enum InputEvent {
     Button {
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
     },
 
     AxisPx {

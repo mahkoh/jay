@@ -8,7 +8,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            Backend, ButtonState, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, Leds,
             TransformMatrix, transaction::BackendConnectorTransactionError,
         },
@@ -598,7 +598,7 @@ impl MetalInputDevice {
             self.event(InputEvent::Button {
                 time_usec,
                 button,
-                state: KeyState::Released,
+                state: ButtonState::Released,
             });
         }
     }

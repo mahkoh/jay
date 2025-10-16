@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{KeyState, ScrollAxis},
+        backend::{ButtonState, KeyState, ScrollAxis},
         ei::{
             ei_client::{EiClient, EiClientError},
             ei_ifs::{ei_seat::EiSeat, ei_touchscreen::TouchChange},
@@ -40,7 +40,7 @@ pub struct EiDevice {
     pub version: EiVersion,
     pub seat: Rc<EiSeat>,
 
-    pub button_changes: SyncQueue<(u32, KeyState)>,
+    pub button_changes: SyncQueue<(u32, ButtonState)>,
     pub touch_changes: CopyHashMap<u32, TouchChange>,
     pub scroll_px: [Cell<Option<f32>>; 2],
     pub scroll_v120: [Cell<Option<i32>>; 2],

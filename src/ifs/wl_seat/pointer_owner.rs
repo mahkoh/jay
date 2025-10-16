@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{AXIS_120, AxisSource, KeyState, ScrollAxis},
+        backend::{AXIS_120, AxisSource, ButtonState, ScrollAxis},
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
@@ -57,7 +57,7 @@ impl Default for PointerOwnerHolder {
 }
 
 impl PointerOwnerHolder {
-    pub fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
+    pub fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
         self.owner.get().button(seat, time_usec, button, state)
     }
 
@@ -221,7 +221,7 @@ impl PointerOwnerHolder {
 }
 
 trait PointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState);
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState);
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
         let _ = seat;
         None
@@ -318,8 +318,8 @@ struct SelectWorkspaceUsecase<S: ?Sized> {
 struct WindowManagementUsecase;
 
 impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
-        if state != KeyState::Pressed {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
+        if state != ButtonState::Pressed {
             return;
         }
         let pn = match seat.pointer_node() {
@@ -436,9 +436,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
 }
 
 impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
         match state {
-            KeyState::Released => {
+            ButtonState::Released => {
                 if self.buttons.remove(&button).is_none() {
                     return;
                 }
@@ -449,7 +449,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
                     seat.tree_changed.trigger();
                 }
             }
-            KeyState::Pressed => {
+            ButtonState::Pressed => {
                 if self.buttons.insert(button, ()).is_some() {
                     return;
                 }
@@ -493,7 +493,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
                 self.node.clone(),
                 time_usec,
                 button,
-                KeyState::Released,
+                ButtonState::Released,
                 serial,
             );
         }
@@ -511,8 +511,8 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
 }
 
 impl PointerOwner for DndPointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
-        if button != self.button || state != KeyState::Released {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: ButtonState) {
+        if button != self.button || state != ButtonState::Released {
             return;
         }
         let target = self.target.get();
@@ -1068,8 +1068,8 @@ impl<T> PointerOwner for ToplevelGrabPointerOwner<T>
 where
     T: WindowManagementGrabUsecase,
 {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
-        if button != T::BUTTON || state != KeyState::Released {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: ButtonState) {
+        if button != T::BUTTON || state != ButtonState::Released {
             return;
         }
         self.tl.node_seat_state().remove_pointer_grab(seat);
@@ -1238,12 +1238,12 @@ impl<T> PointerOwner for UiDragPointerOwner<T>
 where
     T: UiDragUsecase,
 {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: ButtonState) {
         if button == BTN_RIGHT {
             self.do_revert_to_default(seat, false);
             return;
         }
-        if button != BTN_LEFT || state != KeyState::Released {
+        if button != BTN_LEFT || state != ButtonState::Released {
             return;
         }
         self.apply_changes(seat);

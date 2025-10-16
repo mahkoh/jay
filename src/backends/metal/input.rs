@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
+        backend::{AxisSource, ButtonState, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
         fixed::Fixed,
         ifs::wl_seat::tablet::{
@@ -216,12 +216,12 @@ impl MetalBackend {
             if dev.pressed_buttons.insert(event.button(), ()).is_some() {
                 return;
             }
-            KeyState::Pressed
+            ButtonState::Pressed
         } else {
             if dev.pressed_buttons.remove(&event.button()).is_none() {
                 return;
             }
-            KeyState::Released
+            ButtonState::Released
         };
         dev.event(InputEvent::Button {
             time_usec: event.time_usec(),

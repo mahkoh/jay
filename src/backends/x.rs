@@ -4,9 +4,10 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             AXIS_120, AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
-            Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent,
-            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod,
-            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
+            ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -817,8 +818,8 @@ impl XBackend {
         match event.code() {
             XiMotion::OPCODE => self.handle_input_motion(event),
             XiEnter::OPCODE => self.handle_input_enter(event),
-            XiButtonPress::OPCODE => self.handle_input_button_press(event, KeyState::Pressed),
-            XiButtonRelease::OPCODE => self.handle_input_button_press(event, KeyState::Released),
+            XiButtonPress::OPCODE => self.handle_input_button_press(event, ButtonState::Pressed),
+            XiButtonRelease::OPCODE => self.handle_input_button_press(event, ButtonState::Released),
             XiKeyPress::OPCODE => self.handle_input_key_press(event, KeyState::Pressed),
             XiKeyRelease::OPCODE => self.handle_input_key_press(event, KeyState::Released),
             XiHierarchy::OPCODE => self.handle_input_hierarchy(event).await,
@@ -829,14 +830,14 @@ impl XBackend {
     fn handle_input_button_press(
         self: &Rc<Self>,
         event: &Event,
-        state: KeyState,
+        state: ButtonState,
     ) -> Result<(), XBackendError> {
         let event: XiButtonPress = event.parse()?;
         if let Some(seat) = self.mouse_seats.get(&event.deviceid) {
             let button = event.detail;
             // let button = seat.button_map.get(&event.detail).unwrap_or(event.detail);
             if matches!(button, 4..=7) {
-                if state == KeyState::Pressed {
+                if state == ButtonState::Pressed {
                     let (axis, val) = match button {
                         4 => (ScrollAxis::Vertical, -1),
                         5 => (ScrollAxis::Vertical, 1),

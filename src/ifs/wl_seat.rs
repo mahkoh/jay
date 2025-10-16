@@ -24,7 +24,7 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::{KeyState, Leds},
+        backend::{ButtonState, Leds},
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -1387,10 +1387,10 @@ impl WlSeatGlobal {
         node: Rc<dyn Node>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         serial: u64,
     ) {
-        if self.tray_popups.is_not_empty() && state == KeyState::Pressed {
+        if self.tray_popups.is_not_empty() && state == ButtonState::Pressed {
             let id = node.node_tray_item();
             self.tray_popups.lock().retain(|&(tray_item_id, _), item| {
                 let retain = Some(tray_item_id) == id;

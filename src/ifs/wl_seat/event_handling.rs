@@ -1,7 +1,8 @@
 use {
     crate::{
         backend::{
-            AXIS_120, AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis,
+            AXIS_120, AxisSource, ButtonState, ConnectorId, InputDeviceId, InputEvent, KeyState,
+            ScrollAxis,
         },
         client::ClientId,
         config::InvokedShortcut,
@@ -672,7 +673,7 @@ impl WlSeatGlobal {
         self.motion_event_abs(time_usec, x, y, false);
     }
 
-    pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
+    pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: ButtonState) {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_button(time_usec, button, state);
         });
@@ -1314,12 +1315,12 @@ impl WlSeatGlobal {
         surface: &Rc<WlSurface>,
         time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         serial: u64,
     ) {
         let (state, pressed) = match state {
-            KeyState::Released => (wl_pointer::RELEASED, false),
-            KeyState::Pressed => {
+            ButtonState::Released => (wl_pointer::RELEASED, false),
+            ButtonState::Pressed => {
                 surface.client.focus_stealing_serial.set(Some(serial));
                 (wl_pointer::PRESSED, true)
             }

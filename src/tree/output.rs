@@ -1,7 +1,8 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, HardwareCursor, KeyState, Mode,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, ButtonState, HardwareCursor,
+            Mode,
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
@@ -1685,13 +1686,13 @@ impl Node for OutputNode {
         seat: &Rc<WlSeatGlobal>,
         _time_usec: u64,
         button: u32,
-        state: KeyState,
+        state: ButtonState,
         _serial: u64,
     ) {
         if button != BTN_LEFT {
             return;
         }
-        if state != KeyState::Pressed {
+        if state != ButtonState::Pressed {
             self.pointer_down.remove(&seat.id());
             return;
         }
