@@ -42,6 +42,7 @@ pub trait InputMethod {
     fn done(self: Rc<Self>, seat: &WlSeatGlobal);
     fn is_simple(&self) -> bool;
     fn cancel_simple(&self, seat: &WlSeatGlobal);
+    fn enable_unicode_input(&self);
 }
 
 pub trait InputMethodKeyboardGrab {
@@ -64,6 +65,12 @@ pub enum TextDisconnectReason {
 }
 
 impl WlSeatGlobal {
+    pub fn enable_unicode_input(&self) {
+        if let Some(im) = self.input_method.get() {
+            im.enable_unicode_input();
+        }
+    }
+
     pub fn set_simple_im_enabled(self: &Rc<Self>, enabled: bool) {
         if self.simple_im_enabled.replace(enabled) == enabled {
             return;

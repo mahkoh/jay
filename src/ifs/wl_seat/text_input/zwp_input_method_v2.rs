@@ -144,6 +144,10 @@ impl InputMethod for ZwpInputMethodV2 {
     fn cancel_simple(&self, _seat: &WlSeatGlobal) {
         unreachable!();
     }
+
+    fn enable_unicode_input(&self) {
+        // nothing
+    }
 }
 
 impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {

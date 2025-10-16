@@ -1040,6 +1040,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatReloadSimpleIm { seat });
     }
 
+    pub fn seat_enable_unicode_input(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatEnableUnicodeInput { seat });
+    }
+
     pub fn set_show_float_pin_icon(&self, show: bool) {
         self.send(&ClientMessage::SetShowFloatPinIcon { show });
     }

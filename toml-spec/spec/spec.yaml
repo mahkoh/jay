@@ -1050,6 +1050,11 @@ SimpleActionName:
         Reloads the simple, XCompose based input method.
         
         This is useful if you change the XCompose files after starting the compositor.
+    - value: enable-unicode-input
+      description: |
+        Enables Unicode input in the simple, XCompose based input method.
+       
+        This has no effect if the simple IM is not currently active.
 
 
 Color:

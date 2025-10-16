@@ -631,6 +631,13 @@ impl Seat {
     pub fn reload_simple_im(self) {
         get!().seat_reload_simple_im(self);
     }
+
+    /// Enables Unicode input in the simple, XCompose based input method.
+    ///
+    /// This has no effect if the simple IM is not currently active.
+    pub fn enable_unicode_input(self) {
+        get!().seat_enable_unicode_input(self);
+    }
 }
 
 /// A focus-follows-mouse mode.

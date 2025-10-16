@@ -4216,6 +4216,12 @@ The string should have one of the following values:
   
   This is useful if you change the XCompose files after starting the compositor.
 
+- `enable-unicode-input`:
+
+  Enables Unicode input in the simple, XCompose based input method.
+  
+  This has no effect if the simple IM is not currently active.
+
 
 
 <a name="types-SimpleIm"></a>

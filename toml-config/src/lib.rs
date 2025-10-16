@@ -236,6 +236,10 @@ impl Action {
                     let persistent = state.persistent.clone();
                     b.new(move || persistent.seat.reload_simple_im())
                 }
+                SimpleCommand::EnableUnicodeInput => {
+                    let persistent = state.persistent.clone();
+                    b.new(move || persistent.seat.enable_unicode_input())
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();

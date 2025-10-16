@@ -88,6 +88,7 @@ pub enum SimpleCommand {
     EnableSimpleIm(bool),
     ToggleSimpleImEnabled,
     ReloadSimpleIm,
+    EnableUnicodeInput,
 }
 
 #[derive(Debug, Clone)]

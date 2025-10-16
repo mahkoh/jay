@@ -2301,6 +2301,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_enable_unicode_input(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.enable_unicode_input();
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3245,6 +3251,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatReloadSimpleIm { seat } => self
                 .handle_seat_reload_simple_im(seat)
                 .wrn("seat_reload_simple_im")?,
+            ClientMessage::SeatEnableUnicodeInput { seat } => self
+                .handle_seat_enable_unicode_input(seat)
+                .wrn("seat_enable_unicode_input")?,
         }
         Ok(())
     }

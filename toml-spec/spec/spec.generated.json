@@ -1843,7 +1843,8 @@
         "enable-simple-im",
         "disable-simple-im",
         "toggle-simple-im-enabled",
-        "reload-simple-im"
+        "reload-simple-im",
+        "enable-unicode-input"
       ]
     },
     "SimpleIm": {

@@ -798,6 +798,9 @@ pub enum ClientMessage<'a> {
     SeatReloadSimpleIm {
         seat: Seat,
     },
+    SeatEnableUnicodeInput {
+        seat: Seat,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
