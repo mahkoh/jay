@@ -155,6 +155,11 @@ impl ActionParser<'_> {
             "jump-to-mark" => JumpToMark,
             "clear-modes" => PopMode(false),
             "pop-mode" => PopMode(true),
+            "enable-simple-im" => EnableSimpleIm(true),
+            "disable-simple-im" => EnableSimpleIm(false),
+            "toggle-simple-im-enabled" => ToggleSimpleImEnabled,
+            "reload-simple-im" => ReloadSimpleIm,
+            "enable-unicode-input" => EnableUnicodeInput,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

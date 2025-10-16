@@ -497,7 +497,7 @@ Action:
               ref: Theme
         set-log-level:
           description: |
-            Sets the log level of the compositor..
+            Sets the log level of the compositor.
             
             - Example:
             
@@ -1033,6 +1033,28 @@ SimpleActionName:
       description: Disables all previously set input modes, clearing the input-mode stack.
     - value: pop-mode
       description: Pops the topmost mode from the input-mode stack.
+    - value: enable-simple-im
+      description: |
+        Enables the simple, XCompose based input method.
+        
+        Even if the input method is enabled, it will only be used if there is no
+        running external IM.
+    - value: disable-simple-im
+      description: |
+        Disables the simple, XCompose based input method.
+    - value: toggle-simple-im-enabled
+      description: |
+        Toggles whether the simple, XCompose based input method is enabled.
+    - value: reload-simple-im
+      description: |
+        Reloads the simple, XCompose based input method.
+        
+        This is useful if you change the XCompose files after starting the compositor.
+    - value: enable-unicode-input
+      description: |
+        Enables Unicode input in the simple, XCompose based input method.
+       
+        This has no effect if the simple IM is not currently active.
 
 
 Color:
@@ -2881,6 +2903,23 @@ Config:
           ```toml
           workspace-display-order = "sorted"
           ```
+    simple-im:
+      ref: SimpleIm
+      required: false
+      description: |
+        Configures the simple, XCompose based input method.
+        
+        By default, the input method is enabled. 
+        
+        Even if the input method is enabled, it will only be used if there is no
+        running external IM.
+
+        - Example:
+        
+          ```toml
+          [simple-im]
+          enabled = false
+          ```
 
 
 Idle:
@@ -4195,3 +4234,25 @@ ClientCapabilities:
       description: An array of masks that are OR'd.
       items:
         ref: ClientCapabilities
+
+
+SimpleIm:
+  kind: table
+  description: |
+    Describes the settings of the simple, XCompose based input method.
+    
+    - Example:
+    
+      ```toml
+      [simple-im]
+      enabled = false
+      ```
+  fields:
+    enabled:
+      kind: boolean
+      required: false
+      description: |
+        Whether the input method is enabled.
+        
+        Even if the input method is enabled, it will only be used if there is no
+        running external IM.

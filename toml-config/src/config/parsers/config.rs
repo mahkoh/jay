@@ -30,6 +30,7 @@ use {
                     ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError,
                     parse_modified_keysym_str,
                 },
+                simple_im::SimpleImParser,
                 status::StatusParser,
                 tearing::TearingParser,
                 theme::ThemeParser,
@@ -139,7 +140,13 @@ impl Parser for ConfigParser<'_> {
                 show_bar,
                 focus_history_val,
             ),
-            (middle_click_paste, input_modes_val, workspace_display_order_val, auto_reload),
+            (
+                middle_click_paste,
+                input_modes_val,
+                workspace_display_order_val,
+                auto_reload,
+                simple_im_val,
+            ),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -194,6 +201,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("modes")),
                 opt(val("workspace-display-order")),
                 recover(opt(bol("auto-reload"))),
+                opt(val("simple-im")),
             ),
         ))?;
         let mut keymap = None;
@@ -505,6 +513,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut simple_im = None;
+        if let Some(value) = simple_im_val {
+            match value.parse(&mut SimpleImParser(self.0)) {
+                Ok(v) => simple_im = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse simple IM setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -549,6 +566,7 @@ impl Parser for ConfigParser<'_> {
             middle_click_paste: middle_click_paste.despan(),
             input_modes,
             workspace_display_order,
+            simple_im,
         })
     }
 }

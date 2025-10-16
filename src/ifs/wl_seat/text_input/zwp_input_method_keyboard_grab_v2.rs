@@ -2,7 +2,10 @@ use {
     crate::{
         backend::KeyState,
         client::{Client, ClientError},
-        ifs::wl_seat::{text_input::zwp_input_method_v2::ZwpInputMethodV2, wl_keyboard},
+        ifs::wl_seat::{
+            text_input::{InputMethodKeyboardGrab, zwp_input_method_v2::ZwpInputMethodV2},
+            wl_keyboard,
+        },
         keyboard::{KeyboardState, KeyboardStateId},
         leaks::Tracker,
         object::{Object, Version},
@@ -49,7 +52,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
         self.kb_state_id.set(kb_state.id);
     }
 
-    pub fn on_key(&self, time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) {
+    fn on_key(&self, time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) {
         let serial = self.client.next_serial();
         if self.kb_state_id.get() != kb_state.id {
             self.update_state(serial, kb_state);
@@ -70,7 +73,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
         })
     }
 
-    pub fn on_modifiers(&self, kb_state: &KeyboardState) {
+    fn on_modifiers(&self, kb_state: &KeyboardState) {
         let serial = self.client.next_serial();
         if self.kb_state_id.get() != kb_state.id {
             self.update_state(serial, kb_state);
@@ -96,6 +99,22 @@ impl ZwpInputMethodKeyboardGrabV2 {
             rate,
             delay,
         })
+    }
+}
+
+impl InputMethodKeyboardGrab for ZwpInputMethodKeyboardGrabV2 {
+    fn on_key(&self, time_usec: u64, key: u32, state: KeyState, kb_state: &KeyboardState) -> bool {
+        self.on_key(time_usec, key, state, kb_state);
+        false
+    }
+
+    fn on_modifiers(&self, kb_state: &KeyboardState) -> bool {
+        self.on_modifiers(kb_state);
+        false
+    }
+
+    fn on_repeat_info(&self) {
+        self.send_repeat_info();
     }
 }
 

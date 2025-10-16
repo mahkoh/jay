@@ -5,7 +5,7 @@ use {
             wl_seat::{
                 WlSeatGlobal,
                 text_input::{
-                    MAX_TEXT_SIZE, TextDisconnectReason, TextInputConnection,
+                    InputMethod, MAX_TEXT_SIZE, TextDisconnectReason, TextInputConnection,
                     zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
                 },
             },
@@ -53,7 +53,7 @@ impl ZwpInputMethodV2 {
         }
         self.popups.clear();
         if !self.inert {
-            self.seat.input_method.take();
+            self.seat.remove_input_method();
         }
     }
 
@@ -101,6 +101,52 @@ impl ZwpInputMethodV2 {
 
     pub fn send_unavailable(&self) {
         self.client.event(Unavailable { self_id: self.id });
+    }
+}
+
+impl InputMethod for ZwpInputMethodV2 {
+    fn set_connection(&self, con: Option<&Rc<TextInputConnection>>) {
+        self.connection.set(con.cloned());
+    }
+
+    fn popups(&self) -> &SmallMap<ZwpInputPopupSurfaceV2Id, Rc<ZwpInputPopupSurfaceV2>, 1> {
+        &self.popups
+    }
+
+    fn activate(&self) {
+        self.activate();
+    }
+
+    fn deactivate(&self) {
+        self.send_deactivate();
+    }
+
+    fn content_type(&self, hint: u32, purpose: u32) {
+        self.send_content_type(hint, purpose);
+    }
+
+    fn text_change_cause(&self, cause: u32) {
+        self.send_text_change_cause(cause);
+    }
+
+    fn surrounding_text(&self, text: &str, cursor: u32, anchor: u32) {
+        self.send_surrounding_text(text, cursor, anchor);
+    }
+
+    fn done(self: Rc<Self>, _seat: &WlSeatGlobal) {
+        (*self).send_done();
+    }
+
+    fn is_simple(&self) -> bool {
+        false
+    }
+
+    fn cancel_simple(&self, _seat: &WlSeatGlobal) {
+        unreachable!();
+    }
+
+    fn enable_unicode_input(&self) {
+        // nothing
     }
 }
 

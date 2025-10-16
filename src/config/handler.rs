@@ -2281,6 +2281,32 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_set_simple_im_enabled(&self, seat: Seat, enabled: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_simple_im_enabled(enabled);
+        Ok(())
+    }
+
+    fn handle_seat_get_simple_im_enabled(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::SeatGetSimpleImEnabled {
+            enabled: seat.simple_im_enabled(),
+        });
+        Ok(())
+    }
+
+    fn handle_seat_reload_simple_im(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.reload_simple_im();
+        Ok(())
+    }
+
+    fn handle_seat_enable_unicode_input(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.enable_unicode_input();
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3216,6 +3242,18 @@ impl ConfigProxyHandler {
             } => self
                 .handle_show_workspace(seat, workspace, Some(connector))
                 .wrn("show_workspace_on")?,
+            ClientMessage::SeatSetSimpleImEnabled { seat, enabled } => self
+                .handle_seat_set_simple_im_enabled(seat, enabled)
+                .wrn("seat_set_simple_im_enabled")?,
+            ClientMessage::SeatGetSimpleImEnabled { seat } => self
+                .handle_seat_get_simple_im_enabled(seat)
+                .wrn("seat_get_simple_im_enabled")?,
+            ClientMessage::SeatReloadSimpleIm { seat } => self
+                .handle_seat_reload_simple_im(seat)
+                .wrn("seat_reload_simple_im")?,
+            ClientMessage::SeatEnableUnicodeInput { seat } => self
+                .handle_seat_enable_unicode_input(seat)
+                .wrn("seat_enable_unicode_input")?,
         }
         Ok(())
     }

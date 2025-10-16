@@ -5,8 +5,8 @@ use {
             wl_seat::{
                 WlSeatGlobal,
                 text_input::{
-                    MAX_TEXT_SIZE, TextConnectReason, TextDisconnectReason, TextInputConnection,
-                    zwp_input_method_v2::ZwpInputMethodV2,
+                    InputMethod, MAX_TEXT_SIZE, TextConnectReason, TextDisconnectReason,
+                    TextInputConnection,
                 },
             },
             wl_surface::WlSurface,
@@ -72,13 +72,13 @@ impl ZwpTextInputV3 {
         }
     }
 
-    pub fn send_all_to(&self, im: &ZwpInputMethodV2) {
+    pub fn send_all_to(&self, im: &dyn InputMethod) {
         let state = &*self.state.borrow();
         {
             let (a, b, c) = &state.surrounding_text;
-            im.send_surrounding_text(a, *b, *c);
+            im.surrounding_text(a, *b, *c);
         }
-        im.send_content_type(state.content_type.0, state.content_type.1);
+        im.content_type(state.content_type.0, state.content_type.1);
     }
 
     pub fn send_enter(&self, surface: &WlSurface) {
@@ -255,7 +255,7 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
             if state.cursor_rectangle != val
                 && let Some(con) = &con
             {
-                for (_, popup) in &con.input_method.popups {
+                for (_, popup) in con.input_method.popups() {
                     popup.schedule_positioning();
                 }
             }
@@ -264,26 +264,26 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
         if let Some(val) = pending.content_type {
             if let Some(con) = &con {
                 sent_any = true;
-                con.input_method.send_content_type(val.0, val.1);
+                con.input_method.content_type(val.0, val.1);
             }
             state.content_type = val;
         }
         if let Some(val) = pending.text_change_cause {
             if let Some(con) = &con {
                 sent_any = true;
-                con.input_method.send_text_change_cause(val);
+                con.input_method.text_change_cause(val);
             }
             state.text_change_cause = val;
         }
         if let Some(val) = pending.surrounding_text {
             if let Some(con) = &con {
                 sent_any = true;
-                con.input_method.send_surrounding_text(&val.0, val.1, val.2);
+                con.input_method.surrounding_text(&val.0, val.1, val.2);
             }
             state.surrounding_text = val;
         }
         if sent_any && let Some(con) = &con {
-            con.input_method.send_done();
+            con.input_method.clone().done(&self.seat);
         }
         Ok(())
     }

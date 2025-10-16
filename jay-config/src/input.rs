@@ -603,6 +603,41 @@ impl Seat {
     pub fn copy_mark(self, src: u32, dst: u32) {
         get!().seat_copy_mark(self, src, dst);
     }
+
+    /// Sets whether the simple, XCompose based input method is enabled.
+    ///
+    /// Regardless of this setting, this input method is not used if an external input
+    /// method is running.
+    ///
+    /// The default is `true`.
+    pub fn set_simple_im_enabled(self, enabled: bool) {
+        get!().seat_set_simple_im_enabled(self, enabled);
+    }
+
+    /// Returns whether the simple, XCompose based input method is enabled.
+    pub fn simple_im_enabled(self) -> bool {
+        get!(true).seat_get_simple_im_enabled(self)
+    }
+
+    /// Toggles whether the simple, XCompose based input method is enabled.
+    pub fn toggle_simple_im_enabled(self) {
+        let get = get!();
+        get.seat_set_simple_im_enabled(self, !get.seat_get_simple_im_enabled(self));
+    }
+
+    /// Reloads the simple, XCompose based input method.
+    ///
+    /// This is useful if you change the XCompose files after starting the compositor.
+    pub fn reload_simple_im(self) {
+        get!().seat_reload_simple_im(self);
+    }
+
+    /// Enables Unicode input in the simple, XCompose based input method.
+    ///
+    /// This has no effect if the simple IM is not currently active.
+    pub fn enable_unicode_input(self) {
+        get!().seat_enable_unicode_input(self);
+    }
 }
 
 /// A focus-follows-mouse mode.

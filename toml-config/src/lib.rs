@@ -224,6 +224,22 @@ impl Action {
                     let state = state.clone();
                     b.new(move || state.pop_mode(pop))
                 }
+                SimpleCommand::EnableSimpleIm(v) => {
+                    let persistent = state.persistent.clone();
+                    b.new(move || persistent.seat.set_simple_im_enabled(v))
+                }
+                SimpleCommand::ToggleSimpleImEnabled => {
+                    let persistent = state.persistent.clone();
+                    b.new(move || persistent.seat.toggle_simple_im_enabled())
+                }
+                SimpleCommand::ReloadSimpleIm => {
+                    let persistent = state.persistent.clone();
+                    b.new(move || persistent.seat.reload_simple_im())
+                }
+                SimpleCommand::EnableUnicodeInput => {
+                    let persistent = state.persistent.clone();
+                    b.new(move || persistent.seat.enable_unicode_input())
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1558,6 +1574,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.workspace_display_order {
         set_workspace_display_order(v);
+    }
+    if let Some(simple_im) = config.simple_im {
+        if let Some(enabled) = simple_im.enabled {
+            persistent.seat.set_simple_im_enabled(enabled);
+        }
     }
 }
 

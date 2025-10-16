@@ -39,6 +39,7 @@ mod output;
 mod output_match;
 mod repeat_rate;
 pub mod shortcuts;
+mod simple_im;
 mod status;
 mod tearing;
 mod theme;

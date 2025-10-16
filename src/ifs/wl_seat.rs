@@ -52,8 +52,8 @@ use {
                 pointer_owner::PointerOwnerHolder,
                 tablet::TabletSeatData,
                 text_input::{
-                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
-                    zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
+                    InputMethod, InputMethodKeyboardGrab, simple_im::SimpleIm,
+                    zwp_text_input_v3::ZwpTextInputV3,
                 },
                 touch_owner::TouchOwnerHolder,
                 wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardError},
@@ -216,8 +216,8 @@ pub struct WlSeatGlobal {
     last_input_usec: Cell<u64>,
     text_inputs: RefCell<AHashMap<ClientId, CopyHashMap<ZwpTextInputV3Id, Rc<ZwpTextInputV3>>>>,
     text_input: CloneCell<Option<Rc<ZwpTextInputV3>>>,
-    input_method: CloneCell<Option<Rc<ZwpInputMethodV2>>>,
-    input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
+    input_method: CloneCell<Option<Rc<dyn InputMethod>>>,
+    input_method_grab: CloneCell<Option<Rc<dyn InputMethodKeyboardGrab>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
@@ -238,6 +238,8 @@ pub struct WlSeatGlobal {
     marks: CopyHashMap<Keycode, Rc<dyn Node>>,
     modifiers_listener: EventListener<dyn LedsListener>,
     modifiers_forward: EventSource<dyn LedsListener>,
+    simple_im: CloneCell<Option<Rc<SimpleIm>>>,
+    simple_im_enabled: Cell<bool>,
 }
 
 #[derive(Copy, Clone)]
@@ -259,6 +261,7 @@ impl WlSeatGlobal {
         let cursor_user_group = CursorUserGroup::create(state);
         let cursor_user = cursor_user_group.create_user();
         cursor_user.activate();
+        let simple_im = SimpleIm::new(&state.kb_ctx.ctx);
         let slf = Rc::new_cyclic(|slf: &Weak<WlSeatGlobal>| Self {
             id: state.seat_ids.next(),
             name,
@@ -306,7 +309,7 @@ impl WlSeatGlobal {
             data_control_devices: Default::default(),
             text_inputs: Default::default(),
             text_input: Default::default(),
-            input_method: Default::default(),
+            input_method: CloneCell::new(simple_im.clone().map(|im| im as _)),
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
@@ -327,6 +330,8 @@ impl WlSeatGlobal {
             marks: Default::default(),
             modifiers_listener: EventListener::new(slf.clone()),
             modifiers_forward: Default::default(),
+            simple_im: CloneCell::new(simple_im),
+            simple_im_enabled: Cell::new(true),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
@@ -371,7 +376,7 @@ impl WlSeatGlobal {
         self.seat_kb_map.get()
     }
 
-    pub fn input_method(&self) -> Option<Rc<ZwpInputMethodV2>> {
+    pub fn input_method(&self) -> Option<Rc<dyn InputMethod>> {
         self.input_method.get()
     }
 
@@ -693,7 +698,7 @@ impl WlSeatGlobal {
             }
         }
         if let Some(grab) = self.input_method_grab.get() {
-            grab.send_repeat_info();
+            grab.on_repeat_info();
         }
     }
 
@@ -1315,7 +1320,7 @@ impl WlSeatGlobal {
             tl.tl_set_visible(visible);
         }
         if let Some(im) = self.input_method.get() {
-            for (_, popup) in &im.popups {
+            for (_, popup) in im.popups() {
                 popup.update_visible();
             }
         }
