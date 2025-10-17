@@ -43,6 +43,7 @@ use {
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
+            wl_upgrade::WlUpgradeGlobal,
             wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global,
             workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global,
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
@@ -231,6 +232,7 @@ impl Globals {
         add_singleton!(XdgToplevelTagManagerV1Global);
         add_singleton!(JayHeadManagerV1Global);
         add_singleton!(WpPointerWarpV1Global);
+        add_singleton!(WlUpgradeGlobal);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

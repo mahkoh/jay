@@ -51,7 +51,10 @@ async fn receive(data: Rc<Client>) {
             buf.read_full(&mut hdr[..]).await?;
             let obj_id = ObjectId::from_raw(hdr[0]);
             let len = (hdr[1] >> 16) as usize;
-            let request = hdr[1] & 0xffff;
+            let mut request = hdr[1] & 0xffff;
+            if data.v2.get() {
+                request >>= 8;
+            }
             let obj = match data.objects.get_obj(obj_id) {
                 Ok(obj) => obj,
                 _ => {
