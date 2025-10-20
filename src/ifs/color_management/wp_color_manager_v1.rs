@@ -263,7 +263,7 @@ impl Global for WpColorManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn exposed(&self, state: &State) -> bool {

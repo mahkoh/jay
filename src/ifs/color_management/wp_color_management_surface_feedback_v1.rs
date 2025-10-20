@@ -16,6 +16,8 @@ use {
     thiserror::Error,
 };
 
+pub const UNIQUE_CM_IDS_SINCE: Version = Version(2);
+
 pub struct WpColorManagementSurfaceFeedbackV1 {
     pub id: WpColorManagementSurfaceFeedbackV1Id,
     pub client: Rc<Client>,
@@ -43,10 +45,18 @@ impl WpColorManagementSurfaceFeedbackV1 {
     }
 
     pub fn send_preferred_changed(&self, cd: &ColorDescription) {
-        self.client.event(PreferredChanged {
-            self_id: self.id,
-            identity: cd.id.raw() as u32,
-        });
+        let id = cd.id.raw();
+        if self.version >= UNIQUE_CM_IDS_SINCE {
+            self.client.event(PreferredChanged2 {
+                self_id: self.id,
+                identity: id,
+            });
+        } else {
+            self.client.event(PreferredChanged {
+                self_id: self.id,
+                identity: id as u32,
+            });
+        }
     }
 }
 
