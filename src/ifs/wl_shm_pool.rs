@@ -9,7 +9,7 @@ use {
         utils::clonecell::CloneCell,
         wire::{WlShmPoolId, wl_shm_pool::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
     uapi::OwnedFd,
 };
@@ -18,6 +18,7 @@ pub struct WlShmPool {
     id: WlShmPoolId,
     client: Rc<Client>,
     fd: Rc<OwnedFd>,
+    requested_len: Cell<usize>,
     mem: CloneCell<Rc<ClientMem>>,
     pub tracker: Tracker<Self>,
     version: Version,
@@ -34,6 +35,7 @@ impl WlShmPool {
         Ok(Self {
             id,
             client: client.clone(),
+            requested_len: Cell::new(len),
             mem: CloneCell::new(Rc::new(ClientMem::new(
                 &fd,
                 len,
@@ -85,12 +87,14 @@ impl WlShmPoolRequestHandler for WlShmPool {
         if req.size < 0 {
             return Err(WlShmPoolError::NegativeSize);
         }
-        if (req.size as usize) < self.mem.get().len() {
+        let len = req.size as usize;
+        if len < self.requested_len.get() {
             return Err(WlShmPoolError::CannotShrink);
         }
+        self.requested_len.set(len);
         self.mem.set(Rc::new(ClientMem::new(
             &self.fd,
-            req.size as usize,
+            len,
             false,
             Some(&self.client),
             Some(&self.client.state.cpu_worker),
