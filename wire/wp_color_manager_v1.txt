@@ -46,3 +46,8 @@ event supported_primaries_named {
 
 event done {
 }
+
+request get_image_description (since = 2) {
+    image_description: id(wp_image_description_v1) (new),
+    reference: id(wp_image_description_reference_v1),
+}
