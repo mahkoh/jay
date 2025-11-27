@@ -147,6 +147,7 @@ impl Parser for ConfigParser<'_> {
                 auto_reload,
                 simple_im_val,
                 show_titles,
+                mouse_refocus,
             ),
         ) = ext.extract((
             (
@@ -204,6 +205,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("auto-reload"))),
                 opt(val("simple-im")),
                 recover(opt(bol("show-titles"))),
+                recover(opt(bol("mouse-refocus"))),
             ),
         ))?;
         let mut keymap = None;
@@ -570,6 +572,7 @@ impl Parser for ConfigParser<'_> {
             input_modes,
             workspace_display_order,
             simple_im,
+            mouse_refocus: mouse_refocus.despan(),
         })
     }
 }

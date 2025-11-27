@@ -246,6 +246,7 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
+    pub mouse_refocus: Cell<bool>,
 }
 
 #[derive(Copy, Clone)]
@@ -344,6 +345,7 @@ impl WlSeatGlobal {
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
+            mouse_refocus: Cell::new(true),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
@@ -743,6 +745,9 @@ impl WlSeatGlobal {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
+        if self.mouse_refocus.get() {
+            self.warp_cursor_to_focused_window();
+        }
     }
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
@@ -762,6 +767,31 @@ impl WlSeatGlobal {
         {
             c.move_child(tl, direction);
         }
+        if self.mouse_refocus.get() {
+            self.warp_cursor_to_focused_window();
+        }
+    }
+
+    pub fn set_mouse_refocus(&self, enabled: bool) {
+        self.mouse_refocus.set(enabled);
+    }
+
+    pub fn warp_cursor_to_focused_window(self: &Rc<Self>) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
+        };
+
+        let Some(client_id) = tl.node_client_id() else {
+            return;
+        };
+
+        let (x, y) = tl.node_absolute_position().center();
+        self.state.position_hint_requests.push(PositionHintRequest {
+            seat: self.clone(),
+            client_id,
+            old_pos: self.pointer_cursor.position(),
+            new_pos: (Fixed::from_int(x), Fixed::from_int(y)),
+        });
     }
 
     pub fn get_last_focus_on_workspace(&self, ws: &WorkspaceNode) -> Option<Rc<dyn Node>> {

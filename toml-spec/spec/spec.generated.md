@@ -1903,7 +1903,7 @@ The table has the following fields:
   Configures whether moving the mouse over a window automatically moves the keyboard
   focus to that window.
   
-  The default is `true`.
+  The default is `false`.
 
   The value of this field should be a boolean.
 
@@ -2217,6 +2217,25 @@ The table has the following fields:
     ```
 
   The value of this field should be a [SimpleIm](#types-SimpleIm).
+
+- `mouse-refocus` (optional):
+
+  Configures whether the mouse cursor is automatically centered on the active window
+  when focus changes via keyboard commands.
+  
+  When enabled, the cursor will be automatically positioned to the center of the
+  active window when focus changes through keyboard commands such as `focus-left`,
+  `focus-right`, `show-workspace`, etc.
+  
+  The default is `true`.
+  
+  - Example:
+  
+    ```toml
+    mouse-refocus = false
+    ```
+
+  The value of this field should be a boolean.
 
 
 <a name="types-Connector"></a>
