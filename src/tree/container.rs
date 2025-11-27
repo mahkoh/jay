@@ -20,7 +20,8 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_bounds, toplevel_set_floating, walker::NodeVisitor,
+            default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -976,6 +977,60 @@ impl ContainerNode {
             .and_then(|p| p.node_into_container())
     }
 
+    fn try_cross_output_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let ws = self.workspace.get();
+        let current_output = ws.output.get();
+
+        if let Some(target_output) = find_adjacent_output(&self.state, &current_output, direction) {
+            // Find the workspace on the target output
+            if let Some(target_ws) = target_output.workspace.get() {
+                // Get the appropriate edge window based on direction
+                if let Some(target_container) = target_ws.container.get() {
+                    // Focus the opposite edge child in the target output
+                    let opposite_direction = match direction {
+                        Direction::Left => Direction::Right,
+                        Direction::Right => Direction::Left,
+                        Direction::Up => Direction::Down,
+                        Direction::Down => Direction::Up,
+                        Direction::Unspecified => Direction::Unspecified,
+                    };
+                    target_container.node_do_focus(seat, opposite_direction);
+                }
+            }
+        }
+    }
+
+    fn try_cross_output_move(self: &Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
+        let ws = self.workspace.get();
+        let current_output = ws.output.get();
+
+        if let Some(target_output) = find_adjacent_output(&self.state, &current_output, direction) {
+            // Find the workspace on the target output
+            if let Some(target_ws) = target_output.workspace.get() {
+                // Remove child from current container
+                self.clone().cnode_remove_child2(&*child, true);
+
+                // Determine where to place the window on the target output
+                let opposite_direction = match direction {
+                    Direction::Left => Direction::Right,
+                    Direction::Right => Direction::Left,
+                    Direction::Up => Direction::Down,
+                    Direction::Down => Direction::Up,
+                    Direction::Unspecified => Direction::Right,
+                };
+
+                // Add to target workspace
+                if let Some(target_container) = target_ws.container.get() {
+                    // Insert at the appropriate edge
+                    target_container.insert_child(child, opposite_direction);
+                } else {
+                    // Move to target workspace (it will be placed appropriately)
+                    toplevel_set_workspace(&self.state, child, &target_ws);
+                }
+            }
+        }
+    }
+
     pub fn move_focus_from_child(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -1000,6 +1055,9 @@ impl ContainerNode {
         if !in_line {
             if let Some(c) = self.parent_container() {
                 c.move_focus_from_child(seat, self.deref(), direction);
+            } else {
+                // At the root of the workspace, try to cross outputs
+                self.try_cross_output_focus(seat, direction);
             }
             return;
         }
@@ -1019,6 +1077,9 @@ impl ContainerNode {
             None => {
                 if let Some(c) = self.parent_container() {
                     c.move_focus_from_child(seat, self.deref(), direction);
+                } else {
+                    // At edge of container, try to cross outputs
+                    self.try_cross_output_focus(seat, direction);
                 }
                 return;
             }
@@ -1042,6 +1103,10 @@ impl ContainerNode {
                 self.toplevel_data.parent.take();
                 self.child_nodes.borrow_mut().clear();
                 self.tl_destroy();
+            } else if self.parent_container().is_none() {
+                // No parent container means we're at the root of the workspace
+                // Try to move to an adjacent output
+                self.try_cross_output_move(child, direction);
             }
             return;
         }
@@ -1078,6 +1143,13 @@ impl ContainerNode {
                 // log::info!("move_child");
                 self.schedule_layout();
                 return;
+            } else {
+                // No neighbor exists (single window in container with matching split)
+                // If we're at the root, try to cross outputs
+                if self.parent_container().is_none() {
+                    self.try_cross_output_move(child, direction);
+                    return;
+                }
             }
         }
         // CASE 3: We're moving the child out of the container.
@@ -1092,7 +1164,11 @@ impl ContainerNode {
         }
         let parent = match parent_opt {
             Some(p) => p,
-            _ => return,
+            _ => {
+                // At the root of the workspace, try to cross outputs
+                self.try_cross_output_move(child, direction);
+                return;
+            }
         };
         self.cnode_remove_child2(&*child, true);
         match prev {
@@ -2294,6 +2370,76 @@ impl ToplevelNodeBase for ContainerNode {
             child.node.tl_mark_ancestor_fullscreen(fullscreen);
         }
     }
+}
+
+fn find_adjacent_output(
+    state: &State,
+    current_output: &Rc<OutputNode>,
+    direction: Direction,
+) -> Option<Rc<OutputNode>> {
+    let current_pos = current_output.global.pos.get();
+    let outputs = state.root.outputs.lock();
+
+    // Find the best matching output in the specified direction
+    let mut best_output: Option<Rc<OutputNode>> = None;
+    let mut best_distance = i32::MAX;
+
+    for output in outputs.values() {
+        if output.id == current_output.id {
+            continue;
+        }
+
+        let pos = output.global.pos.get();
+
+        // Check if this output is in the correct direction
+        let is_adjacent = match direction {
+            Direction::Left => {
+                // Output should be to the left
+                pos.x2() <= current_pos.x1() &&
+                // Vertical overlap check
+                !(pos.y2() <= current_pos.y1() || pos.y1() >= current_pos.y2())
+            }
+            Direction::Right => {
+                // Output should be to the right
+                pos.x1() >= current_pos.x2() &&
+                // Vertical overlap check
+                !(pos.y2() <= current_pos.y1() || pos.y1() >= current_pos.y2())
+            }
+            Direction::Up => {
+                // Output should be above
+                pos.y2() <= current_pos.y1() &&
+                // Horizontal overlap check
+                !(pos.x2() <= current_pos.x1() || pos.x1() >= current_pos.x2())
+            }
+            Direction::Down => {
+                // Output should be below
+                pos.y1() >= current_pos.y2() &&
+                // Horizontal overlap check
+                !(pos.x2() <= current_pos.x1() || pos.x1() >= current_pos.x2())
+            }
+            Direction::Unspecified => false,
+        };
+
+        if !is_adjacent {
+            continue;
+        }
+
+        // Calculate distance (prefer closest output)
+        let distance = match direction {
+            Direction::Left => current_pos.x1() - pos.x2(),
+            Direction::Right => pos.x1() - current_pos.x2(),
+            Direction::Up => current_pos.y1() - pos.y2(),
+            Direction::Down => pos.y1() - current_pos.y2(),
+            Direction::Unspecified => continue,
+        };
+
+        if distance < best_distance {
+            best_distance = distance;
+            best_output = Some(output.clone());
+        }
+    }
+
+    best_output
 }
 
 fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
