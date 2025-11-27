@@ -16,7 +16,7 @@ pub fn generate_json_schema(
     }
 
     let json = json!({
-        "$id": "jay_toml_schema",
+        "$id": "urn:jay_toml_schema",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$ref": "#/$defs/Config",
         "$defs": types,
