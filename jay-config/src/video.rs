@@ -3,7 +3,7 @@
 use {
     crate::{
         _private::WireMode,
-        PciId, Workspace,
+        Direction, PciId, Workspace,
         video::connector_type::{
             CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI, CON_DSI,
             CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA, CON_HDMIB,
@@ -326,6 +326,17 @@ impl Connector {
     /// If this connector is not connected, returns an empty list.
     pub fn workspaces(self) -> Vec<Workspace> {
         get!().get_connector_workspaces(self)
+    }
+
+    /// Find the closest connector in the given direction.
+    ///
+    /// Uses center-to-center distance calculation and prefers outputs better aligned
+    /// with the movement axis.
+    ///
+    /// If no connector exists in the given direction, returns a connector whose
+    /// `exists()` returns false.
+    pub fn connector_in_direction(self, direction: Direction) -> Connector {
+        get!(Connector(0)).get_connector_in_direction(self, direction)
     }
 }
 

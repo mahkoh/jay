@@ -1385,6 +1385,31 @@ impl ConfigClient {
         workspaces
     }
 
+    /// Returns the connector that the workspace is currently on.
+    /// Returns `Connector(0)` (invalid connector) if the workspace doesn't exist or
+    /// isn't assigned to any connector.
+    pub fn get_workspace_connector(&self, workspace: Workspace) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceConnector { workspace });
+        get_response!(res, Connector(0), GetWorkspaceConnector { connector });
+        connector
+    }
+
+    /// Finds the connector in the specified direction from the given connector.
+    /// Returns `Connector(0)` (invalid connector) if no connector exists in that direction
+    /// or if the source connector is invalid.
+    pub fn get_connector_in_direction(
+        &self,
+        connector: Connector,
+        direction: Direction,
+    ) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetConnectorInDirection {
+            connector,
+            direction,
+        });
+        get_response!(res, Connector(0), GetConnectorInDirection { connector });
+        connector
+    }
+
     pub fn set_client_matcher_capabilities(
         &self,
         matcher: ClientMatcher,

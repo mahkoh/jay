@@ -360,20 +360,52 @@ impl Action {
                     set_idle_grace_period(period)
                 }
             }),
-            Action::MoveToOutput { output, workspace } => {
+            Action::MoveToOutput {
+                output,
+                workspace,
+                direction,
+            } => {
                 let state = state.clone();
                 b.new(move || {
-                    let output = 'get_output: {
-                        for connector in connectors() {
-                            if connector.connected() && output.matches(connector, &state) {
-                                break 'get_output connector;
+                    let target_output = {
+                        // Handle directional output selection
+                        if let Some(direction) = direction {
+                            // Get the current workspace to determine the source output
+                            let current_ws = match workspace {
+                                Some(ws) => ws,
+                                None => s.get_workspace(),
+                            };
+                            if !current_ws.exists() {
+                                return;
                             }
+                            // Get the connector that currently has this workspace
+                            let source_connector = current_ws.connector();
+                            if !source_connector.exists() {
+                                return;
+                            }
+                            // Find the connector in the given direction
+                            let target = source_connector.connector_in_direction(direction);
+                            if !target.exists() {
+                                return;
+                            }
+                            target
+                        } else if let Some(output) = &output {
+                            // Handle normal output matching
+                            'match_output: {
+                                for connector in connectors() {
+                                    if connector.connected() && output.matches(connector, &state) {
+                                        break 'match_output connector;
+                                    }
+                                }
+                                return;
+                            }
+                        } else {
+                            return;
                         }
-                        return;
                     };
                     match workspace {
-                        Some(ws) => ws.move_to_output(output),
-                        None => s.move_to_output(output),
+                        Some(ws) => ws.move_to_output(target_output),
+                        None => s.move_to_output(target_output),
                     }
                 })
             }

@@ -163,7 +163,7 @@
               ]
             },
             {
-              "description": "Moves a workspace to a different output.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", workspace = \"1\", output.name = \"right\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", output.name = \"right\" }\n  ```\n",
+              "description": "Moves a workspace to a different output.\n\n- Example 1: Move a specific workspace to a named output\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", workspace = \"1\", output.name = \"right\" }\n  ```\n\n- Example 2: Move the current workspace to a named output\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", output.name = \"right\" }\n  ```\n\n- Example 3: Move the current workspace to the output on the right (directional)\n\n  ```toml\n  [shortcuts]\n  \"logo+ctrl+shift+Right\" = { type = \"move-to-output\", direction = \"right\" }\n  \"logo+ctrl+shift+Left\" = { type = \"move-to-output\", direction = \"left\" }\n  \"logo+ctrl+shift+Up\" = { type = \"move-to-output\", direction = \"up\" }\n  \"logo+ctrl+shift+Down\" = { type = \"move-to-output\", direction = \"down\" }\n  ```\n",
               "type": "object",
               "properties": {
                 "type": {
@@ -174,13 +174,16 @@
                   "description": "The name of the workspace.\n\nIf this is omitted, the currently active workspace is moved.\n"
                 },
                 "output": {
-                  "description": "The output to move to.\n\nIf multiple outputs match, the workspace is moved to the first matching\noutput.\n",
+                  "description": "The output to move to.\n\nIf multiple outputs match, the workspace is moved to the first matching\noutput.\n\nEither `output` or `direction` must be specified, but not both.\n",
                   "$ref": "#/$defs/OutputMatch"
+                },
+                "direction": {
+                  "description": "The direction to search for the next output.\n\nFinds the closest output in the specified direction based on\ncenter-to-center distance, with preference for outputs better aligned\nwith the movement axis.\n\nEither `output` or `direction` must be specified, but not both.\n",
+                  "$ref": "#/$defs/Direction"
                 }
               },
               "required": [
-                "type",
-                "output"
+                "type"
               ]
             },
             {
@@ -1124,6 +1127,16 @@
             "$ref": "#/$defs/ContentTypeMask"
           }
         }
+      ]
+    },
+    "Direction": {
+      "type": "string",
+      "description": "A directional value used for output selection.\n",
+      "enum": [
+        "left",
+        "right",
+        "up",
+        "down"
       ]
     },
     "DrmDevice": {
