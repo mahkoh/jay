@@ -812,6 +812,10 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         direction: Direction,
     },
+    SeatSetMouseRefocus {
+        seat: Seat,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

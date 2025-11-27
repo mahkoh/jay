@@ -246,6 +246,7 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
+    pub mouse_refocus: Cell<bool>,
 }
 
 #[derive(Copy, Clone)]
@@ -344,6 +345,7 @@ impl WlSeatGlobal {
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
+            mouse_refocus: Cell::new(true),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
@@ -735,6 +737,9 @@ impl WlSeatGlobal {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
+        if self.mouse_refocus.get() {
+            self.warp_cursor_to_focused_window();
+        }
     }
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
@@ -745,6 +750,26 @@ impl WlSeatGlobal {
         {
             c.move_child(tl, direction);
         }
+        if self.mouse_refocus.get() {
+            self.warp_cursor_to_focused_window();
+        }
+    }
+
+    pub fn set_mouse_refocus(&self, enabled: bool) {
+        self.mouse_refocus.set(enabled);
+    }
+
+    pub fn warp_cursor_to_focused_window(&self) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
+        };
+        // Get the window's absolute global position and size
+        let geom = tl.node_absolute_position();
+        // Calculate center position in global coordinates
+        let center_x = Fixed::from_int((geom.x1() + geom.x2()) / 2);
+        let center_y = Fixed::from_int((geom.y1() + geom.y2()) / 2);
+        // Move the cursor to the center
+        self.pointer_cursor.set_position(center_x, center_y);
     }
 
     pub fn get_last_focus_on_workspace(&self, ws: &WorkspaceNode) -> Option<Rc<dyn Node>> {

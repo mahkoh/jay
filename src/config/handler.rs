@@ -2344,6 +2344,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_set_mouse_refocus(&self, seat: Seat, enabled: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_mouse_refocus(enabled);
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -3302,6 +3308,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatEnableUnicodeInput { seat } => self
                 .handle_seat_enable_unicode_input(seat)
                 .wrn("seat_enable_unicode_input")?,
+            ClientMessage::SeatSetMouseRefocus { seat, enabled } => self
+                .handle_seat_set_mouse_refocus(seat, enabled)
+                .wrn("seat_set_mouse_refocus")?,
         }
         Ok(())
     }
