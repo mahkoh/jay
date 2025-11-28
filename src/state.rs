@@ -1560,6 +1560,69 @@ impl State {
         }
     }
 
+    pub fn find_connector_in_direction(
+        &self,
+        source_output: &OutputNode,
+        direction: Direction,
+    ) -> Option<Rc<OutputNode>> {
+        let outputs = self.root.outputs.lock();
+
+        let ref_box = source_output.global.pos.get();
+        let ref_x1 = ref_box.x1();
+        let ref_y1 = ref_box.y1();
+        let ref_x2 = ref_box.x2();
+        let ref_y2 = ref_box.y2();
+
+        // Use the center of the source output as the reference point (like wlroots)
+        let (ref_lx, ref_ly) = ref_box.center();
+
+        // Find the closest output in the given direction using wlroots-style algorithm
+        let mut min_distance = i64::MAX;
+        let mut closest_output = None;
+
+        for output in outputs.values() {
+            if output.id == source_output.id {
+                continue;
+            }
+
+            let box_pos = output.global.pos.get();
+            let box_x1 = box_pos.x1();
+            let box_y1 = box_pos.y1();
+            let box_x2 = box_pos.x2();
+            let box_y2 = box_pos.y2();
+
+            // Edge-based direction check (like wlroots)
+            // Test to make sure this output is in the given direction
+            let is_in_direction = match direction {
+                Direction::Left => box_x2 <= ref_x1,
+                Direction::Right => box_x1 >= ref_x2,
+                Direction::Up => box_y2 <= ref_y1,
+                Direction::Down => box_y1 >= ref_y2,
+                Direction::Unspecified => false,
+            };
+
+            if !is_in_direction {
+                continue;
+            }
+
+            // Calculate distance from reference point to closest point on this output
+            // This mimics wlr_box_closest_point + squared Euclidean distance
+            let closest_x = ref_lx.clamp(box_x1, box_x2);
+            let closest_y = ref_ly.clamp(box_y1, box_y2);
+
+            let dx = (closest_x - ref_lx) as i64;
+            let dy = (closest_y - ref_ly) as i64;
+            let distance = dx * dx + dy * dy;
+
+            if distance < min_distance {
+                min_distance = distance;
+                closest_output = Some(output);
+            }
+        }
+
+        closest_output.cloned()
+    }
+
     pub fn node_at(&self, x: i32, y: i32) -> FoundNode {
         let mut found_tree = self.node_at_tree.borrow_mut();
         found_tree.push(FoundNode {

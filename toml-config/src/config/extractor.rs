@@ -47,6 +47,10 @@ impl<'v> Extractor<'v> {
         self.log_unused = false;
     }
 
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
     pub fn extract<E: Extractable<'v>, U>(&mut self, e: E) -> Result<E::Output, Spanned<U>>
     where
         ExtractorError: Into<U>,

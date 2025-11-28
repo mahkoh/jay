@@ -186,6 +186,13 @@ impl Workspace {
     pub fn window(self) -> Window {
         get!(Window(0)).get_workspace_window(self)
     }
+
+    /// Returns the connector that contains this workspace.
+    ///
+    /// If no such connector exists, [`Connector::exists`] returns false.
+    pub fn connector(self) -> Connector {
+        get!(Connector(0)).get_workspace_connector(self)
+    }
 }
 
 /// Returns the workspace with the given name.

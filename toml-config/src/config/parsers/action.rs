@@ -34,7 +34,7 @@ use {
     indexmap::IndexMap,
     jay_config::{
         Axis::{Horizontal, Vertical},
-        get_workspace,
+        Direction, get_workspace,
         input::{LayerDirection, Timeline},
     },
     thiserror::Error,
@@ -90,6 +90,10 @@ pub enum ActionParserError {
     CopyMark(#[source] MarkIdParserError),
     #[error("Could not parse a show-workspace action")]
     ShowWorkspace(#[source] OutputMatchParserError),
+    #[error("Unknown direction {0}")]
+    UnknownDirection(String),
+    #[error("Exactly one of `output` or `direction` must be specified")]
+    OutputAndDirectionMutuallyExclusive,
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -356,14 +360,40 @@ impl ActionParser<'_> {
         Ok(Action::ConfigureDrmDevice { dev })
     }
 
+    fn parse_direction(v: Spanned<&str>) -> Result<Direction, Spanned<ActionParserError>> {
+        use Direction::*;
+        match v.value {
+            "left" => Ok(Left),
+            "right" => Ok(Right),
+            "up" => Ok(Up),
+            "down" => Ok(Down),
+            _ => Err(ActionParserError::UnknownDirection(v.value.to_string()).spanned(v.span)),
+        }
+    }
+
     fn parse_move_to_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let (ws, output) = ext.extract((opt(str("workspace")), val("output")))?;
-        let output = output
-            .parse_map(&mut OutputMatchParser(self.0))
-            .map_spanned_err(ActionParserError::MoveToOutput)?;
+        let (ws, output_val, direction_val) = ext.extract((
+            opt(str("workspace")),
+            opt(val("output")),
+            opt(str("direction")),
+        ))?;
+
+        // Validate that exactly one of output or direction is specified
+        if output_val.is_some() == direction_val.is_some() {
+            return Err(ActionParserError::OutputAndDirectionMutuallyExclusive.spanned(ext.span()));
+        }
+
+        let output = output_val
+            .map(|v| {
+                v.parse(&mut OutputMatchParser(self.0))
+                    .map_spanned_err(ActionParserError::MoveToOutput)
+            })
+            .transpose()?;
+        let direction = direction_val.map(Self::parse_direction).transpose()?;
         Ok(Action::MoveToOutput {
             workspace: ws.despan().map(get_workspace),
             output,
+            direction,
         })
     }
 

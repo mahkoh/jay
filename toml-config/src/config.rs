@@ -160,7 +160,8 @@ pub enum Action {
     },
     MoveToOutput {
         workspace: Option<Workspace>,
-        output: OutputMatch,
+        output: Option<OutputMatch>,
+        direction: Option<Direction>,
     },
     SetRepeatRate {
         rate: RepeatRate,

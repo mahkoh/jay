@@ -290,18 +290,28 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
   Moves a workspace to a different output.
   
-  - Example 1:
+  - Example 1: Move a specific workspace to a named output
   
     ```toml
     [shortcuts]
     alt-F1 = { type = "move-to-output", workspace = "1", output.name = "right" }
     ```
   
-  - Example 2:
+  - Example 2: Move the current workspace to a named output
   
     ```toml
     [shortcuts]
     alt-F1 = { type = "move-to-output", output.name = "right" }
+    ```
+  
+  - Example 3: Move the current workspace to the output on the right (directional)
+  
+    ```toml
+    [shortcuts]
+    "logo+ctrl+shift+Right" = { type = "move-to-output", direction = "right" }
+    "logo+ctrl+shift+Left" = { type = "move-to-output", direction = "left" }
+    "logo+ctrl+shift+Up" = { type = "move-to-output", direction = "up" }
+    "logo+ctrl+shift+Down" = { type = "move-to-output", direction = "down" }
     ```
 
   The table has the following fields:
@@ -314,14 +324,28 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
-  - `output` (required):
+  - `output` (optional):
 
     The output to move to.
     
     If multiple outputs match, the workspace is moved to the first matching
     output.
+    
+    Either `output` or `direction` must be specified, but not both.
 
     The value of this field should be a [OutputMatch](#types-OutputMatch).
+
+  - `direction` (optional):
+
+    The direction to search for the next output.
+    
+    Finds the closest output in the specified direction based on
+    center-to-center distance, with preference for outputs better aligned
+    with the movement axis.
+    
+    Either `output` or `direction` must be specified, but not both.
+
+    The value of this field should be a [Direction](#types-Direction).
 
 - `configure-connector`:
 
@@ -2283,6 +2307,33 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [ContentTypeMask](#types-ContentTypeMask).
+
+
+<a name="types-Direction"></a>
+### `Direction`
+
+A directional value used for output selection.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `left`:
+
+  The left direction.
+
+- `right`:
+
+  The right direction.
+
+- `up`:
+
+  The up direction.
+
+- `down`:
+
+  The down direction.
+
 
 
 <a name="types-DrmDevice"></a>

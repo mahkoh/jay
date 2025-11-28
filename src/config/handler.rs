@@ -1577,6 +1577,32 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
+        let connector = self
+            .get_existing_workspace(workspace)?
+            .map(|ws| ws.output.get())
+            .filter(|o| !o.is_dummy)
+            .map(|o| Connector(o.global.connector.id.raw() as _))
+            .unwrap_or(Connector(0));
+        self.respond(Response::GetWorkspaceConnector { connector });
+        Ok(())
+    }
+
+    fn handle_get_connector_in_direction(
+        &self,
+        connector: Connector,
+        direction: Direction,
+    ) -> Result<(), CphError> {
+        let source_output = self.get_output_node(connector)?;
+        let connector = self
+            .state
+            .find_connector_in_direction(&source_output, direction.into())
+            .map(|o| Connector(o.global.connector.id.raw() as u64))
+            .unwrap_or(Connector(0));
+        self.respond(Response::GetConnectorInDirection { connector });
+        Ok(())
+    }
+
     fn handle_has_capability(&self, device: InputDevice, cap: Capability) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let mut is_unknown = false;
@@ -3073,6 +3099,15 @@ impl ConfigProxyHandler {
             ClientMessage::GetConnectorWorkspaces { connector } => self
                 .handle_get_connector_workspaces(connector)
                 .wrn("get_connector_workspaces")?,
+            ClientMessage::GetWorkspaceConnector { workspace } => self
+                .handle_get_workspace_connector(workspace)
+                .wrn("get_workspace_connector")?,
+            ClientMessage::GetConnectorInDirection {
+                connector,
+                direction,
+            } => self
+                .handle_get_connector_in_direction(connector, direction)
+                .wrn("get_connector_in_direction")?,
             ClientMessage::GetClients => self.handle_get_clients(),
             ClientMessage::ClientExists { client } => self.handle_client_exists(client),
             ClientMessage::ClientIsXwayland { client } => self
