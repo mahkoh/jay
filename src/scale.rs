@@ -23,6 +23,10 @@ impl Scale {
         Self((f * BASEF).round() as u32)
     }
 
+    pub fn from_f64_as_float(f: f64) -> Self {
+        Self(((f * (BASEF / 15.0)).round() as u32).saturating_mul(15))
+    }
+
     pub fn to_f64(self) -> f64 {
         self.0 as f64 / BASEF
     }
