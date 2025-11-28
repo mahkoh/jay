@@ -61,7 +61,7 @@ fn map(fd: c::c_int, size: usize) -> Result<*const [Cell<u8>], TestError> {
         if res == c::MAP_FAILED {
             bail!("Could not map memory: {}", OsError::default());
         }
-        Ok(std::slice::from_raw_parts(res as _, size))
+        Ok(ptr::slice_from_raw_parts(res as _, size))
     }
 }
 

@@ -31,18 +31,13 @@ use {
     thiserror::Error,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum XInputModel {
     None,
+    #[default]
     Passive,
     Local,
     Global,
-}
-
-impl Default for XInputModel {
-    fn default() -> Self {
-        Self::Passive
-    }
 }
 
 #[derive(Default, Debug)]

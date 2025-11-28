@@ -24,7 +24,6 @@
     clippy::unnecessary_unwrap,
     clippy::needless_return,
     clippy::missing_safety_doc,
-    clippy::collapsible_if,
     clippy::mut_from_ref,
     clippy::bool_comparison,
     clippy::collapsible_match,

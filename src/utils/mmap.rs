@@ -20,7 +20,7 @@ pub fn mmap(
         Err(OsError::default())
     } else {
         Ok(Mmapped {
-            ptr: unsafe { std::slice::from_raw_parts(res.cast(), len) },
+            ptr: ptr::slice_from_raw_parts(res.cast(), len),
         })
     }
 }
