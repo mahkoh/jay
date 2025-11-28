@@ -727,6 +727,14 @@ impl Format {
     pub const XBGR16161616: Self = Self(25);
     pub const ABGR16161616F: Self = Self(26);
     pub const XBGR16161616F: Self = Self(27);
+    pub const BGR161616: Self = Self(28);
+    pub const R16F: Self = Self(29);
+    pub const GR1616F: Self = Self(30);
+    pub const BGR161616F: Self = Self(31);
+    pub const R32F: Self = Self(32);
+    pub const GR3232F: Self = Self(33);
+    pub const BGR323232F: Self = Self(34);
+    pub const ABGR32323232F: Self = Self(35);
 }
 
 /// A color space.
