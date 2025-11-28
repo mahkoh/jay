@@ -292,6 +292,11 @@ pub struct ModeArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct ScaleArgs {
+    /// Rounds the scale to a value that can be stored in a floating-point number. This
+    /// might be useful because some applications store scales as floating-point numbers
+    /// and can become blurry if the scale cannot be represented exactly.
+    #[arg(long)]
+    pub round_to_float: bool,
     /// The new scale.
     pub scale: f64,
 }
@@ -583,7 +588,10 @@ impl Randr {
                 self.handle_error(randr, |msg| {
                     eprintln!("Could not modify the scale: {}", msg);
                 });
-                let scale = Scale::from_f64(t.scale);
+                let scale = match t.round_to_float {
+                    true => Scale::from_f64_as_float(t.scale),
+                    false => Scale::from_f64(t.scale),
+                };
                 tc.send(jay_randr::SetScale {
                     self_id: randr,
                     output: &args.output,
