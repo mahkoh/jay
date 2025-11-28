@@ -191,10 +191,11 @@ pub enum CliBackend {
     Metal,
 }
 
-#[derive(ValueEnum, Debug, Copy, Clone, Hash)]
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Default)]
 pub enum CliLogLevel {
     Trace,
     Debug,
+    #[default]
     Info,
     Warn,
     Error,
@@ -209,12 +210,6 @@ impl Into<Level> for CliLogLevel {
             CliLogLevel::Warn => Level::Warn,
             CliLogLevel::Error => Level::Error,
         }
-    }
-}
-
-impl Default for CliLogLevel {
-    fn default() -> Self {
-        Self::Info
     }
 }
 

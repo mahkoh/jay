@@ -234,16 +234,11 @@ where
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 enum BuilderOp {
+    #[default]
     Add,
     Sub,
-}
-
-impl Default for BuilderOp {
-    fn default() -> Self {
-        Self::Add
-    }
 }
 
 #[derive(Debug)]

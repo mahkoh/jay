@@ -9,20 +9,15 @@ use {
     std::{cell::Cell, rc::Rc},
 };
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Default)]
 pub enum IdleCmd {
     /// Print the idle status.
+    #[default]
     Status,
     /// Set the idle interval.
     Set(IdleSetArgs),
     /// Set the idle grace period.
     SetGracePeriod(IdleSetGracePeriodArgs),
-}
-
-impl Default for IdleCmd {
-    fn default() -> Self {
-        Self::Status
-    }
 }
 
 #[derive(Args, Debug)]
