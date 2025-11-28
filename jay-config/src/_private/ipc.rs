@@ -9,7 +9,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode,
@@ -812,6 +812,10 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         direction: Direction,
     },
+    SetBarPosition {
+        position: BarPosition,
+    },
+    GetBarPosition,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1055,6 +1059,9 @@ pub enum Response {
     },
     GetConnectorInDirection {
         connector: Connector,
+    },
+    GetBarPosition {
+        position: BarPosition,
     },
 }
 

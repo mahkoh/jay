@@ -579,6 +579,14 @@
         }
       ]
     },
+    "BarPosition": {
+      "type": "string",
+      "description": "The position of the bar.",
+      "enum": [
+        "top",
+        "bottom"
+      ]
+    },
     "BlendSpace": {
       "type": "string",
       "description": "A color blend space.\n",
@@ -1999,6 +2007,10 @@
           "type": "integer",
           "description": "The height of the bar. Defaults to the title-height if not set.",
           "minimum": 0.0
+        },
+        "bar-position": {
+          "description": "The position of the bar. Defaults to `top` if not set.",
+          "$ref": "#/$defs/BarPosition"
         },
         "font": {
           "type": "string",

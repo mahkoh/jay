@@ -139,6 +139,8 @@ impl Renderer<'_> {
                         self.state.color_manager.srgb_gamma22(),
                     );
                 }
+                x += bar_rect.x1() - non_exclusive_rect_rel.x1();
+                y += bar_rect.y1() - non_exclusive_rect_rel.y1();
                 if let Some(status) = &rd.status
                     && let Some(texture) = status.tex.texture()
                 {
@@ -159,16 +161,12 @@ impl Renderer<'_> {
                         srgb_srgb,
                     );
                 }
-                {
-                    x += bar_rect.x1() - non_exclusive_rect_rel.x1();
-                    y += bar_rect.y1() - non_exclusive_rect_rel.y1();
-                    for item in output.tray_items.iter() {
-                        let data = item.data();
-                        if data.surface.buffer.is_some() {
-                            let rect = data.rel_pos.get().move_(x, y);
-                            let bounds = self.base.scale_rect(rect);
-                            self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
-                        }
+                for item in output.tray_items.iter() {
+                    let data = item.data();
+                    if data.surface.buffer.is_some() {
+                        let rect = data.rel_pos.get().move_(x, y);
+                        let bounds = self.base.scale_rect(rect);
+                        self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
                     }
                 }
             }

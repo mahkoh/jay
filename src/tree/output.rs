@@ -66,6 +66,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
+        theme::BarPosition,
         video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
         workspace::WorkspaceDisplayOrder,
     },
@@ -807,11 +808,23 @@ impl OutputNode {
         let mut workspace_rect_rel = non_exclusive_rect_rel;
         if self.state.show_bar.get() {
             let underline_rect;
-            bar_rect = Rect::new_sized_unchecked(x1, y1, width, bh);
-            underline_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, 1);
-            bar_rect_with_underline = Rect::new_sized_unchecked(x1, y1, width, bh + 1);
-            workspace_rect =
-                Rect::new_sized_unchecked(x1, y1 + bh + 1, width, (height - bh - 1).max(0));
+            match self.state.theme.bar_position.get() {
+                BarPosition::Bottom => {
+                    workspace_rect =
+                        Rect::new_sized_unchecked(x1, y1, width, (height - bh - 1).max(0));
+                    bar_rect_with_underline =
+                        Rect::new_sized_unchecked(x1, y1 + height - bh - 1, width, bh + 1);
+                    underline_rect = Rect::new_sized_unchecked(x1, y1 + height - bh - 1, width, 1);
+                    bar_rect = Rect::new_sized_unchecked(x1, y1 + height - bh, width, bh);
+                }
+                BarPosition::Top | _ => {
+                    bar_rect = Rect::new_sized_unchecked(x1, y1, width, bh);
+                    underline_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, 1);
+                    bar_rect_with_underline = Rect::new_sized_unchecked(x1, y1, width, bh + 1);
+                    workspace_rect =
+                        Rect::new_sized_unchecked(x1, y1 + bh + 1, width, (height - bh - 1).max(0));
+                }
+            }
             bar_rect_rel = bar_rect.move_(-rect.x1(), -rect.y1());
             underline_rect_rel = underline_rect.move_(-rect.x1(), -rect.y1());
             workspace_rect_rel = workspace_rect.move_(-rect.x1(), -rect.y1());

@@ -67,7 +67,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{colors::Colorable, sized::Resizable},
+        theme::{BarPosition, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
             BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
@@ -1389,6 +1389,17 @@ impl ConfigProxyHandler {
     fn handle_get_show_titles(&self) {
         self.respond(Response::GetShowTitles {
             show: self.state.theme.show_titles.get(),
+        });
+    }
+
+    fn handle_set_bar_position(&self, position: BarPosition) {
+        self.state.theme.bar_position.set(position);
+        self.spaces_change();
+    }
+
+    fn handle_get_bar_position(&self) {
+        self.respond(Response::GetBarPosition {
+            position: self.state.theme.bar_position.get(),
         });
     }
 
@@ -3236,6 +3247,8 @@ impl ConfigProxyHandler {
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
             ClientMessage::GetShowTitles => self.handle_get_show_titles(),
+            ClientMessage::SetBarPosition { position } => self.handle_set_bar_position(position),
+            ClientMessage::GetBarPosition => self.handle_get_bar_position(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
                 .wrn("seat_focus_history")?,
