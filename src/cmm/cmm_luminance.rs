@@ -69,10 +69,11 @@ impl Default for Luminance {
 
 #[expect(non_snake_case)]
 pub fn white_balance(from: &Luminance, to: &Luminance, w_to: (F64, F64)) -> ColorMatrix<Xyz, Xyz> {
-    let a = ((from.max - from.min) / (to.max - to.min) * (to.white - from.min)
+    let a = ((from.max - from.min) / (to.max - to.min) * (to.white - to.min)
         / (from.white - from.min))
         .0;
-    let d = ((from.min - to.min) / (to.max - to.min)).0.max(0.0);
+    // let d = ((from.min - to.min) / (to.max - to.min)).0.max(0.0);
+    let d = 0.0;
     let s = a - d;
     let (F64(x_to), F64(y_to)) = w_to;
     let X_to = x_to / y_to;
