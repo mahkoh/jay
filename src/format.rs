@@ -449,6 +449,71 @@ static XBGR16161616F: &Format = &Format {
     ..default(ConfigFormat::XBGR16161616F)
 };
 
+static BGR161616: &Format = &Format {
+    name: "bgr161616",
+    vk_format: vk::Format::R16G16B16_UNORM,
+    bpp: 6,
+    drm: fourcc_code('B', 'G', '4', '8'),
+    ..default(ConfigFormat::BGR161616)
+};
+
+static R16F: &Format = &Format {
+    name: "r16f",
+    vk_format: vk::Format::R16_SFLOAT,
+    bpp: 2,
+    drm: fourcc_code('R', ' ', ' ', 'H'),
+    ..default(ConfigFormat::R16F)
+};
+
+static GR1616F: &Format = &Format {
+    name: "gr1616f",
+    vk_format: vk::Format::R16G16_SFLOAT,
+    bpp: 4,
+    drm: fourcc_code('G', 'R', ' ', 'H'),
+    ..default(ConfigFormat::GR1616F)
+};
+
+static BGR161616F: &Format = &Format {
+    name: "bgr161616f",
+    vk_format: vk::Format::R16G16B16_SFLOAT,
+    bpp: 6,
+    drm: fourcc_code('B', 'G', 'R', 'H'),
+    ..default(ConfigFormat::BGR161616F)
+};
+
+static R32F: &Format = &Format {
+    name: "r32f",
+    vk_format: vk::Format::R32_SFLOAT,
+    bpp: 4,
+    drm: fourcc_code('R', ' ', ' ', 'F'),
+    ..default(ConfigFormat::R32F)
+};
+
+static GR3232F: &Format = &Format {
+    name: "gr3232f",
+    vk_format: vk::Format::R32G32_SFLOAT,
+    bpp: 8,
+    drm: fourcc_code('G', 'R', ' ', 'F'),
+    ..default(ConfigFormat::GR3232F)
+};
+
+static BGR323232F: &Format = &Format {
+    name: "bgr323232f",
+    vk_format: vk::Format::R32G32B32_SFLOAT,
+    bpp: 12,
+    drm: fourcc_code('B', 'G', 'R', 'F'),
+    ..default(ConfigFormat::BGR323232F)
+};
+
+static ABGR32323232F: &Format = &Format {
+    name: "abgr32323232f",
+    vk_format: vk::Format::R32G32B32A32_SFLOAT,
+    bpp: 16,
+    drm: fourcc_code('A', 'B', '8', 'F'),
+    has_alpha: true,
+    ..default(ConfigFormat::ABGR32323232F)
+};
+
 pub static FORMATS: &[Format] = &[
     *ARGB8888,
     *XRGB8888,
@@ -498,4 +563,20 @@ pub static FORMATS: &[Format] = &[
     *ABGR16161616F,
     #[cfg(target_endian = "little")]
     *XBGR16161616F,
+    #[cfg(target_endian = "little")]
+    *BGR161616,
+    #[cfg(target_endian = "little")]
+    *R16F,
+    #[cfg(target_endian = "little")]
+    *GR1616F,
+    #[cfg(target_endian = "little")]
+    *BGR161616F,
+    #[cfg(target_endian = "little")]
+    *R32F,
+    #[cfg(target_endian = "little")]
+    *GR3232F,
+    #[cfg(target_endian = "little")]
+    *BGR323232F,
+    #[cfg(target_endian = "little")]
+    *ABGR32323232F,
 ];

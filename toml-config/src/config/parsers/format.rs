@@ -52,6 +52,14 @@ impl Parser for FormatParser {
             "xbgr16161616" => Format::XBGR16161616,
             "abgr16161616f" => Format::ABGR16161616F,
             "xbgr16161616f" => Format::XBGR16161616F,
+            "bgr161616" => Format::BGR161616,
+            "r16f" => Format::R16F,
+            "gr1616f" => Format::GR1616F,
+            "bgr161616f" => Format::BGR161616F,
+            "r32f" => Format::R32F,
+            "gr3232f" => Format::GR3232F,
+            "bgr323232f" => Format::BGR323232F,
+            "abgr32323232f" => Format::ABGR32323232F,
             _ => return Err(FormatParserError::UnknownFormat(string.to_string()).spanned(span)),
         };
         Ok(format)
