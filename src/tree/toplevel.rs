@@ -813,6 +813,7 @@ impl ToplevelData {
             return;
         }
         let parent = fd.placeholder.tl_data().parent.take().unwrap();
+        parent.clone().cnode_make_visible(&*fd.placeholder);
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
         if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
