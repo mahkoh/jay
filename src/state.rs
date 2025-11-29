@@ -1560,11 +1560,15 @@ impl State {
         }
     }
 
-    pub fn find_connector_in_direction(
+    pub fn find_output_in_direction(
         &self,
         source_output: &OutputNode,
         direction: Direction,
     ) -> Option<Rc<OutputNode>> {
+        if source_output.is_dummy {
+            return None;
+        }
+
         let outputs = self.root.outputs.lock();
 
         let ref_box = source_output.global.pos.get();

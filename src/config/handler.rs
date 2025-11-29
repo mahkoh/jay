@@ -1607,7 +1607,7 @@ impl ConfigProxyHandler {
         let source_output = self.get_output_node(connector)?;
         let connector = self
             .state
-            .find_connector_in_direction(&source_output, direction.into())
+            .find_output_in_direction(&source_output, direction.into())
             .map(|o| Connector(o.global.connector.id.raw() as u64))
             .unwrap_or(Connector(0));
         self.respond(Response::GetConnectorInDirection { connector });

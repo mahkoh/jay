@@ -976,6 +976,17 @@ impl ContainerNode {
             .and_then(|p| p.node_into_container())
     }
 
+    fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
+        if self.toplevel_data.parent.is_none() {
+            return None;
+        }
+        if self.toplevel_data.float.is_some() {
+            return None;
+        }
+        self.state
+            .find_output_in_direction(&self.workspace.get().output.get(), direction)
+    }
+
     pub fn move_focus_from_child(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -997,10 +1008,21 @@ impl ContainerNode {
                 ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
             }
         };
-        if !in_line {
-            if let Some(c) = self.parent_container() {
-                c.move_focus_from_child(seat, self.deref(), direction);
+        let focus_in_parent = || {
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                if let Some(c) = parent.node_into_container() {
+                    c.move_focus_from_child(seat, self.deref(), direction);
+                } else if let Some(output) = self.find_neighboring_output(direction)
+                    && let Some(ws) = output.workspace.get()
+                    && let Some(c) = ws.container.get()
+                    && c.node_visible()
+                {
+                    c.node_do_focus(seat, direction);
+                }
             }
+        };
+        if !in_line {
+            focus_in_parent();
             return;
         }
         let prev = match direction {
@@ -1017,9 +1039,7 @@ impl ContainerNode {
         let sibling = match sibling {
             Some(s) => s,
             None => {
-                if let Some(c) = self.parent_container() {
-                    c.move_focus_from_child(seat, self.deref(), direction);
-                }
+                focus_in_parent();
                 return;
             }
         };
