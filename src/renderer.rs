@@ -78,7 +78,6 @@ impl Renderer<'_> {
             fullscreen = ws.fullscreen.get();
         }
         let theme = &self.state.theme;
-        let bh = theme.sizes.bar_height();
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         if let Some(fs) = &fullscreen {
@@ -86,10 +85,12 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let non_exclusive_rect = output.non_exclusive_rect_rel.get();
-            let (x, mut y) = non_exclusive_rect.translate_inv(x, y);
             if self.state.show_bar.get() {
-                let bar_bg = Rect::new_sized(0, 0, non_exclusive_rect.width(), bh).unwrap();
+                let non_exclusive_rect_rel = output.non_exclusive_rect_rel.get();
+                let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
+                let bar_rect = output.bar_rect_rel.get();
+                let bar_bg =
+                    bar_rect.move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let bar_bg_abs = {
                     let (x, y) = self.base.scale_point(x, y);
@@ -158,17 +159,22 @@ impl Renderer<'_> {
                         srgb_srgb,
                     );
                 }
-                for item in output.tray_items.iter() {
-                    let data = item.data();
-                    if data.surface.buffer.is_some() {
-                        let rect = data.rel_pos.get().move_(x, y);
-                        let bounds = self.base.scale_rect(rect);
-                        self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
+                {
+                    x += bar_rect.x1() - non_exclusive_rect_rel.x1();
+                    y += bar_rect.y1() - non_exclusive_rect_rel.y1();
+                    for item in output.tray_items.iter() {
+                        let data = item.data();
+                        if data.surface.buffer.is_some() {
+                            let rect = data.rel_pos.get().move_(x, y);
+                            let bounds = self.base.scale_rect(rect);
+                            self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
+                        }
                     }
                 }
-                y += bh + 1;
             }
             if let Some(ws) = output.workspace.get() {
+                let ws_rect = output.workspace_rect_rel.get();
+                let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);
             }
         }
@@ -196,7 +202,7 @@ impl Renderer<'_> {
             && ws.render_highlight.get() > 0
         {
             let color = self.state.theme.colors.highlight.get();
-            let bounds = ws.position.get().at_point(x, y + bh + 1);
+            let bounds = output.workspace_rect_rel.get().move_(x, y);
             self.base.ops.push(GfxApiOpt::Sync);
             self.base.fill_boxes(&[bounds], &color, srgb);
         }
