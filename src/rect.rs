@@ -204,6 +204,10 @@ where
         self.raw.x1 <= x && self.raw.y1 <= y && self.raw.x2 > x && self.raw.y2 > y
     }
 
+    pub fn not_contains(&self, x: i32, y: i32) -> bool {
+        !self.contains(x, y)
+    }
+
     pub fn dist_squared(&self, x: i32, y: i32) -> i32 {
         let mut dx = 0;
         if self.raw.x1 > x {
