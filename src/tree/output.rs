@@ -89,8 +89,13 @@ pub struct OutputNode {
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
     pub exclusive_zones: Cell<ExclusiveSize>,
     pub workspace_rect: Cell<Rect>,
+    pub workspace_rect_rel: Cell<Rect>,
     pub non_exclusive_rect: Cell<Rect>,
     pub non_exclusive_rect_rel: Cell<Rect>,
+    pub bar_rect: Cell<Rect>,
+    pub bar_rect_rel: Cell<Rect>,
+    pub bar_rect_with_underline: Cell<Rect>,
+    pub underline_rect_rel: Cell<Rect>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
     pub is_dummy: bool,
@@ -577,8 +582,9 @@ impl OutputNode {
             return;
         }
         let mut pos = 0;
-        let theme = &self.state.theme;
-        let bh = theme.sizes.bar_height();
+        let bar_rect_rel = self.bar_rect_rel.get();
+        let non_exclusive_rect_rel = self.non_exclusive_rect_rel.get();
+        let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
         let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
@@ -586,11 +592,12 @@ impl OutputNode {
             None
         };
         let active_id = self.workspace.get().map(|w| w.id);
-        let non_exclusive_rect = self.non_exclusive_rect.get();
-        let output_width = non_exclusive_rect.width();
-        rd.underline = Rect::new_sized(0, bh, output_width, 1).unwrap();
+        rd.underline = self
+            .underline_rect_rel
+            .get()
+            .move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
         for ws in self.workspaces.iter() {
-            let mut title_width = bh;
+            let mut title_width = bar_rect_rel.height();
             let title = &*ws.title_texture.borrow();
             if let Some(title) = title {
                 if let Err(e) = title.flip() {
@@ -611,13 +618,13 @@ impl OutputNode {
                         x1: pos,
                         x2: pos + title_width,
                         tex_x: x,
-                        tex_y: 0,
+                        tex_y: y1,
                         tex: texture,
                         ws: ws.deref().clone(),
                     });
                 }
             }
-            let rect = Rect::new_sized(pos, 0, title_width, bh).unwrap();
+            let rect = Rect::new_sized(pos, y1, title_width, bar_rect_rel.height()).unwrap();
             if Some(ws.id) == active_id {
                 rd.active_workspace = Some(OutputWorkspaceRenderData {
                     rect,
@@ -649,13 +656,7 @@ impl OutputNode {
             }
         }
         let old_full_area = rd.full_area;
-        rd.full_area = Rect::new_sized(
-            non_exclusive_rect.x1(),
-            non_exclusive_rect.y1(),
-            non_exclusive_rect.width(),
-            bh + 1,
-        )
-        .unwrap();
+        rd.full_area = self.bar_rect_with_underline.get();
         if self.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
@@ -795,21 +796,34 @@ impl OutputNode {
         let x1 = rect.x1() + exclusive.left;
         let width = (x2 - x1).max(0);
         let height = (y2 - y1).max(0);
-        self.non_exclusive_rect
-            .set(Rect::new_sized_unchecked(x1, y1, width, height));
-        self.non_exclusive_rect_rel.set(Rect::new_sized_unchecked(
-            exclusive.left,
-            exclusive.top,
-            width,
-            height,
-        ));
-        let mut y1 = y1;
+        let non_exclusive_rect = Rect::new_sized_unchecked(x1, y1, width, height);
+        let non_exclusive_rect_rel =
+            Rect::new_sized_unchecked(exclusive.left, exclusive.top, width, height);
+        let mut bar_rect = Rect::default();
+        let mut bar_rect_rel = Rect::default();
+        let mut bar_rect_with_underline = Rect::default();
+        let mut underline_rect_rel = Rect::default();
+        let mut workspace_rect = non_exclusive_rect;
+        let mut workspace_rect_rel = non_exclusive_rect_rel;
         if self.state.show_bar.get() {
-            y1 += bh + 1;
+            let underline_rect;
+            bar_rect = Rect::new_sized_unchecked(x1, y1, width, bh);
+            underline_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, 1);
+            bar_rect_with_underline = Rect::new_sized_unchecked(x1, y1, width, bh + 1);
+            workspace_rect =
+                Rect::new_sized_unchecked(x1, y1 + bh + 1, width, (height - bh - 1).max(0));
+            bar_rect_rel = bar_rect.move_(-rect.x1(), -rect.y1());
+            underline_rect_rel = underline_rect.move_(-rect.x1(), -rect.y1());
+            workspace_rect_rel = workspace_rect.move_(-rect.x1(), -rect.y1());
         }
-        let height = (y2 - y1).max(0);
-        self.workspace_rect
-            .set(Rect::new_sized_unchecked(x1, y1, width, height));
+        self.non_exclusive_rect.set(non_exclusive_rect);
+        self.non_exclusive_rect_rel.set(non_exclusive_rect_rel);
+        self.bar_rect.set(bar_rect);
+        self.bar_rect_rel.set(bar_rect_rel);
+        self.bar_rect_with_underline.set(bar_rect_with_underline);
+        self.underline_rect_rel.set(underline_rect_rel);
+        self.workspace_rect.set(workspace_rect);
+        self.workspace_rect_rel.set(workspace_rect_rel);
         self.update_tray_positions();
         self.schedule_update_render_data();
     }
@@ -1136,10 +1150,11 @@ impl OutputNode {
         if let PointerType::Seat(s) = id {
             self.pointer_down.set(s, (x, y));
         }
-        let (x, y) = self.non_exclusive_rect_rel.get().translate(x, y);
-        if y >= self.state.theme.sizes.bar_height() {
+        let bar_rect_rel = self.bar_rect_rel.get();
+        if bar_rect_rel.not_contains(x, y) {
             return;
         }
+        let (x, _) = bar_rect_rel.translate(x, y);
         let ws = 'ws: {
             let rd = self.render_data.borrow_mut();
             for title in &rd.titles {
@@ -1266,16 +1281,21 @@ impl OutputNode {
         if ws.fullscreen.is_some() {
             return None;
         }
-        let show_bar = self.state.show_bar.get();
-        let bh = self.state.theme.sizes.bar_height();
-        if show_bar && y_abs < rect.y1() + bh + 1 {
+        let bar_rect_with_underline = self.bar_rect_with_underline.get();
+        if bar_rect_with_underline.contains(x_abs, y_abs) {
             let rd = &*self.render_data.borrow();
-            let (x, _) = rect.translate(x_abs, y_abs);
+            let bar_rect = self.bar_rect.get();
+            let (x, _) = bar_rect.translate(x_abs, y_abs);
             let mut last_x2 = 0;
             for t in &rd.titles {
                 if x < t.x2 {
                     return Some(TileDragDestination {
-                        highlight: Rect::new_sized(rect.x1() + t.x1, rect.y1(), t.x2 - t.x1, bh)?,
+                        highlight: Rect::new_sized(
+                            bar_rect.x1() + t.x1,
+                            bar_rect.y1(),
+                            t.x2 - t.x1,
+                            bar_rect.height(),
+                        )?,
                         ty: TddType::MoveToWorkspace {
                             workspace: t.ws.clone(),
                         },
@@ -1285,21 +1305,17 @@ impl OutputNode {
             }
             return Some(TileDragDestination {
                 highlight: Rect::new_sized(
-                    rect.x1() + last_x2,
-                    rect.y1(),
-                    rect.x2() - last_x2,
-                    bh,
+                    bar_rect.x1() + last_x2,
+                    bar_rect.y1(),
+                    bar_rect.width() - last_x2,
+                    bar_rect.height(),
                 )?,
                 ty: TddType::MoveToNewWorkspace {
                     output: self.clone(),
                 },
             });
         }
-        let bar_height = match show_bar {
-            true => bh + 1,
-            false => 0,
-        };
-        let rect = Rect::new(rect.x1(), rect.y1() + bar_height, rect.x2(), rect.y2())?;
+        let rect = self.workspace_rect.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
@@ -1321,26 +1337,23 @@ impl OutputNode {
         if !self.state.show_bar.get() {
             return None;
         }
-        let rect = self.non_exclusive_rect.get();
-        if !rect.contains(x_abs, y_abs) {
+        let bar_rect_with_underline = self.bar_rect_with_underline.get();
+        if bar_rect_with_underline.not_contains(x_abs, y_abs) {
             return None;
         }
-        let bh = self.state.theme.sizes.bar_height();
-        if y_abs - rect.y1() > bh + 1 {
-            return None;
-        }
+        let bar_rect = self.bar_rect.get();
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             if self.workspaces.iter().any(|ws| ws.id == source) {
                 return None;
             }
             return Some(WorkspaceDragDestination {
-                highlight: Rect::new_sized(rect.x1(), rect.y1(), rect.width(), bh)?,
+                highlight: bar_rect,
                 output: self.clone(),
                 before: None,
             });
         }
         let rd = &*self.render_data.borrow();
-        let (x, _) = rect.translate(x_abs, y_abs);
+        let (x, _) = bar_rect.translate(x_abs, y_abs);
         let mut prev_is_source = false;
         let mut prev_center = 0;
         for t in &rd.titles {
@@ -1355,10 +1368,10 @@ impl OutputNode {
                 } else {
                     Some(WorkspaceDragDestination {
                         highlight: Rect::new_sized(
-                            rect.x1() + prev_center,
-                            rect.y1(),
+                            bar_rect.x1() + prev_center,
+                            bar_rect.y1(),
                             center - prev_center,
-                            bh,
+                            bar_rect.height(),
                         )?,
                         output: self.clone(),
                         before: Some(t.ws.clone()),
@@ -1373,10 +1386,10 @@ impl OutputNode {
         }
         return Some(WorkspaceDragDestination {
             highlight: Rect::new_sized(
-                rect.x1() + prev_center,
-                rect.y1(),
-                rect.x2() - prev_center,
-                bh,
+                bar_rect.x1() + prev_center,
+                bar_rect.y1(),
+                bar_rect.width() - prev_center,
+                bar_rect.height(),
             )?,
             output: self.clone(),
             before: None,
@@ -1384,10 +1397,8 @@ impl OutputNode {
     }
 
     pub fn update_tray_positions(self: &Rc<Self>) {
-        let bh = self.state.theme.sizes.bar_height();
-        let rect = self.non_exclusive_rect.get();
-        let output_width = rect.width();
-        let mut right = output_width;
+        let bar_rect = self.bar_rect.get();
+        let mut right = bar_rect.width();
         let mut have_any = false;
         let icon_size = self.state.tray_icon_size();
         for item in self.tray_items.rev_iter() {
@@ -1395,9 +1406,9 @@ impl OutputNode {
                 continue;
             }
             have_any = true;
-            right -= bh;
+            right -= bar_rect.height();
             let rel_pos = Rect::new_sized(right, 1, icon_size, icon_size).unwrap();
-            let abs_pos = rel_pos.move_(rect.x1(), rect.y1());
+            let abs_pos = rel_pos.move_(bar_rect.x1(), bar_rect.y1());
             item.set_position(abs_pos, rel_pos);
         }
         if have_any {
@@ -1407,7 +1418,13 @@ impl OutputNode {
         if prev_right != right {
             {
                 let min = prev_right.min(right);
-                let rect = Rect::new_sized(rect.x1() + min, 0, output_width, bh).unwrap();
+                let rect = Rect::new(
+                    bar_rect.x1() + min,
+                    bar_rect.y1(),
+                    bar_rect.x2(),
+                    bar_rect.y2(),
+                )
+                .unwrap();
                 self.state.damage(rect);
             }
             self.schedule_update_render_data();
@@ -1564,7 +1581,7 @@ impl Node for OutputNode {
     fn node_find_tree_at(
         &self,
         x: i32,
-        mut y: i32,
+        y: i32,
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
@@ -1581,21 +1598,16 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
-        let bar_height = match self.state.show_bar.get() {
-            true => self.state.theme.sizes.bar_height() + 1,
-            false => 0,
-        };
-        if usecase == FindTreeUsecase::SelectWorkspace {
-            if y >= bar_height {
-                y -= bar_height;
-                if let Some(ws) = self.workspace.get() {
-                    tree.push(FoundNode {
-                        node: ws.clone(),
-                        x,
-                        y,
-                    });
-                    return FindTreeResult::AcceptsInput;
-                }
+        let ws_rect_rel = self.workspace_rect_rel.get();
+        if usecase == FindTreeUsecase::SelectWorkspace && ws_rect_rel.contains(x, y) {
+            let (x, y) = ws_rect_rel.translate(x, y);
+            if let Some(ws) = self.workspace.get() {
+                tree.push(FoundNode {
+                    node: ws.clone(),
+                    x,
+                    y,
+                });
+                return FindTreeResult::AcceptsInput;
             }
         }
         {
@@ -1634,39 +1646,37 @@ impl Node for OutputNode {
             fs.node_find_tree_at(x, y, tree, usecase)
         } else {
             let mut search_layers = true;
-            let non_exclusive_rect = self.non_exclusive_rect_rel.get();
-            if non_exclusive_rect.contains(x, y) {
-                let (x, y) = non_exclusive_rect.translate(x, y);
-                if y < bar_height {
-                    search_layers = false;
-                    for item in self.tray_items.iter() {
-                        let data = item.data();
-                        let pos = data.rel_pos.get();
-                        if pos.contains(x, y) {
-                            let (x, y) = pos.translate(x, y);
-                            tree.push(FoundNode {
-                                node: item.deref().clone(),
-                                x,
-                                y,
-                            });
-                            return data.find_tree_at(x, y, tree);
-                        }
-                    }
-                } else {
-                    if let Some(ws) = self.workspace.get() {
-                        let y = y - bar_height;
-                        let len = tree.len();
+            let bar_rect_rel = self.bar_rect_rel.get();
+            if bar_rect_rel.contains(x, y) {
+                let (x, y) = bar_rect_rel.translate(x, y);
+                search_layers = false;
+                for item in self.tray_items.iter() {
+                    let data = item.data();
+                    let pos = data.rel_pos.get();
+                    if pos.contains(x, y) {
+                        let (x, y) = pos.translate(x, y);
                         tree.push(FoundNode {
-                            node: ws.clone(),
+                            node: item.deref().clone(),
                             x,
                             y,
                         });
-                        match ws.node_find_tree_at(x, y, tree, usecase) {
-                            FindTreeResult::AcceptsInput => search_layers = false,
-                            FindTreeResult::Other => {
-                                tree.truncate(len);
-                            }
-                        }
+                        return data.find_tree_at(x, y, tree);
+                    }
+                }
+            } else if ws_rect_rel.contains(x, y)
+                && let Some(ws) = self.workspace.get()
+            {
+                let (x, y) = ws_rect_rel.translate(x, y);
+                let len = tree.len();
+                tree.push(FoundNode {
+                    node: ws.clone(),
+                    x,
+                    y,
+                });
+                match ws.node_find_tree_at(x, y, tree, usecase) {
+                    FindTreeResult::AcceptsInput => search_layers = false,
+                    FindTreeResult::Other => {
+                        tree.truncate(len);
                     }
                 }
             }
@@ -1744,11 +1754,14 @@ impl Node for OutputNode {
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(PointerType::Seat(seat.id()), x, y);
-        if let Some((down_x, down_y)) = self.pointer_down.get(&seat.id()) {
-            if self
+        if let Some((down_x, down_y)) = self.pointer_down.get(&seat.id())
+            && self
                 .state
                 .ui_drag_threshold_reached((x.round_down(), y.round_down()), (down_x, down_y))
-            {
+        {
+            let bar_rect_rel = self.bar_rect_rel.get();
+            if bar_rect_rel.contains(down_x, down_y) {
+                let (down_x, _) = bar_rect_rel.translate(down_x, down_y);
                 let rd = self.render_data.borrow_mut();
                 for title in &rd.titles {
                     if down_x >= title.x1 && down_x < title.x2 {
