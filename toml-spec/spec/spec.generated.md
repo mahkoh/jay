@@ -841,6 +841,25 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The value of this field should be a string.
 
 
+<a name="types-BarPosition"></a>
+### `BarPosition`
+
+The position of the bar.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `top`:
+
+  The bar is at the top of the output.
+
+- `bottom`:
+
+  The bar is at the bottom of the output.
+
+
+
 <a name="types-BlendSpace"></a>
 ### `BlendSpace`
 
@@ -4551,6 +4570,12 @@ The table has the following fields:
   The numbers should be integers.
 
   The numbers should be greater than or equal to 0.
+
+- `bar-position` (optional):
+
+  The position of the bar. Defaults to `top` if not set.
+
+  The value of this field should be a [BarPosition](#types-BarPosition).
 
 - `font` (optional):
 

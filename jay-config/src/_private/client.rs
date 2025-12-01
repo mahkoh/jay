@@ -25,7 +25,7 @@ use {
         },
         logging::LogLevel,
         tasks::{JoinHandle, JoinSlot},
-        theme::{Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode,
@@ -1014,6 +1014,16 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetShowTitles);
         get_response!(res, true, GetShowTitles { show });
         show
+    }
+
+    pub fn set_bar_position(&self, position: BarPosition) {
+        self.send(&ClientMessage::SetBarPosition { position });
+    }
+
+    pub fn get_bar_position(&self) -> BarPosition {
+        let res = self.send_with_response(&ClientMessage::GetBarPosition);
+        get_response!(res, BarPosition::Top, GetBarPosition { position });
+        position
     }
 
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {

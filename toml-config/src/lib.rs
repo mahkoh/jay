@@ -43,7 +43,10 @@ use {
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
-        theme::{reset_colors, reset_font, reset_sizes, set_bar_font, set_font, set_title_font},
+        theme::{
+            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position, set_font,
+            set_title_font,
+        },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
             ColorSpace, Connector, DrmDevice, Eotf, connectors, drm_devices,
@@ -1597,6 +1600,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
+    }
+    if let Some(v) = config.theme.bar_position {
+        set_bar_position(v);
     }
     if let Some(v) = config.focus_history {
         if let Some(v) = v.only_visible {

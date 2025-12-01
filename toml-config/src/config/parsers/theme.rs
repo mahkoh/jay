@@ -13,6 +13,7 @@ use {
         },
     },
     indexmap::IndexMap,
+    jay_config::theme::BarPosition,
     thiserror::Error,
 };
 
@@ -62,7 +63,7 @@ impl Parser for ThemeParser<'_> {
                 font,
                 title_font,
             ),
-            (bar_font,),
+            (bar_font, bar_position_val),
         ) = ext.extract((
             (
                 opt(val("attention-requested-bg-color")),
@@ -88,7 +89,10 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(str("font"))),
                 recover(opt(str("title-font"))),
             ),
-            (recover(opt(str("bar-font"))),),
+            (
+                recover(opt(str("bar-font"))),
+                recover(opt(str("bar-position"))),
+            ),
         ))?;
         macro_rules! color {
             ($e:expr) => {
@@ -104,6 +108,19 @@ impl Parser for ThemeParser<'_> {
                 }
             };
         }
+        let bar_position =
+            bar_position_val.and_then(|value| match value.value.to_lowercase().as_str() {
+                "top" => Some(BarPosition::Top),
+                "bottom" => Some(BarPosition::Bottom),
+                _ => {
+                    log::warn!(
+                        "Unknown bar position '{}': {}",
+                        value.value,
+                        self.0.error3(value.span)
+                    );
+                    None
+                }
+            });
         Ok(Theme {
             attention_requested_bg_color: color!(attention_requested_bg_color),
             bg_color: color!(bg_color),
@@ -126,6 +143,7 @@ impl Parser for ThemeParser<'_> {
             font: font.map(|f| f.value.to_string()),
             title_font: title_font.map(|f| f.value.to_string()),
             bar_font: bar_font.map(|f| f.value.to_string()),
+            bar_position,
         })
     }
 }

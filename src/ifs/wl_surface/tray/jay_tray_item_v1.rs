@@ -9,7 +9,9 @@ use {
                     ack_configure, destroy, get_popup, install,
                 },
             },
-            xdg_positioner::{ANCHOR_BOTTOM_LEFT, ANCHOR_BOTTOM_RIGHT},
+            xdg_positioner::{
+                ANCHOR_BOTTOM_LEFT, ANCHOR_BOTTOM_RIGHT, ANCHOR_TOP_LEFT, ANCHOR_TOP_RIGHT,
+            },
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -17,6 +19,7 @@ use {
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
+    jay_config::theme::BarPosition,
     std::rc::Rc,
     thiserror::Error,
 };
@@ -59,16 +62,24 @@ impl JayTrayItemV1 {
     }
 
     fn send_preferred_anchor(&self) {
+        let anchor = match self.data.client.state.theme.bar_position.get() {
+            BarPosition::Bottom => ANCHOR_TOP_RIGHT,
+            BarPosition::Top | _ => ANCHOR_BOTTOM_RIGHT,
+        };
         self.data.client.event(PreferredAnchor {
             self_id: self.id,
-            anchor: ANCHOR_BOTTOM_LEFT,
+            anchor,
         });
     }
 
     fn send_preferred_gravity(&self) {
+        let gravity = match self.data.client.state.theme.bar_position.get() {
+            BarPosition::Bottom => ANCHOR_TOP_LEFT,
+            BarPosition::Top | _ => ANCHOR_BOTTOM_LEFT,
+        };
         self.data.client.event(PreferredGravity {
             self_id: self.id,
-            gravity: ANCHOR_BOTTOM_RIGHT,
+            gravity,
         });
     }
 
@@ -106,13 +117,9 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
 }
 
 impl TrayItem for JayTrayItemV1 {
-    fn send_initial_configure(&self) {
+    fn send_current_configure(&self) {
         self.send_preferred_anchor();
         self.send_preferred_gravity();
-        <Self as TrayItem>::send_current_configure(self);
-    }
-
-    fn send_current_configure(&self) {
         let size = self.data.client.state.tray_icon_size().max(1);
         self.send_configure_size(size, size);
         self.send_configure();

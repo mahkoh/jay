@@ -33,7 +33,7 @@ use {
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
-        theme::Color,
+        theme::{BarPosition, Color},
         video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -208,6 +208,7 @@ pub struct Theme {
     pub font: Option<String>,
     pub title_font: Option<String>,
     pub bar_font: Option<String>,
+    pub bar_position: Option<BarPosition>,
 }
 
 #[derive(Debug, Clone)]

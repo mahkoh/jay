@@ -2224,6 +2224,10 @@ Theme:
       minimum: 0
       required: false
       description: The height of the bar. Defaults to the title-height if not set.
+    bar-position:
+      ref: BarPosition
+      required: false
+      description: The position of the bar. Defaults to `top` if not set.
     font:
       kind: string
       required: false
@@ -4311,3 +4315,13 @@ SimpleIm:
         
         Even if the input method is enabled, it will only be used if there is no
         running external IM.
+
+
+BarPosition:
+  kind: string
+  description: The position of the bar.
+  values:
+    - value: top
+      description: The bar is at the top of the output.
+    - value: bottom
+      description: The bar is at the bottom of the output.

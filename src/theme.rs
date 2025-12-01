@@ -5,6 +5,7 @@ use {
         cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
         utils::clonecell::CloneCell,
     },
+    jay_config::theme::BarPosition,
     num_traits::Float,
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
@@ -467,6 +468,7 @@ pub struct Theme {
     pub title_font: CloneCell<Option<Arc<String>>>,
     pub default_font: Arc<String>,
     pub show_titles: Cell<bool>,
+    pub bar_position: Cell<BarPosition>,
 }
 
 impl Default for Theme {
@@ -480,6 +482,7 @@ impl Default for Theme {
             title_font: Default::default(),
             default_font,
             show_titles: Cell::new(true),
+            bar_position: Default::default(),
         }
     }
 }

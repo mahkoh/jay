@@ -135,7 +135,6 @@ impl<T: TrayItem> DynTrayItem for T {
 }
 
 trait TrayItem: Sized + 'static {
-    fn send_initial_configure(&self);
     fn send_current_configure(&self);
     fn data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
@@ -353,7 +352,7 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
-        item.send_initial_configure();
+        item.send_current_configure();
     }
     Ok(())
 }
