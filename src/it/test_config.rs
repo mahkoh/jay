@@ -16,6 +16,7 @@ use {
         Axis, Direction,
         input::{InputDevice, Seat},
         keyboard::{Keymap, ModifiedKeySym},
+        theme::{BarPosition, sized::BAR_SEPARATOR_WIDTH},
         video::{Connector, Transform},
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
@@ -300,6 +301,27 @@ impl TestConfig {
             connector: Connector(output.global.connector.connector.id().raw() as _),
             transform,
         })
+    }
+
+    pub fn set_bar_separator_width(&self, width: i32) -> TestResult {
+        self.send(ClientMessage::SetSize {
+            sized: BAR_SEPARATOR_WIDTH,
+            size: width,
+        })
+    }
+
+    pub fn set_bar_position(&self, position: BarPosition) -> TestResult {
+        self.send(ClientMessage::SetBarPosition { position })
+    }
+
+    pub fn set_show_bar(&self, show: bool) -> TestResult {
+        self.send(ClientMessage::SetShowBar { show })
+    }
+
+    pub fn get_show_bar(&self) -> Result<bool, TestError> {
+        let reply = self.send_with_reply(ClientMessage::GetShowBar)?;
+        get_response!(reply, GetShowBar { show });
+        Ok(show)
     }
 }
 

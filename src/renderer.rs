@@ -110,7 +110,7 @@ impl Renderer<'_> {
                 }
                 let c = theme.colors.separator.get();
                 self.base
-                    .fill_boxes2(slice::from_ref(&rd.underline), &c, srgb, x, y);
+                    .fill_boxes2(slice::from_ref(&rd.bar_separator), &c, srgb, x, y);
                 let c = theme.colors.unfocused_title_background.get();
                 self.base
                     .fill_boxes2(&rd.inactive_workspaces, &c, srgb, x, y);

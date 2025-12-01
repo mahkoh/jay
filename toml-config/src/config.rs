@@ -209,6 +209,7 @@ pub struct Theme {
     pub title_font: Option<String>,
     pub bar_font: Option<String>,
     pub bar_position: Option<BarPosition>,
+    pub bar_separator_width: Option<i32>,
 }
 
 #[derive(Debug, Clone)]

@@ -82,6 +82,7 @@ mod t0048_frame_callback;
 mod t0049_surface_damage_backend;
 mod t0050_fifo;
 mod t0051_pointer_warp;
+mod t0052_bar;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -152,5 +153,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0049_surface_damage_backend,
         t0050_fifo,
         t0051_pointer_warp,
+        t0052_bar,
     }
 }

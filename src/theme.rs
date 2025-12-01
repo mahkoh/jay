@@ -450,12 +450,17 @@ impl ThemeSizes {
             self.title_height.val.get()
         }
     }
+
+    pub fn bar_separator_width(&self) -> i32 {
+        self.bar_separator_width.get()
+    }
 }
 
 sizes! {
     title_height = (0, 1000, 17),
     bar_height = (0, 1000, 17),
     border_width = (0, 1000, 4),
+    bar_separator_width = (0, 1000, 1),
 }
 
 pub const DEFAULT_FONT: &str = "monospace 8";

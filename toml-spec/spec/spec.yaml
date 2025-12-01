@@ -2228,6 +2228,12 @@ Theme:
       ref: BarPosition
       required: false
       description: The position of the bar. Defaults to `top` if not set.
+    bar-separator-width:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: The width of the bar's separator. Defaults to 1.
     font:
       kind: string
       required: false
