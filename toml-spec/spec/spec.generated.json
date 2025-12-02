@@ -2012,6 +2012,11 @@
           "description": "The position of the bar. Defaults to `top` if not set.",
           "$ref": "#/$defs/BarPosition"
         },
+        "bar-separator-width": {
+          "type": "integer",
+          "description": "The width of the bar's separator. Defaults to 1.",
+          "minimum": 0.0
+        },
         "font": {
           "type": "string",
           "description": "The name of the font to use."

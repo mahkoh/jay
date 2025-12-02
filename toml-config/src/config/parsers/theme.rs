@@ -63,7 +63,7 @@ impl Parser for ThemeParser<'_> {
                 font,
                 title_font,
             ),
-            (bar_font, bar_position_val),
+            (bar_font, bar_position_val, bar_separator_width),
         ) = ext.extract((
             (
                 opt(val("attention-requested-bg-color")),
@@ -92,6 +92,7 @@ impl Parser for ThemeParser<'_> {
             (
                 recover(opt(str("bar-font"))),
                 recover(opt(str("bar-position"))),
+                recover(opt(s32("bar-separator-width"))),
             ),
         ))?;
         macro_rules! color {
@@ -144,6 +145,7 @@ impl Parser for ThemeParser<'_> {
             title_font: title_font.map(|f| f.value.to_string()),
             bar_font: bar_font.map(|f| f.value.to_string()),
             bar_position,
+            bar_separator_width: bar_separator_width.despan(),
         })
     }
 }

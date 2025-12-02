@@ -976,6 +976,7 @@ impl State {
         size!(BORDER_WIDTH, border_width);
         size!(TITLE_HEIGHT, title_height);
         size!(BAR_HEIGHT, bar_height);
+        size!(BAR_SEPARATOR_WIDTH, bar_separator_width);
         macro_rules! font {
             ($fun:ident, $field:ident) => {
                 if let Some(font) = &theme.$field {

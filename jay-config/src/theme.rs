@@ -76,7 +76,7 @@ impl Color {
             Self::BLACK
         } else if r > a || g > a || b > a {
             log::warn!(
-                "f32 values {:?} are not valid valid for a premultiplied color. Using solid black instead.",
+                "f32 values {:?} are not valid for a premultiplied color. Using solid black instead.",
                 [r, g, b, a]
             );
             Self::BLACK
@@ -359,5 +359,9 @@ pub mod sized {
         ///
         /// Default: 17
         const 03 => BAR_HEIGHT,
+        /// The width of the bar's separator.
+        ///
+        /// Default: 1
+        const 04 => BAR_SEPARATOR_WIDTH,
     }
 }

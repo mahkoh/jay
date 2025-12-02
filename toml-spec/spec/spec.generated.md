@@ -4577,6 +4577,16 @@ The table has the following fields:
 
   The value of this field should be a [BarPosition](#types-BarPosition).
 
+- `bar-separator-width` (optional):
+
+  The width of the bar's separator. Defaults to 1.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
 - `font` (optional):
 
   The name of the font to use.

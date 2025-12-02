@@ -95,8 +95,8 @@ pub struct OutputNode {
     pub non_exclusive_rect_rel: Cell<Rect>,
     pub bar_rect: Cell<Rect>,
     pub bar_rect_rel: Cell<Rect>,
-    pub bar_rect_with_underline: Cell<Rect>,
-    pub underline_rect_rel: Cell<Rect>,
+    pub bar_rect_with_separator: Cell<Rect>,
+    pub bar_separator_rect_rel: Cell<Rect>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
     pub is_dummy: bool,
@@ -593,8 +593,8 @@ impl OutputNode {
             None
         };
         let active_id = self.workspace.get().map(|w| w.id);
-        rd.underline = self
-            .underline_rect_rel
+        rd.bar_separator = self
+            .bar_separator_rect_rel
             .get()
             .move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
         for ws in self.workspaces.iter() {
@@ -657,7 +657,7 @@ impl OutputNode {
             }
         }
         let old_full_area = rd.full_area;
-        rd.full_area = self.bar_rect_with_underline.get();
+        rd.full_area = self.bar_rect_with_separator.get();
         if self.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
@@ -790,6 +790,7 @@ impl OutputNode {
     pub fn update_rects(self: &Rc<Self>) {
         let rect = self.global.pos.get();
         let bh = self.state.theme.sizes.bar_height();
+        let bsw = self.state.theme.sizes.bar_separator_width();
         let exclusive = self.exclusive_zones.get();
         let y1 = rect.y1() + exclusive.top;
         let x2 = rect.x2() - exclusive.right;
@@ -802,39 +803,44 @@ impl OutputNode {
             Rect::new_sized_unchecked(exclusive.left, exclusive.top, width, height);
         let mut bar_rect = Rect::default();
         let mut bar_rect_rel = Rect::default();
-        let mut bar_rect_with_underline = Rect::default();
-        let mut underline_rect_rel = Rect::default();
+        let mut bar_rect_with_separator = Rect::default();
+        let mut bar_separator_rect_rel = Rect::default();
         let mut workspace_rect = non_exclusive_rect;
         let mut workspace_rect_rel = non_exclusive_rect_rel;
         if self.state.show_bar.get() {
-            let underline_rect;
+            let bar_separator_rect;
             match self.state.theme.bar_position.get() {
                 BarPosition::Bottom => {
                     workspace_rect =
-                        Rect::new_sized_unchecked(x1, y1, width, (height - bh - 1).max(0));
-                    bar_rect_with_underline =
-                        Rect::new_sized_unchecked(x1, y1 + height - bh - 1, width, bh + 1);
-                    underline_rect = Rect::new_sized_unchecked(x1, y1 + height - bh - 1, width, 1);
+                        Rect::new_sized_unchecked(x1, y1, width, (height - bh - bsw).max(0));
+                    bar_rect_with_separator =
+                        Rect::new_sized_unchecked(x1, y1 + height - bh - bsw, width, bh + bsw);
+                    bar_separator_rect =
+                        Rect::new_sized_unchecked(x1, y1 + height - bh - bsw, width, bsw);
                     bar_rect = Rect::new_sized_unchecked(x1, y1 + height - bh, width, bh);
                 }
                 BarPosition::Top | _ => {
                     bar_rect = Rect::new_sized_unchecked(x1, y1, width, bh);
-                    underline_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, 1);
-                    bar_rect_with_underline = Rect::new_sized_unchecked(x1, y1, width, bh + 1);
-                    workspace_rect =
-                        Rect::new_sized_unchecked(x1, y1 + bh + 1, width, (height - bh - 1).max(0));
+                    bar_separator_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, bsw);
+                    bar_rect_with_separator = Rect::new_sized_unchecked(x1, y1, width, bh + bsw);
+                    workspace_rect = Rect::new_sized_unchecked(
+                        x1,
+                        y1 + bh + bsw,
+                        width,
+                        (height - bh - bsw).max(0),
+                    );
                 }
             }
             bar_rect_rel = bar_rect.move_(-rect.x1(), -rect.y1());
-            underline_rect_rel = underline_rect.move_(-rect.x1(), -rect.y1());
+            bar_separator_rect_rel = bar_separator_rect.move_(-rect.x1(), -rect.y1());
             workspace_rect_rel = workspace_rect.move_(-rect.x1(), -rect.y1());
         }
         self.non_exclusive_rect.set(non_exclusive_rect);
         self.non_exclusive_rect_rel.set(non_exclusive_rect_rel);
         self.bar_rect.set(bar_rect);
         self.bar_rect_rel.set(bar_rect_rel);
-        self.bar_rect_with_underline.set(bar_rect_with_underline);
-        self.underline_rect_rel.set(underline_rect_rel);
+        self.bar_rect_with_separator.set(bar_rect_with_separator);
+        self.bar_separator_rect_rel.set(bar_separator_rect_rel);
         self.workspace_rect.set(workspace_rect);
         self.workspace_rect_rel.set(workspace_rect_rel);
         self.update_tray_positions();
@@ -1294,8 +1300,8 @@ impl OutputNode {
         if ws.fullscreen.is_some() {
             return None;
         }
-        let bar_rect_with_underline = self.bar_rect_with_underline.get();
-        if bar_rect_with_underline.contains(x_abs, y_abs) {
+        let bar_rect_with_separator = self.bar_rect_with_separator.get();
+        if bar_rect_with_separator.contains(x_abs, y_abs) {
             let rd = &*self.render_data.borrow();
             let bar_rect = self.bar_rect.get();
             let (x, _) = bar_rect.translate(x_abs, y_abs);
@@ -1350,8 +1356,8 @@ impl OutputNode {
         if !self.state.show_bar.get() {
             return None;
         }
-        let bar_rect_with_underline = self.bar_rect_with_underline.get();
-        if bar_rect_with_underline.not_contains(x_abs, y_abs) {
+        let bar_rect_with_separator = self.bar_rect_with_separator.get();
+        if bar_rect_with_separator.not_contains(x_abs, y_abs) {
             return None;
         }
         let bar_rect = self.bar_rect.get();
@@ -1508,7 +1514,7 @@ pub struct OutputWorkspaceRenderData {
 pub struct OutputRenderData {
     pub full_area: Rect,
     pub active_workspace: Option<OutputWorkspaceRenderData>,
-    pub underline: Rect,
+    pub bar_separator: Rect,
     pub inactive_workspaces: Vec<Rect>,
     pub attention_requested_workspaces: Vec<Rect>,
     pub captured_inactive_workspaces: Vec<Rect>,
