@@ -20,7 +20,8 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_bounds, toplevel_set_floating, walker::NodeVisitor,
+            default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -976,6 +977,17 @@ impl ContainerNode {
             .and_then(|p| p.node_into_container())
     }
 
+    fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
+        if self.toplevel_data.parent.is_none() {
+            return None;
+        }
+        if self.toplevel_data.float.is_some() {
+            return None;
+        }
+        self.state
+            .find_output_in_direction(&self.workspace.get().output.get(), direction)
+    }
+
     pub fn move_focus_from_child(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -997,10 +1009,17 @@ impl ContainerNode {
                 ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
             }
         };
-        if !in_line {
-            if let Some(c) = self.parent_container() {
-                c.move_focus_from_child(seat, self.deref(), direction);
+        let focus_in_parent = || {
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                if let Some(c) = parent.node_into_container() {
+                    c.move_focus_from_child(seat, self.deref(), direction);
+                } else if let Some(output) = self.find_neighboring_output(direction) {
+                    output.take_keyboard_navigation_focus(seat, direction);
+                }
             }
+        };
+        if !in_line {
+            focus_in_parent();
             return;
         }
         let prev = match direction {
@@ -1017,9 +1036,7 @@ impl ContainerNode {
         let sibling = match sibling {
             Some(s) => s,
             None => {
-                if let Some(c) = self.parent_container() {
-                    c.move_focus_from_child(seat, self.deref(), direction);
-                }
+                focus_in_parent();
                 return;
             }
         };
@@ -1032,16 +1049,42 @@ impl ContainerNode {
 
     //
     pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
+        let move_to_neighboring_output = |child: Rc<dyn ToplevelNode>| {
+            let Some(output) = self.find_neighboring_output(direction) else {
+                return;
+            };
+            let ws = output.ensure_workspace();
+            let mut foci = SmallVec::new();
+            let move_foci = !ws.container_visible();
+            if move_foci {
+                collect_kb_foci2(child.clone(), &mut foci);
+            }
+            if let Some(c) = ws.container.get() {
+                self.clone().cnode_remove_child2(&*child, true);
+                c.insert_child(child, direction);
+            } else {
+                toplevel_set_workspace(&self.state, child, &ws);
+            }
+            if move_foci {
+                for seat in foci {
+                    ws.clone().node_do_focus(&seat, Direction::Unspecified);
+                }
+            }
+        };
+
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
             if let Some(parent) = self.toplevel_data.parent.get()
                 && !self.toplevel_data.is_fullscreen.get()
-                && parent.cnode_accepts_child(&*child)
             {
-                parent.cnode_replace_child(self.deref(), child.clone());
-                self.toplevel_data.parent.take();
-                self.child_nodes.borrow_mut().clear();
-                self.tl_destroy();
+                if parent.cnode_accepts_child(&*child) {
+                    parent.cnode_replace_child(self.deref(), child.clone());
+                    self.toplevel_data.parent.take();
+                    self.child_nodes.borrow_mut().clear();
+                    self.tl_destroy();
+                } else {
+                    move_to_neighboring_output(child);
+                }
             }
             return;
         }
@@ -1092,7 +1135,10 @@ impl ContainerNode {
         }
         let parent = match parent_opt {
             Some(p) => p,
-            _ => return,
+            _ => {
+                move_to_neighboring_output(child);
+                return;
+            }
         };
         self.cnode_remove_child2(&*child, true);
         match prev {

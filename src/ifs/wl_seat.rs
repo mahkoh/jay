@@ -730,8 +730,16 @@ impl WlSeatGlobal {
         };
         if direction == Direction::Down && tl.node_is_container() {
             tl.node_do_focus(self, direction);
-        } else if let Some(p) = tl.tl_data().parent.get() {
-            if let Some(c) = p.node_into_container() {
+        } else {
+            let data = tl.tl_data();
+            if data.is_fullscreen.get()
+                && let Some(output) = data.output_opt()
+                && let Some(target) = self.state.find_output_in_direction(&output, direction)
+            {
+                target.take_keyboard_navigation_focus(self, direction);
+            } else if let Some(p) = data.parent.get()
+                && let Some(c) = p.node_into_container()
+            {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
@@ -739,8 +747,17 @@ impl WlSeatGlobal {
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
-        if let Some(tl) = kb_node.node_toplevel()
-            && let Some(parent) = tl.tl_data().parent.get()
+        let Some(tl) = kb_node.node_toplevel() else {
+            return;
+        };
+        let data = tl.tl_data();
+        if data.is_fullscreen.get()
+            && let Some(output) = data.output_opt()
+            && let Some(target) = self.state.find_output_in_direction(&output, direction)
+        {
+            let ws = target.ensure_workspace();
+            toplevel_set_workspace(&self.state, tl, &ws);
+        } else if let Some(parent) = data.parent.get()
             && let Some(c) = parent.node_into_container()
         {
             c.move_child(tl, direction);

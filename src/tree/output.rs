@@ -1488,6 +1488,21 @@ impl OutputNode {
             }
         }
     }
+
+    pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let Some(ws) = self.workspace.get() else {
+            return;
+        };
+        if let Some(fs) = ws.fullscreen.get() {
+            if fs.node_visible() {
+                fs.node_do_focus(seat, direction);
+            }
+        } else if let Some(c) = ws.container.get() {
+            if c.node_visible() {
+                c.node_do_focus(seat, direction);
+            }
+        }
+    }
 }
 
 pub struct OutputTitle {
