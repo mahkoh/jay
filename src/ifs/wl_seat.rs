@@ -730,8 +730,16 @@ impl WlSeatGlobal {
         };
         if direction == Direction::Down && tl.node_is_container() {
             tl.node_do_focus(self, direction);
-        } else if let Some(p) = tl.tl_data().parent.get() {
-            if let Some(c) = p.node_into_container() {
+        } else {
+            let data = tl.tl_data();
+            if data.is_fullscreen.get()
+                && let Some(output) = data.output_opt()
+                && let Some(target) = self.state.find_output_in_direction(&output, direction)
+            {
+                target.take_keyboard_navigation_focus(self, direction);
+            } else if let Some(p) = data.parent.get()
+                && let Some(c) = p.node_into_container()
+            {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }

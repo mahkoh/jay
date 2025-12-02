@@ -1013,12 +1013,8 @@ impl ContainerNode {
             if let Some(parent) = self.toplevel_data.parent.get() {
                 if let Some(c) = parent.node_into_container() {
                     c.move_focus_from_child(seat, self.deref(), direction);
-                } else if let Some(output) = self.find_neighboring_output(direction)
-                    && let Some(ws) = output.workspace.get()
-                    && let Some(c) = ws.container.get()
-                    && c.node_visible()
-                {
-                    c.node_do_focus(seat, direction);
+                } else if let Some(output) = self.find_neighboring_output(direction) {
+                    output.take_keyboard_navigation_focus(seat, direction);
                 }
             }
         };
