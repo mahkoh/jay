@@ -1,0 +1,10 @@
+request destroy (destructor) {
+}
+
+request get_preferred {
+    id: id(wp_image_description_reference_v1) (new),
+}
+
+event preferred_changed {
+    identity: u64,
+}

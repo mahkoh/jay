@@ -320,7 +320,7 @@ macro_rules! tree_id {
 }
 
 macro_rules! dedicated_add_obj {
-    ($oname:ident, $idname:ident, $field:ident) => {
+    ($oname:ident, $idname:ident, $field:ident $(,)?) => {
         impl crate::client::WaylandObject for $oname {
             fn add(self: Rc<Self>, client: &crate::client::Client) {
                 client.objects.$field.set(self.id.into(), self);
