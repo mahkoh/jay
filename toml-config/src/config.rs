@@ -536,6 +536,7 @@ pub struct Config {
     pub input_modes: AHashMap<String, InputMode>,
     pub workspace_display_order: Option<WorkspaceDisplayOrder>,
     pub simple_im: Option<SimpleIm>,
+    pub mouse_refocus: Option<bool>,
 }
 
 #[derive(Debug, Error)]

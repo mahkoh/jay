@@ -816,6 +816,10 @@ pub enum ClientMessage<'a> {
         position: BarPosition,
     },
     GetBarPosition,
+    SeatSetMouseRefocus {
+        seat: Seat,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

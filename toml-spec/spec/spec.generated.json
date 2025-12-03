@@ -966,7 +966,7 @@
         },
         "focus-follows-mouse": {
           "type": "boolean",
-          "description": "Configures whether moving the mouse over a window automatically moves the keyboard\nfocus to that window.\n\nThe default is `true`.\n"
+          "description": "Configures whether moving the mouse over a window automatically moves the keyboard\nfocus to that window.\n\nThe default is `false`.\n"
         },
         "window-management-key": {
           "type": "string",
@@ -1068,6 +1068,10 @@
         "simple-im": {
           "description": "Configures the simple, XCompose based input method.\n\nBy default, the input method is enabled. \n\nEven if the input method is enabled, it will only be used if there is no\nrunning external IM.\n\n- Example:\n\n  ```toml\n  [simple-im]\n  enabled = false\n  ```\n",
           "$ref": "#/$defs/SimpleIm"
+        },
+        "mouse-refocus": {
+          "type": "boolean",
+          "description": "Configures whether the mouse cursor is automatically centered on the active window\nwhen focus changes via keyboard commands.\n\nWhen enabled, the cursor will be automatically positioned to the center of the\nactive window when focus changes through keyboard commands such as `focus-left`,\n`focus-right`, `show-workspace`, etc.\n\nThe default is `true`.\n\n- Example:\n\n  ```toml\n  mouse-refocus = false\n  ```\n"
         }
       },
       "required": []

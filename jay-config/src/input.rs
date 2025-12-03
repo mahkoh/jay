@@ -638,6 +638,14 @@ impl Seat {
     pub fn enable_unicode_input(self) {
         get!().seat_enable_unicode_input(self);
     }
+
+    /// Sets whether the cursor should automatically move to the center of a window
+    /// when focus changes via keyboard commands (move-left, focus-right, show-workspace, etc.).
+    ///
+    /// Default: false.
+    pub fn set_mouse_refocus(self, enabled: bool) {
+        get!().seat_set_mouse_refocus(self, enabled)
+    }
 }
 
 /// A focus-follows-mouse mode.
