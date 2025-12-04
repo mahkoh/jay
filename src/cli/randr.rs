@@ -2,11 +2,14 @@ use {
     crate::{
         backend::{BackendColorSpace, BackendEotfs},
         cli::GlobalArgs,
+        cmm::cmm_primaries::Primaries,
         format::{Format, XRGB8888},
         ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
+        utils::{
+            debug_fn::debug_fn, errorfmt::ErrorFmt, ordered_float::F64, transform_ext::TransformExt,
+        },
         wire::{JayRandrId, jay_compositor, jay_randr},
     },
     clap::{
@@ -167,6 +170,30 @@ pub enum OutputCommand {
     Brightness(BrightnessArgs),
     /// Change the blend space.
     BlendSpace(BlendSpaceArgs),
+    /// Change whether the display primaries are used.
+    UseNativeGamut(UseNativeGamutArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct UseNativeGamutArgs {
+    /// Configures whether the display primaries are used.
+    ///
+    /// By default, Jay pretends that the display uses sRGB primaries. This is also how
+    /// most other systems behave. In reality, most displays use a much larger gamut. For
+    /// example, they advertise that they support 95% of the DCI-P3 gamut. If the display
+    /// is interpreting colors in their native gamut, then colors will appear more
+    /// saturated than their specification.
+    ///
+    /// If this is set to `true`, Jay assumes that the display uses the primaries
+    /// advertised in its EDID. This might produce more accurate colors while also
+    /// allowing color-managed applications to use the full gamut of the display.
+    ///
+    /// This setting has no effect when the display is explicitly operating in a wide
+    /// color space.
+    ///
+    /// The default is `false`.
+    #[arg(action = clap::ArgAction::Set)]
+    pub use_native_gamut: bool,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -499,6 +526,8 @@ struct Output {
     pub brightness_range: Option<(f64, f64)>,
     pub brightness: Option<f64>,
     pub blend_space: Option<String>,
+    pub native_gamut: Option<Primaries>,
+    pub use_native_gamut: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -789,6 +818,19 @@ impl Randr {
                     blend_space: &a.blend_space,
                 });
             }
+            OutputCommand::UseNativeGamut(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!(
+                        "Could not change whether the compositor uses the native gamut: {}",
+                        msg,
+                    );
+                });
+                tc.send(jay_randr::SetUseNativeGamut {
+                    self_id: randr,
+                    output: &args.output,
+                    use_native_gamut: a.use_native_gamut as _,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1024,6 +1066,25 @@ impl Randr {
         if let Some(bs) = &o.blend_space {
             println!("        blend space: {bs}");
         }
+        if let Some(p) = &o.native_gamut {
+            println!(
+                "        native gamut:{}",
+                debug_fn(|f| {
+                    if o.use_native_gamut {
+                        f.write_str(" (used for default color space)")?;
+                    }
+                    Ok(())
+                }),
+            );
+            println!(
+                "          red:  {:.6} {:.6} green: {:.6} {:.6}",
+                p.r.0.0, p.r.1.0, p.g.0.0, p.g.1.0
+            );
+            println!(
+                "          blue: {:.6} {:.6} white: {:.6} {:.6}",
+                p.b.0.0, p.b.1.0, p.wp.0.0, p.wp.1.0
+            );
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -1203,6 +1264,24 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.blend_space = Some(msg.blend_space.to_string());
+        });
+        jay_randr::NativeGamut::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            let primaries = Primaries {
+                r: (F64(msg.r_x), F64(msg.r_y)),
+                g: (F64(msg.g_x), F64(msg.g_y)),
+                b: (F64(msg.b_x), F64(msg.b_y)),
+                wp: (F64(msg.w_x), F64(msg.w_y)),
+            };
+            output.native_gamut = Some(primaries);
+        });
+        jay_randr::UseNativeGamut::handle(tc, randr, data.clone(), |data, _| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.use_native_gamut = true;
         });
         tc.round_trip().await;
         data.borrow_mut().clone()

@@ -338,6 +338,26 @@ impl Connector {
     pub fn connector_in_direction(self, direction: Direction) -> Connector {
         get!(Connector(0)).get_connector_in_direction(self, direction)
     }
+
+    /// Configures whether the display primaries are used.
+    ///
+    /// By default, Jay pretends that the display uses sRGB primaries. This is also how
+    /// most other systems behave. In reality, most displays use a much larger gamut. For
+    /// example, they advertise that they support 95% of the DCI-P3 gamut. If the display
+    /// is interpreting colors in their native gamut, then colors will appear more
+    /// saturated than their specification.
+    ///
+    /// If this is set to `true`, Jay assumes that the display uses the primaries
+    /// advertised in its EDID. This might produce more accurate colors while also
+    /// allowing color-managed applications to use the full gamut of the display.
+    ///
+    /// This setting has no effect when the display is explicitly operating in a wide
+    /// color space.
+    ///
+    /// The default is `false`.
+    pub fn set_use_native_gamut(self, use_native_gamut: bool) {
+        get!().connector_set_use_native_gamut(self, use_native_gamut);
+    }
 }
 
 /// Returns all available DRM devices.

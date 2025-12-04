@@ -3,7 +3,7 @@ use {
         config::{
             Output,
             context::Context,
-            extractor::{Extractor, ExtractorError, fltorint, opt, recover, s32, str, val},
+            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 format::FormatParser,
@@ -51,7 +51,7 @@ impl Parser for OutputParser<'_> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
             (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
-            (color_space, eotf, brightness_val, blend_space),
+            (color_space, eotf, brightness_val, blend_space, use_native_gamut),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -70,6 +70,7 @@ impl Parser for OutputParser<'_> {
                 recover(opt(str("transfer-function"))),
                 opt(val("brightness")),
                 recover(opt(str("blend-space"))),
+                recover(opt(bol("use-native-gamut"))),
             ),
         ))?;
         let transform = match transform {
@@ -208,6 +209,7 @@ impl Parser for OutputParser<'_> {
             eotf,
             brightness,
             blend_space,
+            use_native_gamut: use_native_gamut.despan(),
         })
     }
 }

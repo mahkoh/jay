@@ -490,13 +490,7 @@ impl OutputNode {
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);
-        let mut visitor = SurfaceSendPreferredScaleVisitor;
-        self.node_visit_children(&mut visitor);
-        for ws in self.workspaces.iter() {
-            for stacked in ws.stacked.iter() {
-                stacked.deref().clone().node_visit(&mut visitor);
-            }
-        }
+        self.visit_children(&mut SurfaceSendPreferredScaleVisitor);
         self.schedule_update_render_data();
         self.global
             .connector
@@ -990,7 +984,16 @@ impl OutputNode {
             for fb in self.global.color_description_listeners.lock().values() {
                 fb.send_image_description_changed();
             }
-            self.node_visit_children(&mut SurfaceSendPreferredColorDescription);
+            self.visit_children(&mut SurfaceSendPreferredColorDescription);
+        }
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        self.node_visit_children(visitor);
+        for ws in self.workspaces.iter() {
+            for stacked in ws.stacked.iter() {
+                stacked.deref().clone().node_visit(visitor);
+            }
         }
     }
 
@@ -1002,6 +1005,17 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_brightness_change(brightness);
+        }
+    }
+
+    pub fn set_use_native_gamut(&self, use_native_gamut: bool) {
+        let old = self
+            .global
+            .persistent
+            .use_native_gamut
+            .replace(use_native_gamut);
+        if old != use_native_gamut {
+            self.update_color_description();
         }
     }
 

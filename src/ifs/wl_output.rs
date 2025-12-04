@@ -140,6 +140,7 @@ pub struct PersistentOutputState {
     pub tearing_mode: Cell<&'static TearingMode>,
     pub brightness: Cell<Option<f64>>,
     pub blend_space: Cell<BlendSpace>,
+    pub use_native_gamut: Cell<bool>,
 }
 
 impl Default for PersistentOutputState {
@@ -153,6 +154,7 @@ impl Default for PersistentOutputState {
             tearing_mode: Cell::new(&TearingMode::Never),
             brightness: Default::default(),
             blend_space: Cell::new(BlendSpace::Srgb),
+            use_native_gamut: Cell::new(false),
         }
     }
 }
@@ -379,16 +381,34 @@ impl WlOutputGlobal {
             max_cll = Some(F64(l.max));
             max_fall = Some(F64(l.max_fall));
         }
-        let primaries = match self.bcs.get() {
-            BackendColorSpace::Default => NamedPrimaries::Srgb,
-            BackendColorSpace::Bt2020 => NamedPrimaries::Bt2020,
-        };
+        let named_primaries;
+        let primaries;
+        let target_primaries;
+        match self.bcs.get() {
+            BackendColorSpace::Default => {
+                if self.persistent.use_native_gamut.get()
+                    && self.primaries != NamedPrimaries::Srgb.primaries()
+                {
+                    named_primaries = None;
+                    primaries = self.primaries;
+                } else {
+                    named_primaries = Some(NamedPrimaries::Srgb);
+                    primaries = NamedPrimaries::Srgb.primaries();
+                }
+                target_primaries = primaries;
+            }
+            BackendColorSpace::Bt2020 => {
+                named_primaries = Some(NamedPrimaries::Bt2020);
+                primaries = NamedPrimaries::Bt2020.primaries();
+                target_primaries = self.primaries;
+            }
+        }
         let cd = self.state.color_manager.get_description(
-            Some(primaries),
-            primaries.primaries(),
+            named_primaries,
+            primaries,
             luminance,
             tf,
-            self.primaries,
+            target_primaries,
             target_luminance,
             max_cll,
             max_fall,

@@ -816,6 +816,10 @@ pub enum ClientMessage<'a> {
         position: BarPosition,
     },
     GetBarPosition,
+    ConnectorSetUseNativeGamut {
+        connector: Connector,
+        use_native_gamut: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

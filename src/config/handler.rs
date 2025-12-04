@@ -1353,6 +1353,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_use_native_gamut(
+        &self,
+        connector: Connector,
+        use_native_gamut: bool,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output_node(connector)?;
+        connector.set_use_native_gamut(use_native_gamut);
+        Ok(())
+    }
+
     fn handle_set_float_above_fullscreen(&self, above: bool) {
         self.state.float_above_fullscreen.set(above);
         for seat in self.state.globals.seats.lock().values() {
@@ -3316,6 +3326,12 @@ impl ConfigProxyHandler {
             ClientMessage::SeatEnableUnicodeInput { seat } => self
                 .handle_seat_enable_unicode_input(seat)
                 .wrn("seat_enable_unicode_input")?,
+            ClientMessage::ConnectorSetUseNativeGamut {
+                connector,
+                use_native_gamut,
+            } => self
+                .handle_connector_set_use_native_gamut(connector, use_native_gamut)
+                .wrn("connector_set_use_native_gamut")?,
         }
         Ok(())
     }

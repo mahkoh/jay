@@ -862,6 +862,9 @@ impl Output {
         if let Some(bs) = self.blend_space {
             c.set_blend_space(bs);
         }
+        if let Some(use_native_gamut) = self.use_native_gamut {
+            c.set_use_native_gamut(use_native_gamut);
+        }
     }
 }
 
