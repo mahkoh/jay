@@ -100,6 +100,11 @@ request set_blend_space (since = 21) {
     blend_space: str,
 }
 
+request set_use_native_gamut (since = 23) {
+    output: str,
+    use_native_gamut: u32,
+}
+
 # events
 
 event global {
@@ -209,4 +214,18 @@ event brightness (since = 16) {
 
 event blend_space (since = 21) {
     blend_space: str,
+}
+
+event native_gamut (since = 23) {
+    r_x: pod(f64),
+    r_y: pod(f64),
+    g_x: pod(f64),
+    g_y: pod(f64),
+    b_x: pod(f64),
+    b_y: pod(f64),
+    w_x: pod(f64),
+    w_y: pod(f64),
+}
+
+event use_native_gamut (since = 23) {
 }

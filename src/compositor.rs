@@ -33,7 +33,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -629,16 +629,7 @@ fn create_dummy_output(state: &Rc<State>) {
         model: "jay-dummy-output".to_string(),
         serial_number: "".to_string(),
     });
-    let persistent_state = Rc::new(PersistentOutputState {
-        transform: Default::default(),
-        scale: Default::default(),
-        pos: Default::default(),
-        vrr_mode: Cell::new(VrrMode::NEVER),
-        vrr_cursor_hz: Default::default(),
-        tearing_mode: Cell::new(&TearingMode::Never),
-        brightness: Cell::new(None),
-        blend_space: Cell::new(BlendSpace::Srgb),
-    });
+    let persistent_state = Rc::new(PersistentOutputState::default());
     let mode = backend::Mode {
         width: 0,
         height: 0,

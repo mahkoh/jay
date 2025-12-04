@@ -36,6 +36,7 @@ const FLIP_MARGIN_SINCE: Version = Version(10);
 const COLORIMETRY_SINCE: Version = Version(15);
 const BRIGHTNESS_SINCE: Version = Version(16);
 const BLEND_SPACE_SINCE: Version = Version(21);
+const NATIVE_GAMUT_SINCE: Version = Version(23);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -214,6 +215,23 @@ impl JayRandr {
                 self_id: self.id,
                 blend_space: node.global.persistent.blend_space.get().name(),
             });
+        }
+        if self.version >= NATIVE_GAMUT_SINCE {
+            let p = &node.global.primaries;
+            self.client.event(NativeGamut {
+                self_id: self.id,
+                r_x: p.r.0.0,
+                r_y: p.r.1.0,
+                g_x: p.g.0.0,
+                g_y: p.g.1.0,
+                b_x: p.b.0.0,
+                b_y: p.b.1.0,
+                w_x: p.wp.0.0,
+                w_y: p.wp.1.0,
+            });
+            if node.global.persistent.use_native_gamut.get() {
+                self.client.event(UseNativeGamut { self_id: self.id });
+            }
         }
     }
 
@@ -549,6 +567,18 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.set_blend_space(space);
+        Ok(())
+    }
+
+    fn set_use_native_gamut(
+        &self,
+        req: SetUseNativeGamut<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.set_use_native_gamut(req.use_native_gamut != 0);
         Ok(())
     }
 }

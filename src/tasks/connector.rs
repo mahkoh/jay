@@ -184,6 +184,7 @@ impl ConnectorHandler {
                     tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
                     brightness: Cell::new(None),
                     blend_space: Cell::new(BlendSpace::Srgb),
+                    use_native_gamut: Cell::new(false),
                 });
                 self.state
                     .persistent_output_states

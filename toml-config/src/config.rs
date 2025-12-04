@@ -366,6 +366,7 @@ pub struct Output {
     pub eotf: Option<Eotf>,
     pub brightness: Option<Option<f64>>,
     pub blend_space: Option<BlendSpace>,
+    pub use_native_gamut: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

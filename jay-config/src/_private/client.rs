@@ -1124,6 +1124,13 @@ impl ConfigClient {
         });
     }
 
+    pub fn connector_set_use_native_gamut(&self, connector: Connector, use_native_gamut: bool) {
+        self.send(&ClientMessage::ConnectorSetUseNativeGamut {
+            connector,
+            use_native_gamut,
+        });
+    }
+
     pub fn connector_get_scale(&self, connector: Connector) -> f64 {
         let res = self.send_with_response(&ClientMessage::ConnectorGetScale { connector });
         get_response!(res, 1.0, ConnectorGetScale { scale });

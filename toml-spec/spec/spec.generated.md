@@ -3836,6 +3836,27 @@ The table has the following fields:
 
   The value of this field should be a [BlendSpace](#types-BlendSpace).
 
+- `use-native-gamut` (optional):
+
+  Configures whether the display primaries are used.
+  
+  By default, Jay pretends that the display uses sRGB primaries. This is also how
+  most other systems behave. In reality, most displays use a much larger gamut. For
+  example, they advertise that they support 95% of the DCI-P3 gamut. If the display
+  is interpreting colors in their native gamut, then colors will appear more
+  saturated than their specification.
+  
+  If this is set to `true`, Jay assumes that the display uses the primaries
+  advertised in its EDID. This might produce more accurate colors while also
+  allowing color-managed applications to use the full gamut of the display.
+  
+  This setting has no effect when the display is explicitly operating in a wide
+  color space.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-OutputMatch"></a>
 ### `OutputMatch`

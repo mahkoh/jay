@@ -140,6 +140,7 @@ pub struct PersistentOutputState {
     pub tearing_mode: Cell<&'static TearingMode>,
     pub brightness: Cell<Option<f64>>,
     pub blend_space: Cell<BlendSpace>,
+    pub use_native_gamut: Cell<bool>,
 }
 
 impl Default for PersistentOutputState {
@@ -153,6 +154,7 @@ impl Default for PersistentOutputState {
             tearing_mode: Cell::new(&TearingMode::Never),
             brightness: Default::default(),
             blend_space: Cell::new(BlendSpace::Srgb),
+            use_native_gamut: Cell::new(false),
         }
     }
 }
@@ -384,18 +386,25 @@ impl WlOutputGlobal {
         let target_primaries;
         match self.bcs.get() {
             BackendColorSpace::Default => {
-                named_primaries = NamedPrimaries::Srgb;
-                primaries = named_primaries.primaries();
+                if self.persistent.use_native_gamut.get()
+                    && self.primaries != NamedPrimaries::Srgb.primaries()
+                {
+                    named_primaries = None;
+                    primaries = self.primaries;
+                } else {
+                    named_primaries = Some(NamedPrimaries::Srgb);
+                    primaries = NamedPrimaries::Srgb.primaries();
+                }
                 target_primaries = primaries;
             }
             BackendColorSpace::Bt2020 => {
-                named_primaries = NamedPrimaries::Bt2020;
-                primaries = named_primaries.primaries();
+                named_primaries = Some(NamedPrimaries::Bt2020);
+                primaries = NamedPrimaries::Bt2020.primaries();
                 target_primaries = self.primaries;
             }
         }
         let cd = self.state.color_manager.get_description(
-            Some(named_primaries),
+            named_primaries,
             primaries,
             luminance,
             tf,

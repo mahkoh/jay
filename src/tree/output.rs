@@ -1005,6 +1005,17 @@ impl OutputNode {
         }
     }
 
+    pub fn set_use_native_gamut(&self, use_native_gamut: bool) {
+        let old = self
+            .global
+            .persistent
+            .use_native_gamut
+            .replace(use_native_gamut);
+        if old != use_native_gamut {
+            self.update_color_description();
+        }
+    }
+
     pub fn set_blend_space(&self, blend_space: BlendSpace) {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
