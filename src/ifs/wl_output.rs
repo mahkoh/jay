@@ -379,16 +379,27 @@ impl WlOutputGlobal {
             max_cll = Some(F64(l.max));
             max_fall = Some(F64(l.max_fall));
         }
-        let primaries = match self.bcs.get() {
-            BackendColorSpace::Default => NamedPrimaries::Srgb,
-            BackendColorSpace::Bt2020 => NamedPrimaries::Bt2020,
-        };
+        let named_primaries;
+        let primaries;
+        let target_primaries;
+        match self.bcs.get() {
+            BackendColorSpace::Default => {
+                named_primaries = NamedPrimaries::Srgb;
+                primaries = named_primaries.primaries();
+                target_primaries = primaries;
+            }
+            BackendColorSpace::Bt2020 => {
+                named_primaries = NamedPrimaries::Bt2020;
+                primaries = named_primaries.primaries();
+                target_primaries = self.primaries;
+            }
+        }
         let cd = self.state.color_manager.get_description(
-            Some(primaries),
-            primaries.primaries(),
+            Some(named_primaries),
+            primaries,
             luminance,
             tf,
-            self.primaries,
+            target_primaries,
             target_luminance,
             max_cll,
             max_fall,
