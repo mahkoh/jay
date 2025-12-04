@@ -99,6 +99,7 @@ impl Renderer<'_> {
                 let c = theme.colors.bar_background.get();
                 self.base
                     .fill_boxes3(slice::from_ref(&bar_bg), &c, None, srgb, x, y, true);
+                self.base.sync();
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
                     let c = match aw.captured {
@@ -117,6 +118,7 @@ impl Renderer<'_> {
                 let c = theme.colors.captured_unfocused_title_background.get();
                 self.base
                     .fill_boxes2(&rd.captured_inactive_workspaces, &c, srgb, x, y);
+                self.base.sync();
                 let c = theme.colors.attention_requested_background.get();
                 self.base
                     .fill_boxes2(&rd.attention_requested_workspaces, &c, srgb, x, y);
@@ -180,7 +182,7 @@ impl Renderer<'_> {
             ($stack:expr) => {
                 for stacked in $stack.iter() {
                     if stacked.node_visible() {
-                        self.base.ops.push(GfxApiOpt::Sync);
+                        self.base.sync();
                         let pos = stacked.node_absolute_position();
                         if pos.intersects(&opos) {
                             let (x, y) = opos.translate(pos.x1(), pos.y1());
@@ -201,7 +203,7 @@ impl Renderer<'_> {
         {
             let color = self.state.theme.colors.highlight.get();
             let bounds = output.workspace_rect_rel.get().move_(x, y);
-            self.base.ops.push(GfxApiOpt::Sync);
+            self.base.sync();
             self.base.fill_boxes(&[bounds], &color, srgb);
         }
     }
@@ -366,7 +368,7 @@ impl Renderer<'_> {
             return;
         };
         let color = self.state.theme.colors.highlight.get();
-        self.base.ops.push(GfxApiOpt::Sync);
+        self.base.sync();
         self.base.fill_scaled_boxes(
             slice::from_ref(bounds),
             &color,
@@ -377,7 +379,7 @@ impl Renderer<'_> {
 
     pub fn render_highlight(&mut self, rect: &Rect) {
         let color = self.state.theme.colors.highlight.get();
-        self.base.ops.push(GfxApiOpt::Sync);
+        self.base.sync();
         self.base.fill_boxes(
             slice::from_ref(rect),
             &color,
@@ -488,7 +490,7 @@ impl Renderer<'_> {
                     let color = Color::from_u32_premultiplied(
                         cd.eotf, color[0], color[1], color[2], color[3],
                     );
-                    self.base.ops.push(GfxApiOpt::Sync);
+                    self.base.sync();
                     self.base
                         .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear);
                 }

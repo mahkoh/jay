@@ -3,7 +3,6 @@ use {
         async_engine::AsyncEngine,
         cmm::cmm_manager::ColorManager,
         fixed::Fixed,
-        gfx_api::GfxApiOpt,
         ifs::wl_output::WlOutputGlobal,
         rect::{Rect, Region},
         renderer::renderer_base::RendererBase,
@@ -164,7 +163,7 @@ impl DamageVisualizer {
         let dx = -cursor_rect.x1();
         let dy = -cursor_rect.y1();
         let decay_millis = decay.as_millis() as u64 as f32;
-        renderer.ops.push(GfxApiOpt::Sync);
+        renderer.sync();
         let srgb = &self.color_manager.srgb_gamma22().linear;
         for entry in entries.iter().rev() {
             let region = Region::new(entry.rect);

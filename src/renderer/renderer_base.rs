@@ -227,6 +227,10 @@ impl RendererBase<'_> {
             cd: cd.clone(),
         }));
     }
+
+    pub fn sync(&mut self) {
+        self.ops.push(GfxApiOpt::Sync);
+    }
 }
 
 #[inline]
