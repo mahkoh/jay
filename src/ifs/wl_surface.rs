@@ -1594,7 +1594,7 @@ impl WlSurface {
                 let ext = child.sub_surface.surface.extents.get();
                 let ext = ext.move_(pos.0, pos.1);
                 if ext.contains(x, y) {
-                    let (x, y) = ext.translate(x, y);
+                    let (x, y) = (x - pos.0, y - pos.1);
                     if let Some(res) = child.sub_surface.surface.find_surface_at(x, y) {
                         return Some(res);
                     }
