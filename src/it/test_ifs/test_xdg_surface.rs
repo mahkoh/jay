@@ -19,7 +19,7 @@ pub struct TestXdgSurface {
     pub tran: Rc<TestTransport>,
     pub _server: Rc<XdgSurface>,
     pub destroyed: Cell<bool>,
-    pub last_serial: Cell<u32>,
+    pub last_serial: Cell<Option<u32>>,
 }
 
 impl TestXdgSurface {
@@ -63,7 +63,7 @@ impl TestXdgSurface {
 
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Configure::parse_full(parser)?;
-        self.last_serial.set(ev.serial);
+        self.last_serial.set(Some(ev.serial));
         Ok(())
     }
 }

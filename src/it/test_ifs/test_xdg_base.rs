@@ -50,7 +50,7 @@ impl TestXdgWmBase {
             tran: self.tran.clone(),
             _server: server,
             destroyed: Cell::new(false),
-            last_serial: Cell::new(0),
+            last_serial: Default::default(),
         });
         self.tran.add_obj(xdg.clone())?;
         Ok(xdg)
