@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::{
             AttachedSubsurfaceState, CommitAction, PendingState, StackElement, SurfaceExt,
-            SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId,
+            SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId, tray::TrayItemId,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -430,6 +430,10 @@ impl SurfaceExt for WlSubsurface {
                 }
             })?;
         surface.pending.borrow_mut().consume_child(child, consume)
+    }
+
+    fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
+        self.surface.node_tray_item()
     }
 }
 
