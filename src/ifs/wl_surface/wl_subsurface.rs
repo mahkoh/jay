@@ -433,7 +433,7 @@ impl SurfaceExt for WlSubsurface {
     }
 
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
-        self.surface.node_tray_item()
+        self.parent.node_tray_item()
     }
 }
 
