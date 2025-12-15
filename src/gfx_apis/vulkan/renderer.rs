@@ -201,6 +201,7 @@ enum VulkanOp {
 
 struct VulkanTexOp {
     tex: Rc<VulkanImage>,
+    index: usize,
     range: Range<usize>,
     buffer_resv: Option<Rc<dyn BufferResv>>,
     acquire_sync: Option<AcquireSync>,
@@ -719,13 +720,13 @@ impl VulkanRenderer {
                     #[derive(Eq, PartialEq, PartialOrd, Ord)]
                     enum Key {
                         Fill { color: [u32; 4] },
-                        Tex,
+                        Tex(usize),
                     }
                     match o {
                         VulkanOp::Fill(f) => Key::Fill {
                             color: f.color.map(|c| c.to_bits()),
                         },
-                        VulkanOp::Tex(_) => Key::Tex,
+                        VulkanOp::Tex(t) => Key::Tex(t.index),
                     }
                 });
                 let mops = &mut memory.ops[pass];
@@ -765,7 +766,7 @@ impl VulkanRenderer {
                 }
             }
         };
-        for op in opts {
+        for (index, op) in opts.into_iter().enumerate() {
             match op {
                 GfxApiOpt::Sync => {
                     sync(memory);
@@ -874,6 +875,7 @@ impl VulkanRenderer {
                         );
                         ops.push(VulkanOp::Tex(VulkanTexOp {
                             tex: tex.clone(),
+                            index,
                             range: lo..hi,
                             buffer_resv: ct.buffer_resv.clone(),
                             acquire_sync: Some(ct.acquire_sync.clone()),
