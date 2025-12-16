@@ -340,8 +340,10 @@ impl Node for XdgPopup {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if usecase == FindTreeUsecase::SelectToplevel {
-            return FindTreeResult::Other;
+        match usecase {
+            FindTreeUsecase::None => {}
+            FindTreeUsecase::SelectToplevel => return FindTreeResult::Other,
+            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
     }

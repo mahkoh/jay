@@ -396,8 +396,10 @@ impl Node for Xwindow {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if usecase == FindTreeUsecase::SelectToplevel {
-            return FindTreeResult::AcceptsInput;
+        match usecase {
+            FindTreeUsecase::None => {}
+            FindTreeUsecase::SelectToplevel => return FindTreeResult::AcceptsInput,
+            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {

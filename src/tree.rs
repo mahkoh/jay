@@ -109,7 +109,7 @@ impl FindTreeResult {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone)]
 pub enum FindTreeUsecase {
     None,
     SelectToplevel,

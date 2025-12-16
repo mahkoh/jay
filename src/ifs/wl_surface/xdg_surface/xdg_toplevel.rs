@@ -598,8 +598,10 @@ impl Node for XdgToplevel {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if usecase == FindTreeUsecase::SelectToplevel {
-            return FindTreeResult::AcceptsInput;
+        match usecase {
+            FindTreeUsecase::None => {}
+            FindTreeUsecase::SelectToplevel => return FindTreeResult::AcceptsInput,
+            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
     }
