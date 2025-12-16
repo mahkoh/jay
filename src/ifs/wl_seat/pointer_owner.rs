@@ -10,7 +10,11 @@ use {
                 BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, DroppedDnd,
                 NodeSeatState, WlSeatError, WlSeatGlobal, wl_pointer::PendingScroll,
             },
-            wl_surface::{WlSurface, dnd_icon::DndIcon},
+            wl_surface::{
+                WlSurface,
+                dnd_icon::DndIcon,
+                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
+            },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         rect::Rect,
@@ -20,7 +24,7 @@ use {
             PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination, WorkspaceNode,
             WsMoveConfig, move_ws_to_output, toplevel_set_workspace,
         },
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
+        utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
     },
     linearize::LinearizeExt,
     std::{
@@ -944,7 +948,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
 }
 
 impl SimplePointerOwnerUsecase for WindowManagementUsecase {
-    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevel;
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevelOrPopup;
     const IS_DEFAULT: bool = false;
 
     fn default_button(
@@ -954,33 +958,42 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
         button: u32,
         pn: &Rc<dyn Node>,
     ) -> bool {
-        let Some(tl) = pn.clone().node_into_toplevel() else {
-            return false;
-        };
-        let pos = tl.node_absolute_position();
+        let pos = pn.node_absolute_position();
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
         let (mut dx, mut dy) = pos.translate(x, y);
         let owner: Rc<dyn PointerOwner> = if button == BTN_LEFT {
-            seat.pointer_cursor.set_known(KnownCursor::Move);
-            if tl.tl_data().is_fullscreen.get() {
-                Rc::new(ToplevelGrabPointerOwner {
-                    tl,
-                    usecase: MoveFullscreenToplevelGrabPointerOwner,
-                })
-            } else if tl.tl_data().float.is_none() {
-                Rc::new(ToplevelGrabPointerOwner {
-                    tl: tl.clone(),
-                    usecase: TileDragUsecase {
+            if let Some(tl) = pn.clone().node_into_toplevel() {
+                seat.pointer_cursor.set_known(KnownCursor::Move);
+                if tl.tl_data().is_fullscreen.get() {
+                    Rc::new(ToplevelGrabPointerOwner {
                         tl,
-                        destination: Default::default(),
-                    },
+                        usecase: MoveFullscreenToplevelGrabPointerOwner,
+                    })
+                } else if tl.tl_data().float.is_none() {
+                    Rc::new(ToplevelGrabPointerOwner {
+                        tl: tl.clone(),
+                        usecase: TileDragUsecase {
+                            tl,
+                            destination: Default::default(),
+                        },
+                    })
+                } else {
+                    Rc::new(ToplevelGrabPointerOwner {
+                        tl,
+                        usecase: MoveToplevelGrabPointerOwner { dx, dy },
+                    })
+                }
+            } else if let Some(popup) = pn.clone().node_into_popup() {
+                popup.add_interactive_move(seat);
+                seat.pointer_cursor.set_known(KnownCursor::Move);
+                Rc::new(PopupPointerOwner {
+                    popup,
+                    button,
+                    usecase: PopupPointerOwnerMoveUsecase { dx, dy },
                 })
             } else {
-                Rc::new(ToplevelGrabPointerOwner {
-                    tl,
-                    usecase: MoveToplevelGrabPointerOwner { dx, dy },
-                })
+                return false;
             }
         } else if button == BTN_RIGHT {
             let mut top = false;
@@ -1006,18 +1019,39 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
                 (true, false, false, true) => KnownCursor::NwResize,
                 _ => KnownCursor::Move,
             };
-            seat.pointer_cursor.set_known(cursor);
-            Rc::new(ToplevelGrabPointerOwner {
-                tl,
-                usecase: ResizeToplevelGrabPointerOwner {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                    dx,
-                    dy,
-                },
-            })
+            if let Some(tl) = pn.clone().node_into_toplevel() {
+                seat.pointer_cursor.set_known(cursor);
+                Rc::new(ToplevelGrabPointerOwner {
+                    tl,
+                    usecase: ResizeToplevelGrabPointerOwner {
+                        top,
+                        right,
+                        bottom,
+                        left,
+                        dx,
+                        dy,
+                    },
+                })
+            } else if let Some(popup) = pn.clone().node_into_popup() {
+                popup.add_interactive_move(seat);
+                seat.pointer_cursor.set_known(cursor);
+                Rc::new(PopupPointerOwner {
+                    popup,
+                    button,
+                    usecase: PopupPointerOwnerResizeUsecase {
+                        edges: ResizeEdges {
+                            top,
+                            left,
+                            right,
+                            bottom,
+                        },
+                        dx,
+                        dy,
+                    },
+                })
+            } else {
+                return false;
+            }
         } else {
             return false;
         };
@@ -1455,6 +1489,125 @@ impl UiDragUsecase for WorkspaceDragUsecase {
                 self.destination.set(Some(d));
                 Some(hl)
             }
+        }
+    }
+}
+
+struct PopupPointerOwner<T> {
+    popup: Rc<XdgPopup>,
+    button: u32,
+    usecase: T,
+}
+
+trait PopupPointerOwnerUsecase: Sized + 'static {
+    fn apply_changes(&self, popup: &Rc<XdgPopup>, seat: &Rc<WlSeatGlobal>);
+}
+
+impl<T> PopupPointerOwner<T>
+where
+    T: PopupPointerOwnerUsecase,
+{
+    fn revert_to_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        self.popup.remove_interactive_move(seat);
+        self.popup.node_seat_state().remove_pointer_grab(seat);
+        seat.pointer_cursor.set_known(KnownCursor::Default);
+        seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
+            usecase: WindowManagementUsecase,
+        }));
+        seat.changes.or_assign(CHANGE_CURSOR_MOVED);
+        seat.apply_changes();
+    }
+
+    fn revert_to_previous(&self, seat: &Rc<WlSeatGlobal>) {
+        self.revert_to_window_management(seat);
+    }
+}
+
+impl<T> PointerOwner for PopupPointerOwner<T>
+where
+    T: PopupPointerOwnerUsecase,
+{
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: ButtonState) {
+        if button != self.button || state != ButtonState::Released {
+            return;
+        }
+        self.revert_to_previous(seat);
+    }
+
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
+        if seat.changes.get().not_contains(CHANGE_CURSOR_MOVED) {
+            return;
+        }
+        self.usecase.apply_changes(&self.popup, seat);
+    }
+
+    fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        self.popup.remove_interactive_move(seat);
+        self.popup.node_seat_state().remove_pointer_grab(seat);
+        seat.pointer_owner.set_default_pointer_owner(seat);
+        seat.tree_changed.trigger();
+    }
+
+    fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        self.revert_to_previous(seat);
+    }
+
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        self.revert_to_default(seat);
+    }
+}
+
+struct PopupPointerOwnerMoveUsecase {
+    dx: i32,
+    dy: i32,
+}
+
+impl PopupPointerOwnerUsecase for PopupPointerOwnerMoveUsecase {
+    fn apply_changes(&self, popup: &Rc<XdgPopup>, seat: &Rc<WlSeatGlobal>) {
+        let (x, y) = seat.pointer_cursor.position();
+        let (x, y) = (x.round_down(), y.round_down());
+        let pos = popup.node_absolute_position();
+        let (x, y) = pos.translate(x, y);
+        if (x, y) != (self.dx, self.dy) {
+            popup.move_(x - self.dx, y - self.dy);
+            seat.tree_changed.trigger();
+        }
+    }
+}
+
+struct PopupPointerOwnerResizeUsecase {
+    edges: ResizeEdges,
+    dx: i32,
+    dy: i32,
+}
+
+impl PopupPointerOwnerUsecase for PopupPointerOwnerResizeUsecase {
+    fn apply_changes(&self, popup: &Rc<XdgPopup>, seat: &Rc<WlSeatGlobal>) {
+        let (x, y) = seat.pointer_cursor.position();
+        let (x, y) = (x.round_down(), y.round_down());
+        let pos = popup.node_absolute_position();
+        let (x, y) = pos.translate(x, y);
+        let mut dx1 = 0;
+        let mut dx2 = 0;
+        let mut dy1 = 0;
+        let mut dy2 = 0;
+        if self.edges.left {
+            dx1 = x - self.dx;
+            dx1 = dx1.min(pos.width().saturating_sub(1));
+        } else if self.edges.right {
+            dx2 = self.dx - (pos.width() - x);
+            dx2 = dx2.max(-pos.width().saturating_sub(1));
+        }
+        if self.edges.top {
+            dy1 = y - self.dy;
+            dy1 = dy1.min(pos.height().saturating_sub(1));
+        } else if self.edges.bottom {
+            dy2 = self.dy - (pos.height() - y);
+            dy2 = dy2.max(-pos.height().saturating_sub(1));
+        }
+        if dx1 != 0 || dx2 != 0 || dy1 != 0 || dy2 != 0 {
+            popup.resize(dx1, dy1, dx2, dy2);
+            seat.tree_changed.trigger();
         }
     }
 }

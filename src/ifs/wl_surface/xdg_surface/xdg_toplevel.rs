@@ -601,6 +601,7 @@ impl Node for XdgToplevel {
         match usecase {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::AcceptsInput,
+            FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::AcceptsInput,
             FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
@@ -832,3 +833,11 @@ pub enum XdgToplevelError {
     NonNegative,
 }
 efrom!(XdgToplevelError, ClientError);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct ResizeEdges {
+    pub top: bool,
+    pub left: bool,
+    pub right: bool,
+    pub bottom: bool,
+}

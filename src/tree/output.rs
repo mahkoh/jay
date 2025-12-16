@@ -1076,6 +1076,7 @@ impl OutputNode {
         match usecase {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::Other,
+            FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::Other,
             FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         let len = tree.len();
@@ -1639,6 +1640,7 @@ impl Node for OutputNode {
             let allow_surface = match usecase {
                 FindTreeUsecase::None => true,
                 FindTreeUsecase::SelectToplevel => false,
+                FindTreeUsecase::SelectToplevelOrPopup => false,
                 FindTreeUsecase::SelectWorkspace => false,
             };
             if allow_surface && let Some(ls) = self.lock_surface.get() {
@@ -1655,6 +1657,7 @@ impl Node for OutputNode {
         let select_workspace = match usecase {
             FindTreeUsecase::None => false,
             FindTreeUsecase::SelectToplevel => false,
+            FindTreeUsecase::SelectToplevelOrPopup => false,
             FindTreeUsecase::SelectWorkspace => true,
         };
         if select_workspace && ws_rect_rel.contains(x, y) {

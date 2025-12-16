@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
+            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
                 xdg_surface::{XdgSurface, XdgSurfaceExt},
@@ -22,7 +22,7 @@ use {
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, OutputNode, StackedNode,
         },
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::{XdgPopupId, xdg_popup::*},
     },
     std::{
@@ -65,6 +65,7 @@ pub struct XdgPopup {
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
     set_visible_prepared: Cell<bool>,
+    interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
 impl Debug for XdgPopup {
@@ -93,6 +94,7 @@ impl XdgPopup {
             tracker: Default::default(),
             seat_state: Default::default(),
             set_visible_prepared: Cell::new(false),
+            interactive_moves: Default::default(),
         })
     }
 
@@ -222,6 +224,43 @@ impl XdgPopup {
                 .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
         }
     }
+
+    fn set_relative_position(&self, rel: Rect) {
+        self.relative_position.set(rel);
+        self.update_absolute_position();
+        self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
+        self.xdg.schedule_configure();
+    }
+
+    pub fn move_(&self, dx: i32, dy: i32) {
+        let rel = self.relative_position.get().move_(dx, dy);
+        self.set_relative_position(rel);
+    }
+
+    pub fn resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
+        let rel = self.relative_position.get();
+        let rel = Rect::new(
+            rel.x1() + dx1,
+            rel.y1() + dy1,
+            rel.x2() + dx2,
+            rel.y2() + dy2,
+        );
+        let Some(rel) = rel else {
+            return;
+        };
+        if rel.is_empty() {
+            return;
+        }
+        self.set_relative_position(rel);
+    }
+
+    pub fn add_interactive_move(&self, seat: &Rc<WlSeatGlobal>) {
+        self.interactive_moves.insert(seat.id(), seat.clone());
+    }
+
+    pub fn remove_interactive_move(&self, seat: &Rc<WlSeatGlobal>) {
+        self.interactive_moves.remove(&seat.id());
+    }
 }
 
 impl XdgPopupRequestHandler for XdgPopup {
@@ -240,6 +279,9 @@ impl XdgPopupRequestHandler for XdgPopup {
 
     fn reposition(&self, req: Reposition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
+        while let Some((_, seat)) = self.interactive_moves.pop() {
+            seat.cancel_popup_move();
+        }
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
             let rel = self.relative_position.get();
@@ -343,6 +385,12 @@ impl Node for XdgPopup {
         match usecase {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::Other,
+            FindTreeUsecase::SelectToplevelOrPopup => {
+                let len = tree.len();
+                let res = self.xdg.find_tree_at(x, y, tree);
+                tree.truncate(len);
+                return res;
+            }
             FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
@@ -379,6 +427,10 @@ impl Node for XdgPopup {
         _y: Fixed,
     ) {
         tool.cursor().set_known(KnownCursor::Default)
+    }
+
+    fn node_into_popup(self: Rc<Self>) -> Option<Rc<XdgPopup>> {
+        Some(self)
     }
 }
 

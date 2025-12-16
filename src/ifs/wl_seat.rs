@@ -1146,6 +1146,10 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn cancel_popup_move(self: &Rc<Self>) {
+        self.pointer_owner.grab_node_removed(self);
+    }
+
     pub fn cancel_dnd(self: &Rc<Self>) {
         self.pointer_owner.cancel_dnd(self);
     }

@@ -399,6 +399,7 @@ impl Node for Xwindow {
         match usecase {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::AcceptsInput,
+            FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::AcceptsInput,
             FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         let rect = self.x.surface.buffer_abs_pos.get();

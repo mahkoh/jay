@@ -13,7 +13,10 @@ use {
                 },
                 wl_pointer::PendingScroll,
             },
-            wl_surface::{WlSurface, tray::TrayItemId, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1},
+            wl_surface::{
+                WlSurface, tray::TrayItemId, xdg_surface::xdg_popup::XdgPopup,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            },
         },
         keyboard::KeyboardState,
         rect::Rect,
@@ -113,6 +116,7 @@ impl FindTreeResult {
 pub enum FindTreeUsecase {
     None,
     SelectToplevel,
+    SelectToplevelOrPopup,
     SelectWorkspace,
 }
 
@@ -639,6 +643,10 @@ pub trait Node: 'static {
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        None
+    }
+
+    fn node_into_popup(self: Rc<Self>) -> Option<Rc<XdgPopup>> {
         None
     }
 
