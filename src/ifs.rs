@@ -22,6 +22,7 @@ pub mod jay_input;
 pub mod jay_log_file;
 pub mod jay_output;
 pub mod jay_pointer;
+pub mod jay_popup_ext_manager_v1;
 pub mod jay_randr;
 pub mod jay_reexec;
 pub mod jay_render_ctx;

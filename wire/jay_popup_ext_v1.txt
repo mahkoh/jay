@@ -1,0 +1,13 @@
+request destroy (destructor) {
+}
+
+request move {
+    seat: id(wl_seat),
+    serial: u32,
+}
+
+request resize {
+    seat: id(wl_seat),
+    serial: u32,
+    edges: u32,
+}

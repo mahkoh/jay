@@ -21,6 +21,7 @@ use {
             },
             jay_compositor::JayCompositorGlobal,
             jay_damage_tracking::JayDamageTrackingGlobal,
+            jay_popup_ext_manager_v1::JayPopupExtManagerV1Global,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
             wl_fixes::WlFixesGlobal,
@@ -231,6 +232,7 @@ impl Globals {
         add_singleton!(XdgToplevelTagManagerV1Global);
         add_singleton!(JayHeadManagerV1Global);
         add_singleton!(WpPointerWarpV1Global);
+        add_singleton!(JayPopupExtManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

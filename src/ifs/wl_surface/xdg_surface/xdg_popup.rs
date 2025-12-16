@@ -1,3 +1,5 @@
+pub mod jay_popup_ext_v1;
+
 use {
     crate::{
         client::{Client, ClientError},
@@ -7,7 +9,9 @@ use {
             wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
                 tray::TrayItemId,
-                xdg_surface::{XdgSurface, XdgSurfaceExt},
+                xdg_surface::{
+                    XdgSurface, XdgSurfaceExt, xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
+                },
             },
             xdg_positioner::{
                 CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
@@ -65,6 +69,7 @@ pub struct XdgPopup {
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
     set_visible_prepared: Cell<bool>,
+    jay_popup_ext: CloneCell<Option<Rc<JayPopupExtV1>>>,
     interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
@@ -94,6 +99,7 @@ impl XdgPopup {
             tracker: Default::default(),
             seat_state: Default::default(),
             set_visible_prepared: Cell::new(false),
+            jay_popup_ext: Default::default(),
             interactive_moves: Default::default(),
         })
     }
@@ -267,6 +273,9 @@ impl XdgPopupRequestHandler for XdgPopup {
     type Error = XdgPopupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self.jay_popup_ext.is_some() {
+            return Err(XdgPopupError::HasJayPopupExt);
+        }
         self.destroy_node();
         self.xdg.unset_ext();
         self.xdg.surface.client.remove_obj(self)?;
@@ -328,6 +337,7 @@ object_base! {
 
 impl Object for XdgPopup {
     fn break_loops(&self) {
+        self.jay_popup_ext.take();
         self.destroy_node();
     }
 }
@@ -518,5 +528,7 @@ pub enum XdgPopupError {
     Incomplete,
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("The popup still has a jay_popup_ext_v1 extension object")]
+    HasJayPopupExt,
 }
 efrom!(XdgPopupError, ClientError);

@@ -79,6 +79,11 @@ pub const SUSPENDED_SINCE: Version = Version(6);
 pub const TILED_SINCE: Version = Version(2);
 pub const CONSTRAINTS_SINCE: Version = Version(7);
 
+const RESIZE_EDGE_TOP: u32 = 1;
+const RESIZE_EDGE_BOTTOM: u32 = 2;
+const RESIZE_EDGE_LEFT: u32 = 4;
+const RESIZE_EDGE_RIGHT: u32 = 8;
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
     #[expect(dead_code)]
@@ -833,6 +838,18 @@ pub enum XdgToplevelError {
     NonNegative,
 }
 efrom!(XdgToplevelError, ClientError);
+
+pub fn map_resize_edges(edge: u32) -> Option<ResizeEdges> {
+    if !matches!(edge, 0 | 1 | 2 | 4 | 5 | 6 | 8 | 9 | 10) {
+        return None;
+    }
+    Some(ResizeEdges {
+        top: edge.contains(RESIZE_EDGE_TOP),
+        left: edge.contains(RESIZE_EDGE_LEFT),
+        right: edge.contains(RESIZE_EDGE_RIGHT),
+        bottom: edge.contains(RESIZE_EDGE_BOTTOM),
+    })
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ResizeEdges {

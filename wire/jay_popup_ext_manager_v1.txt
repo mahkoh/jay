@@ -1,0 +1,7 @@
+request destroy (destructor) {
+}
+
+request get_ext {
+    id: id(jay_popup_ext_v1) (new),
+    popup: id(xdg_popup),
+}

@@ -222,6 +222,22 @@ impl PointerOwnerHolder {
     pub fn start_workspace_drag(&self, seat: &Rc<WlSeatGlobal>, ws: &Rc<WorkspaceNode>) {
         self.owner.get().start_workspace_drag(seat, ws);
     }
+
+    pub fn start_popup_move(&self, seat: &Rc<WlSeatGlobal>, popup: &Rc<XdgPopup>, serial: u64) {
+        self.owner.get().start_popup_move(seat, popup, serial);
+    }
+
+    pub fn start_popup_resize(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        serial: u64,
+    ) {
+        self.owner
+            .get()
+            .start_popup_resize(seat, popup, edges, serial);
+    }
 }
 
 trait PointerOwner {
@@ -281,6 +297,25 @@ trait PointerOwner {
         let _ = seat;
         let _ = ws;
     }
+
+    fn start_popup_move(&self, seat: &Rc<WlSeatGlobal>, popup: &Rc<XdgPopup>, serial: u64) {
+        let _ = seat;
+        let _ = popup;
+        let _ = serial;
+    }
+
+    fn start_popup_resize(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        serial: u64,
+    ) {
+        let _ = seat;
+        let _ = popup;
+        let _ = edges;
+        let _ = serial;
+    }
 }
 
 struct SimplePointerOwner<T> {
@@ -289,7 +324,7 @@ struct SimplePointerOwner<T> {
 
 struct SimpleGrabPointerOwner<T> {
     usecase: T,
-    buttons: SmallMap<u32, (), 1>,
+    buttons: SmallMap<u32, u64, 1>,
     node: Rc<dyn Node>,
     serial: u64,
 }
@@ -338,7 +373,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
             .owner
             .set(Rc::new(SimpleGrabPointerOwner {
                 usecase: self.usecase.clone(),
-                buttons: SmallMap::new_with(button, ()),
+                buttons: SmallMap::new_with(button, serial),
                 node: pn.clone(),
                 serial,
             }));
@@ -439,8 +474,20 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
     }
 }
 
+impl<T: SimplePointerOwnerUsecase> SimpleGrabPointerOwner<T> {
+    fn find_button(&self, serial: u64) -> Option<u32> {
+        for (button, s) in self.buttons.iter() {
+            if s == serial {
+                return Some(button);
+            }
+        }
+        None
+    }
+}
+
 impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
+        let serial = seat.state.next_serial(self.node.node_client().as_deref());
         match state {
             ButtonState::Released => {
                 if self.buttons.remove(&button).is_none() {
@@ -454,12 +501,11 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
                 }
             }
             ButtonState::Pressed => {
-                if self.buttons.insert(button, ()).is_some() {
+                if self.buttons.insert(button, serial).is_some() {
                     return;
                 }
             }
         }
-        let serial = seat.state.next_serial(self.node.node_client().as_deref());
         seat.handle_node_button(self.node.clone(), time_usec, button, state, serial);
     }
 
@@ -511,6 +557,27 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
 
     fn start_workspace_drag(&self, seat: &Rc<WlSeatGlobal>, ws: &Rc<WorkspaceNode>) {
         self.usecase.start_workspace_drag(self, seat, ws);
+    }
+
+    fn start_popup_move(&self, seat: &Rc<WlSeatGlobal>, popup: &Rc<XdgPopup>, serial: u64) {
+        let Some(button) = self.find_button(serial) else {
+            return;
+        };
+        self.usecase.start_popup_move(self, seat, popup, button);
+    }
+
+    fn start_popup_resize(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        serial: u64,
+    ) {
+        let Some(button) = self.find_button(serial) else {
+            return;
+        };
+        self.usecase
+            .start_popup_resize(self, seat, popup, edges, button);
     }
 }
 
@@ -680,6 +747,34 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         let _ = seat;
         let _ = ws;
     }
+
+    fn start_popup_move(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        button: u32,
+    ) {
+        let _ = grab;
+        let _ = seat;
+        let _ = popup;
+        let _ = button;
+    }
+
+    fn start_popup_resize(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        button: u32,
+    ) {
+        let _ = grab;
+        let _ = seat;
+        let _ = popup;
+        let _ = edges;
+        let _ = button;
+    }
 }
 
 impl DefaultPointerUsecase {
@@ -705,6 +800,25 @@ impl DefaultPointerUsecase {
         let pointer_owner = Rc::new(UiDragPointerOwner { usecase });
         seat.pointer_owner.owner.set(pointer_owner.clone());
         pointer_owner.apply_changes(seat);
+    }
+
+    fn start_popup_usecase<U: PopupPointerOwnerUsecase>(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        button: u32,
+        usecase: U,
+    ) {
+        self.prepare_new_usecase(grab, seat);
+        seat.pointer_owner.owner.set(Rc::new(PopupPointerOwner {
+            popup: popup.clone(),
+            window_management: false,
+            button,
+            usecase,
+        }));
+        popup.node_seat_state().add_pointer_grab(seat);
+        popup.add_interactive_move(seat);
     }
 }
 
@@ -811,6 +925,65 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
                 destination: Default::default(),
             },
         );
+    }
+
+    fn start_popup_move(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        button: u32,
+    ) {
+        let (x, y) = seat.pointer_cursor.position();
+        let (dx, dy) = popup
+            .node_absolute_position()
+            .translate(x.round_down(), y.round_down());
+        self.start_popup_usecase(
+            grab,
+            seat,
+            popup,
+            button,
+            PopupPointerOwnerMoveUsecase { dx, dy },
+        );
+        seat.pointer_cursor.set_known(KnownCursor::Move);
+    }
+
+    fn start_popup_resize(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        button: u32,
+    ) {
+        let cursor = match (edges.top, edges.left, edges.right, edges.bottom) {
+            (true, false, false, false) => KnownCursor::NsResize,
+            (false, false, false, true) => KnownCursor::NsResize,
+            (false, true, false, false) => KnownCursor::EwResize,
+            (false, false, true, false) => KnownCursor::EwResize,
+            (true, true, false, false) => KnownCursor::NwseResize,
+            (false, false, true, true) => KnownCursor::NwseResize,
+            (false, true, false, true) => KnownCursor::NeswResize,
+            (true, false, true, false) => KnownCursor::NeswResize,
+            _ => return,
+        };
+        let (x, y) = seat.pointer_cursor.position();
+        let pos = popup.node_absolute_position();
+        let (mut dx, mut dy) = pos.translate(x.round_down(), y.round_down());
+        if edges.right {
+            dx = pos.width() - dx;
+        }
+        if edges.bottom {
+            dy = pos.height() - dy;
+        }
+        self.start_popup_usecase(
+            grab,
+            seat,
+            popup,
+            button,
+            PopupPointerOwnerResizeUsecase { edges, dx, dy },
+        );
+        seat.pointer_cursor.set_known(cursor);
     }
 }
 
@@ -989,6 +1162,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
                 seat.pointer_cursor.set_known(KnownCursor::Move);
                 Rc::new(PopupPointerOwner {
                     popup,
+                    window_management: true,
                     button,
                     usecase: PopupPointerOwnerMoveUsecase { dx, dy },
                 })
@@ -1037,6 +1211,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
                 seat.pointer_cursor.set_known(cursor);
                 Rc::new(PopupPointerOwner {
                     popup,
+                    window_management: true,
                     button,
                     usecase: PopupPointerOwnerResizeUsecase {
                         edges: ResizeEdges {
@@ -1495,6 +1670,7 @@ impl UiDragUsecase for WorkspaceDragUsecase {
 
 struct PopupPointerOwner<T> {
     popup: Rc<XdgPopup>,
+    window_management: bool,
     button: u32,
     usecase: T,
 }
@@ -1519,7 +1695,11 @@ where
     }
 
     fn revert_to_previous(&self, seat: &Rc<WlSeatGlobal>) {
-        self.revert_to_window_management(seat);
+        if self.window_management {
+            self.revert_to_window_management(seat);
+        } else {
+            self.revert_to_default(seat);
+        }
     }
 }
 
@@ -1553,7 +1733,9 @@ where
     }
 
     fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
-        self.revert_to_default(seat);
+        if self.window_management {
+            self.revert_to_default(seat);
+        }
     }
 }
 
