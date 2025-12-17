@@ -524,7 +524,9 @@ impl IoUringData {
     }
 
     fn cmsg_buf(&self) -> Buf {
-        self.cached_cmsg_bufs.pop().unwrap_or_else(|| Buf::new(256))
+        self.cached_cmsg_bufs
+            .pop()
+            .unwrap_or_else(|| Buf::new(1024))
     }
 }
 
