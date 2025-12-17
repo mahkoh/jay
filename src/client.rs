@@ -194,6 +194,7 @@ impl Clients {
             changed_properties: Default::default(),
             destroyed: Default::default(),
             acceptor: acceptor.clone(),
+            v2: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -321,6 +322,7 @@ pub struct Client {
     pub changed_properties: Cell<ClMatcherChange>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
     pub acceptor: Rc<AcceptorMetadata>,
+    pub v2: Cell<bool>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -444,7 +446,7 @@ impl Client {
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
-        let mut fmt = MsgFormatter::new(&mut swapchain.cur, &mut fds);
+        let mut fmt = MsgFormatter::new(&mut swapchain.cur, &mut fds, self.v2.get());
         event.format(&mut fmt);
         fmt.write_len();
         if swapchain.cur.is_full() {
