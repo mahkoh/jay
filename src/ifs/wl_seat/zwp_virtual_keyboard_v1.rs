@@ -32,7 +32,7 @@ pub struct ZwpVirtualKeyboardV1 {
 impl ZwpVirtualKeyboardV1 {
     fn for_each_kb<F>(&self, mut f: F)
     where
-        F: FnMut(u64, &WlSurface, &WlKeyboard),
+        F: FnMut(u64, &WlSurface, &Rc<WlKeyboard>),
     {
         let Some(surface) = self.seat.keyboard_node.get().node_into_surface() else {
             return;
