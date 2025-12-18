@@ -1,5 +1,4 @@
-request destroy {
-
+request destroy (destructor) {
 }
 
 request destroy_registry {

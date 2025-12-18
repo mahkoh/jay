@@ -1,16 +1,12 @@
-# requests
-
 request create_pool {
-    id: id(wl_shm_pool),
+    id: id(wl_shm_pool) (new),
     fd: fd,
     size: i32,
 }
 
-request release (since = 2) {
-}
-
-# events
-
 event format {
     format: u32,
+}
+
+request release (destructor, since = 2) {
 }

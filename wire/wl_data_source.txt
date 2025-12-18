@@ -1,18 +1,9 @@
-# requests
-
 request offer {
     mime_type: str,
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
-
-request set_actions (since = 3) {
-    dnd_actions: u32,
-}
-
-# events
 
 event target {
     mime_type: optstr,
@@ -24,15 +15,16 @@ event send {
 }
 
 event cancelled {
+}
 
+request set_actions (since = 3) {
+    dnd_actions: u32,
 }
 
 event dnd_drop_performed (since = 3) {
-
 }
 
 event dnd_finished (since = 3) {
-
 }
 
 event action (since = 3) {

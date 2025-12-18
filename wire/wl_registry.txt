@@ -1,13 +1,9 @@
-# requests
-
 request bind {
     name: u32,
     interface: str,
     version: u32,
     id: id(object),
 }
-
-# events
 
 event global {
     name: u32,

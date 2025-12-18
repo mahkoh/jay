@@ -1,7 +1,5 @@
-# requests
-
 request create_buffer {
-    id: id(wl_buffer),
+    id: id(wl_buffer) (new),
     offset: i32,
     width: i32,
     height: i32,
@@ -9,8 +7,7 @@ request create_buffer {
     format: u32,
 }
 
-request destroy {
-
+request destroy (destructor) {
 }
 
 request resize {

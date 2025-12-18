@@ -1,6 +1,4 @@
-# requests
-
-request destroy {
+request destroy (destructor) {
 }
 
 request attach {
@@ -17,7 +15,7 @@ request damage {
 }
 
 request frame {
-    callback: id(wl_callback),
+    callback: id(wl_callback) (new),
 }
 
 request set_opaque_region {
@@ -29,6 +27,14 @@ request set_input_region {
 }
 
 request commit {
+}
+
+event enter {
+    output: id(wl_output),
+}
+
+event leave {
+    output: id(wl_output),
 }
 
 request set_buffer_transform (since = 2) {
@@ -49,16 +55,6 @@ request damage_buffer (since = 4) {
 request offset (since = 5) {
     x: i32,
     y: i32,
-}
-
-# events
-
-event enter {
-    output: id(wl_output),
-}
-
-event leave {
-    output: id(wl_output),
 }
 
 event preferred_buffer_scale (since = 6) {
