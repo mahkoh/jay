@@ -1,17 +1,9 @@
-# requests
-
 request set_cursor {
     serial: u32,
     surface: id(wl_surface),
     hotspot_x: i32,
     hotspot_y: i32,
 }
-
-request release (since = 3) {
-
-}
-
-# events
 
 event enter {
     serial: u32,
@@ -44,8 +36,10 @@ event axis {
     value: fixed,
 }
 
-event frame (since = 5) {
+request release (destructor, since = 3) {
+}
 
+event frame (since = 5) {
 }
 
 event axis_source (since = 5) {

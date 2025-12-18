@@ -1,26 +1,22 @@
-# requests
-
-request get_pointer {
-    id: id(wl_pointer),
-}
-
-request get_keyboard {
-    id: id(wl_keyboard),
-}
-
-request get_touch {
-    id: id(wl_touch),
-}
-
-request release (since = 5) {
-}
-
-# events
-
 event capabilities {
     capabilities: u32,
 }
 
+request get_pointer {
+    id: id(wl_pointer) (new),
+}
+
+request get_keyboard {
+    id: id(wl_keyboard) (new),
+}
+
+request get_touch {
+    id: id(wl_touch) (new),
+}
+
 event name (since = 2) {
     name: str,
+}
+
+request release (destructor, since = 5) {
 }

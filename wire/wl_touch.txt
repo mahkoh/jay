@@ -1,11 +1,3 @@
-# requests
-
-request release (since = 3) {
-
-}
-
-# events
-
 event down {
     serial: u32,
     time: u32,
@@ -29,11 +21,12 @@ event motion {
 }
 
 event frame {
-
 }
 
 event cancel {
+}
 
+request release (destructor, since = 3) {
 }
 
 event shape (since = 6) {

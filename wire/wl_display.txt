@@ -1,14 +1,10 @@
-# requests
-
 request sync {
-    callback: id(wl_callback),
+    callback: id(wl_callback) (new),
 }
 
 request get_registry {
-    registry: id(wl_registry),
+    registry: id(wl_registry) (new),
 }
-
-# events
 
 event error {
     object_id: id(object),

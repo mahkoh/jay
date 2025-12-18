@@ -1,11 +1,8 @@
-# requests
-
-request destroy {
-
+request destroy (destructor) {
 }
 
 request get_subsurface {
-    id: id(wl_subsurface),
+    id: id(wl_subsurface) (new),
     surface: id(wl_surface),
     parent: id(wl_surface),
 }

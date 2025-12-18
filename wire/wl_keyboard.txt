@@ -1,11 +1,3 @@
-# requests
-
-request release (since = 3) {
-
-}
-
-# events
-
 event keymap {
     format: u32,
     fd: fd,
@@ -36,6 +28,9 @@ event modifiers {
     mods_latched: u32,
     mods_locked: u32,
     group: u32,
+}
+
+request release (destructor, since = 3) {
 }
 
 event repeat_info (since = 4) {

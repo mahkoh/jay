@@ -1,5 +1,3 @@
-# requests
-
 request start_drag {
     source: id(wl_data_source),
     origin: id(wl_surface),
@@ -12,14 +10,8 @@ request set_selection {
     serial: u32,
 }
 
-request release (since = 2) {
-
-}
-
-# events
-
 event data_offer {
-    id: id(wl_data_offer),
+    id: id(wl_data_offer) (new),
 }
 
 event enter {
@@ -31,7 +23,6 @@ event enter {
 }
 
 event leave {
-
 }
 
 event motion {
@@ -41,9 +32,11 @@ event motion {
 }
 
 event drop {
-
 }
 
 event selection {
     id: id(wl_data_offer),
+}
+
+request release (destructor, since = 2) {
 }

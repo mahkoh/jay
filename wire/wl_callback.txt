@@ -1,5 +1,3 @@
-# events
-
-event done {
+event done (destructor) {
     callback_data: u32,
 }
