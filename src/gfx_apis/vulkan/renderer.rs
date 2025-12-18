@@ -766,7 +766,7 @@ impl VulkanRenderer {
                 }
             }
         };
-        for (index, op) in opts.into_iter().enumerate() {
+        for (index, op) in opts.iter().enumerate() {
             match op {
                 GfxApiOpt::Sync => {
                     sync(memory);

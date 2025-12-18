@@ -3,7 +3,10 @@ use {
         client::{Client, ClientError},
         cmm::cmm_description::ColorDescription,
         ifs::{
-            color_management::wp_image_description_v1::WpImageDescriptionV1, wl_surface::WlSurface,
+            color_management::{
+                UNIQUE_CM_IDS_SINCE, wp_image_description_v1::WpImageDescriptionV1,
+            },
+            wl_surface::WlSurface,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -43,10 +46,18 @@ impl WpColorManagementSurfaceFeedbackV1 {
     }
 
     pub fn send_preferred_changed(&self, cd: &ColorDescription) {
-        self.client.event(PreferredChanged {
-            self_id: self.id,
-            identity: cd.id.raw() as u32,
-        });
+        let identity = cd.id.raw();
+        if self.version >= UNIQUE_CM_IDS_SINCE {
+            self.client.event(PreferredChanged2 {
+                self_id: self.id,
+                identity,
+            });
+        } else {
+            self.client.event(PreferredChanged {
+                self_id: self.id,
+                identity: identity as u32,
+            });
+        }
     }
 }
 

@@ -11,6 +11,7 @@ pub const EOTF_LOG316: u32 = 9;
 pub const EOTF_ST428: u32 = 10;
 pub const EOTF_POW: u32 = 11;
 pub const EOTF_GAMMA24: u32 = 12;
+pub const EOTF_COMPOUND_POWER_2_4: u32 = 13;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
 pub enum VulkanEotf {
@@ -25,6 +26,7 @@ pub enum VulkanEotf {
     Log316,
     St428,
     Pow,
+    CompoundPower24,
 }
 
 pub trait EotfExt: Sized {
@@ -54,6 +56,7 @@ impl EotfExt for Eotf {
             Log316,
             St428,
             Pow,
+            CompoundPower24,
         }
     }
 }
@@ -72,6 +75,7 @@ impl VulkanEotf {
             Self::Log316 => EOTF_LOG316,
             Self::St428 => EOTF_ST428,
             Self::Pow => EOTF_POW,
+            Self::CompoundPower24 => EOTF_COMPOUND_POWER_2_4,
         }
     }
 }

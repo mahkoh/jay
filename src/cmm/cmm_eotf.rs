@@ -13,6 +13,7 @@ pub enum Eotf {
     Log316,
     St428,
     Pow(EotfPow),
+    CompoundPower24,
 }
 
 const MUL: u32 = 10_000;

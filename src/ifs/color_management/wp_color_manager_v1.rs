@@ -4,8 +4,9 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             color_management::{
-                FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
-                FEATURE_SET_TF_POWER,
+                COMPOUND_POWER_2_4_SINCE, FEATURE_EXTENDED_TARGET_VOLUME,
+                FEATURE_SET_MASTERING_DISPLAY_PRIMARIES, FEATURE_SET_TF_POWER,
+                SRGB_DEPRECATED_SINCE, TRANSFER_FUNCTION_COMPOUND_POWER_2_4,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -90,10 +91,15 @@ impl WpColorManagerV1 {
         self.send_supported_tf_named(TRANSFER_FUNCTION_EXT_LINEAR);
         self.send_supported_tf_named(TRANSFER_FUNCTION_LOG_100);
         self.send_supported_tf_named(TRANSFER_FUNCTION_LOG_316);
-        self.send_supported_tf_named(TRANSFER_FUNCTION_SRGB);
-        self.send_supported_tf_named(TRANSFER_FUNCTION_EXT_SRGB);
+        if self.version < SRGB_DEPRECATED_SINCE {
+            self.send_supported_tf_named(TRANSFER_FUNCTION_SRGB);
+            self.send_supported_tf_named(TRANSFER_FUNCTION_EXT_SRGB);
+        }
         self.send_supported_tf_named(TRANSFER_FUNCTION_ST2084_PQ);
         self.send_supported_tf_named(TRANSFER_FUNCTION_ST428);
+        if self.version >= COMPOUND_POWER_2_4_SINCE {
+            self.send_supported_tf_named(TRANSFER_FUNCTION_COMPOUND_POWER_2_4);
+        }
         self.send_supported_primaries_named(PRIMARIES_SRGB);
         self.send_supported_primaries_named(PRIMARIES_PAL_M);
         self.send_supported_primaries_named(PRIMARIES_PAL);
@@ -249,6 +255,25 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         obj.send_ready();
         Ok(())
     }
+
+    fn get_image_description(
+        &self,
+        req: GetImageDescription,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let desc = self.client.lookup(req.reference)?;
+        let obj = Rc::new(WpImageDescriptionV1 {
+            id: req.image_description,
+            client: self.client.clone(),
+            version: self.version,
+            tracker: Default::default(),
+            description: Some(desc.description.clone()),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        obj.send_ready();
+        Ok(())
+    }
 }
 
 global_base!(
@@ -263,7 +288,7 @@ impl Global for WpColorManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn exposed(&self, state: &State) -> bool {

@@ -108,6 +108,13 @@ impl Color {
         fn gamma28(c: f32) -> f32 {
             c.signum() * c.abs().powf(2.8)
         }
+        fn compound_power_2_4(c: f32) -> f32 {
+            if c < 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
         macro_rules! convert {
             ($tf:ident) => {{
                 r = $tf(r);
@@ -135,6 +142,7 @@ impl Color {
                 let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
                 convert!(pow)
             }
+            Eotf::CompoundPower24 => convert!(compound_power_2_4),
         }
         Self { r, g, b, a: 1.0 }
     }
@@ -237,6 +245,13 @@ impl Color {
         fn gamma28(c: f32) -> f32 {
             c.signum() * c.abs().powf(1.0 / 2.8)
         }
+        fn compound_power_2_4(c: f32) -> f32 {
+            if c < 0.0031308 {
+                12.92 * c
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            }
+        }
         macro_rules! convert {
             ($tf:ident) => {{
                 for c in &mut res[..3] {
@@ -270,6 +285,7 @@ impl Color {
                     let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
                     convert!(pow)
                 }
+                Eotf::CompoundPower24 => convert!(compound_power_2_4),
             }
             if self.a < 1.0 {
                 for c in &mut res[..3] {
