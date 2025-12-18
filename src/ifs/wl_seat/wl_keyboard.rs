@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::KeyState,
-        client::ClientError,
+        client::{Client, ClientError},
         ifs::wl_seat::WlSeat,
         keyboard::{KeyboardError, KeyboardState, KeyboardStateId},
         leaks::Tracker,
@@ -30,6 +30,8 @@ pub const REPEATED: u32 = 2;
 
 pub struct WlKeyboard {
     id: WlKeyboardId,
+    client: Rc<Client>,
+    version: Version,
     seat: Rc<WlSeat>,
     kb_state_id: Cell<KeyboardStateId>,
     pressed_keys: RefCell<VecSet<u32>>,
@@ -40,6 +42,8 @@ impl WlKeyboard {
     pub fn new(id: WlKeyboardId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
+            client: seat.client.clone(),
+            version: seat.version,
             seat: seat.clone(),
             kb_state_id: Cell::new(KeyboardStateId::from_raw(0)),
             pressed_keys: Default::default(),
@@ -52,7 +56,7 @@ impl WlKeyboard {
     }
 
     fn send_kb_state(
-        &self,
+        self: &Rc<Self>,
         serial: u64,
         kb_state: &KeyboardState,
         surface_id: WlSurfaceId,
@@ -67,19 +71,19 @@ impl WlKeyboard {
         self.send_modifiers(serial, &kb_state.mods);
     }
 
-    fn send_keymap(&self, state: &KeyboardState) {
+    fn send_keymap(self: &Rc<Self>, state: &KeyboardState) {
         let fd = match self.seat.keymap_fd(state) {
             Ok(fd) => fd,
             Err(e) => {
                 log::error!(
                     "Could not creat a file descriptor to transfer the keymap to client {}: {}",
-                    self.seat.client.id,
+                    self.client.id,
                     ErrorFmt(e)
                 );
                 return;
             }
         };
-        self.seat.client.event(Keymap {
+        self.client.event(Keymap {
             self_id: self.id,
             format: XKB_V1,
             fd: fd.map,
@@ -87,7 +91,7 @@ impl WlKeyboard {
         });
     }
 
-    pub fn enter(&self, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
+    pub fn enter(self: &Rc<Self>, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
         if kb_state.id != self.kb_state_id.get() {
             self.send_kb_state(serial, kb_state, surface, false);
         } else {
@@ -96,30 +100,30 @@ impl WlKeyboard {
         }
     }
 
-    fn send_enter(&self, serial: u64, surface: WlSurfaceId, keys: &[u32]) {
+    fn send_enter(self: &Rc<Self>, serial: u64, surface: WlSurfaceId, keys: &[u32]) {
         {
             let pk = &mut self.pressed_keys.borrow_mut();
             pk.clear();
             pk.extend(keys);
         }
-        self.seat.client.event(Enter {
+        self.client.event(Enter {
             self_id: self.id,
             serial: serial as _,
             surface,
             keys,
-        })
+        });
     }
 
-    pub fn send_leave(&self, serial: u64, surface: WlSurfaceId) {
-        self.seat.client.event(Leave {
+    pub fn send_leave(self: &Rc<Self>, serial: u64, surface: WlSurfaceId) {
+        self.client.event(Leave {
             self_id: self.id,
             serial: serial as _,
             surface,
-        })
+        });
     }
 
     pub fn on_key(
-        &self,
+        self: &Rc<Self>,
         serial: u64,
         time: u32,
         key: u32,
@@ -133,8 +137,8 @@ impl WlKeyboard {
         self.send_key(serial, time, key, state);
     }
 
-    fn send_key(&self, serial: u64, time: u32, key: u32, state: KeyState) {
-        if state == KeyState::Repeated && self.seat.version < REPEATED_SINCE {
+    fn send_key(self: &Rc<Self>, serial: u64, time: u32, key: u32, state: KeyState) {
+        if state == KeyState::Repeated && self.version < REPEATED_SINCE {
             return;
         }
         {
@@ -157,7 +161,7 @@ impl WlKeyboard {
                 }
             }
         }
-        self.seat.client.event(Key {
+        self.client.event(Key {
             self_id: self.id,
             serial: serial as _,
             time,
@@ -167,10 +171,15 @@ impl WlKeyboard {
                 KeyState::Pressed => PRESSED,
                 KeyState::Repeated => REPEATED,
             },
-        })
+        });
     }
 
-    pub fn on_mods_changed(&self, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
+    pub fn on_mods_changed(
+        self: &Rc<Self>,
+        serial: u64,
+        surface: WlSurfaceId,
+        kb_state: &KeyboardState,
+    ) {
         if self.kb_state_id.get() != kb_state.id {
             self.send_kb_state(serial, kb_state, surface, true);
         } else {
@@ -178,27 +187,27 @@ impl WlKeyboard {
         }
     }
 
-    fn send_modifiers(&self, serial: u64, mods: &Components) {
-        self.seat.client.event(Modifiers {
+    fn send_modifiers(self: &Rc<Self>, serial: u64, mods: &Components) {
+        self.client.event(Modifiers {
             self_id: self.id,
             serial: serial as _,
             mods_depressed: mods.mods_pressed.0,
             mods_latched: mods.mods_latched.0,
             mods_locked: mods.mods_locked.0,
             group: mods.group.0,
-        })
+        });
     }
 
     pub fn send_repeat_info(self: &Rc<Self>, mut rate: i32, mut delay: i32) {
-        if self.seat.version >= REPEATED_SINCE {
+        if self.version >= REPEATED_SINCE {
             rate = 0;
             delay = 0;
         }
-        self.seat.client.event(RepeatInfo {
+        self.client.event(RepeatInfo {
             self_id: self.id,
             rate,
             delay,
-        })
+        });
     }
 }
 
@@ -214,7 +223,7 @@ impl WlKeyboardRequestHandler for WlKeyboard {
 
 object_base! {
     self = WlKeyboard;
-    version = self.seat.version;
+    version = self.version;
 }
 
 impl Object for WlKeyboard {}
