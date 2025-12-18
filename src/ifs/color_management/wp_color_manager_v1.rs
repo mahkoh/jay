@@ -4,8 +4,9 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             color_management::{
-                FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
-                FEATURE_SET_TF_POWER, SRGB_DEPRECATED_SINCE,
+                COMPOUND_POWER_2_4_SINCE, FEATURE_EXTENDED_TARGET_VOLUME,
+                FEATURE_SET_MASTERING_DISPLAY_PRIMARIES, FEATURE_SET_TF_POWER,
+                SRGB_DEPRECATED_SINCE, TRANSFER_FUNCTION_COMPOUND_POWER_2_4,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -96,6 +97,9 @@ impl WpColorManagerV1 {
         }
         self.send_supported_tf_named(TRANSFER_FUNCTION_ST2084_PQ);
         self.send_supported_tf_named(TRANSFER_FUNCTION_ST428);
+        if self.version >= COMPOUND_POWER_2_4_SINCE {
+            self.send_supported_tf_named(TRANSFER_FUNCTION_COMPOUND_POWER_2_4);
+        }
         self.send_supported_primaries_named(PRIMARIES_SRGB);
         self.send_supported_primaries_named(PRIMARIES_PAL_M);
         self.send_supported_primaries_named(PRIMARIES_PAL);
