@@ -37,3 +37,6 @@ event repeat_info (since = 4) {
     rate: i32,
     delay: i32,
 }
+
+event frame (since = 11) {
+}

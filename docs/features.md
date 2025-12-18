@@ -170,7 +170,7 @@ Jay supports the following wayland protocols:
 | wl_drm                                               | 2               |               |
 | wl_fixes                                             | 1               |               |
 | wl_output                                            | 4               |               |
-| wl_seat                                              | 10              |               |
+| wl_seat                                              | 11              |               |
 | wl_shm                                               | 2               |               |
 | wl_subcompositor                                     | 1               |               |
 | wp_alpha_modifier_v1                                 | 1               |               |
