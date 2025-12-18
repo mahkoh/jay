@@ -12,3 +12,7 @@ request get_preferred {
 request get_preferred_parametric {
     image_description: id(wp_image_description_v1) (new),
 }
+
+event preferred_changed2 (since = 2) {
+    identity: u64,
+}

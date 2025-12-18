@@ -7,7 +7,7 @@ use {
             cmm_primaries::{NamedPrimaries, Primaries},
         },
         ifs::color_management::{
-            MIN_LUM_MUL_INV, PRIMARIES_MUL_INV,
+            MIN_LUM_MUL_INV, PRIMARIES_MUL_INV, SRGB_DEPRECATED_SINCE,
             consts::{
                 PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020, PRIMARIES_CIE1931_XYZ, PRIMARIES_DCI_P3,
                 PRIMARIES_DISPLAY_P3, PRIMARIES_GENERIC_FILM, PRIMARIES_NTSC, PRIMARIES_PAL,
@@ -116,8 +116,8 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             TRANSFER_FUNCTION_EXT_LINEAR => Eotf::Linear,
             TRANSFER_FUNCTION_LOG_100 => Eotf::Log100,
             TRANSFER_FUNCTION_LOG_316 => Eotf::Log316,
-            TRANSFER_FUNCTION_SRGB => Eotf::Gamma22,
-            TRANSFER_FUNCTION_EXT_SRGB => Eotf::Gamma22,
+            TRANSFER_FUNCTION_SRGB if self.version < SRGB_DEPRECATED_SINCE => Eotf::Gamma22,
+            TRANSFER_FUNCTION_EXT_SRGB if self.version < SRGB_DEPRECATED_SINCE => Eotf::Gamma22,
             TRANSFER_FUNCTION_ST2084_PQ => Eotf::St2084Pq,
             TRANSFER_FUNCTION_ST428 => Eotf::St428,
             _ => {

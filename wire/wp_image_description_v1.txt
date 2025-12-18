@@ -13,3 +13,7 @@ event ready {
 request get_information {
     information: id(wp_image_description_info_v1) (new),
 }
+
+event ready2 (since = 2) {
+    identity: u64,
+}

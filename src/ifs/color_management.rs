@@ -1,3 +1,4 @@
+use crate::object::Version;
 pub use consts::*;
 
 pub mod wp_color_management_output_v1;
@@ -6,7 +7,11 @@ pub mod wp_color_manager_v1;
 pub mod wp_image_description_creator_icc_v1;
 pub mod wp_image_description_creator_params_v1;
 pub mod wp_image_description_info_v1;
+pub mod wp_image_description_reference_v1;
 pub mod wp_image_description_v1;
+
+const UNIQUE_CM_IDS_SINCE: Version = Version(2);
+const SRGB_DEPRECATED_SINCE: Version = Version(2);
 
 const PRIMARIES_MUL: f64 = 1_000_000.0;
 const PRIMARIES_MUL_INV: f64 = 1.0 / PRIMARIES_MUL;
@@ -55,6 +60,7 @@ mod consts {
     pub const TRANSFER_FUNCTION_ST2084_PQ: u32 = 11;
     pub const TRANSFER_FUNCTION_ST428: u32 = 12;
     pub const TRANSFER_FUNCTION_HLG: u32 = 13;
+    pub const TRANSFER_FUNCTION_COMPOUND_POWER_2_4: u32 = 14;
 
     pub const CAUSE_LOW_VERSION: u32 = 0;
     pub const CAUSE_UNSUPPORTED: u32 = 1;
