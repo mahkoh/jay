@@ -30,10 +30,13 @@ use {
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
             WorkspaceNode, default_tile_drag_destination,
         },
-        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
+        utils::{
+            bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt, numcell::NumCell,
+        },
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
-    ahash::{AHashMap, AHashSet},
+    ahash::AHashMap,
+    arrayvec::ArrayVec,
     jay_config::window::TileState,
     std::{
         cell::{Cell, RefCell},
@@ -44,7 +47,6 @@ use {
     thiserror::Error,
 };
 
-#[expect(dead_code)]
 const STATE_MAXIMIZED: u32 = 1;
 const STATE_FULLSCREEN: u32 = 2;
 #[expect(dead_code)]
@@ -60,6 +62,10 @@ const STATE_CONSTRAINED_RIGHT: u32 = 11;
 const STATE_CONSTRAINED_TOP: u32 = 12;
 const STATE_CONSTRAINED_BOTTOM: u32 = 13;
 
+const fn state_bits(state: u32) -> u32 {
+    1 << (state - 1)
+}
+
 #[expect(dead_code)]
 const CAP_WINDOW_MENU: u32 = 1;
 #[expect(dead_code)]
@@ -70,6 +76,7 @@ const CAP_MINIMIZE: u32 = 4;
 
 pub const WM_CAPABILITIES_SINCE: Version = Version(5);
 pub const SUSPENDED_SINCE: Version = Version(6);
+pub const TILED_SINCE: Version = Version(2);
 pub const CONSTRAINTS_SINCE: Version = Version(7);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -91,7 +98,7 @@ pub struct XdgToplevel {
     pub node_id: ToplevelNodeId,
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
-    states: RefCell<AHashSet<u32>>,
+    states: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
     min_width: Cell<Option<i32>>,
@@ -115,16 +122,20 @@ impl Debug for XdgToplevel {
 
 impl XdgToplevel {
     pub fn new(id: XdgToplevelId, surface: &Rc<XdgSurface>, slf: &Weak<Self>) -> Self {
-        let mut states = AHashSet::new();
-        states.insert(STATE_TILED_LEFT);
-        states.insert(STATE_TILED_RIGHT);
-        states.insert(STATE_TILED_TOP);
-        states.insert(STATE_TILED_BOTTOM);
+        let mut states = 0;
+        if surface.base.version >= TILED_SINCE {
+            states |= state_bits(STATE_TILED_LEFT);
+            states |= state_bits(STATE_TILED_RIGHT);
+            states |= state_bits(STATE_TILED_TOP);
+            states |= state_bits(STATE_TILED_BOTTOM);
+        } else {
+            states |= state_bits(STATE_MAXIMIZED);
+        }
         if surface.base.version >= CONSTRAINTS_SINCE {
-            states.insert(STATE_CONSTRAINED_LEFT);
-            states.insert(STATE_CONSTRAINED_RIGHT);
-            states.insert(STATE_CONSTRAINED_TOP);
-            states.insert(STATE_CONSTRAINED_BOTTOM);
+            states |= state_bits(STATE_CONSTRAINED_LEFT);
+            states |= state_bits(STATE_CONSTRAINED_RIGHT);
+            states |= state_bits(STATE_CONSTRAINED_TOP);
+            states |= state_bits(STATE_CONSTRAINED_BOTTOM);
         }
         let state = &surface.surface.client.state;
         let node_id = state.node_ids.next();
@@ -150,7 +161,7 @@ impl XdgToplevel {
             node_id,
             parent: Default::default(),
             children: RefCell::new(Default::default()),
-            states: RefCell::new(states),
+            states: NumCell::new(states),
             decoration: Cell::new(Decoration::Server),
             bugs: Cell::new(&bugs::NONE),
             min_width: Cell::new(None),
@@ -217,7 +228,13 @@ impl XdgToplevel {
     }
 
     fn send_configure(&self, width: i32, height: i32) {
-        let states: Vec<_> = self.states.borrow().iter().copied().collect();
+        let mut state_bits = self.states.get();
+        let mut states = ArrayVec::<u32, 32>::new();
+        while state_bits != 0 {
+            let ts = state_bits.trailing_zeros();
+            states.push(ts + 1);
+            state_bits &= !(1 << ts);
+        }
         self.xdg.surface.client.event(Configure {
             self_id: self.id,
             width,
@@ -341,7 +358,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn set_fullscreen(&self, req: SetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let client = &self.xdg.surface.client;
-        self.states.borrow_mut().insert(STATE_FULLSCREEN);
+        self.states.or_assign(state_bits(STATE_FULLSCREEN));
         'set_fullscreen: {
             let output = if req.output.is_some() {
                 match client.lookup(req.output)?.global.node() {
@@ -364,7 +381,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
     }
 
     fn unset_fullscreen(&self, _req: UnsetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.states.borrow_mut().remove(&STATE_FULLSCREEN);
+        self.states.and_assign(!state_bits(STATE_FULLSCREEN));
         self.toplevel_data
             .unset_fullscreen(&self.state, slf.clone());
         self.send_current_configure();
@@ -422,7 +439,7 @@ impl XdgToplevel {
 
     fn map_tiled(self: &Rc<Self>) {
         self.state.map_tiled(self.clone());
-        let fullscreen = self.states.borrow().contains(&STATE_FULLSCREEN);
+        let fullscreen = self.states.get().contains(state_bits(STATE_FULLSCREEN));
         if fullscreen && let Some(ws) = self.xdg.workspace.get() {
             self.toplevel_data
                 .set_fullscreen2(&self.state, self.clone(), &ws);
@@ -634,11 +651,12 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_set_active(&self, active: bool) {
         let changed = {
-            let mut states = self.states.borrow_mut();
+            let old = self.states.get();
             match active {
-                true => states.insert(STATE_ACTIVATED),
-                false => states.remove(&STATE_ACTIVATED),
+                true => self.states.or_assign(state_bits(STATE_ACTIVATED)),
+                false => self.states.and_assign(!state_bits(STATE_ACTIVATED)),
             }
+            old != self.states.get()
         };
         if changed {
             let rect = self.xdg.absolute_desired_extents.get();
@@ -680,9 +698,9 @@ impl ToplevelNodeBase for XdgToplevel {
         self.xdg.set_visible(visible);
         if self.xdg.base.version >= SUSPENDED_SINCE {
             if visible {
-                self.states.borrow_mut().remove(&STATE_SUSPENDED);
+                self.states.and_assign(!state_bits(STATE_SUSPENDED));
             } else {
-                self.states.borrow_mut().insert(STATE_SUSPENDED);
+                self.states.or_assign(state_bits(STATE_SUSPENDED));
             }
             self.send_current_configure();
         }
