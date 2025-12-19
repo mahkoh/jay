@@ -18,7 +18,7 @@ thread_local! {
 }
 
 pub fn install() {
-    log::set_logger(&Logger).unwrap();
+    let _ = log::set_logger(&Logger);
     log::set_max_level(LevelFilter::Info);
 }
 
