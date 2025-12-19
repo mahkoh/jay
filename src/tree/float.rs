@@ -26,6 +26,7 @@ use {
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
+    jay_config::theme::ShowTitles,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -169,6 +170,14 @@ impl FloatNode {
         }
     }
 
+    fn show_titles(&self) -> bool {
+        match self.state.theme.show_titles.get() {
+            ShowTitles::True => true,
+            ShowTitles::False => false,
+            ShowTitles::Auto => true,
+        }
+    }
+
     fn perform_layout(self: &Rc<Self>) {
         let child = match self.child.get() {
             Some(c) => c,
@@ -176,9 +185,16 @@ impl FloatNode {
         };
         let pos = self.position.get();
         let theme = &self.state.theme;
+        let show_titles = self.show_titles();
         let bw = theme.sizes.border_width.get();
-        let th = theme.title_height();
-        let tpuh = theme.title_plus_underline_height();
+        let th = match show_titles {
+            true => theme.title_height(),
+            false => 0,
+        };
+        let tpuh = match show_titles {
+            true => theme.title_plus_underline_height(),
+            false => 0,
+        };
         let cpos = Rect::new_sized(
             pos.x1() + bw,
             pos.y1() + bw + tpuh,
@@ -214,6 +230,9 @@ impl FloatNode {
         };
         let scales = self.state.scales.lock();
         let tr = self.title_rect.get();
+        if tr.height() == 0 {
+            return on_completed.event();
+        }
         let tt = &mut *self.title_textures.borrow_mut();
         for (scale, _) in scales.iter() {
             let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
@@ -249,7 +268,7 @@ impl FloatNode {
 
     fn render_title_phase2(&self) {
         let theme = &self.state.theme;
-        let th = theme.title_height();
+        let th = self.title_rect.get().height();
         let bw = theme.sizes.border_width.get();
         let title = self.title.borrow();
         let tt = &*self.title_textures.borrow();
@@ -278,7 +297,11 @@ impl FloatNode {
         let y = y.round_down();
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
-        let tpuh = theme.title_plus_underline_height();
+        let tpuh = if self.title_rect.get().height() > 0 {
+            theme.title_plus_underline_height()
+        } else {
+            0
+        };
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -439,7 +462,7 @@ impl FloatNode {
             return;
         }
         let bw = self.state.theme.sizes.border_width.get();
-        let th = self.state.theme.title_height();
+        let th = self.title_rect.get().height();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -554,7 +577,7 @@ impl FloatNode {
             _ => return,
         };
         let bw = self.state.theme.sizes.border_width.get();
-        let th = self.state.theme.title_height();
+        let th = self.title_rect.get().height();
         let mut is_icon_press = false;
         if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
             enum FloatIcon {
@@ -648,7 +671,11 @@ impl FloatNode {
         let child = self.child.get()?;
         let theme = &self.state.theme.sizes;
         let bw = theme.border_width.get();
-        let tpuh = self.state.theme.title_plus_underline_height();
+        let tpuh = if self.title_rect.get().height() > 0 {
+            self.state.theme.title_plus_underline_height()
+        } else {
+            0
+        };
         let pos = self.position.get();
         let body = Rect::new(
             pos.x1() + bw,

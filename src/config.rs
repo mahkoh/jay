@@ -280,7 +280,11 @@ impl ConfigProxy {
 
     pub fn configure(&self, reload: bool) {
         self.send(&ServerMessage::Features {
-            features: vec![ServerFeature::MOD_MASK, ServerFeature::SHOW_WORKSPACE_ON],
+            features: vec![
+                ServerFeature::MOD_MASK,
+                ServerFeature::SHOW_WORKSPACE_ON,
+                ServerFeature::SHOW_TITLES_V2,
+            ],
         });
         self.send(&ServerMessage::Configure { reload });
     }

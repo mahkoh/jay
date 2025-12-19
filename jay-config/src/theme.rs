@@ -185,6 +185,25 @@ pub enum BarPosition {
     Bottom,
 }
 
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub enum ShowTitles {
+    #[default]
+    True,
+    False,
+    /// Show titles only if there is more than one window in the container or if the window
+    /// is floating.
+    Auto,
+}
+
+impl From<bool> for ShowTitles {
+    fn from(b: bool) -> Self {
+        match b {
+            true => Self::True,
+            false => Self::False,
+        }
+    }
+}
+
 /// Sets the position of the bar.
 ///
 /// Default: `Top`.

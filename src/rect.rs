@@ -120,10 +120,7 @@ impl Rect {
     }
 
     pub fn new_sized(x1: i32, y1: i32, width: i32, height: i32) -> Option<Self> {
-        if width < 0 || height < 0 {
-            return None;
-        }
-        Self::new(x1, y1, x1 + width, y1 + height)
+        Self::new(x1, y1, x1 + width.max(0), y1 + height.max(0))
     }
 
     #[track_caller]

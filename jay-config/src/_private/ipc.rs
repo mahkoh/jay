@@ -9,7 +9,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, ShowTitles, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode,
@@ -31,6 +31,7 @@ impl ServerFeature {
     pub const NONE: Self = Self(0);
     pub const MOD_MASK: Self = Self(1);
     pub const SHOW_WORKSPACE_ON: Self = Self(2);
+    pub const SHOW_TITLES_V2: Self = Self(4);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -820,6 +821,10 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         use_native_gamut: bool,
     },
+    SetShowTitles2 {
+        show: ShowTitles,
+    },
+    GetShowTitles2,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1066,6 +1071,9 @@ pub enum Response {
     },
     GetBarPosition {
         position: BarPosition,
+    },
+    GetShowTitles2 {
+        show: ShowTitles,
     },
 }
 

@@ -48,7 +48,8 @@ use crate::input::Seat;
 
 use {
     crate::{
-        _private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector, window::Window,
+        _private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, theme::ShowTitles,
+        video::Connector, window::Window,
     },
     serde::{Deserialize, Serialize},
     std::{
@@ -346,19 +347,44 @@ pub fn toggle_show_bar() {
 /// Sets whether title bars on windows are shown.
 ///
 /// The default is `true`.
+///
+/// See also [`set_show_titles_v2`].
+#[deprecated(note = "use `set_show_titles_v2` instead")]
 pub fn set_show_titles(show: bool) {
     get!().set_show_titles(show)
 }
 
 /// Returns whether title bars on windows are shown.
+///
+/// See also [`get_show_titles_v2`].
+#[deprecated(note = "use `get_show_titles_v2` instead")]
 pub fn get_show_titles() -> bool {
     get!(true).get_show_titles()
 }
 
+/// Sets when title bars on windows are shown.
+///
+/// The default is `True`.
+pub fn set_show_titles_v2(show: impl Into<ShowTitles>) {
+    get!().set_show_titles_v2(show.into())
+}
+
+/// Returns when title bars on windows are shown.
+pub fn get_show_titles_v2() -> ShowTitles {
+    get!(ShowTitles::True).get_show_titles_v2()
+}
+
 /// Toggles whether title bars on windows are shown.
+///
+/// Toggles between `True` and `False`.
 pub fn toggle_show_titles() {
     let get = get!();
-    get.set_show_titles(!get.get_show_titles());
+    let current = get.get_show_titles_v2();
+    let new = match current {
+        ShowTitles::True => ShowTitles::False,
+        _ => ShowTitles::True,
+    };
+    get.set_show_titles_v2(new);
 }
 
 /// Sets a callback to run when this config is unloaded.

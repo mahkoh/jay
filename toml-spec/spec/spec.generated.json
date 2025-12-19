@@ -1042,8 +1042,8 @@
           "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
         },
         "show-titles": {
-          "type": "boolean",
-          "description": "Configures whether title bars on windows are shown.\n\nThe default is `true`.\n"
+          "description": "Configures when title bars on windows are shown.\n\nThe default is `true`.\n",
+          "$ref": "#/$defs/ShowTitles"
         },
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
@@ -1812,6 +1812,22 @@
         "delay"
       ]
     },
+    "ShowTitles": {
+      "description": "Configures when title bars on windows are shown.\n\n- Example:\n\n  ```toml\n  show-titles = \"auto\"\n  ```\n",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "If `true`, titles are always shown. If `false`, titles are never shown.\n"
+        },
+        {
+          "type": "string",
+          "description": "Configures when title bars on windows are shown.\n",
+          "enum": [
+            "auto"
+          ]
+        }
+      ]
+    },
     "SimpleActionName": {
       "type": "string",
       "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead fo the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `toggle-split`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
@@ -1862,6 +1878,7 @@
         "toggle-bar",
         "show-titles",
         "hide-titles",
+        "auto-titles",
         "toggle-titles",
         "focus-prev",
         "focus-next",

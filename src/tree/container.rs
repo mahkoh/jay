@@ -39,7 +39,7 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::Axis,
+    jay_config::{Axis, theme::ShowTitles},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -418,6 +418,30 @@ impl ContainerNode {
         self.schedule_compute_render_positions();
     }
 
+    fn show_titles(&self) -> bool {
+        match self.state.theme.show_titles.get() {
+            ShowTitles::True => true,
+            ShowTitles::False => false,
+            ShowTitles::Auto => self.num_children.get() > 1,
+        }
+    }
+
+    pub fn current_title_height(&self) -> i32 {
+        self.children
+            .first()
+            .map(|c| c.title_rect.get().height())
+            .unwrap_or(0)
+    }
+
+    fn current_title_plus_underline_height(&self) -> i32 {
+        let th = self.current_title_height();
+        if th > 0 {
+            self.state.theme.title_plus_underline_height()
+        } else {
+            0
+        }
+    }
+
     fn perform_mono_layout(self: &Rc<Self>, child: &ContainerChild) {
         let mb = self.mono_body.get();
         child
@@ -427,7 +451,10 @@ impl ContainerNode {
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
-        let th = self.state.theme.title_height();
+        let th = match self.show_titles() {
+            true => self.state.theme.title_height(),
+            false => 0,
+        };
         let bw = self.state.theme.sizes.border_width.get();
         let num_children = self.num_children.get() as i32;
         let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
@@ -450,8 +477,15 @@ impl ContainerNode {
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
         let border_width = self.state.theme.sizes.border_width.get();
-        let title_height_tmp = self.state.theme.title_height();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let show_titles = self.show_titles();
+        let th = match show_titles {
+            true => self.state.theme.title_height(),
+            false => 0,
+        };
+        let title_plus_underline_height = match show_titles {
+            true => self.state.theme.title_plus_underline_height(),
+            false => 0,
+        };
         let split = self.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (self.content_width.get(), self.content_height.get()),
@@ -539,7 +573,7 @@ impl ContainerNode {
                     body.x1(),
                     body.y1() - title_plus_underline_height,
                     body.width(),
-                    title_height_tmp,
+                    th,
                 )
                 .unwrap(),
             );
@@ -551,7 +585,10 @@ impl ContainerNode {
 
     fn update_content_size(&self) {
         let border_width = self.state.theme.sizes.border_width.get();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let title_plus_underline_height = match self.show_titles() {
+            true => self.state.theme.title_plus_underline_height(),
+            false => 0,
+        };
         let nc = self.num_children.get();
         match self.split.get() {
             ContainerSplit::Horizontal => {
@@ -595,7 +632,7 @@ impl ContainerNode {
     ) {
         let mut x = x.round_down();
         let mut y = y.round_down();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let title_plus_underline_height = self.current_title_plus_underline_height();
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -667,7 +704,7 @@ impl ContainerNode {
         let new_cursor = if self.mono_child.is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
-            if y < title_plus_underline_height {
+            if title_plus_underline_height > 0 && y < title_plus_underline_height {
                 KnownCursor::Default
             } else {
                 KnownCursor::EwResize
@@ -732,6 +769,9 @@ impl ContainerNode {
         let scales = self.state.scales.lock();
         for child in self.children.iter() {
             let rect = child.title_rect.get();
+            if rect.height() == 0 {
+                continue;
+            }
             let color = if child.active.get() {
                 theme.colors.focused_title_text.get()
             } else if child.attention_requested.get() {
@@ -813,9 +853,13 @@ impl ContainerNode {
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
-        let th = theme.title_height();
-        let tpuh = theme.title_plus_underline_height();
-        let tuh = theme.title_underline_height();
+        let th = self.current_title_height();
+        let tpuh = self.current_title_plus_underline_height();
+        let tuh = if th > 0 {
+            theme.title_underline_height()
+        } else {
+            0
+        };
         let bw = theme.sizes.border_width.get();
         let cwidth = self.width.get();
         let cheight = self.height.get();
@@ -1257,9 +1301,10 @@ impl ContainerNode {
             Some(s) => s,
             _ => return,
         };
+        let th = self.current_title_height();
         if button == BTN_RIGHT && pressed {
             if self.mono_child.is_some() || self.split.get() == ContainerSplit::Horizontal {
-                if seat_data.y < self.state.theme.title_height() {
+                if seat_data.y < th {
                     self.toggle_mono();
                 }
             } else {
@@ -1345,6 +1390,7 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
+        let th = self.current_title_height();
         let mut prev_is_source = false;
         let mut prev_center = 0;
         for child in self.children.iter() {
@@ -1376,14 +1422,9 @@ impl ContainerNode {
             return None;
         }
         let last = self.children.last()?;
-        let rect = Rect::new(
-            prev_center,
-            0,
-            self.width.get(),
-            self.state.theme.title_height(),
-        )?
-        .move_(self.abs_x1.get(), self.abs_y1.get())
-        .intersect(abs_bounds);
+        let rect = Rect::new(prev_center, 0, self.width.get(), th)?
+            .move_(self.abs_x1.get(), self.abs_y1.get())
+            .intersect(abs_bounds);
         if rect.contains(abs_x, abs_y) {
             return Some(TileDragDestination {
                 highlight: rect,
@@ -1405,7 +1446,7 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.title_height();
+        let th = self.current_title_height();
         if abs_y < self.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
@@ -1760,7 +1801,7 @@ impl Node for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.title_height() {
+        if seat_data.y > self.current_title_height() {
             return;
         }
         let cur_mc = match self.mono_child.get() {
@@ -2050,7 +2091,7 @@ impl ContainingNode for ContainerNode {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
-        let tpuh = self.state.theme.title_plus_underline_height();
+        let tpuh = self.current_title_plus_underline_height();
         if self.mono_child.is_some() {
             parent.cnode_set_child_position(&*self, x, y - tpuh);
         } else {
@@ -2073,7 +2114,7 @@ impl ContainingNode for ContainerNode {
         new_y2: Option<i32>,
     ) {
         let theme = &self.state.theme;
-        let tpuh = theme.title_plus_underline_height();
+        let tpuh = self.current_title_plus_underline_height();
         let bw = theme.sizes.border_width.get();
         let mut left_outside = false;
         let mut right_outside = false;
