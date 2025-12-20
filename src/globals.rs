@@ -7,7 +7,10 @@ use {
             ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
-            ext_image_copy::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global,
+            ext_image_copy::{
+                ext_image_capture_color_manager_v1::ExtImageCaptureColorManagerV1Global,
+                ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global,
+            },
             ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             head_management::jay_head_manager_v1::JayHeadManagerV1Global,
@@ -231,6 +234,7 @@ impl Globals {
         add_singleton!(XdgToplevelTagManagerV1Global);
         add_singleton!(JayHeadManagerV1Global);
         add_singleton!(WpPointerWarpV1Global);
+        add_singleton!(ExtImageCaptureColorManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

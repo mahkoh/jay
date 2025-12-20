@@ -66,6 +66,7 @@ impl ExtImageCopyCaptureFrameV1 {
         self.session.status.set(FrameStatus::Failed);
         self.session.presentation_listener.detach();
         self.session.buffer.take();
+        self.session.color_description.take();
         self.session.pending_download.take();
         self.session.force_capture.set(true);
     }
@@ -206,6 +207,10 @@ impl ExtImageCopyCaptureFrameV1 {
     ) {
         let transform = on.global.persistent.transform.get();
         let req_size = size.unwrap_or(transform.maybe_swap(texture.size()));
+        let target_cd = self.session.color_description.get();
+        let target_cd = target_cd
+            .as_ref()
+            .unwrap_or(self.client.state.color_manager.srgb_gamma22());
         self.copy(on, req_size, |fb, aq, re| {
             self.client.state.perform_screencopy(
                 texture,
@@ -217,7 +222,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 aq,
                 re,
                 jay_config::video::Transform::None,
-                self.client.state.color_manager.srgb_gamma22(),
+                target_cd,
                 on.global.pos.get(),
                 render_hardware_cursors,
                 x_off,
@@ -231,11 +236,15 @@ impl ExtImageCopyCaptureFrameV1 {
 
     pub(super) fn copy_node(self: &Rc<Self>, on: &OutputNode, node: &dyn Node, size: (i32, i32)) {
         let scale = on.global.persistent.scale.get();
+        let target_cd = self.session.color_description.get();
+        let target_cd = target_cd
+            .as_ref()
+            .unwrap_or(self.client.state.color_manager.srgb_gamma22());
         self.copy(on, size, |fb, aq, re| {
             fb.render_node(
                 aq,
                 re,
-                self.client.state.color_manager.srgb_gamma22(),
+                target_cd,
                 node,
                 &self.client.state,
                 Some(node.node_absolute_position()),
@@ -275,6 +284,15 @@ impl ExtImageCopyCaptureFrameV1 {
         self.client.event(Ready { self_id: self.id });
         self.session.status.set(FrameStatus::Ready);
     }
+
+    pub(super) fn set_color_description(
+        &self,
+        desc: &Rc<ColorDescription>,
+    ) -> Result<(), ExtImageCopyCaptureFrameV1Error> {
+        self.ensure_unused()?;
+        self.session.color_description.set(Some(desc.clone()));
+        Ok(())
+    }
 }
 
 impl ExtImageCopyCaptureFrameV1RequestHandler for ExtImageCopyCaptureFrameV1 {
@@ -291,6 +309,7 @@ impl ExtImageCopyCaptureFrameV1RequestHandler for ExtImageCopyCaptureFrameV1 {
         self.session.pending_download.take();
         self.session.status.set(FrameStatus::Unused);
         self.session.buffer.take();
+        self.session.color_description.take();
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -359,7 +378,11 @@ object_base! {
 
 impl Object for ExtImageCopyCaptureFrameV1 {}
 
-simple_add_obj!(ExtImageCopyCaptureFrameV1);
+dedicated_add_obj!(
+    ExtImageCopyCaptureFrameV1,
+    ExtImageCopyCaptureFrameV1Id,
+    image_capture_frames,
+);
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureFrameV1Error {

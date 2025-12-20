@@ -46,6 +46,7 @@ pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) size_debounce: Cell<bool>,
     pub(super) status: Cell<FrameStatus>,
     pub(super) buffer: CloneCell<Option<Rc<WlBuffer>>>,
+    pub(super) color_description: CloneCell<Option<Rc<ColorDescription>>>,
     pub(super) pending_download: Cell<Option<PendingShmTransfer>>,
     pub(super) presented: Cell<Option<(u64, u32)>>,
 }
@@ -74,6 +75,7 @@ impl ExtImageCopyCaptureSessionV1 {
             size_debounce: Default::default(),
             status: Cell::new(FrameStatus::Unused),
             buffer: Default::default(),
+            color_description: Default::default(),
             pending_download: Default::default(),
             presented: Default::default(),
         }
@@ -182,6 +184,7 @@ impl ExtImageCopyCaptureSessionV1 {
         self.latch_listener.detach();
         self.presentation_listener.detach();
         self.buffer.take();
+        self.color_description.take();
         self.pending_download.take();
         self.presented.take();
     }

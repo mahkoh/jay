@@ -34,6 +34,7 @@ use {
         },
         ifs::{
             color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
+            ext_image_capture_source_colors_v1::PreferredColorDescriptionListeners,
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_seat::{
@@ -350,6 +351,7 @@ pub struct WlSurface {
     color_management_feedback:
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
+    pub color_description_listeners: PreferredColorDescriptionListeners,
 }
 
 impl Debug for WlSurface {
@@ -704,6 +706,7 @@ impl WlSurface {
             color_management_surface: Default::default(),
             color_management_feedback: Default::default(),
             color_description: Default::default(),
+            color_description_listeners: Default::default(),
         }
     }
 
@@ -1191,6 +1194,8 @@ impl WlSurface {
         if let Some(desc) = pending.color_description.take() {
             color_description_changed = true;
             self.color_description.set(desc);
+            self.color_description_listeners
+                .changed(|| self.color_description());
         }
         let mut alpha_changed = false;
         if let Some(alpha) = pending.alpha_multiplier.take() {
