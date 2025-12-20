@@ -229,7 +229,7 @@ impl XdgPopupRequestHandler for XdgPopup {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
-        self.xdg.ext.set(None);
+        self.xdg.unset_ext();
         self.xdg.surface.client.remove_obj(self)?;
         Ok(())
     }

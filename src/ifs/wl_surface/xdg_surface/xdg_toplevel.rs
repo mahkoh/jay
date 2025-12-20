@@ -256,7 +256,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.tl_destroy();
-        self.xdg.ext.set(None);
+        self.xdg.unset_ext();
         {
             let mut children = self.children.borrow_mut();
             let parent = self.parent.get();

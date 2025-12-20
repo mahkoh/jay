@@ -906,6 +906,12 @@ impl WlSurface {
 
     fn unset_ext(&self) {
         self.ext.set(self.client.state.none_surface_ext.clone());
+        self.set_dummy_output();
+    }
+
+    fn set_dummy_output(&self) {
+        let dummy_output = self.client.state.dummy_output.get().unwrap();
+        self.set_output(&dummy_output, NodeLocation::Output(dummy_output.id));
     }
 
     fn calculate_extents(&self, propagate: bool) {
