@@ -433,6 +433,11 @@ impl XdgSurface {
             f(&popup.popup);
         }
     }
+
+    fn unset_ext(&self) {
+        self.ext.set(None);
+        self.surface.set_dummy_output();
+    }
 }
 
 impl XdgSurfaceRequestHandler for XdgSurface {
