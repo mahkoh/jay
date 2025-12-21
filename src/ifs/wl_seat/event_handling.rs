@@ -103,6 +103,14 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.id);
     }
 
+    pub fn pointer_inside(&self, seat: &WlSeatGlobal) -> bool {
+        self.pointer_foci.contains(&seat.id)
+    }
+
+    pub fn pointer_not_inside(&self, seat: &WlSeatGlobal) -> bool {
+        !self.pointer_inside(seat)
+    }
+
     pub fn disable_focus_history(&self) {
         self.no_focus_history.set(true);
     }

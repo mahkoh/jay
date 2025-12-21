@@ -69,7 +69,7 @@ use {
                 WlSurface,
                 dnd_icon::DndIcon,
                 tray::{DynTrayItem, TrayItemId},
-                xdg_surface::xdg_popup::XdgPopup,
+                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -1144,6 +1144,24 @@ impl WlSeatGlobal {
         if self.state.ui_drag_enabled.get() {
             self.pointer_owner.start_workspace_drag(self, ws);
         }
+    }
+
+    pub fn start_popup_move(self: &Rc<Self>, popup: &Rc<XdgPopup>, serial: u64) {
+        self.pointer_owner.start_popup_move(self, popup, serial);
+    }
+
+    pub fn start_popup_resize(
+        self: &Rc<Self>,
+        popup: &Rc<XdgPopup>,
+        edges: ResizeEdges,
+        serial: u64,
+    ) {
+        self.pointer_owner
+            .start_popup_resize(self, popup, edges, serial);
+    }
+
+    pub fn cancel_popup_move(self: &Rc<Self>) {
+        self.pointer_owner.grab_node_removed(self);
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {

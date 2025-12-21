@@ -1073,8 +1073,11 @@ impl OutputNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if usecase == FindTreeUsecase::SelectToplevel {
-            return FindTreeResult::Other;
+        match usecase {
+            FindTreeUsecase::None => {}
+            FindTreeUsecase::SelectToplevel => return FindTreeResult::Other,
+            FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::Other,
+            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
         }
         let len = tree.len();
         for layer in layers.iter().copied() {
@@ -1634,9 +1637,13 @@ impl Node for OutputNode {
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
         if self.state.lock.locked.get() {
-            if usecase != FindTreeUsecase::SelectToplevel
-                && let Some(ls) = self.lock_surface.get()
-            {
+            let allow_surface = match usecase {
+                FindTreeUsecase::None => true,
+                FindTreeUsecase::SelectToplevel => false,
+                FindTreeUsecase::SelectToplevelOrPopup => false,
+                FindTreeUsecase::SelectWorkspace => false,
+            };
+            if allow_surface && let Some(ls) = self.lock_surface.get() {
                 tree.push(FoundNode {
                     node: ls.clone(),
                     x,
@@ -1647,7 +1654,13 @@ impl Node for OutputNode {
             return FindTreeResult::AcceptsInput;
         }
         let ws_rect_rel = self.workspace_rect_rel.get();
-        if usecase == FindTreeUsecase::SelectWorkspace && ws_rect_rel.contains(x, y) {
+        let select_workspace = match usecase {
+            FindTreeUsecase::None => false,
+            FindTreeUsecase::SelectToplevel => false,
+            FindTreeUsecase::SelectToplevelOrPopup => false,
+            FindTreeUsecase::SelectWorkspace => true,
+        };
+        if select_workspace && ws_rect_rel.contains(x, y) {
             let (x, y) = ws_rect_rel.translate(x, y);
             if let Some(ws) = self.workspace.get() {
                 tree.push(FoundNode {
