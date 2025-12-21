@@ -25,7 +25,7 @@ use {
         },
         logging::LogLevel,
         tasks::{JoinHandle, JoinSlot},
-        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, ShowTitles, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode,
@@ -123,6 +123,7 @@ pub(crate) struct ConfigClient {
 
     feat_mod_mask: Cell<bool>,
     feat_show_workspace_on: Cell<bool>,
+    feat_show_titles_v2: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -268,6 +269,7 @@ pub unsafe extern "C" fn init(
         window_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
         feat_show_workspace_on: Cell::new(false),
+        feat_show_titles_v2: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -1014,6 +1016,24 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetShowTitles);
         get_response!(res, true, GetShowTitles { show });
         show
+    }
+
+    pub fn set_show_titles_v2(&self, show: ShowTitles) {
+        if self.feat_show_titles_v2.get() {
+            self.send(&ClientMessage::SetShowTitles2 { show });
+        } else {
+            self.set_show_titles(show != ShowTitles::False);
+        }
+    }
+
+    pub fn get_show_titles_v2(&self) -> ShowTitles {
+        if self.feat_show_titles_v2.get() {
+            let res = self.send_with_response(&ClientMessage::GetShowTitles2);
+            get_response!(res, ShowTitles::True, GetShowTitles2 { show });
+            show
+        } else {
+            self.get_show_titles().into()
+        }
     }
 
     pub fn set_bar_position(&self, position: BarPosition) {
@@ -2171,6 +2191,7 @@ impl ConfigClient {
                         ServerFeature::NONE => {}
                         ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
                         ServerFeature::SHOW_WORKSPACE_ON => self.feat_show_workspace_on.set(true),
+                        ServerFeature::SHOW_TITLES_V2 => self.feat_show_titles_v2.set(true),
                         _ => {}
                     }
                 }

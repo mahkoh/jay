@@ -2131,11 +2131,11 @@ The table has the following fields:
 
 - `show-titles` (optional):
 
-  Configures whether title bars on windows are shown.
+  Configures when title bars on windows are shown.
   
   The default is `true`.
 
-  The value of this field should be a boolean.
+  The value of this field should be a [ShowTitles](#types-ShowTitles).
 
 - `focus-history` (optional):
 
@@ -4009,6 +4009,36 @@ The table has the following fields:
   The numbers should be integers.
 
 
+<a name="types-ShowTitles"></a>
+### `ShowTitles`
+
+Configures when title bars on windows are shown.
+
+- Example:
+
+  ```toml
+  show-titles = "auto"
+  ```
+
+Values of this type should have one of the following forms:
+
+#### A boolean
+
+If `true`, titles are always shown. If `false`, titles are never shown.
+
+#### A string
+
+Configures when title bars on windows are shown.
+
+The string should have one of the following values:
+
+- `auto`:
+
+  Titles are only shown if there is more than one window in the container or if
+  the window is floating.
+
+
+
 <a name="types-SimpleActionName"></a>
 ### `SimpleActionName`
 
@@ -4265,6 +4295,10 @@ The string should have one of the following values:
 - `hide-titles`:
 
   Hides window titles.
+
+- `auto-titles`:
+
+  Sets window titles to auto mode.
 
 - `toggle-titles`:
 

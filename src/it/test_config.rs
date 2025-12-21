@@ -16,7 +16,10 @@ use {
         Axis, Direction,
         input::{InputDevice, Seat},
         keyboard::{Keymap, ModifiedKeySym},
-        theme::{BarPosition, sized::BAR_SEPARATOR_WIDTH},
+        theme::{
+            BarPosition, ShowTitles,
+            sized::{BAR_SEPARATOR_WIDTH, Resizable},
+        },
         video::{Connector, Transform},
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
@@ -303,11 +306,12 @@ impl TestConfig {
         })
     }
 
+    pub fn set_size(&self, sized: Resizable, size: i32) -> TestResult {
+        self.send(ClientMessage::SetSize { sized, size })
+    }
+
     pub fn set_bar_separator_width(&self, width: i32) -> TestResult {
-        self.send(ClientMessage::SetSize {
-            sized: BAR_SEPARATOR_WIDTH,
-            size: width,
-        })
+        self.set_size(BAR_SEPARATOR_WIDTH, width)
     }
 
     pub fn set_bar_position(&self, position: BarPosition) -> TestResult {
@@ -322,6 +326,25 @@ impl TestConfig {
         let reply = self.send_with_reply(ClientMessage::GetShowBar)?;
         get_response!(reply, GetShowBar { show });
         Ok(show)
+    }
+
+    pub fn set_show_titles_v2(&self, show: ShowTitles) -> TestResult {
+        self.send(ClientMessage::SetShowTitles2 { show })
+    }
+
+    pub fn get_show_titles_v2(&self) -> Result<ShowTitles, TestError> {
+        let reply = self.send_with_reply(ClientMessage::GetShowTitles2)?;
+        get_response!(reply, GetShowTitles2 { show });
+        Ok(show)
+    }
+
+    pub fn toggle_show_titles(&self) -> TestResult {
+        let current = self.get_show_titles_v2()?;
+        let new = match current {
+            ShowTitles::True => ShowTitles::False,
+            _ => ShowTitles::True,
+        };
+        self.set_show_titles_v2(new)
     }
 }
 

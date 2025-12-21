@@ -67,7 +67,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{BarPosition, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, ShowTitles, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
             BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
@@ -1392,12 +1392,23 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_titles(&self, show: bool) {
-        self.state.theme.show_titles.set(show);
+        self.state.theme.show_titles.set(show.into());
         self.spaces_change();
     }
 
     fn handle_get_show_titles(&self) {
         self.respond(Response::GetShowTitles {
+            show: self.state.theme.show_titles.get() != ShowTitles::False,
+        });
+    }
+
+    fn handle_set_show_titles2(&self, show: ShowTitles) {
+        self.state.theme.show_titles.set(show);
+        self.spaces_change();
+    }
+
+    fn handle_get_show_titles2(&self) {
+        self.respond(Response::GetShowTitles2 {
             show: self.state.theme.show_titles.get(),
         });
     }
@@ -3258,6 +3269,8 @@ impl ConfigProxyHandler {
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
             ClientMessage::GetShowTitles => self.handle_get_show_titles(),
+            ClientMessage::SetShowTitles2 { show } => self.handle_set_show_titles2(show),
+            ClientMessage::GetShowTitles2 => self.handle_get_show_titles2(),
             ClientMessage::SetBarPosition { position } => self.handle_set_bar_position(position),
             ClientMessage::GetBarPosition => self.handle_get_bar_position(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self

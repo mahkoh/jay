@@ -49,9 +49,40 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexMap,
+    jay_config::theme::ShowTitles,
     std::collections::HashSet,
     thiserror::Error,
 };
+
+pub struct ShowTitlesParser;
+
+#[derive(Debug, Error)]
+pub enum ShowTitlesParserError {
+    #[error(transparent)]
+    Expected(#[from] UnexpectedDataType),
+    #[error("Unknown show-titles mode: {0}")]
+    UnknownMode(String),
+}
+
+impl Parser for ShowTitlesParser {
+    type Value = ShowTitles;
+    type Error = ShowTitlesParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Boolean, DataType::String];
+
+    fn parse_bool(&mut self, _span: Span, b: bool) -> ParseResult<Self> {
+        Ok(b.into())
+    }
+
+    fn parse_string(&mut self, span: Span, s: &str) -> ParseResult<Self> {
+        match s {
+            "auto" => Ok(ShowTitles::Auto),
+            _ => Err(Spanned {
+                span,
+                value: ShowTitlesParserError::UnknownMode(s.to_string()),
+            }),
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ConfigParserError {
@@ -203,7 +234,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("workspace-display-order")),
                 recover(opt(bol("auto-reload"))),
                 opt(val("simple-im")),
-                recover(opt(bol("show-titles"))),
+                opt(val("show-titles")),
             ),
         ))?;
         let mut keymap = None;
@@ -524,6 +555,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut show_titles_parsed = None;
+        if let Some(value) = show_titles {
+            match value.parse(&mut ShowTitlesParser) {
+                Ok(v) => show_titles_parsed = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse show-titles setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -564,7 +604,7 @@ impl Parser for ConfigParser<'_> {
             pointer_revert_key,
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
-            show_titles: show_titles.despan(),
+            show_titles: show_titles_parsed,
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,

@@ -1036,6 +1036,8 @@ SimpleActionName:
       description: Shows window titles.
     - value: hide-titles
       description: Hides window titles.
+    - value: auto-titles
+      description: Sets window titles to auto mode.
     - value: toggle-titles
       description: Toggles window titles.
     - value: focus-prev
@@ -2902,10 +2904,10 @@ Config:
 
         The default is `true`.
     show-titles:
-      kind: boolean
+      ref: ShowTitles
       required: false
       description: |
-        Configures whether title bars on windows are shown.
+        Configures when title bars on windows are shown.
         
         The default is `true`.
     focus-history:
@@ -4351,3 +4353,27 @@ BarPosition:
       description: The bar is at the top of the output.
     - value: bottom
       description: The bar is at the bottom of the output.
+
+
+ShowTitles:
+  kind: variable
+  description: |
+    Configures when title bars on windows are shown.
+    
+    - Example:
+    
+      ```toml
+      show-titles = "auto"
+      ```
+  variants:
+    - kind: boolean
+      description: |
+        If `true`, titles are always shown. If `false`, titles are never shown.
+    - kind: string
+      description: |
+        Configures when title bars on windows are shown.
+      values:
+        - value: auto
+          description: |
+            Titles are only shown if there is more than one window in the container or if
+            the window is floating.
