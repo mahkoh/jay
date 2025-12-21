@@ -212,6 +212,10 @@ pub trait Node: 'static {
     fn node_location(&self) -> Option<NodeLocation>;
     fn node_layer(&self) -> NodeLayerLink;
 
+    fn node_output_id(&self) -> Option<OutputNodeId> {
+        self.node_output().map(|o| o.id)
+    }
+
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;
         let _ = title;
