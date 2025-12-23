@@ -217,7 +217,7 @@ impl NodeSeatState {
                 .set_kb_node(&seat, seat.state.root.clone(), seat.state.next_serial(None));
             // log::info!("keyboard_node = root");
             if focus_last {
-                seat.get_output()
+                seat.get_cursor_output()
                     .node_do_focus(&seat, Direction::Unspecified);
             }
         }

@@ -420,7 +420,7 @@ impl Seat {
     ///
     /// If no such workspace exists, `exists` returns `false` for the returned workspace.
     pub fn get_workspace(self) -> Workspace {
-        get!(Workspace(0)).get_seat_workspace(self)
+        get!(Workspace(0)).get_seat_cursor_workspace(self)
     }
 
     /// Returns the workspace that is currently active on the output that contains the seat's

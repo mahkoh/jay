@@ -372,7 +372,7 @@ pub enum ClientMessage<'a> {
     MakeRenderDevice {
         device: DrmDevice,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         seat: Seat,
     },
     SetDefaultWorkspaceCapture {
@@ -925,7 +925,7 @@ pub enum Response {
         width: i32,
         height: i32,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         workspace: Workspace,
     },
     GetDefaultWorkspaceCapture {

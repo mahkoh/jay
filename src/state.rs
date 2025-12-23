@@ -780,7 +780,7 @@ impl State {
     pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
-            .map(|s| s.get_output())
+            .map(|s| s.get_cursor_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap()
@@ -916,7 +916,7 @@ impl State {
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
             _ => {
-                let output = output.unwrap_or_else(|| seat.get_output());
+                let output = output.unwrap_or_else(|| seat.get_cursor_output());
                 if output.is_dummy {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
@@ -929,7 +929,7 @@ impl State {
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
         if let Some(seat) = self.seat_queue.last() {
-            let output = seat.get_output();
+            let output = seat.get_cursor_output();
             if !output.is_dummy {
                 return output.ensure_workspace();
             }

@@ -457,7 +457,7 @@ impl WlSeatGlobal {
         self.data_control_devices.remove(&device.id());
     }
 
-    pub fn get_output(&self) -> Rc<OutputNode> {
+    pub fn get_cursor_output(&self) -> Rc<OutputNode> {
         self.cursor_user_group.latest_output()
     }
 

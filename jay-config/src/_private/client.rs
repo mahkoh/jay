@@ -551,9 +551,9 @@ impl ConfigClient {
         connector
     }
 
-    pub fn get_seat_workspace(&self, seat: Seat) -> Workspace {
-        let res = self.send_with_response(&ClientMessage::GetSeatWorkspace { seat });
-        get_response!(res, Workspace(0), GetSeatWorkspace { workspace });
+    pub fn get_seat_cursor_workspace(&self, seat: Seat) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetSeatCursorWorkspace { seat });
+        get_response!(res, Workspace(0), GetSeatCursorWorkspace { workspace });
         workspace
     }
 
