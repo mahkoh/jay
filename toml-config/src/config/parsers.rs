@@ -21,6 +21,7 @@ mod drm_device;
 mod drm_device_match;
 mod env;
 pub mod exec;
+mod fallback_output_mode;
 pub mod float;
 pub mod focus_history;
 mod format;

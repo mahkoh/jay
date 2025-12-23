@@ -503,6 +503,13 @@ impl Seat {
         get!().set_focus_follows_mouse_mode(self, mode);
     }
 
+    /// Sets the fallback output mode.
+    ///
+    /// The default is `Cursor`.
+    pub fn set_fallback_output_mode(self, mode: FallbackOutputMode) {
+        get!().set_fallback_output_mode(self, mode);
+    }
+
     /// Enables or disable window management mode.
     ///
     /// In window management mode, floating windows can be moved by pressing the left
@@ -648,6 +655,19 @@ pub enum FocusFollowsMouseMode {
     /// The keyboard focus changes only when clicking on a window or the previously
     /// focused window becomes invisible.
     False,
+}
+
+/// Defines which output is used when no particular output is specified.
+///
+/// This configures where to place a newly opened window or workspace, what window to focus when a
+/// window is closed, which workspace is moved with [`Seat::move_to_output`], and similar actions.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FallbackOutputMode {
+    /// Use the output the cursor is on.
+    Cursor,
+    /// Use the output the focus is on (highlighted window).
+    Focus,
 }
 
 /// Returns all seats.

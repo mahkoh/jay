@@ -54,7 +54,7 @@ use {
         Axis, Direction, Workspace,
         client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -515,6 +515,16 @@ impl ConfigProxyHandler {
             FocusFollowsMouseMode::False => false,
         };
         seat.set_focus_follows_mouse(focus_follows_mouse);
+        Ok(())
+    }
+
+    fn handle_set_fallback_output_mode(
+        &self,
+        seat: Seat,
+        mode: FallbackOutputMode,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_fallback_output_mode(mode);
         Ok(())
     }
 
@@ -1056,7 +1066,7 @@ impl ConfigProxyHandler {
         let name = self.get_workspace(ws)?;
         let workspace = match self.state.workspaces.get(name.deref()) {
             Some(ws) => ws,
-            _ => seat.get_cursor_output().create_workspace(name.deref()),
+            _ => seat.get_fallback_output().create_workspace(name.deref()),
         };
         seat.set_workspace(&workspace);
         Ok(())
@@ -1112,11 +1122,12 @@ impl ConfigProxyHandler {
                 Some(ws) => ws,
                 _ => return Ok(()),
             },
-            WorkspaceSource::Seat(s) => match self.get_seat(s)?.get_cursor_output().workspace.get()
-            {
-                Some(ws) => ws,
-                _ => return Ok(()),
-            },
+            WorkspaceSource::Seat(s) => {
+                match self.get_seat(s)?.get_fallback_output().workspace.get() {
+                    Some(ws) => ws,
+                    _ => return Ok(()),
+                }
+            }
         };
         self.state.move_ws_to_output(&ws, &output);
         Ok(())
@@ -3355,6 +3366,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_keymap_from_names(rules, model, groups, options)
                 .wrn("keymap_from_names")?,
+            ClientMessage::SetFallbackOutputMode { seat, mode } => self
+                .handle_set_fallback_output_mode(seat, mode)
+                .wrn("set_fallback_output_mode")?,
         }
         Ok(())
     }

@@ -2218,6 +2218,20 @@ The table has the following fields:
 
   The value of this field should be a [SimpleIm](#types-SimpleIm).
 
+- `fallback-output-mode` (optional):
+
+  Sets the fallback output mode.
+  
+  The default is `cursor`.
+  
+  - Example:
+  
+    ```toml
+    fallback-output-mode = "focus"
+    ```
+
+  The value of this field should be a [FallbackOutputMode](#types-FallbackOutputMode).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2692,6 +2706,28 @@ The table has the following fields:
   The default is `false`.
 
   The value of this field should be a boolean.
+
+
+<a name="types-FallbackOutputMode"></a>
+### `FallbackOutputMode`
+
+Defines which output is used when no particular output is specified.
+
+This configures where to place a newly opened window or workspace, what window to focus when a
+window is closed, which workspace is moved with move-to-output, and similar actions.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `cursor`:
+
+  Use the output the cursor is on.
+
+- `focus`:
+
+  Use the output the focus is on (highlighted window).
+
 
 
 <a name="types-Float"></a>

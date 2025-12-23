@@ -106,7 +106,10 @@ use {
         wire_ei::EiSeatId,
     },
     ahash::AHashMap,
-    jay_config::keyboard::syms::{KeySym, SYM_Escape},
+    jay_config::{
+        input::FallbackOutputMode,
+        keyboard::syms::{KeySym, SYM_Escape},
+    },
     kbvm::Keycode,
     smallvec::SmallVec,
     std::{
@@ -226,6 +229,7 @@ pub struct WlSeatGlobal {
     input_method_grab: CloneCell<Option<Rc<dyn InputMethodKeyboardGrab>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
+    fallback_output_mode: Cell<FallbackOutputMode>,
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
     pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
@@ -325,6 +329,7 @@ impl WlSeatGlobal {
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
+            fallback_output_mode: Cell::new(FallbackOutputMode::Cursor),
             swipe_bindings: Default::default(),
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
@@ -467,6 +472,15 @@ impl WlSeatGlobal {
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
+    }
+
+    pub fn get_fallback_output(&self) -> Rc<OutputNode> {
+        if self.fallback_output_mode.get() == FallbackOutputMode::Focus
+            && let Some(output) = self.get_keyboard_output()
+        {
+            return output;
+        }
+        self.get_cursor_output()
     }
 
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -1391,6 +1405,10 @@ impl WlSeatGlobal {
 
     pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
         self.focus_follows_mouse.set(focus_follows_mouse);
+    }
+
+    pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
+        self.fallback_output_mode.set(fallback_output_mode);
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
