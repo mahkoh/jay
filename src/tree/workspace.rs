@@ -366,15 +366,21 @@ impl Node for WorkspaceNode {
             seat.focus_node(last);
         } else if let Some(container) = self.container.get() {
             container.node_do_focus(seat, direction);
-        } else if let Some(float) = self
+        } else if let Some(child) = self
             .stacked
             .rev_iter()
-            .find_map(|node| (*node).clone().node_into_float())
+            .filter_map(|node| (*node).clone().node_into_float())
+            .find_map(|float| float.child.get())
         {
-            if let Some(child) = float.child.get() {
-                child.node_do_focus(seat, direction);
-            }
+            child.node_do_focus(seat, direction);
+        } else {
+            seat.focus_node(self);
         }
+    }
+
+    fn node_active_changed(&self, _active: bool) {
+        let output = self.output.get();
+        self.state.damage(output.bar_separator_rect.get());
     }
 
     fn node_find_tree_at(

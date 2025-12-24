@@ -740,7 +740,16 @@ impl WlSeatGlobal {
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
-            _ => return,
+            _ => {
+                if let Some(ws) = self.keyboard_node.get().node_into_workspace()
+                    && let Some(target) = self
+                        .state
+                        .find_output_in_direction(&ws.output.get(), direction)
+                {
+                    target.take_keyboard_navigation_focus(self, direction);
+                }
+                return;
+            }
         };
         if direction == Direction::Down && tl.node_is_container() {
             tl.node_do_focus(self, direction);
@@ -762,6 +771,13 @@ impl WlSeatGlobal {
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
         let Some(tl) = kb_node.node_toplevel() else {
+            if let Some(ws) = self.keyboard_node.get().node_into_workspace()
+                && let Some(target) = self
+                    .state
+                    .find_output_in_direction(&ws.output.get(), direction)
+            {
+                self.state.move_ws_to_output(&ws, &target);
+            }
             return;
         };
         let data = tl.tl_data();
@@ -995,7 +1011,15 @@ impl WlSeatGlobal {
                 NodeLayer::Layer0 => handle_layer_shell(&output.layers[0]),
                 NodeLayer::Layer1 => handle_layer_shell(&output.layers[1]),
                 NodeLayer::Output => None,
-                NodeLayer::Workspace => None,
+                NodeLayer::Workspace => {
+                    if let Some(ws) = &ws
+                        && ws.container_visible()
+                    {
+                        self.focus_node(ws.clone());
+                        return;
+                    }
+                    None
+                }
                 NodeLayer::Tiled => ws
                     .as_ref()
                     .and_then(|w| w.container.get())

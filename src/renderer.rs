@@ -85,6 +85,7 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
+            let ws = output.workspace.get();
             if self.state.show_bar.get() {
                 let non_exclusive_rect_rel = output.non_exclusive_rect_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
@@ -109,7 +110,12 @@ impl Renderer<'_> {
                     self.base
                         .fill_boxes2(slice::from_ref(&aw.rect), &c, srgb, x, y);
                 }
-                let c = theme.colors.separator.get();
+                let mut c = theme.colors.separator.get();
+                if let Some(ws) = &ws
+                    && ws.seat_state.is_active()
+                {
+                    c = theme.colors.focused_title_background.get();
+                }
                 self.base
                     .fill_boxes2(slice::from_ref(&rd.bar_separator), &c, srgb, x, y);
                 let c = theme.colors.unfocused_title_background.get();
@@ -172,7 +178,7 @@ impl Renderer<'_> {
                     }
                 }
             }
-            if let Some(ws) = output.workspace.get() {
+            if let Some(ws) = &ws {
                 let ws_rect = output.workspace_rect_rel.get();
                 let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);

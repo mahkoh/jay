@@ -18,6 +18,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     win1.set_color(255, 0, 0, 255);
     win1.map2().await?;
     run.cfg.set_floating(ds.seat.id(), true)?;
+    client.sync().await;
 
     for i in ["1", "2"] {
         let (x, y) = win1.tl.server.node_absolute_position().position();
