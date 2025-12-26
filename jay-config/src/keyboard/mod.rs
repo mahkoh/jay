@@ -70,6 +70,15 @@ impl Keymap {
     }
 }
 
+/// An RMLVO group consisting of a layout and a variant.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Group<'a> {
+    /// The layout of the group.
+    pub layout: &'a str,
+    /// The variant of the group. Can be an empty string.
+    pub variant: &'a str,
+}
+
 /// Parses a keymap.
 ///
 /// The returned keymap can later be used to set the keymap of a seat. If the keymap cannot
@@ -108,4 +117,40 @@ impl Keymap {
 /// [wiki]: https://wiki.archlinux.org/title/X_keyboard_extension
 pub fn parse_keymap(keymap: &str) -> Keymap {
     get!(Keymap::INVALID).parse_keymap(keymap)
+}
+
+/// Creates a keymap from RMLVO names.
+///
+/// If a parameter is not given, a value from the environment or a default is used:
+///
+/// | name                   | default                |
+/// | ---------------------- | ---------------------- |
+/// | `XKB_DEFAULT_RULES`    | `evdev`                |
+/// | `XKB_DEFAULT_MODEL`    | `pc105`                |
+/// | `XKB_DEFAULT_LAYOUT`   | `us`                   |
+/// | `XKB_DEFAULT_VARIANTS` |                        |
+/// | `XKB_DEFAULT_OPTIONS`  |                        |
+///
+/// `XKB_DEFAULT_LAYOUT` and `XKB_DEFAULT_VARIANTS` are parsed into the `groups` parameter like this example:
+/// ```
+/// XKB_DEFAULT_LAYOUT = "us,il,ru,de,jp"
+/// XKB_DEFAULT_VARIANTS = ",,phonetic,neo"
+/// ```
+/// produces:
+/// ```
+/// [
+///     Group { layout: "us", variant: "" },
+///     Group { layout: "il", variant: "" },
+///     Group { layout: "ru", variant: "phonetic" },
+///     Group { layout: "de", variant: "neo" },
+///     Group { layout: "jp", variant: "" },
+/// ]
+/// ```
+pub fn keymap_from_names(
+    rules: Option<&str>,
+    model: Option<&str>,
+    groups: Option<&[Group<'_>]>,
+    options: Option<&[&str]>,
+) -> Keymap {
+    get!(Keymap::INVALID).keymap_from_names(rules, model, groups, options)
 }

@@ -7,7 +7,7 @@ use {
             FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
             acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
-        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
+        keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
         timer::Timer,
@@ -820,6 +820,12 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         use_native_gamut: bool,
     },
+    KeymapFromNames {
+        rules: Option<&'a str>,
+        model: Option<&'a str>,
+        groups: Option<Vec<Group<'a>>>,
+        options: Option<Vec<&'a str>>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1066,6 +1072,9 @@ pub enum Response {
     },
     GetBarPosition {
         position: BarPosition,
+    },
+    KeymapFromNames {
+        keymap: Keymap,
     },
 }
 

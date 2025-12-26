@@ -65,7 +65,7 @@ use {
                 CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE, ClickMethod,
             },
         },
-        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
+        keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         theme::{BarPosition, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
@@ -313,6 +313,39 @@ impl ConfigProxyHandler {
             Err(e) => (Keymap::INVALID, Err(CphError::ParseKeymapError(e))),
         };
         self.respond(Response::ParseKeymap { keymap });
+        res
+    }
+
+    fn handle_keymap_from_names(
+        &self,
+        rules: Option<&str>,
+        model: Option<&str>,
+        groups: Option<Vec<Group<'_>>>,
+        options: Option<Vec<&str>>,
+    ) -> Result<(), CphError> {
+        let kbvm_groups = groups.map(|groups| {
+            groups
+                .iter()
+                .map(|g| kbvm::xkb::rmlvo::Group {
+                    layout: g.layout,
+                    variant: g.variant,
+                })
+                .collect::<Vec<_>>()
+        });
+        let (keymap, res) = match self.state.kb_ctx.keymap_from_names(
+            rules,
+            model,
+            kbvm_groups.as_deref(),
+            options.as_deref(),
+        ) {
+            Ok(keymap) => {
+                let id = Keymap(self.id());
+                self.keymaps.set(id, keymap);
+                (id, Ok(()))
+            }
+            Err(e) => (Keymap::INVALID, Err(CphError::ParseKeymapError(e))),
+        };
+        self.respond(Response::KeymapFromNames { keymap });
         res
     }
 
@@ -3332,6 +3365,14 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_use_native_gamut(connector, use_native_gamut)
                 .wrn("connector_set_use_native_gamut")?,
+            ClientMessage::KeymapFromNames {
+                rules,
+                model,
+                groups,
+                options,
+            } => self
+                .handle_keymap_from_names(rules, model, groups, options)
+                .wrn("keymap_from_names")?,
         }
         Ok(())
     }
