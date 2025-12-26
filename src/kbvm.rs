@@ -92,6 +92,43 @@ impl KbvmContext {
             .ctx
             .keymap_from_bytes(WriteToLog, None, keymap)
             .map_err(KbvmError::CouldNotParseKeymap)?;
+        let id = KbvmMapId(*blake3::hash(keymap).as_bytes());
+        self.create_keymap(id, map)
+    }
+
+    pub fn keymap_from_names(
+        &self,
+        rules: Option<&str>,
+        model: Option<&str>,
+        groups: Option<&[xkb::rmlvo::Group<'_>]>,
+        options: Option<&[&str]>,
+    ) -> Result<Rc<KbvmMap>, KbvmError> {
+        let map = self
+            .ctx
+            .keymap_from_names(WriteToLog, rules, model, groups, options);
+        let mut hasher = blake3::Hasher::new();
+        if let Some(rules) = rules {
+            hasher.update(rules.as_bytes());
+        }
+        if let Some(model) = model {
+            hasher.update(model.as_bytes());
+        }
+        if let Some(groups) = groups {
+            for group in groups {
+                hasher.update(group.layout.as_bytes());
+                hasher.update(group.variant.as_bytes());
+            }
+        }
+        if let Some(options) = options {
+            for option in options {
+                hasher.update(option.as_bytes());
+            }
+        }
+        let id = KbvmMapId(*hasher.finalize().as_bytes());
+        self.create_keymap(id, map)
+    }
+
+    fn create_keymap(&self, id: KbvmMapId, map: Keymap) -> Result<Rc<KbvmMap>, KbvmError> {
         let mut has_indicators = false;
         let mut num_lock = None;
         let mut caps_lock = None;
@@ -111,7 +148,7 @@ impl KbvmContext {
         }
         let builder = map.to_builder();
         Ok(Rc::new(KbvmMap {
-            id: KbvmMapId(*blake3::hash(keymap).as_bytes()),
+            id,
             state_machine: builder.build_state_machine(),
             map: create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?,
             xwayland_map: create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?,

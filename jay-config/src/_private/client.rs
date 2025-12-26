@@ -19,7 +19,7 @@ use {
             acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
         },
         keyboard::{
-            Keymap,
+            Group, Keymap,
             mods::{Modifiers, RELEASE},
             syms::KeySym,
         },
@@ -1382,6 +1382,23 @@ impl ConfigClient {
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
         let res = self.send_with_response(&ClientMessage::ParseKeymap { keymap });
         get_response!(res, Keymap(0), ParseKeymap { keymap });
+        keymap
+    }
+
+    pub fn keymap_from_names(
+        &self,
+        rules: Option<&str>,
+        model: Option<&str>,
+        groups: Option<&[Group<'_>]>,
+        options: Option<&[&str]>,
+    ) -> Keymap {
+        let res = self.send_with_response(&ClientMessage::KeymapFromNames {
+            rules,
+            model,
+            groups: groups.map(|v| v.to_vec()),
+            options: options.map(|v| v.to_vec()),
+        });
+        get_response!(res, Keymap(0), KeymapFromNames { keymap });
         keymap
     }
 
