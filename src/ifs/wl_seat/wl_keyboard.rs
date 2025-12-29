@@ -60,14 +60,24 @@ impl WlKeyboard {
         serial: u64,
         kb_state: &KeyboardState,
         surface_id: WlSurfaceId,
-        send_leave: bool,
+        on_surface: bool,
     ) {
         self.kb_state_id.set(kb_state.id);
-        if send_leave {
-            self.send_leave(serial, surface_id);
+        let send_enter;
+        if on_surface {
+            if self.pressed_keys.borrow().is_empty() && kb_state.pressed_keys.is_empty() {
+                send_enter = false;
+            } else {
+                self.send_leave(serial, surface_id);
+                send_enter = true;
+            }
+        } else {
+            send_enter = true;
         }
         self.send_keymap(kb_state);
-        self.send_enter(serial, surface_id, &kb_state.pressed_keys);
+        if send_enter {
+            self.send_enter(serial, surface_id, &kb_state.pressed_keys);
+        }
         self.send_modifiers(serial, &kb_state.mods);
     }
 
