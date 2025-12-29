@@ -730,31 +730,7 @@ impl OutputNode {
     }
 
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
-        let ws = Rc::new(WorkspaceNode {
-            id: self.state.node_ids.next(),
-            state: self.state.clone(),
-            is_dummy: false,
-            output: CloneCell::new(self.clone()),
-            output_id: Cell::new(self.id),
-            position: Cell::new(Default::default()),
-            container: Default::default(),
-            stacked: Default::default(),
-            seat_state: Default::default(),
-            name: name.to_string(),
-            output_link: Default::default(),
-            visible: Cell::new(false),
-            fullscreen: Default::default(),
-            visible_on_desired_output: Cell::new(false),
-            desired_output: CloneCell::new(self.global.output_id.clone()),
-            jay_workspaces: Default::default(),
-            may_capture: self.state.default_workspace_capture.clone(),
-            has_capture: Cell::new(false),
-            title_texture: Default::default(),
-            attention_requests: Default::default(),
-            render_highlight: Default::default(),
-            ext_workspaces: Default::default(),
-            opt: Default::default(),
-        });
+        let ws = WorkspaceNode::new(self, name, false);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
