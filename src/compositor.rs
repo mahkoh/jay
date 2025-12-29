@@ -758,31 +758,8 @@ fn create_dummy_output(state: &Rc<State>) {
         pinned: Default::default(),
         tearing: Default::default(),
     });
-    let dummy_workspace = Rc::new(WorkspaceNode {
-        id: state.node_ids.next(),
-        state: state.clone(),
-        is_dummy: true,
-        output: CloneCell::new(dummy_output.clone()),
-        output_id: Cell::new(dummy_output.id),
-        position: Default::default(),
-        container: Default::default(),
-        stacked: Default::default(),
-        seat_state: Default::default(),
-        name: "dummy".to_string(),
-        output_link: Default::default(),
-        visible: Default::default(),
-        fullscreen: Default::default(),
-        visible_on_desired_output: Default::default(),
-        desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
-        jay_workspaces: Default::default(),
-        may_capture: Cell::new(false),
-        has_capture: Cell::new(false),
-        title_texture: Default::default(),
-        attention_requests: Default::default(),
-        render_highlight: Default::default(),
-        ext_workspaces: Default::default(),
-        opt: Default::default(),
-    });
+    let dummy_workspace = WorkspaceNode::new(&dummy_output, "dummy", true);
+    dummy_workspace.may_capture.set(false);
     *dummy_workspace.output_link.borrow_mut() =
         Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
     dummy_output.show_workspace(&dummy_workspace);

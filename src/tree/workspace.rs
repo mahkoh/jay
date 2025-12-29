@@ -73,6 +73,34 @@ pub struct WorkspaceNode {
 }
 
 impl WorkspaceNode {
+    pub fn new(output: &Rc<OutputNode>, name: &str, is_dummy: bool) -> Rc<Self> {
+        Rc::new(Self {
+            id: output.state.node_ids.next(),
+            state: output.state.clone(),
+            is_dummy,
+            output: CloneCell::new(output.clone()),
+            output_id: Cell::new(output.id),
+            position: Default::default(),
+            container: Default::default(),
+            stacked: Default::default(),
+            seat_state: Default::default(),
+            name: name.to_string(),
+            output_link: Default::default(),
+            visible: Default::default(),
+            fullscreen: Default::default(),
+            visible_on_desired_output: Default::default(),
+            desired_output: CloneCell::new(output.global.output_id.clone()),
+            jay_workspaces: Default::default(),
+            may_capture: output.state.default_workspace_capture.clone(),
+            has_capture: Default::default(),
+            title_texture: Default::default(),
+            attention_requests: Default::default(),
+            render_highlight: Default::default(),
+            ext_workspaces: Default::default(),
+            opt: Default::default(),
+        })
+    }
+
     pub fn clear(&self) {
         self.container.set(None);
         *self.output_link.borrow_mut() = None;
