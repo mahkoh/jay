@@ -66,6 +66,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
+        input::FallbackOutputMode,
         theme::BarPosition,
         video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
         workspace::WorkspaceDisplayOrder,
@@ -1495,6 +1496,8 @@ impl OutputNode {
             if c.node_visible() {
                 c.node_do_focus(seat, direction);
             }
+        } else if seat.fallback_output_mode() == FallbackOutputMode::Focus {
+            seat.focus_node(ws);
         }
     }
 }
