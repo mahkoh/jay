@@ -74,6 +74,7 @@ pub struct WlPointer {
     pub seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
     last_motion: Cell<(Fixed, Fixed)>,
+    pub v120_accumulator: [Cell<i32>; 2],
 }
 
 impl WlPointer {
@@ -83,6 +84,7 @@ impl WlPointer {
             seat: seat.clone(),
             tracker: Default::default(),
             last_motion: Default::default(),
+            v120_accumulator: Default::default(),
         }
     }
 
