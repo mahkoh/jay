@@ -77,6 +77,8 @@ pub enum SeatCommand {
     SetRepeatRate(SetRepeatRateArgs),
     /// Set the keymap.
     SetKeymap(SetKeymapArgs),
+    /// Set the keymap from RMLVO names.
+    SetKeymapFromNames(SetKeymapFromNamesArgs),
     /// Retrieve the keymap.
     Keymap,
     /// Configure whether this seat uses the hardware cursor.
@@ -145,6 +147,8 @@ pub enum DeviceCommand {
     SetTransformMatrix(SetTransformMatrixArgs),
     /// Set the keymap of this device.
     SetKeymap(SetKeymapArgs),
+    /// Set the keymap of this device from RMLVO names.
+    SetKeymapFromNames(SetKeymapFromNamesArgs),
     /// Retrieve the keymap of this device.
     Keymap,
     /// Attach the device to a seat.
@@ -291,6 +295,25 @@ pub struct SetKeymapArgs {
     /// The file to read the keymap from. Omit for stdin.
     #[clap(value_hint = ValueHint::FilePath)]
     pub file: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetKeymapFromNamesArgs {
+    /// The rules file.
+    #[clap(short, long)]
+    pub rules: Option<String>,
+    /// The model name.
+    #[clap(short, long)]
+    pub model: Option<String>,
+    /// The comma-separated list of layouts.
+    #[clap(short, long)]
+    pub layout: Option<String>,
+    /// The comma-separated list of layout variants.
+    #[clap(short, long)]
+    pub variant: Option<String>,
+    /// The comma-separated list of options.
+    #[clap(short, long)]
+    pub options: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -503,6 +526,20 @@ impl Input {
                     });
                 }
             },
+            SeatCommand::SetKeymapFromNames(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set keymap: {}", e);
+                });
+                tc.send(jay_input::SetKeymapFromNames {
+                    self_id: input,
+                    seat: &args.seat,
+                    rules: a.rules.as_deref(),
+                    model: a.model.as_deref(),
+                    layout: a.layout.as_deref(),
+                    variant: a.variant.as_deref(),
+                    options: a.options.as_deref(),
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -723,6 +760,20 @@ impl Input {
                     self_id: input,
                     id: args.device,
                     enabled: a.middle_button_emulation as _,
+                });
+            }
+            DeviceCommand::SetKeymapFromNames(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set keymap: {}", e);
+                });
+                tc.send(jay_input::SetDeviceKeymapFromNames {
+                    self_id: input,
+                    id: args.device,
+                    rules: a.rules.as_deref(),
+                    model: a.model.as_deref(),
+                    layout: a.layout.as_deref(),
+                    variant: a.variant.as_deref(),
+                    options: a.options.as_deref(),
                 });
             }
         }
