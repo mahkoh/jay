@@ -16,6 +16,7 @@ use {
         utils::errorfmt::ErrorFmt,
         wire::{JayInputId, jay_input::*},
     },
+    kbvm::xkb::rmlvo::Group,
     std::rc::Rc,
     thiserror::Error,
     uapi::OwnedFd,
@@ -209,6 +210,44 @@ impl JayInput {
         self.or_error(|| {
             let map = self.client.state.kb_ctx.parse_keymap(&map)?;
             f(&map)?;
+            Ok(())
+        })
+    }
+
+    fn set_keymap_from_names_impl<F>(
+        &self,
+        rules: Option<&str>,
+        model: Option<&str>,
+        layout: Option<&str>,
+        variant: Option<&str>,
+        options: Option<&str>,
+        f: F,
+    ) -> Result<(), JayInputError>
+    where
+        F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
+    {
+        self.or_error(|| {
+            let mut groups = None::<Vec<_>>;
+            if layout.is_some() || variant.is_some() {
+                groups = Some(
+                    Group::from_layouts_and_variants(
+                        layout.unwrap_or_default(),
+                        variant.unwrap_or_default(),
+                    )
+                    .collect(),
+                );
+            }
+            let mut options_vec = None::<Vec<_>>;
+            if let Some(options) = options {
+                options_vec = Some(options.split(",").collect());
+            }
+            let keymap = self.client.state.kb_ctx.keymap_from_names(
+                rules,
+                model,
+                groups.as_deref(),
+                options_vec.as_deref(),
+            )?;
+            f(&keymap)?;
             Ok(())
         })
     }
@@ -538,6 +577,44 @@ impl JayInputRequestHandler for JayInput {
             seat.reload_simple_im();
             Ok(())
         })
+    }
+
+    fn set_keymap_from_names(
+        &self,
+        req: SetKeymapFromNames<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.set_keymap_from_names_impl(
+            req.rules,
+            req.model,
+            req.layout,
+            req.variant,
+            req.options,
+            |map| {
+                let seat = self.seat(req.seat)?;
+                seat.set_seat_keymap(&map);
+                Ok(())
+            },
+        )
+    }
+
+    fn set_device_keymap_from_names(
+        &self,
+        req: SetDeviceKeymapFromNames<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.set_keymap_from_names_impl(
+            req.rules,
+            req.model,
+            req.layout,
+            req.variant,
+            req.options,
+            |map| {
+                let dev = self.device(req.id)?;
+                dev.set_keymap(Some(map.clone()));
+                Ok(())
+            },
+        )
     }
 }
 

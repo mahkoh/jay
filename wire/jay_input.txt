@@ -143,6 +143,24 @@ request reload_simple_im (since = 22) {
     seat: str,
 }
 
+request set_keymap_from_names (since = 24) {
+    seat: str,
+    rules: optstr,
+    model: optstr,
+    layout: optstr,
+    variant: optstr,
+    options: optstr,
+}
+
+request set_device_keymap_from_names (since = 24) {
+    id: u32,
+    rules: optstr,
+    model: optstr,
+    layout: optstr,
+    variant: optstr,
+    options: optstr,
+}
+
 # events
 
 event seat {
