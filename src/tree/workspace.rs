@@ -74,7 +74,7 @@ pub struct WorkspaceNode {
 
 impl WorkspaceNode {
     pub fn new(output: &Rc<OutputNode>, name: &str, is_dummy: bool) -> Rc<Self> {
-        Rc::new(Self {
+        let slf = Rc::new(Self {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
             is_dummy,
@@ -98,7 +98,9 @@ impl WorkspaceNode {
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
             opt: Default::default(),
-        })
+        });
+        slf.seat_state.disable_focus_history();
+        slf
     }
 
     pub fn clear(&self) {
