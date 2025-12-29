@@ -632,7 +632,7 @@ impl CpuJob for RenderJob {
                 .async_upload_from_buffer(
                     &gfx_buffer,
                     data.clone(),
-                    Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+                    Region::new(Rect::new_sized_saturating(0, 0, rt.width, rt.height)),
                 )
                 .map_err(TextError::Upload)
         } else {
@@ -650,7 +650,7 @@ impl CpuJob for RenderJob {
                     &staging,
                     data.clone(),
                     Rc::new(data.memfd.data(rt.stride, rt.height)),
-                    Region::new(Rect::new_sized_unchecked(0, 0, rt.width, rt.height)),
+                    Region::new(Rect::new_sized_saturating(0, 0, rt.width, rt.height)),
                 )
                 .map_err(TextError::Upload)
         };

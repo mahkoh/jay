@@ -195,13 +195,12 @@ fn get_region(
                 .rects()
                 .iter()
                 .map(|r| {
-                    Rect::new_sized(
+                    Rect::new_sized_saturating(
                         r.x1() / scale,
                         r.y1() / scale,
                         r.width() / scale,
                         r.height() / scale,
                     )
-                    .unwrap()
                 })
                 .collect();
             region = Region::from_rects(&rects);

@@ -187,7 +187,7 @@ impl FramebufferRect {
         let x2 = ((x2 + 1.0) / 2.0 * width).round() as i32;
         let y1 = ((y1 + 1.0) / 2.0 * height).round() as i32;
         let y2 = ((y2 + 1.0) / 2.0 * height).round() as i32;
-        Rect::new(x1, y1, x2, y2).unwrap_or_default()
+        Rect::new_saturating(x1, y1, x2, y2)
     }
 }
 
@@ -314,7 +314,7 @@ pub trait GfxFramebuffer: Debug {
 
     fn full_region(&self) -> Region {
         let (width, height) = self.physical_size();
-        Region::new(Rect::new_sized_unchecked(0, 0, width, height))
+        Region::new(Rect::new_sized_saturating(0, 0, width, height))
     }
 }
 
@@ -616,7 +616,7 @@ impl dyn GfxFramebuffer {
             logical_extents: Rect::new_empty(0, 0),
             pixel_extents: {
                 let (width, height) = self.logical_size(transform);
-                Rect::new(0, 0, width, height).unwrap()
+                Rect::new_saturating(0, 0, width, height)
             },
             icons: None,
         };
@@ -945,7 +945,7 @@ pub fn create_render_pass(
         logical_extents: node.node_absolute_position().at_point(0, 0),
         pixel_extents: {
             let (width, height) = logical_size(physical_size, transform);
-            Rect::new(0, 0, width, height).unwrap()
+            Rect::new_saturating(0, 0, width, height)
         },
         icons: state.icons.get(state, scale),
     };

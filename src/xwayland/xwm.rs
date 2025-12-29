@@ -2173,7 +2173,7 @@ impl Wm {
         self.set_net_client_list().await;
         let pending = data.info.pending_extents.get();
         if pending.width() > 0 && pending.height() > 0 {
-            let dummy = Rect::new_sized(0, 0, 1, 1).unwrap();
+            let dummy = Rect::new_sized_saturating(0, 0, 1, 1);
             for rect in [dummy, pending] {
                 let mut x = rect.x1();
                 let mut y = rect.y1();
@@ -2264,7 +2264,7 @@ impl Wm {
             let mut width = event.width as i32;
             let mut height = event.height as i32;
             client_wire_scale_to_logical!(self.client, x, y, width, height);
-            let extents = Rect::new_sized(x, y, width, height).unwrap();
+            let extents = Rect::new_sized_saturating(x, y, width, height);
             if let Some(window) = data.window.get() {
                 window.tl_change_extents(&extents);
                 self.state.tree_changed();
@@ -2309,7 +2309,7 @@ impl Wm {
         }
         data.info
             .pending_extents
-            .set(Rect::new_sized(x1, y1, width, height).unwrap());
+            .set(Rect::new_sized_saturating(x1, y1, width, height));
         Ok(())
     }
 

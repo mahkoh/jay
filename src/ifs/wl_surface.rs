@@ -1352,7 +1352,7 @@ impl WlSurface {
             if (width, height) != (old_width, old_height) {
                 self.need_extents_update.set(true);
                 self.buffer_abs_pos
-                    .set(buffer_abs_pos.with_size(width, height).unwrap());
+                    .set(buffer_abs_pos.with_size_saturating(width, height));
                 max_surface_size = (width.max(old_width), height.max(old_height));
                 damage_full = true;
                 buffer_abs_pos_size_changed = true;
@@ -1426,9 +1426,8 @@ impl WlSurface {
             self.commit_timeline.set_fifo_barrier();
         }
         if damage_full && (self.visible.get() || was_visible) {
-            let mut damage = buffer_abs_pos
-                .with_size(max_surface_size.0, max_surface_size.1)
-                .unwrap();
+            let mut damage =
+                buffer_abs_pos.with_size_saturating(max_surface_size.0, max_surface_size.1);
             if let Some(tl) = self.toplevel.get() {
                 damage = damage.intersect(tl.node_absolute_position());
             }
@@ -1519,7 +1518,7 @@ impl WlSurface {
                         let y1 = damage.y1() / scale;
                         let x2 = (damage.x2() + scale - 1) / scale;
                         let y2 = (damage.y2() + scale - 1) / scale;
-                        damage = Rect::new(x1, y1, x2, y2).unwrap();
+                        damage = Rect::new_saturating(x1, y1, x2, y2);
                     }
                     damage = damage.intersect(bounds.unwrap_or(pos));
                     self.client.state.damage(damage);

@@ -47,7 +47,9 @@ impl WlRegionRequestHandler for WlRegion {
             return Err(WlRegionError::NegativeExtents);
         }
         let mut region = self.region.borrow_mut();
-        region.add(Rect::new_sized(req.x, req.y, req.width, req.height).unwrap());
+        region.add(Rect::new_sized_saturating(
+            req.x, req.y, req.width, req.height,
+        ));
         Ok(())
     }
 
@@ -56,7 +58,9 @@ impl WlRegionRequestHandler for WlRegion {
             return Err(WlRegionError::NegativeExtents);
         }
         let mut region = self.region.borrow_mut();
-        region.sub(Rect::new_sized(req.x, req.y, req.width, req.height).unwrap());
+        region.sub(Rect::new_sized_saturating(
+            req.x, req.y, req.width, req.height,
+        ));
         Ok(())
     }
 }

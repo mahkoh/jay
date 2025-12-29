@@ -839,7 +839,7 @@ impl State {
             }
             y1 -= self.theme.sizes.border_width.get() + self.theme.title_plus_underline_height();
             x1 -= self.theme.sizes.border_width.get();
-            Rect::new_sized(x1, y1, width, height).unwrap()
+            Rect::new_sized_saturating(x1, y1, width, height)
         } else {
             let mut x1 = output_rect.x1();
             let mut y1 = output_rect.y1();
@@ -853,7 +853,7 @@ impl State {
             } else {
                 height = output_rect.height();
             }
-            Rect::new_sized(x1, y1, width, height).unwrap()
+            Rect::new_sized_saturating(x1, y1, width, height)
         };
         FloatNode::new(self, workspace, position, node.clone());
         self.focus_after_map(node, self.seat_queue.last().as_deref());
@@ -1228,7 +1228,7 @@ impl State {
             logical_extents: position.at_point(0, 0),
             pixel_extents: {
                 let (width, height) = target.logical_size(target_transform);
-                Rect::new_sized(0, 0, width, height).unwrap()
+                Rect::new_sized_saturating(0, 0, width, height)
             },
             icons: None,
         };

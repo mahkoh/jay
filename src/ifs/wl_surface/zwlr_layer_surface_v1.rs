@@ -514,7 +514,7 @@ impl ZwlrLayerSurfaceV1 {
         } else if anchor.contains(BOTTOM) {
             y1 = oheight - height - mb;
         }
-        let a_rect = Rect::new_sized(x1 + rect.x1(), y1 + rect.y1(), width, height).unwrap();
+        let a_rect = Rect::new_sized_saturating(x1 + rect.x1(), y1 + rect.y1(), width, height);
         let o_rect = a_rect.move_(-opos.x1(), -opos.y1());
         self.output_extents.set(o_rect);
         let a_rect_old = self.pos.replace(a_rect);
