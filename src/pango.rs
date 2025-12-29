@@ -374,7 +374,7 @@ impl PangoLayout {
             let mut rect = PangoRectangle::default();
             pango_layout_get_extents(self.l, &mut rect, ptr::null_mut());
             pango_extents_to_pixels(&mut rect, ptr::null_mut());
-            Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+            Rect::new_sized_saturating(rect.x, rect.y, rect.width, rect.height)
         }
     }
 
@@ -383,7 +383,7 @@ impl PangoLayout {
             let mut rect = PangoRectangle::default();
             pango_layout_get_extents(self.l, ptr::null_mut(), &mut rect);
             pango_extents_to_pixels(&mut rect, ptr::null_mut());
-            Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+            Rect::new_sized_saturating(rect.x, rect.y, rect.width, rect.height)
         }
     }
 

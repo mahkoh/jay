@@ -49,7 +49,7 @@ impl RendererBase<'_> {
             let [x1, y1, x2, y2] =
                 self.scale
                     .pixel_size([rect.x1(), rect.y1(), rect.x2(), rect.y2()]);
-            rect = Rect::new(x1, y1, x2, y2).unwrap();
+            rect = Rect::new_saturating(x1, y1, x2, y2);
         }
         rect
     }

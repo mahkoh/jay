@@ -123,13 +123,12 @@ impl Cursor for CursorSurface {
             return rect;
         }
         let scale = scale.to_f64();
-        Rect::new(
+        Rect::new_saturating(
             (rect.x1() as f64 * scale).ceil() as _,
             (rect.y1() as f64 * scale).ceil() as _,
             (rect.x2() as f64 * scale).ceil() as _,
             (rect.y2() as f64 * scale).ceil() as _,
         )
-        .unwrap()
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {

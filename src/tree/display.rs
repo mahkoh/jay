@@ -66,7 +66,7 @@ impl DisplayNode {
             y1 = 0;
             y2 = 0;
         }
-        self.extents.set(Rect::new(x1, y1, x2, y2).unwrap());
+        self.extents.set(Rect::new_saturating(x1, y1, x2, y2));
     }
 
     pub fn update_visible(&self, state: &State) {
