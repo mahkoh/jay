@@ -97,7 +97,7 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, ToplevelData, ToplevelNode, ToplevelNodeBase, VrrMode, WorkspaceNode,
-            generic_node_visitor,
+            WsMoveConfig, generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -1639,6 +1639,28 @@ impl State {
         let node = found_tree.pop().unwrap();
         found_tree.clear();
         node
+    }
+
+    pub fn move_ws_to_output(&self, ws: &WorkspaceNode, output: &Rc<OutputNode>) {
+        if ws.is_dummy || output.is_dummy {
+            return;
+        }
+        if ws.output.get().id == output.id {
+            return;
+        }
+        let link = match &*ws.output_link.borrow() {
+            None => return,
+            Some(l) => l.to_ref(),
+        };
+        let config = WsMoveConfig {
+            make_visible_always: false,
+            make_visible_if_empty: true,
+            source_is_destroyed: false,
+            before: None,
+        };
+        move_ws_to_output(&link, &output, config);
+        ws.desired_output.set(output.global.output_id.clone());
+        self.tree_changed();
     }
 }
 

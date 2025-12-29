@@ -29,9 +29,8 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
-            move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1118,25 +1117,7 @@ impl ConfigProxyHandler {
                 _ => return Ok(()),
             },
         };
-        if ws.is_dummy || output.is_dummy {
-            return Ok(());
-        }
-        if ws.output.get().id == output.id {
-            return Ok(());
-        }
-        let link = match &*ws.output_link.borrow() {
-            None => return Ok(()),
-            Some(l) => l.to_ref(),
-        };
-        let config = WsMoveConfig {
-            make_visible_always: false,
-            make_visible_if_empty: true,
-            source_is_destroyed: false,
-            before: None,
-        };
-        move_ws_to_output(&link, &output, config);
-        ws.desired_output.set(output.global.output_id.clone());
-        self.state.tree_changed();
+        self.state.move_ws_to_output(&ws, &output);
         Ok(())
     }
 
