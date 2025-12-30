@@ -660,6 +660,7 @@ pub enum FocusFollowsMouseMode {
 /// This configures where to place a newly opened window or workspace, what window to focus when a
 /// window is closed, which workspace is moved with [`Seat::move_to_output`], and similar actions.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum FallbackOutputMode {
     /// Use the output the cursor is on
     Cursor,
