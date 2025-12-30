@@ -1459,7 +1459,11 @@ impl WlSeatGlobal {
                     if p.seat.version >= AXIS_VALUE120_SINCE_VERSION {
                         p.send_axis_value120(axis, delta);
                     } else if p.seat.version >= AXIS_DISCRETE_SINCE_VERSION {
-                        p.send_axis_discrete(axis, delta / AXIS_120);
+                        let mut accumulator = p.v120_accumulator[i].get();
+                        accumulator += delta;
+                        p.send_axis_discrete(axis, accumulator / AXIS_120);
+                        accumulator %= AXIS_120;
+                        p.v120_accumulator[i].set(accumulator);
                     }
                 }
                 if let Some(delta) = event.px[i].get() {
@@ -1472,8 +1476,11 @@ impl WlSeatGlobal {
                     }
                     p.send_axis(time, axis, delta);
                 }
-                if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {
-                    p.send_axis_stop(time, axis);
+                if event.stop[i].get() {
+                    if p.seat.version >= AXIS_STOP_SINCE_VERSION {
+                        p.send_axis_stop(time, axis);
+                    }
+                    p.v120_accumulator[i].set(0);
                 }
             }
             if p.seat.version >= POINTER_FRAME_SINCE_VERSION {
