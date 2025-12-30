@@ -1476,8 +1476,11 @@ impl WlSeatGlobal {
                     }
                     p.send_axis(time, axis, delta);
                 }
-                if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {
-                    p.send_axis_stop(time, axis);
+                if event.stop[i].get() {
+                    if p.seat.version >= AXIS_STOP_SINCE_VERSION {
+                        p.send_axis_stop(time, axis);
+                    }
+                    p.v120_accumulator[i].set(0);
                 }
             }
             if p.seat.version >= POINTER_FRAME_SINCE_VERSION {

@@ -90,6 +90,9 @@ impl WlPointer {
 
     pub fn send_enter(&self, serial: u64, surface: WlSurfaceId, mut x: Fixed, mut y: Fixed) {
         self.last_motion.set((x, y));
+        for accumulator in &self.v120_accumulator {
+            accumulator.set(0);
+        }
         logical_to_client_wire_scale!(self.seat.client, x, y);
         self.seat.client.event(Enter {
             self_id: self.id,
