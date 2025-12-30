@@ -374,6 +374,8 @@ impl Node for WorkspaceNode {
             if let Some(child) = float.child.get() {
                 child.node_do_focus(seat, direction);
             }
+        } else {
+            seat.focus_node(self);
         }
     }
 

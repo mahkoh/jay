@@ -29,9 +29,8 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
-            move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -55,7 +54,7 @@ use {
         Axis, Direction, Workspace,
         client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -516,6 +515,16 @@ impl ConfigProxyHandler {
             FocusFollowsMouseMode::False => false,
         };
         seat.set_focus_follows_mouse(focus_follows_mouse);
+        Ok(())
+    }
+
+    fn handle_set_fallback_output_mode(
+        &self,
+        seat: Seat,
+        mode: FallbackOutputMode,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_fallback_output_mode(mode);
         Ok(())
     }
 
@@ -1013,16 +1022,16 @@ impl ConfigProxyHandler {
         self.state.double_click_distance.set(dist);
     }
 
-    fn handle_get_seat_workspace(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_cursor_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        let output = seat.get_output();
+        let output = seat.get_cursor_output();
         let mut workspace = Workspace(0);
         if !output.is_dummy
             && let Some(ws) = output.workspace.get()
         {
             workspace = self.get_workspace_by_name(&ws.name);
         }
-        self.respond(Response::GetSeatWorkspace { workspace });
+        self.respond(Response::GetSeatCursorWorkspace { workspace });
         Ok(())
     }
 
@@ -1118,25 +1127,7 @@ impl ConfigProxyHandler {
                 _ => return Ok(()),
             },
         };
-        if ws.is_dummy || output.is_dummy {
-            return Ok(());
-        }
-        if ws.output.get().id == output.id {
-            return Ok(());
-        }
-        let link = match &*ws.output_link.borrow() {
-            None => return Ok(()),
-            Some(l) => l.to_ref(),
-        };
-        let config = WsMoveConfig {
-            make_visible_always: false,
-            make_visible_if_empty: true,
-            source_is_destroyed: false,
-            before: None,
-        };
-        move_ws_to_output(&link, &output, config);
-        ws.desired_output.set(output.global.output_id.clone());
-        self.state.tree_changed();
+        self.state.move_ws_to_output(&ws, &output);
         Ok(())
     }
 
@@ -2954,9 +2945,9 @@ impl ConfigProxyHandler {
             ClientMessage::MakeRenderDevice { device } => self
                 .handle_make_render_device(device)
                 .wrn("make_render_device")?,
-            ClientMessage::GetSeatWorkspace { seat } => self
-                .handle_get_seat_workspace(seat)
-                .wrn("get_seat_workspace")?,
+            ClientMessage::GetSeatCursorWorkspace { seat } => self
+                .handle_get_seat_cursor_workspace(seat)
+                .wrn("get_seat_cursor_workspace")?,
             ClientMessage::GetSeatKeyboardWorkspace { seat } => self
                 .handle_get_seat_keyboard_workspace(seat)
                 .wrn("get_seat_keyboard_workspace")?,
@@ -3373,6 +3364,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_keymap_from_names(rules, model, groups, options)
                 .wrn("keymap_from_names")?,
+            ClientMessage::SetFallbackOutputMode { seat, mode } => self
+                .handle_set_fallback_output_mode(seat, mode)
+                .wrn("set_fallback_output_mode")?,
         }
         Ok(())
     }
