@@ -216,7 +216,7 @@ impl WlOutputGlobal {
             name,
             state: state.clone(),
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_sized(x, y, width, height).unwrap()),
+            pos: Cell::new(Rect::new_sized_saturating(x, y, width, height)),
             output_id: output_id.clone(),
             mode: Cell::new(connector_state.mode),
             refresh_nsec: Cell::new(connector_state.mode.refresh_nsec()),
@@ -343,7 +343,7 @@ impl WlOutputGlobal {
         self.damage_matrix.set(matrix);
         self.connector
             .damage_intersect
-            .set(Rect::new_sized_unchecked(0, 0, mode.width, mode.height));
+            .set(Rect::new_sized_saturating(0, 0, mode.width, mode.height));
     }
 
     pub fn add_damage_area(&self, area: &Rect) {

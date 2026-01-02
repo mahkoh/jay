@@ -109,14 +109,14 @@ impl ZwlrScreencopyManagerV1 {
             return Ok(());
         };
         let mode = global.mode.get();
-        let mut rect = Rect::new_sized(0, 0, mode.width, mode.height).unwrap();
+        let mut rect = Rect::new_sized_saturating(0, 0, mode.width, mode.height);
         if let Some(region) = region {
             let scale = global.persistent.scale.get().to_f64();
             let x1 = (region.x1() as f64 * scale).round() as i32;
             let y1 = (region.y1() as f64 * scale).round() as i32;
             let x2 = (region.x2() as f64 * scale).round() as i32;
             let y2 = (region.y2() as f64 * scale).round() as i32;
-            let region = Rect::new(x1, y1, x2, y2).unwrap();
+            let region = Rect::new_saturating(x1, y1, x2, y2);
             rect = rect.intersect(region);
         }
         let frame = Rc::new(ZwlrScreencopyFrameV1 {

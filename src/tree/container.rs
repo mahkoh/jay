@@ -185,7 +185,7 @@ impl ContainerChild {
         // let y1 = body.y1() + (body.height() - height) / 2;
         let x1 = body.x1();
         let y1 = body.y1();
-        content = Rect::new_sized(x1, y1, width, height).unwrap();
+        content = Rect::new_sized_saturating(x1, y1, width, height);
         // log::debug!("body: {:?}", body);
         // log::debug!("content: {:?}", content);
         self.content.set(content);
@@ -382,15 +382,12 @@ impl ContainerNode {
     }
 
     fn damage(&self) {
-        self.state.damage(
-            Rect::new_sized(
-                self.abs_x1.get(),
-                self.abs_y1.get(),
-                self.width.get(),
-                self.height.get(),
-            )
-            .unwrap(),
-        );
+        self.state.damage(Rect::new_sized_saturating(
+            self.abs_x1.get(),
+            self.abs_y1.get(),
+            self.width.get(),
+            self.height.get(),
+        ));
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -442,7 +439,7 @@ impl ContainerNode {
             }
             child
                 .title_rect
-                .set(Rect::new_sized(pos, 0, width, th).unwrap());
+                .set(Rect::new_sized_saturating(pos, 0, width, th));
             pos += width + bw;
         }
     }
@@ -483,7 +480,7 @@ impl ContainerNode {
                     body_size,
                 ),
             };
-            let body = Rect::new_sized(x1, y1, width, height).unwrap();
+            let body = Rect::new_sized_saturating(x1, y1, width, height);
             child.body.set(body);
             pos += body_size + border_width;
             if split == ContainerSplit::Vertical {
@@ -523,7 +520,7 @@ impl ContainerNode {
                         )
                     }
                 };
-                body = Rect::new_sized(x1, y1, width, height).unwrap();
+                body = Rect::new_sized_saturating(x1, y1, width, height);
                 child.body.set(body);
                 pos += size + border_width;
                 if split == ContainerSplit::Vertical {
@@ -534,15 +531,12 @@ impl ContainerNode {
         self.sum_factors.set(1.0);
         for child in self.children.iter() {
             let body = child.body.get();
-            child.title_rect.set(
-                Rect::new_sized(
-                    body.x1(),
-                    body.y1() - title_plus_underline_height,
-                    body.width(),
-                    title_height_tmp,
-                )
-                .unwrap(),
-            );
+            child.title_rect.set(Rect::new_sized_saturating(
+                body.x1(),
+                body.y1() - title_plus_underline_height,
+                body.width(),
+                title_height_tmp,
+            ));
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
             child.node.clone().tl_change_extents(&body);
             child.position_content();
@@ -573,15 +567,12 @@ impl ContainerNode {
                 self.content_width.set(self.width.get());
             }
         }
-        self.mono_body.set(
-            Rect::new_sized(
-                0,
-                title_plus_underline_height,
-                self.width.get(),
-                self.height.get().sub(title_plus_underline_height).max(0),
-            )
-            .unwrap(),
-        );
+        self.mono_body.set(Rect::new_sized_saturating(
+            0,
+            title_plus_underline_height,
+            self.width.get(),
+            self.height.get() - title_plus_underline_height,
+        ));
     }
 
     fn pointer_move(
@@ -837,7 +828,7 @@ impl ContainerNode {
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
             if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
-                self.state.damage(Rect::new_sized_unchecked(
+                self.state.damage(Rect::new_sized_saturating(
                     abs_x,
                     abs_y + rect.y1(),
                     cwidth,
@@ -846,13 +837,13 @@ impl ContainerNode {
             }
             if i > 0 {
                 let rect = if mono {
-                    Rect::new_sized(rect.x1() - bw, 0, bw, th)
+                    Rect::new_sized_saturating(rect.x1() - bw, 0, bw, th)
                 } else if split == ContainerSplit::Horizontal {
-                    Rect::new_sized(rect.x1() - bw, 0, bw, cheight)
+                    Rect::new_sized_saturating(rect.x1() - bw, 0, bw, cheight)
                 } else {
-                    Rect::new_sized(0, rect.y1() - bw, cwidth, bw)
+                    Rect::new_sized_saturating(0, rect.y1() - bw, cwidth, bw)
                 };
-                rd.border_rects.push(rect.unwrap());
+                rd.border_rects.push(rect);
             }
             if child.active.get() {
                 rd.active_title_rects.push(rect);
@@ -864,7 +855,7 @@ impl ContainerNode {
                 rd.title_rects.push(rect);
             }
             if !mono {
-                let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
+                let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
                 rd.underline_rects.push(rect);
             }
             let tt = &*child.title_tex.borrow();
@@ -877,11 +868,11 @@ impl ContainerNode {
         }
         if mono {
             rd.underline_rects
-                .push(Rect::new_sized(0, th, cwidth, tuh).unwrap());
+                .push(Rect::new_sized_saturating(0, th, cwidth, tuh));
         }
         if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
             self.state
-                .damage(Rect::new_sized_unchecked(abs_x, abs_y, cwidth, tpuh));
+                .damage(Rect::new_sized_saturating(abs_x, abs_y, cwidth, tpuh));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
     }
@@ -1192,7 +1183,7 @@ impl ContainerNode {
     }
 
     fn update_child_size(&self, node: &NodeRef<ContainerChild>, width: i32, height: i32) {
-        let rect = Rect::new(0, 0, width, height).unwrap();
+        let rect = Rect::new_saturating(0, 0, width, height);
         node.content.set(rect);
         node.position_content();
         if let Some(mono) = self.mono_child.get()
@@ -1633,13 +1624,12 @@ impl Node for ContainerNode {
     }
 
     fn node_absolute_position(&self) -> Rect {
-        Rect::new_sized(
+        Rect::new_sized_saturating(
             self.abs_x1.get(),
             self.abs_y1.get(),
             self.width.get(),
             self.height.get(),
         )
-        .unwrap()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -2381,14 +2371,14 @@ fn tile_drag_destination_in_mono(
             split_before = false;
             y1 = y2 - dy;
         } else {
-            let rect = Rect::new_unchecked(x1, y1 + dy, x2, y2 - dy);
+            let rect = Rect::new_saturating(x1, y1 + dy, x2, y2 - dy);
             return TileDragDestination {
                 highlight: rect,
                 ty: TddType::Replace(tl),
             };
         }
     }
-    let rect = Rect::new_unchecked(x1, y1, x2, y2);
+    let rect = Rect::new_saturating(x1, y1, x2, y2);
     TileDragDestination {
         highlight: rect,
         ty: TddType::Split {
@@ -2434,7 +2424,7 @@ fn tile_drag_destination_in_split(
         x1 = x2 - dx;
     }
     swap!();
-    let rect = Rect::new(x1, y1, x2, y2).unwrap();
+    let rect = Rect::new_saturating(x1, y1, x2, y2);
     let ty = if split_before || split_after {
         TddType::Split {
             node: tl,
