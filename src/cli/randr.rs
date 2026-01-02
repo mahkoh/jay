@@ -1023,12 +1023,10 @@ impl Randr {
             println!("        transform: {}", name);
         }
         if let Some(flip_margin_ns) = o.flip_margin_ns {
-            if flip_margin_ns != 1_500_000 {
-                println!(
-                    "        flip margin: {:?}",
-                    Duration::from_nanos(flip_margin_ns)
-                );
-            }
+            println!(
+                "        flip margin: {:?}",
+                Duration::from_nanos(flip_margin_ns)
+            );
         }
         if o.supported_color_spaces.is_not_empty() {
             println!("        color spaces:");
