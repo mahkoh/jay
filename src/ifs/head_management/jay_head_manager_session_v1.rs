@@ -258,8 +258,8 @@ impl JayHeadManagerSessionV1 {
             let Some(connector) = self.client.state.connectors.get(&head.common.id) else {
                 return Err(HeadTransactionError::HeadRemoved(head.common.id));
             };
-            let old = connector.state.get();
-            let mut new = old;
+            let old = connector.state.borrow().clone();
+            let mut new = old.clone();
             new.enabled = desired.connector_enabled;
             new.mode = desired.mode;
             new.non_desktop_override = desired.override_non_desktop;

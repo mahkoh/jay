@@ -85,7 +85,15 @@ use {
         video::{GfxApi, Transform},
         workspace::WorkspaceDisplayOrder,
     },
-    std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
+    std::{
+        cell::{Cell, RefCell},
+        env,
+        future::Future,
+        ops::Deref,
+        rc::Rc,
+        sync::Arc,
+        time::Duration,
+    },
     thiserror::Error,
     uapi::c,
 };
@@ -646,6 +654,7 @@ fn create_dummy_output(state: &Rc<State>) {
         format: XRGB8888,
         color_space: Default::default(),
         eotf: Default::default(),
+        gamma_lut: Default::default(),
     };
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
@@ -690,7 +699,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
-        state: Cell::new(backend_state),
+        state: RefCell::new(backend_state),
         head_managers: HeadManagers::new(head_name, head_state),
         wlr_output_heads: Default::default(),
     });
@@ -757,6 +766,7 @@ fn create_dummy_output(state: &Rc<State>) {
         ext_workspace_groups: Default::default(),
         pinned: Default::default(),
         tearing: Default::default(),
+        has_valid_zwlr_gamma_control: Cell::new(false),
     });
     let dummy_workspace = WorkspaceNode::new(&dummy_output, "dummy", true);
     dummy_workspace.may_capture.set(false);

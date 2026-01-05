@@ -37,7 +37,7 @@ use {
         hash::Hash,
         rc::Rc,
     },
-    uapi::{OwnedFd, c},
+    uapi::{OwnedFd, Pod, c},
 };
 
 pub mod transaction;
@@ -164,6 +164,9 @@ pub trait Connector: Any {
         Err(BackendConnectorTransactionError::TransactionsNotSupported(
             self.kernel_id(),
         ))
+    }
+    fn gamma_lut_size(&self) -> Option<u32> {
+        None
     }
 }
 
@@ -612,13 +615,25 @@ impl BackendColorSpace {
     }
 }
 
+// kernel: struct drm_color_lut
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[repr(C)]
+pub struct BackendGammaLutElement {
+    pub red: u16,
+    pub green: u16,
+    pub blue: u16,
+    pub reserved: u16,
+}
+
+unsafe impl Pod for BackendGammaLutElement {}
+
 linear_ids!(
     BackendConnectorStateSerials,
     BackendConnectorStateSerial,
     u64
 );
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BackendConnectorState {
     pub serial: BackendConnectorStateSerial,
     pub enabled: bool,
@@ -630,4 +645,5 @@ pub struct BackendConnectorState {
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
     pub eotf: BackendEotfs,
+    pub gamma_lut: Rc<Option<Vec<BackendGammaLutElement>>>,
 }

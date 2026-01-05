@@ -2,7 +2,8 @@ use {
     crate::{
         allocator::BufferObject,
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, Connector, ConnectorEvent,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLutElement,
+            Connector, ConnectorEvent,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
@@ -55,6 +56,9 @@ pub struct DrmCrtcState {
     pub mode_blob: Option<Rc<PropBlob>>,
     pub vrr_enabled: bool,
     pub assigned_connector: DrmConnector,
+    pub gamma_lut: Rc<Option<Vec<BackendGammaLutElement>>>,
+    pub gamma_lut_blob_id: DrmBlob,
+    pub gamma_lut_blob: Option<Rc<PropBlob>>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -187,7 +191,7 @@ impl MetalDrmDeviceData {
                 ConnectorConfig {
                     obj: connector.clone(),
                     new: dd.drm_state.clone(),
-                    state: *dd.persistent.state.borrow(),
+                    state: dd.persistent.state.borrow().clone(),
                     requested: false,
                     changed: Default::default(),
                 },
@@ -418,6 +422,24 @@ impl MetalDeviceTransaction {
                 crtc.new.mode_blob = Some(Rc::new(blob));
                 mode.clone()
             };
+            if !Rc::ptr_eq(&crtc.new.gamma_lut, &state.gamma_lut) {
+                if crtc.new.gamma_lut != state.gamma_lut {
+                    if let Some(gamma_lut) = &*state.gamma_lut {
+                        let blob = slf
+                            .dev
+                            .dev
+                            .master
+                            .create_blob(gamma_lut as &[_])
+                            .map_err(BackendConnectorTransactionError::CreateGammaLutBlob)?;
+                        crtc.new.gamma_lut_blob_id = blob.id();
+                        crtc.new.gamma_lut_blob = Some(Rc::new(blob));
+                    } else {
+                        crtc.new.gamma_lut_blob_id = DrmBlob::NONE;
+                        crtc.new.gamma_lut_blob = None;
+                    }
+                }
+                crtc.new.gamma_lut = state.gamma_lut.clone();
+            }
             for plane_id in [&mut crtc_planes.primary, &mut crtc_planes.cursor] {
                 if plane_id.is_none() {
                     continue;
@@ -841,6 +863,12 @@ impl MetalDeviceTransactionWithDrmState {
                 if n.mode_blob_id != o.mode_blob_id {
                     log_change!(o, n, mode_blob_id);
                     c.change(crtc.obj.mode_id, n.mode_blob_id);
+                }
+                if let Some(gamma_lut) = crtc.obj.gamma_lut {
+                    if n.gamma_lut_blob_id != o.gamma_lut_blob_id {
+                        log_change!(o, n, gamma_lut_blob_id);
+                        c.change(gamma_lut, n.gamma_lut_blob_id);
+                    }
                 }
                 reset_default_properties!(
                     c,
