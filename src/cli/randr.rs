@@ -745,11 +745,11 @@ impl Randr {
                 match a.command {
                     TearingCommand::SetMode(a) => {
                         let mode = match a.mode {
-                            TearingModeArg::Never => VrrMode::NEVER,
-                            TearingModeArg::Always => VrrMode::ALWAYS,
-                            TearingModeArg::Variant1 => VrrMode::VARIANT_1,
-                            TearingModeArg::Variant2 => VrrMode::VARIANT_2,
-                            TearingModeArg::Variant3 => VrrMode::VARIANT_3,
+                            TearingModeArg::Never => TearingMode::NEVER,
+                            TearingModeArg::Always => TearingMode::ALWAYS,
+                            TearingModeArg::Variant1 => TearingMode::VARIANT_1,
+                            TearingModeArg::Variant2 => TearingMode::VARIANT_2,
+                            TearingModeArg::Variant3 => TearingMode::VARIANT_3,
                         };
                         tc.send(jay_randr::SetTearingMode {
                             self_id: randr,
@@ -989,7 +989,7 @@ impl Randr {
                 TearingMode::VARIANT_2 => "variant2",
                 TearingMode::VARIANT_3 => "variant3",
                 _ => {
-                    mode_str = format!("unknown ({})", o.vrr_mode.0);
+                    mode_str = format!("unknown ({})", o.tearing_mode.0);
                     &mode_str
                 }
             };
