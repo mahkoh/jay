@@ -207,13 +207,12 @@ impl XdgPopup {
                     // use its position as is.
                     if let Some(maybe_abs_pos) = maybe_abs_pos {
                         abs_pos = maybe_abs_pos;
-                        rel_pos = Rect::new_sized(
+                        rel_pos = Rect::new_sized_saturating(
                             abs_pos.x1() - parent_abs.x1(),
                             abs_pos.y1() - parent_abs.y1(),
                             abs_pos.width(),
                             abs_pos.height(),
-                        )
-                        .unwrap();
+                        );
                     }
                 }
             }

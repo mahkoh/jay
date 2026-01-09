@@ -688,3 +688,19 @@ fn intersect3() {
         ],
     );
 }
+
+#[test]
+fn new_saturating() {
+    let r1 = Rect::new_sized_saturating(10, 10, -5, -5);
+    assert!(r1.is_empty());
+    assert_eq!(r1.x1(), 10);
+    assert_eq!(r1.x2(), 10);
+
+    let r2 = Rect::new_saturating(100, 100, 50, 50);
+    assert!(r2.is_empty());
+    assert_eq!(r2.x1(), 100);
+    assert_eq!(r2.x2(), 100);
+
+    let r3 = Rect::new_sized_saturating(i32::MAX - 10, 0, 100, 10);
+    assert_eq!(r3.x2(), i32::MAX);
+}

@@ -142,7 +142,7 @@ impl XwindowData {
         let mut width = event.width as i32;
         let mut height = event.height as i32;
         client_wire_scale_to_logical!(client, x, y, width, height);
-        let extents = Rect::new_sized(x, y, width, height).unwrap();
+        let extents = Rect::new_sized_saturating(x, y, width, height);
         // log::info!("xwin {} new {:?} or {}", event.window, extents, event.override_redirect);
         Self {
             state: state.clone(),

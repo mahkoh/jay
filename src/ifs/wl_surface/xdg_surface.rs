@@ -536,7 +536,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         if req.height <= 0 || req.width <= 0 {
             return Err(XdgSurfaceError::NonPositiveWidthHeight);
         }
-        let extents = Rect::new_sized(req.x, req.y, req.width, req.height).unwrap();
+        let extents = Rect::new_sized_saturating(req.x, req.y, req.width, req.height);
         self.pending().geometry = Some(extents);
         Ok(())
     }

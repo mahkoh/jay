@@ -102,7 +102,12 @@ impl VulkanShmImage {
         data.data_copied.set(true);
         data.buffer.set(Some(buffer.clone()));
         if img.contents_are_undefined.get() {
-            damage = Region::new(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
+            damage = Region::new(Rect::new_sized_saturating(
+                0,
+                0,
+                img.width as _,
+                img.height as _,
+            ));
         }
         self.calculate_copies(img, data, damage, buffer.offset);
         self.async_release_from_gfx_queue(img, data, TransferType::Upload)?;
@@ -186,7 +191,12 @@ impl VulkanShmImage {
             if tt == TransferType::Download {
                 return Err(VulkanError::UndefinedContents);
             }
-            damage = Region::new(Rect::new_sized(0, 0, img.width as _, img.height as _).unwrap());
+            damage = Region::new(Rect::new_sized_saturating(
+                0,
+                0,
+                img.width as _,
+                img.height as _,
+            ));
         }
 
         let copies = &mut *self.calculate_copies(img, data, damage, 0);
@@ -471,15 +481,12 @@ impl VulkanShmImage {
                 job.work.bpp = img.format.bpp as _;
                 job.work.rects.clear();
                 for copy in copies {
-                    job.work.rects.push(
-                        Rect::new_sized(
-                            copy.image_offset.x as _,
-                            copy.image_offset.y as _,
-                            copy.image_extent.width as _,
-                            copy.image_extent.height as _,
-                        )
-                        .unwrap(),
-                    );
+                    job.work.rects.push(Rect::new_sized_saturating(
+                        copy.image_offset.x as _,
+                        copy.image_offset.y as _,
+                        copy.image_extent.width as _,
+                        copy.image_extent.height as _,
+                    ));
                 }
                 pending = data.cpu.submit(job);
             }

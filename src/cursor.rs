@@ -332,7 +332,7 @@ impl CursorImageScaled {
         yhot: i32,
     ) -> Result<Rc<Self>, CursorError> {
         Ok(Rc::new(Self {
-            extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
+            extents: Rect::new_sized_saturating(-xhot, -yhot, width, height),
             tex: ctx
                 .clone()
                 .shmem_texture(None, data, ARGB8888, width, height, width * 4, None)?,

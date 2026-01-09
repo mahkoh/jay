@@ -521,18 +521,27 @@ impl Renderer<'_> {
         };
         let uc = theme.colors.separator.get();
         let borders = [
-            Rect::new_sized(x, y, pos.width(), bw).unwrap(),
-            Rect::new_sized(x, y + bw, bw, pos.height() - bw).unwrap(),
-            Rect::new_sized(x + pos.width() - bw, y + bw, bw, pos.height() - bw).unwrap(),
-            Rect::new_sized(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw).unwrap(),
+            Rect::new_sized_saturating(x, y, pos.width(), bw),
+            Rect::new_sized_saturating(x, y + bw, bw, pos.height() - bw),
+            Rect::new_sized_saturating(x + pos.width() - bw, y + bw, bw, pos.height() - bw),
+            Rect::new_sized_saturating(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw),
         ];
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         self.base.fill_boxes(&borders, &bc, srgb);
-        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
+        let title = [Rect::new_sized_saturating(
+            x + bw,
+            y + bw,
+            pos.width() - 2 * bw,
+            th,
+        )];
         self.base.fill_boxes(&title, &tc, srgb);
-        let title_underline =
-            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, tuh).unwrap()];
+        let title_underline = [Rect::new_sized_saturating(
+            x + bw,
+            y + bw + th,
+            pos.width() - 2 * bw,
+            tuh,
+        )];
         self.base.fill_boxes(&title_underline, &uc, srgb);
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
@@ -590,13 +599,12 @@ impl Renderer<'_> {
                 srgb_srgb,
             );
         }
-        let body = Rect::new_sized(
+        let body = Rect::new_sized_saturating(
             x + bw,
             y + bw + tpuh,
             pos.width() - 2 * bw,
             pos.height() - 2 * bw - tpuh,
-        )
-        .unwrap();
+        );
         let scissor_body = self.base.scale_rect(body);
         child.node_render(self, body.x1(), body.y1(), Some(&scissor_body));
     }

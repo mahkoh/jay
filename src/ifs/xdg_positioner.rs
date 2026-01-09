@@ -132,7 +132,7 @@ impl XdgPositioned {
             y1 -= self.size_height / 2;
         }
 
-        Rect::new_sized(x1, y1, self.size_width, self.size_height).unwrap()
+        Rect::new_sized_saturating(x1, y1, self.size_width, self.size_height)
     }
 }
 
@@ -185,7 +185,7 @@ impl XdgPositionerRequestHandler for XdgPositioner {
             return Err(XdgPositionerError::NegativeAnchorRect);
         }
         let mut position = self.position.borrow_mut();
-        position.ar = Rect::new_sized(req.x, req.y, req.width, req.height).unwrap();
+        position.ar = Rect::new_sized_saturating(req.x, req.y, req.width, req.height);
         Ok(())
     }
 

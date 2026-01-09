@@ -235,7 +235,7 @@ impl DamageMatrix {
         let y1 = (y1 as f64 * self.my + self.dy).floor() as i32 + dy;
         let x2 = (x2 as f64 * self.mx + self.dx).ceil() as i32 + dx;
         let y2 = (y2 as f64 * self.my + self.dy).ceil() as i32 + dy;
-        Rect::new(x1, y1, x2, y2).unwrap()
+        Rect::new_saturating(x1, y1, x2, y2)
     }
 
     pub fn new(

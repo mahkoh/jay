@@ -495,7 +495,7 @@ impl CursorUser {
             y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
         }
         let (width, height) = output.global.pixel_size();
-        if !extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
+        if !extents.intersects(&Rect::new_sized_saturating(-x_rel, -y_rel, width, height)) {
             if render {
                 output.hardware_cursor_needs_render.set(true);
             }

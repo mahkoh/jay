@@ -2991,7 +2991,7 @@ impl RenderBuffer {
 
     pub fn damage_full(&self) {
         let dmabuf = self.dev_bo.dmabuf();
-        let rect = Rect::new_sized_unchecked(0, 0, dmabuf.width, dmabuf.height);
+        let rect = Rect::new_sized_saturating(0, 0, dmabuf.width, dmabuf.height);
         self.damage_queue.clear_all();
         self.damage_queue.damage(&[rect]);
     }

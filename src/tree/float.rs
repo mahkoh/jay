@@ -179,14 +179,13 @@ impl FloatNode {
         let bw = theme.sizes.border_width.get();
         let th = theme.title_height();
         let tpuh = theme.title_plus_underline_height();
-        let cpos = Rect::new_sized(
+        let cpos = Rect::new_sized_saturating(
             pos.x1() + bw,
             pos.y1() + bw + tpuh,
-            (pos.width() - 2 * bw).max(0),
-            (pos.height() - 2 * bw - tpuh).max(0),
-        )
-        .unwrap();
-        let tr = Rect::new_sized(bw, bw, (pos.width() - 2 * bw).max(0), th).unwrap();
+            pos.width() - 2 * bw,
+            pos.height() - 2 * bw - tpuh,
+        );
+        let tr = Rect::new_sized_saturating(bw, bw, pos.width() - 2 * bw, th);
         child.clone().tl_change_extents(&cpos);
         self.title_rect.set(tr);
         self.layout_scheduled.set(false);
@@ -261,7 +260,7 @@ impl FloatNode {
         let pos = self.position.get();
         if self.visible.get() && pos.width() >= 2 * bw {
             let tr =
-                Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
+                Rect::new_sized_saturating(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th);
             self.state.damage(tr);
         }
     }
@@ -349,7 +348,7 @@ impl FloatNode {
                     y2 = y2.max(y1 + 2 * bw + tpuh);
                 }
             }
-            let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+            let new_pos = Rect::new_saturating(x1, y1, x2, y2);
             self.position.set(new_pos);
             if self.visible.get() {
                 self.state.damage(pos);
@@ -463,7 +462,7 @@ impl FloatNode {
             y1 = opos.y1();
             y2 += y1 - pos.y1();
         }
-        let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+        let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         self.position.set(new_pos);
         if self.visible.get() {
             self.state.damage(pos);
@@ -970,7 +969,7 @@ impl ContainingNode for FloatNode {
         if let Some(v) = new_y2 {
             y2 = (v + bw).max(y1 + bw + tpuh + bw);
         }
-        let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+        let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         if new_pos != pos {
             self.position.set(new_pos);
             if self.visible.get() {

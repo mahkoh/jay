@@ -101,11 +101,6 @@ impl Rect {
         })
     }
 
-    #[track_caller]
-    pub fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
-        Self::new(x1, y1, x2, y2).unwrap()
-    }
-
     #[cfg_attr(not(test), expect(dead_code))]
     fn new_unchecked_danger(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self {
@@ -126,9 +121,28 @@ impl Rect {
         Self::new(x1, y1, x1 + width, y1 + height)
     }
 
-    #[track_caller]
-    pub fn new_sized_unchecked(x1: i32, y1: i32, width: i32, height: i32) -> Self {
-        Self::new_sized(x1, y1, width, height).unwrap()
+    pub fn new_saturating(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
+        Self {
+            raw: RectRaw {
+                x1,
+                y1,
+                x2: x2.max(x1),
+                y2: y2.max(y1),
+                tag: NoTag,
+            },
+        }
+    }
+
+    pub fn new_sized_saturating(x1: i32, y1: i32, width: i32, height: i32) -> Self {
+        Self {
+            raw: RectRaw {
+                x1,
+                y1,
+                x2: x1.saturating_add(width.max(0)),
+                y2: y1.saturating_add(height.max(0)),
+                tag: NoTag,
+            },
+        }
     }
 
     pub fn union(&self, other: Self) -> Self {
@@ -159,8 +173,8 @@ impl Rect {
         }
     }
 
-    pub fn with_size(&self, width: i32, height: i32) -> Option<Self> {
-        Self::new_sized(self.raw.x1, self.raw.y1, width, height)
+    pub fn with_size_saturating(&self, width: i32, height: i32) -> Self {
+        Self::new_sized_saturating(self.raw.x1, self.raw.y1, width, height)
     }
 
     pub fn with_tag(&self, tag: u32) -> Rect<u32> {

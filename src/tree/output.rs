@@ -619,7 +619,7 @@ impl OutputNode {
                     });
                 }
             }
-            let rect = Rect::new_sized(pos, y1, title_width, bar_rect_rel.height()).unwrap();
+            let rect = Rect::new_sized_saturating(pos, y1, title_width, bar_rect_rel.height());
             if Some(ws.id) == active_id {
                 rd.active_workspace = Some(OutputWorkspaceRenderData {
                     rect,
@@ -768,9 +768,9 @@ impl OutputNode {
         let x1 = rect.x1() + exclusive.left;
         let width = (x2 - x1).max(0);
         let height = (y2 - y1).max(0);
-        let non_exclusive_rect = Rect::new_sized_unchecked(x1, y1, width, height);
+        let non_exclusive_rect = Rect::new_sized_saturating(x1, y1, width, height);
         let non_exclusive_rect_rel =
-            Rect::new_sized_unchecked(exclusive.left, exclusive.top, width, height);
+            Rect::new_sized_saturating(exclusive.left, exclusive.top, width, height);
         let mut bar_rect = Rect::default();
         let mut bar_rect_rel = Rect::default();
         let mut bar_rect_with_separator = Rect::default();
@@ -781,24 +781,19 @@ impl OutputNode {
             let bar_separator_rect;
             match self.state.theme.bar_position.get() {
                 BarPosition::Bottom => {
-                    workspace_rect =
-                        Rect::new_sized_unchecked(x1, y1, width, (height - bh - bsw).max(0));
+                    workspace_rect = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
                     bar_rect_with_separator =
-                        Rect::new_sized_unchecked(x1, y1 + height - bh - bsw, width, bh + bsw);
+                        Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bh + bsw);
                     bar_separator_rect =
-                        Rect::new_sized_unchecked(x1, y1 + height - bh - bsw, width, bsw);
-                    bar_rect = Rect::new_sized_unchecked(x1, y1 + height - bh, width, bh);
+                        Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bsw);
+                    bar_rect = Rect::new_sized_saturating(x1, y1 + height - bh, width, bh);
                 }
                 BarPosition::Top | _ => {
-                    bar_rect = Rect::new_sized_unchecked(x1, y1, width, bh);
-                    bar_separator_rect = Rect::new_sized_unchecked(x1, y1 + bh, width, bsw);
-                    bar_rect_with_separator = Rect::new_sized_unchecked(x1, y1, width, bh + bsw);
-                    workspace_rect = Rect::new_sized_unchecked(
-                        x1,
-                        y1 + bh + bsw,
-                        width,
-                        (height - bh - bsw).max(0),
-                    );
+                    bar_rect = Rect::new_sized_saturating(x1, y1, width, bh);
+                    bar_separator_rect = Rect::new_sized_saturating(x1, y1 + bh, width, bsw);
+                    bar_rect_with_separator = Rect::new_sized_saturating(x1, y1, width, bh + bsw);
+                    workspace_rect =
+                        Rect::new_sized_saturating(x1, y1 + bh + bsw, width, height - bh - bsw);
                 }
             }
             bar_rect_rel = bar_rect.move_(-rect.x1(), -rect.y1());
@@ -888,7 +883,7 @@ impl OutputNode {
         pos: (i32, i32),
     ) -> Rect {
         let (width, height) = calculate_logical_size((mode.width, mode.height), transform, scale);
-        Rect::new_sized(pos.0, pos.1, width, height).unwrap()
+        Rect::new_sized_saturating(pos.0, pos.1, width, height)
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
@@ -1420,7 +1415,7 @@ impl OutputNode {
             }
             have_any = true;
             right -= bar_rect.height();
-            let rel_pos = Rect::new_sized(right, 1, icon_size, icon_size).unwrap();
+            let rel_pos = Rect::new_sized_saturating(right, 1, icon_size, icon_size);
             let abs_pos = rel_pos.move_(bar_rect.x1(), bar_rect.y1());
             item.set_position(abs_pos, rel_pos);
         }
@@ -1431,13 +1426,12 @@ impl OutputNode {
         if prev_right != right {
             {
                 let min = prev_right.min(right);
-                let rect = Rect::new(
+                let rect = Rect::new_saturating(
                     bar_rect.x1() + min,
                     bar_rect.y1(),
                     bar_rect.x2(),
                     bar_rect.y2(),
-                )
-                .unwrap();
+                );
                 self.state.damage(rect);
             }
             self.schedule_update_render_data();
