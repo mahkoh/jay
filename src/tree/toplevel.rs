@@ -918,6 +918,13 @@ impl ToplevelData {
         }
         NodeLayerLink::Tiled
     }
+
+    pub fn is_root_container(&self) -> bool {
+        let Some(parent) = self.parent.get() else {
+            return false;
+        };
+        parent.node_is_workspace()
+    }
 }
 
 impl Drop for ToplevelData {
