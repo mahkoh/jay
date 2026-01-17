@@ -1926,8 +1926,8 @@
       "type": "string",
       "description": "The tearing mode of an output.\n\n- Example:\n\n  ```toml\n  tearing.mode = \"never\"\n  ```\n",
       "enum": [
-        "always",
         "never",
+        "always",
         "variant1",
         "variant2",
         "variant3"
@@ -2105,8 +2105,8 @@
       "type": "string",
       "description": "The VRR mode of an output.\n\n- Example:\n\n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
       "enum": [
-        "always",
         "never",
+        "always",
         "variant1",
         "variant2",
         "variant3"
