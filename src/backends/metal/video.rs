@@ -1346,6 +1346,10 @@ fn create_connector_display_data(
         Ok(c) => c.value == 1,
         Err(_) => false,
     };
+    if !vrr_capable && desired_state.vrr {
+        log::warn!("Connector has lost VRR capability");
+        desired_state.vrr = false;
+    }
     {
         let viable = match desired_state.eotf {
             BackendEotfs::Default => true,
