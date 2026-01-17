@@ -705,6 +705,7 @@ impl OutputNode {
             }
         }
         self.update_visible();
+        self.update_presentation_type();
         if let Some(fs) = ws.fullscreen.get() {
             fs.tl_change_extents(&self.global.pos.get());
         }
