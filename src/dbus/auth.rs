@@ -52,37 +52,32 @@ impl Auth {
     }
 
     async fn handle_auth(&mut self) -> Result<(), DbusError> {
-        let mut out_buf = Buf::new(128);
-        {
-            let buf = out_buf
-                .write_fmt(format_args!("\0AUTH EXTERNAL\r\nDATA\r\n"))
-                .unwrap();
-            self.write_buf(buf).await?;
+        // dbus-broker hard codes this initial burst of messages
+        const AUTH: &str = "\
+            \0\
+            AUTH EXTERNAL\r\n\
+            DATA\r\n\
+            NEGOTIATE_UNIX_FD\r\n\
+            BEGIN\r\n\
+        ";
+        let out_buf = Buf::from_slice(AUTH.as_bytes());
+        self.write_buf(out_buf).await?;
+        let mut line;
+        macro_rules! read_cmd {
+            () => {{
+                line = self.readline().await?;
+                let (cmd, _) = line_to_cmd(&line);
+                cmd
+            }};
         }
-        let line = self.readline().await?;
-        let (cmd, _) = line_to_cmd(&line);
-        if cmd != "DATA" {
+        if read_cmd!() != "DATA" {
             return Err(DbusError::NoChallenge);
         }
-        let line = self.readline().await?;
-        let (cmd, _) = line_to_cmd(&line);
-        if cmd != "OK" {
+        if read_cmd!() != "OK" {
             return Err(DbusError::Auth);
         }
-        {
-            let buf = out_buf
-                .write_fmt(format_args!("NEGOTIATE_UNIX_FD\r\n"))
-                .unwrap();
-            self.write_buf(buf).await?;
-        }
-        let line = self.readline().await?;
-        let (cmd, _) = line_to_cmd(&line);
-        if cmd != "AGREE_UNIX_FD" {
+        if read_cmd!() != "AGREE_UNIX_FD" {
             return Err(DbusError::UnixFd);
-        }
-        {
-            let buf = out_buf.write_fmt(format_args!("BEGIN\r\n")).unwrap();
-            self.write_buf(buf).await?;
         }
         Ok(())
     }
