@@ -96,6 +96,7 @@ pub struct OutputNode {
     pub bar_rect: Cell<Rect>,
     pub bar_rect_rel: Cell<Rect>,
     pub bar_rect_with_separator: Cell<Rect>,
+    pub bar_separator_rect: Cell<Rect>,
     pub bar_separator_rect_rel: Cell<Rect>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
@@ -775,11 +776,11 @@ impl OutputNode {
         let mut bar_rect = Rect::default();
         let mut bar_rect_rel = Rect::default();
         let mut bar_rect_with_separator = Rect::default();
+        let mut bar_separator_rect = Rect::default();
         let mut bar_separator_rect_rel = Rect::default();
         let mut workspace_rect = non_exclusive_rect;
         let mut workspace_rect_rel = non_exclusive_rect_rel;
         if self.state.show_bar.get() {
-            let bar_separator_rect;
             match self.state.theme.bar_position.get() {
                 BarPosition::Bottom => {
                     workspace_rect = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
@@ -806,6 +807,7 @@ impl OutputNode {
         self.bar_rect.set(bar_rect);
         self.bar_rect_rel.set(bar_rect_rel);
         self.bar_rect_with_separator.set(bar_rect_with_separator);
+        self.bar_separator_rect.set(bar_separator_rect);
         self.bar_separator_rect_rel.set(bar_separator_rect_rel);
         self.workspace_rect.set(workspace_rect);
         self.workspace_rect_rel.set(workspace_rect_rel);
@@ -1148,20 +1150,13 @@ impl OutputNode {
         set_layer_visible!(self.layers[3], visible);
     }
 
-    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, id: PointerType) {
+    fn bar_button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) -> bool {
         if !self.state.show_bar.get() {
-            return;
-        }
-        let (x, y) = match self.pointer_positions.get(&id) {
-            Some(p) => p,
-            _ => return,
-        };
-        if let PointerType::Seat(s) = id {
-            self.pointer_down.set(s, (x, y));
+            return false;
         }
         let bar_rect_rel = self.bar_rect_rel.get();
         if bar_rect_rel.not_contains(x, y) {
-            return;
+            return false;
         }
         let (x, _) = bar_rect_rel.translate(x, y);
         let ws = 'ws: {
@@ -1171,9 +1166,25 @@ impl OutputNode {
                     break 'ws title.ws.clone();
                 }
             }
-            return;
+            return true;
         };
-        self.state.show_workspace2(Some(seat), &self, &ws);
+        self.state.show_workspace2(Some(seat), self, &ws);
+        true
+    }
+
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, id: PointerType) {
+        let (x, y) = match self.pointer_positions.get(&id) {
+            Some(p) => p,
+            _ => return,
+        };
+        if let PointerType::Seat(s) = id {
+            self.pointer_down.set(s, (x, y));
+        }
+        if self.bar_button(seat, x, y) {
+            return;
+        }
+        let ws = self.ensure_workspace();
+        seat.focus_node(ws);
     }
 
     pub fn update_presentation_type(&self) {
@@ -1489,6 +1500,10 @@ impl OutputNode {
         } else if let Some(c) = ws.container.get() {
             if c.node_visible() {
                 c.node_do_focus(seat, direction);
+            }
+        } else {
+            if ws.node_visible() {
+                seat.focus_node(ws);
             }
         }
     }

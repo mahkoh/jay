@@ -2986,6 +2986,19 @@ Config:
           [simple-im]
           enabled = false
           ```
+    fallback-output-mode:
+      ref: FallbackOutputMode
+      required: false
+      description: |
+        Sets the fallback output mode.
+       
+        The default is `cursor`.
+
+        - Example:
+
+          ```toml
+          fallback-output-mode = "focus"
+          ```
 
 
 Idle:
@@ -4351,3 +4364,17 @@ BarPosition:
       description: The bar is at the top of the output.
     - value: bottom
       description: The bar is at the bottom of the output.
+
+
+FallbackOutputMode:
+  kind: string
+  description: |
+    Defines which output is used when no particular output is specified.
+    
+    This configures where to place a newly opened window or workspace, what window to focus when a
+    window is closed, which workspace is moved with move-to-output, and similar actions.
+  values:
+    - value: cursor
+      description: Use the output the cursor is on.
+    - value: focus
+      description: Use the output the focus is on (highlighted window).

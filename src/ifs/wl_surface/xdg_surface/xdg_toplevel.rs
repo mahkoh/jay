@@ -486,7 +486,7 @@ impl XdgToplevel {
             if should_be_mapped {
                 if !self.is_mapped.replace(true) {
                     if let Some(seat) = drag.source.data.seat.get() {
-                        self.xdg.set_output(&seat.get_output());
+                        self.xdg.set_output(&seat.get_cursor_output());
                     }
                     self.toplevel_data.broadcast(self.clone());
                     self.tl_set_visible(self.state.root_visible());

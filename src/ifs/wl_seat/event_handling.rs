@@ -213,12 +213,12 @@ impl NodeSeatState {
     fn release_kb_focus2(&self, focus_last: bool) {
         self.release_kb_grab();
         while let Some((_, seat)) = self.kb_foci.pop() {
+            let output = seat.get_fallback_output();
             seat.kb_owner
                 .set_kb_node(&seat, seat.state.root.clone(), seat.state.next_serial(None));
             // log::info!("keyboard_node = root");
             if focus_last {
-                seat.get_output()
-                    .node_do_focus(&seat, Direction::Unspecified);
+                output.node_do_focus(&seat, Direction::Unspecified);
             }
         }
     }

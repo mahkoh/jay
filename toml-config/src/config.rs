@@ -27,7 +27,7 @@ use {
         Axis, Direction, Workspace,
         client::ClientCapabilities,
         input::{
-            LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
+            FallbackOutputMode, LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
             clickmethod::ClickMethod,
         },
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
@@ -537,6 +537,7 @@ pub struct Config {
     pub input_modes: AHashMap<String, InputMode>,
     pub workspace_display_order: Option<WorkspaceDisplayOrder>,
     pub simple_im: Option<SimpleIm>,
+    pub fallback_output_mode: Option<FallbackOutputMode>,
 }
 
 #[derive(Debug, Error)]

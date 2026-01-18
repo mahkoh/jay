@@ -420,7 +420,7 @@ impl Seat {
     ///
     /// If no such workspace exists, `exists` returns `false` for the returned workspace.
     pub fn get_workspace(self) -> Workspace {
-        get!(Workspace(0)).get_seat_workspace(self)
+        get!(Workspace(0)).get_seat_cursor_workspace(self)
     }
 
     /// Returns the workspace that is currently active on the output that contains the seat's
@@ -501,6 +501,13 @@ impl Seat {
     /// Sets the focus-follows-mouse mode.
     pub fn set_focus_follows_mouse_mode(self, mode: FocusFollowsMouseMode) {
         get!().set_focus_follows_mouse_mode(self, mode);
+    }
+
+    /// Sets the fallback output mode.
+    ///
+    /// The default is `Cursor`.
+    pub fn set_fallback_output_mode(self, mode: FallbackOutputMode) {
+        get!().set_fallback_output_mode(self, mode);
     }
 
     /// Enables or disable window management mode.
@@ -648,6 +655,19 @@ pub enum FocusFollowsMouseMode {
     /// The keyboard focus changes only when clicking on a window or the previously
     /// focused window becomes invisible.
     False,
+}
+
+/// Defines which output is used when no particular output is specified.
+///
+/// This configures where to place a newly opened window or workspace, what window to focus when a
+/// window is closed, which workspace is moved with [`Seat::move_to_output`], and similar actions.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FallbackOutputMode {
+    /// Use the output the cursor is on.
+    Cursor,
+    /// Use the output the focus is on (highlighted window).
+    Focus,
 }
 
 /// Returns all seats.

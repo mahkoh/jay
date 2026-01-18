@@ -4,8 +4,9 @@ use {
         Axis, Direction, PciId, Workspace,
         client::{Client, ClientCapabilities, ClientMatcher},
         input::{
-            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
-            acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
+            SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
+            clickmethod::ClickMethod,
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -372,7 +373,7 @@ pub enum ClientMessage<'a> {
     MakeRenderDevice {
         device: DrmDevice,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         seat: Seat,
     },
     SetDefaultWorkspaceCapture {
@@ -826,6 +827,10 @@ pub enum ClientMessage<'a> {
         groups: Option<Vec<Group<'a>>>,
         options: Option<Vec<&'a str>>,
     },
+    SetFallbackOutputMode {
+        seat: Seat,
+        mode: FallbackOutputMode,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -925,7 +930,7 @@ pub enum Response {
         width: i32,
         height: i32,
     },
-    GetSeatWorkspace {
+    GetSeatCursorWorkspace {
         workspace: Workspace,
     },
     GetDefaultWorkspaceCapture {

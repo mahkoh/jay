@@ -15,6 +15,7 @@ use {
                 drm_device::DrmDevicesParser,
                 drm_device_match::DrmDeviceMatchParser,
                 env::EnvParser,
+                fallback_output_mode::FallbackOutputModeParser,
                 float::FloatParser,
                 focus_history::FocusHistoryParser,
                 gfx_api::GfxApiParser,
@@ -147,6 +148,7 @@ impl Parser for ConfigParser<'_> {
                 auto_reload,
                 simple_im_val,
                 show_titles,
+                fallback_output_mode_val,
             ),
         ) = ext.extract((
             (
@@ -204,6 +206,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("auto-reload"))),
                 opt(val("simple-im")),
                 recover(opt(bol("show-titles"))),
+                opt(val("fallback-output-mode")),
             ),
         ))?;
         let mut keymap = None;
@@ -524,6 +527,18 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut fallback_output_mode = None;
+        if let Some(value) = fallback_output_mode_val {
+            match value.parse(&mut FallbackOutputModeParser) {
+                Ok(v) => fallback_output_mode = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the fallback output mode: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -570,6 +585,7 @@ impl Parser for ConfigParser<'_> {
             input_modes,
             workspace_display_order,
             simple_im,
+            fallback_output_mode,
         })
     }
 }

@@ -60,7 +60,7 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
                 self.client.lookup(req.output)?.global.clone()
             } else {
                 for seat in self.client.state.seat_queue.rev_iter() {
-                    let output = seat.get_output();
+                    let output = seat.get_fallback_output();
                     if !output.is_dummy {
                         break 'get_output output.global.opt.clone();
                     }

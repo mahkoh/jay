@@ -106,7 +106,10 @@ use {
         wire_ei::EiSeatId,
     },
     ahash::AHashMap,
-    jay_config::keyboard::syms::{KeySym, SYM_Escape},
+    jay_config::{
+        input::FallbackOutputMode,
+        keyboard::syms::{KeySym, SYM_Escape},
+    },
     kbvm::Keycode,
     smallvec::SmallVec,
     std::{
@@ -226,6 +229,7 @@ pub struct WlSeatGlobal {
     input_method_grab: CloneCell<Option<Rc<dyn InputMethodKeyboardGrab>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
+    fallback_output_mode: Cell<FallbackOutputMode>,
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
     pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
@@ -325,6 +329,7 @@ impl WlSeatGlobal {
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
+            fallback_output_mode: Cell::new(FallbackOutputMode::Cursor),
             swipe_bindings: Default::default(),
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
@@ -457,7 +462,7 @@ impl WlSeatGlobal {
         self.data_control_devices.remove(&device.id());
     }
 
-    pub fn get_output(&self) -> Rc<OutputNode> {
+    pub fn get_cursor_output(&self) -> Rc<OutputNode> {
         self.cursor_user_group.latest_output()
     }
 
@@ -467,6 +472,15 @@ impl WlSeatGlobal {
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
+    }
+
+    pub fn get_fallback_output(&self) -> Rc<OutputNode> {
+        if self.fallback_output_mode.get() == FallbackOutputMode::Focus
+            && let Some(output) = self.get_keyboard_output()
+        {
+            return output;
+        }
+        self.get_cursor_output()
     }
 
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -726,7 +740,16 @@ impl WlSeatGlobal {
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
-            _ => return,
+            _ => {
+                if let Some(ws) = self.keyboard_node.get().node_into_workspace()
+                    && let Some(target) = self
+                        .state
+                        .find_output_in_direction(&ws.output.get(), direction)
+                {
+                    target.take_keyboard_navigation_focus(self, direction);
+                }
+                return;
+            }
         };
         if direction == Direction::Down && tl.node_is_container() {
             tl.node_do_focus(self, direction);
@@ -748,6 +771,13 @@ impl WlSeatGlobal {
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
         let Some(tl) = kb_node.node_toplevel() else {
+            if let Some(ws) = self.keyboard_node.get().node_into_workspace()
+                && let Some(target) = self
+                    .state
+                    .find_output_in_direction(&ws.output.get(), direction)
+            {
+                self.state.move_ws_to_output(&ws, &target);
+            }
             return;
         };
         let data = tl.tl_data();
@@ -981,7 +1011,15 @@ impl WlSeatGlobal {
                 NodeLayer::Layer0 => handle_layer_shell(&output.layers[0]),
                 NodeLayer::Layer1 => handle_layer_shell(&output.layers[1]),
                 NodeLayer::Output => None,
-                NodeLayer::Workspace => None,
+                NodeLayer::Workspace => {
+                    if let Some(ws) = &ws
+                        && ws.container_visible()
+                    {
+                        self.focus_node(ws.clone());
+                        return;
+                    }
+                    None
+                }
                 NodeLayer::Tiled => ws
                     .as_ref()
                     .and_then(|w| w.container.get())
@@ -1391,6 +1429,10 @@ impl WlSeatGlobal {
 
     pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
         self.focus_follows_mouse.set(focus_follows_mouse);
+    }
+
+    pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
+        self.fallback_output_mode.set(fallback_output_mode);
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {

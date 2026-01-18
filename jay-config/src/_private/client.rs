@@ -15,8 +15,9 @@ use {
         client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
-            FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, SwitchEvent, Timeline,
-            acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
+            SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
+            clickmethod::ClickMethod,
         },
         keyboard::{
             Group, Keymap,
@@ -551,9 +552,9 @@ impl ConfigClient {
         connector
     }
 
-    pub fn get_seat_workspace(&self, seat: Seat) -> Workspace {
-        let res = self.send_with_response(&ClientMessage::GetSeatWorkspace { seat });
-        get_response!(res, Workspace(0), GetSeatWorkspace { workspace });
+    pub fn get_seat_cursor_workspace(&self, seat: Seat) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetSeatCursorWorkspace { seat });
+        get_response!(res, Workspace(0), GetSeatCursorWorkspace { workspace });
         workspace
     }
 
@@ -1362,6 +1363,10 @@ impl ConfigClient {
 
     pub fn set_focus_follows_mouse_mode(&self, seat: Seat, mode: FocusFollowsMouseMode) {
         self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
+    }
+
+    pub fn set_fallback_output_mode(&self, seat: Seat, mode: FallbackOutputMode) {
+        self.send(&ClientMessage::SetFallbackOutputMode { seat, mode })
     }
 
     pub fn set_window_management_enabled(&self, seat: Seat, enabled: bool) {

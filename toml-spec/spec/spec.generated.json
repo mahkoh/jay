@@ -1068,6 +1068,10 @@
         "simple-im": {
           "description": "Configures the simple, XCompose based input method.\n\nBy default, the input method is enabled. \n\nEven if the input method is enabled, it will only be used if there is no\nrunning external IM.\n\n- Example:\n\n  ```toml\n  [simple-im]\n  enabled = false\n  ```\n",
           "$ref": "#/$defs/SimpleIm"
+        },
+        "fallback-output-mode": {
+          "description": "Sets the fallback output mode.\n\nThe default is `cursor`.\n\n- Example:\n\n  ```toml\n  fallback-output-mode = \"focus\"\n  ```\n",
+          "$ref": "#/$defs/FallbackOutputMode"
         }
       },
       "required": []
@@ -1282,6 +1286,14 @@
           },
           "required": []
         }
+      ]
+    },
+    "FallbackOutputMode": {
+      "type": "string",
+      "description": "Defines which output is used when no particular output is specified.\n\nThis configures where to place a newly opened window or workspace, what window to focus when a\nwindow is closed, which workspace is moved with move-to-output, and similar actions.\n",
+      "enum": [
+        "cursor",
+        "focus"
       ]
     },
     "Float": {
