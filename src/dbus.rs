@@ -98,6 +98,8 @@ pub enum DbusError {
     ReadError(#[source] IoUringError),
     #[error("timeout")]
     IoUringError(#[source] Box<IoUringError>),
+    #[error("Server did not send auth challenge")]
+    NoChallenge,
     #[error("Server did not accept our authentication")]
     Auth,
     #[error("Array length is not a multiple of the element size")]

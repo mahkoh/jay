@@ -1,7 +1,7 @@
 use {
     crate::{
         dbus::{DbusError, DbusSocket, incoming::handle_incoming, outgoing::handle_outgoing},
-        utils::{buf::Buf, errorfmt::ErrorFmt, hex},
+        utils::{buf::Buf, errorfmt::ErrorFmt},
     },
     std::{ops::Deref, rc::Rc},
 };
@@ -52,13 +52,17 @@ impl Auth {
     }
 
     async fn handle_auth(&mut self) -> Result<(), DbusError> {
-        let uid = hex::to_hex(&uapi::getuid().to_string());
         let mut out_buf = Buf::new(128);
         {
             let buf = out_buf
-                .write_fmt(format_args!("\0AUTH EXTERNAL {}\r\n", uid))
+                .write_fmt(format_args!("\0AUTH EXTERNAL\r\nDATA\r\n"))
                 .unwrap();
             self.write_buf(buf).await?;
+        }
+        let line = self.readline().await?;
+        let (cmd, _) = line_to_cmd(&line);
+        if cmd != "DATA" {
+            return Err(DbusError::NoChallenge);
         }
         let line = self.readline().await?;
         let (cmd, _) = line_to_cmd(&line);
