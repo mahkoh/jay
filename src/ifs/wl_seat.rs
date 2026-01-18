@@ -1533,7 +1533,7 @@ impl Global for WlSeatGlobal {
     }
 
     fn version(&self) -> u32 {
-        10
+        11
     }
 }
 
