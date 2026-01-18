@@ -4440,11 +4440,11 @@ Values of this type should be strings.
 
 The string should have one of the following values:
 
-- `always`:
+- `never`:
 
   Tearing is never enabled.
 
-- `never`:
+- `always`:
 
   Tearing is always enabled.
 
@@ -4799,11 +4799,11 @@ Values of this type should be strings.
 
 The string should have one of the following values:
 
-- `always`:
+- `never`:
 
   VRR is never enabled.
 
-- `never`:
+- `always`:
 
   VRR is always enabled.
 

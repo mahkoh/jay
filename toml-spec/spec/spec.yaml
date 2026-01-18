@@ -3179,9 +3179,9 @@ VrrMode:
       ```
   kind: string
   values:
-    - value: always
-      description: VRR is never enabled.
     - value: never
+      description: VRR is never enabled.
+    - value: always
       description: VRR is always enabled.
     - value: variant1
       description: VRR is enabled when one or more applications are displayed fullscreen.
@@ -3242,9 +3242,9 @@ TearingMode:
       ```
   kind: string
   values:
-    - value: always
-      description: Tearing is never enabled.
     - value: never
+      description: Tearing is never enabled.
+    - value: always
       description: Tearing is always enabled.
     - value: variant1
       description: Tearing is enabled when one or more applications are displayed fullscreen.
