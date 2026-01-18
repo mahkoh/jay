@@ -493,6 +493,7 @@ impl XBackend {
             format: FORMAT,
             color_space: Default::default(),
             eotf: Default::default(),
+            gamma_lut: Default::default(),
         };
         let output = Rc::new(XOutput {
             id: self.state.connector_ids.next(),
@@ -506,7 +507,7 @@ impl XBackend {
             next_image: Default::default(),
             cb: CloneCell::new(None),
             images,
-            state: Cell::new(state),
+            state: RefCell::new(state),
         });
         {
             let class = "jay\0jay\0";
@@ -604,7 +605,7 @@ impl XBackend {
             color_spaces: vec![],
             primaries: Primaries::SRGB,
             luminance: None,
-            state: output.state.get(),
+            state: output.state.borrow().clone(),
         }));
         output.changed();
         self.present(output).await;
@@ -983,11 +984,11 @@ impl XBackend {
                 old.tex.set(new.tex.get());
                 old.pixmap.set(new.pixmap.get());
             }
-            let mut state = output.state.get();
+            let mut state = output.state.borrow().clone();
             state.serial = self.state.backend_connector_state_serials.next();
             state.mode.width = width;
             state.mode.height = height;
-            output.state.set(state);
+            *output.state.borrow_mut() = state.clone();
             output.events.push(ConnectorEvent::State(state));
             output.changed();
         }
@@ -1057,7 +1058,7 @@ struct XOutput {
     next_image: NumCell<usize>,
     images: [XImage; 2],
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
-    state: Cell<BackendConnectorState>,
+    state: RefCell<BackendConnectorState>,
 }
 
 struct XImage {
@@ -1133,7 +1134,7 @@ struct XTransaction {
 impl XTransaction {
     fn send_state(&self) {
         for con in self.connectors.values() {
-            let mut state = con.state.get();
+            let mut state = con.state.borrow().clone();
             state.serial = con.backend.state.backend_connector_state_serials.next();
             con.events.push(ConnectorEvent::State(state));
         }

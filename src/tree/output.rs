@@ -1,8 +1,8 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, ButtonState, HardwareCursor,
-            Mode,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLutElement,
+            ButtonState, HardwareCursor, Mode,
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
@@ -126,6 +126,7 @@ pub struct OutputNode {
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
     pub tearing: Cell<bool>,
+    pub has_valid_zwlr_gamma_control: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1505,6 +1506,19 @@ impl OutputNode {
             if ws.node_visible() {
                 seat.focus_node(ws);
             }
+        }
+    }
+
+    pub fn set_gamma_lut(&self, gamma_lut: Rc<Option<Vec<BackendGammaLutElement>>>) -> bool {
+        let res = self
+            .global
+            .connector
+            .modify_state(&self.state, |s| s.gamma_lut = gamma_lut);
+        if let Err(e) = res {
+            log::error!("Could not set gamma_lut: {}", e);
+            false
+        } else {
+            true
         }
     }
 }

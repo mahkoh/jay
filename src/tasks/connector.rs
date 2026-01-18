@@ -20,7 +20,11 @@ use {
         },
     },
     jay_config::video::Transform,
-    std::{cell::Cell, collections::VecDeque, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        rc::Rc,
+    },
 };
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
@@ -42,6 +46,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         format: XRGB8888,
         color_space: Default::default(),
         eotf: Default::default(),
+        gamma_lut: Default::default(),
     };
     let id = connector.id();
     let name = Rc::new(connector.kernel_id().to_string());
@@ -84,7 +89,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
-        state: Cell::new(backend_state),
+        state: RefCell::new(backend_state),
         head_managers: HeadManagers::new(state.head_names.next(), head_state),
         wlr_output_heads: Default::default(),
     });
@@ -145,7 +150,7 @@ impl ConnectorHandler {
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        self.data.set_state(&self.state, info.state);
+        self.data.set_state(&self.state, info.state.clone());
         *self.data.description.borrow_mut() = create_description(&info);
         let name = self.state.globals.name();
         if info.non_desktop_effective {
@@ -265,6 +270,7 @@ impl ConnectorHandler {
             ext_workspace_groups: Default::default(),
             pinned: Default::default(),
             tearing: Default::default(),
+            has_valid_zwlr_gamma_control: Cell::new(false),
         });
         on.update_visible();
         on.update_rects();

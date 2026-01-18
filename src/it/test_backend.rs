@@ -153,6 +153,7 @@ impl TestBackend {
                 format: XRGB8888,
                 color_space: Default::default(),
                 eotf: Default::default(),
+                gamma_lut: Default::default(),
             },
         };
         Self {
