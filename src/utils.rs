@@ -24,7 +24,6 @@ pub mod free_list;
 pub mod geometric_decay;
 pub mod gfx_api_ext;
 pub mod hash_map_ext;
-pub mod hex;
 pub mod line_logger;
 pub mod linkedlist;
 pub mod log_on_drop;
