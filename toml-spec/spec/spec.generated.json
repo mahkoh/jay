@@ -2094,22 +2094,22 @@
           "$ref": "#/$defs/VrrMode"
         },
         "cursor-hz": {
-          "description": "The VRR cursor refresh rate.\n\nLimits the rate at which cursors are updated on screen when VRR is active.\n",
+          "description": "The VRR cursor refresh rate.\n\nLimits the rate at which cursor movement forces a screen update\nwhen VRR is active.\n",
           "$ref": "#/$defs/VrrHz"
         }
       },
       "required": []
     },
     "VrrHz": {
-      "description": "A VRR refresh rate limiter.\n\n- Example 1:\n\n  ```toml\n  vrr = { cursor-hz = 90 }\n  ```\n\n- Example 2:\n\n  ```toml\n  vrr = { cursor-hz = \"none\" }\n  ```\n",
+      "description": "A VRR cursor refresh rate limit.\n\n- Example 1:\n\n  ```toml\n  vrr = { cursor-hz = 90 }\n  ```\n\n- Example 2:\n\n  ```toml\n  vrr = { cursor-hz = \"none\" }\n  ```\n",
       "anyOf": [
         {
           "type": "string",
-          "description": "The string `none` can be used to disable the limiter."
+          "description": "The string `none` can be used to disable the limit.\n\nThis means the cursor refresh rate is unbounded, meaning every mouse\nmovement will update the screen.\n\nIf the mouse reporting interval (polling rate) is >= screen refresh\nrate, this results in the screen spiking to maximum refresh rate on\nmouse movement.\n"
         },
         {
           "type": "number",
-          "description": "The refresh rate in HZ."
+          "description": "The cursor refresh rate limit in Hz.\n\nThis means the cursor is updated whenever the rest of the screen is\nupdated but no later than `1 / cursor-hz` after the last screen update.\n\nIf the application's content refresh rate is higher than `cursor-hz`,\nthe cursor will update with the content.\n\nSetting `cursor-hz = 1` would force it to always match content refresh\nrate.\n\nHowever, if content refresh rate regularly drops low, cursor movement\nwill feel choppy. Consider setting `cursor-hz` to a reasonable minimum\nvalue to keep cursor movement smooth.\n"
         }
       ]
     },
