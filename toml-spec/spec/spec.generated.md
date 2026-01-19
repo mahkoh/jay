@@ -4787,7 +4787,8 @@ The table has the following fields:
 
   The VRR cursor refresh rate.
   
-  Limits the rate at which cursors are updated on screen when VRR is active.
+  Limits the rate at which cursor movement forces a screen update
+  when VRR is active.
 
   The value of this field should be a [VrrHz](#types-VrrHz).
 
@@ -4795,7 +4796,7 @@ The table has the following fields:
 <a name="types-VrrHz"></a>
 ### `VrrHz`
 
-A VRR refresh rate limiter.
+A VRR cursor refresh rate limit.
 
 - Example 1:
 
@@ -4813,11 +4814,31 @@ Values of this type should have one of the following forms:
 
 #### A string
 
-The string `none` can be used to disable the limiter.
+The string `none` can be used to disable the limit.
+
+This means the cursor refresh rate is unbounded, meaning every mouse
+movement will update the screen.
+
+If the mouse reporting interval (polling rate) is >= screen refresh
+rate, this results in the screen spiking to maximum refresh rate on
+mouse movement.
 
 #### A number
 
-The refresh rate in HZ.
+The cursor refresh rate limit in Hz.
+
+This means the cursor is updated whenever the rest of the screen is
+updated but no later than `1 / cursor-hz` after the last screen update.
+
+If the application's content refresh rate is higher than `cursor-hz`,
+the cursor will update with the content.
+
+Setting `cursor-hz = 1` would force it to always match content refresh
+rate.
+
+However, if content refresh rate regularly drops low, cursor movement
+will feel choppy. Consider setting `cursor-hz` to a reasonable minimum
+value to keep cursor movement smooth.
 
 
 <a name="types-VrrMode"></a>
@@ -4853,7 +4874,9 @@ The string should have one of the following values:
 
 - `variant3`:
 
-  VRR is enabled when a single game or video is displayed fullscreen.
+  VRR is enabled when a single application is displayed fullscreen and
+  describes its content type as video or game through the
+  wp_content_type_v1 protocol.
 
 
 
