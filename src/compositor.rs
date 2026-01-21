@@ -86,7 +86,15 @@ use {
         video::{GfxApi, Transform},
         workspace::WorkspaceDisplayOrder,
     },
-    std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
+    std::{
+        cell::{Cell, RefCell},
+        env,
+        future::Future,
+        ops::Deref,
+        rc::Rc,
+        sync::Arc,
+        time::Duration,
+    },
     thiserror::Error,
     uapi::c,
 };
@@ -694,7 +702,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
-        state: Cell::new(backend_state),
+        state: RefCell::new(backend_state),
         head_managers: HeadManagers::new(head_name, head_state),
         wlr_output_heads: Default::default(),
     });

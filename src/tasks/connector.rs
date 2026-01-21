@@ -19,7 +19,12 @@ use {
         },
     },
     jay_config::video::Transform,
-    std::{cell::Cell, collections::VecDeque, fmt, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        fmt,
+        rc::Rc,
+    },
 };
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
@@ -83,7 +88,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage: Default::default(),
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
-        state: Cell::new(backend_state),
+        state: RefCell::new(backend_state),
         head_managers: HeadManagers::new(state.head_names.next(), head_state),
         wlr_output_heads: Default::default(),
     });
@@ -144,7 +149,7 @@ impl ConnectorHandler {
     async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        self.data.set_state(&self.state, info.state);
+        self.data.set_state(&self.state, info.state.clone());
         *self.data.description.borrow_mut() = create_description(&info);
         let name = self.state.globals.name();
         if info.non_desktop_effective {

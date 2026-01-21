@@ -189,7 +189,7 @@ impl MetalDrmDeviceData {
                 ConnectorConfig {
                     obj: connector.clone(),
                     new: dd.drm_state.clone(),
-                    state: *dd.persistent.state.borrow(),
+                    state: dd.persistent.state.borrow().clone(),
                     requested: false,
                     changed: Default::default(),
                 },

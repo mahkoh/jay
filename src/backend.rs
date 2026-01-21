@@ -617,7 +617,7 @@ linear_ids!(
     u64
 );
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BackendConnectorState {
     pub serial: BackendConnectorStateSerial,
     pub enabled: bool,

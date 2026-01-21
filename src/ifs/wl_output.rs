@@ -206,7 +206,7 @@ impl WlOutputGlobal {
     ) -> Self {
         let (x, y) = persistent_state.pos.get();
         let scale = persistent_state.scale.get();
-        let connector_state = connector.state.get();
+        let connector_state = connector.state.borrow();
         let (width, height) = calculate_logical_size(
             (connector_state.mode.width, connector_state.mode.height),
             persistent_state.transform.get(),
