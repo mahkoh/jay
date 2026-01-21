@@ -193,7 +193,7 @@ impl ConnectorTransaction {
             Entry::Occupied(v) => v.into_mut(),
             Entry::Vacant(v) => v.insert(connector.create_transaction()?),
         };
-        tran.add(connector, state)?;
+        tran.add(connector, state.clone())?;
         self.common.states.insert(connector.id(), state);
         Ok(())
     }

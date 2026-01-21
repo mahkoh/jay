@@ -632,7 +632,7 @@ impl MetalConnector {
             | FrontState::Connected { non_desktop: true } => return,
             FrontState::Connected { non_desktop: false } => {}
         }
-        let mut state = *self.display.borrow().persistent.state.borrow();
+        let mut state = self.display.borrow().persistent.state.borrow().clone();
         state.serial = self.state.backend_connector_state_serials.next();
         self.send_event(ConnectorEvent::State(state));
     }
@@ -1919,7 +1919,7 @@ impl MetalBackend {
         if dd.supports_bt2020 {
             color_spaces.push(BackendColorSpace::Bt2020);
         }
-        let mut state = *dd.persistent.state.borrow();
+        let mut state = dd.persistent.state.borrow().clone();
         state.serial = self.state.backend_connector_state_serials.next();
         connector.send_event(ConnectorEvent::Connected(MonitorInfo {
             modes,
@@ -2548,7 +2548,7 @@ impl MetalBackend {
             let mut tran = dev.create_transaction();
             for c in dev.connectors.lock().values() {
                 let dd = &*c.display.borrow();
-                let mut state = *dd.persistent.state.borrow();
+                let mut state = dd.persistent.state.borrow().clone();
                 let mut changed_any = false;
                 if disable_non_default_format && state.format != XRGB8888 {
                     state.format = XRGB8888;
