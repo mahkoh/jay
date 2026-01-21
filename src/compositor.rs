@@ -34,7 +34,7 @@ use {
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
-            wl_seat::handle_position_hint_requests,
+            wl_seat::{handle_position_hint_requests, wl_keyboard::handle_wl_keyboard_frames},
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
                 zwp_input_popup_surface_v2::input_popup_positioning,
@@ -361,6 +361,7 @@ fn start_compositor2(
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
+        keyboard_frames: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -558,6 +559,11 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "xdg_surface configure events",
             Phase::PostLayout,
             handle_xdg_surface_configure_events(state.clone()),
+        ),
+        eng.spawn2(
+            "wl_keyboard.frame events",
+            Phase::PostLayout,
+            handle_wl_keyboard_frames(state.clone()),
         ),
     ]
 }

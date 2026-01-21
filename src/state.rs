@@ -58,6 +58,7 @@ use {
                 PhysicalKeyboardId, PhysicalKeyboardIds, PositionHintRequest, SeatIds,
                 WlSeatGlobal,
                 tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
+                wl_keyboard::WlKeyboard,
             },
             wl_surface::{
                 NoneSurfaceExt,
@@ -290,6 +291,7 @@ pub struct State {
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
+    pub keyboard_frames: AsyncQueue<Rc<WlKeyboard>>,
 }
 
 // impl Drop for State {
