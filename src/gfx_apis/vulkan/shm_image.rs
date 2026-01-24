@@ -476,7 +476,7 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
-            sampled_image_descriptor: self.sampled_image_descriptor(view),
+            sampled_image_descriptor: self.sampled_image_descriptor(usage, view),
             execution_version: Cell::new(0),
         });
         let shm = match &img.ty {

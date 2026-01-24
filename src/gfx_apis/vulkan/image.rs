@@ -64,7 +64,7 @@ pub struct VulkanImage {
     pub(super) queue_state: Cell<QueueState>,
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
-    pub(super) sampled_image_descriptor: Box<[u8]>,
+    pub(super) sampled_image_descriptor: Option<Box<[u8]>>,
     pub(super) execution_version: Cell<u64>,
 }
 
@@ -252,9 +252,16 @@ impl VulkanDevice {
 }
 
 impl VulkanRenderer {
-    pub(super) fn sampled_image_descriptor(&self, view: ImageView) -> Box<[u8]> {
+    pub(super) fn sampled_image_descriptor(
+        &self,
+        usage: ImageUsageFlags,
+        view: ImageView,
+    ) -> Option<Box<[u8]>> {
+        if !usage.contains(ImageUsageFlags::SAMPLED) {
+            return None;
+        }
         let Some(db) = &self.device.descriptor_buffer else {
-            return Box::new([]);
+            return None;
         };
         let mut buf = vec![0; self.device.sampled_image_descriptor_size].into_boxed_slice();
         let image_info = DescriptorImageInfo::default()
@@ -268,7 +275,7 @@ impl VulkanRenderer {
         unsafe {
             db.get_descriptor(&info, &mut buf);
         }
-        buf
+        Some(buf)
     }
 }
 
@@ -291,6 +298,7 @@ impl VulkanDmaBufImageTemplate {
         if self.width > limits.max_width || self.height > limits.max_height {
             return Err(VulkanError::ImageTooLarge);
         }
+        let usage;
         let image = {
             let plane_layouts: PlaneVec<_> = self
                 .dmabuf
@@ -313,7 +321,7 @@ impl VulkanDmaBufImageTemplate {
                 true => ImageCreateFlags::DISJOINT,
                 false => ImageCreateFlags::empty(),
             };
-            let usage = match for_rendering {
+            usage = match for_rendering {
                 true => match self.render_needs_bridge {
                     true => ImageUsageFlags::TRANSFER_DST,
                     false => ImageUsageFlags::TRANSFER_SRC | ImageUsageFlags::COLOR_ATTACHMENT,
@@ -464,7 +472,7 @@ impl VulkanDmaBufImageTemplate {
                 family: QueueFamily::Gfx,
             }),
             bridge,
-            sampled_image_descriptor: self.renderer.sampled_image_descriptor(texture_view),
+            sampled_image_descriptor: self.renderer.sampled_image_descriptor(usage, texture_view),
             execution_version: Cell::new(0),
         }))
     }
