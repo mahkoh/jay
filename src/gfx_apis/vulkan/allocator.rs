@@ -2,7 +2,10 @@ use {
     crate::{
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
         gfx_apis::vulkan::{
-            VulkanError, device::VulkanDevice, instance::API_VERSION, renderer::VulkanRenderer,
+            VulkanError,
+            device::VulkanDevice,
+            gpu_alloc_ash::{self, AshMemoryDevice},
+            renderer::VulkanRenderer,
         },
         utils::{numcell::NumCell, page_size::page_size, ptr_ext::MutPtrExt},
     },
@@ -11,7 +14,6 @@ use {
         vk::{DeviceMemory, DeviceSize, MappedMemoryRange, MemoryRequirements},
     },
     gpu_alloc::{Config, GpuAllocator, MemoryBlock, MemoryPropertyFlags, Request, UsageFlags},
-    gpu_alloc_ash::AshMemoryDevice,
     parking_lot::Mutex,
     std::{
         cell::{Cell, UnsafeCell},
@@ -164,11 +166,7 @@ impl VulkanDevice {
     ) -> Result<Rc<VulkanAllocatorType<T>>, VulkanError> {
         let config = Config::i_am_prototyping();
         let props = unsafe {
-            gpu_alloc_ash::device_properties(
-                &self.instance.instance,
-                API_VERSION,
-                self.physical_device,
-            )
+            gpu_alloc_ash::device_properties(&self.instance.instance, self.physical_device)
         };
         let mut props = props.map_err(VulkanError::GetDeviceProperties)?;
         props.buffer_device_address = self.descriptor_buffer.is_some();
