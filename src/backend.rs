@@ -37,7 +37,7 @@ use {
         hash::Hash,
         rc::Rc,
     },
-    uapi::{OwnedFd, c},
+    uapi::{OwnedFd, Packed, Pod, c},
 };
 
 pub mod transaction;
@@ -164,6 +164,9 @@ pub trait Connector: Any {
         Err(BackendConnectorTransactionError::TransactionsNotSupported(
             self.kernel_id(),
         ))
+    }
+    fn gamma_lut_size(&self) -> Option<u32> {
+        None
     }
 }
 
@@ -611,6 +614,42 @@ impl BackendColorSpace {
     }
 }
 
+// kernel: struct drm_color_lut
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[repr(C)]
+pub struct BackendGammaLutElement {
+    pub red: u16,
+    pub green: u16,
+    pub blue: u16,
+    pub reserved: u16,
+}
+
+unsafe impl Pod for BackendGammaLutElement {}
+unsafe impl Packed for BackendGammaLutElement {}
+
+#[derive(Debug, Eq)]
+pub struct BackendGammaLut {
+    id: [u8; 32],
+    pub gamma_lut: Vec<BackendGammaLutElement>,
+}
+
+impl BackendGammaLut {
+    pub fn new(mut gamma_lut: Vec<BackendGammaLutElement>) -> Self {
+        for element in &mut gamma_lut {
+            element.reserved = 0;
+        }
+        let gamma_lut_bytes = uapi::as_bytes(&gamma_lut as &[_]);
+        let id = *blake3::hash(gamma_lut_bytes).as_bytes();
+        Self { id, gamma_lut }
+    }
+}
+
+impl PartialEq for BackendGammaLut {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 linear_ids!(
     BackendConnectorStateSerials,
     BackendConnectorStateSerial,
@@ -629,4 +668,5 @@ pub struct BackendConnectorState {
     pub format: &'static Format,
     pub color_space: BackendColorSpace,
     pub eotf: BackendEotfs,
+    pub gamma_lut: Option<Rc<BackendGammaLut>>,
 }

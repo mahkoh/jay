@@ -1,0 +1,13 @@
+event gamma_size {
+    size: u32,
+}
+
+request set_gamma {
+    fd: fd,
+}
+
+event failed {
+}
+
+request destroy (destructor) {
+}

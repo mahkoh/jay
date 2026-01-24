@@ -63,6 +63,7 @@ use {
             xdg_wm_base::XdgWmBaseGlobal,
             xdg_wm_dialog_v1::XdgWmDialogV1Global,
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1Global,
+            zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1Global,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
@@ -233,6 +234,7 @@ impl Globals {
         add_singleton!(JayHeadManagerV1Global);
         add_singleton!(WpPointerWarpV1Global);
         add_singleton!(JayPopupExtManagerV1Global);
+        add_singleton!(ZwlrGammaControlManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

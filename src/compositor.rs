@@ -658,6 +658,7 @@ fn create_dummy_output(state: &Rc<State>) {
         format: XRGB8888,
         color_space: Default::default(),
         eotf: Default::default(),
+        gamma_lut: Default::default(),
     };
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
@@ -771,6 +772,7 @@ fn create_dummy_output(state: &Rc<State>) {
         ext_workspace_groups: Default::default(),
         pinned: Default::default(),
         tearing: Default::default(),
+        active_zwlr_gamma_control: Default::default(),
     });
     let dummy_workspace = WorkspaceNode::new(&dummy_output, "dummy", true);
     dummy_workspace.may_capture.set(false);

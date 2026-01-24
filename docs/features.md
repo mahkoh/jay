@@ -196,6 +196,7 @@ Jay supports the following wayland protocols:
 | xdg_wm_dialog_v1                                     | 1               |               |
 | zwlr_data_control_manager_v1                         | 2               | Yes           |
 | zwlr_foreign_toplevel_manager_v1                     | 3               | Yes           |
+| zwlr_gamma_control_manager_v1                        | 1               | Yes           |
 | zwlr_layer_shell_v1                                  | 5               | No[^lsaccess] |
 | zwlr_output_manager_v1                               | 4               | Yes           |
 | zwlr_screencopy_manager_v1                           | 3               | Yes           |

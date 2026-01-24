@@ -1,8 +1,8 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, ButtonState, HardwareCursor,
-            Mode,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut, ButtonState,
+            HardwareCursor, Mode, transaction::BackendConnectorTransactionError,
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
@@ -33,6 +33,7 @@ use {
             },
             wp_content_type_v1::ContentType,
             wp_presentation_feedback::KIND_VSYNC,
+            zwlr_gamma_control_v1::ZwlrGammaControlV1,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         },
@@ -127,6 +128,7 @@ pub struct OutputNode {
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
     pub tearing: Cell<bool>,
+    pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1516,6 +1518,18 @@ impl OutputNode {
                 seat.focus_node(ws);
             }
         }
+    }
+
+    pub fn set_gamma_lut(
+        &self,
+        gamma_lut: Option<Rc<BackendGammaLut>>,
+    ) -> Result<(), BackendConnectorTransactionError> {
+        self.global
+            .connector
+            .modify_state(&self.state, |s| s.gamma_lut = gamma_lut)
+            .inspect_err(|e| {
+                log::error!("Could not set gamma_lut: {}", ErrorFmt(e));
+            })
     }
 }
 
