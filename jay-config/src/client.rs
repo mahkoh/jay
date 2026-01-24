@@ -225,5 +225,7 @@ bitflags! {
         /// Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
         /// globals.
         pub const CC_HEAD_MANAGER             = 1 << 13,
+        /// Grants access to the `zwlr_gamma_control_manager_v1` global.
+        pub const CC_GAMMA_CONTROL_MANAGER    = 1 << 14,
     }
 }

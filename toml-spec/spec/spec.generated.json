@@ -641,7 +641,8 @@
             "input-method",
             "workspace-manager",
             "foreign-toplevel-manager",
-            "head-manager"
+            "head-manager",
+            "gamma-control-manager"
           ]
         },
         {

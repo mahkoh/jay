@@ -46,6 +46,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         format: XRGB8888,
         color_space: Default::default(),
         eotf: Default::default(),
+        gamma_lut: None,
     };
     let id = connector.id();
     let name = Rc::new(connector.kernel_id().to_string());
@@ -268,6 +269,7 @@ impl ConnectorHandler {
             ext_workspace_groups: Default::default(),
             pinned: Default::default(),
             tearing: Default::default(),
+            active_zwlr_gamma_control: CloneCell::new(None),
         });
         on.update_visible();
         on.update_rects();
@@ -419,6 +421,9 @@ impl ConnectorHandler {
         }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
+        if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
+            zwlr_gamma_control.send_failed();
+        }
         on.clear();
         let _ = self.state.remove_global(&global);
         let _ = self.state.remove_global(&tray);

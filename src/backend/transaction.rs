@@ -124,6 +124,8 @@ pub enum BackendConnectorTransactionError {
     AtomicTestFailed(#[source] DrmError),
     #[error("Commit failed")]
     AtomicCommitFailed(#[source] DrmError),
+    #[error("Could not create a gamma lut blob")]
+    CreateGammaLutBlob(#[source] DrmError),
 }
 
 pub trait BackendConnectorTransaction {

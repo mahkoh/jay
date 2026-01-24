@@ -493,6 +493,7 @@ impl XBackend {
             format: FORMAT,
             color_space: Default::default(),
             eotf: Default::default(),
+            gamma_lut: None,
         };
         let output = Rc::new(XOutput {
             id: self.state.connector_ids.next(),

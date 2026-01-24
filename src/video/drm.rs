@@ -380,7 +380,7 @@ impl DrmMaster {
         res
     }
 
-    pub fn create_blob<T>(self: &Rc<Self>, t: &T) -> Result<PropBlob, DrmError> {
+    pub fn create_blob<T: ?Sized>(self: &Rc<Self>, t: &T) -> Result<PropBlob, DrmError> {
         match mode_create_blob(self.raw(), t) {
             Ok(b) => Ok(PropBlob {
                 master: self.clone(),
