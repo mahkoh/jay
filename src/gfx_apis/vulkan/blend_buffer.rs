@@ -42,6 +42,7 @@ impl VulkanRenderer {
         if width > limits.max_width || height > limits.max_height {
             return Err(VulkanError::ImageTooLarge);
         }
+        let usage = BLEND_USAGE;
         let create_info = ImageCreateInfo::default()
             .image_type(ImageType::TYPE_2D)
             .format(BLEND_FORMAT.vk_format)
@@ -56,7 +57,7 @@ impl VulkanRenderer {
                 height,
                 depth: 1,
             })
-            .usage(BLEND_USAGE);
+            .usage(usage);
         let image = unsafe { self.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
         let destroy_image = OnDrop(|| unsafe { self.device.device.destroy_image(image, None) });
@@ -105,7 +106,7 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Blend(allocation),
             bridge: None,
-            sampled_image_descriptor: self.sampled_image_descriptor(view),
+            sampled_image_descriptor: self.sampled_image_descriptor(usage, view),
             execution_version: Default::default(),
         });
         cached.insert_entry(Rc::downgrade(&img));

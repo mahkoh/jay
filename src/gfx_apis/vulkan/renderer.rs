@@ -624,7 +624,10 @@ impl VulkanRenderer {
             let layout = self.out_descriptor_set_layout.as_ref().unwrap();
             memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
             let mut writer = resource_writer.add_set(layout);
-            writer.write(layout.offsets[0], &bb.sampled_image_descriptor);
+            writer.write(
+                layout.offsets[0],
+                bb.sampled_image_descriptor.as_ref().unwrap(),
+            );
             if let Some(addr) = memory.blend_buffer_color_management_data_address {
                 writer.write(
                     layout.offsets[1],
@@ -653,7 +656,7 @@ impl VulkanRenderer {
                 let mut writer = resource_writer.add_set(tex_descriptor_set_layout);
                 writer.write(
                     tex_descriptor_set_layout.offsets[0],
-                    &tex.sampled_image_descriptor,
+                    tex.sampled_image_descriptor.as_ref().unwrap(),
                 );
                 if let Some(addr) = c.color_management_data_address {
                     writer.write(
