@@ -1,0 +1,7 @@
+request get_gamma_control {
+    id: id(zwlr_gamma_control_v1) (new),
+    output: id(wl_output),
+}
+
+request destroy (destructor) {
+}

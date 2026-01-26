@@ -131,7 +131,7 @@ impl ZwlrOutputManagerV1 {
             }
         };
         let mi = &output.monitor_info;
-        let state = output.connector.state.get();
+        let state_mode = output.connector.state.borrow().mode;
         let head_id = self.client.state.wlr_output_managers.head_ids.next();
         let mut modes_list = vec![];
         let mut modes = AHashMap::new();
@@ -140,7 +140,7 @@ impl ZwlrOutputManagerV1 {
             if modes.contains_key(mode) {
                 continue;
             }
-            let current = !have_current && *mode == state.mode;
+            let current = !have_current && *mode == state_mode;
             if current {
                 have_current = true;
             }
