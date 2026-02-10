@@ -73,16 +73,18 @@ impl WlBuffer {
         self.shm
     }
 
-    pub fn new_dmabuf(
+    fn new(
         id: WlBufferId,
         client: &Rc<Client>,
         format: &'static Format,
-        dmabuf: DmaBuf,
-        img: &Rc<dyn GfxImage>,
-    ) -> Self {
-        let width = img.width();
-        let height = img.height();
-        Self {
+        width: i32,
+        height: i32,
+        dmabuf: Option<DmaBuf>,
+        storage: Option<WlBufferStorage>,
+        shm: bool,
+        color: Option<[u32; 4]>,
+    ) -> Rc<Self> {
+        Rc::new(Self {
             id,
             destroyed: Cell::new(false),
             client: client.clone(),
@@ -90,17 +92,37 @@ impl WlBuffer {
             format,
             width,
             height,
-            dmabuf: Some(dmabuf),
+            dmabuf,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(Some(WlBufferStorage::Dmabuf {
+            storage: RefCell::new(storage),
+            shm,
+            tracker: Default::default(),
+            color,
+        })
+    }
+
+    pub fn new_dmabuf(
+        id: WlBufferId,
+        client: &Rc<Client>,
+        format: &'static Format,
+        dmabuf: DmaBuf,
+        img: &Rc<dyn GfxImage>,
+    ) -> Rc<Self> {
+        Self::new(
+            id,
+            client,
+            format,
+            img.width(),
+            img.height(),
+            Some(dmabuf),
+            Some(WlBufferStorage::Dmabuf {
                 img: img.clone(),
                 tex: None,
                 fb: None,
-            })),
-            shm: false,
-            tracker: Default::default(),
-            color: None,
-        }
+            }),
+            false,
+            None,
+        )
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -114,7 +136,7 @@ impl WlBuffer {
         format: &'static Format,
         mem: &Rc<ClientMem>,
         udmabuf: Option<(&Rc<OwnedFd>, usize)>,
-    ) -> Result<Self, WlBufferError> {
+    ) -> Result<Rc<Self>, WlBufferError> {
         let bytes = stride as u64 * height as u64;
         let required = bytes + offset as u64;
         if required > mem.len() as u64 {
@@ -150,25 +172,21 @@ impl WlBuffer {
                 tex_impossible: false,
             },
         };
-        Ok(Self {
+        Ok(Self::new(
             id,
-            destroyed: Cell::new(false),
-            client: client.clone(),
-            rect: Rect::new_sized_saturating(0, 0, width, height),
+            client,
             format,
-            dmabuf: None,
-            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(Some(WlBufferStorage::Shm {
+            width,
+            height,
+            None,
+            Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
                 mem,
                 stride,
-            })),
-            shm: true,
-            width,
-            height,
-            tracker: Default::default(),
-            color: None,
-        })
+            }),
+            true,
+            None,
+        ))
     }
 
     pub fn new_single_pixel(
@@ -178,22 +196,18 @@ impl WlBuffer {
         g: u32,
         b: u32,
         a: u32,
-    ) -> Self {
-        Self {
+    ) -> Rc<Self> {
+        Self::new(
             id,
-            destroyed: Cell::new(false),
-            client: client.clone(),
-            rect: Rect::new_sized_saturating(0, 0, 1, 1),
-            format: ARGB8888,
-            dmabuf: None,
-            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(None),
-            shm: false,
-            width: 1,
-            height: 1,
-            tracker: Default::default(),
-            color: Some([r, g, b, a]),
-        }
+            client,
+            ARGB8888,
+            1,
+            1,
+            None,
+            None,
+            false,
+            Some([r, g, b, a]),
+        )
     }
 
     pub fn handle_gfx_context_change(&self, surface: Option<&WlSurface>) {

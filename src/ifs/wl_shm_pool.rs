@@ -62,7 +62,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
             return Err(WlShmPoolError::NegativeParameters);
         }
-        let buffer = Rc::new(WlBuffer::new_shm(
+        let buffer = WlBuffer::new_shm(
             req.id,
             &self.client,
             req.offset as usize,
@@ -72,7 +72,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             format,
             &self.mem.get(),
             None,
-        )?);
+        )?;
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())

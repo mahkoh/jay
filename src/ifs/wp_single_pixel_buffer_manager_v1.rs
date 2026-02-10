@@ -76,14 +76,7 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
         req: CreateU32RgbaBuffer,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let buffer = Rc::new(WlBuffer::new_single_pixel(
-            req.id,
-            &self.client,
-            req.r,
-            req.g,
-            req.b,
-            req.a,
-        ));
+        let buffer = WlBuffer::new_single_pixel(req.id, &self.client, req.r, req.g, req.b, req.a);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())
