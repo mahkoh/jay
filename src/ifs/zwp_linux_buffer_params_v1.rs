@@ -125,7 +125,7 @@ impl ZwpLinuxBufferParamsV1 {
             )
             .map(Rc::new)
             .map_err(ZwpLinuxBufferParamsV1Error::CreateClientMem)?;
-            Rc::new(WlBuffer::new_shm(
+            WlBuffer::new_shm(
                 get_id()?,
                 &self.parent.client,
                 p.offset as usize,
@@ -135,16 +135,10 @@ impl ZwpLinuxBufferParamsV1 {
                 format.format,
                 &client_mem,
                 Some((&p.fd, size)),
-            )?)
+            )?
         } else {
             let img = ctx.dmabuf_img(&dmabuf)?;
-            Rc::new(WlBuffer::new_dmabuf(
-                get_id()?,
-                &self.parent.client,
-                format.format,
-                dmabuf,
-                &img,
-            ))
+            WlBuffer::new_dmabuf(get_id()?, &self.parent.client, format.format, dmabuf, &img)
         };
         track!(self.parent.client, buffer);
         if buffer_id.is_some() {
