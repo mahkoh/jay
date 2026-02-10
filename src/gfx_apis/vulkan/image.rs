@@ -101,7 +101,7 @@ pub enum QueueTransfer {
 pub enum VulkanImageMemory {
     DmaBuf(VulkanDmaBufImage),
     Internal(VulkanShmImage),
-    Blend(#[expect(dead_code)] VulkanAllocation),
+    Blend(VulkanAllocation),
 }
 
 pub struct VulkanDmaBufImage {

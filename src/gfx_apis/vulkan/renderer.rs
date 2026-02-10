@@ -2117,6 +2117,18 @@ impl Debug for VulkanRenderer {
 impl VulkanImage {
     fn assert_device(&self, device: &Device) -> Result<(), VulkanError> {
         if self.renderer.device.device.handle() != device.handle() {
+            match &self.ty {
+                VulkanImageMemory::DmaBuf(v) => {
+                    log::warn!("Mixed device use with dmabuf {}", v.template.dmabuf.id);
+                }
+                VulkanImageMemory::Internal(_v) => {
+                    log::warn!("Mixed device use with internal image");
+                }
+                VulkanImageMemory::Blend(_v) => {
+                    log::warn!("Mixed device use with blend buffer");
+                }
+            }
+            log::info!("Image address {:?}", ptr::from_ref(self));
             return Err(VulkanError::MixedVulkanDeviceUse);
         }
         Ok(())

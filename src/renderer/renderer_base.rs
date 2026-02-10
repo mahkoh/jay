@@ -182,6 +182,9 @@ impl RendererBase<'_> {
         opaque: bool,
         cd: &Rc<ColorDescription>,
     ) {
+        // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
+        // log::info!("{:?}", backtrace::Backtrace::new());
+
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
         let (twidth, theight) = if let Some(size) = tsize {
