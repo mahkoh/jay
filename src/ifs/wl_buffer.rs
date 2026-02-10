@@ -101,7 +101,7 @@ impl WlBuffer {
             color,
             gfx_ctx_changed: EventListener::new(slf.clone()),
         });
-        slf.gfx_ctx_changed.attach(&client.gfx_ctx_changed);
+        slf.gfx_ctx_changed.attach(&client.state.gfx_ctx_changed);
         slf
     }
 

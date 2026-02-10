@@ -52,6 +52,7 @@ use {
             jay_screencast::JayScreencast,
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
+            wl_buffer::WlBuffer,
             wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
@@ -290,6 +291,7 @@ pub struct State {
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
+    pub gfx_ctx_changed: EventSource<WlBuffer>,
 }
 
 // impl Drop for State {
@@ -677,16 +679,16 @@ impl State {
             }
             Walker.visit_display(&self.root);
             let mut updated_buffers = AHashMap::new();
+            for buffer in self.gfx_ctx_changed.iter() {
+                let had_buffer_texture = buffer.handle_gfx_context_change();
+                updated_buffers.insert(Rc::as_ptr(&buffer), had_buffer_texture);
+            }
             for client in self.clients.clients.borrow_mut().values() {
-                updated_buffers.clear();
-                for buffer in client.data.gfx_ctx_changed.iter() {
-                    let had_buffer_texture = buffer.handle_gfx_context_change();
-                    updated_buffers.insert(buffer.id, had_buffer_texture);
-                }
                 for surface in client.data.objects.surfaces.lock().values() {
                     let had_shm_texture = surface.reset_shm_textures();
                     if let Some(buffer) = surface.buffer.get() {
-                        let had_buffer_texture = *updated_buffers.get(&buffer.buffer.id).unwrap();
+                        let had_buffer_texture =
+                            *updated_buffers.get(&Rc::as_ptr(&buffer.buffer)).unwrap();
                         if had_shm_texture || had_buffer_texture {
                             buffer.buffer.update_texture_or_log(surface, true);
                         }

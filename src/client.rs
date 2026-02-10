@@ -7,7 +7,6 @@ use {
             clm::{CL_CHANGED_DESTROYED, CL_CHANGED_NEW, ClMatcherChange},
         },
         ifs::{
-            wl_buffer::WlBuffer,
             wl_display::WlDisplay,
             wl_registry::WlRegistry,
             wl_surface::{WlSurface, commit_timeline::CommitTimelines},
@@ -22,7 +21,6 @@ use {
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
             copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
-            event_listener::EventSource,
             numcell::NumCell,
             pending_serial::PendingSerial,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
@@ -196,7 +194,6 @@ impl Clients {
             changed_properties: Default::default(),
             destroyed: Default::default(),
             acceptor: acceptor.clone(),
-            gfx_ctx_changed: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -324,7 +321,6 @@ pub struct Client {
     pub changed_properties: Cell<ClMatcherChange>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
     pub acceptor: Rc<AcceptorMetadata>,
-    pub gfx_ctx_changed: EventSource<WlBuffer>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

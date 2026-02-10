@@ -361,6 +361,7 @@ fn start_compositor2(
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
+        gfx_ctx_changed: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
