@@ -1,6 +1,6 @@
 use {
     arrayvec::ArrayString,
-    rand::{Rng, rng},
+    rand::{RngExt, rng},
     serde::{Deserialize, Deserializer, Serialize, Serializer, de},
     std::{
         fmt::{Debug, Display, Formatter},
