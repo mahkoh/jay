@@ -8,7 +8,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
-        utils::{errorfmt::ErrorFmt, page_size::page_size},
+        utils::{errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size},
         video::{
             LINEAR_MODIFIER,
             dmabuf::{DmaBuf, DmaBufPlane},
@@ -61,6 +61,7 @@ pub struct WlBuffer {
     pub color: Option<[u32; 4]>,
     width: i32,
     height: i32,
+    gfx_ctx_changed: EventListener<WlBuffer>,
     pub tracker: Tracker<Self>,
 }
 
@@ -84,7 +85,7 @@ impl WlBuffer {
         shm: bool,
         color: Option<[u32; 4]>,
     ) -> Rc<Self> {
-        Rc::new(Self {
+        let slf = Rc::new_cyclic(|slf| Self {
             id,
             destroyed: Cell::new(false),
             client: client.clone(),
@@ -98,7 +99,10 @@ impl WlBuffer {
             shm,
             tracker: Default::default(),
             color,
-        })
+            gfx_ctx_changed: EventListener::new(slf.clone()),
+        });
+        slf.gfx_ctx_changed.attach(&client.gfx_ctx_changed);
+        slf
     }
 
     pub fn new_dmabuf(
@@ -210,22 +214,23 @@ impl WlBuffer {
         )
     }
 
-    pub fn handle_gfx_context_change(&self, surface: Option<&WlSurface>) {
+    pub fn handle_gfx_context_change(&self) -> bool {
         let ctx_version = self.client.state.render_ctx_version.get();
-        if self.render_ctx_version.replace(ctx_version) == ctx_version {
-            return;
-        }
-        let had_texture = self.reset_gfx_objects(surface);
-        if had_texture && let Some(surface) = surface {
-            self.update_texture_or_log(surface, true);
-        }
-    }
-
-    fn reset_gfx_objects(&self, surface: Option<&WlSurface>) -> bool {
+        let up_to_date = self.render_ctx_version.replace(ctx_version) == ctx_version;
         let mut storage = self.storage.borrow_mut();
         let Some(s) = &mut *storage else {
             return false;
         };
+        if up_to_date {
+            let tex = match s {
+                WlBufferStorage::Shm {
+                    dmabuf_buffer_params: DmabufBufferParams { tex, .. },
+                    ..
+                } => tex,
+                WlBufferStorage::Dmabuf { tex, .. } => tex,
+            };
+            return tex.is_some();
+        }
         let had_texture = match s {
             WlBufferStorage::Shm {
                 dmabuf_buffer_params:
@@ -241,13 +246,8 @@ impl WlBuffer {
             } => {
                 host_buffer.take();
                 *host_buffer_impossible = *udmabuf_impossible;
-                let mut had_texture = tex.take().is_some();
+                let had_texture = tex.take().is_some();
                 *tex_impossible = *udmabuf_impossible;
-                if let Some(s) = surface {
-                    s.shm_staging.take();
-                    s.shm_textures.back().tex.take();
-                    had_texture |= s.shm_textures.front().tex.take().is_some();
-                }
                 return had_texture;
             }
             WlBufferStorage::Dmabuf { tex, .. } => tex.is_some(),

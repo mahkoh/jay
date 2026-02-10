@@ -133,7 +133,7 @@ use {
         },
         xwayland::{self, XWaylandEvent},
     },
-    ahash::{AHashMap, AHashSet},
+    ahash::AHashMap,
     bstr::ByteSlice,
     jay_config::{
         PciId,
@@ -676,19 +676,20 @@ impl State {
                 }
             }
             Walker.visit_display(&self.root);
+            let mut updated_buffers = AHashMap::new();
             for client in self.clients.clients.borrow_mut().values() {
-                let mut updated_buffers = AHashSet::new();
-                for surface in client.data.objects.surfaces.lock().values() {
-                    if let Some(buffer) = surface.buffer.get() {
-                        updated_buffers.insert(buffer.buffer.id);
-                        buffer.buffer.handle_gfx_context_change(Some(surface));
-                    } else {
-                        surface.reset_shm_textures();
-                    }
+                updated_buffers.clear();
+                for buffer in client.data.gfx_ctx_changed.iter() {
+                    let had_buffer_texture = buffer.handle_gfx_context_change();
+                    updated_buffers.insert(buffer.id, had_buffer_texture);
                 }
-                for buffer in client.data.objects.buffers.lock().values() {
-                    if !updated_buffers.contains(&buffer.id) {
-                        buffer.handle_gfx_context_change(None);
+                for surface in client.data.objects.surfaces.lock().values() {
+                    let had_shm_texture = surface.reset_shm_textures();
+                    if let Some(buffer) = surface.buffer.get() {
+                        let had_buffer_texture = *updated_buffers.get(&buffer.buffer.id).unwrap();
+                        if had_shm_texture || had_buffer_texture {
+                            buffer.buffer.update_texture_or_log(surface, true);
+                        }
                     }
                 }
             }

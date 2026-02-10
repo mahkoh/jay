@@ -1481,12 +1481,14 @@ impl WlSurface {
         Ok(())
     }
 
-    pub fn reset_shm_textures(&self) {
+    pub fn reset_shm_textures(&self) -> bool {
+        let had_texture = self.shm_textures.front().tex.is_some();
         self.shm_staging.take();
         for tex in &*self.shm_textures {
             tex.tex.take();
             tex.damage.clear();
         }
+        had_texture
     }
 
     fn apply_damage(&self, pending: &PendingState) {
