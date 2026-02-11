@@ -68,6 +68,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             req.offset as usize,
             req.width,
             req.height,
+            None,
             req.stride,
             format,
             &self.mem.get(),

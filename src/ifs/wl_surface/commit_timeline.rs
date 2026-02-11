@@ -703,7 +703,7 @@ impl CommitDataCollector {
                 self.shm_uploads += 1;
             }
             if !pending.explicit_sync
-                && let Some(dmabuf) = &buffer.dmabuf
+                && let Some(dmabuf) = &buffer.client_dmabuf
             {
                 for plane in &dmabuf.planes {
                     self.implicit_dmabufs.push(plane.fd.clone());
