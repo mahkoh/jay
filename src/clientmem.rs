@@ -16,7 +16,7 @@ use {
     },
     thiserror::Error,
     uapi::{
-        OwnedFd,
+        OwnedFd, Pod,
         c::{self, raise},
         ftruncate,
     },
@@ -30,6 +30,8 @@ pub enum ClientMemError {
     Sigbus,
     #[error("mmap failed")]
     MmapFailed(#[source] crate::utils::oserror::OsError),
+    #[error("Length was not a multiple of the data element size")]
+    InvalidLength,
 }
 
 pub struct ClientMem {
@@ -182,13 +184,17 @@ impl ClientMemOffset {
         }
     }
 
-    pub fn read(&self, dst: &mut Vec<u8>) -> Result<(), ClientMemError> {
+    pub fn read<T: Pod>(&self, dst: &mut Vec<T>) -> Result<(), ClientMemError> {
+        if self.data.len().checked_rem(std::mem::size_of::<T>()) != Some(0) {
+            return Err(ClientMemError::InvalidLength);
+        }
         self.access(|v| {
-            dst.reserve(v.len());
-            let (_, unused) = dst.split_at_spare_mut_ext();
+            let len_elements = v.len() / std::mem::size_of::<T>();
+            dst.reserve(len_elements);
+            let (_, unused) = dst.split_at_spare_mut_bytes_ext();
             unused[..v.len()].copy_from_slice(uapi::as_maybe_uninit_bytes(v));
             unsafe {
-                dst.set_len(dst.len() + v.len());
+                dst.set_len(dst.len() + len_elements);
             }
         })
     }

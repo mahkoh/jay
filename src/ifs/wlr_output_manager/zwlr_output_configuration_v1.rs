@@ -73,7 +73,7 @@ impl ZwlrOutputConfigurationV1 {
         }
         let mut tran = ConnectorTransaction::new(&self.client.state);
         for output in self.client.state.outputs.lock().values() {
-            let mut state = output.connector.state.get();
+            let mut state = output.connector.state.borrow().clone();
             match self.enabled_outputs.get(&output.connector.id) {
                 None => {
                     if self.configured_outputs.not_contains(&output.connector.id) {

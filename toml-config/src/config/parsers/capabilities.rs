@@ -8,9 +8,9 @@ use {
     },
     jay_config::client::{
         CC_DATA_CONTROL, CC_DRM_LEASE, CC_FOREIGN_TOPLEVEL_LIST, CC_FOREIGN_TOPLEVEL_MANAGER,
-        CC_HEAD_MANAGER, CC_IDLE_NOTIFIER, CC_INPUT_METHOD, CC_LAYER_SHELL, CC_SCREENCOPY,
-        CC_SEAT_MANAGER, CC_SESSION_LOCK, CC_VIRTUAL_KEYBOARD, CC_WORKSPACE_MANAGER,
-        ClientCapabilities,
+        CC_GAMMA_CONTROL_MANAGER, CC_HEAD_MANAGER, CC_IDLE_NOTIFIER, CC_INPUT_METHOD,
+        CC_LAYER_SHELL, CC_SCREENCOPY, CC_SEAT_MANAGER, CC_SESSION_LOCK, CC_VIRTUAL_KEYBOARD,
+        CC_WORKSPACE_MANAGER, ClientCapabilities,
     },
     thiserror::Error,
 };
@@ -47,6 +47,7 @@ impl Parser for CapabilitiesParser {
             "workspace-manager" => CC_WORKSPACE_MANAGER,
             "foreign-toplevel-manager" => CC_FOREIGN_TOPLEVEL_MANAGER,
             "head-manager" => CC_HEAD_MANAGER,
+            "gamma-control-manager" => CC_GAMMA_CONTROL_MANAGER,
             _ => {
                 return Err(
                     CapabilitiesParserError::UnknownCapability(string.to_owned()).spanned(span),
