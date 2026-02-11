@@ -252,7 +252,7 @@ impl Drop for SurfaceBuffer {
             }
             return;
         }
-        if let Some(dmabuf) = &self.buffer.dmabuf {
+        if let Some(dmabuf) = &self.buffer.client_dmabuf {
             for (_, sync_file) in &sync_files {
                 if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
                     log::error!("Could not import sync file: {}", ErrorFmt(e));

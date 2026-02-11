@@ -131,6 +131,7 @@ impl ZwpLinuxBufferParamsV1 {
                 p.offset as usize,
                 dmabuf.width,
                 dmabuf.height,
+                Some(dmabuf.clone()),
                 p.stride as _,
                 format.format,
                 &client_mem,

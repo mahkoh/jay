@@ -54,7 +54,7 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
-    pub dmabuf: Option<DmaBuf>,
+    pub client_dmabuf: Option<DmaBuf>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     shm: bool,
@@ -80,7 +80,7 @@ impl WlBuffer {
         format: &'static Format,
         width: i32,
         height: i32,
-        dmabuf: Option<DmaBuf>,
+        client_dmabuf: Option<DmaBuf>,
         storage: Option<WlBufferStorage>,
         shm: bool,
         color: Option<[u32; 4]>,
@@ -93,7 +93,7 @@ impl WlBuffer {
             format,
             width,
             height,
-            dmabuf,
+            client_dmabuf,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(storage),
             shm,
@@ -109,7 +109,7 @@ impl WlBuffer {
         id: WlBufferId,
         client: &Rc<Client>,
         format: &'static Format,
-        dmabuf: DmaBuf,
+        client_dmabuf: DmaBuf,
         img: &Rc<dyn GfxImage>,
     ) -> Rc<Self> {
         Self::new(
@@ -118,7 +118,7 @@ impl WlBuffer {
             format,
             img.width(),
             img.height(),
-            Some(dmabuf),
+            Some(client_dmabuf),
             Some(WlBufferStorage::Dmabuf {
                 img: img.clone(),
                 tex: None,
@@ -136,6 +136,7 @@ impl WlBuffer {
         offset: usize,
         width: i32,
         height: i32,
+        client_dmabuf: Option<DmaBuf>,
         stride: i32,
         format: &'static Format,
         mem: &Rc<ClientMem>,
@@ -182,7 +183,7 @@ impl WlBuffer {
             format,
             width,
             height,
-            None,
+            client_dmabuf,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
                 mem,
@@ -256,7 +257,7 @@ impl WlBuffer {
         let Some(ctx) = self.client.state.render_ctx.get() else {
             return false;
         };
-        let Some(dmabuf) = &self.dmabuf else {
+        let Some(dmabuf) = &self.client_dmabuf else {
             return false;
         };
         let img = match ctx.dmabuf_img(dmabuf) {

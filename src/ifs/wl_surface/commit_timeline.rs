@@ -471,16 +471,15 @@ impl NodeRef<Entry> {
         match &self.kind {
             EntryKind::Commit(c) => {
                 let mut has_unmet_dependencies = false;
-                if c.sync_obj.get() > 0 {
-                    has_unmet_dependencies = true;
-                }
-                if c.pending_uploads.get() > 0 {
-                    check_shm_uploads(c)?;
+                let may_access_buffer = c.sync_obj.get() == 0 && c.num_pending_polls.get() == 0;
+                if may_access_buffer {
                     if c.pending_uploads.get() > 0 {
-                        has_unmet_dependencies = true;
+                        check_shm_uploads(c)?;
+                        if c.pending_uploads.get() > 0 {
+                            has_unmet_dependencies = true;
+                        }
                     }
-                }
-                if c.num_pending_polls.get() > 0 {
+                } else {
                     has_unmet_dependencies = true;
                 }
                 let tl = &c.surface.commit_timeline;
@@ -703,7 +702,7 @@ impl CommitDataCollector {
                 self.shm_uploads += 1;
             }
             if !pending.explicit_sync
-                && let Some(dmabuf) = &buffer.dmabuf
+                && let Some(dmabuf) = &buffer.client_dmabuf
             {
                 for plane in &dmabuf.planes {
                     self.implicit_dmabufs.push(plane.fd.clone());
