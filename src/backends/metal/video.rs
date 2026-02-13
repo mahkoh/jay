@@ -2965,6 +2965,21 @@ pub struct RenderBuffer {
     pub render_fb: Option<Rc<dyn GfxFramebuffer>>,
 }
 
+#[derive(Default)]
+pub struct RenderBufferCopy {
+    pub render_block: Option<SyncFile>,
+    pub present_block: Option<SyncFile>,
+}
+
+impl RenderBufferCopy {
+    pub fn for_both(sf: Option<SyncFile>) -> Self {
+        Self {
+            render_block: sf.clone(),
+            present_block: sf,
+        }
+    }
+}
+
 impl RenderBuffer {
     pub fn render_fb(&self) -> Rc<dyn GfxFramebuffer> {
         self.render_fb
@@ -2976,9 +2991,12 @@ impl RenderBuffer {
         &self,
         cd: &Rc<ColorDescription>,
         sync_file: Option<SyncFile>,
-    ) -> Result<Option<SyncFile>, MetalError> {
+    ) -> Result<RenderBufferCopy, MetalError> {
         let Some(tex) = &self.dev_tex else {
-            return Ok(sync_file);
+            return Ok(RenderBufferCopy {
+                render_block: None,
+                present_block: sync_file,
+            });
         };
         self.dev_fb
             .copy_texture(
@@ -2994,6 +3012,7 @@ impl RenderBuffer {
                 0,
             )
             .map_err(MetalError::CopyToOutput)
+            .map(RenderBufferCopy::for_both)
     }
 
     pub fn damage_full(&self) {
