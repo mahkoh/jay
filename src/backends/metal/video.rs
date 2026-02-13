@@ -41,7 +41,7 @@ use {
             asyncevent::AsyncEvent, binary_search_map::BinarySearchMap, bitflags::BitflagsExt,
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             geometric_decay::GeometricDecay, numcell::NumCell, on_change::OnChange,
-            on_drop::OnDrop2, opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
+            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
         },
         video::{
             INVALID_MODIFIER, Modifier,
@@ -62,6 +62,7 @@ use {
     indexmap::{IndexMap, IndexSet, indexset},
     isnt::std_1::collections::IsntHashMapExt,
     jay_config::video::GfxApi,
+    run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -2735,7 +2736,7 @@ impl MetalBackend {
         let Some(dev_gfx_format) = dev_gfx_formats.get(&format.drm) else {
             return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
-        let send_dev_gfx_write_modifiers = OnDrop2::new(|| {
+        let send_dev_gfx_write_modifiers = on_drop(|| {
             *dbg_dev_gfx_write_modifiers =
                 Some(dev_gfx_format.write_modifiers.keys().copied().collect())
         });
@@ -2745,7 +2746,7 @@ impl MetalBackend {
             .filter(|(m, _)| plane_modifiers.contains(*m))
             .map(|(m, v)| (*m, v))
             .collect();
-        let send_dev_modifiers_possible = OnDrop2::new(|| {
+        let send_dev_modifiers_possible = on_drop(|| {
             *dbg_dev_modifiers_possible = Some(possible_modifiers.keys().copied().collect())
         });
         if possible_modifiers.is_empty() {
@@ -2804,7 +2805,7 @@ impl MetalBackend {
             };
             (None, render_tex, None, None)
         } else {
-            send_render_dev_name = Some(OnDrop2::new(|| {
+            send_render_dev_name = Some(on_drop(|| {
                 *dbg_render_name = Some(render_ctx.devnode.as_bytes().as_bstr().to_string());
             }));
             // Create a _bridge_ BO in the render device
@@ -2813,11 +2814,11 @@ impl MetalBackend {
                 None => return Err(ScanoutBufferErrorKind::RenderUnsupportedFormat),
                 Some(f) => f,
             };
-            send_render_gfx_write_modifiers = Some(OnDrop2::new(|| {
+            send_render_gfx_write_modifiers = Some(on_drop(|| {
                 *dbg_render_gfx_write_modifiers =
                     Some(render_gfx_format.write_modifiers.keys().copied().collect())
             }));
-            send_dev_gfx_read_modifiers = Some(OnDrop2::new(|| {
+            send_dev_gfx_read_modifiers = Some(on_drop(|| {
                 *dbg_dev_gfx_read_modifiers = Some(dev_gfx_format.read_modifiers.clone());
             }));
             render_possible_modifiers = render_gfx_format
@@ -2826,7 +2827,7 @@ impl MetalBackend {
                 .filter(|(m, _)| dev_gfx_format.read_modifiers.contains(*m))
                 .map(|(m, v)| (*m, v))
                 .collect();
-            send_render_possible_modifiers = Some(OnDrop2::new(|| {
+            send_render_possible_modifiers = Some(on_drop(|| {
                 *dbg_render_modifiers_possible =
                     Some(render_possible_modifiers.keys().copied().collect())
             }));

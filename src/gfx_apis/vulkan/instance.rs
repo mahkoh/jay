@@ -1,8 +1,5 @@
 use {
-    crate::{
-        gfx_apis::vulkan::{VULKAN_VALIDATION, VulkanError},
-        utils::on_drop::OnDrop,
-    },
+    crate::gfx_apis::vulkan::{VULKAN_VALIDATION, VulkanError},
     ahash::{AHashMap, AHashSet},
     ash::{
         Entry, Instance, LoadingError,
@@ -18,6 +15,7 @@ use {
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     once_cell::sync::Lazy,
+    run_on_drop::on_drop,
     std::{
         ffi::{CStr, CString, c_void},
         fmt::{Display, Formatter},
@@ -108,7 +106,7 @@ impl VulkanInstance {
             Ok(i) => i,
             Err(e) => return Err(VulkanError::CreateInstance(e)),
         };
-        let destroy_instance = OnDrop(|| unsafe { instance.destroy_instance(None) });
+        let destroy_instance = on_drop(|| unsafe { instance.destroy_instance(None) });
         let debug_utils = debug_utils::Instance::new(entry, &instance);
         let messenger = unsafe { debug_utils.create_debug_utils_messenger(&debug_info, None) };
         let messenger = match messenger {

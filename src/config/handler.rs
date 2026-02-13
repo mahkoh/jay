@@ -35,7 +35,6 @@ use {
         utils::{
             asyncevent::AsyncEvent,
             copyhashmap::CopyHashMap,
-            debug_fn::debug_fn,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             oserror::OsError,
@@ -83,6 +82,7 @@ use {
     regex::Regex,
     std::{
         cell::Cell,
+        fmt,
         hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
@@ -273,7 +273,7 @@ impl ConfigProxyHandler {
             LogLevel::Debug => Level::Debug,
             LogLevel::Trace => Level::Trace,
         };
-        let debug = debug_fn(|fmt| {
+        let debug = fmt::from_fn(|fmt| {
             if let Some(file) = file {
                 write!(fmt, "{}", file)?;
                 if let Some(line) = line {

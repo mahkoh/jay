@@ -15,9 +15,7 @@ use {
         security_context_acceptor::AcceptorMetadata,
         state::State,
         user_session::import_environment,
-        utils::{
-            buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, on_drop::OnDrop, oserror::OsError,
-        },
+        utils::{buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -26,6 +24,7 @@ use {
         },
     },
     bstr::ByteSlice,
+    run_on_drop::on_drop,
     std::{num::ParseIntError, rc::Rc},
     thiserror::Error,
     uapi::{OwnedFd, c, pipe2},
@@ -190,7 +189,7 @@ async fn run(
     state.ring.readable(&Rc::new(dfdread)).await?;
     state.xwayland.queue.clear();
     state.xwayland.pidfd.set(Some(pidfd.clone()));
-    let _remove_pidfd = OnDrop(|| {
+    let _remove_pidfd = on_drop(|| {
         state.xwayland.pidfd.take();
     });
     {

@@ -15,7 +15,6 @@ use {
         },
         rect::Region,
         theme::Color,
-        utils::on_drop::OnDrop,
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
@@ -31,6 +30,7 @@ use {
         SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
+    run_on_drop::on_drop,
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
@@ -349,7 +349,7 @@ impl VulkanDmaBufImageTemplate {
             let image = unsafe { device.device.create_image(&create_info, None) };
             image.map_err(VulkanError::CreateImage)?
         };
-        let destroy_image = OnDrop(|| unsafe { device.device.destroy_image(image, None) });
+        let destroy_image = on_drop(|| unsafe { device.device.destroy_image(image, None) });
         let num_device_memories = match self.disjoint {
             true => self.dmabuf.planes.len(),
             false => 1,
@@ -419,7 +419,7 @@ impl VulkanDmaBufImageTemplate {
             let device_memory = device_memory.map_err(VulkanError::AllocateMemory)?;
             fd.unwrap();
             device_memories.push(device_memory);
-            free_device_memories.push(OnDrop(move || unsafe {
+            free_device_memories.push(on_drop(move || unsafe {
                 device.device.free_memory(device_memory, None)
             }));
         }
@@ -440,7 +440,7 @@ impl VulkanDmaBufImageTemplate {
         if for_rendering && self.render_needs_bridge {
             let (bridge_image, allocation) = self.create_bridge()?;
             primary_image = bridge_image;
-            destroy_bridge_image = Some(OnDrop(|| unsafe {
+            destroy_bridge_image = Some(on_drop(|| unsafe {
                 device.device.destroy_image(primary_image, None)
             }));
             bridge = Some(VulkanFramebufferBridge {
@@ -496,7 +496,7 @@ impl VulkanDmaBufImageTemplate {
         let image = unsafe { self.renderer.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
         let destroy_image =
-            OnDrop(|| unsafe { self.renderer.device.device.destroy_image(image, None) });
+            on_drop(|| unsafe { self.renderer.device.device.destroy_image(image, None) });
         let memory_requirements = unsafe {
             self.renderer
                 .device

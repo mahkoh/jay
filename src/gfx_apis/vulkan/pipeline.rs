@@ -1,10 +1,7 @@
 use {
-    crate::{
-        gfx_apis::vulkan::{
-            VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
-            shaders::VulkanShader,
-        },
-        utils::on_drop::OnDrop,
+    crate::gfx_apis::vulkan::{
+        VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
+        shaders::VulkanShader,
     },
     arrayvec::ArrayVec,
     ash::{
@@ -21,6 +18,7 @@ use {
             SpecializationInfo, SpecializationMapEntry,
         },
     },
+    run_on_drop::on_drop,
     std::{rc::Rc, slice},
 };
 
@@ -77,7 +75,7 @@ impl VulkanDevice {
             layout.map_err(VulkanError::CreatePipelineLayout)?
         };
         let destroy_layout =
-            OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
+            on_drop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
         let mut frag_spec_data = ArrayVec::<_, { 5 * 4 }>::new();
         let mut frag_spec_entries = ArrayVec::<_, 5>::new();
         let mut frag_spec_entry = |data: &[u8]| {

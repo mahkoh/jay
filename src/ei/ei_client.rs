@@ -16,7 +16,6 @@ use {
             asyncevent::AsyncEvent,
             buffd::{EiMsgFormatter, EiMsgParser, EiMsgParserError, OutBufferSwapchain},
             clonecell::CloneCell,
-            debug_fn::debug_fn,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
@@ -27,7 +26,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         error::Error,
-        fmt::Debug,
+        fmt::{self, Debug},
         mem,
         ops::DerefMut,
         rc::Rc,
@@ -128,7 +127,7 @@ impl EiClients {
         log::info!(
             "Client {} connected{:?}",
             data.id,
-            debug_fn(|fmt| {
+            fmt::from_fn(|fmt| {
                 if let Some(p) = &data.pid_info {
                     write!(fmt, ", pid: {}, uid: {}, comm: {:?}", p.pid, p.uid, p.comm)?;
                 }

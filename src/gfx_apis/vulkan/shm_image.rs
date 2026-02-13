@@ -14,7 +14,7 @@ use {
             transfer::{TransferType, VulkanShmImageAsyncData},
         },
         rect::Rect,
-        utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
+        utils::errorfmt::ErrorFmt,
     },
     ash::vk::{
         AccessFlags2, Buffer, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,
@@ -26,6 +26,7 @@ use {
     },
     gpu_alloc::UsageFlags,
     isnt::std_1::primitive::IsntSliceExt,
+    run_on_drop::on_drop,
     std::{cell::Cell, mem, ptr, rc::Rc, slice},
 };
 
@@ -407,7 +408,7 @@ impl VulkanRenderer {
             .usage(usage);
         let image = unsafe { self.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
-        let destroy_image = OnDrop(|| unsafe { self.device.device.destroy_image(image, None) });
+        let destroy_image = on_drop(|| unsafe { self.device.device.destroy_image(image, None) });
         let memory_requirements =
             unsafe { self.device.device.get_image_memory_requirements(image) };
         let allocation =

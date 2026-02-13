@@ -3,7 +3,6 @@ use {
         format::Format,
         gfx_api::GfxBuffer,
         gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
-        utils::on_drop::OnDrop,
     },
     ash::{
         Device,
@@ -13,6 +12,7 @@ use {
             MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryPropertyFlags,
         },
     },
+    run_on_drop::on_drop,
     std::{any::Any, rc::Rc},
     uapi::OwnedFd,
 };
@@ -61,7 +61,7 @@ impl VulkanDevice {
                     .map_err(VulkanError::CreateBuffer)?
             }
         };
-        let destroy_buffer = OnDrop(|| unsafe { self.device.destroy_buffer(buffer, None) });
+        let destroy_buffer = on_drop(|| unsafe { self.device.destroy_buffer(buffer, None) });
         let requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
         let memory_type = self.find_memory_type(
             MemoryPropertyFlags::HOST_VISIBLE,
@@ -89,7 +89,7 @@ impl VulkanDevice {
             }
         };
         fd.unwrap();
-        let free_memory = OnDrop(|| unsafe { self.device.free_memory(memory, None) });
+        let free_memory = on_drop(|| unsafe { self.device.free_memory(memory, None) });
         unsafe {
             self.device
                 .bind_buffer_memory(buffer, memory, 0)

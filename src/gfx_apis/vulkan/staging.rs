@@ -8,16 +8,14 @@ use {
             device::VulkanDevice,
             renderer::VulkanRenderer,
         },
-        utils::{
-            clonecell::CloneCell,
-            on_drop::{OnDrop, OnDrop2},
-        },
+        utils::clonecell::CloneCell,
     },
     ash::{
         Device,
         vk::{Buffer, BufferCreateInfo, BufferUsageFlags},
     },
     gpu_alloc::UsageFlags,
+    run_on_drop::on_drop,
     std::{any::Any, cell::Cell, rc::Rc},
 };
 
@@ -55,7 +53,7 @@ impl VulkanDevice {
     ) -> Result<VulkanStagingBuffer, VulkanError> {
         let (vk_usage, usage) = get_usage(upload, download, transient);
         let buffer = self.create_buffer(size, vk_usage)?;
-        let destroy_buffer = OnDrop(|| unsafe { self.device.destroy_buffer(buffer, None) });
+        let destroy_buffer = on_drop(|| unsafe { self.device.destroy_buffer(buffer, None) });
         let memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
         let allocation = allocator.alloc(&memory_requirements, usage, true)?;
         {
@@ -85,8 +83,7 @@ impl VulkanDevice {
         let buffer = self.create_buffer(shell.size, vk_usage)?;
         let memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
         let slf = self.clone();
-        let destroy_buffer =
-            OnDrop2::new(move || unsafe { slf.device.destroy_buffer(buffer, None) });
+        let destroy_buffer = on_drop(move || unsafe { slf.device.destroy_buffer(buffer, None) });
         let slf = self.clone();
         let finish_allocation = move |res| {
             let allocation: VulkanAllocation = res?;

@@ -2,9 +2,10 @@ use {
     crate::{
         cmm::{cmm_eotf::Eotf, cmm_primaries::Primaries},
         theme::Color,
-        utils::{debug_fn::debug_fn, ordered_float::F64},
+        utils::ordered_float::F64,
     },
     std::{
+        fmt,
         fmt::{Debug, Formatter},
         hash::{Hash, Hasher},
         marker::PhantomData,
@@ -52,7 +53,7 @@ impl<T, U> Debug for ColorMatrix<T, U> {
 }
 
 fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
-    debug_fn(move |f| {
+    fmt::from_fn(move |f| {
         let iter = m
             .iter()
             .copied()
