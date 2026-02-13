@@ -894,11 +894,15 @@ impl MetalConnector {
         let render_hardware_cursor = self.cursor_enabled.get();
         match &fb.direct_scanout_data {
             None => {
+                let acquire_sync = match fb.sync_file.clone() {
+                    Some(sync_file) => AcquireSync::SyncFile { sync_file },
+                    _ => AcquireSync::Unnecessary,
+                };
                 output.perform_screencopies(
                     &fb.tex,
                     cd,
                     None,
-                    &AcquireSync::Unnecessary,
+                    &acquire_sync,
                     ReleaseSync::None,
                     render_hardware_cursor,
                     0,
