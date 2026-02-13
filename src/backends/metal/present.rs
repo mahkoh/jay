@@ -3,10 +3,9 @@ use {
         backend::Connector,
         backends::metal::{
             MetalError,
+            allocator::RenderBuffer,
             transaction::{DrmConnectorState, DrmPlaneState},
-            video::{
-                MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
-            },
+            video::{MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane},
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
@@ -531,7 +530,10 @@ impl MetalConnector {
         };
         self.state.present_hardware_cursor(node, &mut c);
         if c.cursor_swap_buffer {
-            c.sync_file = c.cursor_buffer.copy_to_dev(cd, c.sync_file)?;
+            c.sync_file = c
+                .cursor_buffer
+                .copy_to_dev(cd, c.sync_file)
+                .map_err(MetalError::CopyToDev)?;
         }
         self.cursor_swap_buffer.set(c.cursor_swap_buffer);
         if c.sync_file.is_some() {
@@ -565,13 +567,12 @@ impl MetalConnector {
             }
             let buffer_idx = (front_buffer % buffers.len() as u64) as usize;
             let buffer = &buffers[buffer_idx];
-            let (width, height) = buffer.dev_fb.physical_size();
             CursorProgrammingType::Enable {
                 fb: buffer.drm.clone(),
                 x: self.cursor_x.get(),
                 y: self.cursor_y.get(),
-                width,
-                height,
+                width: buffer.width,
+                height: buffer.height,
                 swap,
             }
         } else {
@@ -839,7 +840,8 @@ impl MetalConnector {
         match &direct_scanout_data {
             None => {
                 let sf = buffer
-                    .render_fb()
+                    .render
+                    .fb
                     .perform_render_pass(
                         AcquireSync::Unnecessary,
                         ReleaseSync::Explicit,
@@ -850,9 +852,9 @@ impl MetalConnector {
                         blend_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
-                sync_file = buffer.copy_to_dev(cd, sf)?;
+                sync_file = buffer.copy_to_dev(cd, sf).map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
-                tex = buffer.render_tex.clone();
+                tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
                 sync_file = match &dsd.acquire_sync {
