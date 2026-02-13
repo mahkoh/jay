@@ -41,7 +41,7 @@ use {
             asyncevent::AsyncEvent, binary_search_map::BinarySearchMap, bitflags::BitflagsExt,
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             geometric_decay::GeometricDecay, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
+            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError, rc_eq::rc_eq,
         },
         video::{
             INVALID_MODIFIER, Modifier,
@@ -66,6 +66,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
+        error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
@@ -3006,5 +3007,48 @@ impl RenderBuffer {
         let rect = Rect::new_sized_saturating(0, 0, dmabuf.width, dmabuf.height);
         self.damage_queue.clear_all();
         self.damage_queue.damage(&[rect]);
+    }
+
+    pub fn clear(&self, cd: &Rc<ColorDescription>) -> Result<Option<SyncFile>, Box<dyn Error>> {
+        let sync_file = self
+            .dev_fb
+            .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)?;
+        Ok(sync_file)
+    }
+
+    pub fn copy_to_new(
+        &self,
+        new: &Self,
+        cd: &Rc<ColorDescription>,
+    ) -> Result<Option<SyncFile>, Box<dyn Error>> {
+        let copy_texture = |new: &Rc<dyn GfxFramebuffer>, old: &Rc<dyn GfxTexture>| {
+            new.copy_texture(
+                AcquireSync::Unnecessary,
+                ReleaseSync::Explicit,
+                cd,
+                old,
+                cd,
+                None,
+                AcquireSync::Unnecessary,
+                ReleaseSync::Explicit,
+                0,
+                0,
+            )
+            .map_err(Into::into)
+        };
+
+        if rc_eq(&self.dev_ctx, &new.dev_ctx) {
+            return copy_texture(
+                &new.dev_fb,
+                self.dev_tex.as_ref().unwrap_or(&self.render_tex),
+            );
+        }
+        let tex = new
+            .dev_ctx
+            .gfx
+            .clone()
+            .dmabuf_img(self.dev_bo.dmabuf())?
+            .to_texture()?;
+        copy_texture(&new.dev_fb, &tex)
     }
 }
