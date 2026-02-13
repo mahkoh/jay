@@ -13,7 +13,7 @@ use {
             RenderBuffer,
         },
         format::{ARGB8888, Format},
-        gfx_api::{AcquireSync, ReleaseSync, SyncFile},
+        gfx_api::SyncFile,
         utils::{
             binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
@@ -567,34 +567,22 @@ impl MetalDeviceTransaction {
                         let cd = connector.obj.color_description.get();
                         let res = if let Some(prev) = &old_buffers
                             && let Some(prev) = prev.iter().find(|b| b.drm.id() == fb_id)
-                            && rc_eq(&new_buffer.dev_ctx, &prev.dev_ctx)
                             && may_show_current_fb
                         {
-                            let src = prev.dev_tex.as_ref().unwrap_or(&prev.render_tex);
-                            let dst = &new_buffer.dev_fb;
-                            dst.copy_texture(
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                &cd,
-                                src,
-                                &cd,
-                                None,
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                0,
-                                0,
-                            )
+                            match prev.copy_to_new(new_buffer, &cd) {
+                                Ok(sf) => Ok(sf),
+                                Err(e) => {
+                                    log::warn!("Could not copy from old buffer: {}", ErrorFmt(&*e));
+                                    new_buffer.clear(&cd)
+                                }
+                            }
                         } else {
-                            new_buffer.dev_fb.clear(
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                &cd,
-                            )
+                            new_buffer.clear(&cd)
                         };
                         match res {
                             Ok(sf) => sync_files.extend(sf),
                             Err(e) => {
-                                log::warn!("Could not copy from old buffer: {}", ErrorFmt(e));
+                                log::warn!("Could not clear new buffer: {}", ErrorFmt(&*e));
                             }
                         }
                     } else {
@@ -626,11 +614,7 @@ impl MetalDeviceTransaction {
                                 }
                                 buffer.damage_full();
                                 let cd = connector.obj.color_description.get();
-                                let res = buffer.dev_fb.clear(
-                                    AcquireSync::Unnecessary,
-                                    ReleaseSync::Explicit,
-                                    &cd,
-                                );
+                                let res = buffer.clear(&cd);
                                 match res {
                                     Ok(sf) => {
                                         buffer.locked.set(true);
@@ -639,7 +623,7 @@ impl MetalDeviceTransaction {
                                     Err(e) => {
                                         log::error!(
                                             "Could not black out old buffer: {}",
-                                            ErrorFmt(e),
+                                            ErrorFmt(&*e),
                                         );
                                     }
                                 }
