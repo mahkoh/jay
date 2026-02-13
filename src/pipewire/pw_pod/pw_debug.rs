@@ -31,9 +31,12 @@ use {
                 SpaVideoTransferFunction,
             },
         },
-        utils::{debug_fn::debug_fn, errorfmt::ErrorFmt},
+        utils::errorfmt::ErrorFmt,
     },
-    std::fmt::{Debug, DebugList, Formatter, Write},
+    std::{
+        fmt,
+        fmt::{Debug, DebugList, Formatter, Write},
+    },
 };
 
 trait PwPodObjectDebugger: Sync {
@@ -62,7 +65,7 @@ where
         s.field("flags", &value.flags)
             .field(
                 "pod",
-                &debug_fn(|f| (self.debug_pod)(value.key, f, value.pod)),
+                &fmt::from_fn(|f| (self.debug_pod)(value.key, f, value.pod)),
             )
             .finish()
     }
@@ -83,16 +86,16 @@ where
             .field("flags", &c.flags)
             .field(
                 "elements",
-                &debug_fn(|fmt| {
+                &fmt::from_fn(|fmt| {
                     array_body_debug(fmt, c.elements, |l, p| {
                         match p.read_pod_body_packed(ty, c.elements.child_len) {
                             Ok(p) => {
-                                l.entry(&debug_fn(|fmt| f(fmt, p)));
+                                l.entry(&fmt::from_fn(|fmt| f(fmt, p)));
                                 true
                             }
                             Err(e) => {
                                 let e = ErrorFmt(e);
-                                l.entry(&debug_fn(|fmt| {
+                                l.entry(&fmt::from_fn(|fmt| {
                                     write!(fmt, "Could not read choice element: {}", e)
                                 }));
                                 false
@@ -151,7 +154,7 @@ where
         }
         Err(e) => {
             let e = ErrorFmt(e);
-            l.entry(&debug_fn(|f| write!(f, "Could not read id: {}", e)));
+            l.entry(&fmt::from_fn(|f| write!(f, "Could not read id: {}", e)));
             false
         }
     })
@@ -334,18 +337,18 @@ impl<'a> Debug for PwPodObject<'a> {
         s.field("id", id);
         s.field(
             "props",
-            &debug_fn(|f| {
+            &fmt::from_fn(|f| {
                 let mut l = f.debug_list();
                 let mut parser = self.probs;
                 while parser.len() > 0 {
                     match parser.read_prop() {
                         Ok(p) => match debugger {
-                            Some(d) => l.entry(&debug_fn(|fmt| d.debug_property(fmt, p))),
+                            Some(d) => l.entry(&fmt::from_fn(|fmt| d.debug_property(fmt, p))),
                             _ => l.entry(&p),
                         },
                         Err(e) => {
                             let e = ErrorFmt(e);
-                            l.entry(&debug_fn(|f| {
+                            l.entry(&fmt::from_fn(|f| {
                                 write!(f, "Could not read object property: {}", &e)
                             }));
                             break;
@@ -365,7 +368,7 @@ impl<'a> Debug for PwPodSequence<'a> {
         s.field("unit", &self.unit);
         s.field(
             "controls",
-            &debug_fn(|f| {
+            &fmt::from_fn(|f| {
                 let mut l = f.debug_list();
                 let mut parser = self.controls;
                 while parser.len() > 0 {
@@ -373,7 +376,7 @@ impl<'a> Debug for PwPodSequence<'a> {
                         Ok(c) => l.entry(&c),
                         Err(e) => {
                             let e = ErrorFmt(e);
-                            l.entry(&debug_fn(|f| {
+                            l.entry(&fmt::from_fn(|f| {
                                 write!(f, "Could not read control element: {}", &e)
                             }));
                             break;
@@ -404,7 +407,7 @@ impl<'a> Debug for PwPodStruct<'a> {
                     let e = ErrorFmt(e);
                     s.field(
                         &field,
-                        &debug_fn(|f| write!(f, "Could not parse struct field: {}", &e)),
+                        &fmt::from_fn(|f| write!(f, "Could not parse struct field: {}", &e)),
                     );
                     break;
                 }
@@ -423,7 +426,7 @@ impl<'a> Debug for PwPodArray<'a> {
                 Ok(e) => list.entry(&e),
                 Err(e) => {
                     let e = ErrorFmt(e);
-                    list.entry(&debug_fn(|f| {
+                    list.entry(&fmt::from_fn(|f| {
                         write!(f, "Could not parse array element: {}", &e)
                     }));
                     break;

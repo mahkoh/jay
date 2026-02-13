@@ -9,13 +9,15 @@ use {
             SPA_VIDEO_FORMAT_UNKNOWN, SPA_VIDEO_FORMAT_xBGR_210LE, SPA_VIDEO_FORMAT_xRGB_210LE,
             SpaVideoFormat,
         },
-        utils::debug_fn::debug_fn,
     },
     ahash::AHashMap,
     ash::vk,
     jay_config::video::Format as ConfigFormat,
     once_cell::sync::Lazy,
-    std::fmt::{Debug, Write},
+    std::{
+        fmt,
+        fmt::{Debug, Write},
+    },
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -134,7 +136,7 @@ const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
 
 #[expect(dead_code)]
 pub fn debug(fourcc: u32) -> impl Debug {
-    debug_fn(move |fmt| {
+    fmt::from_fn(move |fmt| {
         fmt.write_char(fourcc as u8 as char)?;
         fmt.write_char((fourcc >> 8) as u8 as char)?;
         fmt.write_char((fourcc >> 16) as u8 as char)?;

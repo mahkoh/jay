@@ -7,9 +7,7 @@ use {
         ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{
-            debug_fn::debug_fn, errorfmt::ErrorFmt, ordered_float::F64, transform_ext::TransformExt,
-        },
+        utils::{errorfmt::ErrorFmt, ordered_float::F64, transform_ext::TransformExt},
         wire::{JayRandrId, jay_compositor, jay_randr},
     },
     clap::{
@@ -21,7 +19,7 @@ use {
     linearize::LinearizeExt,
     std::{
         cell::RefCell,
-        fmt::{Display, Formatter},
+        fmt::{self, Display, Formatter},
         rc::Rc,
         str::FromStr,
         time::Duration,
@@ -1067,7 +1065,7 @@ impl Randr {
         if let Some(p) = &o.native_gamut {
             println!(
                 "        native gamut:{}",
-                debug_fn(|f| {
+                fmt::from_fn(|f| {
                     if o.use_native_gamut {
                         f.write_str(" (used for default color space)")?;
                     }

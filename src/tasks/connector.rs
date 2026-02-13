@@ -15,12 +15,11 @@ use {
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, WsMoveConfig, move_ws_to_output},
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, debug_fn::debug_fn,
-            hash_map_ext::HashMapExt, rc_eq::RcEq,
+            asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
         },
     },
     jay_config::video::Transform,
-    std::{cell::Cell, collections::VecDeque, rc::Rc},
+    std::{cell::Cell, collections::VecDeque, fmt, rc::Rc},
 };
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
@@ -475,7 +474,7 @@ impl ConnectorHandler {
 }
 
 fn create_description(info: &MonitorInfo) -> String {
-    debug_fn(|f| {
+    fmt::from_fn(|f| {
         let mut needs_space = false;
         let id = &info.output_id;
         for s in [&id.manufacturer, &id.model, &id.serial_number] {
