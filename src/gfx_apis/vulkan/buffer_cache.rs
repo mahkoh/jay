@@ -1,17 +1,15 @@
 use {
-    crate::{
-        gfx_apis::vulkan::{
-            VulkanError,
-            allocator::{VulkanAllocation, VulkanAllocator},
-            device::VulkanDevice,
-        },
-        utils::on_drop::OnDrop,
+    crate::gfx_apis::vulkan::{
+        VulkanError,
+        allocator::{VulkanAllocation, VulkanAllocator},
+        device::VulkanDevice,
     },
     ash::vk::{
         Buffer, BufferCreateInfo, BufferDeviceAddressInfo, BufferUsageFlags, DeviceAddress,
         DeviceSize,
     },
     gpu_alloc::UsageFlags,
+    run_on_drop::on_drop,
     std::{cell::RefCell, mem::ManuallyDrop, ops::Deref, rc::Rc},
     uapi::Packed,
 };
@@ -119,7 +117,7 @@ impl VulkanBufferCache {
                     .map_err(VulkanError::CreateBuffer)?
             }
         };
-        let destroy_buffer = OnDrop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
+        let destroy_buffer = on_drop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
         let mut memory_requirements =
             unsafe { self.device.device.get_buffer_memory_requirements(buffer) };
         memory_requirements.alignment = memory_requirements.alignment.max(self.min_alignment);

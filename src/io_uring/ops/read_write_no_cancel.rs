@@ -9,8 +9,8 @@ use {
             sys::{IORING_OP_READ, IORING_OP_WRITE, io_uring_sqe},
         },
         time::Time,
-        utils::on_drop::OnDrop,
     },
+    run_on_drop::on_drop,
     uapi::{Fd, c},
 };
 
@@ -86,7 +86,7 @@ impl IoUring {
                 self.schedule_timeout_link(time);
             }
         }
-        let panic = OnDrop(|| panic!("Operation cannot be cancelled from userspace"));
+        let panic = on_drop(|| panic!("Operation cannot be cancelled from userspace"));
         cancel(id.id);
         let res = Ok(pr.await.map(|v| v as usize)).merge();
         panic.forget();

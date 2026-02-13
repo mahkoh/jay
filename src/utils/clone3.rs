@@ -2,8 +2,9 @@ use {
     crate::{
         forker::ForkerError,
         pr_caps::drop_all_pr_caps,
-        utils::{errorfmt::ErrorFmt, on_drop::OnDrop, process_name::set_process_name},
+        utils::{errorfmt::ErrorFmt, process_name::set_process_name},
     },
+    run_on_drop::on_drop,
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
     uapi::{Msghdr, MsghdrMut, OwnedFd, c},
 };
@@ -47,7 +48,7 @@ pub fn double_fork() -> Result<Option<OwnedFd>, ForkerError> {
     match fork_with_pidfd(false)? {
         Forked::Parent { pid, .. } => {
             drop(c);
-            let _wait = OnDrop(|| {
+            let _wait = on_drop(|| {
                 let _ = uapi::waitpid(pid, 0);
             });
             recv_pidfd(&p).map(Some)

@@ -10,7 +10,7 @@ use {
                 map_extension_properties,
             },
         },
-        utils::{bitflags::BitflagsExt, on_drop::OnDrop},
+        utils::bitflags::BitflagsExt,
         video::{
             dmabuf::DmaBufIds,
             drm::{Drm, sync_obj::SyncObjCtx},
@@ -45,6 +45,7 @@ use {
         },
     },
     isnt::std_1::collections::IsntHashMapExt,
+    run_on_drop::on_drop,
     std::{
         cell::Cell,
         ffi::{CStr, CString},
@@ -447,7 +448,7 @@ impl VulkanInstance {
             Ok(d) => d,
             Err(e) => return Err(VulkanError::CreateDevice(e)),
         };
-        let destroy_device = OnDrop(|| unsafe { device.destroy_device(None) });
+        let destroy_device = on_drop(|| unsafe { device.destroy_device(None) });
         let blend_limits = self.load_blend_format_limits(phy_dev)?;
         let formats = self.load_formats(phy_dev)?;
         let supports_xrgb8888 = formats

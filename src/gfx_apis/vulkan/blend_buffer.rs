@@ -7,13 +7,13 @@ use {
             image::{QueueFamily, QueueState, VulkanImage, VulkanImageMemory},
             renderer::VulkanRenderer,
         },
-        utils::on_drop::OnDrop,
     },
     ash::vk::{
         Extent3D, ImageAspectFlags, ImageCreateInfo, ImageLayout, ImageSubresourceRange,
         ImageTiling, ImageType, ImageViewCreateInfo, ImageViewType, SampleCountFlags, SharingMode,
     },
     gpu_alloc::UsageFlags,
+    run_on_drop::on_drop,
     std::{cell::Cell, collections::hash_map::Entry, rc::Rc},
 };
 
@@ -60,7 +60,7 @@ impl VulkanRenderer {
             .usage(usage);
         let image = unsafe { self.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
-        let destroy_image = OnDrop(|| unsafe { self.device.device.destroy_image(image, None) });
+        let destroy_image = on_drop(|| unsafe { self.device.device.destroy_image(image, None) });
         let memory_requirements =
             unsafe { self.device.device.get_image_memory_requirements(image) };
         let allocation =

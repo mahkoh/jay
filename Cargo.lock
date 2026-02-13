@@ -682,6 +682,7 @@ dependencies = [
  "rand 0.10.0",
  "regex",
  "repc",
+ "run-on-drop",
  "rustc-demangle",
  "serde",
  "serde_json",

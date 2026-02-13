@@ -10,7 +10,7 @@ use {
             device::VulkanDevice, format::VulkanFormat, renderer::image_barrier,
             staging::VulkanStagingBuffer,
         },
-        utils::{errorfmt::ErrorFmt, on_drop::OnDrop},
+        utils::errorfmt::ErrorFmt,
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
@@ -33,6 +33,7 @@ use {
         PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, SampleCountFlags, SharingMode, SubmitInfo2,
         SubresourceLayout,
     },
+    run_on_drop::on_drop,
     std::{rc::Rc, slice},
     uapi::OwnedFd,
 };
@@ -140,7 +141,7 @@ impl VulkanBoAllocator {
             let res = unsafe { data.device.device.create_image(&create_info, None) };
             res.map_err(VulkanError::CreateImage)?
         };
-        let destroy_image = OnDrop(|| unsafe { data.device.device.destroy_image(image, None) });
+        let destroy_image = on_drop(|| unsafe { data.device.device.destroy_image(image, None) });
         let modifier = {
             let mut props = ImageDrmFormatModifierPropertiesEXT::default();
             unsafe {
@@ -187,7 +188,7 @@ impl VulkanBoAllocator {
             };
             memory.map_err(VulkanError::AllocateMemory)?
         };
-        let destroy_memory = OnDrop(|| unsafe { data.device.device.free_memory(memory, None) });
+        let destroy_memory = on_drop(|| unsafe { data.device.device.free_memory(memory, None) });
         unsafe {
             data.device
                 .device
@@ -326,7 +327,7 @@ impl VulkanBoAllocator {
             let res = unsafe { data.device.device.create_image(&create_info, None) };
             res.map_err(VulkanError::CreateImage)?
         };
-        let destroy_image = OnDrop(|| unsafe { data.device.device.destroy_image(image, None) });
+        let destroy_image = on_drop(|| unsafe { data.device.device.destroy_image(image, None) });
         let num_device_memories = match disjoint {
             true => dmabuf.planes.len(),
             false => 1,
@@ -397,7 +398,7 @@ impl VulkanBoAllocator {
             let device_memory = device_memory.map_err(VulkanError::AllocateMemory)?;
             fd.unwrap();
             device_memories.push(device_memory);
-            free_device_memories.push(OnDrop(move || unsafe {
+            free_device_memories.push(on_drop(move || unsafe {
                 data.device.device.free_memory(device_memory, None)
             }));
         }

@@ -94,7 +94,6 @@ use {
             event_listener::{EventListener, EventSource},
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
-            on_drop::OnDrop,
             rc_eq::{rc_eq, rc_weak_eq},
             smallmap::SmallMap,
         },
@@ -111,6 +110,7 @@ use {
         keyboard::syms::{KeySym, SYM_Escape},
     },
     kbvm::Keycode,
+    run_on_drop::on_drop,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -901,7 +901,7 @@ impl WlSeatGlobal {
             return;
         };
         self.focus_history_rotate.fetch_add(1);
-        let _reset = OnDrop(|| {
+        let _reset = on_drop(|| {
             self.focus_history_rotate.fetch_sub(1);
         });
         if !visible {
