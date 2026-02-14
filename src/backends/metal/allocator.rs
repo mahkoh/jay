@@ -6,13 +6,16 @@ use {
             video::{MetalDrmDevice, MetalRenderContext},
         },
         cmm::cmm_description::ColorDescription,
-        copy_device::{CopyDevice, CopyDeviceError, CopyDeviceSupport},
+        copy_device::{
+            CopyDevice, CopyDeviceBuffer, CopyDeviceCopy, CopyDeviceError, CopyDeviceSupport,
+        },
         format::Format,
         gfx_api::{
             AcquireSync, GfxBlendBuffer, GfxError, GfxFormat, GfxFramebuffer, GfxTexture,
             GfxWriteModifier, ReleaseSync, SyncFile, needs_render_usage,
         },
         rect::{DamageQueue, Rect, Region},
+        udmabuf::{Udmabuf, UdmabufError},
         utils::{errorfmt::ErrorFmt, rc_eq::rc_eq},
         video::{
             LINEAR_MODIFIER, Modifier,
@@ -70,6 +73,29 @@ pub enum RenderBufferPrime {
         // Import of the render dmabuf into the dev ctx.
         dev_render_tex: Rc<dyn GfxTexture>,
     },
+    CopyUdmabuf {
+        render_copy: CopyDeviceCopy,
+        dev_copy_dev: Rc<CopyDevice>,
+        dev_copy: CopyDeviceCopy,
+        dev_bo: GbmBo,
+    },
+    CopyDirectPull {
+        dev_copy_dev: Rc<CopyDevice>,
+        dev_copy: CopyDeviceCopy,
+        dev_bo: GbmBo,
+    },
+    CopyIndirectPull {
+        render_copy: CopyDeviceCopy,
+        _render_secondary_bo: CopyDeviceBuffer,
+        dev_copy_dev: Rc<CopyDevice>,
+        dev_copy: CopyDeviceCopy,
+        dev_bo: GbmBo,
+    },
+    CopyDirectPush {
+        render_copy: CopyDeviceCopy,
+        dev_copy_dev: Rc<CopyDevice>,
+        dev_bo: GbmBo,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -80,10 +106,16 @@ pub enum RenderBufferError {
     GfxError(#[from] GfxError),
     #[error("Could not copy frame to output device")]
     CopyToOutput(#[source] GfxError),
+    #[error("Could not copy render bo to udmabuf")]
+    CopyRenderToUdmabuf(#[source] CopyDeviceError),
+    #[error("Could not copy udmabuf to dev bo")]
+    CopyUdmabufToDev(#[source] CopyDeviceError),
     #[error("Could not create a copy device copy")]
     CreateCopyDeviceCopy(#[source] CopyDeviceError),
     #[error("Could not execute a copy device copy")]
     ExecuteCopyDeviceCopy(#[source] CopyDeviceError),
+    #[error("Could not copy render bo to dev bo")]
+    CopyRenderToDev(#[source] CopyDeviceError),
 }
 
 #[derive(Default)]
@@ -105,7 +137,7 @@ impl RenderBuffer {
     pub fn copy_to_dev(
         &self,
         cd: &Rc<ColorDescription>,
-        _region: Option<&Region>,
+        region: Option<&Region>,
         sync_file: Option<SyncFile>,
     ) -> Result<RenderBufferCopy, RenderBufferError> {
         match &self.prime {
@@ -132,6 +164,34 @@ impl RenderBuffer {
                 )
                 .map_err(RenderBufferError::CopyToOutput)
                 .map(RenderBufferCopy::for_both),
+            RenderBufferPrime::CopyUdmabuf {
+                render_copy,
+                dev_copy,
+                ..
+            }
+            | RenderBufferPrime::CopyIndirectPull {
+                render_copy,
+                dev_copy,
+                ..
+            } => {
+                let render_block = render_copy
+                    .execute(sync_file.as_ref(), region)
+                    .map_err(RenderBufferError::CopyRenderToUdmabuf)?;
+                let present_block = dev_copy
+                    .execute(render_block.as_ref(), region)
+                    .map_err(RenderBufferError::CopyUdmabufToDev)?;
+                Ok(RenderBufferCopy {
+                    render_block,
+                    present_block,
+                })
+            }
+            RenderBufferPrime::CopyDirectPull { dev_copy: copy, .. }
+            | RenderBufferPrime::CopyDirectPush {
+                render_copy: copy, ..
+            } => copy
+                .execute(sync_file.as_ref(), region)
+                .map_err(RenderBufferError::CopyRenderToDev)
+                .map(RenderBufferCopy::for_both),
         }
     }
 
@@ -142,16 +202,27 @@ impl RenderBuffer {
     }
 
     pub fn clear(&self, cd: &Rc<ColorDescription>) -> Result<Option<SyncFile>, RenderBufferError> {
-        match &self.prime {
-            RenderBufferPrime::None => self
-                .render
-                .fb
-                .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)
-                .map_err(Into::into),
-            RenderBufferPrime::Sampling { dev_fb, .. } => dev_fb
-                .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)
-                .map_err(Into::into),
-        }
+        let sync_file = match &self.prime {
+            RenderBufferPrime::None => {
+                self.render
+                    .fb
+                    .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)?
+            }
+            RenderBufferPrime::Sampling { dev_fb, .. } => {
+                dev_fb.clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)?
+            }
+            RenderBufferPrime::CopyUdmabuf { .. }
+            | RenderBufferPrime::CopyDirectPull { .. }
+            | RenderBufferPrime::CopyIndirectPull { .. }
+            | RenderBufferPrime::CopyDirectPush { .. } => {
+                let sf =
+                    self.render
+                        .fb
+                        .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)?;
+                self.copy_to_dev(cd, None, sf)?.present_block
+            }
+        };
+        Ok(sync_file)
     }
 
     pub fn copy_to_new(
@@ -217,6 +288,7 @@ impl RenderBuffer {
                     &old.render.tex,
                     old.render.bo.dmabuf(),
                 )?,
+                _ => unreachable!(),
             },
             RenderBufferPrime::Sampling {
                 dev_render_tex: old_dev_render_tex,
@@ -239,7 +311,9 @@ impl RenderBuffer {
                     old_dev_render_tex,
                     old_dev_bo.dmabuf(),
                 )?,
+                _ => unreachable!(),
             },
+            _ => unreachable!(),
         };
         Ok(sf)
     }
@@ -248,6 +322,10 @@ impl RenderBuffer {
         match &self.prime {
             RenderBufferPrime::None => &self.render.bo,
             RenderBufferPrime::Sampling { dev_bo, .. } => dev_bo,
+            RenderBufferPrime::CopyUdmabuf { dev_bo, .. } => dev_bo,
+            RenderBufferPrime::CopyDirectPull { dev_bo, .. } => dev_bo,
+            RenderBufferPrime::CopyDirectPush { dev_bo, .. } => dev_bo,
+            RenderBufferPrime::CopyIndirectPull { dev_bo, .. } => dev_bo,
         }
     }
 
@@ -255,6 +333,10 @@ impl RenderBuffer {
         match &self.prime {
             RenderBufferPrime::None => None,
             RenderBufferPrime::Sampling { .. } => None,
+            RenderBufferPrime::CopyUdmabuf { dev_copy_dev, .. }
+            | RenderBufferPrime::CopyDirectPull { dev_copy_dev, .. }
+            | RenderBufferPrime::CopyIndirectPull { dev_copy_dev, .. }
+            | RenderBufferPrime::CopyDirectPush { dev_copy_dev, .. } => Some(dev_copy_dev),
         }
     }
 }
@@ -284,6 +366,34 @@ struct NoPrime {
 
 struct PrimeSampling {
     render_allocation_settings: BoAllocationSettings,
+    dev_allocation_settings: BoAllocationSettings,
+}
+
+struct DirectCopyPull {
+    dev_copy_dev: Rc<CopyDevice>,
+    render_allocation_settings: BoAllocationSettings,
+    dev_allocation_settings: BoAllocationSettings,
+}
+
+struct DirectCopyPush {
+    render_copy_dev: Rc<CopyDevice>,
+    dev_copy_dev: Rc<CopyDevice>,
+    render_allocation_settings: BoAllocationSettings,
+    dev_allocation_settings: BoAllocationSettings,
+}
+
+struct CopyUdmabuf {
+    udmabuf: Rc<Udmabuf>,
+    render_allocation_settings: BoAllocationSettings,
+    render_copy_dev: Rc<CopyDevice>,
+    dev_copy_dev: Rc<CopyDevice>,
+    dev_allocation_settings: BoAllocationSettings,
+}
+
+struct IndirectCopyPull {
+    render_allocation_settings: BoAllocationSettings,
+    render_copy_dev: Rc<CopyDevice>,
+    dev_copy_dev: Rc<CopyDevice>,
     dev_allocation_settings: BoAllocationSettings,
 }
 
@@ -344,8 +454,20 @@ impl MetalBackend {
                     }};
                 }
                 match method {
+                    PrimeMethod::DirectPull => {
+                        x!(prepare_direct_copy_pull, create_direct_copy_pull)
+                    }
+                    PrimeMethod::DirectPush => {
+                        x!(prepare_direct_copy_push, create_direct_copy_push)
+                    }
+                    PrimeMethod::Udmabuf => {
+                        x!(prepare_copy_udmabuf, create_copy_udmabuf)
+                    }
                     PrimeMethod::Sampling => {
                         x!(prepare_prime_sampling, create_prime_sampling)
+                    }
+                    PrimeMethod::IndirectPull => {
+                        x!(prepare_indirect_copy_pull, create_indirect_copy_pull)
                     }
                 }
             });
@@ -408,6 +530,14 @@ pub enum ScanoutBufferErrorKind {
     SodWriteReadPlaneIntersection,
     #[error("Scanout device: The intersection of render/plane modifiers is empty")]
     SodWritePlaneIntersection,
+    #[error("Render device: The intersection of render/sample/copy_src modifiers is empty")]
+    RenderWriteReadCopySrcIntersection,
+    #[error("Scanout device: The intersection of plane/render_copy_dst modifiers is empty")]
+    SodPlaneRenderCopyDstIntersection,
+    #[error("Render device: The intersection of render/sample/sod_copy_src modifiers is empty")]
+    RenderWriteReadSodCopySrcIntersection,
+    #[error("Scanout device: The intersection of plane/copy_dst modifiers is empty")]
+    SodPlaneCopyDstIntersection,
     #[error("Render device: Buffer allocation failed")]
     RenderBufferAllocation(#[source] GbmError),
     #[error("Render device: Could not import RENDER buffer into the gfx API")]
@@ -422,6 +552,32 @@ pub enum ScanoutBufferErrorKind {
     SodImportRenderImage(#[source] GfxError),
     #[error("Scanout device: Could not turn imported RENDER buffer into gfx API texture")]
     SodImportRenderTexture(#[source] GfxError),
+    #[error("Udmabuf is not available")]
+    UdmabufNotAvailable,
+    #[error("Render device: Could not create a copy device")]
+    RenderNoCopyDevice,
+    #[error("Scanout device: Could not create a copy device")]
+    SodNoCopyDevice,
+    #[error("Render device: Cannot copy to linear")]
+    RenderNoCopyToLinear,
+    #[error("Scanout device: Cannot copy from linear")]
+    SodNoCopyFromLinear,
+    #[error("Could not create an udmabuf")]
+    CreateUdmabuf(#[source] UdmabufError),
+    #[error("Render device: Could not create a copy to udmabuf")]
+    RenderCreateCopyToUdmabuf(#[source] CopyDeviceError),
+    #[error("Render device: Could not create a copy to secondary")]
+    RenderCreateCopyToSecondary(#[source] CopyDeviceError),
+    #[error("Scanout device: Could not create a copy from udmabuf")]
+    SodCreateCopyFromUdmabuf(#[source] CopyDeviceError),
+    #[error("Scanout device: Could not create a copy from secondary")]
+    SodCreateCopyFromSecondary(#[source] CopyDeviceError),
+    #[error("Scanout device: Could not create a copy from render bo")]
+    SodCreateCopyFromRender(#[source] CopyDeviceError),
+    #[error("Render device: Could not create a copy to scanout device")]
+    RenderCreateCopyToSod(#[source] CopyDeviceError),
+    #[error("Render device: Copy buffer allocation failed")]
+    RenderCreateCopyBuffer(#[source] CopyDeviceError),
 }
 
 #[derive(Default, Debug)]
@@ -446,13 +602,25 @@ pub struct ScanoutBufferError {
 
 #[derive(Copy, Clone, Linearize)]
 pub enum PrimeMethod {
+    DirectPull,
     Sampling,
+    IndirectPull,
+    Udmabuf,
+    // This does not work on AMD since use from another device will prevent the
+    // framebuffer from being pinned into video memory. It might be useful on other
+    // devices where the scanout device is CPU only and the render device can perform
+    // an accelerated copy.
+    DirectPush,
 }
 
 impl PrimeMethod {
     pub fn name(self) -> &'static str {
         match self {
+            PrimeMethod::DirectPull => "direct-pull",
+            PrimeMethod::IndirectPull => "indirect-pull",
+            PrimeMethod::DirectPush => "direct-push",
             PrimeMethod::Sampling => "direct-sampling",
+            PrimeMethod::Udmabuf => "udmabuf",
         }
     }
 }
@@ -474,6 +642,10 @@ impl RenderBufferPrime {
         let method = match self {
             RenderBufferPrime::None => return None,
             RenderBufferPrime::Sampling { .. } => PrimeMethod::Sampling,
+            RenderBufferPrime::CopyUdmabuf { .. } => PrimeMethod::Udmabuf,
+            RenderBufferPrime::CopyDirectPull { .. } => PrimeMethod::DirectPull,
+            RenderBufferPrime::CopyDirectPush { .. } => PrimeMethod::DirectPush,
+            RenderBufferPrime::CopyIndirectPull { .. } => PrimeMethod::IndirectPull,
         };
         Some(method)
     }
@@ -618,7 +790,6 @@ impl BoAllocationSettings {
         )
     }
 
-    #[expect(dead_code)]
     fn new2<'a>(
         common: &Builder<'_>,
         modifiers: impl IntoIterator<Item = &'a Modifier> + Clone,
@@ -768,7 +939,7 @@ impl Builder<'_> {
     }
 
     fn copy_modifiers_iter(&self, support: &[CopyDeviceSupport]) -> impl Iterator<Item = Modifier> {
-        let Builder { width, height, .. } = *self;
+        let Self { width, height, .. } = *self;
         support
             .iter()
             .filter(move |s| s.max_width >= width as _ && s.max_height >= height as _)
@@ -779,12 +950,10 @@ impl Builder<'_> {
         self.copy_modifiers_iter(support).collect()
     }
 
-    #[expect(dead_code)]
     fn copy_src_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
         self.copy_modifiers(dev.src_support(self.format))
     }
 
-    #[expect(dead_code)]
     fn copy_dst_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
         self.copy_modifiers(dev.dst_support(self.format))
     }
@@ -794,12 +963,10 @@ impl Builder<'_> {
             .any(|m| m == LINEAR_MODIFIER)
     }
 
-    #[expect(dead_code)]
     fn copy_src_supports_linear(&self, dev: &CopyDevice) -> bool {
         self.copy_supports_linear(dev.src_support(self.format))
     }
 
-    #[expect(dead_code)]
     fn copy_dst_supports_linear(&self, dev: &CopyDevice) -> bool {
         self.copy_supports_linear(dev.dst_support(self.format))
     }
@@ -960,6 +1127,392 @@ impl Builder<'_> {
         };
         self.create(drm, damage_queue, render, prime)
     }
+
+    fn prepare_direct_copy_push(
+        &self,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<DirectCopyPush, ScanoutBufferErrorKind> {
+        let dbg = &mut *dbg.borrow_mut();
+        let Self {
+            dev,
+            render_fmt,
+            plane_modifiers,
+            render_ctx,
+            ..
+        } = *self;
+        let Some(render_copy_dev) = render_ctx.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::RenderNoCopyDevice);
+        };
+        let Some(dev_copy_dev) = dev.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
+        };
+        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
+        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        if render_modifiers_possible.is_empty() {
+            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
+        }
+        let render_copy_dst_modifiers = self.copy_dst_modifiers(&render_copy_dev);
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &render_copy_dst_modifiers);
+        dbg.render_copy_dst_modifiers = Some(render_copy_dst_modifiers);
+        make_linear_only(&mut dev_modifiers);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        if dev_modifiers.is_empty() {
+            return Err(ScanoutBufferErrorKind::SodPlaneRenderCopyDstIntersection);
+        }
+        let render_allocation_settings = BoAllocationSettings::new2(
+            self,
+            &render_modifiers_possible,
+            render_fmt,
+            false,
+            true,
+            &mut dbg.render_usage,
+        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+        Ok(DirectCopyPush {
+            render_copy_dev,
+            dev_copy_dev,
+            render_allocation_settings,
+            dev_allocation_settings,
+        })
+    }
+
+    fn create_direct_copy_push(
+        &self,
+        prepared: &DirectCopyPush,
+        damage_queue: DamageQueue,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
+        let DirectCopyPush {
+            render_copy_dev,
+            dev_copy_dev,
+            render_allocation_settings,
+            dev_allocation_settings,
+        } = prepared;
+        let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
+        let send_render_modifier = on_drop(|| {
+            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+        });
+        let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
+        let send_dev_modifier = on_drop(|| {
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+        });
+        let render_copy = render_copy_dev
+            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSod)?;
+        send_dev_modifier.forget();
+        send_render_modifier.forget();
+        let prime = RenderBufferPrime::CopyDirectPush {
+            dev_copy_dev: dev_copy_dev.clone(),
+            render_copy,
+            dev_bo,
+        };
+        self.create(drm, damage_queue, render, prime)
+    }
+
+    fn prepare_direct_copy_pull(
+        &self,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<DirectCopyPull, ScanoutBufferErrorKind> {
+        let dbg = &mut *dbg.borrow_mut();
+        let Self {
+            dev,
+            render_fmt,
+            plane_modifiers,
+            ..
+        } = *self;
+        let Some(dev_copy_dev) = dev.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
+        };
+        let dev_copy_src_modifiers = self.copy_src_modifiers(&dev_copy_dev);
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &dev_copy_src_modifiers);
+        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        dbg.dev_copy_src_modifiers = Some(dev_copy_src_modifiers);
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        if render_modifiers_possible.is_empty() {
+            return Err(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection);
+        }
+        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
+        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        make_linear_only(&mut dev_modifiers);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        if dev_modifiers.is_empty() {
+            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
+        }
+        let render_allocation_settings = BoAllocationSettings::new2(
+            self,
+            &render_modifiers_possible,
+            render_fmt,
+            false,
+            true,
+            &mut dbg.render_usage,
+        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+        Ok(DirectCopyPull {
+            dev_copy_dev,
+            render_allocation_settings,
+            dev_allocation_settings,
+        })
+    }
+
+    fn create_direct_copy_pull(
+        &self,
+        prepared: &DirectCopyPull,
+        damage_queue: DamageQueue,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
+        let DirectCopyPull {
+            dev_copy_dev,
+            render_allocation_settings,
+            dev_allocation_settings,
+        } = prepared;
+        let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
+        let send_render_modifier = on_drop(|| {
+            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+        });
+        let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
+        let send_dev_modifier = on_drop(|| {
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+        });
+        let dev_copy = dev_copy_dev
+            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .map_err(ScanoutBufferErrorKind::SodCreateCopyFromRender)?;
+        send_dev_modifier.forget();
+        send_render_modifier.forget();
+        let prime = RenderBufferPrime::CopyDirectPull {
+            dev_copy_dev: dev_copy_dev.clone(),
+            dev_copy,
+            dev_bo,
+        };
+        self.create(drm, damage_queue, render, prime)
+    }
+
+    fn prepare_indirect_copy_pull(
+        &self,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<IndirectCopyPull, ScanoutBufferErrorKind> {
+        let dbg = &mut *dbg.borrow_mut();
+        let Self {
+            dev,
+            render_fmt,
+            plane_modifiers,
+            render_ctx,
+            ..
+        } = *self;
+        let Some(render_copy_dev) = render_ctx.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::RenderNoCopyDevice);
+        };
+        let Some(dev_copy_dev) = dev.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
+        };
+        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
+        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        if render_modifiers_possible.is_empty() {
+            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
+        }
+        if !self.copy_dst_supports_linear(&render_copy_dev) {
+            return Err(ScanoutBufferErrorKind::RenderNoCopyToLinear);
+        }
+        if !self.copy_src_supports_linear(&dev_copy_dev) {
+            return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
+        }
+        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
+        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        make_linear_only(&mut dev_modifiers);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        if dev_modifiers.is_empty() {
+            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
+        }
+        let render_allocation_settings = BoAllocationSettings::new2(
+            self,
+            &render_modifiers_possible,
+            render_fmt,
+            false,
+            true,
+            &mut dbg.render_usage,
+        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+        Ok(IndirectCopyPull {
+            render_allocation_settings,
+            render_copy_dev,
+            dev_copy_dev,
+            dev_allocation_settings,
+        })
+    }
+
+    fn create_indirect_copy_pull(
+        &self,
+        prepared: &IndirectCopyPull,
+        damage_queue: DamageQueue,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
+        let IndirectCopyPull {
+            render_allocation_settings,
+            render_copy_dev,
+            dev_copy_dev,
+            dev_allocation_settings,
+        } = prepared;
+        let Self {
+            format,
+            width,
+            height,
+            ..
+        } = *self;
+        let render_secondary_bo = render_copy_dev
+            .create_buffer(&self.slf.state.dma_buf_ids, width, height, format)
+            .map_err(ScanoutBufferErrorKind::RenderCreateCopyBuffer)?;
+        let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
+        let send_render_modifier = on_drop(|| {
+            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+        });
+        let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
+        let send_dev_modifier = on_drop(|| {
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+        });
+        let render_copy = render_copy_dev
+            .create_copy(render.bo.dmabuf(), render_secondary_bo.dmabuf())
+            .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSecondary)?;
+        let dev_copy = dev_copy_dev
+            .create_copy(render_secondary_bo.dmabuf(), dev_bo.dmabuf())
+            .map_err(ScanoutBufferErrorKind::SodCreateCopyFromSecondary)?;
+        send_render_modifier.forget();
+        send_dev_modifier.forget();
+        let prime = RenderBufferPrime::CopyIndirectPull {
+            render_copy,
+            _render_secondary_bo: render_secondary_bo,
+            dev_copy_dev: dev_copy_dev.clone(),
+            dev_copy,
+            dev_bo,
+        };
+        self.create(drm, damage_queue, render, prime)
+    }
+
+    fn prepare_copy_udmabuf(
+        &self,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<CopyUdmabuf, ScanoutBufferErrorKind> {
+        let dbg = &mut *dbg.borrow_mut();
+        let Self {
+            dev,
+            render_fmt,
+            plane_modifiers,
+            render_ctx,
+            ..
+        } = *self;
+        let Some(udmabuf) = self.slf.state.udmabuf.get() else {
+            return Err(ScanoutBufferErrorKind::UdmabufNotAvailable);
+        };
+        let Some(render_copy_dev) = render_ctx.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::RenderNoCopyDevice);
+        };
+        if !self.copy_dst_supports_linear(&render_copy_dev) {
+            return Err(ScanoutBufferErrorKind::RenderNoCopyToLinear);
+        }
+        let Some(dev_copy_dev) = dev.copy_device.get() else {
+            return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
+        };
+        if !self.copy_src_supports_linear(&dev_copy_dev) {
+            return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
+        }
+        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
+        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        if render_modifiers_possible.is_empty() {
+            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
+        }
+        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
+        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        make_linear_only(&mut dev_modifiers);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        if dev_modifiers.is_empty() {
+            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
+        }
+        let render_allocation_settings = BoAllocationSettings::new2(
+            self,
+            &render_modifiers_possible,
+            render_fmt,
+            false,
+            true,
+            &mut dbg.render_usage,
+        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+        Ok(CopyUdmabuf {
+            udmabuf,
+            render_allocation_settings,
+            render_copy_dev,
+            dev_copy_dev,
+            dev_allocation_settings,
+        })
+    }
+
+    fn create_copy_udmabuf(
+        &self,
+        prepared: &CopyUdmabuf,
+        damage_queue: DamageQueue,
+        dbg: &RefCell<RenderBufferAllocationDebug>,
+    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
+        let CopyUdmabuf {
+            udmabuf,
+            render_allocation_settings,
+            render_copy_dev,
+            dev_copy_dev,
+            dev_allocation_settings,
+        } = prepared;
+        let Self {
+            format,
+            width,
+            height,
+            ..
+        } = *self;
+        let udmabuf = udmabuf
+            .create_dmabuf(&self.slf.state.dma_buf_ids, width, height, format)
+            .map_err(ScanoutBufferErrorKind::CreateUdmabuf)?;
+        let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
+        let send_render_modifier = on_drop(|| {
+            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+        });
+        let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
+        let send_dev_modifier = on_drop(|| {
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+        });
+        let render_copy = render_copy_dev
+            .create_copy(&render.bo.dmabuf(), &udmabuf)
+            .map_err(ScanoutBufferErrorKind::RenderCreateCopyToUdmabuf)?;
+        let dev_copy = dev_copy_dev
+            .create_copy(&udmabuf, &dev_bo.dmabuf())
+            .map_err(ScanoutBufferErrorKind::SodCreateCopyFromUdmabuf)?;
+        send_render_modifier.forget();
+        send_dev_modifier.forget();
+        let prime = RenderBufferPrime::CopyUdmabuf {
+            render_copy,
+            dev_copy_dev: dev_copy_dev.clone(),
+            dev_copy,
+            dev_bo,
+        };
+        self.create(drm, damage_queue, render, prime)
+    }
 }
 
 const JAY_PRIME_METHODS: &str = "JAY_PRIME_METHODS";
@@ -1023,7 +1576,6 @@ fn intersect_modifiers<'a>(
         .collect()
 }
 
-#[expect(dead_code)]
 fn intersect_render_modifiers<'a>(
     left: &'a GfxFormat,
     right: impl IntoIterator<Item = &'a Modifier>,
@@ -1036,7 +1588,6 @@ fn intersect_render_modifiers<'a>(
     )
 }
 
-#[expect(dead_code)]
 fn make_linear_only(modifiers: &mut Vec<Modifier>) {
     if modifiers.contains(&LINEAR_MODIFIER) {
         *modifiers = vec![LINEAR_MODIFIER];

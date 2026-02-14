@@ -1135,7 +1135,6 @@ impl CopyDevice {
         })
     }
 
-    #[expect(dead_code)]
     pub fn create_buffer(
         &self,
         dma_buf_ids: &DmaBufIds,
@@ -1853,7 +1852,6 @@ impl Drop for Pending {
 }
 
 impl CopyDeviceBuffer {
-    #[expect(dead_code)]
     pub fn dmabuf(&self) -> &DmaBuf {
         &self.dmabuf
     }
