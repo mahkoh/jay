@@ -15,6 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
@@ -292,6 +293,8 @@ pub struct State {
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
+    #[expect(dead_code)]
+    pub copy_device_registry: Rc<CopyDeviceRegistry>,
 }
 
 // impl Drop for State {

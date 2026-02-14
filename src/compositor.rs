@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
             CritMatcherIds,
@@ -363,6 +364,7 @@ fn start_compositor2(
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
         gfx_ctx_changed: Default::default(),
+        copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine)),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

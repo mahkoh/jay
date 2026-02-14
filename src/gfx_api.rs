@@ -221,7 +221,7 @@ pub struct CopyTexture {
     pub cd: Rc<ColorDescription>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);
 
 impl Deref for SyncFile {

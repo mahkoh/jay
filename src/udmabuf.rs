@@ -7,7 +7,7 @@ use {
             oserror::OsError, page_size::page_size,
         },
         video::{
-            LINEAR_MODIFIER, Modifier,
+            LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
         },
@@ -139,8 +139,7 @@ impl Allocator for Udmabuf {
         if height > 1 << 16 || width > 1 << 16 {
             return Err(UdmabufError::Overflow.into());
         }
-        let stride_mask = 255;
-        let stride = (width * format.bpp as u64 + stride_mask) & !stride_mask;
+        let stride = (width * format.bpp as u64).next_multiple_of(LINEAR_STRIDE_ALIGN);
         let size_mask = page_size() as u64 - 1;
         let size = (height * stride + size_mask) & !size_mask;
         let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
