@@ -119,7 +119,6 @@ pub struct MetalDrmDevice {
     pub gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
-    #[expect(dead_code)]
     pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
@@ -2654,7 +2653,6 @@ impl MetalBackend {
 }
 
 impl CopyDeviceHolder {
-    #[expect(dead_code)]
     pub fn get(&self) -> Option<Rc<CopyDevice>> {
         self.dev
             .get_or_init(

@@ -116,7 +116,6 @@ impl Udmabuf {
         Ok(dmabuf)
     }
 
-    #[expect(dead_code)]
     pub fn create_dmabuf(
         &self,
         dma_buf_ids: &DmaBufIds,

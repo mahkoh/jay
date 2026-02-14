@@ -666,12 +666,10 @@ impl PhysicalCopyDevice {
         Ok(dev)
     }
 
-    #[expect(dead_code)]
     pub fn src_support(&self) -> &[CopyDeviceSupport] {
         &self.support[Dir::Src]
     }
 
-    #[expect(dead_code)]
     pub fn dst_support(&self) -> &[CopyDeviceSupport] {
         &self.support[Dir::Dst]
     }
@@ -796,7 +794,6 @@ impl PhysicalCopyDevice {
 }
 
 impl CopyDevice {
-    #[expect(dead_code)]
     pub fn physical(&self) -> &Rc<PhysicalCopyDevice> {
         &self.dev.phy
     }
@@ -1195,7 +1192,6 @@ impl CopyDevice {
         })
     }
 
-    #[expect(dead_code)]
     pub fn create_buffer(
         &self,
         dma_buf_ids: &DmaBufIds,
@@ -1872,7 +1868,6 @@ impl Drop for Pending {
 }
 
 impl CopyDeviceBuffer {
-    #[expect(dead_code)]
     pub fn dmabuf(&self) -> &DmaBuf {
         &self.dmabuf
     }
