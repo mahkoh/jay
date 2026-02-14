@@ -58,6 +58,7 @@ mod clientmem;
 mod cmm;
 mod compositor;
 mod config;
+mod copy_device;
 mod cpu_worker;
 mod criteria;
 mod cursor;
