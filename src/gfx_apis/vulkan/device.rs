@@ -5,10 +5,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             format::{VulkanBlendBufferLimits, VulkanFormat},
-            instance::{
-                API_VERSION, ApiVersionDisplay, Extensions, VulkanInstance,
-                map_extension_properties,
-            },
+            instance::VulkanInstance,
         },
         utils::bitflags::BitflagsExt,
         video::{
@@ -16,6 +13,7 @@ use {
             drm::{Drm, sync_obj::SyncObjCtx},
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
+        vulkan_core::{API_VERSION, ApiVersionDisplay, Extensions, map_extension_properties},
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,

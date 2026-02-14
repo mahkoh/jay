@@ -45,18 +45,17 @@ use {
             drm::{Drm, DrmError, sync_obj::SyncObjCtx},
             gbm::GbmError,
         },
+        vulkan_core::VulkanCoreError,
     },
     ahash::AHashMap,
-    ash::{LoadingError, vk},
+    ash::vk,
     gpu_alloc::{AllocationError, MapError},
     jay_config::video::GfxApi,
     log::Level,
-    once_cell::sync::Lazy,
     std::{
         cell::Cell,
         ffi::{CStr, CString},
         rc::Rc,
-        sync::Arc,
     },
     thiserror::Error,
     uapi::{OwnedFd, c::dev_t},
@@ -64,14 +63,10 @@ use {
 
 #[derive(Debug, Error)]
 pub enum VulkanError {
+    #[error(transparent)]
+    Core(#[from] VulkanCoreError),
     #[error("Could not create a GBM device")]
     Gbm(#[source] GbmError),
-    #[error("Could not load libvulkan.so")]
-    Load(#[source] Arc<LoadingError>),
-    #[error("Could not list instance extensions")]
-    InstanceExtensions(#[source] vk::Result),
-    #[error("Could not list instance layers")]
-    InstanceLayers(#[source] vk::Result),
     #[error("Could not list device extensions")]
     DeviceExtensions(#[source] vk::Result),
     #[error("Could not create the device")]
@@ -84,8 +79,6 @@ pub enum VulkanError {
     CreateBuffer(#[source] vk::Result),
     #[error("Could not create a shader module")]
     CreateShaderModule(#[source] vk::Result),
-    #[error("Missing required instance extension {0:?}")]
-    MissingInstanceExtension(&'static CStr),
     #[error("Could not allocate a command pool")]
     AllocateCommandPool(#[source] vk::Result),
     #[error("Could not allocate a command buffer")]
@@ -94,10 +87,6 @@ pub enum VulkanError {
     NoGraphicsQueue,
     #[error("Missing required device extension {0:?}")]
     MissingDeviceExtension(&'static CStr),
-    #[error("Could not create an instance")]
-    CreateInstance(#[source] vk::Result),
-    #[error("Could not create a debug-utils messenger")]
-    Messenger(#[source] vk::Result),
     #[error("Could not enumerate the physical devices")]
     EnumeratePhysicalDevices(#[source] vk::Result),
     #[error("Could not find a vulkan device that matches dev_t {0}")]
@@ -232,9 +221,6 @@ impl From<VulkanError> for GfxError {
     }
 }
 
-pub static VULKAN_VALIDATION: Lazy<bool> =
-    Lazy::new(|| std::env::var("JAY_VULKAN_VALIDATION").ok().as_deref() == Some("1"));
-
 pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
@@ -242,7 +228,7 @@ pub fn create_graphics_context(
     caps_thread: Option<&PrCapsThread>,
     software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
-    let instance = VulkanInstance::new(Level::Info, *VULKAN_VALIDATION)?;
+    let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
             match unsafe { t.run(|| instance.create_device(drm, true, software)) } {
@@ -259,7 +245,7 @@ pub fn create_graphics_context(
 }
 
 pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
-    let instance = VulkanInstance::new(Level::Debug, *VULKAN_VALIDATION)?;
+    let instance = VulkanInstance::new(Level::Debug)?;
     let device = instance.create_device(drm, false, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
