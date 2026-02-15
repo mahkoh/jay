@@ -74,7 +74,7 @@ impl ZwpLinuxBufferParamsV1 {
             Some(ctx) => ctx,
             None => return Err(ZwpLinuxBufferParamsV1Error::NoRenderContext),
         };
-        let formats = ctx.formats();
+        let formats = ctx.formats().clone();
         let format = match formats.get(&format) {
             Some(f) => f,
             None => return Err(ZwpLinuxBufferParamsV1Error::InvalidFormat(format)),
