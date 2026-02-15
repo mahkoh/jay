@@ -3,10 +3,9 @@ use {
         backend::Connector,
         backends::metal::{
             MetalError,
+            allocator::{RenderBuffer, RenderBufferCopy},
             transaction::{DrmConnectorState, DrmPlaneState},
-            video::{
-                MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
-            },
+            video::{MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane},
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
@@ -71,7 +70,8 @@ pub struct PresentFb {
     fb: Rc<DrmFramebuffer>,
     tex: Rc<dyn GfxTexture>,
     direct_scanout_data: Option<DirectScanoutData>,
-    sync_file: Option<SyncFile>,
+    render_sync_file: Option<SyncFile>,
+    scanout_sync_file: Option<SyncFile>,
     pub locked: bool,
 }
 
@@ -334,7 +334,7 @@ impl MetalConnector {
         let Some(fb) = new_fb else {
             return;
         };
-        let Some(sync_file) = fb.sync_file.take() else {
+        let Some(sync_file) = fb.scanout_sync_file.take() else {
             return;
         };
         if let Err(e) = self.state.ring.readable(&sync_file).await {
@@ -531,7 +531,11 @@ impl MetalConnector {
         };
         self.state.present_hardware_cursor(node, &mut c);
         if c.cursor_swap_buffer {
-            c.sync_file = c.cursor_buffer.copy_to_dev(cd, c.sync_file)?;
+            c.sync_file = c
+                .cursor_buffer
+                .copy_to_dev(cd, None, c.sync_file)
+                .map_err(MetalError::CopyToDev)?
+                .scanout_sync_file;
         }
         self.cursor_swap_buffer.set(c.cursor_swap_buffer);
         if c.sync_file.is_some() {
@@ -565,13 +569,12 @@ impl MetalConnector {
             }
             let buffer_idx = (front_buffer % buffers.len() as u64) as usize;
             let buffer = &buffers[buffer_idx];
-            let (width, height) = buffer.dev_fb.physical_size();
             CursorProgrammingType::Enable {
                 fb: buffer.drm.clone(),
                 x: self.cursor_x.get(),
                 y: self.cursor_y.get(),
-                width,
-                height,
+                width: buffer.width,
+                height: buffer.height,
                 swap,
             }
         } else {
@@ -833,13 +836,15 @@ impl MetalConnector {
             };
             log::debug!("{} direct scanout on {}", change, self.kernel_id());
         }
-        let sync_file;
+        let render_sync_file;
+        let scanout_sync_file;
         let fb;
         let tex;
         match &direct_scanout_data {
             None => {
                 let sf = buffer
-                    .render_fb()
+                    .render
+                    .fb
                     .perform_render_pass(
                         AcquireSync::Unnecessary,
                         ReleaseSync::Explicit,
@@ -850,17 +855,24 @@ impl MetalConnector {
                         blend_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
-                sync_file = buffer.copy_to_dev(cd, sf)?;
+                RenderBufferCopy {
+                    render_sync_file,
+                    scanout_sync_file,
+                } = buffer
+                    .copy_to_dev(cd, Some(&latched.damage), sf.clone())
+                    .map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
-                tex = buffer.render_tex.clone();
+                tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
-                sync_file = match &dsd.acquire_sync {
+                let sync_file = match &dsd.acquire_sync {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,
                     AcquireSync::SyncFile { sync_file } => Some(sync_file.clone()),
                     AcquireSync::Unnecessary => None,
                 };
+                render_sync_file = sync_file.clone();
+                scanout_sync_file = sync_file;
                 fb = dsd.fb.clone();
                 tex = dsd.tex.clone();
             }
@@ -869,7 +881,8 @@ impl MetalConnector {
             fb,
             tex,
             direct_scanout_data,
-            sync_file,
+            render_sync_file,
+            scanout_sync_file,
             locked: latched.locked,
         })
     }
@@ -894,11 +907,15 @@ impl MetalConnector {
         let render_hardware_cursor = self.cursor_enabled.get();
         match &fb.direct_scanout_data {
             None => {
+                let acquire_sync = match fb.render_sync_file.clone() {
+                    Some(sync_file) => AcquireSync::SyncFile { sync_file },
+                    _ => AcquireSync::Unnecessary,
+                };
                 output.perform_screencopies(
                     &fb.tex,
                     cd,
                     None,
-                    &AcquireSync::Unnecessary,
+                    &acquire_sync,
                     ReleaseSync::None,
                     render_hardware_cursor,
                     0,

@@ -8,12 +8,14 @@ use {
                 BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
             },
         },
-        backends::metal::video::{
-            FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData, MetalPlane, PlaneType,
-            RenderBuffer,
+        backends::metal::{
+            allocator::RenderBuffer,
+            video::{
+                FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData, MetalPlane, PlaneType,
+            },
         },
         format::{ARGB8888, Format},
-        gfx_api::{AcquireSync, ReleaseSync, SyncFile},
+        gfx_api::SyncFile,
         utils::{
             binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
@@ -464,7 +466,7 @@ impl MetalDeviceTransaction {
                         if b[0].width != width || b[0].height != height || b[0].format != format {
                             discard!();
                         }
-                        if !rc_eq(render_ctx, &b[0].render_ctx) {
+                        if !rc_eq(render_ctx, &b[0].render.ctx) {
                             discard!();
                         }
                         if !rc_eq(&dev_ctx, &b[0].dev_ctx) {
@@ -472,7 +474,7 @@ impl MetalDeviceTransaction {
                         }
                         let modifiers = &plane.obj.formats.get(&format.drm).unwrap().modifiers;
                         for b in &**b {
-                            if !modifiers.contains(&b.dev_bo.dmabuf().modifier) {
+                            if !modifiers.contains(&b.dev_bo().dmabuf().modifier) {
                                 discard!();
                             }
                         }
@@ -517,7 +519,20 @@ impl MetalDeviceTransaction {
                             *plane_id = DrmPlane::NONE;
                             continue;
                         }
-                        let buffers = Rc::new(res?);
+                        let res = res?;
+                        if let Some(method) = res[0].prime.method() {
+                            let plane = match plane.obj.ty {
+                                PlaneType::Overlay => "overlay",
+                                PlaneType::Primary => "primary",
+                                PlaneType::Cursor => "cursor",
+                            };
+                            let connector = connector.obj.kernel_id();
+                            log::debug!(
+                                "using prime method {method} for {} {connector} ({plane})",
+                                slf.dev.dev.devnode.as_bytes().as_bstr(),
+                            );
+                        }
+                        let buffers = Rc::new(res);
                         plane.new.buffers = Some(buffers.clone());
                         new_buffers = Some(buffers.clone());
                         buffers
@@ -567,34 +582,22 @@ impl MetalDeviceTransaction {
                         let cd = connector.obj.color_description.get();
                         let res = if let Some(prev) = &old_buffers
                             && let Some(prev) = prev.iter().find(|b| b.drm.id() == fb_id)
-                            && rc_eq(&new_buffer.dev_ctx, &prev.dev_ctx)
                             && may_show_current_fb
                         {
-                            let src = prev.dev_tex.as_ref().unwrap_or(&prev.render_tex);
-                            let dst = &new_buffer.dev_fb;
-                            dst.copy_texture(
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                &cd,
-                                src,
-                                &cd,
-                                None,
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                0,
-                                0,
-                            )
+                            match prev.copy_to_new(new_buffer, &cd) {
+                                Ok(sf) => Ok(sf),
+                                Err(e) => {
+                                    log::warn!("Could not copy from old buffer: {}", ErrorFmt(e));
+                                    new_buffer.clear(&cd)
+                                }
+                            }
                         } else {
-                            new_buffer.dev_fb.clear(
-                                AcquireSync::Unnecessary,
-                                ReleaseSync::Explicit,
-                                &cd,
-                            )
+                            new_buffer.clear(&cd)
                         };
                         match res {
                             Ok(sf) => sync_files.extend(sf),
                             Err(e) => {
-                                log::warn!("Could not copy from old buffer: {}", ErrorFmt(e));
+                                log::warn!("Could not clear new buffer: {}", ErrorFmt(e));
                             }
                         }
                     } else {
@@ -626,11 +629,7 @@ impl MetalDeviceTransaction {
                                 }
                                 buffer.damage_full();
                                 let cd = connector.obj.color_description.get();
-                                let res = buffer.dev_fb.clear(
-                                    AcquireSync::Unnecessary,
-                                    ReleaseSync::Explicit,
-                                    &cd,
-                                );
+                                let res = buffer.clear(&cd);
                                 match res {
                                     Ok(sf) => {
                                         buffer.locked.set(true);
