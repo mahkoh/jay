@@ -103,7 +103,7 @@ fn create_fd_data(ctx: &dyn GfxContext) -> (Vec<u8>, AHashMap<(u32, Modifier), u
     let mut vec = vec![];
     let mut map = AHashMap::new();
     let mut pos = 0;
-    for (format, info) in &*ctx.formats() {
+    for (format, info) in &**ctx.formats() {
         for modifier in &info.read_modifiers {
             vec.write_u32::<NativeEndian>(*format).unwrap();
             vec.write_u32::<NativeEndian>(0).unwrap();

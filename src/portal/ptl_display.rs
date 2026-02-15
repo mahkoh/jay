@@ -211,9 +211,9 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         if let Some(ctx) = render_ctx {
             let client_formats = ctx.ctx.formats();
             let usable_formats = match &server_formats {
-                None => client_formats,
+                None => client_formats.clone(),
                 Some(server_formats) => {
-                    Rc::new(cross_intersect_formats(&client_formats, server_formats))
+                    Rc::new(cross_intersect_formats(client_formats, server_formats))
                 }
             };
             self.render_ctx.set(Some(Rc::new(PortalServerRenderCtx {
