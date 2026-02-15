@@ -676,7 +676,6 @@ impl PhysicalCopyDevice {
         &self.support[Dir::Dst]
     }
 
-    #[expect(dead_code)]
     pub fn create_device(self: &Rc<Self>) -> Result<Rc<CopyDevice>, CopyDeviceError> {
         let device = {
             let priorities = [1.0; 3];
@@ -1101,7 +1100,6 @@ impl CopyDevice {
         })
     }
 
-    #[expect(dead_code)]
     pub fn create_copy(
         self: &Rc<Self>,
         src: &DmaBuf,
@@ -1334,7 +1332,6 @@ impl CopyDeviceInner {
 }
 
 impl CopyDeviceCopy {
-    #[expect(dead_code)]
     pub fn execute(
         &self,
         sync_file: Option<&SyncFile>,
@@ -1782,12 +1779,10 @@ impl CopyDeviceRegistry {
         }
     }
 
-    #[expect(dead_code)]
     pub fn remove(&self, dev: c::dev_t) {
         self.devs.remove(&dev);
     }
 
-    #[expect(dead_code)]
     pub fn get(&self, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
         if let Some(dev) = self.devs.get(&dev) {
             return dev;
