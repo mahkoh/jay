@@ -2443,7 +2443,7 @@ impl MetalBackend {
         self.default_feedback.set(fb);
         self.ctx.set(Some(ctx));
         for dev in self.device_holder.drm_devices.lock().values() {
-            self.re_init_drm_device(&dev);
+            self.init_drm_device_after_gfx_ctx_change(&dev);
             for connector in dev.connectors.lock().values() {
                 connector.send_hardware_cursor();
             }
@@ -2478,18 +2478,25 @@ impl MetalBackend {
             self.make_render_device(dev, true);
         } else {
             if let Some(dev) = self.device_holder.drm_devices.get(&dev.devnum) {
-                self.re_init_drm_device(&dev);
+                self.init_drm_device_after_gfx_ctx_change(&dev);
             }
         }
     }
 
-    fn re_init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) {
+    fn init_drm_device_after_gfx_ctx_change(&self, dev: &Rc<MetalDrmDeviceData>) {
         if let Err(e) = self.init_drm_device(dev) {
             log::error!(
                 "Could not initialize drm device {}: {}",
                 dev.dev.devnode.as_bytes().as_bstr(),
                 ErrorFmt(e),
             );
+            for connector in dev.connectors.lock().values() {
+                connector.buffers.take();
+                connector.cursor_buffers.take();
+            }
+            for plane in dev.dev.planes.values() {
+                plane.drm_state.borrow_mut().buffers.take();
+            }
         }
         for connector in dev.connectors.lock().values() {
             if connector.connected() {
