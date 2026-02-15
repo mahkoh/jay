@@ -6,20 +6,22 @@ use {
             video::{MetalDrmDevice, MetalRenderContext},
         },
         cmm::cmm_description::ColorDescription,
+        copy_device::{CopyDevice, CopyDeviceError, CopyDeviceSupport},
         format::Format,
         gfx_api::{
             AcquireSync, GfxBlendBuffer, GfxError, GfxFormat, GfxFramebuffer, GfxTexture,
             GfxWriteModifier, ReleaseSync, SyncFile, needs_render_usage,
         },
-        rect::{DamageQueue, Rect},
+        rect::{DamageQueue, Rect, Region},
         utils::{errorfmt::ErrorFmt, rc_eq::rc_eq},
         video::{
-            Modifier,
+            LINEAR_MODIFIER, Modifier,
             dmabuf::DmaBuf,
             drm::{DrmError, DrmFramebuffer},
             gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmError},
         },
     },
+    ahash::HashSet,
     arrayvec::ArrayVec,
     bstr::ByteSlice,
     indexmap::{IndexMap, IndexSet},
@@ -78,6 +80,10 @@ pub enum RenderBufferError {
     GfxError(#[from] GfxError),
     #[error("Could not copy frame to output device")]
     CopyToOutput(#[source] GfxError),
+    #[error("Could not create a copy device copy")]
+    CreateCopyDeviceCopy(#[source] CopyDeviceError),
+    #[error("Could not execute a copy device copy")]
+    ExecuteCopyDeviceCopy(#[source] CopyDeviceError),
 }
 
 #[derive(Default)]
@@ -99,6 +105,7 @@ impl RenderBuffer {
     pub fn copy_to_dev(
         &self,
         cd: &Rc<ColorDescription>,
+        _region: Option<&Region>,
         sync_file: Option<SyncFile>,
     ) -> Result<RenderBufferCopy, RenderBufferError> {
         match &self.prime {
@@ -156,6 +163,14 @@ impl RenderBuffer {
 
         if (old.width, old.height) != (new.width, new.height) {
             return Err(RenderBufferError::NotSameSize);
+        }
+
+        if let Some(dev) = new.dev_copy_device().or(old.dev_copy_device()) {
+            return dev
+                .create_copy(old.dev_bo().dmabuf(), new.dev_bo().dmabuf())
+                .map_err(RenderBufferError::CreateCopyDeviceCopy)?
+                .execute(None, None)
+                .map_err(RenderBufferError::ExecuteCopyDeviceCopy);
         }
 
         let copy_texture_impl = |fb: &Rc<dyn GfxFramebuffer>, tex: &Rc<dyn GfxTexture>| {
@@ -233,6 +248,13 @@ impl RenderBuffer {
         match &self.prime {
             RenderBufferPrime::None => &self.render.bo,
             RenderBufferPrime::Sampling { dev_bo, .. } => dev_bo,
+        }
+    }
+
+    pub fn dev_copy_device(&self) -> Option<&Rc<CopyDevice>> {
+        match &self.prime {
+            RenderBufferPrime::None => None,
+            RenderBufferPrime::Sampling { .. } => None,
         }
     }
 }
@@ -459,11 +481,15 @@ impl RenderBufferPrime {
 
 #[derive(Default, Debug)]
 struct RenderBufferAllocationDebug {
+    dev_copy_src_modifiers: Option<Vec<Modifier>>,
+    dev_copy_dst_modifiers: Option<Vec<Modifier>>,
     dev_gfx_write_modifiers: Option<Vec<Modifier>>,
     dev_gfx_read_modifiers: Option<Vec<Modifier>>,
     dev_modifiers_possible: Option<Vec<Modifier>>,
     dev_usage: Option<u32>,
     dev_modifier: Option<Modifier>,
+    render_copy_src_modifiers: Option<Vec<Modifier>>,
+    render_copy_dst_modifiers: Option<Vec<Modifier>>,
     render_gfx_write_modifiers: Option<Vec<Modifier>>,
     render_gfx_read_modifiers: Option<Vec<Modifier>>,
     render_modifiers_possible: Option<Vec<Modifier>>,
@@ -496,6 +522,12 @@ impl Display for ScanoutBufferError {
         writeln!(f, "plane modifiers: {:x?}", self.plane_modifiers)?;
         writeln!(f, "size: {}x{}", self.width, self.height)?;
         writeln!(f, "cursor: {}", self.cursor)?;
+        if let Some(v) = &self.dbg.dev_copy_src_modifiers {
+            writeln!(f, "scanout copy src modifiers: {:x?}", v)?;
+        }
+        if let Some(v) = &self.dbg.dev_copy_dst_modifiers {
+            writeln!(f, "scanout copy dst modifiers: {:x?}", v)?;
+        }
         if let Some(v) = &self.dbg.dev_gfx_write_modifiers {
             writeln!(f, "scanout gfx writable modifiers: {:x?}", v)?;
         }
@@ -510,6 +542,12 @@ impl Display for ScanoutBufferError {
         }
         if let Some(v) = &self.render_name {
             writeln!(f, "render device: {}", v)?;
+        }
+        if let Some(v) = &self.dbg.render_copy_src_modifiers {
+            writeln!(f, "render copy src modifiers: {:x?}", v)?;
+        }
+        if let Some(v) = &self.dbg.render_copy_dst_modifiers {
+            writeln!(f, "render copy dst modifiers: {:x?}", v)?;
         }
         if let Some(v) = &self.dbg.render_gfx_write_modifiers {
             writeln!(f, "render gfx writable modifiers: {:x?}", v)?;
@@ -729,6 +767,43 @@ impl Builder<'_> {
         })
     }
 
+    fn copy_modifiers_iter(&self, support: &[CopyDeviceSupport]) -> impl Iterator<Item = Modifier> {
+        let Builder { width, height, .. } = *self;
+        support
+            .iter()
+            .filter(move |s| s.max_width >= width as _ && s.max_height >= height as _)
+            .map(move |s| s.modifier)
+    }
+
+    fn copy_modifiers(&self, support: &[CopyDeviceSupport]) -> Vec<Modifier> {
+        self.copy_modifiers_iter(support).collect()
+    }
+
+    #[expect(dead_code)]
+    fn copy_src_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
+        self.copy_modifiers(dev.src_support(self.format))
+    }
+
+    #[expect(dead_code)]
+    fn copy_dst_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
+        self.copy_modifiers(dev.dst_support(self.format))
+    }
+
+    fn copy_supports_linear(&self, support: &[CopyDeviceSupport]) -> bool {
+        self.copy_modifiers_iter(support)
+            .any(|m| m == LINEAR_MODIFIER)
+    }
+
+    #[expect(dead_code)]
+    fn copy_src_supports_linear(&self, dev: &CopyDevice) -> bool {
+        self.copy_supports_linear(dev.src_support(self.format))
+    }
+
+    #[expect(dead_code)]
+    fn copy_dst_supports_linear(&self, dev: &CopyDevice) -> bool {
+        self.copy_supports_linear(dev.dst_support(self.format))
+    }
+
     fn prepare_prime_none(
         &self,
         dbg: &RefCell<RenderBufferAllocationDebug>,
@@ -935,4 +1010,35 @@ fn sample_modifiers(fmt: &GfxFormat) -> Vec<Modifier> {
 
 fn render_modifiers(fmt: &GfxFormat) -> Vec<Modifier> {
     fmt.write_modifiers.keys().copied().collect()
+}
+
+fn intersect_modifiers<'a>(
+    left: impl IntoIterator<Item = &'a Modifier>,
+    right: impl IntoIterator<Item = &'a Modifier>,
+) -> Vec<Modifier> {
+    let right: HashSet<_> = right.into_iter().copied().collect();
+    left.into_iter()
+        .copied()
+        .filter(|m| right.contains(m))
+        .collect()
+}
+
+#[expect(dead_code)]
+fn intersect_render_modifiers<'a>(
+    left: &'a GfxFormat,
+    right: impl IntoIterator<Item = &'a Modifier>,
+) -> Vec<Modifier> {
+    intersect_modifiers(
+        left.write_modifiers
+            .keys()
+            .filter(|m| left.read_modifiers.contains(*m)),
+        right,
+    )
+}
+
+#[expect(dead_code)]
+fn make_linear_only(modifiers: &mut Vec<Modifier>) {
+    if modifiers.contains(&LINEAR_MODIFIER) {
+        *modifiers = vec![LINEAR_MODIFIER];
+    }
 }

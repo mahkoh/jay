@@ -22,6 +22,7 @@ use {
             transaction::{DrmConnectorState, DrmCrtcState, DrmPlaneState, MetalDeviceTransaction},
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
+        copy_device::{CopyDevice, CopyDeviceRegistry},
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
@@ -58,7 +59,7 @@ use {
     isnt::std_1::collections::IsntHashMapExt,
     jay_config::video::GfxApi,
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, OnceCell, RefCell},
         collections::hash_map::Entry,
         ffi::CString,
         fmt::{Debug, Formatter},
@@ -84,6 +85,19 @@ pub struct MetalRenderContext {
     pub gfx: Rc<dyn GfxContext>,
     pub gbm: Rc<GbmDevice>,
     pub devnode: CString,
+    pub copy_device: Rc<CopyDeviceHolder>,
+}
+
+pub struct CopyDeviceHolder {
+    pub registry: Rc<CopyDeviceRegistry>,
+    pub devnum: dev_t,
+    pub dev: OnceCell<Option<Rc<CopyDevice>>>,
+}
+
+impl Debug for CopyDeviceHolder {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopyDeviceHolder").finish_non_exhaustive()
+    }
 }
 
 pub struct MetalDrmDevice {
@@ -105,6 +119,8 @@ pub struct MetalDrmDevice {
     pub gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
+    #[expect(dead_code)]
+    pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
     pub is_nvidia: bool,
@@ -1987,6 +2003,12 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
 
+        let copy_device = Rc::new(CopyDeviceHolder {
+            registry: self.state.copy_device_registry.clone(),
+            devnum: pending.devnum,
+            dev: Default::default(),
+        });
+
         let gfx = match self.state.create_gfx_context(master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
@@ -1996,6 +2018,7 @@ impl MetalBackend {
             gfx,
             gbm: gbm.clone(),
             devnode: pending.devnode.clone(),
+            copy_device: copy_device.clone(),
         });
 
         let mut is_nvidia = false;
@@ -2037,6 +2060,7 @@ impl MetalBackend {
                 handle_events: Cell::new(None),
             },
             ctx: CloneCell::new(ctx),
+            copy_device,
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
             is_nvidia,
@@ -2462,6 +2486,7 @@ impl MetalBackend {
             gfx,
             gbm: old_ctx.gbm.clone(),
             devnode: old_ctx.devnode.clone(),
+            copy_device: old_ctx.copy_device.clone(),
         }));
         if dev.is_render_device() {
             self.make_render_device(dev, true);
@@ -2620,5 +2645,26 @@ impl MetalBackend {
         connector.has_damage.fetch_add(1);
         connector.cursor_changed.set(true);
         connector.schedule_present();
+    }
+}
+
+impl CopyDeviceHolder {
+    #[expect(dead_code)]
+    pub fn get(&self) -> Option<Rc<CopyDevice>> {
+        self.dev
+            .get_or_init(
+                || match self.registry.get(self.devnum)?.create_device().map(Some) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        log::error!(
+                            "Could not get copy device for {}: {}",
+                            self.devnum,
+                            ErrorFmt(e),
+                        );
+                        None
+                    }
+                },
+            )
+            .clone()
     }
 }

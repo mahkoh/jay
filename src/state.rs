@@ -293,7 +293,6 @@ pub struct State {
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
-    #[expect(dead_code)]
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
 }
 

@@ -629,12 +629,10 @@ impl PhysicalCopyDevice {
         Ok(dev)
     }
 
-    #[expect(dead_code)]
     pub fn src_support(&self, format: &Format) -> &[CopyDeviceSupport] {
         self.support(format, Dir::Src)
     }
 
-    #[expect(dead_code)]
     pub fn dst_support(&self, format: &Format) -> &[CopyDeviceSupport] {
         self.support(format, Dir::Dst)
     }
@@ -646,7 +644,6 @@ impl PhysicalCopyDevice {
             .unwrap_or_default()
     }
 
-    #[expect(dead_code)]
     pub fn create_device(self: &Rc<Self>) -> Result<Rc<CopyDevice>, CopyDeviceError> {
         let instance = &self.instance.instance;
         let device = {
@@ -1053,7 +1050,6 @@ impl CopyDevice {
         })
     }
 
-    #[expect(dead_code)]
     pub fn create_copy(
         self: &Rc<Self>,
         src: &DmaBuf,
@@ -1299,7 +1295,6 @@ impl CopyDeviceCopy {
         Ok(())
     }
 
-    #[expect(dead_code)]
     pub fn execute(
         &self,
         sync_file: Option<&SyncFile>,
@@ -1763,12 +1758,10 @@ impl CopyDeviceRegistry {
         }
     }
 
-    #[expect(dead_code)]
     pub fn remove(&self, dev: c::dev_t) {
         self.devs.remove(&dev);
     }
 
-    #[expect(dead_code)]
     pub fn get(&self, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
         if let Some(dev) = self.devs.get(&dev) {
             return dev;
