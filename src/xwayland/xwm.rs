@@ -1227,7 +1227,7 @@ impl Wm {
             .get_property::<u32>(data.window_id, ATOM_WM_TRANSIENT_FOR, ATOM_WINDOW, &mut buf)
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!(
                     "Could not retrieve WM_TRANSIENT_FOR property: {}",
                     ErrorFmt(e)
@@ -1256,7 +1256,7 @@ impl Wm {
             .get_property::<u32>(data.window_id, self.atoms.WM_PROTOCOLS, ATOM_ATOM, &mut buf)
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!("Could not retrieve WM_PROTOCOLS property: {}", ErrorFmt(e));
             }
             return;
@@ -1276,7 +1276,7 @@ impl Wm {
             .get_property::<u32>(data.window_id, self.atoms.WM_HINTS, 0, &mut buf)
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!("Could not retrieve WM_HINTS property: {}", ErrorFmt(e));
             }
             data.info.icccm_hints.input.set(true);
@@ -1319,7 +1319,7 @@ impl Wm {
             )
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!(
                     "Could not retrieve WM_NORMAL_HINTS property: {}",
                     ErrorFmt(e)
@@ -1358,7 +1358,7 @@ impl Wm {
             .get_property::<u32>(data.window_id, self.atoms._MOTIF_WM_HINTS, 0, &mut buf)
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!(
                     "Could not retrieve _MOTIF_WM_HINTS property: {}",
                     ErrorFmt(e)
@@ -1413,7 +1413,7 @@ impl Wm {
             .get_property::<u32>(data.window_id, self.atoms._NET_WM_STATE, 0, &mut buf)
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!("Could not retrieve _NET_WM_STATE property: {}", ErrorFmt(e));
             }
             return;
@@ -1446,7 +1446,7 @@ impl Wm {
             )
             .await
         {
-            if !matches!(e, XconError::PropertyUnavailable) {
+            if not_matches!(e, XconError::PropertyUnavailable) {
                 log::error!(
                     "Could not retrieve _NET_WM_WINDOW_TYPE property: {}",
                     ErrorFmt(e)

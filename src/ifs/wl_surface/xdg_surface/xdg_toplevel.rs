@@ -840,7 +840,7 @@ pub enum XdgToplevelError {
 efrom!(XdgToplevelError, ClientError);
 
 pub fn map_resize_edges(edge: u32) -> Option<ResizeEdges> {
-    if !matches!(edge, 0 | 1 | 2 | 4 | 5 | 6 | 8 | 9 | 10) {
+    if not_matches!(edge, 0 | 1 | 2 | 4 | 5 | 6 | 8 | 9 | 10) {
         return None;
     }
     Some(ResizeEdges {

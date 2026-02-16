@@ -380,7 +380,7 @@ impl IoUringData {
                     to_submit -= n;
                 }
                 Err(e) => {
-                    if !matches!(e.0, c::EAGAIN | c::EBUSY | c::EINTR) {
+                    if not_matches!(e.0, c::EAGAIN | c::EBUSY | c::EINTR) {
                         return Err(IoUringError::Enter(e));
                     }
                 }

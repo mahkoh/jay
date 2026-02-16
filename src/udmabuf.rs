@@ -74,7 +74,7 @@ impl UdmabufHolder {
                 self.logged.exec(|| {
                     log::warn!("Unable to open /dev/udmabuf: {}", ErrorFmt(&e));
                 });
-                if !matches!(e, UdmabufError::Open(OsError(c::EPERM))) {
+                if not_matches!(e, UdmabufError::Open(OsError(c::EPERM))) {
                     self.udmabuf.set(Some(None));
                 }
                 None
