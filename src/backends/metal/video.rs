@@ -557,12 +557,11 @@ pub struct MetalHardwareCursor {
 }
 
 pub struct MetalHardwareCursorChange<'a> {
-    pub cursor_swap_buffer: bool,
+    pub cursor_swap_buffer: Option<Option<SyncFile>>,
     pub cursor_enabled: bool,
     pub cursor_x: i32,
     pub cursor_y: i32,
     pub cursor_buffer: &'a RenderBuffer,
-    pub sync_file: Option<SyncFile>,
     pub cursor_size: (i32, i32),
 }
 
@@ -596,12 +595,8 @@ impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
         self.cursor_y = y;
     }
 
-    fn swap_buffer(&mut self) {
-        self.cursor_swap_buffer = true;
-    }
-
-    fn set_sync_file(&mut self, sync_file: Option<SyncFile>) {
-        self.sync_file = sync_file;
+    fn swap_buffer(&mut self, sync_file: Option<SyncFile>) {
+        self.cursor_swap_buffer = Some(sync_file);
     }
 
     fn size(&self) -> (i32, i32) {

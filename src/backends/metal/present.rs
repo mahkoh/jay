@@ -522,24 +522,22 @@ impl MetalConnector {
         let buffer_idx = ((connector_drm_state.cursor_fb_idx + 1) % buffers.len() as u64) as usize;
         let mut c = MetalHardwareCursorChange {
             cursor_enabled: self.cursor_enabled.get(),
-            cursor_swap_buffer: false,
+            cursor_swap_buffer: None,
             cursor_x: self.cursor_x.get(),
             cursor_y: self.cursor_y.get(),
             cursor_buffer: &buffers[buffer_idx],
-            sync_file: None,
             cursor_size: (self.dev.cursor_width as _, self.dev.cursor_height as _),
         };
         self.state.present_hardware_cursor(node, &mut c);
-        if c.cursor_swap_buffer {
-            c.sync_file = c.cursor_buffer.copy_to_dev(cd, c.sync_file)?;
-        }
-        self.cursor_swap_buffer.set(c.cursor_swap_buffer);
-        if c.sync_file.is_some() {
-            self.cursor_sync_file.set(c.sync_file);
+        let swap_buffers = c.cursor_swap_buffer.is_some();
+        self.cursor_swap_buffer.set(swap_buffers);
+        if let Some(sf) = c.cursor_swap_buffer.take() {
+            let sf = c.cursor_buffer.copy_to_dev(cd, sf)?;
+            self.cursor_sync_file.set(sf);
         }
         let mut cursor_changed = false;
         cursor_changed |= self.cursor_enabled.replace(c.cursor_enabled) != c.cursor_enabled;
-        cursor_changed |= c.cursor_swap_buffer;
+        cursor_changed |= swap_buffers;
         cursor_changed |= self.cursor_x.replace(c.cursor_x) != c.cursor_x;
         cursor_changed |= self.cursor_y.replace(c.cursor_y) != c.cursor_y;
         if cursor_changed {
