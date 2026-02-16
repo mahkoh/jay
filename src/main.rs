@@ -108,6 +108,7 @@ mod user_session;
 mod utils;
 mod version;
 mod video;
+mod vulkan_core;
 mod wheel;
 mod wire;
 mod wire_dbus;
