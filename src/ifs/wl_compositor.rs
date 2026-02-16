@@ -79,7 +79,7 @@ impl Global for WlCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        6
+        7
     }
 }
 
