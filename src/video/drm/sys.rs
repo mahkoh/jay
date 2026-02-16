@@ -28,7 +28,7 @@ pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c
             return Ok(ret);
         }
         let err = uapi::get_errno();
-        if !matches!(err, c::EINTR | c::EAGAIN) {
+        if not_matches!(err, c::EINTR | c::EAGAIN) {
             return Err(OsError(err));
         }
     }
