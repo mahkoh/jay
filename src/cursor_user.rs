@@ -515,8 +515,7 @@ impl CursorUser {
             );
             match res {
                 Ok(sync_file) => {
-                    hc.set_sync_file(sync_file);
-                    hc.swap_buffer();
+                    hc.swap_buffer(sync_file);
                 }
                 Err(e) => {
                     log::error!("Could not render hardware cursor: {}", ErrorFmt(e));
