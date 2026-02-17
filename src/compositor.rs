@@ -269,6 +269,7 @@ fn start_compositor2(
         run_args,
         xwayland: XWaylandState {
             enabled: Cell::new(true),
+            running: Cell::new(false),
             pidfd: Default::default(),
             handler: Default::default(),
             queue: Default::default(),

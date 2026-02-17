@@ -5319,6 +5319,14 @@ Values of this type should be tables.
 
 The table has the following fields:
 
+- `enabled` (optional):
+
+  Enables or disables XWayland.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 - `scaling-mode` (optional):
 
   The scaling mode of X windows.

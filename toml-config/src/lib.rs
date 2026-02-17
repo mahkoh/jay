@@ -56,7 +56,7 @@ use {
         },
         window::Window,
         workspace::set_workspace_display_order,
-        xwayland::set_x_scaling_mode,
+        xwayland::{set_x_scaling_mode, set_x_wayland_enabled},
     },
     run_on_drop::on_drop,
     std::{
@@ -1578,10 +1578,13 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     if let Some(threshold) = config.ui_drag.threshold {
         set_ui_drag_threshold(threshold);
     }
-    if let Some(xwayland) = config.xwayland
-        && let Some(mode) = xwayland.scaling_mode
-    {
-        set_x_scaling_mode(mode);
+    if let Some(xwayland) = config.xwayland {
+        if let Some(enabled) = xwayland.enabled {
+            set_x_wayland_enabled(enabled);
+        }
+        if let Some(mode) = xwayland.scaling_mode {
+            set_x_scaling_mode(mode);
+        }
     }
     if let Some(cm) = config.color_management
         && let Some(enabled) = cm.enabled

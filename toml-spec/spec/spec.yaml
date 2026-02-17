@@ -3428,6 +3428,13 @@ Xwayland:
       xwayland = { scaling-mode = "downscaled" }
       ```
   fields:
+    enabled:
+      kind: boolean
+      required: false
+      description: |
+        Enables or disables XWayland.
+        
+        The default is `true`.
     scaling-mode:
       ref: XScalingMode
       required: false

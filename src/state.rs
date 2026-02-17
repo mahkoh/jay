@@ -313,6 +313,7 @@ pub struct ScreenlockState {
 
 pub struct XWaylandState {
     pub enabled: Cell<bool>,
+    pub running: Cell<bool>,
     pub pidfd: CloneCell<Option<Rc<OwnedFd>>>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
@@ -965,6 +966,24 @@ impl State {
         let mut handler = self.xwayland.handler.borrow_mut();
         if handler.is_none() {
             *handler = Some(self.eng.spawn("xwayland", xwayland::manage(self.clone())));
+        }
+    }
+
+    pub fn stop_xwayland(&self) {
+        if self.xwayland.running.get() {
+            return;
+        }
+        self.xwayland.handler.take();
+    }
+
+    pub fn set_xwayland_enabled(self: &Rc<Self>, enabled: bool) {
+        if self.xwayland.enabled.replace(enabled) == enabled {
+            return;
+        }
+        if enabled {
+            self.start_xwayland();
+        } else {
+            self.stop_xwayland();
         }
     }
 

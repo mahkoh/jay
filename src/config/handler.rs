@@ -979,6 +979,11 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_x_wayland_enabled(&self, enabled: bool) -> Result<(), CphError> {
+        self.state.set_xwayland_enabled(enabled);
+        Ok(())
+    }
+
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
         self.state.ui_drag_enabled.set(enabled);
     }
@@ -3369,6 +3374,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetFallbackOutputMode { seat, mode } => self
                 .handle_set_fallback_output_mode(seat, mode)
                 .wrn("set_fallback_output_mode")?,
+            ClientMessage::SetXWaylandEnabled { enabled } => self
+                .handle_set_x_wayland_enabled(enabled)
+                .wrn("set_x_wayland_enabled")?,
         }
         Ok(())
     }

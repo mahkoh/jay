@@ -831,6 +831,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         mode: FallbackOutputMode,
     },
+    SetXWaylandEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

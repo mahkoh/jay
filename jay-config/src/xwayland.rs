@@ -2,6 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Sets whether Xwayland is enabled
+///
+/// The default is `true`.
+pub fn set_x_wayland_enabled(enabled: bool) {
+    get!().set_x_wayland_enabled(enabled)
+}
+
 /// The scaling mode of X windows.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
 pub struct XScalingMode(pub u32);
