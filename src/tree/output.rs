@@ -96,6 +96,7 @@ pub struct OutputNode {
     pub bar_rect: Cell<Rect>,
     pub bar_rect_rel: Cell<Rect>,
     pub bar_rect_with_separator: Cell<Rect>,
+    pub bar_rect_with_separator_rel: Cell<Rect>,
     pub bar_separator_rect: Cell<Rect>,
     pub bar_separator_rect_rel: Cell<Rect>,
     pub render_data: RefCell<OutputRenderData>,
@@ -776,6 +777,7 @@ impl OutputNode {
         let mut bar_rect = Rect::default();
         let mut bar_rect_rel = Rect::default();
         let mut bar_rect_with_separator = Rect::default();
+        let mut bar_rect_with_separator_rel = Rect::default();
         let mut bar_separator_rect = Rect::default();
         let mut bar_separator_rect_rel = Rect::default();
         let mut workspace_rect = non_exclusive_rect;
@@ -800,6 +802,7 @@ impl OutputNode {
             }
             let to_rel = |r: Rect| r.move_(-rect.x1(), -rect.y1());
             bar_rect_rel = to_rel(bar_rect);
+            bar_rect_with_separator_rel = to_rel(bar_rect_with_separator);
             bar_separator_rect_rel = to_rel(bar_separator_rect);
             workspace_rect_rel = to_rel(workspace_rect);
         }
@@ -808,6 +811,8 @@ impl OutputNode {
         self.bar_rect.set(bar_rect);
         self.bar_rect_rel.set(bar_rect_rel);
         self.bar_rect_with_separator.set(bar_rect_with_separator);
+        self.bar_rect_with_separator_rel
+            .set(bar_rect_with_separator_rel);
         self.bar_separator_rect.set(bar_separator_rect);
         self.bar_separator_rect_rel.set(bar_separator_rect_rel);
         self.workspace_rect.set(workspace_rect);
@@ -1182,6 +1187,10 @@ impl OutputNode {
             self.pointer_down.set(s, (x, y));
         }
         if self.bar_button(seat, x, y) {
+            return;
+        }
+        let bar_rect_with_separator_rel = self.bar_rect_with_separator_rel.get();
+        if bar_rect_with_separator_rel.contains(x, y) {
             return;
         }
         let ws = self.ensure_workspace();
