@@ -3,11 +3,11 @@ use {
         config::{
             Xwayland,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, val},
+            extractor::{Extractor, ExtractorError, bol, opt, recover, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
-            toml_span::{Span, Spanned, SpannedExt},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
@@ -37,7 +37,8 @@ impl Parser for XwaylandParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let scaling_mode = ext.extract(opt(val("scaling-mode")))?;
+        let (enabled, scaling_mode) =
+            ext.extract((recover(opt(bol("enabled"))), opt(val("scaling-mode"))))?;
         let scaling_mode = scaling_mode.and_then(|m| match m.parse(&mut XScalingModeParser) {
             Ok(m) => Some(m),
             Err(e) => {
@@ -45,7 +46,10 @@ impl Parser for XwaylandParser<'_> {
                 None
             }
         });
-        Ok(Xwayland { scaling_mode })
+        Ok(Xwayland {
+            enabled: enabled.despan(),
+            scaling_mode,
+        })
     }
 }
 

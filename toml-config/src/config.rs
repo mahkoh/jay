@@ -463,6 +463,7 @@ pub struct SimpleIm {
 
 #[derive(Debug, Clone)]
 pub struct Xwayland {
+    pub enabled: Option<bool>,
     pub scaling_mode: Option<XScalingMode>,
 }
 

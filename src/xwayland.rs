@@ -110,6 +110,7 @@ pub async fn manage(state: Rc<State>) {
         }
         let display = format!(":{}", xsocket.id);
         forker.setenv(DISPLAY.as_bytes(), display.as_bytes());
+        let _unsetenv = on_drop(|| forker.unsetenv(DISPLAY.as_bytes()));
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
         if state.backend.get().import_environment() {
@@ -120,12 +121,17 @@ pub async fn manage(state: Rc<State>) {
             return;
         }
         log::info!("Starting Xwayland");
+        state.xwayland.running.set(true);
         if let Err(e) = run(&state, &forker, socket).await {
             log::error!("Xwayland failed: {}", ErrorFmt(e));
         } else {
             log::warn!("Xwayland exited unexpectedly");
         }
-        forker.unsetenv(DISPLAY.as_bytes());
+        state.xwayland.running.set(false);
+        if !state.xwayland.enabled.get() {
+            state.stop_xwayland();
+            return;
+        }
     }
 }
 

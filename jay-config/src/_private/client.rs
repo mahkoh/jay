@@ -1182,6 +1182,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetXScalingMode { mode })
     }
 
+    pub fn set_x_wayland_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetXWaylandEnabled { enabled })
+    }
+
     pub fn set_vrr_mode(&self, connector: Option<Connector>, mode: VrrMode) {
         self.send(&ClientMessage::SetVrrMode { connector, mode })
     }
