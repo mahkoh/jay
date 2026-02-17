@@ -729,6 +729,7 @@ fn create_dummy_output(state: &Rc<State>) {
         bar_rect: Default::default(),
         bar_rect_rel: Default::default(),
         bar_rect_with_separator: Default::default(),
+        bar_rect_with_separator_rel: Default::default(),
         bar_separator_rect: Default::default(),
         bar_separator_rect_rel: Default::default(),
         non_exclusive_rect: Default::default(),
