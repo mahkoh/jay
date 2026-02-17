@@ -798,9 +798,10 @@ impl OutputNode {
                         Rect::new_sized_saturating(x1, y1 + bh + bsw, width, height - bh - bsw);
                 }
             }
-            bar_rect_rel = bar_rect.move_(-rect.x1(), -rect.y1());
-            bar_separator_rect_rel = bar_separator_rect.move_(-rect.x1(), -rect.y1());
-            workspace_rect_rel = workspace_rect.move_(-rect.x1(), -rect.y1());
+            let to_rel = |r: Rect| r.move_(-rect.x1(), -rect.y1());
+            bar_rect_rel = to_rel(bar_rect);
+            bar_separator_rect_rel = to_rel(bar_separator_rect);
+            workspace_rect_rel = to_rel(workspace_rect);
         }
         self.non_exclusive_rect.set(non_exclusive_rect);
         self.non_exclusive_rect_rel.set(non_exclusive_rect_rel);
