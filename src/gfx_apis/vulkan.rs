@@ -11,7 +11,6 @@ mod dmabuf_buffer;
 mod eotfs;
 mod fence;
 mod format;
-mod gpu_alloc_ash;
 mod image;
 mod instance;
 mod pipeline;

@@ -1,13 +1,9 @@
 use {
     crate::{
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
-        gfx_apis::vulkan::{
-            VulkanError,
-            device::VulkanDevice,
-            gpu_alloc_ash::{self, AshMemoryDevice},
-            renderer::VulkanRenderer,
-        },
+        gfx_apis::vulkan::{VulkanError, device::VulkanDevice, renderer::VulkanRenderer},
         utils::{numcell::NumCell, page_size::page_size, ptr_ext::MutPtrExt},
+        vulkan_core::gpu_alloc_ash::{self, AshMemoryDevice},
     },
     ash::{
         Device,

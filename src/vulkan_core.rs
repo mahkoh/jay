@@ -25,6 +25,8 @@ use {
     uapi::{Ustr, ustr},
 };
 
+pub mod gpu_alloc_ash;
+
 static VULKAN_ENTRY: Lazy<Result<Entry, Arc<LoadingError>>> =
     Lazy::new(|| unsafe { Entry::load() }.map_err(Arc::new));
 
