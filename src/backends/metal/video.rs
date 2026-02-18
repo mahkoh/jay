@@ -1,6 +1,5 @@
 use {
     crate::{
-        allocator::BufferObject,
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
@@ -14,7 +13,8 @@ use {
             },
         },
         backends::metal::{
-            MetalBackend, MetalError, ScanoutBufferError, ScanoutBufferErrorKind,
+            MetalBackend, MetalError,
+            allocator::RenderBuffer,
             present::{
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
@@ -22,18 +22,15 @@ use {
             transaction::{DrmConnectorState, DrmCrtcState, DrmPlaneState, MetalDeviceTransaction},
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
+        copy_device::{CopyDevice, CopyDeviceRegistry},
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
-        gfx_api::{
-            AcquireSync, GfxBlendBuffer, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
-            SyncFile, needs_render_usage,
-        },
+        gfx_api::{GfxContext, GfxFramebuffer, SyncFile},
         ifs::{
             wl_output::OutputId,
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
         },
-        rect::{DamageQueue, Rect},
         state::State,
         tree::OutputNode,
         udev::UdevDevice,
@@ -41,32 +38,29 @@ use {
             asyncevent::AsyncEvent, binary_search_map::BinarySearchMap, bitflags::BitflagsExt,
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             geometric_decay::GeometricDecay, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError, rc_eq::rc_eq,
+            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
         },
         video::{
             INVALID_MODIFIER, Modifier,
             dmabuf::DmaBufId,
             drm::{
                 ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC, DrmBlob, DrmConnector,
-                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmFramebuffer, DrmLease,
-                DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
-                DrmPropertyType, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
+                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
+                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
+                DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
                 hdr_output_metadata,
             },
-            gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmDevice},
+            gbm::GbmDevice,
         },
     },
     ahash::{AHashMap, AHashSet},
-    arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
-    indexmap::{IndexMap, IndexSet, indexset},
+    indexmap::{IndexSet, indexset},
     isnt::std_1::collections::IsntHashMapExt,
     jay_config::video::GfxApi,
-    run_on_drop::on_drop,
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, OnceCell, RefCell},
         collections::hash_map::Entry,
-        error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
@@ -91,6 +85,19 @@ pub struct MetalRenderContext {
     pub gfx: Rc<dyn GfxContext>,
     pub gbm: Rc<GbmDevice>,
     pub devnode: CString,
+    pub copy_device: Rc<CopyDeviceHolder>,
+}
+
+pub struct CopyDeviceHolder {
+    pub registry: Rc<CopyDeviceRegistry>,
+    pub devnum: dev_t,
+    pub dev: OnceCell<Option<Rc<CopyDevice>>>,
+}
+
+impl Debug for CopyDeviceHolder {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopyDeviceHolder").finish_non_exhaustive()
+    }
 }
 
 pub struct MetalDrmDevice {
@@ -112,6 +119,7 @@ pub struct MetalDrmDevice {
     pub gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
+    pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
     pub is_nvidia: bool,
@@ -588,7 +596,7 @@ impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
     }
 
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer> {
-        self.cursor_buffer.render_fb()
+        self.cursor_buffer.render.fb.clone()
     }
 
     fn set_position(&mut self, x: i32, y: i32) {
@@ -1994,6 +2002,12 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
 
+        let copy_device = Rc::new(CopyDeviceHolder {
+            registry: self.state.copy_device_registry.clone(),
+            devnum: pending.devnum,
+            dev: Default::default(),
+        });
+
         let gfx = match self.state.create_gfx_context(master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
@@ -2003,6 +2017,7 @@ impl MetalBackend {
             gfx,
             gbm: gbm.clone(),
             devnode: pending.devnode.clone(),
+            copy_device: copy_device.clone(),
         });
 
         let mut is_nvidia = false;
@@ -2044,6 +2059,7 @@ impl MetalBackend {
                 handle_events: Cell::new(None),
             },
             ctx: CloneCell::new(ctx),
+            copy_device,
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
             is_nvidia,
@@ -2469,6 +2485,7 @@ impl MetalBackend {
             gfx,
             gbm: old_ctx.gbm.clone(),
             devnode: old_ctx.devnode.clone(),
+            copy_device: old_ctx.copy_device.clone(),
         }));
         if dev.is_render_device() {
             self.make_render_device(dev, true);
@@ -2603,315 +2620,6 @@ impl MetalBackend {
         Ok(())
     }
 
-    pub fn create_scanout_buffers<const N: usize>(
-        &self,
-        dev: &Rc<MetalDrmDevice>,
-        format: &'static Format,
-        plane_modifiers: &IndexSet<Modifier>,
-        width: i32,
-        height: i32,
-        render_ctx: &Rc<MetalRenderContext>,
-        cursor: bool,
-    ) -> Result<[RenderBuffer; N], MetalError> {
-        let mut blend_buffer = None;
-        if !cursor {
-            match render_ctx.gfx.acquire_blend_buffer(width, height) {
-                Ok(bb) => blend_buffer = Some(bb),
-                Err(e) => {
-                    log::warn!("Could not create blend buffer: {}", ErrorFmt(e));
-                }
-            }
-        }
-        let mut damage_queue = ArrayVec::from(DamageQueue::new::<N>());
-        let mut create = || {
-            self.create_scanout_buffer(
-                dev,
-                format,
-                plane_modifiers,
-                width,
-                height,
-                render_ctx,
-                cursor,
-                damage_queue.pop().unwrap(),
-                blend_buffer.clone(),
-            )
-        };
-        let mut array = ArrayVec::<_, N>::new();
-        for _ in 0..N {
-            array.push(create()?);
-        }
-        if let Some(buffer) = array.first() {
-            buffer.damage_full();
-        }
-        Ok(array.into_inner().unwrap())
-    }
-
-    fn create_scanout_buffer(
-        &self,
-        dev: &Rc<MetalDrmDevice>,
-        format: &'static Format,
-        plane_modifiers: &IndexSet<Modifier>,
-        width: i32,
-        height: i32,
-        render_ctx: &Rc<MetalRenderContext>,
-        cursor: bool,
-        damage_queue: DamageQueue,
-        blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
-    ) -> Result<RenderBuffer, MetalError> {
-        let mut dev_gfx_write_modifiers = None;
-        let mut dev_gfx_read_modifiers = None;
-        let mut dev_modifiers_possible = None;
-        let mut dev_usage = None;
-        let mut dev_modifier = None;
-        let mut render_name = None;
-        let mut render_gfx_write_modifiers = None;
-        let mut render_modifiers_possible = None;
-        let mut render_usage = None;
-        let mut render_modifier = None;
-        self.create_scanout_buffer_(
-            dev,
-            format,
-            plane_modifiers,
-            width,
-            height,
-            render_ctx,
-            cursor,
-            damage_queue,
-            blend_buffer,
-            &mut dev_gfx_write_modifiers,
-            &mut dev_gfx_read_modifiers,
-            &mut dev_modifiers_possible,
-            &mut dev_usage,
-            &mut dev_modifier,
-            &mut render_name,
-            &mut render_gfx_write_modifiers,
-            &mut render_modifiers_possible,
-            &mut render_usage,
-            &mut render_modifier,
-        )
-        .map_err(|kind| ScanoutBufferError {
-            dev: dev.devnode.as_bytes().as_bstr().to_string(),
-            format,
-            plane_modifiers: plane_modifiers.clone(),
-            width,
-            height,
-            cursor,
-            dev_gfx_write_modifiers,
-            dev_gfx_read_modifiers,
-            dev_modifiers_possible,
-            dev_usage,
-            dev_modifier,
-            render_name,
-            render_gfx_write_modifiers,
-            render_modifiers_possible,
-            render_usage,
-            render_modifier,
-            kind,
-        })
-        .map_err(Box::new)
-        .map_err(MetalError::AllocateScanoutBuffer)
-    }
-
-    fn create_scanout_buffer_(
-        &self,
-        dev: &Rc<MetalDrmDevice>,
-        format: &'static Format,
-        plane_modifiers: &IndexSet<Modifier>,
-        width: i32,
-        height: i32,
-        render_ctx: &Rc<MetalRenderContext>,
-        cursor: bool,
-        damage_queue: DamageQueue,
-        blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
-        dbg_dev_gfx_write_modifiers: &mut Option<IndexSet<Modifier>>,
-        dbg_dev_gfx_read_modifiers: &mut Option<IndexSet<Modifier>>,
-        dbg_dev_modifiers_possible: &mut Option<IndexSet<Modifier>>,
-        dbg_dev_usage: &mut Option<u32>,
-        dbg_dev_modifier: &mut Option<Modifier>,
-        dbg_render_name: &mut Option<String>,
-        dbg_render_gfx_write_modifiers: &mut Option<IndexSet<Modifier>>,
-        dbg_render_modifiers_possible: &mut Option<IndexSet<Modifier>>,
-        dbg_render_usage: &mut Option<u32>,
-        dbg_render_modifier: &mut Option<Modifier>,
-    ) -> Result<RenderBuffer, ScanoutBufferErrorKind> {
-        let dev_ctx = dev.ctx.get();
-        let dev_gfx_formats = dev_ctx.gfx.formats();
-        let Some(dev_gfx_format) = dev_gfx_formats.get(&format.drm) else {
-            return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
-        };
-        let send_dev_gfx_write_modifiers = on_drop(|| {
-            *dbg_dev_gfx_write_modifiers =
-                Some(dev_gfx_format.write_modifiers.keys().copied().collect())
-        });
-        let possible_modifiers: IndexMap<_, _> = dev_gfx_format
-            .write_modifiers
-            .iter()
-            .filter(|(m, _)| plane_modifiers.contains(*m))
-            .map(|(m, v)| (*m, v))
-            .collect();
-        let send_dev_modifiers_possible = on_drop(|| {
-            *dbg_dev_modifiers_possible = Some(possible_modifiers.keys().copied().collect())
-        });
-        if possible_modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodNoWritableModifier);
-        }
-        let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
-        if !needs_render_usage(possible_modifiers.values().copied()) {
-            usage &= !GBM_BO_USE_RENDERING;
-        }
-        if cursor {
-            usage |= GBM_BO_USE_LINEAR;
-        };
-        *dbg_dev_usage = Some(usage);
-        let dev_bo = dev.gbm.create_bo(
-            &self.state.dma_buf_ids,
-            width,
-            height,
-            format,
-            possible_modifiers.keys(),
-            usage,
-        );
-        let dev_bo = match dev_bo {
-            Ok(b) => b,
-            Err(e) => return Err(ScanoutBufferErrorKind::SodBufferAllocation(e)),
-        };
-        *dbg_dev_modifier = Some(dev_bo.dmabuf().modifier);
-        let drm_fb = match dev.master.add_fb(dev_bo.dmabuf(), None) {
-            Ok(fb) => Rc::new(fb),
-            Err(e) => return Err(ScanoutBufferErrorKind::SodAddfb2(e)),
-        };
-        let dev_img = match dev_ctx.gfx.clone().dmabuf_img(dev_bo.dmabuf()) {
-            Ok(img) => img,
-            Err(e) => return Err(ScanoutBufferErrorKind::SodImportSodImage(e)),
-        };
-        let dev_fb = match dev_img.clone().to_framebuffer() {
-            Ok(fb) => fb,
-            Err(e) => return Err(ScanoutBufferErrorKind::SodImportFb(e)),
-        };
-        dev_fb
-            .clear(
-                AcquireSync::Unnecessary,
-                ReleaseSync::None,
-                self.state.color_manager.srgb_gamma22(),
-            )
-            .map_err(ScanoutBufferErrorKind::SodClear)?;
-        let render_gfx_formats;
-        let render_possible_modifiers: IndexMap<_, _>;
-        let mut send_render_dev_name = None;
-        let mut send_render_gfx_write_modifiers = None;
-        let mut send_dev_gfx_read_modifiers = None;
-        let mut send_render_possible_modifiers = None;
-        let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
-            let render_tex = match dev_img.to_texture() {
-                Ok(fb) => fb,
-                Err(e) => return Err(ScanoutBufferErrorKind::SodImportSodTexture(e)),
-            };
-            (None, render_tex, None, None)
-        } else {
-            send_render_dev_name = Some(on_drop(|| {
-                *dbg_render_name = Some(render_ctx.devnode.as_bytes().as_bstr().to_string());
-            }));
-            // Create a _bridge_ BO in the render device
-            render_gfx_formats = render_ctx.gfx.formats();
-            let render_gfx_format = match render_gfx_formats.get(&format.drm) {
-                None => return Err(ScanoutBufferErrorKind::RenderUnsupportedFormat),
-                Some(f) => f,
-            };
-            send_render_gfx_write_modifiers = Some(on_drop(|| {
-                *dbg_render_gfx_write_modifiers =
-                    Some(render_gfx_format.write_modifiers.keys().copied().collect())
-            }));
-            send_dev_gfx_read_modifiers = Some(on_drop(|| {
-                *dbg_dev_gfx_read_modifiers = Some(dev_gfx_format.read_modifiers.clone());
-            }));
-            render_possible_modifiers = render_gfx_format
-                .write_modifiers
-                .iter()
-                .filter(|(m, _)| dev_gfx_format.read_modifiers.contains(*m))
-                .map(|(m, v)| (*m, v))
-                .collect();
-            send_render_possible_modifiers = Some(on_drop(|| {
-                *dbg_render_modifiers_possible =
-                    Some(render_possible_modifiers.keys().copied().collect())
-            }));
-            if render_possible_modifiers.is_empty() {
-                return Err(ScanoutBufferErrorKind::RenderNoWritableModifier);
-            }
-            usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            if !needs_render_usage(render_possible_modifiers.values().copied()) {
-                usage &= !GBM_BO_USE_RENDERING;
-            }
-            *dbg_render_usage = Some(usage);
-            let render_bo = render_ctx.gbm.create_bo(
-                &self.state.dma_buf_ids,
-                width,
-                height,
-                format,
-                render_possible_modifiers.keys(),
-                usage,
-            );
-            let render_bo = match render_bo {
-                Ok(b) => b,
-                Err(e) => return Err(ScanoutBufferErrorKind::RenderBufferAllocation(e)),
-            };
-            *dbg_render_modifier = Some(render_bo.dmabuf().modifier);
-            let render_img = match render_ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
-                Ok(img) => img,
-                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportImage(e)),
-            };
-            let render_fb = match render_img.clone().to_framebuffer() {
-                Ok(fb) => fb,
-                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportFb(e)),
-            };
-            render_fb
-                .clear(
-                    AcquireSync::Unnecessary,
-                    ReleaseSync::None,
-                    self.state.color_manager.srgb_gamma22(),
-                )
-                .map_err(ScanoutBufferErrorKind::RenderClear)?;
-            let render_tex = match render_img.to_texture() {
-                Ok(fb) => fb,
-                Err(e) => return Err(ScanoutBufferErrorKind::RenderImportRenderTexture(e)),
-            };
-
-            // Import the bridge BO into the current device
-            let dev_img = match dev_ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
-                Ok(img) => img,
-                Err(e) => return Err(ScanoutBufferErrorKind::SodImportRenderImage(e)),
-            };
-            let dev_tex = match dev_img.to_texture() {
-                Ok(fb) => fb,
-                Err(e) => return Err(ScanoutBufferErrorKind::SodImportRenderTexture(e)),
-            };
-
-            (Some(dev_tex), render_tex, Some(render_fb), Some(render_bo))
-        };
-        send_dev_gfx_write_modifiers.forget();
-        send_dev_modifiers_possible.forget();
-        send_render_dev_name.map(|o| o.forget());
-        send_render_gfx_write_modifiers.map(|o| o.forget());
-        send_dev_gfx_read_modifiers.map(|o| o.forget());
-        send_render_possible_modifiers.map(|o| o.forget());
-        Ok(RenderBuffer {
-            width,
-            height,
-            locked: Cell::new(true),
-            format,
-            dev_ctx,
-            render_ctx: render_ctx.clone(),
-            drm: drm_fb,
-            damage_queue,
-            dev_bo,
-            _render_bo: render_bo,
-            blend_buffer,
-            dev_fb,
-            dev_tex,
-            render_tex,
-            render_fb,
-        })
-    }
-
     fn start_connector(&self, connector: &Rc<MetalConnector>, log_mode: bool) {
         let dd = &*connector.display.borrow();
         self.send_connected(connector, dd);
@@ -2939,126 +2647,22 @@ impl MetalBackend {
     }
 }
 
-#[derive(Debug)]
-pub struct RenderBuffer {
-    pub width: i32,
-    pub height: i32,
-    pub locked: Cell<bool>,
-    pub format: &'static Format,
-    pub dev_ctx: Rc<MetalRenderContext>,
-    pub render_ctx: Rc<MetalRenderContext>,
-    pub drm: Rc<DrmFramebuffer>,
-    pub damage_queue: DamageQueue,
-    pub dev_bo: GbmBo,
-    pub _render_bo: Option<GbmBo>,
-    pub blend_buffer: Option<Rc<dyn GfxBlendBuffer>>,
-    // ctx = dev
-    // buffer location = dev
-    pub dev_fb: Rc<dyn GfxFramebuffer>,
-    // ctx = dev
-    // buffer location = render
-    pub dev_tex: Option<Rc<dyn GfxTexture>>,
-    // ctx = render
-    // buffer location = render
-    pub render_tex: Rc<dyn GfxTexture>,
-    // ctx = render
-    // buffer location = render
-    pub render_fb: Option<Rc<dyn GfxFramebuffer>>,
-}
-
-#[derive(Default)]
-pub struct RenderBufferCopy {
-    pub render_block: Option<SyncFile>,
-    pub present_block: Option<SyncFile>,
-}
-
-impl RenderBufferCopy {
-    pub fn for_both(sf: Option<SyncFile>) -> Self {
-        Self {
-            render_block: sf.clone(),
-            present_block: sf,
-        }
-    }
-}
-
-impl RenderBuffer {
-    pub fn render_fb(&self) -> Rc<dyn GfxFramebuffer> {
-        self.render_fb
-            .clone()
-            .unwrap_or_else(|| self.dev_fb.clone())
-    }
-
-    pub fn copy_to_dev(
-        &self,
-        cd: &Rc<ColorDescription>,
-        sync_file: Option<SyncFile>,
-    ) -> Result<RenderBufferCopy, MetalError> {
-        let Some(tex) = &self.dev_tex else {
-            return Ok(RenderBufferCopy {
-                render_block: None,
-                present_block: sync_file,
-            });
-        };
-        self.dev_fb
-            .copy_texture(
-                AcquireSync::Unnecessary,
-                ReleaseSync::Explicit,
-                cd,
-                tex,
-                cd,
-                None,
-                AcquireSync::from_sync_file(sync_file),
-                ReleaseSync::None,
-                0,
-                0,
+impl CopyDeviceHolder {
+    pub fn get(&self) -> Option<Rc<CopyDevice>> {
+        self.dev
+            .get_or_init(
+                || match self.registry.get(self.devnum)?.create_device().map(Some) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        log::error!(
+                            "Could not get copy device for {}: {}",
+                            self.devnum,
+                            ErrorFmt(e),
+                        );
+                        None
+                    }
+                },
             )
-            .map_err(MetalError::CopyToOutput)
-            .map(RenderBufferCopy::for_both)
-    }
-
-    pub fn damage_full(&self) {
-        let dmabuf = self.dev_bo.dmabuf();
-        let rect = Rect::new_sized_saturating(0, 0, dmabuf.width, dmabuf.height);
-        self.damage_queue.clear_all();
-        self.damage_queue.damage(&[rect]);
-    }
-
-    pub fn clear(&self, cd: &Rc<ColorDescription>) -> Result<Option<SyncFile>, Box<dyn Error>> {
-        self.dev_fb
-            .clear(AcquireSync::Unnecessary, ReleaseSync::Explicit, cd)
-            .map_err(Into::into)
-    }
-
-    pub fn copy_to_new(
-        &self,
-        new: &Self,
-        cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, Box<dyn Error>> {
-        let old = self;
-        let copy_texture = |new: &Rc<dyn GfxFramebuffer>, old: &Rc<dyn GfxTexture>| {
-            new.copy_texture(
-                AcquireSync::Unnecessary,
-                ReleaseSync::Explicit,
-                cd,
-                old,
-                cd,
-                None,
-                AcquireSync::Unnecessary,
-                ReleaseSync::Explicit,
-                0,
-                0,
-            )
-            .map_err(Into::into)
-        };
-        if rc_eq(&old.dev_ctx, &new.dev_ctx) {
-            return copy_texture(&new.dev_fb, old.dev_tex.as_ref().unwrap_or(&old.render_tex));
-        }
-        let tex = new
-            .dev_ctx
-            .gfx
             .clone()
-            .dmabuf_img(old.dev_bo.dmabuf())?
-            .to_texture()?;
-        copy_texture(&new.dev_fb, &tex)
     }
 }

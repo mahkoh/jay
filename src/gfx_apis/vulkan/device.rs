@@ -13,7 +13,9 @@ use {
             drm::{Drm, sync_obj::SyncObjCtx},
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
-        vulkan_core::{API_VERSION, ApiVersionDisplay, Extensions, map_extension_properties},
+        vulkan_core::{
+            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, map_extension_properties,
+        },
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
@@ -145,7 +147,7 @@ impl VulkanInstance {
         let mut devices = vec![];
         for phy_dev in phy_devs {
             let props = unsafe { self.instance.get_physical_device_properties(phy_dev) };
-            if props.api_version < API_VERSION {
+            if props.api_version < VULKAN_API_VERSION {
                 devices.push((props, None, None));
                 continue;
             }
@@ -218,7 +220,7 @@ impl VulkanInstance {
         };
         for phy_dev in phy_devs {
             let props = unsafe { self.instance.get_physical_device_properties(phy_dev) };
-            if props.api_version < API_VERSION {
+            if props.api_version < VULKAN_API_VERSION {
                 continue;
             }
             if props.device_type == PhysicalDeviceType::CPU {
@@ -618,7 +620,7 @@ fn log_device(
             Ustr::from_ptr(props.device_name.as_ptr()).display()
         );
     }
-    if props.api_version < API_VERSION {
+    if props.api_version < VULKAN_API_VERSION {
         log::warn!("  device does not support vulkan 1.3");
     }
     if let Some(extensions) = extensions {

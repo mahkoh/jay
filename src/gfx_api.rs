@@ -221,7 +221,7 @@ pub struct CopyTexture {
     pub cd: Rc<ColorDescription>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);
 
 impl Deref for SyncFile {
@@ -747,7 +747,7 @@ pub trait GfxContext: Debug {
 
     fn render_node(&self) -> Option<Rc<CString>>;
 
-    fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
+    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>>;
 
     fn fast_ram_access(&self) -> bool;
 

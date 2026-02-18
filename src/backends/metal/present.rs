@@ -3,11 +3,9 @@ use {
         backend::Connector,
         backends::metal::{
             MetalError,
+            allocator::{RenderBuffer, RenderBufferCopy},
             transaction::{DrmConnectorState, DrmPlaneState},
-            video::{
-                MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane, RenderBuffer,
-                RenderBufferCopy,
-            },
+            video::{MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane},
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
@@ -557,7 +555,11 @@ impl MetalConnector {
         let swap_buffers = c.cursor_swap_buffer.is_some();
         self.cursor_swap_buffer.set(swap_buffers);
         if let Some(sf) = c.cursor_swap_buffer.take() {
-            let sf = c.cursor_buffer.copy_to_dev(cd, sf)?.present_block;
+            let sf = c
+                .cursor_buffer
+                .copy_to_dev(cd, None, sf)
+                .map_err(MetalError::CopyToDev)?
+                .present_block;
             self.cursor_sync_file.set(sf);
         }
         let mut cursor_changed = false;
@@ -588,13 +590,12 @@ impl MetalConnector {
             }
             let buffer_idx = (front_buffer % buffers.len() as u64) as usize;
             let buffer = &buffers[buffer_idx];
-            let (width, height) = buffer.dev_fb.physical_size();
             CursorProgrammingType::Enable {
                 fb: buffer.drm.clone(),
                 x: self.cursor_x.get(),
                 y: self.cursor_y.get(),
-                width,
-                height,
+                width: buffer.width,
+                height: buffer.height,
                 swap,
             }
         } else {
@@ -862,7 +863,8 @@ impl MetalConnector {
         match &direct_scanout_data {
             None => {
                 let sf = buffer
-                    .render_fb()
+                    .render
+                    .fb
                     .perform_render_pass(
                         AcquireSync::Unnecessary,
                         ReleaseSync::Explicit,
@@ -873,9 +875,11 @@ impl MetalConnector {
                         blend_cd,
                     )
                     .map_err(MetalError::RenderFrame)?;
-                copy = buffer.copy_to_dev(cd, sf)?;
+                copy = buffer
+                    .copy_to_dev(cd, Some(&latched.damage), sf)
+                    .map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
-                tex = buffer.render_tex.clone();
+                tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
                 let sf = match &dsd.acquire_sync {

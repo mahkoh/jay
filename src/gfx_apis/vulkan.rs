@@ -263,8 +263,8 @@ impl GfxContext for Context {
         Some(self.0.device.render_node.clone())
     }
 
-    fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
-        self.0.formats.clone()
+    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+        &self.0.formats
     }
 
     fn fast_ram_access(&self) -> bool {

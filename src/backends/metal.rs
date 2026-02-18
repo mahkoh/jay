@@ -1,3 +1,4 @@
+mod allocator;
 mod input;
 mod monitor;
 mod present;
@@ -12,13 +13,15 @@ use {
             InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, Leds,
             TransformMatrix, transaction::BackendConnectorTransactionError,
         },
-        backends::metal::video::{
-            MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
-            PersistentDisplayData,
+        backends::metal::{
+            allocator::{RenderBufferError, ScanoutBufferError, ScanoutBufferErrors},
+            video::{
+                MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
+                PersistentDisplayData,
+            },
         },
         dbus::{DbusError, SignalHandler},
         drm_feedback::DrmFeedback,
-        format::Format,
         gfx_api::{GfxError, SyncFile},
         ifs::{
             wl_output::OutputId,
@@ -49,15 +52,14 @@ use {
             smallmap::SmallMap,
             syncqueue::SyncQueue,
         },
-        video::{Modifier, drm::DrmError, gbm::GbmError},
+        video::{drm::DrmError, gbm::GbmError},
     },
     bstr::ByteSlice,
-    indexmap::IndexSet,
     std::{
         cell::{Cell, RefCell},
         error::Error,
         ffi::{CStr, CString},
-        fmt::{Debug, Display, Formatter},
+        fmt::{Debug, Formatter},
         future::pending,
         rc::Rc,
     },
@@ -105,8 +107,6 @@ pub enum MetalError {
     DeviceResumeSignalHandler(#[source] DbusError),
     #[error("Could not render the frame")]
     RenderFrame(#[source] GfxError),
-    #[error("Could not copy frame to output device")]
-    CopyToOutput(#[source] GfxError),
     #[error("Could not perform atomic commit")]
     Commit(#[source] DrmError),
     #[error("The present configuration is out of date")]
@@ -117,119 +117,14 @@ pub enum MetalError {
     CalculateDrmState(#[source] BackendConnectorTransactionError),
     #[error("Could not calculate DRM change set")]
     CalculateDrmChange(#[source] BackendConnectorTransactionError),
-    #[error("Could not create plane buffer")]
+    #[error("Could not create non-prime plane buffer")]
     AllocateScanoutBuffer(#[source] Box<ScanoutBufferError>),
-}
-
-#[derive(Debug, Error)]
-pub enum ScanoutBufferErrorKind {
-    #[error("Scanout device: The format is not supported")]
-    SodUnsupportedFormat,
-    #[error(
-        "Scanout device: The intersection of the modifiers supported by the plane and modifiers writable by the gfx API is empty"
-    )]
-    SodNoWritableModifier,
-    #[error("Scanout device: Buffer allocation failed")]
-    SodBufferAllocation(#[source] GbmError),
-    #[error("Scanout device: addfb2 failed")]
-    SodAddfb2(#[source] DrmError),
-    #[error("Scanout device: Could not import SCANOUT buffer into the gfx API")]
-    SodImportSodImage(#[source] GfxError),
-    #[error("Scanout device: Could not turn imported SCANOUT buffer into gfx API FB")]
-    SodImportFb(#[source] GfxError),
-    #[error("Scanout device: Could not clear SCANOUT buffer")]
-    SodClear(#[source] GfxError),
-    #[error("Scanout device: Could not turn imported SCANOUT buffer into gfx API texture")]
-    SodImportSodTexture(#[source] GfxError),
-    #[error("Render device: The format is not supported")]
+    #[error("Could not create non-prime plane buffer")]
+    AllocateScanoutBufferPrime(#[source] ScanoutBufferErrors),
+    #[error("Could not copy frame to output device")]
+    CopyToDev(#[source] RenderBufferError),
+    #[error("The render device does not support the format")]
     RenderUnsupportedFormat,
-    #[error(
-        "Render device: The intersection of the modifiers readable by the scanout device and modifiers writable by the gfx API is empty"
-    )]
-    RenderNoWritableModifier,
-    #[error("Render device: Buffer allocation failed")]
-    RenderBufferAllocation(#[source] GbmError),
-    #[error("Render device: Could not import RENDER buffer into the gfx API")]
-    RenderImportImage(#[source] GfxError),
-    #[error("Render device: Could not turn imported RENDER buffer into gfx API FB")]
-    RenderImportFb(#[source] GfxError),
-    #[error("Render device: Could not clear RENDER buffer")]
-    RenderClear(#[source] GfxError),
-    #[error("Render device: Could not turn imported RENDER buffer into gfx API texture")]
-    RenderImportRenderTexture(#[source] GfxError),
-    #[error("Scanout device: Could not import RENDER buffer into the gfx API")]
-    SodImportRenderImage(#[source] GfxError),
-    #[error("Scanout device: Could not turn imported RENDER buffer into gfx API texture")]
-    SodImportRenderTexture(#[source] GfxError),
-}
-
-#[derive(Debug)]
-pub struct ScanoutBufferError {
-    dev: String,
-    format: &'static Format,
-    plane_modifiers: IndexSet<Modifier>,
-    width: i32,
-    height: i32,
-    cursor: bool,
-    dev_gfx_write_modifiers: Option<IndexSet<Modifier>>,
-    dev_gfx_read_modifiers: Option<IndexSet<Modifier>>,
-    dev_modifiers_possible: Option<IndexSet<Modifier>>,
-    dev_usage: Option<u32>,
-    dev_modifier: Option<Modifier>,
-    render_name: Option<String>,
-    render_gfx_write_modifiers: Option<IndexSet<Modifier>>,
-    render_modifiers_possible: Option<IndexSet<Modifier>>,
-    render_usage: Option<u32>,
-    render_modifier: Option<Modifier>,
-    kind: ScanoutBufferErrorKind,
-}
-
-impl Display for ScanoutBufferError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f)?;
-        writeln!(f, "scanout device: {}", self.dev)?;
-        writeln!(f, "format: {}", self.format.name)?;
-        writeln!(f, "plane modifiers: {:x?}", self.plane_modifiers)?;
-        writeln!(f, "size: {}x{}", self.width, self.height)?;
-        writeln!(f, "cursor: {}", self.cursor)?;
-        if let Some(v) = &self.dev_gfx_write_modifiers {
-            writeln!(f, "scanout gfx writable modifiers: {:x?}", v)?;
-        }
-        if let Some(v) = &self.dev_modifiers_possible {
-            writeln!(f, "scanout dev possible modifiers: {:x?}", v)?;
-        }
-        if let Some(v) = &self.dev_usage {
-            writeln!(f, "scanout dev gbm usage: {:x}", v)?;
-        }
-        if let Some(v) = &self.dev_modifier {
-            writeln!(f, "scanout dev modifier: {:x}", v)?;
-        }
-        if let Some(v) = &self.render_name {
-            writeln!(f, "render device: {}", v)?;
-        }
-        if let Some(v) = &self.render_gfx_write_modifiers {
-            writeln!(f, "render gfx writable modifiers: {:x?}", v)?;
-        }
-        if let Some(v) = &self.dev_gfx_read_modifiers {
-            writeln!(f, "scanout gfx readable modifiers: {:x?}", v)?;
-        }
-        if let Some(v) = &self.render_modifiers_possible {
-            writeln!(f, "render dev possible modifiers: {:x?}", v)?;
-        }
-        if let Some(v) = &self.render_usage {
-            writeln!(f, "render dev gbm usage: {:x}", v)?;
-        }
-        if let Some(v) = &self.render_modifier {
-            writeln!(f, "render dev modifier: {:x}", v)?;
-        }
-        Ok(())
-    }
-}
-
-impl Error for ScanoutBufferError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.kind)
-    }
 }
 
 pub struct MetalBackend {

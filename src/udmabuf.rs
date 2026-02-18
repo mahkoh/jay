@@ -7,7 +7,7 @@ use {
             oserror::OsError, page_size::page_size,
         },
         video::{
-            LINEAR_MODIFIER, Modifier,
+            LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
         },
@@ -115,6 +115,63 @@ impl Udmabuf {
         };
         Ok(dmabuf)
     }
+
+    pub fn create_dmabuf(
+        &self,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<DmaBuf, UdmabufError> {
+        Ok(self.create_bo(dma_buf_ids, width, height, format)?.buf)
+    }
+
+    fn create_bo(
+        &self,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<UdmabufBo, UdmabufError> {
+        let height = height as u64;
+        let width = width as u64;
+        if height > 1 << 16 || width > 1 << 16 {
+            return Err(UdmabufError::Overflow);
+        }
+        let stride = (width * format.bpp as u64).next_multiple_of(LINEAR_STRIDE_ALIGN);
+        let size_mask = page_size() as u64 - 1;
+        let size = (height * stride + size_mask) & !size_mask;
+        let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
+            Ok(f) => f,
+            Err(e) => return Err(UdmabufError::Memfd(e.into())),
+        };
+        if let Err(e) = uapi::ftruncate(memfd.raw(), size as _) {
+            return Err(UdmabufError::Truncate(e.into()));
+        }
+        if let Err(e) = uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK) {
+            return Err(UdmabufError::Seal(e.into()));
+        }
+        let dmabuf = self.create_dmabuf_from_memfd(&memfd, 0, size as _)?;
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
+            offset: 0,
+            stride: stride as _,
+            fd: Rc::new(dmabuf),
+        });
+        let dmabuf = DmaBuf {
+            id: dma_buf_ids.next(),
+            width: width as _,
+            height: height as _,
+            format,
+            modifier: LINEAR_MODIFIER,
+            planes,
+            is_disjoint: Default::default(),
+        };
+        Ok(UdmabufBo {
+            buf: dmabuf,
+            size: size as _,
+        })
+    }
 }
 
 impl Allocator for Udmabuf {
@@ -134,45 +191,12 @@ impl Allocator for Udmabuf {
         if !modifiers.contains(&LINEAR_MODIFIER) {
             return Err(UdmabufError::Modifier.into());
         }
-        let height = height as u64;
-        let width = width as u64;
-        if height > 1 << 16 || width > 1 << 16 {
-            return Err(UdmabufError::Overflow.into());
-        }
-        let stride_mask = 255;
-        let stride = (width * format.bpp as u64 + stride_mask) & !stride_mask;
-        let size_mask = page_size() as u64 - 1;
-        let size = (height * stride + size_mask) & !size_mask;
-        let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
-            Ok(f) => f,
-            Err(e) => return Err(UdmabufError::Memfd(e.into()).into()),
-        };
-        if let Err(e) = uapi::ftruncate(memfd.raw(), size as _) {
-            return Err(UdmabufError::Truncate(e.into()).into());
-        }
-        if let Err(e) = uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK) {
-            return Err(UdmabufError::Seal(e.into()).into());
-        }
-        let dmabuf = self.create_dmabuf_from_memfd(&memfd, 0, size as _)?;
-        let mut planes = PlaneVec::new();
-        planes.push(DmaBufPlane {
-            offset: 0,
-            stride: stride as _,
-            fd: Rc::new(dmabuf),
-        });
-        let dmabuf = DmaBuf {
-            id: dma_buf_ids.next(),
-            width: width as _,
-            height: height as _,
+        Ok(Rc::new(self.create_bo(
+            dma_buf_ids,
+            width,
+            height,
             format,
-            modifier: LINEAR_MODIFIER,
-            planes,
-            is_disjoint: Default::default(),
-        };
-        Ok(Rc::new(UdmabufBo {
-            buf: dmabuf,
-            size: size as _,
-        }))
+        )?))
     }
 
     fn import_dmabuf(

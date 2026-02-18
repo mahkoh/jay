@@ -8,9 +8,11 @@ use {
                 BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
             },
         },
-        backends::metal::video::{
-            FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData, MetalPlane, PlaneType,
-            RenderBuffer,
+        backends::metal::{
+            allocator::RenderBuffer,
+            video::{
+                FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData, MetalPlane, PlaneType,
+            },
         },
         format::{ARGB8888, Format},
         gfx_api::SyncFile,
@@ -464,7 +466,7 @@ impl MetalDeviceTransaction {
                         if b[0].width != width || b[0].height != height || b[0].format != format {
                             discard!();
                         }
-                        if !rc_eq(render_ctx, &b[0].render_ctx) {
+                        if !rc_eq(render_ctx, &b[0].render.ctx) {
                             discard!();
                         }
                         if !rc_eq(&dev_ctx, &b[0].dev_ctx) {
@@ -472,7 +474,7 @@ impl MetalDeviceTransaction {
                         }
                         let modifiers = &plane.obj.formats.get(&format.drm).unwrap().modifiers;
                         for b in &**b {
-                            if !modifiers.contains(&b.dev_bo.dmabuf().modifier) {
+                            if !modifiers.contains(&b.dev_bo().dmabuf().modifier) {
                                 discard!();
                             }
                         }
@@ -517,7 +519,20 @@ impl MetalDeviceTransaction {
                             *plane_id = DrmPlane::NONE;
                             continue;
                         }
-                        let buffers = Rc::new(res?);
+                        let res = res?;
+                        if let Some(method) = res[0].prime.method() {
+                            let plane = match plane.obj.ty {
+                                PlaneType::Overlay => "overlay",
+                                PlaneType::Primary => "primary",
+                                PlaneType::Cursor => "cursor",
+                            };
+                            let dev = slf.dev.dev.devnode.as_bytes().as_bstr();
+                            let connector = connector.obj.kernel_id();
+                            log::info!(
+                                "Using prime method {method} for {dev} {connector} ({plane})",
+                            );
+                        }
+                        let buffers = Rc::new(res);
                         plane.new.buffers = Some(buffers.clone());
                         new_buffers = Some(buffers.clone());
                         buffers
@@ -572,7 +587,7 @@ impl MetalDeviceTransaction {
                             match prev.copy_to_new(new_buffer, &cd) {
                                 Ok(sf) => Ok(sf),
                                 Err(e) => {
-                                    log::warn!("Could not copy from old buffer: {}", ErrorFmt(&*e));
+                                    log::warn!("Could not copy from old buffer: {}", ErrorFmt(e));
                                     new_buffer.clear(&cd)
                                 }
                             }
@@ -582,7 +597,7 @@ impl MetalDeviceTransaction {
                         match res {
                             Ok(sf) => sync_files.extend(sf),
                             Err(e) => {
-                                log::warn!("Could not clear new buffer: {}", ErrorFmt(&*e));
+                                log::warn!("Could not clear new buffer: {}", ErrorFmt(e));
                             }
                         }
                     } else {
@@ -623,7 +638,7 @@ impl MetalDeviceTransaction {
                                     Err(e) => {
                                         log::error!(
                                             "Could not black out old buffer: {}",
-                                            ErrorFmt(&*e),
+                                            ErrorFmt(e),
                                         );
                                     }
                                 }

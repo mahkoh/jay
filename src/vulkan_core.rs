@@ -72,7 +72,7 @@ impl VulkanCoreInstance {
             .map(|c| c.as_ptr())
             .collect();
         let app_info = ApplicationInfo::default()
-            .api_version(API_VERSION)
+            .api_version(VULKAN_API_VERSION)
             .application_name(c"jay")
             .application_version(1);
         let mut severity = DebugUtilsMessageSeverityFlagsEXT::empty()
@@ -240,4 +240,4 @@ impl Display for ApiVersionDisplay {
     }
 }
 
-pub const API_VERSION: u32 = API_VERSION_1_3;
+pub const VULKAN_API_VERSION: u32 = API_VERSION_1_3;

@@ -187,8 +187,8 @@ impl GlRenderContext {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
-        self.ctx.formats.clone()
+    pub fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+        &self.ctx.formats
     }
 
     fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
@@ -253,7 +253,7 @@ impl GfxContext for GlRenderContext {
         Some(self.render_node())
     }
 
-    fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
         self.formats()
     }
 

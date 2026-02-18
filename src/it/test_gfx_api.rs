@@ -103,8 +103,8 @@ impl GfxContext for TestGfxCtx {
         None
     }
 
-    fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
-        self.formats.clone()
+    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+        &self.formats
     }
 
     fn fast_ram_access(&self) -> bool {
