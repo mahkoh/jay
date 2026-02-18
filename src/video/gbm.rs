@@ -124,9 +124,13 @@ unsafe extern "C" {
     fn gbm_bo_unmap(bo: *mut Bo, map_data: *mut u8);
 }
 
+struct DeviceHolder {
+    dev: *mut Device,
+}
+
 pub struct GbmDevice {
     pub drm: Drm,
-    dev: *mut Device,
+    dev: Rc<DeviceHolder>,
 }
 
 impl Debug for GbmDevice {
@@ -137,6 +141,7 @@ impl Debug for GbmDevice {
 
 struct BoHolder {
     bo: *mut Bo,
+    _dev: Rc<DeviceHolder>,
 }
 
 pub struct GbmBo {
@@ -214,12 +219,13 @@ impl GbmDevice {
         if dev.is_null() {
             Err(GbmError::CreateDevice)
         } else {
+            let dev = Rc::new(DeviceHolder { dev });
             Ok(Self { drm, dev })
         }
     }
 
     pub fn raw(&self) -> *mut Device {
-        self.dev
+        self.dev.dev
     }
 
     pub fn create_bo<'a>(
@@ -243,7 +249,7 @@ impl GbmDevice {
                 (modifiers.as_ptr() as _, modifiers.len() as _)
             };
             let bo = gbm_bo_create_with_modifiers2(
-                self.dev,
+                self.dev.dev,
                 width as _,
                 height as _,
                 format.drm,
@@ -254,7 +260,10 @@ impl GbmDevice {
             if bo.is_null() {
                 return Err(GbmError::CreateBo(OsError::default()));
             }
-            let bo = BoHolder { bo };
+            let bo = BoHolder {
+                bo,
+                _dev: self.dev.clone(),
+            };
             let mut dma = export_bo(dma_buf_ids, bo.bo)?;
             if let [modifier] = *modifiers {
                 dma.modifier = modifier;
@@ -281,7 +290,7 @@ impl GbmDevice {
         }
         unsafe {
             let bo = gbm_bo_import(
-                self.dev,
+                self.dev.dev,
                 GBM_BO_IMPORT_FD_MODIFIER,
                 &mut import as *const _ as _,
                 usage,
@@ -289,7 +298,10 @@ impl GbmDevice {
             if bo.is_null() {
                 return Err(GbmError::CreateBo(OsError::default()));
             }
-            let bo = BoHolder { bo };
+            let bo = BoHolder {
+                bo,
+                _dev: self.dev.clone(),
+            };
             Ok(GbmBo {
                 bo,
                 dmabuf: dmabuf.clone(),
@@ -348,7 +360,7 @@ fn map_usage(usage: BufferUsage) -> u32 {
     gbm
 }
 
-impl Drop for GbmDevice {
+impl Drop for DeviceHolder {
     fn drop(&mut self) {
         unsafe {
             gbm_device_destroy(self.dev);
