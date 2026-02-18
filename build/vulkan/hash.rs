@@ -1,10 +1,33 @@
 use {std::fmt::Write, walkdir::WalkDir};
 
-pub const ROOT: &str = "src/gfx_apis/vulkan/shaders";
-pub const HASH: &str = "src/gfx_apis/vulkan/shaders_hash.txt";
+#[allow(dead_code)]
+pub struct Tree {
+    pub root: &'static str,
+    pub hash: &'static str,
+    pub bin: &'static str,
+    pub shaders: &'static [&'static str],
+}
 
-fn calculate_hash() -> anyhow::Result<String> {
-    let dir = WalkDir::new(ROOT);
+pub const TREES: &[Tree] = &[Tree {
+    root: "src/gfx_apis/vulkan/shaders",
+    hash: "src/gfx_apis/vulkan/shaders_hash.txt",
+    bin: "src/gfx_apis/vulkan/shaders_bin",
+    shaders: &[
+        "fill.frag",
+        "fill.vert",
+        "tex.vert",
+        "tex.frag",
+        "out.vert",
+        "out.frag",
+        "legacy/fill.frag",
+        "legacy/fill.vert",
+        "legacy/tex.vert",
+        "legacy/tex.frag",
+    ],
+}];
+
+fn calculate_hash(tree: &Tree) -> anyhow::Result<String> {
+    let dir = WalkDir::new(tree.root);
     let mut files = vec![];
     for file in dir {
         let file = file?;
@@ -21,11 +44,11 @@ fn calculate_hash() -> anyhow::Result<String> {
     Ok(out)
 }
 
-pub fn unchanged() -> bool {
-    let Ok(actual) = std::fs::read_to_string(HASH) else {
+pub fn unchanged(tree: &Tree) -> bool {
+    let Ok(actual) = std::fs::read_to_string(tree.hash) else {
         return false;
     };
-    let Ok(expected) = calculate_hash() else {
+    let Ok(expected) = calculate_hash(tree) else {
         return false;
     };
     actual == expected

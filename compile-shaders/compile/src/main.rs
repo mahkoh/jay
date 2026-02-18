@@ -1,32 +1,27 @@
 use {
     anyhow::{Context, anyhow, bail},
-    compile_shaders_core::{BIN, ROOT, update_hash},
+    compile_shaders_core::{TREES, Tree, update_hash},
     shaderc::{CompileOptions, ResolvedInclude},
     std::{fs::File, io::Write, path::Path},
 };
 
 fn main() -> anyhow::Result<()> {
-    compile("fill.frag")?;
-    compile("fill.vert")?;
-    compile("tex.vert")?;
-    compile("tex.frag")?;
-    compile("out.vert")?;
-    compile("out.frag")?;
-    compile("legacy/fill.frag")?;
-    compile("legacy/fill.vert")?;
-    compile("legacy/tex.vert")?;
-    compile("legacy/tex.frag")?;
-    update_hash()?;
+    for tree in TREES {
+        for shader in tree.shaders {
+            compile(tree, shader)?;
+        }
+        update_hash(tree)?;
+    }
     Ok(())
 }
 
-fn compile(name: &str) -> anyhow::Result<()> {
+fn compile(tree: &Tree, name: &str) -> anyhow::Result<()> {
     let out = format!("{name}.spv").replace("/", "_");
-    compile_shader(name, &out).with_context(|| name.to_string())
+    compile_shader(tree, name, &out).with_context(|| name.to_string())
 }
 
-fn compile_shader(name: &str, out: &str) -> anyhow::Result<()> {
-    let root = Path::new(ROOT).join(Path::new(name).parent().unwrap());
+fn compile_shader(tree: &Tree, name: &str, out: &str) -> anyhow::Result<()> {
+    let root = Path::new(tree.root).join(Path::new(name).parent().unwrap());
     let read = |path: &str| std::fs::read_to_string(root.join(path));
     let mut options = CompileOptions::new()?;
     options.set_include_callback(|name, _, _, _| {
@@ -44,10 +39,10 @@ fn compile_shader(name: &str, out: &str) -> anyhow::Result<()> {
         "vert" => shaderc::ShaderKind::Vertex,
         n => bail!("Unknown shader stage {}", n),
     };
-    let src = std::fs::read_to_string(format!("{}/{}", ROOT, name))?;
+    let src = std::fs::read_to_string(format!("{}/{}", tree.root, name))?;
     let compiler = shaderc::Compiler::new()?;
     let binary = compiler.compile_into_spirv(&src, stage, name, "main", Some(&options))?;
-    let mut file = File::create(Path::new(BIN).join(out))?;
+    let mut file = File::create(Path::new(tree.bin).join(out))?;
     file.write_all(binary.as_binary_u8())?;
     file.flush()?;
     Ok(())
