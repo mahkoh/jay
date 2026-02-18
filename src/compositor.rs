@@ -277,6 +277,7 @@ fn start_compositor2(
             inhibited_idle_notifications: Default::default(),
             backend_idle: Cell::new(true),
             in_grace_period: Cell::new(false),
+            idle_changed_event: Default::default(),
         },
         run_args,
         xwayland: XWaylandState {
@@ -379,6 +380,8 @@ fn start_compositor2(
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine)),
         supports_presentation_feedback: Default::default(),
         egg_state: EggState::new()?,
+        control_center_ids: Default::default(),
+        control_centers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

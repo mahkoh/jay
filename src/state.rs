@@ -15,6 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        control_center::{ControlCenter, ControlCenterId, ControlCenterIds},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -296,6 +297,8 @@ pub struct State {
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub supports_presentation_feedback: Cell<bool>,
     pub egg_state: EggState,
+    pub control_center_ids: ControlCenterIds,
+    pub control_centers: CopyHashMap<ControlCenterId, Rc<ControlCenter>>,
 }
 
 // impl Drop for State {
@@ -339,33 +342,52 @@ pub struct IdleState {
     pub inhibited_idle_notifications:
         CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
     pub in_grace_period: Cell<bool>,
+    pub idle_changed_event: EventSource<dyn IdleChangedListener>,
+}
+
+pub trait IdleChangedListener {
+    fn changed(&self);
 }
 
 impl IdleState {
     pub fn set_timeout(&self, timeout: Duration) {
         self.timeout.set(timeout);
-        self.timeout_changed.set(true);
-        self.change.trigger();
+        self.timeout_changed();
     }
 
     pub fn set_grace_period(&self, grace_period: Duration) {
         self.grace_period.set(grace_period);
+        self.timeout_changed();
+    }
+
+    fn timeout_changed(&self) {
         self.timeout_changed.set(true);
         self.change.trigger();
+        self.trigger_listeners();
     }
 
     pub fn add_inhibitor(&self, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
         self.inhibitors.set(inhibitor.inhibit_id, inhibitor.clone());
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed();
     }
 
     pub fn remove_inhibitor(&self, inhibitor: &ZwpIdleInhibitorV1) {
         self.inhibitors.remove(&inhibitor.inhibit_id);
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed();
         if self.inhibitors.is_empty() {
             self.resume_inhibited_notifications();
+        }
+    }
+
+    fn inhibitors_changed(&self) {
+        self.inhibitors_changed.set(true);
+        self.change.trigger();
+        self.trigger_listeners();
+    }
+
+    fn trigger_listeners(&self) {
+        for listener in self.idle_changed_event.iter() {
+            listener.changed();
         }
     }
 
@@ -723,6 +745,9 @@ impl State {
                 && let Some(config) = self.config.get()
             {
                 config.graphics_initialized();
+                if let Err(e) = self.spawn_control_center() {
+                    log::error!("Could not spawn control center: {}", ErrorFmt(e));
+                }
             }
         }
 
@@ -1132,6 +1157,7 @@ impl State {
         self.wait_for_sync_obj.clear();
         self.xdg_surface_configure_events.clear();
         self.egg_state.clear();
+        self.control_centers.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

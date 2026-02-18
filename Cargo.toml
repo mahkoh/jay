@@ -72,6 +72,7 @@ run-on-drop = "1.0.0"
 egui = "0.33.3"
 egui_material_icons = "0.5.0"
 fontconfig = "0.10.0"
+egui_tiles = "0.14.1"
 
 [build-dependencies]
 repc = "0.1.1"

@@ -68,6 +68,10 @@ impl<T: ?Sized> EventListener<T> {
         }
     }
 
+    pub fn new2(t: Rc<T>) -> Self {
+        Self::new(Rc::downgrade(&t))
+    }
+
     pub fn attach(&self, source: &EventSource<T>) {
         source.listeners.add_last_existing(&self.link);
         if let Some(on_attach) = source.on_attach.take() {
