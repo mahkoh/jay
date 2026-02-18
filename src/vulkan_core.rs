@@ -32,6 +32,7 @@ use {
 
 pub mod device;
 pub mod fence;
+pub mod gpu_alloc_ash;
 pub mod sync;
 pub mod timeline_semaphore;
 
