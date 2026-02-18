@@ -1,17 +1,24 @@
 mod hash;
 
 use {
-    crate::vulkan::hash::{ROOT, unchanged},
+    crate::vulkan::hash::{TREES, Tree, unchanged},
     anyhow::bail,
     std::process::Command,
 };
 
 pub fn main() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed={}", ROOT);
+    for tree in TREES {
+        main_(tree)?;
+    }
+    Ok(())
+}
+
+fn main_(tree: &Tree) -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed={}", tree.root);
     if !std::fs::exists("compile-shaders")? {
         return Ok(());
     }
-    if unchanged() {
+    if unchanged(tree) {
         return Ok(());
     }
     let code = Command::new("cargo")
