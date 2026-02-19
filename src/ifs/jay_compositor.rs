@@ -24,6 +24,7 @@ use {
             jay_tree_query::JayTreeQuery,
             jay_workspace_watcher::JayWorkspaceWatcher,
             jay_xwayland::JayXwayland,
+            wl_surface::jay_sync_file_surface::JaySyncFileSurface,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -80,7 +81,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        25
+        26
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -535,6 +536,18 @@ impl JayCompositorRequestHandler for JayCompositor {
             Ok(d) => obj.send_done(&d),
             Err(e) => obj.send_failed(e),
         }
+        Ok(())
+    }
+
+    fn get_sync_file_surface(
+        &self,
+        req: GetSyncFileSurface,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let surface = self.client.lookup(req.surface)?;
+        let obj = Rc::new(JaySyncFileSurface::new(req.id, self.version, &surface));
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
         Ok(())
     }
 }
