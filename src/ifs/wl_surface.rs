@@ -2,6 +2,8 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
+pub mod jay_sync_file_release;
+pub mod jay_sync_file_surface;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
@@ -52,6 +54,7 @@ use {
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
                 dnd_icon::DndIcon,
+                jay_sync_file_release::JaySyncFileRelease,
                 tray::TrayItemId,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
@@ -89,7 +92,7 @@ use {
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
-            drm::sync_obj::{SyncObj, SyncObjPoint},
+            drm::sync_obj::{SyncObj, SyncObjPoint, merge_sync_files},
         },
         wire::{
             WlOutputId, WlSurfaceId, WpColorManagementSurfaceFeedbackV1Id, ZwpIdleInhibitorV1Id,
@@ -222,11 +225,19 @@ pub struct SurfaceBuffer {
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
     release: Option<SurfaceBufferExplicitRelease>,
+    sync_file_release: Option<Rc<JaySyncFileRelease>>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let sync_files = self.sync_files.take();
+        if let Some(release) = &self.sync_file_release {
+            let sync_file = merge_sync_files(sync_files.iter().map(|f| &f.1)).unwrap_or_else(|e| {
+                log::error!("Could not merge sync files: {}", ErrorFmt(e));
+                None
+            });
+            release.done(sync_file.as_ref());
+        }
         if let Some(release) = &self.release {
             let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
                 log::error!("Cannot signal release point because there is no render context");
@@ -483,6 +494,8 @@ struct PendingState {
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    sync_file_acquire: Option<Option<SyncFile>>,
+    sync_file_release: Option<Rc<JaySyncFileRelease>>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
     fifo_barrier_set: bool,
@@ -511,6 +524,10 @@ impl PendingState {
                     prev.send_release();
                 }
             }
+            if let Some(release) = self.sync_file_release.take() {
+                release.done(None);
+            }
+            self.sync_file_release = next.sync_file_release.take();
         }
         for fb in self.presentation_feedback.drain(..) {
             fb.send_discarded();
@@ -547,6 +564,7 @@ impl PendingState {
         opt!(color_description);
         opt!(serial);
         opt!(alpha_mode);
+        opt!(sync_file_acquire);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -1127,6 +1145,9 @@ impl WlSurfaceRequestHandler for WlSurface {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
         self.verify_explicit_sync(pending)?;
+        if pending.sync_file_release.is_some() && !matches!(pending.buffer, Some(Some(_))) {
+            return Err(WlSurfaceError::UnexpectedSyncFileRelease);
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1254,6 +1275,7 @@ impl WlSurface {
                     sync_files: Default::default(),
                     release_sync,
                     release,
+                    sync_file_release: pending.sync_file_release.take(),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -2189,6 +2211,8 @@ pub enum WlSurfaceError {
     PrepareAsyncUpload(#[source] GfxError),
     #[error("Could not register a commit timeout")]
     RegisterCommitTimeout(#[source] IoUringError),
+    #[error("No buffer is attached but sync file release is attached")]
+    UnexpectedSyncFileRelease,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

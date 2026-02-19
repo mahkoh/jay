@@ -1,0 +1,15 @@
+request destroy {
+
+}
+
+request set_acquire_immediate {
+
+}
+
+request set_acquire_async {
+    sync_file: fd,
+}
+
+request get_release {
+    release: id(jay_sync_file_release) (new),
+}

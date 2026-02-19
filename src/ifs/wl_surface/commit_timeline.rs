@@ -203,18 +203,18 @@ impl CommitTimeline {
         let mut collector = CommitDataCollector {
             acquire_points: Default::default(),
             shm_uploads: 0,
-            implicit_dmabufs: Default::default(),
+            acquire_files: Default::default(),
             commit_time: Default::default(),
         };
         collector.collect(pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
-        let implicit_dmabufs = collector.implicit_dmabufs;
+        let acquire_files = collector.acquire_files;
         let commit_time = collector.commit_time;
         let has_commit_time = commit_time > 0;
         let has_dependencies = points.is_not_empty()
             || pending_uploads > 0
-            || implicit_dmabufs.is_not_empty()
+            || acquire_files.is_not_empty()
             || has_commit_time;
         let must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
@@ -242,7 +242,7 @@ impl CommitTimeline {
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
                 shm_upload: RefCell::new(ShmUploadState::None),
-                num_pending_polls: NumCell::new(implicit_dmabufs.len()),
+                num_pending_polls: NumCell::new(acquire_files.len()),
                 pending_polls: Cell::new(Default::default()),
                 fifo_state: Cell::new(commit_fifo_state),
                 commit_times: RefCell::new(CommitTimesState::Ready),
@@ -270,9 +270,9 @@ impl CommitTimeline {
                 *commit.shm_upload.borrow_mut() = ShmUploadState::Todo(noderef.clone());
                 needs_flush = true;
             }
-            if implicit_dmabufs.is_not_empty() {
+            if acquire_files.is_not_empty() {
                 let mut pending_polls = SmallVec::new();
-                for fd in implicit_dmabufs {
+                for fd in acquire_files {
                     let handle = self
                         .shared
                         .ring
@@ -691,7 +691,7 @@ type Point = (Rc<SyncObj>, SyncObjPoint);
 struct CommitDataCollector {
     acquire_points: SmallVec<[Point; 1]>,
     shm_uploads: usize,
-    implicit_dmabufs: SmallVec<[Rc<OwnedFd>; 1]>,
+    acquire_files: SmallVec<[Rc<OwnedFd>; 1]>,
     commit_time: u64,
 }
 
@@ -702,12 +702,19 @@ impl CommitDataCollector {
                 self.shm_uploads += 1;
             }
             if !pending.explicit_sync
+                && pending.sync_file_acquire.is_none()
                 && let Some(dmabuf) = &buffer.client_dmabuf
             {
                 for plane in &dmabuf.planes {
-                    self.implicit_dmabufs.push(plane.fd.clone());
+                    self.acquire_files.push(plane.fd.clone());
+                    if dmabuf.planes.len() > 1 && dmabuf.is_one_file() {
+                        break;
+                    }
                 }
             }
+        }
+        if let Some(Some(sf)) = pending.sync_file_acquire.take() {
+            self.acquire_files.push(sf.0);
         }
         if let Some(point) = pending.acquire_point.take() {
             self.acquire_points.push(point);

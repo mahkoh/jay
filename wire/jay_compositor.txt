@@ -121,6 +121,11 @@ request create_tree_query (since = 18) {
     id: id(jay_tree_query),
 }
 
+request get_sync_file_surface (since = 25) {
+    id: id(jay_sync_file_surface),
+    surface: id(wl_surface),
+}
+
 # events
 
 event client_id {

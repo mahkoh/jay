@@ -190,16 +190,9 @@ impl SyncObjCtx {
     where
         I: IntoIterator<Item = &'a SyncFile>,
     {
-        let mut sync_files = sync_files.into_iter();
-        let Some(first) = sync_files.next() else {
+        let Some(fd) = merge_sync_files(sync_files)? else {
             return self.signal(sync_obj, point);
         };
-        let mut stash;
-        let mut fd = &*first.0;
-        for next in sync_files {
-            stash = sync_ioc_merge(fd.raw(), next.raw()).map_err(DrmError::Merge)?;
-            fd = &stash;
-        }
         let dummy = self.get_dummy()?;
         sync_obj_fd_to_handle(
             self.inner.drm.raw(),
@@ -257,4 +250,25 @@ fn destroy(drm: &OwnedFd, handle: SyncObjHandle) {
     if let Err(e) = sync_obj_destroy(drm.raw(), handle.0) {
         log::error!("Could not destroy sync obj: {}", ErrorFmt(e));
     }
+}
+
+pub fn merge_sync_files<'a, I>(sync_files: I) -> Result<Option<SyncFile>, DrmError>
+where
+    I: IntoIterator<Item = &'a SyncFile>,
+{
+    let mut sync_files = sync_files.into_iter();
+    let Some(first) = sync_files.next() else {
+        return Ok(None);
+    };
+    let Some(second) = sync_files.next() else {
+        return Ok(Some(first.clone()));
+    };
+    let merge = |left: &OwnedFd, right: &OwnedFd| {
+        sync_ioc_merge(left.raw(), right.raw()).map_err(DrmError::Merge)
+    };
+    let mut fd = merge(first, second)?;
+    for next in sync_files {
+        fd = merge(&fd, next)?;
+    }
+    Ok(Some(SyncFile(Rc::new(fd))))
 }
