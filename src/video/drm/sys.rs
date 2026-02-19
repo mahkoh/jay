@@ -917,9 +917,9 @@ struct drm_mode_create_blob {
 
 const DRM_IOCTL_MODE_CREATEPROPBLOB: u64 = drm_iowr::<drm_mode_create_blob>(0xbd);
 
-pub fn mode_create_blob<T>(fd: c::c_int, t: &T) -> Result<DrmBlob, OsError> {
+pub fn mode_create_blob<T: ?Sized>(fd: c::c_int, t: &T) -> Result<DrmBlob, OsError> {
     let mut res = drm_mode_create_blob {
-        data: t as *const T as _,
+        data: t as *const T as *const () as _,
         length: size_of_val(t) as _,
         blob_id: 0,
     };

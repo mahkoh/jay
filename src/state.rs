@@ -420,7 +420,7 @@ pub struct ConnectorData {
     pub damage: RefCell<Vec<Rect>>,
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
-    pub state: Cell<BackendConnectorState>,
+    pub state: RefCell<BackendConnectorState>,
     pub head_managers: HeadManagers,
     pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
 }
@@ -456,26 +456,26 @@ impl ConnectorData {
         state: &State,
         f: impl FnOnce(&mut BackendConnectorState),
     ) -> Result<(), BackendConnectorTransactionError> {
-        let old = self.state.get();
-        let mut s = old;
+        let old = self.state.borrow().clone();
+        let mut s = old.clone();
         f(&mut s);
         if old == s {
             return Ok(());
         }
         s.serial = state.backend_connector_state_serials.next();
         let mut tran = self.connector.create_transaction()?;
-        tran.add(&self.connector, s)?;
+        tran.add(&self.connector, s.clone())?;
         tran.prepare()?.apply()?.commit();
         self.set_state(state, s);
         Ok(())
     }
 
     pub fn set_state(&self, state: &State, s: BackendConnectorState) {
-        let old = self.state.get();
+        let old = self.state.borrow().clone();
         if old.serial >= s.serial {
             return;
         }
-        self.state.set(s);
+        *self.state.borrow_mut() = s.clone();
         if old.enabled != s.enabled {
             self.head_managers.handle_enabled_change(s.enabled);
         }

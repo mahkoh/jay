@@ -72,7 +72,7 @@ impl JayRandr {
     }
 
     fn send_connector(&self, data: &ConnectorData) {
-        let state = data.state.get();
+        let state_enabled = data.state.borrow().enabled;
         self.client.event(Connector {
             self_id: self.id,
             id: data.connector.id().raw() as _,
@@ -81,7 +81,7 @@ impl JayRandr {
                 .as_ref()
                 .map(|d| d.dev.id().raw() as _)
                 .unwrap_or_default(),
-            enabled: state.enabled as _,
+            enabled: state_enabled as _,
             name: &data.name,
         });
         let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {

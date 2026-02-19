@@ -3,10 +3,10 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
-            BackendDrmLessee, BackendEotfs, BackendEvent, BackendLuminance, CONCAP_CONNECTOR,
-            CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY, Connector, ConnectorCaps, ConnectorEvent,
-            ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor, HardwareCursorUpdate,
-            Mode, MonitorInfo,
+            BackendDrmLessee, BackendEotfs, BackendEvent, BackendGammaLut, BackendGammaLutElement,
+            BackendLuminance, CONCAP_CONNECTOR, CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY,
+            Connector, ConnectorCaps, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
             transaction::{
                 BackendConnectorTransaction, BackendConnectorTransactionError,
                 BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
@@ -637,7 +637,7 @@ impl MetalConnector {
             | FrontState::Connected { non_desktop: true } => return,
             FrontState::Connected { non_desktop: false } => {}
         }
-        let mut state = *self.display.borrow().persistent.state.borrow();
+        let mut state = self.display.borrow().persistent.state.borrow().clone();
         state.serial = self.state.backend_connector_state_serials.next();
         self.send_event(ConnectorEvent::State(state));
     }
@@ -905,6 +905,10 @@ impl Connector for MetalConnector {
     ) -> Result<Box<dyn BackendConnectorTransaction>, BackendConnectorTransactionError> {
         self.create_transaction().map(|v| Box::new(v) as _)
     }
+
+    fn gamma_lut_size(&self) -> Option<u32> {
+        self.crtc.get().and_then(|crtc| crtc.gamma_lut_size)
+    }
 }
 
 pub struct MetalCrtc {
@@ -925,6 +929,8 @@ pub struct MetalCrtc {
     pub mode_id: DrmProperty,
     pub vrr_enabled: DrmProperty,
     pub out_fence_ptr: DrmProperty,
+    pub gamma_lut: Option<DrmProperty>,
+    pub gamma_lut_size: Option<u32>,
     pub drm_state: RefCell<DrmCrtcState>,
 
     pub sequence: Cell<u64>,
@@ -1327,6 +1333,7 @@ fn create_connector_display_data(
                     format: XRGB8888,
                     color_space: Default::default(),
                     eotf: Default::default(),
+                    gamma_lut: Default::default(),
                 }),
             });
             dev.backend
@@ -1499,7 +1506,6 @@ fn create_crtc(
             ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default")),
             ("CTM", DefaultValue::Fixed(0)),
             ("DEGAMMA_LUT", DefaultValue::Fixed(0)),
-            ("GAMMA_LUT", DefaultValue::Fixed(0)),
             ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
         ],
     );
@@ -1507,6 +1513,14 @@ fn create_crtc(
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
     let vrr_enabled = props.get("VRR_ENABLED")?.map(|v| v == 1);
     let out_fence_ptr = props.get("OUT_FENCE_PTR")?;
+    let gamma_lut = props
+        .get("GAMMA_LUT")
+        .ok()
+        .map(|v| v.map(|v| DrmBlob(v as u32)));
+    let mut gamma_lut_size = None;
+    if gamma_lut.is_some() {
+        gamma_lut_size = props.get("GAMMA_LUT_SIZE").ok().map(|v| v.value as u32);
+    }
     let mut mode = None;
     if mode_id.value.is_some() {
         match master.getblob::<drm_mode_modeinfo>(mode_id.value) {
@@ -1523,6 +1537,9 @@ fn create_crtc(
         mode_blob: None,
         vrr_enabled: vrr_enabled.value,
         assigned_connector: DrmConnector::NONE,
+        gamma_lut: None,
+        gamma_lut_blob_id: gamma_lut.map_or(DrmBlob::NONE, |v| v.value),
+        gamma_lut_blob: None,
     };
     Ok(MetalCrtc {
         id: crtc,
@@ -1539,6 +1556,8 @@ fn create_crtc(
         mode_id: mode_id.id,
         vrr_enabled: vrr_enabled.id,
         out_fence_ptr: out_fence_ptr.id,
+        gamma_lut: gamma_lut.map(|v| v.id),
+        gamma_lut_size,
         sequence: Cell::new(0),
         have_queued_sequence: Cell::new(false),
         needs_vblank_emulation: Cell::new(false),
@@ -1928,7 +1947,7 @@ impl MetalBackend {
         if dd.supports_bt2020 {
             color_spaces.push(BackendColorSpace::Bt2020);
         }
-        let mut state = *dd.persistent.state.borrow();
+        let mut state = dd.persistent.state.borrow().clone();
         state.serial = self.state.backend_connector_state_serials.next();
         connector.send_event(ConnectorEvent::Connected(MonitorInfo {
             modes,
@@ -2183,6 +2202,25 @@ impl MetalCrtc {
                     }
                     Err(e) => {
                         log::error!("Could not fetch drm_mode_modeinfo: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
+        if let Some(gamma_lut) = self.gamma_lut {
+            let id = DrmBlob(get(props, gamma_lut)? as _);
+            let old = state.gamma_lut_blob_id;
+            state.gamma_lut_blob_id = id;
+            if old != id {
+                state.gamma_lut = None;
+                state.gamma_lut_blob = None;
+                if id.is_some() {
+                    match master.getblob_vec::<BackendGammaLutElement>(id) {
+                        Ok(b) => {
+                            state.gamma_lut = Some(Rc::new(BackendGammaLut::new(b)));
+                        }
+                        Err(e) => {
+                            log::error!("Could not fetch gamma_lut: {}", ErrorFmt(e));
+                        }
                     }
                 }
             }
@@ -2573,7 +2611,7 @@ impl MetalBackend {
             let mut tran = dev.create_transaction();
             for c in dev.connectors.lock().values() {
                 let dd = &*c.display.borrow();
-                let mut state = *dd.persistent.state.borrow();
+                let mut state = dd.persistent.state.borrow().clone();
                 let mut changed_any = false;
                 if disable_non_default_format && state.format != XRGB8888 {
                     state.format = XRGB8888;
