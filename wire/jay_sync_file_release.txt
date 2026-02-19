@@ -1,0 +1,11 @@
+request destroy {
+
+}
+
+event release_immediate {
+
+}
+
+event release_async {
+    sync_file: fd,
+}

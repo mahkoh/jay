@@ -352,7 +352,7 @@ fn destroy(drm: &OwnedFd, handle: SyncobjHandle) {
     }
 }
 
-fn merge_sync_files<'a, I>(sync_files: I) -> Result<Option<SyncFile>, DrmError>
+pub fn merge_sync_files<'a, I>(sync_files: I) -> Result<Option<SyncFile>, DrmError>
 where
     I: IntoIterator<Item = &'a SyncFile>,
 {
