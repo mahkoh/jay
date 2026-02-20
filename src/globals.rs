@@ -1,6 +1,5 @@
 use {
     crate::{
-        backend::Backend,
         client::{Client, ClientCaps},
         ifs::{
             color_management::wp_color_manager_v1::WpColorManagerV1Global,
@@ -24,6 +23,7 @@ use {
             jay_popup_ext_manager_v1::JayPopupExtManagerV1Global,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
+            wl_drm::WlDrmGlobal,
             wl_fixes::WlFixesGlobal,
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
@@ -53,6 +53,7 @@ use {
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
             wp_fifo_manager_v1::WpFifoManagerV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
+            wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
             wp_presentation::WpPresentationGlobal,
             wp_security_context_manager_v1::WpSecurityContextManagerV1Global,
             wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global,
@@ -68,6 +69,7 @@ use {
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
+            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
             zxdg_output_manager_v1::ZxdgOutputManagerV1Global,
         },
@@ -237,17 +239,10 @@ impl Globals {
         add_singleton!(JayPopupExtManagerV1Global);
         add_singleton!(ZwlrGammaControlManagerV1Global);
         add_singleton!(WpColorRepresentationManagerV1Global);
-    }
-
-    pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
-        macro_rules! add_singleton {
-            ($name:ident) => {
-                self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
-            };
-        }
-        if backend.supports_presentation_feedback() {
-            add_singleton!(WpPresentationGlobal);
-        }
+        add_singleton!(WlDrmGlobal);
+        add_singleton!(ZwpLinuxDmabufV1Global);
+        add_singleton!(WpLinuxDrmSyncobjManagerV1Global);
+        add_singleton!(WpPresentationGlobal);
     }
 
     pub fn name(&self) -> GlobalName {

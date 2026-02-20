@@ -8,6 +8,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
         wire::{ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id, zwp_linux_dmabuf_v1::*},
     },
     std::rc::Rc,
@@ -70,6 +71,10 @@ impl Global for ZwpLinuxDmabufV1Global {
 
     fn version(&self) -> u32 {
         5
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        state.render_ctx_ever_initialized.get()
     }
 }
 

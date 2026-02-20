@@ -322,6 +322,7 @@ fn start_compositor2(
         subsurface_ids: Default::default(),
         wait_for_sync_obj: Rc::new(WaitForSyncObj::new(&ring, &engine)),
         explicit_sync_enabled: Cell::new(true),
+        explicit_sync_supported: Default::default(),
         keyboard_state_ids: Default::default(),
         physical_keyboard_ids: Default::default(),
         security_context_acceptors: Default::default(),
@@ -373,6 +374,7 @@ fn start_compositor2(
         udmabuf: Default::default(),
         gfx_ctx_changed: Default::default(),
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine)),
+        supports_presentation_feedback: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -412,7 +414,9 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         }
     };
     state.backend.set(backend.clone());
-    state.globals.add_backend_singletons(&backend);
+    state
+        .supports_presentation_feedback
+        .set(backend.supports_presentation_feedback());
 
     if backend.import_environment() {
         if let Some(acc) = state.acceptor.get() {

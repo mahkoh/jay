@@ -10,6 +10,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
         video::drm::sync_obj::SyncObj,
         wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
     },
@@ -64,6 +65,10 @@ impl Global for WpLinuxDrmSyncobjManagerV1Global {
 
     fn version(&self) -> u32 {
         1
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        state.explicit_sync_enabled.get() && state.explicit_sync_supported.get()
     }
 }
 
