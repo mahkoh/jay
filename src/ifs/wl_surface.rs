@@ -100,6 +100,7 @@ use {
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     jay_config::video::Transform,
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::{Entry, OccupiedEntry},
@@ -222,10 +223,15 @@ pub struct SurfaceBuffer {
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
     release: Option<SurfaceBufferExplicitRelease>,
+    release_cb: SmallVec<[Rc<WlCallback>; 1]>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
+        for cb in self.release_cb.drain(..) {
+            cb.send_done(0);
+            let _ = cb.client.remove_obj(&*cb);
+        }
         let sync_files = self.sync_files.take();
         if let Some(release) = &self.release {
             let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
@@ -490,6 +496,7 @@ struct PendingState {
     tray_item_ack_serial: Option<u32>,
     color_description: Option<Option<Rc<ColorDescription>>>,
     serial: Option<u64>,
+    release_cb: SmallVec<[Rc<WlCallback>; 1]>,
 }
 
 struct AttachedSubsurfaceState {
@@ -509,6 +516,11 @@ impl PendingState {
                     prev.send_release();
                 }
             }
+            for cb in self.release_cb.drain(..) {
+                cb.send_done(0);
+                let _ = client.remove_obj(&*cb);
+            }
+            mem::swap(&mut self.release_cb, &mut next.release_cb);
         }
         for fb in self.presentation_feedback.drain(..) {
             fb.send_discarded();
@@ -1123,6 +1135,9 @@ impl WlSurfaceRequestHandler for WlSurface {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
         self.verify_explicit_sync(pending)?;
+        if pending.release_cb.is_not_empty() && not_matches!(pending.buffer, Some(Some(_))) {
+            return Err(WlSurfaceError::ReleaseCbWithoutAttach);
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1157,6 +1172,13 @@ impl WlSurfaceRequestHandler for WlSurface {
 
     fn offset(&self, req: Offset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending.borrow_mut().offset = (req.x, req.y);
+        Ok(())
+    }
+
+    fn get_release(&self, req: GetRelease, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let cb = Rc::new(WlCallback::new(req.callback, &self.client));
+        self.client.add_client_obj(&cb)?;
+        self.pending.borrow_mut().release_cb.push(cb);
         Ok(())
     }
 }
@@ -1243,6 +1265,7 @@ impl WlSurface {
                     sync_files: Default::default(),
                     release_sync,
                     release,
+                    release_cb: mem::take(&mut pending.release_cb),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -2174,6 +2197,8 @@ pub enum WlSurfaceError {
     PrepareAsyncUpload(#[source] GfxError),
     #[error("Could not register a commit timeout")]
     RegisterCommitTimeout(#[source] IoUringError),
+    #[error("Content update contains release callbacks but no non-null buffer")]
+    ReleaseCbWithoutAttach,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

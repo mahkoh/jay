@@ -64,3 +64,7 @@ event preferred_buffer_scale (since = 6) {
 event preferred_buffer_transform (since = 6) {
     transform: u32,
 }
+
+request get_release (since = 7) {
+    callback: id(wl_callback) (new),
+}
