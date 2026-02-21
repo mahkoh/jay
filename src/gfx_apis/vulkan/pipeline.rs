@@ -1,7 +1,10 @@
 use {
-    crate::gfx_apis::vulkan::{
-        VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
-        shaders::VulkanShader,
+    crate::{
+        gfx_api::AlphaMode,
+        gfx_apis::vulkan::{
+            VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
+            shaders::VulkanShader,
+        },
     },
     arrayvec::ArrayVec,
     ash::{
@@ -37,6 +40,7 @@ pub(super) struct PipelineCreateInfo {
     pub(super) blend: bool,
     pub(super) src_has_alpha: bool,
     pub(super) has_alpha_mult: bool,
+    pub(super) alpha_mode: AlphaMode,
     pub(super) eotf: u32,
     pub(super) inv_eotf: u32,
     pub(super) descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
@@ -76,8 +80,8 @@ impl VulkanDevice {
         };
         let destroy_layout =
             on_drop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
-        let mut frag_spec_data = ArrayVec::<_, { 5 * 4 }>::new();
-        let mut frag_spec_entries = ArrayVec::<_, 5>::new();
+        let mut frag_spec_data = ArrayVec::<_, { 6 * 4 }>::new();
+        let mut frag_spec_entries = ArrayVec::<_, 6>::new();
         let mut frag_spec_entry = |data: &[u8]| {
             let entry = SpecializationMapEntry::default()
                 .constant_id(frag_spec_entries.len() as _)
@@ -91,6 +95,7 @@ impl VulkanDevice {
         frag_spec_entry(&info.eotf.to_ne_bytes());
         frag_spec_entry(&info.inv_eotf.to_ne_bytes());
         frag_spec_entry(&(info.has_color_management_data as u32).to_ne_bytes());
+        frag_spec_entry(&info.alpha_mode.to_vulkan().to_ne_bytes());
         let frag_spec = SpecializationInfo::default()
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);

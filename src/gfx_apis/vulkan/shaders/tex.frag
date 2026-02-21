@@ -8,6 +8,7 @@
 #include "tex.common.glsl"
 #include "tex_set.glsl"
 #include "eotfs.glsl"
+#include "alpha_modes.glsl"
 
 layout(set = 0, binding = 0) uniform sampler sam;
 layout(location = 0) in vec2 tex_pos;
@@ -15,12 +16,15 @@ layout(location = 0) out vec4 out_color;
 
 void main() {
 	vec4 c = textureLod(sampler2D(tex, sam), tex_pos, 0);
-	if (eotf != inv_eotf || has_matrix) {
+	if (eotf != inv_eotf || has_matrix || alpha_mode != AM_PREMULTIPLIED_ELECTRICAL) {
 		vec3 rgb = c.rgb;
-		if (src_has_alpha) {
+		if (src_has_alpha && alpha_mode == AM_PREMULTIPLIED_ELECTRICAL) {
 			rgb /= mix(c.a, 1.0, c.a == 0.0);
 		}
 		rgb = apply_eotf(rgb);
+		if (src_has_alpha && alpha_mode == AM_PREMULTIPLIED_OPTICAL) {
+			rgb /= mix(c.a, 1.0, c.a == 0.0);
+		}
 		if (has_matrix) {
 			rgb = (cm_data.matrix * vec4(rgb, 1.0)).rgb;
 		}
