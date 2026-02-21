@@ -1,6 +1,7 @@
 use {
     crate::{
         cmm::{cmm_eotf::Eotf, cmm_primaries::Primaries},
+        gfx_api::AlphaMode,
         theme::Color,
         utils::ordered_float::F64,
     },
@@ -140,11 +141,14 @@ impl<T, U> Mul<Color> for ColorMatrix<T, U> {
             }
         }
         let [r, g, b] = self * [rgba[0] as f64, rgba[1] as f64, rgba[2] as f64];
-        let mut color = Color::new(Eotf::Linear, r as f32, g as f32, b as f32);
-        if a < 1.0 {
-            color = color * a;
-        }
-        color
+        Color::new(
+            Eotf::Linear,
+            AlphaMode::Straight,
+            r as f32,
+            g as f32,
+            b as f32,
+            a,
+        )
     }
 }
 

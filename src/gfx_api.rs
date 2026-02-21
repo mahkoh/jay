@@ -292,6 +292,14 @@ pub enum ResetStatus {
     Other(u32),
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+pub enum AlphaMode {
+    #[default]
+    PremultipliedElectrical,
+    PremultipliedOptical,
+    Straight,
+}
+
 pub trait GfxBlendBuffer: Any + Debug {}
 
 pub trait GfxFramebuffer: Debug {

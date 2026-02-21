@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::{AcquireSync, GfxApiOpt, ReleaseSync, SampleRect},
+        gfx_api::{AcquireSync, AlphaMode, GfxApiOpt, ReleaseSync, SampleRect},
         icons::{IconState, SizedIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
@@ -493,8 +493,13 @@ impl Renderer<'_> {
                     Some(bounds) => rect.intersect(*bounds),
                 };
                 if !rect.is_empty() {
-                    let color = Color::from_u32_premultiplied(
-                        cd.eotf, color[0], color[1], color[2], color[3],
+                    let color = Color::from_u32(
+                        cd.eotf,
+                        AlphaMode::PremultipliedElectrical,
+                        color[0],
+                        color[1],
+                        color[2],
+                        color[3],
                     );
                     self.base.sync();
                     self.base
