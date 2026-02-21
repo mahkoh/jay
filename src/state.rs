@@ -31,8 +31,9 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, GfxBlendBuffer, GfxContext, GfxError, GfxFramebuffer,
-            GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD, SampleRect, SyncFile,
+            AcquireSync, AlphaMode, BufferResv, GfxBlendBuffer, GfxContext, GfxError,
+            GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
+            SampleRect, SyncFile,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -1272,6 +1273,7 @@ impl State {
             release_sync,
             false,
             src_cd,
+            AlphaMode::PremultipliedElectrical,
         );
         if render_hardware_cursors
             && let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get()

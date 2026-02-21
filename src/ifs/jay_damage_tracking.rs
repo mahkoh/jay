@@ -2,6 +2,7 @@ use {
     crate::{
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
         cmm::cmm_eotf::Eotf,
+        gfx_api::AlphaMode,
         globals::{Global, GlobalName},
         leaks::Tracker,
         object::{Object, Version},
@@ -97,7 +98,14 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         req: SetVisualizerColor,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let color = Color::new(Eotf::Gamma22, req.r, req.g, req.b) * req.a;
+        let color = Color::new(
+            Eotf::Gamma22,
+            AlphaMode::Straight,
+            req.r,
+            req.g,
+            req.b,
+            req.a,
+        );
         self.client.state.damage_visualizer.set_color(color);
         Ok(())
     }

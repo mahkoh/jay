@@ -6,5 +6,6 @@ layout(constant_id = 1) const bool has_alpha_multiplier = false;
 layout(constant_id = 2) const uint eotf = 0;
 layout(constant_id = 3) const uint inv_eotf = 0;
 layout(constant_id = 4) const bool has_matrix = false;
+layout(constant_id = 5) const uint alpha_mode = 0;
 
 #endif

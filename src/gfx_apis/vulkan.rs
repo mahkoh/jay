@@ -1,4 +1,5 @@
 mod allocator;
+mod alpha_modes;
 mod blend_buffer;
 mod bo_allocator;
 mod buffer_cache;
@@ -384,6 +385,10 @@ impl GfxContext for Context {
     }
 
     fn supports_color_management(&self) -> bool {
+        self.0.device.descriptor_buffer.is_some()
+    }
+
+    fn supports_alpha_modes(&self) -> bool {
         self.0.device.descriptor_buffer.is_some()
     }
 

@@ -2,8 +2,8 @@ use {
     crate::{
         cmm::cmm_description::{ColorDescription, LinearColorDescription},
         gfx_api::{
-            AcquireSync, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture,
-            ReleaseSync, SampleRect,
+            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt,
+            GfxTexture, ReleaseSync, SampleRect,
         },
         rect::Rect,
         scale::Scale,
@@ -181,6 +181,7 @@ impl RendererBase<'_> {
         release_sync: ReleaseSync,
         opaque: bool,
         cd: &Rc<ColorDescription>,
+        alpha_mode: AlphaMode,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
         // log::info!("{:?}", backtrace::Backtrace::new());
@@ -228,6 +229,7 @@ impl RendererBase<'_> {
             release_sync,
             opaque,
             cd: cd.clone(),
+            alpha_mode,
         }));
     }
 

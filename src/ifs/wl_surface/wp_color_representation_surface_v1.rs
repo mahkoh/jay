@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        gfx_api::AlphaMode,
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
@@ -22,12 +23,11 @@ pub struct WpColorRepresentationSurfaceV1 {
     pub version: Version,
     pub tracker: Tracker<Self>,
     pub surface: Rc<WlSurface>,
+    pub supports_alpha_modes: bool,
 }
 
 pub const AM_PREMULTIPLIED_ELECTRICAL: u32 = 0;
-#[expect(dead_code)]
 pub const AM_PREMULTIPLIED_OPTICAL: u32 = 1;
-#[expect(dead_code)]
 pub const AM_STRAIGHT: u32 = 2;
 
 impl WpColorRepresentationSurfaceV1 {
@@ -47,16 +47,22 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.color_representation_surface.take();
+        self.surface.pending.borrow_mut().alpha_mode = Some(Default::default());
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn set_alpha_mode(&self, req: SetAlphaMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if req.alpha_mode != AM_PREMULTIPLIED_ELECTRICAL {
-            return Err(WpColorRepresentationSurfaceV1Error::UnsupportedAlphaMode(
-                req.alpha_mode,
-            ));
-        }
+        let sam = self.supports_alpha_modes;
+        let alpha_mode = match req.alpha_mode {
+            AM_PREMULTIPLIED_ELECTRICAL => AlphaMode::PremultipliedElectrical,
+            AM_PREMULTIPLIED_OPTICAL if sam => AlphaMode::PremultipliedOptical,
+            AM_STRAIGHT if sam => AlphaMode::Straight,
+            n => {
+                return Err(WpColorRepresentationSurfaceV1Error::UnsupportedAlphaMode(n));
+            }
+        };
+        self.surface.pending.borrow_mut().alpha_mode = Some(alpha_mode);
         Ok(())
     }
 

@@ -9,8 +9,8 @@ use {
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
-            AcquireSync, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync, SyncFile,
-            create_render_pass,
+            AcquireSync, AlphaMode, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync,
+            SyncFile, create_render_pass,
         },
         ifs::wl_output::BlendSpace,
         rect::Region,
@@ -668,6 +668,10 @@ impl MetalConnector {
                 }
                 return None;
             };
+            if ct.alpha_mode != AlphaMode::PremultipliedElectrical {
+                // Direct scanout requires premultiplied electrical alpha.
+                return None;
+            }
             if !ct.cd.embeds_into(cd) {
                 // Direct scanout requires embeddable color descriptions.
                 return None;

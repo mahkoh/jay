@@ -30,7 +30,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, GfxStagingBuffer,
+            AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, GfxStagingBuffer,
             ReleaseSync, SampleRect, SyncFile,
         },
         ifs::{
@@ -353,6 +353,7 @@ pub struct WlSurface {
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
     color_representation_surface: CloneCell<Option<Rc<WpColorRepresentationSurfaceV1>>>,
+    alpha_mode: Cell<AlphaMode>,
 }
 
 impl Debug for WlSurface {
@@ -490,6 +491,7 @@ struct PendingState {
     tray_item_ack_serial: Option<u32>,
     color_description: Option<Option<Rc<ColorDescription>>>,
     serial: Option<u64>,
+    alpha_mode: Option<AlphaMode>,
 }
 
 struct AttachedSubsurfaceState {
@@ -544,6 +546,7 @@ impl PendingState {
         opt!(tray_item_ack_serial);
         opt!(color_description);
         opt!(serial);
+        opt!(alpha_mode);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -708,6 +711,7 @@ impl WlSurface {
             color_management_feedback: Default::default(),
             color_description: Default::default(),
             color_representation_surface: Default::default(),
+            alpha_mode: Default::default(),
         }
     }
 
@@ -1202,6 +1206,12 @@ impl WlSurface {
             color_description_changed = true;
             self.color_description.set(desc);
         }
+        let mut alpha_mode_changed = false;
+        if let Some(alpha_mode) = pending.alpha_mode.take()
+            && self.alpha_mode.replace(alpha_mode) != alpha_mode
+        {
+            alpha_mode_changed = true;
+        }
         let mut alpha_changed = false;
         if let Some(alpha) = pending.alpha_multiplier.take() {
             alpha_changed = true;
@@ -1213,7 +1223,8 @@ impl WlSurface {
             || buffer_transform_changed
             || viewport_changed
             || alpha_changed
-            || color_description_changed;
+            || color_description_changed
+            || alpha_mode_changed;
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (mut dx, mut dy) = mem::take(&mut pending.offset);
@@ -1723,6 +1734,10 @@ impl WlSurface {
 
     pub fn alpha(&self) -> Option<f32> {
         self.alpha.get()
+    }
+
+    pub fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode.get()
     }
 
     pub fn opaque(&self) -> bool {

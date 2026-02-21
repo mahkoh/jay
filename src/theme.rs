@@ -3,6 +3,7 @@
 use {
     crate::{
         cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
+        gfx_api::AlphaMode,
         utils::clonecell::CloneCell,
     },
     jay_config::theme::BarPosition,
@@ -72,7 +73,27 @@ impl Color {
         a: 1.0,
     };
 
-    pub fn new(eotf: Eotf, mut r: f32, mut g: f32, mut b: f32) -> Self {
+    pub fn new(
+        eotf: Eotf,
+        alpha_mode: AlphaMode,
+        mut r: f32,
+        mut g: f32,
+        mut b: f32,
+        a: f32,
+    ) -> Self {
+        if eotf == Eotf::Linear {
+            if alpha_mode == AlphaMode::Straight && a < 1.0 {
+                for c in [&mut r, &mut g, &mut b] {
+                    *c *= a;
+                }
+            }
+            return Self { r, g, b, a };
+        }
+        if alpha_mode == AlphaMode::PremultipliedElectrical && a < 1.0 && a > 0.0 {
+            for c in [&mut r, &mut g, &mut b] {
+                *c /= a;
+            }
+        }
         #[inline(always)]
         fn linear(c: f32) -> f32 {
             c
@@ -144,23 +165,12 @@ impl Color {
             }
             Eotf::CompoundPower24 => convert!(compound_power_2_4),
         }
-        Self { r, g, b, a: 1.0 }
-    }
-
-    pub fn new_premultiplied(eotf: Eotf, mut r: f32, mut g: f32, mut b: f32, a: f32) -> Self {
-        if eotf == Eotf::Linear {
-            return Self { r, g, b, a };
-        }
-        if a < 1.0 && a > 0.0 {
+        if alpha_mode != AlphaMode::PremultipliedOptical && a < 1.0 {
             for c in [&mut r, &mut g, &mut b] {
-                *c /= a;
+                *c *= a;
             }
         }
-        let mut c = Self::new(eotf, r, g, b);
-        if a < 1.0 {
-            c = c * a;
-        }
-        c
+        Self { r, g, b, a }
     }
 
     pub fn is_opaque(&self) -> bool {
@@ -172,26 +182,43 @@ impl Color {
     }
 
     pub fn from_srgb(r: u8, g: u8, b: u8) -> Self {
-        Self::new(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b))
+        Self::new(
+            Eotf::Gamma22,
+            AlphaMode::PremultipliedOptical,
+            to_f32(r),
+            to_f32(g),
+            to_f32(b),
+            1.0,
+        )
     }
 
     pub fn from_srgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new_premultiplied(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b), to_f32(a))
+        Self::new(
+            Eotf::Gamma22,
+            AlphaMode::PremultipliedElectrical,
+            to_f32(r),
+            to_f32(g),
+            to_f32(b),
+            to_f32(a),
+        )
     }
 
-    pub fn from_u32_premultiplied(eotf: Eotf, r: u32, g: u32, b: u32, a: u32) -> Self {
+    pub fn from_u32(eotf: Eotf, alpha_mode: AlphaMode, r: u32, g: u32, b: u32, a: u32) -> Self {
         fn to_f32(c: u32) -> f32 {
             ((c as f64) / (u32::MAX as f64)) as f32
         }
-        Self::new_premultiplied(eotf, to_f32(r), to_f32(g), to_f32(b), to_f32(a))
+        Self::new(eotf, alpha_mode, to_f32(r), to_f32(g), to_f32(b), to_f32(a))
     }
 
     pub fn from_srgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
-        let mut c = Self::new(Eotf::Gamma22, to_f32(r), to_f32(g), to_f32(b));
-        if a < 255 {
-            c = c * to_f32(a);
-        }
-        c
+        Self::new(
+            Eotf::Gamma22,
+            AlphaMode::Straight,
+            to_f32(r),
+            to_f32(g),
+            to_f32(b),
+            to_f32(a),
+        )
     }
 
     pub fn to_srgba_premultiplied(self) -> [u8; 4] {
@@ -314,7 +341,14 @@ impl Color {
 impl From<jay_config::theme::Color> for Color {
     fn from(f: jay_config::theme::Color) -> Self {
         let [r, g, b, a] = f.to_f32_premultiplied();
-        Self::new_premultiplied(Eotf::Gamma22, r, g, b, a)
+        Self::new(
+            Eotf::Gamma22,
+            AlphaMode::PremultipliedElectrical,
+            r,
+            g,
+            b,
+            a,
+        )
     }
 }
 

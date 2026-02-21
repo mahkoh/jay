@@ -3,7 +3,7 @@ use {
         async_engine::AsyncEngine,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{AcquireSync, GfxContext, GfxError, GfxTexture, ReleaseSync},
+        gfx_api::{AcquireSync, AlphaMode, GfxContext, GfxError, GfxTexture, ReleaseSync},
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
@@ -398,6 +398,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             ReleaseSync::None,
             false,
             renderer.state.color_manager.srgb_gamma22(),
+            AlphaMode::PremultipliedElectrical,
         );
     }
 }
@@ -423,6 +424,7 @@ impl Cursor for StaticCursor {
                 ReleaseSync::None,
                 false,
                 renderer.state.color_manager.srgb_gamma22(),
+                AlphaMode::PremultipliedElectrical,
             );
         }
     }
@@ -466,6 +468,7 @@ impl Cursor for AnimatedCursor {
                 ReleaseSync::None,
                 false,
                 renderer.state.color_manager.srgb_gamma22(),
+                AlphaMode::PremultipliedElectrical,
             );
         }
     }

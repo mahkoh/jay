@@ -8,8 +8,8 @@ use {
         },
         cpu_worker::PendingJob,
         gfx_api::{
-            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer, GfxFormat,
-            GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
+            AcquireSync, AlphaMode, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer,
+            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             VulkanError,
@@ -209,6 +209,7 @@ struct VulkanTexOp {
     alpha: f32,
     source_type: TexSourceType,
     copy_type: TexCopyType,
+    alpha_mode: AlphaMode,
     range_address: DeviceAddress,
     instances: u32,
     tex_cd: Rc<ColorDescription>,
@@ -258,6 +259,7 @@ type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
 struct TexPipelineKey {
     tex_copy_type: TexCopyType,
     tex_source_type: TexSourceType,
+    tex_alpha_mode: AlphaMode,
     eotf: VulkanEotf,
     has_color_management_data: bool,
 }
@@ -431,6 +433,7 @@ impl VulkanRenderer {
                 blend: src_has_alpha,
                 src_has_alpha,
                 has_alpha_mult: false,
+                alpha_mode: AlphaMode::PremultipliedOptical,
                 // all transformations are applied in the compositor
                 eotf: EOTF_LINEAR,
                 inv_eotf: EOTF_LINEAR,
@@ -474,11 +477,16 @@ impl VulkanRenderer {
         tex_cd: &ColorDescription,
         tex_copy_type: TexCopyType,
         tex_source_type: TexSourceType,
+        mut tex_alpha_mode: AlphaMode,
         has_color_management_data: bool,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
+        if tex_source_type == TexSourceType::Opaque {
+            tex_alpha_mode = AlphaMode::PremultipliedElectrical;
+        }
         let key = TexPipelineKey {
             tex_copy_type,
             tex_source_type,
+            tex_alpha_mode,
             eotf: tex_cd.eotf.to_vulkan(),
             has_color_management_data,
         };
@@ -505,6 +513,7 @@ impl VulkanRenderer {
             blend: src_has_alpha || has_alpha_mult,
             src_has_alpha,
             has_alpha_mult,
+            alpha_mode: key.tex_alpha_mode,
             eotf: key.eotf.to_vulkan(),
             inv_eotf: pipelines.eotf.to_vulkan(),
             descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
@@ -543,6 +552,7 @@ impl VulkanRenderer {
                 blend: false,
                 src_has_alpha: true,
                 has_alpha_mult: false,
+                alpha_mode: AlphaMode::PremultipliedElectrical,
                 eotf: key.eotf.to_vulkan(),
                 inv_eotf: fb_eotf.to_vulkan(),
                 descriptor_set_layouts,
@@ -886,6 +896,7 @@ impl VulkanRenderer {
                             alpha: ct.alpha.unwrap_or_default(),
                             source_type,
                             copy_type,
+                            alpha_mode: ct.alpha_mode,
                             range_address: 0,
                             instances: 0,
                             tex_cd: ct.cd.clone(),
@@ -1333,6 +1344,7 @@ impl VulkanRenderer {
                         &c.tex_cd,
                         c.copy_type,
                         c.source_type,
+                        c.alpha_mode,
                         c.color_management_data_address.is_some(),
                     )?;
                     bind(&pipeline);

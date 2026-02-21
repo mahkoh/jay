@@ -3,8 +3,8 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_color_representation_surface_v1::{
-            AM_PREMULTIPLIED_ELECTRICAL, WpColorRepresentationSurfaceV1,
-            WpColorRepresentationSurfaceV1Error,
+            AM_PREMULTIPLIED_ELECTRICAL, AM_PREMULTIPLIED_OPTICAL, AM_STRAIGHT,
+            WpColorRepresentationSurfaceV1, WpColorRepresentationSurfaceV1Error,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -35,11 +35,18 @@ impl WpColorRepresentationManagerV1Global {
         client: &Rc<Client>,
         version: Version,
     ) -> Result<(), WpColorRepresentationManagerV1Error> {
+        let mut supports_alpha_modes = false;
+        if let Some(ctx) = client.state.render_ctx.get()
+            && ctx.supports_alpha_modes()
+        {
+            supports_alpha_modes = true;
+        }
         let obj = Rc::new(WpColorRepresentationManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
             version,
+            supports_alpha_modes,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -53,11 +60,16 @@ pub struct WpColorRepresentationManagerV1 {
     pub client: Rc<Client>,
     pub version: Version,
     pub tracker: Tracker<Self>,
+    pub supports_alpha_modes: bool,
 }
 
 impl WpColorRepresentationManagerV1 {
     fn send_capabilities(&self) {
         self.send_supported_alpha_mode(AM_PREMULTIPLIED_ELECTRICAL);
+        if self.supports_alpha_modes {
+            self.send_supported_alpha_mode(AM_PREMULTIPLIED_OPTICAL);
+            self.send_supported_alpha_mode(AM_STRAIGHT);
+        }
         self.send_done();
     }
 
@@ -89,6 +101,7 @@ impl WpColorRepresentationManagerV1RequestHandler for WpColorRepresentationManag
             version: self.version,
             tracker: Default::default(),
             surface: surface.clone(),
+            supports_alpha_modes: self.supports_alpha_modes,
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
