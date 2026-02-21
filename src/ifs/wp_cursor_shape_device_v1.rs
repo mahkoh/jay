@@ -72,7 +72,33 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
     }
 
     fn set_shape(&self, req: SetShape, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let cursor = match req.shape {
+        let cursor = KnownCursor::from_shape(req.shape, self.version)
+            .ok_or(WpCursorShapeDeviceV1Error::UnknownShape(req.shape))?;
+        let tablet_tool;
+        let (node_client_id, user) = match &self.cursor_user {
+            CursorShapeCursorUser::Seat(s) => match s.pointer_node() {
+                Some(n) => (n.node_client_id(), s.pointer_cursor()),
+                _ => return Ok(()),
+            },
+            CursorShapeCursorUser::TabletTool(t) => match t.get() {
+                Some(t) => {
+                    tablet_tool = t;
+                    (tablet_tool.node().node_client_id(), tablet_tool.cursor())
+                }
+                _ => return Ok(()),
+            },
+        };
+        if node_client_id != Some(self.client.id) {
+            return Ok(());
+        }
+        user.set_known(cursor);
+        Ok(())
+    }
+}
+
+impl KnownCursor {
+    pub fn from_shape(shape: u32, version: Version) -> Option<Self> {
+        let cursor = match shape {
             DEFAULT => KnownCursor::Default,
             CONTEXT_MENU => KnownCursor::ContextMenu,
             HELP => KnownCursor::Help,
@@ -107,29 +133,52 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
             ALL_SCROLL => KnownCursor::AllScroll,
             ZOOM_IN => KnownCursor::ZoomIn,
             ZOOM_OUT => KnownCursor::ZoomOut,
-            DND_ASK if self.version >= V2 => KnownCursor::DndAsk,
-            ALL_RESIZE if self.version >= V2 => KnownCursor::AllResize,
-            _ => return Err(WpCursorShapeDeviceV1Error::UnknownShape(req.shape)),
+            DND_ASK if version >= V2 => KnownCursor::DndAsk,
+            ALL_RESIZE if version >= V2 => KnownCursor::AllResize,
+            _ => return None,
         };
-        let tablet_tool;
-        let (node_client_id, user) = match &self.cursor_user {
-            CursorShapeCursorUser::Seat(s) => match s.pointer_node() {
-                Some(n) => (n.node_client_id(), s.pointer_cursor()),
-                _ => return Ok(()),
-            },
-            CursorShapeCursorUser::TabletTool(t) => match t.get() {
-                Some(t) => {
-                    tablet_tool = t;
-                    (tablet_tool.node().node_client_id(), tablet_tool.cursor())
-                }
-                _ => return Ok(()),
-            },
-        };
-        if node_client_id != Some(self.client.id) {
-            return Ok(());
+        Some(cursor)
+    }
+
+    pub fn to_shape(self) -> u32 {
+        match self {
+            KnownCursor::Default => DEFAULT,
+            KnownCursor::ContextMenu => CONTEXT_MENU,
+            KnownCursor::Help => HELP,
+            KnownCursor::Pointer => POINTER,
+            KnownCursor::Progress => PROGRESS,
+            KnownCursor::Wait => WAIT,
+            KnownCursor::Cell => CELL,
+            KnownCursor::Crosshair => CROSSHAIR,
+            KnownCursor::Text => TEXT,
+            KnownCursor::VerticalText => VERTICAL_TEXT,
+            KnownCursor::Alias => ALIAS,
+            KnownCursor::Copy => COPY,
+            KnownCursor::Move => MOVE,
+            KnownCursor::NoDrop => NO_DROP,
+            KnownCursor::NotAllowed => NOT_ALLOWED,
+            KnownCursor::Grab => GRAB,
+            KnownCursor::Grabbing => GRABBING,
+            KnownCursor::EResize => E_RESIZE,
+            KnownCursor::NResize => N_RESIZE,
+            KnownCursor::NeResize => NE_RESIZE,
+            KnownCursor::NwResize => NW_RESIZE,
+            KnownCursor::SResize => S_RESIZE,
+            KnownCursor::SeResize => SE_RESIZE,
+            KnownCursor::SwResize => SW_RESIZE,
+            KnownCursor::WResize => W_RESIZE,
+            KnownCursor::EwResize => EW_RESIZE,
+            KnownCursor::NsResize => NS_RESIZE,
+            KnownCursor::NeswResize => NESW_RESIZE,
+            KnownCursor::NwseResize => NWSE_RESIZE,
+            KnownCursor::ColResize => COL_RESIZE,
+            KnownCursor::RowResize => ROW_RESIZE,
+            KnownCursor::AllScroll => ALL_SCROLL,
+            KnownCursor::ZoomIn => ZOOM_IN,
+            KnownCursor::ZoomOut => ZOOM_OUT,
+            KnownCursor::DndAsk => DND_ASK,
+            KnownCursor::AllResize => ALL_RESIZE,
         }
-        user.set_known(cursor);
-        Ok(())
     }
 }
 
