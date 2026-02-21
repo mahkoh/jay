@@ -7,7 +7,6 @@ use {
     std::{convert::Infallible, rc::Rc},
 };
 
-#[expect(dead_code)]
 pub struct UsrZwpPrimarySelectionDeviceManagerV1 {
     pub id: ZwpPrimarySelectionDeviceManagerV1Id,
     pub con: Rc<UsrCon>,

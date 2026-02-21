@@ -25,6 +25,7 @@ use {
         },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
+        egui_adapter::egui_platform::{EggError, EggState},
         ei::ei_client::EiClients,
         eventfd_cache::EventfdCache,
         forker,
@@ -169,6 +170,8 @@ pub enum CompositorError {
     IoUringError(#[from] IoUringError),
     #[error("Could not create cpu worker")]
     CpuWorkerError(#[from] CpuWorkerError),
+    #[error("Could not create egui state")]
+    EggError(#[from] EggError),
 }
 
 pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
@@ -377,6 +380,7 @@ fn start_compositor2(
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
+        egg_state: EggState::new()?,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

@@ -21,7 +21,6 @@ pub trait UsrWlDataSourceOwner {
 }
 
 impl UsrWlDataSource {
-    #[expect(dead_code)]
     pub fn offer(&self, mime_type: &str) {
         self.con.request(Offer {
             self_id: self.id,

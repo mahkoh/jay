@@ -17,7 +17,6 @@ pub struct UsrWlDataOffer {
 }
 
 impl UsrWlDataOffer {
-    #[expect(dead_code)]
     pub fn receive(&self, mime_type: &str, fd: &Rc<OwnedFd>) {
         self.con.request(Receive {
             self_id: self.id,

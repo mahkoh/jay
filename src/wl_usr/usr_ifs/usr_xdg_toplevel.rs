@@ -16,7 +16,6 @@ pub struct UsrXdgToplevel {
 }
 
 impl UsrXdgToplevel {
-    #[expect(dead_code)]
     pub fn set_title(&self, title: &str) {
         self.con.request(SetTitle {
             self_id: self.id,
@@ -24,7 +23,6 @@ impl UsrXdgToplevel {
         });
     }
 
-    #[expect(dead_code)]
     pub fn set_fullscreen(&self, fullscreen: bool) {
         match fullscreen {
             true => {

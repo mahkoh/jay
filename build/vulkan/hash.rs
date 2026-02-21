@@ -8,23 +8,31 @@ pub struct Tree {
     pub shaders: &'static [&'static str],
 }
 
-pub const TREES: &[Tree] = &[Tree {
-    root: "src/gfx_apis/vulkan/shaders",
-    hash: "src/gfx_apis/vulkan/shaders_hash.txt",
-    bin: "src/gfx_apis/vulkan/shaders_bin",
-    shaders: &[
-        "fill.frag",
-        "fill.vert",
-        "tex.vert",
-        "tex.frag",
-        "out.vert",
-        "out.frag",
-        "legacy/fill.frag",
-        "legacy/fill.vert",
-        "legacy/tex.vert",
-        "legacy/tex.frag",
-    ],
-}];
+pub const TREES: &[Tree] = &[
+    Tree {
+        root: "src/gfx_apis/vulkan/shaders",
+        hash: "src/gfx_apis/vulkan/shaders_hash.txt",
+        bin: "src/gfx_apis/vulkan/shaders_bin",
+        shaders: &[
+            "fill.frag",
+            "fill.vert",
+            "tex.vert",
+            "tex.frag",
+            "out.vert",
+            "out.frag",
+            "legacy/fill.frag",
+            "legacy/fill.vert",
+            "legacy/tex.vert",
+            "legacy/tex.frag",
+        ],
+    },
+    Tree {
+        root: "src/egui_adapter/shaders",
+        hash: "src/egui_adapter/shaders_hash.txt",
+        bin: "src/egui_adapter/shaders_bin",
+        shaders: &["shader.vert", "shader.frag"],
+    },
+];
 
 fn calculate_hash(tree: &Tree) -> anyhow::Result<String> {
     let dir = WalkDir::new(tree.root);

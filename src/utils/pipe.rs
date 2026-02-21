@@ -14,7 +14,6 @@ pub fn pipe() -> Result<Pipe<OwnedFd, OwnedFd>, OsError> {
 }
 
 impl<L, R> Pipe<L, R> {
-    #[expect(dead_code)]
     pub fn map_read<Lprime>(self, map: impl FnOnce(L) -> Lprime) -> Pipe<Lprime, R> {
         Pipe {
             read: map(self.read),
@@ -22,7 +21,6 @@ impl<L, R> Pipe<L, R> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn map_write<Rprime>(self, map: impl FnOnce(R) -> Rprime) -> Pipe<L, Rprime> {
         Pipe {
             read: self.read,
