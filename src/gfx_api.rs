@@ -219,6 +219,7 @@ pub struct CopyTexture {
     pub alpha: Option<f32>,
     pub opaque: bool,
     pub cd: Rc<ColorDescription>,
+    pub alpha_mode: AlphaMode,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -443,6 +444,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             false,
             texture_cd,
+            AlphaMode::PremultipliedElectrical,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(
@@ -822,6 +824,10 @@ pub trait GfxContext: Debug {
     ) -> Result<Rc<dyn GfxBlendBuffer>, GfxError>;
 
     fn supports_color_management(&self) -> bool {
+        false
+    }
+
+    fn supports_alpha_modes(&self) -> bool {
         false
     }
 

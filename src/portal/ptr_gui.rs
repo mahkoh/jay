@@ -7,7 +7,8 @@ use {
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{
-            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, needs_render_usage,
+            AcquireSync, AlphaMode, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
+            needs_render_usage,
         },
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::{
@@ -230,6 +231,7 @@ impl GuiElement for Button {
                 ReleaseSync::None,
                 false,
                 srgb_srgb,
+                AlphaMode::PremultipliedElectrical,
             );
         }
     }
@@ -332,6 +334,7 @@ impl GuiElement for Label {
                 ReleaseSync::None,
                 false,
                 color_manager.srgb_gamma22(),
+                AlphaMode::PremultipliedElectrical,
             );
         }
     }

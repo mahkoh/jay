@@ -145,6 +145,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         self.state.color_manager.srgb_gamma22(),
+                        AlphaMode::PremultipliedElectrical,
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -167,6 +168,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         srgb_srgb,
+                        AlphaMode::PremultipliedElectrical,
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -253,6 +255,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
                 false,
                 self.state.color_manager.srgb_gamma22(),
+                AlphaMode::PremultipliedElectrical,
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -304,6 +307,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         srgb_srgb,
+                        AlphaMode::PremultipliedElectrical,
                     );
                 }
             }
@@ -466,6 +470,7 @@ impl Renderer<'_> {
     ) {
         let alpha = surface.alpha();
         let cd = surface.color_description();
+        let alpha_mode = surface.alpha_mode();
         if let Some(tex) = buffer.buffer.get_texture(surface) {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
@@ -485,6 +490,7 @@ impl Renderer<'_> {
                 buffer.release_sync,
                 opaque,
                 &cd,
+                alpha_mode,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -494,12 +500,7 @@ impl Renderer<'_> {
                 };
                 if !rect.is_empty() {
                     let color = Color::from_u32(
-                        cd.eotf,
-                        AlphaMode::PremultipliedElectrical,
-                        color[0],
-                        color[1],
-                        color[2],
-                        color[3],
+                        cd.eotf, alpha_mode, color[0], color[1], color[2], color[3],
                     );
                     self.base.sync();
                     self.base
@@ -586,6 +587,7 @@ impl Renderer<'_> {
                     ReleaseSync::None,
                     false,
                     srgb_srgb,
+                    AlphaMode::PremultipliedElectrical,
                 );
             }
             x1 += th;
@@ -608,6 +610,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
                 false,
                 srgb_srgb,
+                AlphaMode::PremultipliedElectrical,
             );
         }
         let body = Rect::new_sized_saturating(
