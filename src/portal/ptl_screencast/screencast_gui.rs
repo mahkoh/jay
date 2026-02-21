@@ -1,5 +1,6 @@
 use {
     crate::{
+        globals::GlobalName,
         ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
@@ -29,7 +30,7 @@ const V_MARGIN: f32 = 20.0;
 pub struct SelectionGui {
     screencast_session: Rc<PortalSession>,
     dpy: Rc<PortalDisplay>,
-    surfaces: CopyHashMap<u32, Rc<SelectionGuiSurface>>,
+    surfaces: CopyHashMap<GlobalName, Rc<SelectionGuiSurface>>,
 }
 
 pub struct SelectionGuiSurface {
@@ -254,7 +255,7 @@ impl UsrJaySelectToplevelOwner for SelectingWindowScreencast {
 }
 
 impl UsrJaySelectWorkspaceOwner for SelectingWorkspaceScreencast {
-    fn done(&self, output: u32, ws: Option<Rc<UsrJayWorkspace>>) {
+    fn done(&self, output: GlobalName, ws: Option<Rc<UsrJayWorkspace>>) {
         let Some(ws) = ws else {
             log::info!("User has aborted the selection");
             self.core.session.kill();

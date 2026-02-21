@@ -56,7 +56,7 @@ pub trait Object: ObjectBase + 'static {
 pub struct Interface(pub &'static str);
 
 impl Interface {
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         self.0
     }
 }

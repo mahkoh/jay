@@ -1,5 +1,6 @@
 use {
     crate::{
+        globals::GlobalName,
         ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
@@ -21,7 +22,7 @@ const V_MARGIN: f32 = 20.0;
 pub struct SelectionGui {
     remote_desktop_session: Rc<PortalSession>,
     dpy: Rc<PortalDisplay>,
-    surfaces: CopyHashMap<u32, Rc<SelectionGuiSurface>>,
+    surfaces: CopyHashMap<GlobalName, Rc<SelectionGuiSurface>>,
 }
 
 pub struct SelectionGuiSurface {

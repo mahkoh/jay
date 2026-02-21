@@ -41,6 +41,16 @@ pub struct AcceptorMetadata {
     pub instance_id: Option<String>,
 }
 
+impl AcceptorMetadata {
+    #[expect(dead_code)]
+    pub fn secure() -> Self {
+        Self {
+            secure: true,
+            ..Default::default()
+        }
+    }
+}
+
 impl SecurityContextAcceptors {
     pub fn clear(&self) {
         for acceptor in self.acceptors.lock().drain_values() {

@@ -229,7 +229,7 @@ pub struct State {
     pub activation_tokens: CopyHashMap<ActivationToken, ()>,
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
-    pub dma_buf_ids: DmaBufIds,
+    pub dma_buf_ids: Rc<DmaBufIds>,
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
     pub persistent_output_states: CopyHashMap<Rc<OutputId>, Rc<PersistentOutputState>>,
@@ -626,7 +626,7 @@ impl State {
         }
     }
 
-    pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
+    pub fn set_render_ctx(self: &Rc<Self>, ctx: Option<Rc<dyn GfxContext>>) {
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);

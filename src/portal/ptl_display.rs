@@ -2,6 +2,7 @@ use {
     crate::{
         gfx_api::{GfxFormat, cross_intersect_formats},
         gfx_apis::create_gfx_context,
+        globals::GlobalName,
         ifs::wl_seat::POINTER,
         object::Version,
         portal::{
@@ -61,7 +62,7 @@ struct PortalDisplayPrelude {
     con: Rc<UsrCon>,
     state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
-    globals: RefCell<AHashMap<String, Vec<(u32, u32)>>>,
+    globals: RefCell<AHashMap<String, Vec<(GlobalName, u32)>>>,
 }
 
 shared_ids!(PortalDisplayId);
@@ -81,8 +82,8 @@ pub struct PortalDisplay {
     pub vp: Rc<UsrWpViewporter>,
     pub render_ctx: CloneCell<Option<Rc<PortalServerRenderCtx>>>,
 
-    pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
-    pub seats: CopyHashMap<u32, Rc<PortalSeat>>,
+    pub outputs: CopyHashMap<GlobalName, Rc<PortalOutput>>,
+    pub seats: CopyHashMap<GlobalName, Rc<PortalSeat>>,
     pub workspaces: CopyHashMap<u32, Rc<UsrJayWorkspace>>,
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
@@ -90,14 +91,14 @@ pub struct PortalDisplay {
 }
 
 pub struct PortalOutput {
-    pub global_id: u32,
+    pub global_id: GlobalName,
     pub dpy: Rc<PortalDisplay>,
     pub wl: Rc<UsrWlOutput>,
     pub jay: Rc<UsrJayOutput>,
 }
 
 pub struct PortalSeat {
-    pub global_id: u32,
+    pub global_id: GlobalName,
     pub dpy: Rc<PortalDisplay>,
     pub wl: Rc<UsrWlSeat>,
     pub jay_pointer: Rc<UsrJayPointer>,
@@ -129,32 +130,32 @@ impl UsrWlSeatOwner for PortalSeat {
 }
 
 impl UsrWlPointerOwner for PortalSeat {
-    fn enter(&self, ev: &wl_pointer::Enter) {
+    fn enter(self: Rc<Self>, ev: &wl_pointer::Enter) {
         if let Some(window) = self.dpy.windows.get(&ev.surface) {
             self.pointer_focus.set(Some(window.clone()));
-            window.motion(self, ev.surface_x, ev.surface_y, true);
+            window.motion(&self, ev.surface_x, ev.surface_y, true);
         }
     }
 
-    fn leave(&self, _ev: &wl_pointer::Leave) {
+    fn leave(self: Rc<Self>, _ev: &wl_pointer::Leave) {
         self.pointer_focus.take();
     }
 
-    fn motion(&self, ev: &wl_pointer::Motion) {
+    fn motion(self: Rc<Self>, ev: &wl_pointer::Motion) {
         if let Some(window) = self.pointer_focus.get() {
-            window.motion(self, ev.surface_x, ev.surface_y, false);
+            window.motion(&self, ev.surface_x, ev.surface_y, false);
         }
     }
 
-    fn button(&self, ev: &wl_pointer::Button) {
+    fn button(self: Rc<Self>, ev: &wl_pointer::Button) {
         if let Some(window) = self.pointer_focus.get() {
-            window.button(self, ev.button, ev.state);
+            window.button(&self, ev.button, ev.state);
         }
     }
 }
 
 impl UsrWlRegistryOwner for PortalDisplayPrelude {
-    fn global(self: Rc<Self>, name: u32, interface: &str, version: u32) {
+    fn global(self: Rc<Self>, name: GlobalName, interface: &str, version: u32) {
         self.globals
             .borrow_mut()
             .entry(interface.to_string())
@@ -237,7 +238,7 @@ impl UsrConOwner for PortalDisplay {
 }
 
 impl UsrWlRegistryOwner for PortalDisplay {
-    fn global(self: Rc<Self>, name: u32, interface: &str, version: u32) {
+    fn global(self: Rc<Self>, name: GlobalName, interface: &str, version: u32) {
         if interface == WlOutput.name() {
             add_output(&self, name, version);
         } else if interface == WlSeat.name() {
@@ -250,7 +251,7 @@ impl UsrWlRegistryOwner for PortalDisplay {
                 version: Version(version.min(5)),
             });
             self.con.add_object(ls.clone());
-            self.registry.request_bind(name, ls.version.0, ls.deref());
+            self.registry.bind(name, ls.deref());
             self.dmabuf.set(Some(ls));
         }
     }
@@ -353,7 +354,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(12)),
                 });
                 dpy.con.add_object(jc.clone());
-                dpy.registry.request_bind(name, jc.version.0, jc.deref());
+                dpy.registry.bind(name, jc.deref());
                 jc_opt = Some(jc);
             } else if interface == WpFractionalScaleManagerV1.name() {
                 let ls = Rc::new(UsrWpFractionalScaleManager {
@@ -362,7 +363,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, ls.version.0, ls.deref());
+                dpy.registry.bind(name, ls.deref());
                 fsm_opt = Some(ls);
             } else if interface == ZwlrLayerShellV1.name() {
                 let ls = Rc::new(UsrWlrLayerShell {
@@ -371,7 +372,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, ls.version.0, ls.deref());
+                dpy.registry.bind(name, ls.deref());
                 ls_opt = Some(ls);
             } else if interface == WpViewporter.name() {
                 let ls = Rc::new(UsrWpViewporter {
@@ -380,7 +381,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, ls.version.0, ls.deref());
+                dpy.registry.bind(name, ls.deref());
                 vp_opt = Some(ls);
             } else if interface == WlCompositor.name() {
                 let ls = Rc::new(UsrWlCompositor {
@@ -389,7 +390,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(6)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, ls.version.0, ls.deref());
+                dpy.registry.bind(name, ls.deref());
                 comp_opt = Some(ls);
             } else if interface == ZwpLinuxDmabufV1.name() {
                 let ls = Rc::new(UsrLinuxDmabuf {
@@ -399,7 +400,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
-                dpy.registry.request_bind(name, ls.version.0, ls.deref());
+                dpy.registry.bind(name, ls.deref());
                 dmabuf_opt = Some(ls);
             } else if interface == WlOutput.name() {
                 outputs.push((name, version));
@@ -465,7 +466,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     log::info!("Display {} initialized", dpy.id);
 }
 
-fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
+fn add_seat(dpy: &Rc<PortalDisplay>, name: GlobalName, version: u32) {
     let wl = Rc::new(UsrWlSeat {
         id: dpy.con.id(),
         con: dpy.con.clone(),
@@ -473,7 +474,7 @@ fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         version: Version(version.min(9)),
     });
     dpy.con.add_object(wl.clone());
-    dpy.registry.request_bind(name, wl.version.0, wl.deref());
+    dpy.registry.bind(name, wl.deref());
     let jay_pointer = dpy.jc.get_pointer(&wl);
     let js = Rc::new(PortalSeat {
         global_id: name,
@@ -489,7 +490,7 @@ fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
     dpy.seats.set(name, js);
 }
 
-fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
+fn add_output(dpy: &Rc<PortalDisplay>, name: GlobalName, version: u32) {
     let wl = Rc::new(UsrWlOutput {
         id: dpy.con.id(),
         con: dpy.con.clone(),
@@ -498,7 +499,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         name: Default::default(),
     });
     dpy.con.add_object(wl.clone());
-    dpy.registry.request_bind(name, wl.version.0, wl.deref());
+    dpy.registry.bind(name, wl.deref());
     let jo = dpy.jc.get_output(&wl);
     let po = Rc::new(PortalOutput {
         global_id: name,

@@ -10,6 +10,7 @@ use {
             AcquireSync, AlphaMode, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
             needs_render_usage,
         },
+        globals::GlobalName,
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
@@ -29,6 +30,7 @@ use {
         wl_usr::usr_ifs::{
             usr_linux_buffer_params::{UsrLinuxBufferParams, UsrLinuxBufferParamsOwner},
             usr_wl_buffer::{UsrWlBuffer, UsrWlBufferOwner},
+            usr_wl_callback::UsrWlCallbackOwner,
             usr_wl_surface::UsrWlSurface,
             usr_wlr_layer_surface::{UsrWlrLayerSurface, UsrWlrLayerSurfaceOwner},
             usr_wp_fractional_scale::{UsrWpFractionalScale, UsrWpFractionalScaleOwner},
@@ -116,7 +118,7 @@ pub struct Button {
     pub data: GuiElementData,
     pub tex_off_x: Cell<f32>,
     pub tex_off_y: Cell<f32>,
-    pub hover: RefCell<AHashSet<u32>>,
+    pub hover: RefCell<AHashSet<GlobalName>>,
     pub padding: Cell<f32>,
     pub border: Cell<f32>,
     pub border_color: Cell<Color>,
@@ -504,7 +506,7 @@ pub struct WindowData {
     pub width: Cell<i32>,
     pub height: Cell<i32>,
     pub owner: CloneCell<Option<Rc<dyn WindowDataOwner>>>,
-    pub seats: CopyHashMap<u32, Rc<GuiWindowSeatState>>,
+    pub seats: CopyHashMap<GlobalName, Rc<GuiWindowSeatState>>,
 }
 
 #[derive(Default)]
@@ -666,15 +668,7 @@ impl WindowData {
 
         self.frame_missed.set(false);
 
-        self.surface.frame({
-            let slf = self.clone();
-            move || {
-                slf.have_frame.set(true);
-                if slf.frame_missed.get() {
-                    slf.schedule_render();
-                }
-            }
-        });
+        self.surface.frame().owner.set(Some(self.clone()));
 
         self.have_frame.set(false);
         buf.free.set(false);
@@ -897,6 +891,15 @@ impl UsrWpFractionalScaleOwner for WindowData {
         if layout {
             self.layout();
             self.allocate_buffers();
+        }
+    }
+}
+
+impl UsrWlCallbackOwner for WindowData {
+    fn done(self: Rc<Self>) {
+        self.have_frame.set(true);
+        if self.frame_missed.get() {
+            self.schedule_render();
         }
     }
 }

@@ -40,7 +40,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::c,
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]
@@ -119,6 +119,24 @@ impl UsrCon {
         if let Err(e) = ring.connect(&socket, &addr).await {
             return Err(UsrConError::Connect(e));
         }
+        Ok(Self::from_socket(
+            ring,
+            wheel,
+            eng,
+            dma_buf_ids,
+            &socket,
+            server_id,
+        ))
+    }
+
+    pub fn from_socket(
+        ring: &Rc<IoUring>,
+        wheel: &Rc<Wheel>,
+        eng: &Rc<AsyncEngine>,
+        dma_buf_ids: &Rc<DmaBufIds>,
+        socket: &Rc<OwnedFd>,
+        server_id: u32,
+    ) -> Rc<Self> {
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);
         obj_ids.take(1);
@@ -150,7 +168,7 @@ impl UsrCon {
                 "wl_usr incoming",
                 Incoming {
                     con: slf.clone(),
-                    buf: BufFdIn::new(&socket, &slf.ring),
+                    buf: BufFdIn::new(socket, &slf.ring),
                     data: vec![],
                 }
                 .run(),
@@ -161,13 +179,13 @@ impl UsrCon {
                 "wl_usr outgoing",
                 Outgoing {
                     con: slf.clone(),
-                    buf: BufFdOut::new(&socket, &slf.ring),
+                    buf: BufFdOut::new(socket, &slf.ring),
                     buffers: Default::default(),
                 }
                 .run(),
             ),
         ));
-        Ok(slf)
+        slf
     }
 
     pub fn kill(&self) {
@@ -224,7 +242,8 @@ impl UsrCon {
     where
         F: FnOnce() + 'static,
     {
-        let callback = Rc::new(UsrWlCallback::new(self, handler));
+        let callback = Rc::new(UsrWlCallback::new(self));
+        callback.owner.set(Some(Rc::new(Cell::new(Some(handler)))));
         self.request(wl_display::Sync {
             self_id: WL_DISPLAY_ID,
             callback: callback.id,

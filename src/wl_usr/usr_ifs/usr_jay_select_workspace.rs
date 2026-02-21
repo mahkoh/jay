@@ -1,5 +1,6 @@
 use {
     crate::{
+        globals::GlobalName,
         object::Version,
         utils::clonecell::CloneCell,
         wire::{JaySelectWorkspaceId, jay_select_workspace::*},
@@ -9,7 +10,7 @@ use {
             usr_object::UsrObject,
         },
     },
-    std::{convert::Infallible, rc::Rc},
+    std::{cell::Cell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJaySelectWorkspace {
@@ -20,7 +21,7 @@ pub struct UsrJaySelectWorkspace {
 }
 
 pub trait UsrJaySelectWorkspaceOwner {
-    fn done(&self, output: u32, ws: Option<Rc<UsrJayWorkspace>>);
+    fn done(&self, output: GlobalName, ws: Option<Rc<UsrJayWorkspace>>);
 }
 
 impl JaySelectWorkspaceEventHandler for UsrJaySelectWorkspace {
@@ -28,7 +29,7 @@ impl JaySelectWorkspaceEventHandler for UsrJaySelectWorkspace {
 
     fn cancelled(&self, _ev: Cancelled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.done(0, None);
+            owner.done(GlobalName::from_raw(0), None);
         }
         self.con.remove_obj(self);
         Ok(())
@@ -41,7 +42,7 @@ impl JaySelectWorkspaceEventHandler for UsrJaySelectWorkspace {
             owner: Default::default(),
             version: self.version,
             linear_id: Default::default(),
-            output: Default::default(),
+            output: Cell::new(GlobalName::from_raw(0)),
             name: Default::default(),
         });
         self.con.add_object(tl.clone());

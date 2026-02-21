@@ -10,19 +10,31 @@ use {
 pub struct UsrWlCallback {
     pub id: WlCallbackId,
     pub con: Rc<UsrCon>,
-    pub handler: Cell<Option<Box<dyn FnOnce()>>>,
+    pub owner: Cell<Option<Rc<dyn UsrWlCallbackOwner>>>,
     pub version: Version,
 }
 
+pub trait UsrWlCallbackOwner {
+    fn done(self: Rc<Self>);
+}
+
+impl<T> UsrWlCallbackOwner for Cell<Option<T>>
+where
+    T: FnOnce() + 'static,
+{
+    fn done(self: Rc<Self>) {
+        if let Some(slf) = self.take() {
+            slf();
+        }
+    }
+}
+
 impl UsrWlCallback {
-    pub fn new<F>(con: &Rc<UsrCon>, handler: F) -> Self
-    where
-        F: FnOnce() + 'static,
-    {
+    pub fn new(con: &Rc<UsrCon>) -> Self {
         Self {
             id: con.id(),
             con: con.clone(),
-            handler: Cell::new(Some(Box::new(handler))),
+            owner: Default::default(),
             version: Version(1),
         }
     }
@@ -32,8 +44,8 @@ impl WlCallbackEventHandler for UsrWlCallback {
     type Error = Infallible;
 
     fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if let Some(handler) = self.handler.take() {
-            handler();
+        if let Some(handler) = self.owner.take() {
+            handler.done();
         }
         self.con.remove_obj(self);
         Ok(())
@@ -51,6 +63,6 @@ impl UsrObject for UsrWlCallback {
     }
 
     fn break_loops(&self) {
-        self.handler.take();
+        self.owner.take();
     }
 }
