@@ -1,0 +1,19 @@
+request destroy (destructor) {
+}
+
+request get_surface {
+    id: id(wp_color_representation_surface_v1) (new),
+    surface: id(wl_surface),
+}
+
+event supported_alpha_mode {
+    alpha_mode: u32,
+}
+
+event supported_coefficients_and_ranges {
+    coefficients: u32,
+    range: u32,
+}
+
+event done {
+}

@@ -47,6 +47,7 @@ use {
             wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global,
             workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global,
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
+            wp_color_representation_manager_v1::WpColorRepresentationManagerV1Global,
             wp_commit_timing_manager_v1::WpCommitTimingManagerV1Global,
             wp_content_type_manager_v1::WpContentTypeManagerV1Global,
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
@@ -235,6 +236,7 @@ impl Globals {
         add_singleton!(WpPointerWarpV1Global);
         add_singleton!(JayPopupExtManagerV1Global);
         add_singleton!(ZwlrGammaControlManagerV1Global);
+        add_singleton!(WpColorRepresentationManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

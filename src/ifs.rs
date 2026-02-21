@@ -56,6 +56,7 @@ pub mod wl_surface;
 pub mod wlr_output_manager;
 pub mod workspace_manager;
 pub mod wp_alpha_modifier_v1;
+pub mod wp_color_representation_manager_v1;
 pub mod wp_commit_timing_manager_v1;
 pub mod wp_content_type_manager_v1;
 pub mod wp_content_type_v1;

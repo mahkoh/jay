@@ -6,6 +6,7 @@ pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
 pub mod wp_color_management_surface_v1;
+pub mod wp_color_representation_surface_v1;
 pub mod wp_commit_timer_v1;
 pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
@@ -54,6 +55,7 @@ use {
                 tray::TrayItemId,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
+                wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1,
                 wp_commit_timer_v1::WpCommitTimerV1,
                 wp_fifo_v1::WpFifoV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
@@ -350,6 +352,7 @@ pub struct WlSurface {
     color_management_feedback:
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
+    color_representation_surface: CloneCell<Option<Rc<WpColorRepresentationSurfaceV1>>>,
 }
 
 impl Debug for WlSurface {
@@ -704,6 +707,7 @@ impl WlSurface {
             color_management_surface: Default::default(),
             color_management_feedback: Default::default(),
             color_description: Default::default(),
+            color_representation_surface: Default::default(),
         }
     }
 
@@ -1786,6 +1790,7 @@ impl Object for WlSurface {
         self.commit_timer.take();
         self.color_management_surface.take();
         self.color_management_feedback.clear();
+        self.color_representation_surface.take();
     }
 }
 
