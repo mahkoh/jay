@@ -1,0 +1,15 @@
+request destroy (destructor) {
+}
+
+request set_alpha_mode {
+    alpha_mode: u32,
+}
+
+request set_coefficients_and_range {
+    coefficients: u32,
+    range: u32,
+}
+
+request set_chroma_location {
+    chroma_location: u32,
+}
