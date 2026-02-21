@@ -18,7 +18,6 @@ pub struct UsrXdgWmBase {
 }
 
 impl UsrXdgWmBase {
-    #[expect(dead_code)]
     pub fn get_xdg_surface(&self, surface: &UsrWlSurface) -> Rc<UsrXdgSurface> {
         let obj = Rc::new(UsrXdgSurface {
             id: self.con.id(),

@@ -22,7 +22,6 @@ pub struct UsrZwpLinuxDmabufV1 {
 }
 
 impl UsrZwpLinuxDmabufV1 {
-    #[expect(dead_code)]
     pub fn create_buffer(&self, buffer: &DmaBuf) -> Rc<UsrWlBuffer> {
         let params = Rc::new(UsrZwpLinuxBufferParamsV1 {
             id: self.con.id(),

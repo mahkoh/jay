@@ -15,7 +15,6 @@ pub struct UsrWpCursorShapeDeviceV1 {
 }
 
 impl UsrWpCursorShapeDeviceV1 {
-    #[expect(dead_code)]
     pub fn set_shape(&self, serial: u32, cursor: KnownCursor) {
         self.con.request(SetShape {
             self_id: self.id,

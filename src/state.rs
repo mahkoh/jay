@@ -23,6 +23,7 @@ use {
         damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
+        egui_adapter::egui_platform::EggState,
         ei::{
             ei_acceptor::EiAcceptor,
             ei_client::{EiClient, EiClients},
@@ -294,6 +295,7 @@ pub struct State {
     pub gfx_ctx_changed: EventSource<WlBuffer>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub supports_presentation_feedback: Cell<bool>,
+    pub egg_state: EggState,
 }
 
 // impl Drop for State {
@@ -627,6 +629,7 @@ impl State {
     }
 
     pub fn set_render_ctx(self: &Rc<Self>, ctx: Option<Rc<dyn GfxContext>>) {
+        self.egg_state.clear();
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
@@ -1128,6 +1131,7 @@ impl State {
         self.cpu_worker.clear();
         self.wait_for_sync_obj.clear();
         self.xdg_surface_configure_events.clear();
+        self.egg_state.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

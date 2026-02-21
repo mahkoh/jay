@@ -7,9 +7,9 @@ use {
     std::{convert::Infallible, rc::Rc},
 };
 
-#[expect(dead_code)]
 pub struct UsrWlDataDeviceManager {
     pub id: WlDataDeviceManagerId,
+    #[expect(dead_code)]
     pub con: Rc<UsrCon>,
     pub version: Version,
 }

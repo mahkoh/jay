@@ -67,6 +67,7 @@ mod damage;
 mod dbus;
 mod drm_feedback;
 mod edid;
+mod egui_adapter;
 mod ei;
 mod fixed;
 mod forker;

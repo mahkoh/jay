@@ -22,7 +22,6 @@ pub trait UsrXdgSurfaceOwner {
 }
 
 impl UsrXdgSurface {
-    #[expect(dead_code)]
     pub fn get_toplevel(&self) -> Rc<UsrXdgToplevel> {
         let obj = Rc::new(UsrXdgToplevel {
             id: self.con.id(),

@@ -189,7 +189,6 @@ impl UsrJayCompositor {
         obj
     }
 
-    #[expect(dead_code)]
     pub fn get_sync_file_surface(&self, surface: &UsrWlSurface) -> Rc<UsrJaySyncFileSurface> {
         let obj = Rc::new(UsrJaySyncFileSurface {
             id: self.con.id(),

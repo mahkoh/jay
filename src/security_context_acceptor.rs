@@ -42,7 +42,6 @@ pub struct AcceptorMetadata {
 }
 
 impl AcceptorMetadata {
-    #[expect(dead_code)]
     pub fn secure() -> Self {
         Self {
             secure: true,

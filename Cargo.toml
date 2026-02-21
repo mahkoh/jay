@@ -69,6 +69,9 @@ opera = "1.0.1"
 with_builtin_macros = "0.1.0"
 blake3 = "1.8.2"
 run-on-drop = "1.0.0"
+egui = "0.33.3"
+egui_material_icons = "0.5.0"
+fontconfig = "0.10.0"
 
 [build-dependencies]
 repc = "0.1.1"
@@ -86,6 +89,38 @@ opt-level = 3
 
 [profile.dev.package."smallvec"]
 opt-level = 3
+
+[profile.dev.package."egui"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."emath"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."epaint"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."ab_glyph"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."ab_glyph_rasterizer"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."owned_ttf_parser"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."ttf-parser"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."ecolor"]
+opt-level = 3
+debug = "line-tables-only"
 
 [features]
 rc_tracking = []
