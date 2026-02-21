@@ -12,8 +12,9 @@ use {
                 usr_jay_screencast::UsrJayScreencast,
                 usr_jay_select_toplevel::UsrJaySelectToplevel,
                 usr_jay_select_workspace::UsrJaySelectWorkspace,
+                usr_jay_sync_file_surface::UsrJaySyncFileSurface,
                 usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
-                usr_wl_seat::UsrWlSeat,
+                usr_wl_seat::UsrWlSeat, usr_wl_surface::UsrWlSurface,
             },
             usr_object::UsrObject,
         },
@@ -183,6 +184,22 @@ impl UsrJayCompositor {
         self.con.request(CreateEiSession {
             self_id: self.id,
             id: obj.id,
+        });
+        self.con.add_object(obj.clone());
+        obj
+    }
+
+    #[expect(dead_code)]
+    pub fn get_sync_file_surface(&self, surface: &UsrWlSurface) -> Rc<UsrJaySyncFileSurface> {
+        let obj = Rc::new(UsrJaySyncFileSurface {
+            id: self.con.id(),
+            con: self.con.clone(),
+            version: self.version,
+        });
+        self.con.request(GetSyncFileSurface {
+            self_id: self.id,
+            id: obj.id,
+            surface: surface.id,
         });
         self.con.add_object(obj.clone());
         obj
