@@ -1035,6 +1035,13 @@ impl ConfigClient {
         position
     }
 
+    pub fn set_egui_fonts(&self, proportional: Option<Vec<&str>>, monospace: Option<Vec<&str>>) {
+        self.send(&ClientMessage::SetEguiFonts {
+            proportional,
+            monospace,
+        });
+    }
+
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }

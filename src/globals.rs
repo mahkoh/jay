@@ -256,7 +256,7 @@ pub struct Globals {
     removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
-    singletons: StaticMap<Singleton, GlobalName>,
+    pub singletons: StaticMap<Singleton, GlobalName>,
     exposed: StaticMap<Singleton, Cell<bool>>,
 }
 

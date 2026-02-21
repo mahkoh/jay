@@ -21,7 +21,6 @@ pub struct UsrWpCursorShapeManagerV1 {
 }
 
 impl UsrWpCursorShapeManagerV1 {
-    #[expect(dead_code)]
     pub fn get_pointer(&self, pointer: &UsrWlPointer) -> Rc<UsrWpCursorShapeDeviceV1> {
         let obj = Rc::new(UsrWpCursorShapeDeviceV1 {
             id: self.con.id(),

@@ -18,7 +18,6 @@ pub struct UsrJaySyncFileSurface {
 }
 
 impl UsrJaySyncFileSurface {
-    #[expect(dead_code)]
     pub fn set_acquire(&self, sf: Option<&FdSync>) {
         match sf.and_then(|s| s.get_sync_file()) {
             None => {
@@ -33,7 +32,6 @@ impl UsrJaySyncFileSurface {
         }
     }
 
-    #[expect(dead_code)]
     pub fn get_release(&self) -> Rc<UsrJaySyncFileRelease> {
         let obj = Rc::new(UsrJaySyncFileRelease {
             id: self.con.id(),

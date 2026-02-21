@@ -32,7 +32,6 @@ impl<T> ObjectDropQueue<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn push(self: &Rc<Self>, fd: &Rc<OwnedFd>, t: T)
     where
         T: 'static,

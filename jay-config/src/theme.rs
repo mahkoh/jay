@@ -197,6 +197,20 @@ pub fn get_bar_position() -> BarPosition {
     get!(BarPosition::Top).get_bar_position()
 }
 
+/// Sets the proportional fonts used by egui windows.
+///
+/// The default is `["sans-serif", "Noto Sans", "Noto Color Emoji"]`.
+pub fn set_egui_proportional_fonts<'a>(fonts: impl IntoIterator<Item = &'a str>) {
+    get!().set_egui_fonts(Some(fonts.into_iter().collect()), None);
+}
+
+/// Sets the monospace fonts used by egui windows.
+///
+/// The default is `["monospace", "Noto Sans Mono", "Noto Color Emoji"]`.
+pub fn set_egui_monospace_fonts<'a>(fonts: impl IntoIterator<Item = &'a str>) {
+    get!().set_egui_fonts(None, Some(fonts.into_iter().collect()));
+}
+
 /// Elements of the compositor whose color can be changed.
 pub mod colors {
     use {

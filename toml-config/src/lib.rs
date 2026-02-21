@@ -44,8 +44,8 @@ use {
         switch_to_vt,
         tasks::{self, JoinHandle},
         theme::{
-            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position, set_font,
-            set_title_font,
+            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position,
+            set_egui_monospace_fonts, set_egui_proportional_fonts, set_font, set_title_font,
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
@@ -1632,6 +1632,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.fallback_output_mode {
         persistent.seat.set_fallback_output_mode(v);
+    }
+    if let Some(f) = &config.egui.proportional_fonts {
+        set_egui_proportional_fonts(f.iter().map(|s| &**s));
+    }
+    if let Some(f) = &config.egui.monospace_fonts {
+        set_egui_monospace_fonts(f.iter().map(|s| &**s));
     }
 }
 

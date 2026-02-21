@@ -24,6 +24,7 @@ use {
         damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
+        egui_adapter::egui_platform::EggState,
         ei::{
             ei_acceptor::EiAcceptor,
             ei_client::{EiClient, EiClients},
@@ -226,7 +227,7 @@ pub struct State {
     pub activation_tokens: CopyHashMap<ActivationToken, ()>,
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
-    pub dma_buf_ids: DmaBufIds,
+    pub dma_buf_ids: Rc<DmaBufIds>,
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
     pub persistent_output_states: CopyHashMap<Rc<OutputId>, Rc<PersistentOutputState>>,
@@ -295,6 +296,7 @@ pub struct State {
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
     pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
+    pub egg_state: EggState,
 }
 
 // impl Drop for State {
@@ -645,6 +647,7 @@ impl State {
     }
 
     pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
+        self.egg_state.clear();
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
@@ -1158,6 +1161,7 @@ impl State {
         self.xdg_surface_configure_events.clear();
         self.lazy_event_sources.clear();
         self.bo_drop_queue.kill();
+        self.egg_state.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1876,6 +1880,7 @@ impl State {
         theme.font.set(self.theme.default_font.clone());
         theme.bar_font.set(None);
         theme.title_font.set(None);
+        self.egg_state.reset_fonts();
         self.fonts_changed();
     }
 
@@ -1893,6 +1898,16 @@ impl State {
     pub fn set_title_font(&self, font: Option<&str>) {
         let font = font.map(|font| Arc::new(font.to_string()));
         self.theme.title_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_egui_fonts(&self, proportional: Option<Vec<&str>>, monospace: Option<Vec<&str>>) {
+        if let Some(fonts) = &proportional {
+            self.egg_state.set_proportional_fonts(fonts);
+        }
+        if let Some(fonts) = &monospace {
+            self.egg_state.set_monospace_fonts(fonts);
+        }
         self.fonts_changed();
     }
 

@@ -211,6 +211,12 @@ pub struct Theme {
     pub bar_separator_width: Option<i32>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Egui {
+    pub proportional_fonts: Option<Vec<String>>,
+    pub monospace_fonts: Option<Vec<String>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Status {
     pub format: MessageFormat,
@@ -510,6 +516,7 @@ pub struct Config {
     pub auto_reload: Option<bool>,
     pub log_level: Option<LogLevel>,
     pub theme: Theme,
+    pub egui: Egui,
     pub gfx_api: Option<GfxApi>,
     pub direct_scanout_enabled: Option<bool>,
     pub drm_devices: Vec<ConfigDrmDevice>,

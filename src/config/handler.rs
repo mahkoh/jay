@@ -1807,6 +1807,10 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_egui_fonts(&self, proportional: Option<Vec<&str>>, monospace: Option<Vec<&str>>) {
+        self.state.set_egui_fonts(proportional, monospace);
+    }
+
     fn handle_set_log_level(&self, level: ConfigLogLevel) {
         self.state.set_log_level(level.into());
     }
@@ -3311,6 +3315,10 @@ impl ConfigProxyHandler {
                 fds,
                 tag,
             } => self.handle_run(prog, args, env, fds, tag).wrn("run")?,
+            ClientMessage::SetEguiFonts {
+                proportional,
+                monospace,
+            } => self.handle_set_egui_fonts(proportional, monospace),
         }
         Ok(())
     }

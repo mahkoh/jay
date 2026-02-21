@@ -392,6 +392,7 @@ fn start_compositor2(
         eventfd_cache,
         lazy_event_sources: Default::default(),
         bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
+        egg_state: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

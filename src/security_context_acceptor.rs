@@ -42,6 +42,15 @@ pub struct AcceptorMetadata {
     pub tag: Option<String>,
 }
 
+impl AcceptorMetadata {
+    pub fn secure() -> Self {
+        Self {
+            secure: true,
+            ..Default::default()
+        }
+    }
+}
+
 impl SecurityContextAcceptors {
     pub fn clear(&self) {
         for acceptor in self.acceptors.lock().drain_values() {

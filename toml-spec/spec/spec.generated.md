@@ -2248,6 +2248,12 @@ The table has the following fields:
 
   The value of this field should be a [FallbackOutputMode](#types-FallbackOutputMode).
 
+- `egui` (optional):
+
+  Sets the egui settings of the compositor.
+
+  The value of this field should be a [Egui](#types-Egui).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2586,6 +2592,32 @@ The table has the following fields:
   The value of this field should be a number.
 
   The numbers should be integers.
+
+
+<a name="types-Egui"></a>
+### `Egui`
+
+The egui settings.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `proportional-fonts` (optional):
+
+  The list of proportional fonts.
+  
+  The default is `["sans-serif", "Noto Sans", "Noto Color Emoji"]`.
+
+  The value of this field should be an array of strings.
+
+- `monospace-fonts` (optional):
+
+  The list of monospace fonts.
+  
+  The default is `["monospace", "Noto Sans Mono", "Noto Color Emoji"]`.
+
+  The value of this field should be an array of strings.
 
 
 <a name="types-Eotf"></a>

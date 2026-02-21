@@ -138,6 +138,9 @@ const MISSING_CAPABILITY: u32 = 0;
 
 pub const BTN_LEFT: u32 = 0x110;
 pub const BTN_RIGHT: u32 = 0x111;
+pub const BTN_MIDDLE: u32 = 0x112;
+pub const BTN_SIDE: u32 = 0x113;
+pub const BTN_EXTRA: u32 = 0x114;
 
 pub const SEAT_NAME_SINCE: Version = Version(2);
 
