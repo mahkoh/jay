@@ -1,5 +1,6 @@
 use {
     crate::{
+        globals::GlobalName,
         object::Version,
         utils::clonecell::CloneCell,
         wire::{WlRegistryId, wl_registry::*},
@@ -16,24 +17,24 @@ pub struct UsrWlRegistry {
 }
 
 pub trait UsrWlRegistryOwner {
-    fn global(self: Rc<Self>, name: u32, interface: &str, version: u32) {
+    fn global(self: Rc<Self>, name: GlobalName, interface: &str, version: u32) {
         let _ = name;
         let _ = interface;
         let _ = version;
     }
 
-    fn global_remove(&self, name: u32) {
+    fn global_remove(&self, name: GlobalName) {
         let _ = name;
     }
 }
 
 impl UsrWlRegistry {
-    pub fn request_bind(&self, name: u32, version: u32, obj: &dyn UsrObject) {
+    pub fn bind(&self, name: GlobalName, obj: &dyn UsrObject) {
         self.con.request(Bind {
             self_id: self.id,
-            name,
+            name: name.raw(),
             interface: obj.interface().name(),
-            version,
+            version: obj.version().0,
             id: obj.id(),
         });
     }
@@ -44,14 +45,14 @@ impl WlRegistryEventHandler for UsrWlRegistry {
 
     fn global(&self, ev: Global<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.global(ev.name, ev.interface, ev.version);
+            owner.global(GlobalName::from_raw(ev.name), ev.interface, ev.version);
         }
         Ok(())
     }
 
     fn global_remove(&self, ev: GlobalRemove, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.global_remove(ev.name);
+            owner.global_remove(GlobalName::from_raw(ev.name));
         }
         Ok(())
     }

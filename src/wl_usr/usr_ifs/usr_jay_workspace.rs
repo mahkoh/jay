@@ -1,5 +1,6 @@
 use {
     crate::{
+        globals::GlobalName,
         object::Version,
         utils::clonecell::CloneCell,
         wire::{JayWorkspaceId, jay_workspace::*},
@@ -18,7 +19,7 @@ pub struct UsrJayWorkspace {
     pub owner: CloneCell<Option<Rc<dyn UsrJayWorkspaceOwner>>>,
     pub version: Version,
     pub linear_id: Cell<u32>,
-    pub output: Cell<u32>,
+    pub output: Cell<GlobalName>,
     pub name: RefCell<Option<String>>,
 }
 
@@ -68,7 +69,7 @@ impl JayWorkspaceEventHandler for UsrJayWorkspace {
     }
 
     fn output(&self, ev: Output, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.output.set(ev.global_name);
+        self.output.set(GlobalName::from_raw(ev.global_name));
         if let Some(owner) = self.owner.get() {
             owner.output(&ev);
         }
