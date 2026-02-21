@@ -55,7 +55,6 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_buffer::WlBuffer,
-            wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
                 PhysicalKeyboardId, PhysicalKeyboardIds, PositionHintRequest, SeatIds,
@@ -78,11 +77,9 @@ use {
             workspace_manager::WorkspaceManagerState,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
-            wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
-            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
         io_uring::IoUring,
         kbvm::{KbvmContext, KbvmMap},
@@ -242,6 +239,7 @@ pub struct State {
     pub subsurface_ids: SubsurfaceIds,
     pub wait_for_sync_obj: Rc<WaitForSyncObj>,
     pub explicit_sync_enabled: Cell<bool>,
+    pub explicit_sync_supported: Cell<bool>,
     pub keyboard_state_ids: KeyboardStateIds,
     pub physical_keyboard_ids: PhysicalKeyboardIds,
     pub security_context_acceptors: SecurityContextAcceptors,
@@ -295,6 +293,7 @@ pub struct State {
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
+    pub supports_presentation_feedback: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -628,6 +627,7 @@ impl State {
     }
 
     pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
+        self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
@@ -710,20 +710,15 @@ impl State {
             cursor_user_groups.render_ctx_changed();
         }
 
-        if let Some(ctx) = &ctx
-            && !self.render_ctx_ever_initialized.replace(true)
-        {
-            self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
-            self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
+        if let Some(ctx) = &ctx {
             if let Some(ctx) = ctx.sync_obj_ctx()
                 && ctx.supports_async_wait()
-                && self.explicit_sync_enabled.get()
             {
-                self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
-                    self.globals.name(),
-                )));
+                self.explicit_sync_supported.set(true);
             }
-            if let Some(config) = self.config.get() {
+            if !self.render_ctx_ever_initialized.replace(true)
+                && let Some(config) = self.config.get()
+            {
                 config.graphics_initialized();
             }
         }

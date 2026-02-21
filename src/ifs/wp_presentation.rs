@@ -6,6 +6,7 @@ use {
         ifs::wp_presentation_feedback::WpPresentationFeedback,
         leaks::Tracker,
         object::{Object, Version},
+        state::State,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -49,6 +50,10 @@ impl Global for WpPresentationGlobal {
 
     fn version(&self) -> u32 {
         2
+    }
+
+    fn exposed(&self, state: &State) -> bool {
+        state.supports_presentation_feedback.get()
     }
 }
 
