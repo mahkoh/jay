@@ -80,6 +80,7 @@ use {
             numcell::NumCell,
         },
     },
+    linearize::{Linearize, StaticMap},
     std::{
         error::Error,
         fmt::{Display, Formatter},
@@ -151,24 +152,105 @@ pub trait Global: GlobalBase {
     }
 }
 
+macro_rules! singletons {
+    ($($name:ident,)*) => {
+        #[derive(Copy, Clone, Debug, Linearize)]
+        pub enum Singleton {
+            $($name,)*
+        }
+
+        fn add_singletons(globals: &mut Globals) {
+            $(
+                let name = globals.name();
+                globals.add_global_no_broadcast(&Rc::new($name::new(name)));
+                globals.singletons[Singleton::$name] = name;
+            )*
+        }
+    };
+}
+
+singletons! {
+    WlCompositorGlobal,
+    WlShmGlobal,
+    WlSubcompositorGlobal,
+    XdgWmBaseGlobal,
+    WlDataDeviceManagerGlobal,
+    ZxdgDecorationManagerV1Global,
+    OrgKdeKwinServerDecorationManagerGlobal,
+    ZwpPrimarySelectionDeviceManagerV1Global,
+    ZwlrLayerShellV1Global,
+    ZwlrOutputManagerV1Global,
+    ZxdgOutputManagerV1Global,
+    JayCompositorGlobal,
+    ZwlrScreencopyManagerV1Global,
+    ZwpRelativePointerManagerV1Global,
+    ExtSessionLockManagerV1Global,
+    WpViewporterGlobal,
+    WpFractionalScaleManagerV1Global,
+    ZwpPointerConstraintsV1Global,
+    XwaylandShellV1Global,
+    WpTearingControlManagerV1Global,
+    WpSinglePixelBufferManagerV1Global,
+    WpCursorShapeManagerV1Global,
+    WpContentTypeManagerV1Global,
+    XdgActivationV1Global,
+    ExtForeignToplevelListV1Global,
+    ZwpIdleInhibitManagerV1Global,
+    ExtIdleNotifierV1Global,
+    XdgToplevelDragManagerV1Global,
+    ZwlrForeignToplevelManagerV1Global,
+    ZwlrDataControlManagerV1Global,
+    WpAlphaModifierV1Global,
+    ZwpVirtualKeyboardManagerV1Global,
+    ZwpInputMethodManagerV2Global,
+    ZwpTextInputManagerV3Global,
+    WpSecurityContextManagerV1Global,
+    XdgWmDialogV1Global,
+    ExtTransientSeatManagerV1Global,
+    ZwpPointerGesturesV1Global,
+    ZwpTabletManagerV2Global,
+    JayDamageTrackingGlobal,
+    ExtOutputImageCaptureSourceManagerV1Global,
+    ExtForeignToplevelImageCaptureSourceManagerV1Global,
+    ExtImageCopyCaptureManagerV1Global,
+    WpFifoManagerV1Global,
+    WpCommitTimingManagerV1Global,
+    ExtDataControlManagerV1Global,
+    WlFixesGlobal,
+    ExtWorkspaceManagerV1Global,
+    WpColorManagerV1Global,
+    XdgToplevelTagManagerV1Global,
+    JayHeadManagerV1Global,
+    WpPointerWarpV1Global,
+    JayPopupExtManagerV1Global,
+    ZwlrGammaControlManagerV1Global,
+    WpColorRepresentationManagerV1Global,
+    WlDrmGlobal,
+    ZwpLinuxDmabufV1Global,
+    WpLinuxDrmSyncobjManagerV1Global,
+    WpPresentationGlobal,
+}
+
 pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
     removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
+    pub singletons: StaticMap<Singleton, GlobalName>,
 }
 
 impl Globals {
     pub fn new() -> Self {
-        let slf = Self {
+        let mut slf = Self {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
             removed: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
+            singletons: StaticMap::from_fn(|_| GlobalName(0)),
         };
-        slf.add_singletons();
+        add_singletons(&mut slf);
         slf
     }
 
@@ -176,73 +258,6 @@ impl Globals {
         self.registry.clear();
         self.outputs.clear();
         self.seats.clear();
-    }
-
-    fn add_singletons(&self) {
-        macro_rules! add_singleton {
-            ($name:ident) => {
-                self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
-            };
-        }
-        add_singleton!(WlCompositorGlobal);
-        add_singleton!(WlShmGlobal);
-        add_singleton!(WlSubcompositorGlobal);
-        add_singleton!(XdgWmBaseGlobal);
-        add_singleton!(WlDataDeviceManagerGlobal);
-        add_singleton!(ZxdgDecorationManagerV1Global);
-        add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
-        add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
-        add_singleton!(ZwlrLayerShellV1Global);
-        add_singleton!(ZwlrOutputManagerV1Global);
-        add_singleton!(ZxdgOutputManagerV1Global);
-        add_singleton!(JayCompositorGlobal);
-        add_singleton!(ZwlrScreencopyManagerV1Global);
-        add_singleton!(ZwpRelativePointerManagerV1Global);
-        add_singleton!(ExtSessionLockManagerV1Global);
-        add_singleton!(WpViewporterGlobal);
-        add_singleton!(WpFractionalScaleManagerV1Global);
-        add_singleton!(ZwpPointerConstraintsV1Global);
-        add_singleton!(XwaylandShellV1Global);
-        add_singleton!(WpTearingControlManagerV1Global);
-        add_singleton!(WpSinglePixelBufferManagerV1Global);
-        add_singleton!(WpCursorShapeManagerV1Global);
-        add_singleton!(WpContentTypeManagerV1Global);
-        add_singleton!(XdgActivationV1Global);
-        add_singleton!(ExtForeignToplevelListV1Global);
-        add_singleton!(ZwpIdleInhibitManagerV1Global);
-        add_singleton!(ExtIdleNotifierV1Global);
-        add_singleton!(XdgToplevelDragManagerV1Global);
-        add_singleton!(ZwlrForeignToplevelManagerV1Global);
-        add_singleton!(ZwlrDataControlManagerV1Global);
-        add_singleton!(WpAlphaModifierV1Global);
-        add_singleton!(ZwpVirtualKeyboardManagerV1Global);
-        add_singleton!(ZwpInputMethodManagerV2Global);
-        add_singleton!(ZwpTextInputManagerV3Global);
-        add_singleton!(WpSecurityContextManagerV1Global);
-        add_singleton!(XdgWmDialogV1Global);
-        add_singleton!(ExtTransientSeatManagerV1Global);
-        add_singleton!(ZwpPointerGesturesV1Global);
-        add_singleton!(ZwpTabletManagerV2Global);
-        add_singleton!(JayDamageTrackingGlobal);
-        add_singleton!(ExtOutputImageCaptureSourceManagerV1Global);
-        add_singleton!(ExtForeignToplevelImageCaptureSourceManagerV1Global);
-        add_singleton!(ExtImageCopyCaptureManagerV1Global);
-        add_singleton!(WpFifoManagerV1Global);
-        add_singleton!(WpCommitTimingManagerV1Global);
-        add_singleton!(ExtDataControlManagerV1Global);
-        add_singleton!(WlFixesGlobal);
-        add_singleton!(ExtWorkspaceManagerV1Global);
-        add_singleton!(WpColorManagerV1Global);
-        add_singleton!(XdgToplevelTagManagerV1Global);
-        add_singleton!(JayHeadManagerV1Global);
-        add_singleton!(WpPointerWarpV1Global);
-        add_singleton!(JayPopupExtManagerV1Global);
-        add_singleton!(ZwlrGammaControlManagerV1Global);
-        add_singleton!(WpColorRepresentationManagerV1Global);
-        add_singleton!(WlDrmGlobal);
-        add_singleton!(ZwpLinuxDmabufV1Global);
-        add_singleton!(WpLinuxDrmSyncobjManagerV1Global);
-        add_singleton!(WpPresentationGlobal);
     }
 
     pub fn name(&self) -> GlobalName {
