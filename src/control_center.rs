@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{
             cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_idle::IdlePane,
+            cc_idle::IdlePane, cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{
             EggError, EggWindow, EggWindowOwner,
@@ -37,6 +37,7 @@ mod cc_color_management;
 mod cc_compositor;
 mod cc_idle;
 mod cc_sidebar;
+mod cc_xwayland;
 
 #[derive(Debug, Error)]
 pub enum ControlCenterError {
@@ -72,6 +73,7 @@ bitflags! {
         CCI_COMPOSITOR,
         CCI_IDLE,
         CCI_COLOR_MANAGEMENT,
+        CCI_XWAYLAND,
 }
 
 pub struct ControlCenter {
@@ -115,6 +117,7 @@ enum PaneType {
     Compositor(CompositorPane),
     Idle(IdlePane),
     ColorManagement(ColorManagementPane),
+    Xwayland(XwaylandPane),
 }
 
 struct CcBehavior<'a> {
@@ -136,14 +139,16 @@ impl Pane {
             PaneType::Compositor(v) => v.title(res),
             PaneType::Idle(v) => v.title(res),
             PaneType::ColorManagement(v) => v.title(res),
+            PaneType::Xwayland(v) => v.title(res),
         }
     }
 
-    fn show(&mut self, _behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
+    fn show(&mut self, behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
         match &mut self.ty {
             PaneType::Compositor(p) => p.show(ui),
             PaneType::Idle(p) => p.show(ui),
             PaneType::ColorManagement(p) => p.show(ui),
+            PaneType::Xwayland(p) => p.show(behavior, ui),
         }
     }
 }
@@ -154,6 +159,7 @@ impl PaneType {
             PaneType::Compositor(_) => CCI_COMPOSITOR,
             PaneType::Idle(_) => CCI_IDLE,
             PaneType::ColorManagement(_) => CCI_COLOR_MANAGEMENT,
+            PaneType::Xwayland(_) => CCI_XWAYLAND,
         }
     }
 }
@@ -420,7 +426,6 @@ fn grid_label_ui<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> Inn
     ui.with_layout(Layout::right_to_left(Align::Center), add_contents)
 }
 
-#[expect(dead_code)]
 fn tip(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
     icon_label(ICON_INFO).ui(ui).on_hover_ui(add_contents);
 }

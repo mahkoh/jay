@@ -16,7 +16,9 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
-        control_center::{CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
+        control_center::{
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, CCI_XWAYLAND, ControlCenters,
+        },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -1011,6 +1013,7 @@ impl State {
         } else {
             self.stop_xwayland();
         }
+        self.trigger_cci(CCI_XWAYLAND);
     }
 
     pub fn set_xwayland_use_wire_scale(&self, use_wire_scale: bool) {
@@ -1018,6 +1021,7 @@ impl State {
             return;
         }
         self.update_xwayland_wire_scale();
+        self.trigger_cci(CCI_XWAYLAND);
     }
 
     pub fn next_serial(&self, client: Option<&Client>) -> u64 {
