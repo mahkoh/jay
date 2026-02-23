@@ -16,7 +16,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
-        control_center::ControlCenters,
+        control_center::{CCI_COMPOSITOR, ControlCenters},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -1729,6 +1729,7 @@ impl State {
     pub fn set_log_level(&self, level: LogLevel) {
         if let Some(logger) = &self.logger {
             logger.set_level(level);
+            self.trigger_cci(CCI_COMPOSITOR);
         }
     }
 
@@ -1787,6 +1788,7 @@ impl State {
     pub fn set_ei_socket_enabled(self: &Rc<Self>, enabled: bool) {
         self.enable_ei_acceptor.set(enabled);
         self.update_ei_acceptor();
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
@@ -1794,6 +1796,7 @@ impl State {
         for output in self.root.outputs.lock().values() {
             output.handle_workspace_display_order_update();
         }
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 
     fn spaces_changed(&self) {

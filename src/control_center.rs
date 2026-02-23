@@ -1,5 +1,6 @@
 use {
     crate::{
+        control_center::cc_compositor::CompositorPane,
         egui_adapter::egui_platform::{
             EggError, EggWindow, EggWindowOwner,
             icons::{ICON_CLOSE, ICON_DRAG_INDICATOR, ICON_INFO},
@@ -29,6 +30,7 @@ use {
     thiserror::Error,
 };
 
+mod cc_compositor;
 mod cc_sidebar;
 
 #[derive(Debug, Error)]
@@ -62,7 +64,7 @@ pub struct ControlCenters {
 
 bitflags! {
     ControlCenterInterest: u32;
-        _UNUSED,
+        CCI_COMPOSITOR,
 }
 
 pub struct ControlCenter {
@@ -102,7 +104,9 @@ struct PaneState {
     errors: Vec<String>,
 }
 
-enum PaneType {}
+enum PaneType {
+    Compositor(CompositorPane),
+}
 
 struct CcBehavior<'a> {
     #[expect(dead_code)]
@@ -118,18 +122,24 @@ impl ControlCenters {
 }
 
 impl Pane {
-    fn title(&self, _res: &mut String) {
-        match self.ty {}
+    fn title(&self, res: &mut String) {
+        match &self.ty {
+            PaneType::Compositor(v) => v.title(res),
+        }
     }
 
-    fn show(&mut self, _behavior: &mut CcBehavior<'_>, _ui: &mut Ui) {
-        match self.ty {}
+    fn show(&mut self, _behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
+        match &mut self.ty {
+            PaneType::Compositor(p) => p.show(ui),
+        }
     }
 }
 
 impl PaneType {
     fn interest(&self) -> ControlCenterInterest {
-        match *self {}
+        match self {
+            PaneType::Compositor(_) => CCI_COMPOSITOR,
+        }
     }
 }
 
@@ -305,7 +315,6 @@ impl State {
         Ok(cc)
     }
 
-    #[expect(dead_code)]
     pub fn trigger_cci(&self, cci: ControlCenterInterest) {
         self.control_centers.change.or_assign(cci);
         self.control_centers.redraw.trigger();
@@ -348,8 +357,6 @@ impl ControlCenterInner {
     }
 
     fn open(&self, tree: &mut Tree<Pane>, ty: PaneType) {
-        let _ = tree;
-        #[expect(unused_variables, unreachable_code)]
         let pane = self.create_pane(ty);
         let id = tree.tiles.insert_pane(pane);
         if let Some(root) = tree.root
@@ -438,7 +445,6 @@ fn show_errors(ui: &mut Ui, pane: &mut PaneState) {
     ui.separator();
 }
 
-#[expect(dead_code)]
 fn grid<R>(
     ui: &mut Ui,
     id_salt: impl Hash,
@@ -467,7 +473,6 @@ fn row_ui<R, S>(
     add_contents(ui)
 }
 
-#[expect(dead_code)]
 fn bool(ui: &mut Ui, name: &str, old: bool, set: impl FnOnce(bool)) {
     bool_ui(ui, name, |_| (), old, set);
 }
@@ -497,7 +502,6 @@ fn read_only_bool_ui<R>(ui: &mut Ui, name: &str, label: impl FnOnce(&mut Ui) -> 
     });
 }
 
-#[expect(dead_code)]
 fn combo_box<T>(ui: &mut Ui, name: &str, old: T, set: impl FnOnce(T))
 where
     T: StaticText + Linearize + PartialEq + Copy,
@@ -566,7 +570,6 @@ fn drag_value_ui<R, N>(
     });
 }
 
-#[expect(dead_code)]
 fn label(ui: &mut Ui, name: &str, text: impl Into<WidgetText>) {
     row(ui, name, |ui| ui.label(text));
 }

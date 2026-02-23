@@ -80,7 +80,6 @@ impl Logger {
         log::set_max_level(filter);
     }
 
-    #[expect(dead_code)]
     pub fn level(&self) -> LogLevel {
         self.level.load(Relaxed)
     }

@@ -1,5 +1,5 @@
 use {
-    crate::control_center::{ControlCenterInner, Pane},
+    crate::control_center::{ControlCenterInner, Pane, PaneType},
     egui::{Align, Layout, ScrollArea, Ui, ViewportCommand},
     egui_tiles::Tree,
     linearize::{Linearize, LinearizeExt},
@@ -7,11 +7,15 @@ use {
 };
 
 #[derive(Copy, Clone, Linearize)]
-enum PaneName {}
+enum PaneName {
+    Compositor,
+}
 
 impl PaneName {
     fn name(self) -> &'static str {
-        match self {}
+        match self {
+            PaneName::Compositor => "Compositor",
+        }
     }
 }
 
@@ -34,9 +38,12 @@ impl ControlCenterInner {
                 ScrollArea::vertical().show(ui, |ui| {
                     for &ty in &*TYPES {
                         if ui.button(ty.name()).clicked() {
-                            let _ty = match ty {};
-                            #[expect(unreachable_code)]
-                            self.open(tree, _ty);
+                            let ty = match ty {
+                                PaneName::Compositor => {
+                                    PaneType::Compositor(self.create_compositor_pane())
+                                }
+                            };
+                            self.open(tree, ty);
                             ui.ctx().request_repaint();
                         }
                     }
