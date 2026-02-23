@@ -15,7 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
-        control_center::{CCI_COMPOSITOR, ControlCenters},
+        control_center::{CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -341,31 +341,39 @@ pub struct IdleState {
 }
 
 impl IdleState {
-    pub fn set_timeout(&self, timeout: Duration) {
+    pub fn set_timeout(&self, state: &State, timeout: Duration) {
         self.timeout.set(timeout);
-        self.timeout_changed.set(true);
-        self.change.trigger();
+        self.timeout_changed(state);
     }
 
-    pub fn set_grace_period(&self, grace_period: Duration) {
+    pub fn set_grace_period(&self, state: &State, grace_period: Duration) {
         self.grace_period.set(grace_period);
+        self.timeout_changed(state);
+    }
+
+    fn timeout_changed(&self, state: &State) {
         self.timeout_changed.set(true);
         self.change.trigger();
+        state.trigger_cci(CCI_IDLE);
     }
 
-    pub fn add_inhibitor(&self, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
+    pub fn add_inhibitor(&self, state: &State, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
         self.inhibitors.set(inhibitor.inhibit_id, inhibitor.clone());
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed(state);
     }
 
-    pub fn remove_inhibitor(&self, inhibitor: &ZwpIdleInhibitorV1) {
+    pub fn remove_inhibitor(&self, state: &State, inhibitor: &ZwpIdleInhibitorV1) {
         self.inhibitors.remove(&inhibitor.inhibit_id);
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed(state);
         if self.inhibitors.is_empty() {
             self.resume_inhibited_notifications();
         }
+    }
+
+    fn inhibitors_changed(&self, state: &State) {
+        self.inhibitors_changed.set(true);
+        self.change.trigger();
+        state.trigger_cci(CCI_IDLE);
     }
 
     fn resume_inhibited_notifications(&self) {

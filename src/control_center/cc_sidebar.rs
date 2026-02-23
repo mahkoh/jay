@@ -9,12 +9,14 @@ use {
 #[derive(Copy, Clone, Linearize)]
 enum PaneName {
     Compositor,
+    Idle,
 }
 
 impl PaneName {
     fn name(self) -> &'static str {
         match self {
             PaneName::Compositor => "Compositor",
+            PaneName::Idle => "Idle",
         }
     }
 }
@@ -41,6 +43,7 @@ impl ControlCenterInner {
                                 PaneName::Compositor => {
                                     PaneType::Compositor(self.create_compositor_pane())
                                 }
+                                PaneName::Idle => PaneType::Idle(self.create_idle_pane()),
                             };
                             self.open(tree, ty);
                         }

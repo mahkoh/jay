@@ -1130,11 +1130,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_idle(&self, timeout: Duration) {
-        self.state.idle.set_timeout(timeout);
+        self.state.idle.set_timeout(&self.state, timeout);
     }
 
     fn handle_set_idle_grace_period(&self, period: Duration) {
-        self.state.idle.set_grace_period(period);
+        self.state.idle.set_grace_period(&self.state, period);
     }
 
     fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
