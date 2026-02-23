@@ -15,7 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
-        control_center::{CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
+        control_center::{CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -750,6 +750,8 @@ impl State {
         for sc in scs {
             sc.do_destroy();
         }
+
+        self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
     fn reload_cursors(&self) {
@@ -1564,6 +1566,11 @@ impl State {
             return false;
         };
         ctx.supports_color_management()
+    }
+
+    pub fn set_color_management_enabled(&self, enabled: bool) {
+        self.color_management_enabled.set(enabled);
+        self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {

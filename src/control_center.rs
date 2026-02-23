@@ -1,6 +1,9 @@
 use {
     crate::{
-        control_center::{cc_compositor::CompositorPane, cc_idle::IdlePane},
+        control_center::{
+            cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
+            cc_idle::IdlePane,
+        },
         egui_adapter::egui_platform::{EggError, EggWindow, EggWindowOwner},
         macros::Bitflag,
         state::State,
@@ -25,6 +28,7 @@ use {
     thiserror::Error,
 };
 
+mod cc_color_management;
 mod cc_compositor;
 mod cc_idle;
 mod cc_sidebar;
@@ -62,6 +66,7 @@ bitflags! {
     ControlCenterInterest: u32;
         CCI_COMPOSITOR,
         CCI_IDLE,
+        CCI_COLOR_MANAGEMENT,
 }
 
 pub struct ControlCenter {
@@ -102,6 +107,7 @@ struct PaneState {
 enum PaneType {
     Compositor(CompositorPane),
     Idle(IdlePane),
+    ColorManagement(ColorManagementPane),
 }
 
 struct CcBehavior<'a> {
@@ -122,6 +128,7 @@ impl Pane {
         match &self.ty {
             PaneType::Compositor(v) => v.title(res),
             PaneType::Idle(v) => v.title(res),
+            PaneType::ColorManagement(v) => v.title(res),
         }
     }
 
@@ -129,6 +136,7 @@ impl Pane {
         match &mut self.ty {
             PaneType::Compositor(p) => p.show(ui),
             PaneType::Idle(p) => p.show(ui),
+            PaneType::ColorManagement(p) => p.show(ui),
         }
     }
 }
@@ -138,6 +146,7 @@ impl PaneType {
         match self {
             PaneType::Compositor(_) => CCI_COMPOSITOR,
             PaneType::Idle(_) => CCI_IDLE,
+            PaneType::ColorManagement(_) => CCI_COLOR_MANAGEMENT,
         }
     }
 }
@@ -487,7 +496,6 @@ fn bool_ui<R>(
     });
 }
 
-#[expect(dead_code)]
 fn read_only_bool(ui: &mut Ui, name: &str, old: bool) {
     read_only_bool_ui(ui, name, |_| (), old);
 }

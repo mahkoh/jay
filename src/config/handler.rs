@@ -1142,7 +1142,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_color_management_enabled(&self, enabled: bool) {
-        self.state.color_management_enabled.set(enabled);
+        self.state.set_color_management_enabled(enabled);
     }
 
     fn handle_get_socket_path(&self) {

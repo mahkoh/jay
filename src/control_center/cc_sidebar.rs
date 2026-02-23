@@ -10,6 +10,7 @@ use {
 enum PaneName {
     Compositor,
     Idle,
+    ColorManagement,
 }
 
 impl PaneName {
@@ -17,6 +18,7 @@ impl PaneName {
         match self {
             PaneName::Compositor => "Compositor",
             PaneName::Idle => "Idle",
+            PaneName::ColorManagement => "Color Management",
         }
     }
 }
@@ -44,6 +46,9 @@ impl ControlCenterInner {
                                     PaneType::Compositor(self.create_compositor_pane())
                                 }
                                 PaneName::Idle => PaneType::Idle(self.create_idle_pane()),
+                                PaneName::ColorManagement => {
+                                    PaneType::ColorManagement(self.create_color_management_pane())
+                                }
                             };
                             self.open(tree, ty);
                         }
