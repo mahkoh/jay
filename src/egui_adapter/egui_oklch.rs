@@ -6,7 +6,6 @@ use {
     egui::{Color32, Rgba},
 };
 
-#[expect(dead_code)]
 pub trait Color32Ext {
     fn to_oklab(self) -> Oklab;
     fn to_oklch(self) -> Oklch;

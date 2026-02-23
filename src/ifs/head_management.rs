@@ -7,9 +7,12 @@ use {
         client::ClientId,
         format::Format,
         globals::GlobalName,
-        ifs::head_management::{
-            head_management_macros::HeadExts, jay_head_manager_session_v1::JayHeadManagerSessionV1,
-            jay_head_v1::JayHeadV1,
+        ifs::{
+            head_management::{
+                head_management_macros::HeadExts,
+                jay_head_manager_session_v1::JayHeadManagerSessionV1, jay_head_v1::JayHeadV1,
+            },
+            wl_output::BlendSpace,
         },
         scale::Scale,
         state::OutputData,
@@ -18,7 +21,7 @@ use {
         wire::JayHeadManagerSessionV1Id,
     },
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, Ref, RefCell},
         rc::Rc,
     },
     thiserror::Error,
@@ -92,10 +95,23 @@ pub struct HeadState {
     pub eotf: BackendEotfs,
     pub supported_formats: RcEq<Vec<&'static Format>>,
     pub brightness: Option<f64>,
+    pub blend_space: BlendSpace,
+    pub use_native_gamut: bool,
+    pub vrr_cursor_hz: Option<f64>,
+}
+
+pub struct ReadOnlyHeadState {
+    state: Rc<RefCell<HeadState>>,
+}
+
+impl ReadOnlyHeadState {
+    pub fn borrow(&self) -> Ref<'_, HeadState> {
+        self.state.borrow()
+    }
 }
 
 impl HeadState {
-    fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
+    pub fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
         self.in_compositor_space = false;
         self.wl_output = None;
         if !self.connector_enabled {
@@ -114,7 +130,7 @@ impl HeadState {
         self.wl_output = wl_output;
     }
 
-    fn update_size(&mut self) {
+    pub fn update_size(&mut self) {
         self.size =
             OutputNode::calculate_extents_(self.mode, self.transform, self.scale, self.position)
                 .size();
@@ -196,7 +212,7 @@ pub enum HeadCommonError {
 }
 
 pub struct HeadManagers {
-    name: HeadName,
+    pub name: HeadName,
     state: Rc<RefCell<HeadState>>,
     managers: CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<Head>>,
 }
@@ -215,6 +231,12 @@ impl HeadManagers {
             name,
             state: Rc::new(RefCell::new(state)),
             managers: Default::default(),
+        }
+    }
+
+    pub fn state(&self) -> ReadOnlyHeadState {
+        ReadOnlyHeadState {
+            state: self.state.clone(),
         }
     }
 
@@ -240,6 +262,10 @@ impl HeadManagers {
             state.transform = n.global.persistent.transform.get();
             state.vrr_mode = n.global.persistent.vrr_mode.get();
             state.tearing_mode = n.global.persistent.tearing_mode.get();
+            state.brightness = n.global.persistent.brightness.get();
+            state.blend_space = n.global.persistent.blend_space.get();
+            state.use_native_gamut = n.global.persistent.use_native_gamut.get();
+            state.vrr_cursor_hz = n.global.persistent.vrr_cursor_hz.get();
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
@@ -529,5 +555,20 @@ impl HeadManagers {
                 head.session.schedule_done();
             }
         }
+    }
+
+    pub fn handle_blend_space_change(&self, blend_space: BlendSpace) {
+        let state = &mut *self.state.borrow_mut();
+        state.blend_space = blend_space;
+    }
+
+    pub fn handle_use_native_gamut_change(&self, use_native_gamut: bool) {
+        let state = &mut *self.state.borrow_mut();
+        state.use_native_gamut = use_native_gamut;
+    }
+
+    pub fn handle_cursor_hz_change_change(&self, cursor_hz: Option<f64>) {
+        let state = &mut *self.state.borrow_mut();
+        state.vrr_cursor_hz = cursor_hz;
     }
 }

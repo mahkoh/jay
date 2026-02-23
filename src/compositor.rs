@@ -38,7 +38,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -101,6 +101,9 @@ use {
 };
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
+
+pub const MIN_SCALE: Scale = Scale::from_wl(60);
+pub const MAX_SCALE: Scale = Scale::from_int(16);
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
@@ -709,6 +712,9 @@ fn create_dummy_output(state: &Rc<State>) {
         eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
+        blend_space: BlendSpace::Srgb,
+        use_native_gamut: false,
+        vrr_cursor_hz: None,
     };
     let connector_data = Rc::new(ConnectorData {
         id,
@@ -728,8 +734,7 @@ fn create_dummy_output(state: &Rc<State>) {
         wlr_output_heads: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
-        &state.ring,
-        &state.eng,
+        state,
         &connector_data,
         &persistent_state,
     ));

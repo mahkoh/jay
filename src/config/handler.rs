@@ -1508,7 +1508,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.schedule.set_cursor_hz(hz);
+                connector.schedule.set_cursor_hz(&self.state, hz);
             }
             _ => {
                 let Some((hz, _)) = map_cursor_hz(hz) else {

@@ -2,9 +2,10 @@ use {
     crate::{
         async_engine::AsyncEngine,
         backend::HardwareCursor,
+        control_center::CCI_OUTPUTS,
         ifs::wl_output::PersistentOutputState,
         io_uring::{IoUring, IoUringError},
-        state::ConnectorData,
+        state::{ConnectorData, State},
         utils::{
             asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell, errorfmt::ErrorFmt,
             numcell::NumCell,
@@ -51,8 +52,7 @@ pub struct OutputSchedule {
 
 impl OutputSchedule {
     pub fn new(
-        ring: &Rc<IoUring>,
-        eng: &Rc<AsyncEngine>,
+        state: &State,
         connector: &Rc<ConnectorData>,
         persistent: &Rc<PersistentOutputState>,
     ) -> Self {
@@ -60,8 +60,8 @@ impl OutputSchedule {
             changed: Default::default(),
             run: Default::default(),
             connector: connector.clone(),
-            ring: ring.clone(),
-            eng: eng.clone(),
+            ring: state.ring.clone(),
+            eng: state.eng.clone(),
             vrr_enabled: Default::default(),
             hardware_cursor_change: Cell::new(Change::None),
             software_cursor_change: Cell::new(Change::None),
@@ -72,7 +72,7 @@ impl OutputSchedule {
             iteration: Default::default(),
         };
         if let Some(hz) = persistent.vrr_cursor_hz.get() {
-            slf.set_cursor_hz(hz);
+            slf.set_cursor_hz(state, hz);
         }
         slf
     }
@@ -118,7 +118,7 @@ impl OutputSchedule {
         self.trigger();
     }
 
-    pub fn set_cursor_hz(&self, hz: f64) {
+    pub fn set_cursor_hz(&self, state: &State, hz: f64) {
         let (hz, delta) = match map_cursor_hz(hz) {
             None => {
                 log::warn!("Ignoring cursor frequency {hz}");
@@ -127,6 +127,10 @@ impl OutputSchedule {
             Some(v) => v,
         };
         self.persistent.vrr_cursor_hz.set(hz);
+        self.connector
+            .head_managers
+            .handle_cursor_hz_change_change(hz);
+        state.trigger_cci(CCI_OUTPUTS);
         self.cursor_delta_nsec.set(delta);
         self.trigger();
     }

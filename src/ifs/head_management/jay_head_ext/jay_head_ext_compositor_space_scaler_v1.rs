@@ -1,5 +1,6 @@
 use {
     crate::{
+        compositor::{MAX_SCALE, MIN_SCALE},
         ifs::head_management::{HeadOp, HeadState},
         scale::Scale,
         wire::{
@@ -16,9 +17,6 @@ impl_compositor_space_scaler_v1! {
     version = 1,
     after_announce = after_announce,
 }
-
-const MIN_SCALE: Scale = Scale::from_wl(60);
-const MAX_SCALE: Scale = Scale::from_int(16);
 
 impl HeadName {
     fn after_announce(&self, _shared: &HeadState) {

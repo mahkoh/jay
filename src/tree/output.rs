@@ -6,6 +6,7 @@ use {
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
+        control_center::CCI_OUTPUTS,
         cursor::KnownCursor,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
@@ -243,6 +244,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_tearing_active_change(tearing);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -497,6 +499,7 @@ impl OutputNode {
             .connector
             .head_managers
             .handle_scale_change(scale);
+        self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_new_scale(scale);
         }
@@ -869,6 +872,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_transform_change(transform);
+            self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
                 head.hande_transform_change(transform);
             }
@@ -931,6 +935,7 @@ impl OutputNode {
             .connector
             .head_managers
             .handle_position_size_change(self);
+        self.state.trigger_cci(CCI_OUTPUTS);
     }
 
     pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
@@ -985,6 +990,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_brightness_change(brightness);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -996,6 +1002,11 @@ impl OutputNode {
             .replace(use_native_gamut);
         if old != use_native_gamut {
             self.update_color_description();
+            self.global
+                .connector
+                .head_managers
+                .handle_use_native_gamut_change(use_native_gamut);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -1003,6 +1014,11 @@ impl OutputNode {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
             self.state.damage(self.global.position());
+            self.global
+                .connector
+                .head_managers
+                .handle_blend_space_change(blend_space);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
     fn find_stacked_at(
@@ -1468,6 +1484,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_vrr_mode_change(mode);
+            self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
                 head.handle_vrr_mode_change(mode);
             }
@@ -1482,6 +1499,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_tearing_mode_change(mode);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -1527,6 +1545,11 @@ impl OutputNode {
             .inspect_err(|e| {
                 log::error!("Could not set gamma_lut: {}", ErrorFmt(e));
             })
+    }
+
+    pub fn set_flip_margin(&self, margin_ns: u64) {
+        self.flip_margin_ns.set(Some(margin_ns));
+        self.state.trigger_cci(CCI_OUTPUTS);
     }
 }
 
@@ -1904,14 +1927,24 @@ pub enum VrrMode {
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct VrrSurfaceRequirements {
-    content_type: Option<VrrContentTypeRequirements>,
+    pub content_type: Option<VrrContentTypeRequirements>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct VrrContentTypeRequirements {
-    photo: bool,
-    video: bool,
-    game: bool,
+    pub photo: bool,
+    pub video: bool,
+    pub game: bool,
+}
+
+impl Default for VrrContentTypeRequirements {
+    fn default() -> Self {
+        Self {
+            photo: true,
+            video: true,
+            game: true,
+        }
+    }
 }
 
 impl VrrMode {
@@ -1970,7 +2003,15 @@ pub enum TearingMode {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TearingSurfaceRequirements {
-    tearing_requested: bool,
+    pub tearing_requested: bool,
+}
+
+impl Default for TearingSurfaceRequirements {
+    fn default() -> Self {
+        Self {
+            tearing_requested: true,
+        }
+    }
 }
 
 impl TearingMode {

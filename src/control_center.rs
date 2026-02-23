@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{
             cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_idle::IdlePane, cc_xwayland::XwaylandPane,
+            cc_idle::IdlePane, cc_outputs::OutputsPane, cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{EggError, EggWindow, EggWindowOwner},
         macros::Bitflag,
@@ -31,6 +31,7 @@ use {
 mod cc_color_management;
 mod cc_compositor;
 mod cc_idle;
+mod cc_outputs;
 mod cc_sidebar;
 mod cc_xwayland;
 
@@ -69,6 +70,7 @@ bitflags! {
         CCI_IDLE,
         CCI_COLOR_MANAGEMENT,
         CCI_XWAYLAND,
+        CCI_OUTPUTS,
 }
 
 pub struct ControlCenter {
@@ -111,6 +113,7 @@ enum PaneType {
     Idle(IdlePane),
     ColorManagement(ColorManagementPane),
     Xwayland(XwaylandPane),
+    Outputs(Box<OutputsPane>),
 }
 
 struct CcBehavior<'a> {
@@ -133,6 +136,7 @@ impl Pane {
             PaneType::Idle(v) => v.title(res),
             PaneType::ColorManagement(v) => v.title(res),
             PaneType::Xwayland(v) => v.title(res),
+            PaneType::Outputs(v) => v.title(res),
         }
     }
 
@@ -142,6 +146,7 @@ impl Pane {
             PaneType::Idle(p) => p.show(ui),
             PaneType::ColorManagement(p) => p.show(ui),
             PaneType::Xwayland(p) => p.show(behavior, ui),
+            PaneType::Outputs(p) => p.show(&mut self.ps, ui),
         }
     }
 }
@@ -153,6 +158,7 @@ impl PaneType {
             PaneType::Idle(_) => CCI_IDLE,
             PaneType::ColorManagement(_) => CCI_COLOR_MANAGEMENT,
             PaneType::Xwayland(_) => CCI_XWAYLAND,
+            PaneType::Outputs(_) => CCI_OUTPUTS,
         }
     }
 }
@@ -406,7 +412,6 @@ fn icon_label(icon: &str) -> Label {
     Label::new(icon).selectable(false)
 }
 
-#[expect(dead_code)]
 fn grid_label(ui: &mut Ui, label: &str) {
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         ui.label(label);

@@ -4,6 +4,7 @@ use {
             BackendConnectorState, BackendConnectorStateSerial, Connector, ConnectorEvent,
             ConnectorId, MonitorInfo,
         },
+        control_center::CCI_OUTPUTS,
         format::XRGB8888,
         globals::GlobalName,
         ifs::{
@@ -74,6 +75,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
+        blend_space: BlendSpace::Srgb,
+        use_native_gamut: false,
+        vrr_cursor_hz: None,
     };
     let data = Rc::new(ConnectorData {
         id,
@@ -105,6 +109,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     for mgr in state.head_managers.lock().values() {
         mgr.announce(&data);
     }
+    state.trigger_cci(CCI_OUTPUTS);
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
     }
@@ -144,6 +149,7 @@ impl ConnectorHandler {
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
         self.data.head_managers.handle_removed();
+        self.state.trigger_cci(CCI_OUTPUTS);
     }
 
     async fn handle_connected(&self, info: MonitorInfo) {
@@ -159,6 +165,7 @@ impl ConnectorHandler {
         }
         self.data.connected.set(false);
         self.data.head_managers.handle_output_disconnected();
+        self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.data.wlr_output_heads.lock().drain_values() {
             head.handle_disconnected();
         }
@@ -210,12 +217,7 @@ impl ConnectorHandler {
             info.primaries,
             info.luminance,
         ));
-        let schedule = Rc::new(OutputSchedule::new(
-            &self.state.ring,
-            &self.state.eng,
-            &self.data,
-            &desired_state,
-        ));
+        let schedule = Rc::new(OutputSchedule::new(&self.state, &self.data, &desired_state));
         let _schedule = self
             .state
             .eng
@@ -338,6 +340,7 @@ impl ConnectorHandler {
         self.data
             .head_managers
             .handle_output_connected(&output_data);
+        self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
@@ -350,6 +353,7 @@ impl ConnectorHandler {
                     }
                     ConnectorEvent::FormatsChanged(formats) => {
                         self.data.head_managers.handle_formats_change(&formats);
+                        self.state.trigger_cci(CCI_OUTPUTS);
                         on.global.formats.set(formats);
                     }
                     ConnectorEvent::State(state) => {
@@ -463,6 +467,7 @@ impl ConnectorHandler {
         self.data
             .head_managers
             .handle_output_connected(&output_data);
+        self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {

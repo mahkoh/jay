@@ -12,6 +12,7 @@ enum PaneName {
     Idle,
     ColorManagement,
     Xwayland,
+    Outputs,
 }
 
 impl PaneName {
@@ -21,6 +22,7 @@ impl PaneName {
             PaneName::Idle => "Idle",
             PaneName::ColorManagement => "Color Management",
             PaneName::Xwayland => "Xwayland",
+            PaneName::Outputs => "Outputs",
         }
     }
 }
@@ -53,6 +55,9 @@ impl ControlCenterInner {
                                 }
                                 PaneName::Xwayland => {
                                     PaneType::Xwayland(self.create_xwayland_pane())
+                                }
+                                PaneName::Outputs => {
+                                    PaneType::Outputs(Box::new(self.create_outputs_pane()))
                                 }
                             };
                             self.open(tree, ty);
