@@ -9,7 +9,12 @@ use {
     jay_config::theme::BarPosition as ConfigBarPosition,
     linearize::Linearize,
     num_traits::Float,
-    std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
+    std::{
+        cell::Cell,
+        cmp::Ordering,
+        ops::{Add, Div, Mul},
+        sync::Arc,
+    },
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -337,6 +342,32 @@ impl Color {
             a: self.a * (1.0 - other.a) + other.a,
         }
     }
+
+    pub fn srgb_to_oklab(self) -> Oklab {
+        if self.a == 0.0 {
+            return Oklab {
+                l: 0.0,
+                a: 0.0,
+                b: 0.0,
+            };
+        }
+
+        let [r, g, b, _] = self.to_array2(Eotf::Linear, Some(1.0 / self.a));
+
+        let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+        let m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+        let s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+        let l_ = l.cbrt();
+        let m_ = m.cbrt();
+        let s_ = s.cbrt();
+
+        let l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+        let a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+        let b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
+
+        Oklab { l, a, b }
+    }
 }
 
 impl From<jay_config::theme::Color> for Color {
@@ -598,6 +629,97 @@ impl Theme {
             self.sizes.title_height.get() + 1
         } else {
             0
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Oklch {
+    pub l: f32,
+    pub c: f32,
+    pub h: f32,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Oklab {
+    pub l: f32,
+    pub a: f32,
+    pub b: f32,
+}
+
+impl Oklab {
+    pub fn to_srgb(self) -> Color {
+        let l_ = self.l + 0.3963377774 * self.a + 0.2158037573 * self.b;
+        let m_ = self.l - 0.1055613458 * self.a - 0.0638541728 * self.b;
+        let s_ = self.l - 0.0894841775 * self.a - 1.2914855480 * self.b;
+
+        let l = l_ * l_ * l_;
+        let m = m_ * m_ * m_;
+        let s = s_ * s_ * s_;
+
+        let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        let b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+        Color::new(
+            Eotf::Linear,
+            AlphaMode::PremultipliedElectrical,
+            r,
+            g,
+            b,
+            1.0,
+        )
+    }
+
+    pub fn to_oklch(self) -> Oklch {
+        let c = (self.a * self.a + self.b * self.b).sqrt();
+        let h = self.b.atan2(self.a);
+
+        Oklch { l: self.l, c, h }
+    }
+}
+
+impl Oklch {
+    pub fn to_oklab(self) -> Oklab {
+        let a = self.c * self.h.cos();
+        let b = self.c * self.h.sin();
+
+        Oklab { l: self.l, a, b }
+    }
+}
+
+impl Add for Oklab {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            l: self.l + rhs.l,
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
+        }
+    }
+}
+
+impl Mul<f32> for Oklab {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            l: self.l * rhs,
+            a: self.a * rhs,
+            b: self.b * rhs,
+        }
+    }
+}
+
+impl Div<f32> for Oklab {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            l: self.l / rhs,
+            a: self.a / rhs,
+            b: self.b / rhs,
         }
     }
 }
