@@ -335,7 +335,6 @@ impl EggState {
 }
 
 impl State {
-    #[expect(dead_code)]
     pub fn get_egg_context(self: &Rc<Self>) -> Result<Rc<EggContext>, EggError> {
         if let Some(ctx) = self.egg_state.ctx.get() {
             return Ok(ctx);
@@ -441,7 +440,6 @@ impl State {
 }
 
 impl EggContext {
-    #[expect(dead_code)]
     pub fn create_window(self: &Rc<Self>, title: &str) -> Rc<EggWindow> {
         let i = &self.inner;
         let wl_surface = i.wl_compositor.create_surface();
@@ -604,12 +602,10 @@ impl EggSeatInner {
 }
 
 impl EggWindow {
-    #[expect(dead_code)]
     pub fn request_redraw(&self) {
         self.inner.want_frame();
     }
 
-    #[expect(dead_code)]
     pub fn set_owner(&self, owner: Option<Rc<dyn EggWindowOwner>>) {
         self.inner.owner.set(owner);
     }

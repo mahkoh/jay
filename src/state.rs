@@ -15,6 +15,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
+        control_center::{CCI_COMPOSITOR, ControlCenters},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -146,10 +147,11 @@ use {
         time::Duration,
     },
     thiserror::Error,
-    uapi::OwnedFd,
+    uapi::{OwnedFd, c},
 };
 
 pub struct State {
+    pub pid: c::pid_t,
     pub kb_ctx: KbvmContext,
     pub backend: CloneCell<Rc<dyn Backend>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
@@ -292,6 +294,7 @@ pub struct State {
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub egg_state: EggState,
+    pub control_centers: ControlCenters,
 }
 
 // impl Drop for State {
@@ -1130,6 +1133,7 @@ impl State {
         self.wait_for_syncobj.clear();
         self.xdg_surface_configure_events.clear();
         self.egg_state.clear();
+        self.control_centers.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1670,6 +1674,36 @@ impl State {
         move_ws_to_output(&link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.tree_changed();
+    }
+
+    pub fn quit(&self) {
+        log::info!("Quitting");
+        self.ring.stop();
+    }
+
+    pub fn reload_config(self: &Rc<Self>) {
+        log::info!("Reloading config");
+        let config = match ConfigProxy::from_config_dir(self) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Cannot reload config: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        if let Some(config) = self.config.take() {
+            config.destroy();
+            for seat in self.globals.seats.lock().values() {
+                seat.clear_shortcuts();
+            }
+        }
+        config.configure(true);
+        self.config.set(Some(Rc::new(config)));
+    }
+
+    pub fn set_ei_socket_enabled(self: &Rc<Self>, enabled: bool) {
+        self.enable_ei_acceptor.set(enabled);
+        self.update_ei_acceptor();
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 }
 

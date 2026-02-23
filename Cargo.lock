@@ -383,9 +383,9 @@ dependencies = [
 
 [[package]]
 name = "dlib"
-version = "0.5.3"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
+checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
  "libloading 0.8.9",
 ]
@@ -424,6 +424,24 @@ checksum = "3ff7d3715b5ee29fe75afd19420756b3e0a970149b62712af1b3204a68e2012b"
 dependencies = [
  "egui",
 ]
+
+[[package]]
+name = "egui_tiles"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef184e589f0a80560bd3b63017634642d1ba112a8a8d9b29341f7cafd04601f"
+dependencies = [
+ "ahash",
+ "egui",
+ "itertools",
+ "log",
+]
+
+[[package]]
+name = "either"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "emath"
@@ -710,6 +728,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1697e6b71679da96d5c41bb9035116141baadbf59a60625fd66cb3c9584e7b0"
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -751,6 +778,7 @@ dependencies = [
  "dirs",
  "egui",
  "egui_material_icons",
+ "egui_tiles",
  "fontconfig",
  "futures-util",
  "gpu-alloc",

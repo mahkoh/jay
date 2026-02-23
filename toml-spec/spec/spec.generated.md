@@ -4395,6 +4395,10 @@ The string should have one of the following values:
   
   This has no effect if the simple IM is not currently active.
 
+- `open-control-center`:
+
+  Opens the control center.
+
 
 
 <a name="types-SimpleIm"></a>

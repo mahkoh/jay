@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
@@ -194,7 +195,8 @@ fn start_compositor2(
     test_future: Option<TestFuture>,
     caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
-    log::info!("pid = {}", uapi::getpid());
+    let pid = uapi::getpid();
+    log::info!("pid = {pid}");
     log::info!("version = {VERSION}");
     if did_elevate_scheduler() {
         log::info!("Running with elevated scheduler: SCHED_RR");
@@ -219,6 +221,7 @@ fn start_compositor2(
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
     let state = Rc::new(State {
+        pid,
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
@@ -381,6 +384,7 @@ fn start_compositor2(
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
         egg_state: EggState::new()?,
+        control_centers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -580,6 +584,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "xdg_surface configure events",
             Phase::PostLayout,
             handle_xdg_surface_configure_events(state.clone()),
+        ),
+        eng.spawn(
+            "redraw control centers",
+            redraw_control_centers(state.clone()),
         ),
     ]
 }

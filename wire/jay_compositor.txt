@@ -131,6 +131,10 @@ request get_sync_file_surface (since = 26) {
     surface: id(wl_surface),
 }
 
+request open_control_center (since = 27) {
+    id: id(jay_open_control_center_request),
+}
+
 # events
 
 event client_id {

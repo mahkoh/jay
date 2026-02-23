@@ -9,7 +9,6 @@ use {
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
         compositor::{MAX_EXTENTS, WAYLAND_DISPLAY},
-        config::ConfigProxy,
         criteria::{
             CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
             clm::ClmLeafMatcher,
@@ -424,22 +423,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reload(&self) {
-        log::info!("Reloading config");
-        let config = match ConfigProxy::from_config_dir(&self.state) {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("Cannot reload config: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        if let Some(config) = self.state.config.take() {
-            config.destroy();
-            for seat in self.state.globals.seats.lock().values() {
-                seat.clear_shortcuts();
-            }
-        }
-        config.configure(true);
-        self.state.config.set(Some(Rc::new(config)));
+        self.state.reload_config();
     }
 
     fn handle_get_seat_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
@@ -926,8 +910,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_ei_socket_enabled(&self, enabled: bool) {
-        self.state.enable_ei_acceptor.set(enabled);
-        self.state.update_ei_acceptor();
+        self.state.set_ei_socket_enabled(enabled);
     }
 
     fn handle_get_workspace(&self, name: &str) {
@@ -1847,6 +1830,12 @@ impl ConfigProxyHandler {
         let env = env.into_iter().map(|(k, v)| (k, Some(v))).collect();
         forker.spawn(prog.to_string(), args, env, fds);
         Ok(())
+    }
+
+    fn handle_open_control_center(&self) {
+        if let Err(e) = self.state.open_control_center() {
+            log::error!("Could not open control center: {}", ErrorFmt(e));
+        }
     }
 
     fn handle_set_log_level(&self, level: LogLevel) {
@@ -3411,6 +3400,7 @@ impl ConfigProxyHandler {
                 fds,
                 tag,
             } => self.handle_run(prog, args, env, fds, tag).wrn("run")?,
+            ClientMessage::OpenControlCenter => self.handle_open_control_center(),
         }
         Ok(())
     }

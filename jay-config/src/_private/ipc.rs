@@ -841,6 +841,7 @@ pub enum ClientMessage<'a> {
         fds: Vec<(i32, i32)>,
         tag: Option<&'a str>,
     },
+    OpenControlCenter,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

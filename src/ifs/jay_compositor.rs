@@ -11,6 +11,7 @@ use {
             jay_idle::JayIdle,
             jay_input::JayInput,
             jay_log_file::JayLogFile,
+            jay_open_control_center_request::JayOpenControlCenterRequest,
             jay_output::JayOutput,
             jay_pointer::JayPointer,
             jay_randr::JayRandr,
@@ -81,7 +82,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        26
+        27
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -184,8 +185,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn quit(&self, _req: Quit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        log::info!("Quitting");
-        self.client.state.ring.stop();
+        self.client.state.quit();
         Ok(())
     }
 
@@ -548,6 +548,25 @@ impl JayCompositorRequestHandler for JayCompositor {
         let obj = Rc::new(JaySyncFileSurface::new(req.id, self.version, &surface));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn open_control_center(
+        &self,
+        req: OpenControlCenter,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayOpenControlCenterRequest {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        if let Err(e) = self.client.state.open_control_center() {
+            obj.send_failed(e);
+        }
         Ok(())
     }
 }
