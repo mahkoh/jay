@@ -57,10 +57,7 @@ impl JayXwaylandRequestHandler for JayXwayland {
         };
         self.client
             .state
-            .xwayland
-            .use_wire_scale
-            .set(use_wire_scale);
-        self.client.state.update_xwayland_wire_scale();
+            .set_xwayland_use_wire_scale(use_wire_scale);
         Ok(())
     }
 }

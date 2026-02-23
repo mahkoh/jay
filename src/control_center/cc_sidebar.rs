@@ -11,6 +11,7 @@ enum PaneName {
     Compositor,
     Idle,
     ColorManagement,
+    Xwayland,
 }
 
 impl PaneName {
@@ -19,6 +20,7 @@ impl PaneName {
             PaneName::Compositor => "Compositor",
             PaneName::Idle => "Idle",
             PaneName::ColorManagement => "Color Management",
+            PaneName::Xwayland => "Xwayland",
         }
     }
 }
@@ -48,6 +50,9 @@ impl ControlCenterInner {
                                 PaneName::Idle => PaneType::Idle(self.create_idle_pane()),
                                 PaneName::ColorManagement => {
                                     PaneType::ColorManagement(self.create_color_management_pane())
+                                }
+                                PaneName::Xwayland => {
+                                    PaneType::Xwayland(self.create_xwayland_pane())
                                 }
                             };
                             self.open(tree, ty);

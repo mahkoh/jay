@@ -965,8 +965,7 @@ impl ConfigProxyHandler {
             XScalingMode::DOWNSCALED => true,
             _ => return Err(CphError::UnknownXScalingMode(mode)),
         };
-        self.state.xwayland.use_wire_scale.set(use_wire_scale);
-        self.state.update_xwayland_wire_scale();
+        self.state.set_xwayland_use_wire_scale(use_wire_scale);
         Ok(())
     }
 

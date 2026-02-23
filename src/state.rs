@@ -15,7 +15,9 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
-        control_center::{CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
+        control_center::{
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, CCI_XWAYLAND, ControlCenters,
+        },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -324,6 +326,8 @@ pub struct XWaylandState {
     pub use_wire_scale: Cell<bool>,
     pub wire_scale: Cell<Option<i32>>,
     pub windows: CopyHashMap<XwindowId, Rc<Xwindow>>,
+    pub client: CloneCell<Option<Rc<Client>>>,
+    pub display: CloneCell<Option<Rc<String>>>,
 }
 
 pub struct IdleState {
@@ -996,6 +1000,15 @@ impl State {
         } else {
             self.stop_xwayland();
         }
+        self.trigger_cci(CCI_XWAYLAND);
+    }
+
+    pub fn set_xwayland_use_wire_scale(&self, use_wire_scale: bool) {
+        if self.xwayland.use_wire_scale.replace(use_wire_scale) == use_wire_scale {
+            return;
+        }
+        self.update_xwayland_wire_scale();
+        self.trigger_cci(CCI_XWAYLAND);
     }
 
     pub fn next_serial(&self, client: Option<&Client>) -> u64 {
