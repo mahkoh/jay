@@ -16,7 +16,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
-        control_center::{CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
+        control_center::{CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, ControlCenters},
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -766,6 +766,7 @@ impl State {
         }
 
         self.expose_new_singletons();
+        self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
     fn reload_cursors(&self) {
@@ -1716,6 +1717,7 @@ impl State {
     pub fn set_color_management_enabled(&self, enabled: bool) {
         self.color_management_enabled.set(enabled);
         self.expose_new_singletons();
+        self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
     pub fn set_primary_selection_enabled(&self, enabled: bool) {
