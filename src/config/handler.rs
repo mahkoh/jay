@@ -953,9 +953,10 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_flip_margin(&self, device: DrmDevice, margin: Duration) -> Result<(), CphError> {
-        self.get_drm_device(device)?
-            .dev
-            .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
+        self.get_drm_device(device)?.set_flip_margin(
+            &self.state,
+            margin.as_nanos().try_into().unwrap_or(u64::MAX),
+        );
         Ok(())
     }
 
@@ -992,8 +993,7 @@ impl ConfigProxyHandler {
         match device {
             Some(dev) => self
                 .get_drm_device(dev)?
-                .dev
-                .set_direct_scanout_enabled(enabled),
+                .set_direct_scanout_enabled(&self.state, enabled),
             _ => self.state.direct_scanout_enabled.set(enabled),
         }
         Ok(())

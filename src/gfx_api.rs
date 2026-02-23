@@ -2,6 +2,7 @@ use {
     crate::{
         allocator::Allocator,
         cmm::cmm_description::{ColorDescription, LinearColorDescription},
+        control_center::EnumText,
         cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
@@ -45,6 +46,12 @@ use {
 pub enum GfxApi {
     OpenGl,
     Vulkan,
+}
+
+impl EnumText for GfxApi {
+    fn text(self) -> &'static str {
+        self.to_str()
+    }
 }
 
 impl TryFrom<ConfigGfxApi> for GfxApi {

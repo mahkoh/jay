@@ -540,6 +540,9 @@ pub trait BackendDrmDevice {
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;
+    fn direct_scanout_enabled(&self) -> bool {
+        false
+    }
     fn create_lease(
         self: Rc<Self>,
         lessee: Rc<dyn BackendDrmLessee>,
@@ -550,6 +553,9 @@ pub trait BackendDrmDevice {
     }
     fn set_flip_margin(&self, margin: u64) {
         let _ = margin;
+    }
+    fn flip_margin(&self) -> Option<u64> {
+        None
     }
 }
 
