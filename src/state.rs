@@ -17,7 +17,7 @@ use {
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         control_center::{
-            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, CCI_OUTPUTS, CCI_XWAYLAND,
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_OUTPUTS, CCI_XWAYLAND,
             ControlCenters,
         },
         copy_device::CopyDeviceRegistry,
@@ -549,12 +549,14 @@ impl DrmDevData {
         self.dev.clone().make_render_device();
     }
 
-    pub fn set_direct_scanout_enabled(&self, enabled: bool) {
+    pub fn set_direct_scanout_enabled(&self, state: &State, enabled: bool) {
         self.dev.set_direct_scanout_enabled(enabled);
+        state.trigger_cci(CCI_GPUS);
     }
 
-    pub fn set_flip_margin(&self, margin: u64) {
+    pub fn set_flip_margin(&self, state: &State, margin: u64) {
         self.dev.set_flip_margin(margin);
+        state.trigger_cci(CCI_GPUS);
     }
 }
 
@@ -778,7 +780,7 @@ impl State {
         }
 
         self.expose_new_singletons();
-        self.trigger_cci(CCI_COLOR_MANAGEMENT);
+        self.trigger_cci(CCI_COLOR_MANAGEMENT | CCI_GPUS);
     }
 
     fn reload_cursors(&self) {

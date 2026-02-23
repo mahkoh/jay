@@ -2,7 +2,8 @@ use {
     crate::{
         control_center::{
             cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_idle::IdlePane, cc_outputs::OutputsPane, cc_xwayland::XwaylandPane,
+            cc_gpus::GpusPane, cc_idle::IdlePane, cc_outputs::OutputsPane,
+            cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{
             EggError, EggWindow, EggWindowOwner,
@@ -35,6 +36,7 @@ use {
 
 mod cc_color_management;
 mod cc_compositor;
+mod cc_gpus;
 mod cc_idle;
 mod cc_outputs;
 mod cc_sidebar;
@@ -76,6 +78,7 @@ bitflags! {
         CCI_COLOR_MANAGEMENT,
         CCI_XWAYLAND,
         CCI_OUTPUTS,
+        CCI_GPUS,
 }
 
 pub struct ControlCenter {
@@ -121,6 +124,7 @@ enum PaneType {
     ColorManagement(ColorManagementPane),
     Xwayland(XwaylandPane),
     Outputs(Box<OutputsPane>),
+    GPUs(GpusPane),
 }
 
 struct CcBehavior<'a> {
@@ -144,6 +148,7 @@ impl Pane {
             PaneType::ColorManagement(v) => v.title(res),
             PaneType::Xwayland(v) => v.title(res),
             PaneType::Outputs(v) => v.title(res),
+            PaneType::GPUs(v) => v.title(res),
         }
     }
 
@@ -154,6 +159,7 @@ impl Pane {
             PaneType::ColorManagement(p) => p.show(ui),
             PaneType::Xwayland(p) => p.show(behavior, ui),
             PaneType::Outputs(p) => p.show(&mut self.ps, ui),
+            PaneType::GPUs(p) => p.show(ui),
         }
     }
 }
@@ -166,6 +172,7 @@ impl PaneType {
             PaneType::ColorManagement(_) => CCI_COLOR_MANAGEMENT,
             PaneType::Xwayland(_) => CCI_XWAYLAND,
             PaneType::Outputs(_) => CCI_OUTPUTS,
+            PaneType::GPUs(_) => CCI_GPUS,
         }
     }
 }

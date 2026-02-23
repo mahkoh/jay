@@ -588,7 +588,6 @@ pub trait BackendDrmDevice {
     fn set_flip_margin(&self, margin: u64) {
         let _ = margin;
     }
-    #[expect(dead_code)]
     fn flip_margin(&self) -> Option<u64> {
         None
     }

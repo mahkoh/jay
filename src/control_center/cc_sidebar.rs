@@ -13,6 +13,7 @@ enum PaneName {
     ColorManagement,
     Xwayland,
     Outputs,
+    GPUs,
 }
 
 impl PaneName {
@@ -23,6 +24,7 @@ impl PaneName {
             PaneName::ColorManagement => "Color Management",
             PaneName::Xwayland => "Xwayland",
             PaneName::Outputs => "Outputs",
+            PaneName::GPUs => "GPUs",
         }
     }
 }
@@ -60,6 +62,7 @@ impl ControlCenterInner {
                                 PaneName::Outputs => {
                                     PaneType::Outputs(Box::new(self.create_outputs_pane()))
                                 }
+                                PaneName::GPUs => PaneType::GPUs(self.create_gpus_pane()),
                             };
                             self.open(tree, ty);
                             ui.ctx().request_repaint();
