@@ -7,8 +7,14 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::IoUring,
         utils::{
-            buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, oserror::OsError,
-            ptr_ext::MutPtrExt, queue::AsyncQueue, stack::Stack,
+            buf::TypedBuf,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            oserror::OsError,
+            pipe::{Pipe, pipe},
+            ptr_ext::MutPtrExt,
+            queue::AsyncQueue,
+            stack::Stack,
         },
     },
     parking_lot::{Condvar, Mutex},
@@ -261,8 +267,10 @@ impl CpuWorker {
     pub fn new(ring: &Rc<IoUring>, eng: &Rc<AsyncEngine>) -> Result<Self, CpuWorkerError> {
         let new_jobs: Arc<Mutex<VecDeque<Job>>> = Default::default();
         let completed_jobs: Arc<Mutex<CompletedJobsExchange>> = Default::default();
-        let (stop_read, stop_write) =
-            uapi::pipe2(c::O_CLOEXEC).map_err(|e| CpuWorkerError::Pipe(e.into()))?;
+        let Pipe {
+            read: stop_read,
+            write: stop_write,
+        } = pipe().map_err(CpuWorkerError::Pipe)?;
         let have_new_jobs =
             uapi::eventfd(0, c::EFD_CLOEXEC).map_err(|e| CpuWorkerError::EventFd(e.into()))?;
         let have_completed_jobs =

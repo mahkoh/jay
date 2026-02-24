@@ -33,6 +33,7 @@ use {
             line_logger::log_lines,
             numcell::NumCell,
             oserror::OsError,
+            pipe::{Pipe, pipe},
             process_name::set_process_name,
             run_toplevel::RunToplevel,
             xrd::xrd,
@@ -130,9 +131,9 @@ impl PortalStartup {
 }
 
 pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
-    let (read, write) = match uapi::pipe2(c::O_CLOEXEC) {
+    let Pipe { read, write } = match pipe() {
         Ok(p) => p,
-        Err(e) => return Err(PortalError::CreatePipe(e.into())),
+        Err(e) => return Err(PortalError::CreatePipe(e)),
     };
     let fork = match fork_with_pidfd(false) {
         Ok(f) => f,
@@ -153,10 +154,10 @@ pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
 }
 
 fn run(logger: Arc<Logger>, freestanding: bool) -> ! {
-    let (read, write) = match uapi::pipe2(c::O_CLOEXEC) {
+    let Pipe { read, write } = match pipe() {
         Ok(p) => p,
         Err(e) => {
-            fatal!("Could not create a pipe: {}", ErrorFmt(OsError::from(e)));
+            fatal!("Could not create a pipe: {}", ErrorFmt(e));
         }
     };
     let fork = match fork_with_pidfd(false) {

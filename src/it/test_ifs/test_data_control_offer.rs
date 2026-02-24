@@ -6,7 +6,10 @@ use {
             test_transport::TestTransport,
             testrun::ParseFull,
         },
-        utils::buffd::MsgParser,
+        utils::{
+            buffd::MsgParser,
+            pipe::{Pipe, pipe},
+        },
         wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
     },
     ahash::AHashSet,
@@ -14,7 +17,7 @@ use {
         cell::{Cell, RefCell},
         rc::Rc,
     },
-    uapi::{OwnedFd, c},
+    uapi::OwnedFd,
 };
 
 pub struct TestDataControlOffer {
@@ -33,7 +36,7 @@ impl TestDataControlOffer {
     }
 
     pub fn receive(&self, mime_type: &str) -> TestResult<Rc<OwnedFd>> {
-        let (read, write) = uapi::pipe2(c::O_CLOEXEC)?;
+        let Pipe { read, write } = pipe()?;
         self.tran.send(Receive {
             self_id: self.id,
             mime_type,

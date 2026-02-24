@@ -7,12 +7,13 @@ use {
             clone3::{Forked, fork_with_pidfd},
             errorfmt::ErrorFmt,
             oserror::OsError,
+            pipe::{Pipe, pipe},
         },
         wire::{JayReexecId, jay_reexec::*},
     },
     std::{array::from_mut, cell::RefCell, rc::Rc},
     thiserror::Error,
-    uapi::{OwnedFd, UstrPtr, c, close_range, dup2, pipe2, waitpid},
+    uapi::{OwnedFd, UstrPtr, c, close_range, dup2, waitpid},
 };
 
 pub struct JayReexec {
@@ -39,17 +40,23 @@ impl JayReexec {
         }
         macro_rules! pipe {
             () => {
-                match pipe2(c::O_CLOEXEC) {
+                match pipe() {
                     Ok(p) => p,
                     Err(e) => {
-                        log::error!("Could not create pipe: {}", ErrorFmt(OsError::from(e)));
+                        log::error!("Could not create pipe: {}", ErrorFmt(e));
                         return None;
                     }
                 }
             };
         }
-        let (p1, c1) = pipe!();
-        let (c2, p2) = pipe!();
+        let Pipe {
+            read: p1,
+            write: c1,
+        } = pipe!();
+        let Pipe {
+            read: c2,
+            write: p2,
+        } = pipe!();
         if let Ok(f) = fork_with_pidfd(false) {
             match f {
                 Forked::Parent { pid, .. } => {

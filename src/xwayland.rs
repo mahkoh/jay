@@ -15,7 +15,13 @@ use {
         security_context_acceptor::AcceptorMetadata,
         state::State,
         user_session::import_environment,
-        utils::{buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
+        utils::{
+            buf::Buf,
+            errorfmt::ErrorFmt,
+            line_logger::log_lines,
+            oserror::OsError,
+            pipe::{Pipe, pipe},
+        },
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -27,7 +33,7 @@ use {
     run_on_drop::on_drop,
     std::{num::ParseIntError, rc::Rc},
     thiserror::Error,
-    uapi::{OwnedFd, c, pipe2},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]
@@ -140,13 +146,19 @@ async fn run(
     forker: &Rc<ForkerProxy>,
     socket: Rc<OwnedFd>,
 ) -> Result<(), XWaylandError> {
-    let (dfdread, dfdwrite) = match pipe2(c::O_CLOEXEC) {
+    let Pipe {
+        read: dfdread,
+        write: dfdwrite,
+    } = match pipe() {
         Ok(p) => p,
-        Err(e) => return Err(XWaylandError::Pipe(e.into())),
+        Err(e) => return Err(XWaylandError::Pipe(e)),
     };
-    let (stderr_read, stderr_write) = match pipe2(c::O_CLOEXEC) {
+    let Pipe {
+        read: stderr_read,
+        write: stderr_write,
+    } = match pipe() {
         Ok(p) => p,
-        Err(e) => return Err(XWaylandError::Pipe(e.into())),
+        Err(e) => return Err(XWaylandError::Pipe(e)),
     };
     let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
     let (wm1, wm2) = match wm {
@@ -244,7 +256,7 @@ struct XwaylandFeatures {
 
 async fn detect_features(state: &State, forker: &ForkerProxy) -> XwaylandFeatures {
     let mut features = Default::default();
-    let Ok((read, write)) = pipe2(c::O_CLOEXEC) else {
+    let Ok(Pipe { read, write }) = pipe() else {
         return features;
     };
     forker.spawn(

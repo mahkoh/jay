@@ -25,9 +25,18 @@ use {
         state::State,
         tree::{Node, ToplevelNode},
         utils::{
-            bitflags::BitflagsExt, buf::Buf, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt,
-            linkedlist::LinkedList, numcell::NumCell, oserror::OsError, rc_eq::rc_eq,
+            bitflags::BitflagsExt,
+            buf::Buf,
+            cell_ext::CellExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
+            linkedlist::LinkedList,
+            numcell::NumCell,
+            oserror::OsError,
+            pipe::{Pipe, pipe},
+            rc_eq::rc_eq,
         },
         wire::WlSurfaceId,
         wire_xcon::{
@@ -1687,10 +1696,13 @@ impl Wm {
                         log::error!("Peer requested unavailable target {}", mt);
                         break 'convert;
                     }
-                    let (rx, tx) = match uapi::pipe2(c::O_CLOEXEC) {
+                    let Pipe {
+                        read: rx,
+                        write: tx,
+                    } = match pipe() {
                         Ok(p) => p,
                         Err(e) => {
-                            log::error!("Could not create pipe: {}", OsError::from(e));
+                            log::error!("Could not create pipe: {}", e);
                             break 'convert;
                         }
                     };
