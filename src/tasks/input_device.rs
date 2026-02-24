@@ -67,7 +67,7 @@ impl DeviceHandler {
         }
         for seat in self.state.globals.seats.lock().values() {
             if seat.seat_name() == DEFAULT_SEAT_NAME {
-                self.data.set_seat(Some(seat.clone()));
+                self.data.set_seat(&self.state, Some(seat.clone()));
                 break;
             }
         }
@@ -102,6 +102,6 @@ impl DeviceHandler {
             .input_device_handlers
             .borrow_mut()
             .remove(&self.dev.id());
-        self.data.set_seat(None);
+        self.data.set_seat(&self.state, None);
     }
 }

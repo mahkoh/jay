@@ -6,6 +6,7 @@ use {
             BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
         },
         cmm::cmm_primaries::Primaries,
+        control_center::EnumText,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::Format,
@@ -267,7 +268,7 @@ pub trait InputDevice {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]
 pub enum InputDeviceCapability {
     Keyboard,
     Pointer,
@@ -279,6 +280,18 @@ pub enum InputDeviceCapability {
 }
 
 impl InputDeviceCapability {
+    pub fn text(self) -> &'static str {
+        match self {
+            InputDeviceCapability::Keyboard => "keyboard",
+            InputDeviceCapability::Pointer => "pointer",
+            InputDeviceCapability::Touch => "touch",
+            InputDeviceCapability::TabletTool => "tablet tool",
+            InputDeviceCapability::TabletPad => "tablet pad",
+            InputDeviceCapability::Gesture => "gesture",
+            InputDeviceCapability::Switch => "switch",
+        }
+    }
+
     pub fn to_libinput(self) -> DeviceCapability {
         use crate::libinput::consts::*;
         match self {
@@ -293,17 +306,36 @@ impl InputDeviceCapability {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceAccelProfile {
     Flat,
     Adaptive,
 }
 
-#[derive(Debug, Copy, Clone)]
+impl EnumText for InputDeviceAccelProfile {
+    fn text(self) -> &'static str {
+        match self {
+            InputDeviceAccelProfile::Flat => "Flat",
+            InputDeviceAccelProfile::Adaptive => "Adaptive",
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceClickMethod {
     None,
     ButtonAreas,
     Clickfinger,
+}
+
+impl EnumText for InputDeviceClickMethod {
+    fn text(self) -> &'static str {
+        match self {
+            InputDeviceClickMethod::None => "none",
+            InputDeviceClickMethod::ButtonAreas => "button-areas",
+            InputDeviceClickMethod::Clickfinger => "clickfinger",
+        }
+    }
 }
 
 pub enum BackendEvent {

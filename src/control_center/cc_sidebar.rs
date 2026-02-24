@@ -14,6 +14,7 @@ enum PaneName {
     Xwayland,
     Outputs,
     GPUs,
+    Input,
 }
 
 impl PaneName {
@@ -25,6 +26,7 @@ impl PaneName {
             PaneName::Xwayland => "Xwayland",
             PaneName::Outputs => "Outputs",
             PaneName::GPUs => "GPUs",
+            PaneName::Input => "Input",
         }
     }
 }
@@ -62,6 +64,7 @@ impl ControlCenterInner {
                                     PaneType::Outputs(Box::new(self.create_outputs_pane()))
                                 }
                                 PaneName::GPUs => PaneType::GPUs(self.create_gpus_pane()),
+                                PaneName::Input => PaneType::Input(self.create_input_pane()),
                             };
                             self.open(tree, ty);
                         }

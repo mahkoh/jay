@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{
             cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_gpus::GpusPane, cc_idle::IdlePane, cc_outputs::OutputsPane,
+            cc_gpus::GpusPane, cc_idle::IdlePane, cc_input::InputPane, cc_outputs::OutputsPane,
             cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{EggError, EggWindow, EggWindowOwner},
@@ -33,6 +33,7 @@ mod cc_color_management;
 mod cc_compositor;
 mod cc_gpus;
 mod cc_idle;
+mod cc_input;
 mod cc_outputs;
 mod cc_sidebar;
 mod cc_xwayland;
@@ -74,6 +75,7 @@ bitflags! {
         CCI_XWAYLAND,
         CCI_OUTPUTS,
         CCI_GPUS,
+        CCI_INPUT,
 }
 
 pub struct ControlCenter {
@@ -118,6 +120,7 @@ enum PaneType {
     Xwayland(XwaylandPane),
     Outputs(Box<OutputsPane>),
     GPUs(GpusPane),
+    Input(InputPane),
 }
 
 struct CcBehavior<'a> {
@@ -142,6 +145,7 @@ impl Pane {
             PaneType::Xwayland(v) => v.title(res),
             PaneType::Outputs(v) => v.title(res),
             PaneType::GPUs(v) => v.title(res),
+            PaneType::Input(v) => v.title(res),
         }
     }
 
@@ -153,6 +157,7 @@ impl Pane {
             PaneType::Xwayland(p) => p.show(behavior, ui),
             PaneType::Outputs(p) => p.show(&mut self.ps, ui),
             PaneType::GPUs(p) => p.show(ui),
+            PaneType::Input(p) => p.show(&mut self.ps, ui),
         }
     }
 }
@@ -166,6 +171,7 @@ impl PaneType {
             PaneType::Xwayland(_) => CCI_XWAYLAND,
             PaneType::Outputs(_) => CCI_OUTPUTS,
             PaneType::GPUs(_) => CCI_GPUS,
+            PaneType::Input(_) => CCI_INPUT,
         }
     }
 }
@@ -433,7 +439,6 @@ fn tip(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
     icon_label(ICON_INFO).ui(ui).on_hover_ui(add_contents);
 }
 
-#[expect(dead_code)]
 fn text_edit(ui: &mut Ui, v: &mut dyn TextBuffer) -> Response {
     TextEdit::singleline(v)
         .clip_text(false)
@@ -554,7 +559,6 @@ fn combo_box_ui<R, T>(
     });
 }
 
-#[expect(dead_code)]
 fn drag_value<N>(
     ui: &mut Ui,
     name: &str,

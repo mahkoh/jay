@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::HardwareCursorUpdate,
+        control_center::CCI_INPUT,
         cursor::{Cursor, DEFAULT_CURSOR_SIZE, KnownCursor},
         fixed::Fixed,
         gfx_api::{AcquireSync, ReleaseSync},
@@ -183,6 +184,7 @@ impl CursorUserGroup {
             self.remove_hardware_cursor();
             self.state.cursor_user_group_hardware_cursor.take();
         }
+        self.state.trigger_cci(CCI_INPUT);
     }
 
     pub fn hardware_cursor(&self) -> bool {
@@ -195,7 +197,12 @@ impl CursorUserGroup {
             self.state.remove_cursor_size(old);
             self.state.add_cursor_size(size);
             self.reload_known_cursor();
+            self.state.trigger_cci(CCI_INPUT);
         }
+    }
+
+    pub fn cursor_size(&self) -> u32 {
+        self.size.get()
     }
 
     fn output_center(&self, output: &Rc<OutputNode>) -> (Fixed, Fixed) {

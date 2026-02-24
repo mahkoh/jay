@@ -854,21 +854,11 @@ impl Input {
         print!("{prefix}  capabilities:");
         let mut first = true;
         for cap in &device.capabilities {
-            use InputDeviceCapability::*;
             print!(" ");
             if !mem::take(&mut first) {
                 print!("| ");
             }
-            let name = match cap {
-                Keyboard => "keyboard",
-                Pointer => "pointer",
-                Touch => "touch",
-                TabletTool => "tablet tool",
-                TabletPad => "tablet pad",
-                Gesture => "gesture",
-                Switch => "switch",
-            };
-            print!("{}", name);
+            print!("{}", cap.text());
         }
         println!();
         if let Some(v) = &device.accel_profile {

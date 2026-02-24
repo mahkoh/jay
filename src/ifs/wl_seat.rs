@@ -24,8 +24,11 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::{ButtonState, Leds},
+        backend::{
+            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, Leds, TransformMatrix,
+        },
         client::{Client, ClientError, ClientId},
+        control_center::{CCI_INPUT, EnumText},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
         fixed::Fixed,
@@ -256,6 +259,12 @@ pub struct WlSeatGlobal {
     simple_im_enabled: Cell<bool>,
 }
 
+impl PartialEq for WlSeatGlobal {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Copy, Clone)]
 enum MarkMode {
     Mark,
@@ -266,6 +275,15 @@ enum MarkMode {
 pub enum FallbackOutputMode {
     Cursor,
     Focus,
+}
+
+impl EnumText for FallbackOutputMode {
+    fn text(self) -> &'static str {
+        match self {
+            FallbackOutputMode::Cursor => "Cursor",
+            FallbackOutputMode::Focus => "Focus",
+        }
+    }
 }
 
 impl TryFrom<ConfigFallbackOutputMode> for FallbackOutputMode {
@@ -760,6 +778,7 @@ impl WlSeatGlobal {
         if let Some(grab) = self.input_method_grab.get() {
             grab.on_repeat_info();
         }
+        self.state.trigger_cci(CCI_INPUT);
     }
 
     pub fn close(self: &Rc<Self>) {
@@ -955,10 +974,20 @@ impl WlSeatGlobal {
 
     pub fn focus_history_set_visible(&self, visible: bool) {
         self.focus_history_visible_only.set(visible);
+        self.state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn focus_history_visible(&self) -> bool {
+        self.focus_history_visible_only.get()
     }
 
     pub fn focus_history_set_same_workspace(&self, same_workspace: bool) {
         self.focus_history_same_workspace.set(same_workspace);
+        self.state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn focus_history_same_workspace(&self) -> bool {
+        self.focus_history_same_workspace.get()
     }
 
     fn focus_layer_rel<LI, SI>(
@@ -1463,8 +1492,17 @@ impl WlSeatGlobal {
         self.focus_follows_mouse.set(focus_follows_mouse);
     }
 
+    pub fn focus_follows_mouse(&self) -> bool {
+        self.focus_follows_mouse.get()
+    }
+
     pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
         self.fallback_output_mode.set(fallback_output_mode);
+        self.state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn fallback_output_mode(&self) -> FallbackOutputMode {
+        self.fallback_output_mode.get()
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
@@ -1582,6 +1620,11 @@ impl WlSeatGlobal {
 
     pub fn set_pointer_revert_key(&self, key: KeySym) {
         self.revert_key.set(key);
+        self.state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn pointer_revert_key(&self) -> KeySym {
+        self.revert_key.get()
     }
 }
 
@@ -1780,7 +1823,7 @@ pub fn collect_kb_foci(node: Rc<dyn Node>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
 }
 
 impl DeviceHandlerData {
-    pub fn set_seat(&self, seat: Option<Rc<WlSeatGlobal>>) {
+    pub fn set_seat(&self, state: &State, seat: Option<Rc<WlSeatGlobal>>) {
         if let Some(new) = &seat {
             if let Some(old) = self.seat.get()
                 && old.id() == new.id()
@@ -1819,6 +1862,7 @@ impl DeviceHandlerData {
             }
         }
         self.attach_event_listeners();
+        state.trigger_cci(CCI_INPUT);
     }
 
     fn destroy_physical_keyboard_state(&self) {
@@ -1840,13 +1884,14 @@ impl DeviceHandlerData {
         };
     }
 
-    pub fn set_keymap(&self, keymap: Option<Rc<KbvmMap>>) {
+    pub fn set_keymap(&self, state: &State, keymap: Option<Rc<KbvmMap>>) {
         self.destroy_physical_keyboard_state();
         self.keymap.set(keymap);
         self.attach_event_listeners();
+        state.trigger_cci(CCI_INPUT);
     }
 
-    pub fn set_output(&self, output: Option<&WlOutputGlobal>) {
+    pub fn set_output(&self, state: &State, output: Option<&WlOutputGlobal>) {
         match output {
             None => {
                 log::info!("Removing output mapping of {}", self.device.name());
@@ -1857,6 +1902,7 @@ impl DeviceHandlerData {
                 self.output.set(Some(o.opt.clone()));
             }
         }
+        state.trigger_cci(CCI_INPUT);
     }
 
     pub fn get_rect(&self, state: &State) -> Rect {
@@ -1866,6 +1912,66 @@ impl DeviceHandlerData {
             return output.pos.get();
         }
         state.root.extents.get()
+    }
+
+    pub fn set_accel_profile(&self, state: &State, v: InputDeviceAccelProfile) {
+        self.device.set_accel_profile(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_accel_speed(&self, state: &State, v: f64) {
+        self.device.set_accel_speed(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_tap_enabled(&self, state: &State, v: bool) {
+        self.device.set_tap_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_drag_enabled(&self, state: &State, v: bool) {
+        self.device.set_drag_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_drag_lock_enabled(&self, state: &State, v: bool) {
+        self.device.set_drag_lock_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_left_handed(&self, state: &State, v: bool) {
+        self.device.set_left_handed(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_natural_scrolling_enabled(&self, state: &State, v: bool) {
+        self.device.set_natural_scrolling_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_px_per_scroll_wheel(&self, state: &State, v: f64) {
+        self.px_per_scroll_wheel.set(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_transform_matrix(&self, state: &State, v: TransformMatrix) {
+        self.device.set_transform_matrix(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_calibration_matrix(&self, state: &State, v: [[f32; 3]; 2]) {
+        self.device.set_calibration_matrix(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_click_method(&self, state: &State, v: InputDeviceClickMethod) {
+        self.device.set_click_method(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_middle_button_emulation_enabled(&self, state: &State, v: bool) {
+        self.device.set_middle_button_emulation_enabled(v);
+        state.trigger_cci(CCI_INPUT);
     }
 }
 

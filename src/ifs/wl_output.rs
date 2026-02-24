@@ -94,6 +94,12 @@ pub struct WlOutputGlobal {
         CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
 }
 
+impl PartialEq for WlOutputGlobal {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 #[derive(Default)]
 pub struct OutputGlobalOpt {
     pub global: CloneCell<Option<Rc<WlOutputGlobal>>>,
