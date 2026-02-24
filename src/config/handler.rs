@@ -1465,7 +1465,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
-        self.state.workspace_display_order.set(order);
+        self.state.workspace_display_order.set(order.into());
         for output in self.state.root.outputs.lock().values() {
             output.handle_workspace_display_order_update();
         }

@@ -47,7 +47,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination, Transform,
-            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -66,10 +67,7 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::{
-        video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
-        workspace::WorkspaceDisplayOrder,
-    },
+    jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},

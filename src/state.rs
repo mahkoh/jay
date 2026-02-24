@@ -97,7 +97,8 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, Transform,
-            VrrMode, WorkspaceNode, WsMoveConfig, generic_node_visitor, move_ws_to_output,
+            VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WsMoveConfig, generic_node_visitor,
+            move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -135,7 +136,7 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    jay_config::{PciId, workspace::WorkspaceDisplayOrder},
+    jay_config::PciId,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},

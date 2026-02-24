@@ -30,6 +30,7 @@ use {
     jay_config::{
         Direction as JayDirection, video::Transform as ConfigTransform,
         window::TileState as ConfigTileState,
+        workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
     },
     linearize::{Linearize, LinearizeExt},
     std::{
@@ -52,6 +53,31 @@ mod stacked;
 mod toplevel;
 mod walker;
 mod workspace;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum WorkspaceDisplayOrder {
+    #[default]
+    Manual,
+    Sorted,
+}
+
+impl From<ConfigWorkspaceDisplayOrder> for WorkspaceDisplayOrder {
+    fn from(value: ConfigWorkspaceDisplayOrder) -> Self {
+        match value {
+            ConfigWorkspaceDisplayOrder::Manual => WorkspaceDisplayOrder::Manual,
+            ConfigWorkspaceDisplayOrder::Sorted => WorkspaceDisplayOrder::Sorted,
+        }
+    }
+}
+
+impl Into<ConfigWorkspaceDisplayOrder> for WorkspaceDisplayOrder {
+    fn into(self) -> ConfigWorkspaceDisplayOrder {
+        match self {
+            WorkspaceDisplayOrder::Manual => ConfigWorkspaceDisplayOrder::Manual,
+            WorkspaceDisplayOrder::Sorted => ConfigWorkspaceDisplayOrder::Sorted,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
 pub enum Transform {
