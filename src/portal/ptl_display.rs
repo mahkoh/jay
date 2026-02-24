@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::{GfxFormat, cross_intersect_formats},
+        gfx_api::{GfxApi, GfxFormat, cross_intersect_formats},
         gfx_apis::create_gfx_context,
         ifs::wl_seat::POINTER,
         object::Version,
@@ -46,7 +46,6 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,

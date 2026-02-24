@@ -9,7 +9,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::Format,
-        gfx_api::{GfxFramebuffer, SyncFile},
+        gfx_api::{GfxApi, GfxFramebuffer, SyncFile},
         ifs::{
             wl_output::OutputId,
             wl_seat::{
@@ -28,7 +28,7 @@ use {
             HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
         },
     },
-    jay_config::{input::SwitchEvent, video::GfxApi},
+    jay_config::input::SwitchEvent,
     linearize::Linearize,
     std::{
         any::Any,

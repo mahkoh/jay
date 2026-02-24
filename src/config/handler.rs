@@ -954,6 +954,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) -> Result<(), CphError> {
+        let Ok(api) = api.try_into() else {
+            return Err(CphError::UnknownGfxApi(api));
+        };
         match device {
             Some(dev) => self.get_drm_device(dev)?.dev.set_gfx_api(api),
             _ => self.state.default_gfx_api.set(api),
@@ -3532,6 +3535,8 @@ enum CphError {
     UnknownBlendSpace(ConfigBlendSpace),
     #[error("Unknown bar position {0:?}")]
     UnknownBarPosition(BarPosition),
+    #[error("Unknown gfx API {0:?}")]
+    UnknownGfxApi(GfxApi),
 }
 
 trait WithRequestName {

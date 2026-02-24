@@ -31,7 +31,7 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, GfxBlendBuffer, GfxContext, GfxError,
+            AcquireSync, AlphaMode, BufferResv, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
             GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
             SampleRect, SyncFile,
         },
@@ -135,12 +135,7 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    jay_config::{
-        PciId,
-        video::{GfxApi, Transform},
-        window::TileState,
-        workspace::WorkspaceDisplayOrder,
-    },
+    jay_config::{PciId, video::Transform, window::TileState, workspace::WorkspaceDisplayOrder},
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},

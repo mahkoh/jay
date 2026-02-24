@@ -26,7 +26,7 @@ use {
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
-        gfx_api::{GfxContext, GfxFramebuffer, SyncFile},
+        gfx_api::{GfxApi, GfxContext, GfxFramebuffer, SyncFile},
         ifs::{
             wl_output::OutputId,
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
@@ -57,7 +57,6 @@ use {
     bstr::{BString, ByteSlice},
     indexmap::{IndexSet, indexset},
     isnt::std_1::collections::IsntHashMapExt,
-    jay_config::video::GfxApi,
     std::{
         cell::{Cell, OnceCell, RefCell},
         collections::hash_map::Entry,

@@ -28,6 +28,7 @@ use {
         ei::ei_client::EiClients,
         forker,
         format::XRGB8888,
+        gfx_api::GfxApi,
         globals::Globals,
         ifs::{
             head_management::{
@@ -81,11 +82,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::{
-        _private::DEFAULT_SEAT_NAME,
-        video::{GfxApi, Transform},
-        workspace::WorkspaceDisplayOrder,
-    },
+    jay_config::{_private::DEFAULT_SEAT_NAME, video::Transform, workspace::WorkspaceDisplayOrder},
     std::{
         cell::{Cell, RefCell},
         env,
