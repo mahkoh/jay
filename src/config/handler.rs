@@ -523,6 +523,9 @@ impl ConfigProxyHandler {
         seat: Seat,
         mode: FallbackOutputMode,
     ) -> Result<(), CphError> {
+        let Ok(mode) = mode.try_into() else {
+            return Err(CphError::UnknownFallbackOutputMode(mode));
+        };
         let seat = self.get_seat(seat)?;
         seat.set_fallback_output_mode(mode);
         Ok(())
@@ -3537,6 +3540,8 @@ enum CphError {
     UnknownBarPosition(BarPosition),
     #[error("Unknown gfx API {0:?}")]
     UnknownGfxApi(GfxApi),
+    #[error("Unknown fallback output mode {0:?}")]
+    UnknownFallbackOutputMode(FallbackOutputMode),
 }
 
 trait WithRequestName {
