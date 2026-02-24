@@ -9,11 +9,9 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
-        tree::VrrMode,
-        utils::transform_ext::TransformExt,
+        tree::{Transform, VrrMode},
         wire::{ZwlrOutputConfigurationHeadV1Id, zwlr_output_configuration_head_v1::*},
     },
-    jay_config::video::Transform,
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,
 };

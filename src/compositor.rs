@@ -57,7 +57,7 @@ use {
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
-            DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceNode,
+            DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode, WorkspaceNode,
             container_layout, container_render_positions, container_render_titles, float_layout,
             float_titles, output_render_data, placeholder_render_textures,
         },
@@ -82,7 +82,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::{_private::DEFAULT_SEAT_NAME, video::Transform, workspace::WorkspaceDisplayOrder},
+    jay_config::{_private::DEFAULT_SEAT_NAME, workspace::WorkspaceDisplayOrder},
     std::{
         cell::{Cell, RefCell},
         env,

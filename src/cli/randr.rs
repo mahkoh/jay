@@ -7,7 +7,8 @@ use {
         ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, ordered_float::F64, transform_ext::TransformExt},
+        tree::Transform,
+        utils::{errorfmt::ErrorFmt, ordered_float::F64},
         wire::{JayRandrId, jay_compositor, jay_randr},
     },
     clap::{
@@ -15,7 +16,7 @@ use {
         builder::{PossibleValue, PossibleValuesParser},
     },
     isnt::std_1::vec::IsntVecExt,
-    jay_config::video::{TearingMode, Transform, VrrMode},
+    jay_config::video::{TearingMode, VrrMode},
     linearize::LinearizeExt,
     std::{
         cell::RefCell,

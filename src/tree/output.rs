@@ -46,7 +46,7 @@ use {
         theme::BarPosition,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
+            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination, Transform,
             WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
@@ -60,7 +60,6 @@ use {
             linkedlist::{LinkedList, NodeRef},
             on_drop_event::OnDropEvent,
             scroller::Scroller,
-            transform_ext::TransformExt,
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
@@ -68,7 +67,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
-        video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
+        video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
         workspace::WorkspaceDisplayOrder,
     },
     smallvec::SmallVec,

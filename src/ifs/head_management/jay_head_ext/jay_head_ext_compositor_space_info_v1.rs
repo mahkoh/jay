@@ -1,7 +1,6 @@
 use {
     crate::{
         ifs::head_management::HeadState,
-        utils::transform_ext::TransformExt,
         wire::{
             jay_head_ext_compositor_space_info_v1::{
                 Disabled, Enabled, Inside, JayHeadExtCompositorSpaceInfoV1RequestHandler, Outside,

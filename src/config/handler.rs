@@ -1561,7 +1561,7 @@ impl ConfigProxyHandler {
         transform: Transform,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        connector.update_transform(transform);
+        connector.update_transform(transform.into());
         Ok(())
     }
 

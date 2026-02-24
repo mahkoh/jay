@@ -58,7 +58,6 @@ pub mod syncqueue;
 pub mod threshold_counter;
 pub mod timer;
 pub mod toplevel_identifier;
-pub mod transform_ext;
 pub mod tri;
 pub mod unlink_on_drop;
 pub mod vec_ext;
