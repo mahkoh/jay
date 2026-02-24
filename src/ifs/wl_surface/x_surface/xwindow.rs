@@ -13,7 +13,7 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
@@ -22,7 +22,6 @@ use {
         xwayland::XWaylandEvent,
     },
     bstr::BString,
-    jay_config::window::TileState,
     std::{
         cell::{Cell, RefCell},
         ops::{Deref, Not},

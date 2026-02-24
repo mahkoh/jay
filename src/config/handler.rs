@@ -29,8 +29,9 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
+            TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -72,7 +73,7 @@ use {
             Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode, Transform,
             VrrMode as ConfigVrrMode,
         },
-        window::{TileState, Window, WindowMatcher},
+        window::{TileState as ConfigTileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -2289,8 +2290,11 @@ impl ConfigProxyHandler {
     fn handle_set_window_matcher_initial_tile_state(
         &self,
         matcher: WindowMatcher,
-        tile_state: TileState,
+        tile_state: ConfigTileState,
     ) -> Result<(), CphError> {
+        let Ok(tile_state) = tile_state.try_into() else {
+            return Err(CphError::UnknownTileState(tile_state));
+        };
         let m = self.get_window_matcher(matcher)?;
         self.window_matcher_initial_tile_state
             .set(matcher, (m, tile_state));
@@ -3542,6 +3546,8 @@ enum CphError {
     UnknownGfxApi(GfxApi),
     #[error("Unknown fallback output mode {0:?}")]
     UnknownFallbackOutputMode(FallbackOutputMode),
+    #[error("Unknown tile state {0:?}")]
+    UnknownTileState(ConfigTileState),
 }
 
 trait WithRequestName {

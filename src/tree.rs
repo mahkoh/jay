@@ -23,7 +23,7 @@ use {
         renderer::Renderer,
         utils::{linkedlist::NodeRef, numcell::NumCell},
     },
-    jay_config::Direction as JayDirection,
+    jay_config::{Direction as JayDirection, window::TileState as ConfigTileState},
     linearize::{Linearize, LinearizeExt},
     std::{
         fmt::{Debug, Display},
@@ -45,6 +45,34 @@ mod stacked;
 mod toplevel;
 mod walker;
 mod workspace;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum TileState {
+    Tiled,
+    Floating,
+}
+
+impl TryFrom<ConfigTileState> for TileState {
+    type Error = ();
+
+    fn try_from(value: ConfigTileState) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigTileState::Tiled => TileState::Tiled,
+            ConfigTileState::Floating => TileState::Floating,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigTileState> for TileState {
+    fn into(self) -> ConfigTileState {
+        match self {
+            TileState::Tiled => ConfigTileState::Tiled,
+            TileState::Floating => ConfigTileState::Floating,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {

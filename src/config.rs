@@ -9,7 +9,7 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
-        tree::ToplevelData,
+        tree::{TileState, ToplevelData},
         utils::{
             clonecell::CloneCell,
             nice::{JAY_NO_REALTIME, dont_allow_config_so},
@@ -29,7 +29,7 @@ use {
         input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
-        window::{self, TileState},
+        window::{self},
     },
     libloading::Library,
     std::{cell::Cell, io, mem, path::Path, ptr, rc::Rc},
