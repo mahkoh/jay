@@ -13,6 +13,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
+            pipe::{Pipe, pipe},
             process_name::set_process_name,
             queue::AsyncQueue,
         },
@@ -33,7 +34,7 @@ use {
         task::{Poll, Waker},
     },
     thiserror::Error,
-    uapi::{Errno, Fd, IntoUstr, OwnedFd, UstrPtr, c, pipe2},
+    uapi::{Errno, Fd, IntoUstr, OwnedFd, UstrPtr, c},
 };
 
 pub struct ForkerProxy {
@@ -446,7 +447,7 @@ impl Forker {
         fds: Vec<(i32, OwnedFd)>,
         pidfd_id: Option<u32>,
     ) {
-        let (read, mut write) = pipe2(c::O_CLOEXEC).unwrap();
+        let Pipe { read, mut write } = pipe().unwrap();
         let res = match fork_with_pidfd(false) {
             Ok(o) => o,
             Err(e) => {
