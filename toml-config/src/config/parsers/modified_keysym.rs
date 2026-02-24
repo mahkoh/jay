@@ -1,9 +1,6 @@
 use {
     crate::{
-        config::{
-            keysyms::KEYSYMS,
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
+        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         toml::toml_span::{Span, SpannedExt},
     },
     jay_config::keyboard::{
@@ -12,7 +9,9 @@ use {
             ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, Modifiers, NUM, RELEASE,
             SHIFT,
         },
+        syms::KeySym,
     },
+    kbvm::Keysym,
     thiserror::Error,
 };
 
@@ -43,9 +42,9 @@ impl Parser for ModifiedKeysymParser {
         for part in string.split("-") {
             let modifier = match parse_mod(part) {
                 Some(m) => m,
-                _ => match KEYSYMS.get(part) {
+                _ => match Keysym::from_str(part) {
                     Some(new) if sym.is_none() => {
-                        sym = Some(*new);
+                        sym = Some(KeySym(new.0));
                         continue;
                     }
                     Some(_) => return Err(ModifiedKeysymParserError::MoreThanOneSym.spanned(span)),

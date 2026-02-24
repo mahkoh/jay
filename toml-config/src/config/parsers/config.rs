@@ -4,7 +4,6 @@ use {
             Action, Config, Libei, Theme, UiDrag,
             context::Context,
             extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, str, val},
-            keysyms::KEYSYMS,
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -50,6 +49,8 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexMap,
+    jay_config::keyboard::syms::KeySym,
+    kbvm::Keysym,
     std::collections::HashSet,
     thiserror::Error,
 };
@@ -480,8 +481,8 @@ impl Parser for ConfigParser<'_> {
         }
         let mut pointer_revert_key = None;
         if let Some(value) = pointer_revert_key_str {
-            match KEYSYMS.get(value.value) {
-                Some(s) => pointer_revert_key = Some(*s),
+            match Keysym::from_str(value.value) {
+                Some(s) => pointer_revert_key = Some(KeySym(s.0)),
                 None => log::warn!("Unknown keysym: {}", self.0.error3(value.span)),
             }
         }
