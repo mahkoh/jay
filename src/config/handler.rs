@@ -29,8 +29,9 @@ use {
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
+            TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -72,7 +73,7 @@ use {
             Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode, Transform,
             VrrMode as ConfigVrrMode,
         },
-        window::{TileState, Window, WindowMatcher},
+        window::{TileState as ConfigTileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -523,6 +524,9 @@ impl ConfigProxyHandler {
         seat: Seat,
         mode: FallbackOutputMode,
     ) -> Result<(), CphError> {
+        let Ok(mode) = mode.try_into() else {
+            return Err(CphError::UnknownFallbackOutputMode(mode));
+        };
         let seat = self.get_seat(seat)?;
         seat.set_fallback_output_mode(mode);
         Ok(())
@@ -954,6 +958,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) -> Result<(), CphError> {
+        let Ok(api) = api.try_into() else {
+            return Err(CphError::UnknownGfxApi(api));
+        };
         match device {
             Some(dev) => self.get_drm_device(dev)?.dev.set_gfx_api(api),
             _ => self.state.default_gfx_api.set(api),
@@ -1433,14 +1440,18 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_set_bar_position(&self, position: BarPosition) {
+    fn handle_set_bar_position(&self, position: BarPosition) -> Result<(), CphError> {
+        let Ok(position) = position.try_into() else {
+            return Err(CphError::UnknownBarPosition(position));
+        };
         self.state.theme.bar_position.set(position);
         self.spaces_change();
+        Ok(())
     }
 
     fn handle_get_bar_position(&self) {
         self.respond(Response::GetBarPosition {
-            position: self.state.theme.bar_position.get(),
+            position: self.state.theme.bar_position.get().into(),
         });
     }
 
@@ -1454,7 +1465,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
-        self.state.workspace_display_order.set(order);
+        self.state.workspace_display_order.set(order.into());
         for output in self.state.root.outputs.lock().values() {
             output.handle_workspace_display_order_update();
         }
@@ -1550,7 +1561,7 @@ impl ConfigProxyHandler {
         transform: Transform,
     ) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        connector.update_transform(transform);
+        connector.update_transform(transform.into());
         Ok(())
     }
 
@@ -2279,8 +2290,11 @@ impl ConfigProxyHandler {
     fn handle_set_window_matcher_initial_tile_state(
         &self,
         matcher: WindowMatcher,
-        tile_state: TileState,
+        tile_state: ConfigTileState,
     ) -> Result<(), CphError> {
+        let Ok(tile_state) = tile_state.try_into() else {
+            return Err(CphError::UnknownTileState(tile_state));
+        };
         let m = self.get_window_matcher(matcher)?;
         self.window_matcher_initial_tile_state
             .set(matcher, (m, tile_state));
@@ -3289,7 +3303,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
             ClientMessage::GetShowTitles => self.handle_get_show_titles(),
-            ClientMessage::SetBarPosition { position } => self.handle_set_bar_position(position),
+            ClientMessage::SetBarPosition { position } => self
+                .handle_set_bar_position(position)
+                .wrn("set_bar_position")?,
             ClientMessage::GetBarPosition => self.handle_get_bar_position(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
@@ -3524,6 +3540,14 @@ enum CphError {
     ModifyConnectorState(#[source] BackendConnectorTransactionError),
     #[error("Unknown blend space {0:?}")]
     UnknownBlendSpace(ConfigBlendSpace),
+    #[error("Unknown bar position {0:?}")]
+    UnknownBarPosition(BarPosition),
+    #[error("Unknown gfx API {0:?}")]
+    UnknownGfxApi(GfxApi),
+    #[error("Unknown fallback output mode {0:?}")]
+    UnknownFallbackOutputMode(FallbackOutputMode),
+    #[error("Unknown tile state {0:?}")]
+    UnknownTileState(ConfigTileState),
 }
 
 trait WithRequestName {

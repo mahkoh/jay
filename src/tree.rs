@@ -4,6 +4,10 @@ use {
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
+            wl_output::{
+                TF_90, TF_180, TF_270, TF_FLIPPED, TF_FLIPPED_90, TF_FLIPPED_180, TF_FLIPPED_270,
+                TF_NORMAL,
+            },
             wl_seat::{
                 Dnd, NodeSeatState, WlSeatGlobal,
                 tablet::{
@@ -23,7 +27,11 @@ use {
         renderer::Renderer,
         utils::{linkedlist::NodeRef, numcell::NumCell},
     },
-    jay_config::Direction as JayDirection,
+    jay_config::{
+        Direction as JayDirection, video::Transform as ConfigTransform,
+        window::TileState as ConfigTileState,
+        workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
+    },
     linearize::{Linearize, LinearizeExt},
     std::{
         fmt::{Debug, Display},
@@ -45,6 +53,162 @@ mod stacked;
 mod toplevel;
 mod walker;
 mod workspace;
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum WorkspaceDisplayOrder {
+    #[default]
+    Manual,
+    Sorted,
+}
+
+impl From<ConfigWorkspaceDisplayOrder> for WorkspaceDisplayOrder {
+    fn from(value: ConfigWorkspaceDisplayOrder) -> Self {
+        match value {
+            ConfigWorkspaceDisplayOrder::Manual => WorkspaceDisplayOrder::Manual,
+            ConfigWorkspaceDisplayOrder::Sorted => WorkspaceDisplayOrder::Sorted,
+        }
+    }
+}
+
+impl Into<ConfigWorkspaceDisplayOrder> for WorkspaceDisplayOrder {
+    fn into(self) -> ConfigWorkspaceDisplayOrder {
+        match self {
+            WorkspaceDisplayOrder::Manual => ConfigWorkspaceDisplayOrder::Manual,
+            WorkspaceDisplayOrder::Sorted => ConfigWorkspaceDisplayOrder::Sorted,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum Transform {
+    #[default]
+    None,
+    Rotate90,
+    Rotate180,
+    Rotate270,
+    Flip,
+    FlipRotate90,
+    FlipRotate180,
+    FlipRotate270,
+}
+
+impl From<ConfigTransform> for Transform {
+    fn from(value: ConfigTransform) -> Self {
+        match value {
+            ConfigTransform::None => Transform::None,
+            ConfigTransform::Rotate90 => Transform::Rotate90,
+            ConfigTransform::Rotate180 => Transform::Rotate180,
+            ConfigTransform::Rotate270 => Transform::Rotate270,
+            ConfigTransform::Flip => Transform::Flip,
+            ConfigTransform::FlipRotate90 => Transform::FlipRotate90,
+            ConfigTransform::FlipRotate180 => Transform::FlipRotate180,
+            ConfigTransform::FlipRotate270 => Transform::FlipRotate270,
+        }
+    }
+}
+
+impl Into<ConfigTransform> for Transform {
+    fn into(self) -> ConfigTransform {
+        match self {
+            Transform::None => ConfigTransform::None,
+            Transform::Rotate90 => ConfigTransform::Rotate90,
+            Transform::Rotate180 => ConfigTransform::Rotate180,
+            Transform::Rotate270 => ConfigTransform::Rotate270,
+            Transform::Flip => ConfigTransform::Flip,
+            Transform::FlipRotate90 => ConfigTransform::FlipRotate90,
+            Transform::FlipRotate180 => ConfigTransform::FlipRotate180,
+            Transform::FlipRotate270 => ConfigTransform::FlipRotate270,
+        }
+    }
+}
+
+impl Transform {
+    pub fn maybe_swap<T>(self, (left, right): (T, T)) -> (T, T) {
+        match self {
+            Self::None | Self::Rotate180 | Self::Flip | Self::FlipRotate180 => (left, right),
+            Self::Rotate90 | Self::Rotate270 | Self::FlipRotate90 | Self::FlipRotate270 => {
+                (right, left)
+            }
+        }
+    }
+
+    pub fn to_wl(self) -> i32 {
+        match self {
+            Self::None => TF_NORMAL,
+            Self::Rotate90 => TF_90,
+            Self::Rotate180 => TF_180,
+            Self::Rotate270 => TF_270,
+            Self::Flip => TF_FLIPPED,
+            Self::FlipRotate90 => TF_FLIPPED_90,
+            Self::FlipRotate180 => TF_FLIPPED_180,
+            Self::FlipRotate270 => TF_FLIPPED_270,
+        }
+    }
+
+    pub fn from_wl(wl: i32) -> Option<Self> {
+        let tf = match wl {
+            TF_NORMAL => Self::None,
+            TF_90 => Self::Rotate90,
+            TF_180 => Self::Rotate180,
+            TF_270 => Self::Rotate270,
+            TF_FLIPPED => Self::Flip,
+            TF_FLIPPED_90 => Self::FlipRotate90,
+            TF_FLIPPED_180 => Self::FlipRotate180,
+            TF_FLIPPED_270 => Self::FlipRotate270,
+            _ => return None,
+        };
+        Some(tf)
+    }
+
+    pub fn apply_point(self, width: i32, height: i32, (x, y): (i32, i32)) -> (i32, i32) {
+        match self {
+            Self::None => (x, y),
+            Self::Rotate90 => (y, height - x),
+            Self::Rotate180 => (width - x, height - y),
+            Self::Rotate270 => (width - y, x),
+            Self::Flip => (width - x, y),
+            Self::FlipRotate90 => (y, x),
+            Self::FlipRotate180 => (x, height - y),
+            Self::FlipRotate270 => (width - y, height - x),
+        }
+    }
+
+    pub fn inverse(self) -> Self {
+        match self {
+            Self::Rotate90 => Self::Rotate270,
+            Self::Rotate270 => Self::Rotate90,
+            _ => self,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum TileState {
+    Tiled,
+    Floating,
+}
+
+impl TryFrom<ConfigTileState> for TileState {
+    type Error = ();
+
+    fn try_from(value: ConfigTileState) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigTileState::Tiled => TileState::Tiled,
+            ConfigTileState::Floating => TileState::Floating,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigTileState> for TileState {
+    fn into(self) -> ConfigTileState {
+        match self {
+            TileState::Tiled => ConfigTileState::Tiled,
+            TileState::Floating => ConfigTileState::Floating,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {

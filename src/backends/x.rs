@@ -17,7 +17,9 @@ use {
         cmm::cmm_primaries::Primaries,
         fixed::Fixed,
         format::{Format, XRGB8888},
-        gfx_api::{AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync},
+        gfx_api::{
+            AcquireSync, GfxApi, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
+        },
         ifs::wl_output::OutputId,
         state::State,
         time::Time,
@@ -57,7 +59,6 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::video::GfxApi,
     std::{
         any::Any,
         borrow::Cow,

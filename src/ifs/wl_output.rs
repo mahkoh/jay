@@ -21,15 +21,14 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
-        tree::{OutputNode, TearingMode, VrrMode, calculate_logical_size},
+        tree::{OutputNode, TearingMode, Transform, VrrMode, calculate_logical_size},
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, ordered_float::F64,
-            rc_eq::rc_eq, transform_ext::TransformExt,
+            rc_eq::rc_eq,
         },
         wire::{WlOutputId, WpColorManagementOutputV1Id, ZxdgOutputV1Id, wl_output::*},
     },
     ahash::AHashMap,
-    jay_config::video::Transform,
     linearize::Linearize,
     std::{
         cell::{Cell, RefCell},

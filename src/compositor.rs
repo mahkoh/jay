@@ -28,6 +28,7 @@ use {
         ei::ei_client::EiClients,
         forker,
         format::XRGB8888,
+        gfx_api::GfxApi,
         globals::Globals,
         ifs::{
             head_management::{
@@ -56,9 +57,10 @@ use {
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
-            DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode, WorkspaceNode,
-            container_layout, container_render_positions, container_render_titles, float_layout,
-            float_titles, output_render_data, placeholder_render_textures,
+            DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
+            WorkspaceDisplayOrder, WorkspaceNode, container_layout, container_render_positions,
+            container_render_titles, float_layout, float_titles, output_render_data,
+            placeholder_render_textures,
         },
         user_session::import_environment,
         utils::{
@@ -81,11 +83,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::{
-        _private::DEFAULT_SEAT_NAME,
-        video::{GfxApi, Transform},
-        workspace::WorkspaceDisplayOrder,
-    },
+    jay_config::_private::DEFAULT_SEAT_NAME,
     std::{
         cell::{Cell, RefCell},
         env,

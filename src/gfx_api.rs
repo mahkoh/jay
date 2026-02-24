@@ -12,13 +12,14 @@ use {
         scale::Scale,
         state::State,
         theme::Color,
-        tree::{Node, OutputNode},
-        utils::{clonecell::UnsafeCellCloneSafe, transform_ext::TransformExt},
+        tree::{Node, OutputNode, Transform},
+        utils::clonecell::UnsafeCellCloneSafe,
         video::{Modifier, dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx},
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
-    jay_config::video::{GfxApi, Transform},
+    jay_config::video::GfxApi as ConfigGfxApi,
+    linearize::Linearize,
     std::{
         any::Any,
         cell::Cell,
@@ -32,6 +33,51 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum GfxApi {
+    OpenGl,
+    Vulkan,
+}
+
+impl TryFrom<ConfigGfxApi> for GfxApi {
+    type Error = ();
+
+    fn try_from(value: ConfigGfxApi) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigGfxApi::OpenGl => GfxApi::OpenGl,
+            ConfigGfxApi::Vulkan => GfxApi::Vulkan,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigGfxApi> for GfxApi {
+    fn into(self) -> ConfigGfxApi {
+        match self {
+            GfxApi::OpenGl => ConfigGfxApi::OpenGl,
+            GfxApi::Vulkan => ConfigGfxApi::Vulkan,
+        }
+    }
+}
+
+impl GfxApi {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            GfxApi::OpenGl => "OpenGl",
+            GfxApi::Vulkan => "Vulkan",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Option<Self> {
+        match &*s.to_ascii_lowercase() {
+            "opengl" => Some(Self::OpenGl),
+            "vulkan" => Some(Self::Vulkan),
+            _ => None,
+        }
+    }
+}
 
 pub enum GfxApiOpt {
     Sync,

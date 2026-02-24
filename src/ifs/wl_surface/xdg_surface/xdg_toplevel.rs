@@ -26,7 +26,7 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination, TileState,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
             WorkspaceNode, default_tile_drag_destination,
         },
@@ -37,7 +37,6 @@ use {
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
-    jay_config::window::TileState,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},

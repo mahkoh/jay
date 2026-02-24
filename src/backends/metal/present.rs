@@ -18,7 +18,7 @@ use {
         time::Time,
         tracy::FrameName,
         tree::OutputNode,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, transform_ext::TransformExt},
+        utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::DmaBufId,
             drm::{

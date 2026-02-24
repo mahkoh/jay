@@ -106,10 +106,11 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
-        input::FallbackOutputMode,
+        input::FallbackOutputMode as ConfigFallbackOutputMode,
         keyboard::syms::{KeySym, SYM_Escape},
     },
     kbvm::Keycode,
+    linearize::Linearize,
     run_on_drop::on_drop,
     smallvec::SmallVec,
     std::{
@@ -256,6 +257,34 @@ pub struct WlSeatGlobal {
 enum MarkMode {
     Mark,
     Jump,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum FallbackOutputMode {
+    Cursor,
+    Focus,
+}
+
+impl TryFrom<ConfigFallbackOutputMode> for FallbackOutputMode {
+    type Error = ();
+
+    fn try_from(value: ConfigFallbackOutputMode) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigFallbackOutputMode::Cursor => FallbackOutputMode::Cursor,
+            ConfigFallbackOutputMode::Focus => FallbackOutputMode::Focus,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigFallbackOutputMode> for FallbackOutputMode {
+    fn into(self) -> ConfigFallbackOutputMode {
+        match self {
+            FallbackOutputMode::Cursor => ConfigFallbackOutputMode::Cursor,
+            FallbackOutputMode::Focus => ConfigFallbackOutputMode::Focus,
+        }
+    }
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;

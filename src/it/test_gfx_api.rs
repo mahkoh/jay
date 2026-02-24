@@ -6,7 +6,7 @@ use {
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
-            FramebufferRect, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
+            FramebufferRect, GfxApi, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
             GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
             GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
             ShmMemory, SyncFile,
@@ -17,7 +17,6 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexSet,
-    jay_config::video::GfxApi,
     std::{
         any::Any,
         cell::{Cell, RefCell},

@@ -13,11 +13,11 @@ use {
         },
         scale::Scale,
         state::OutputData,
-        tree::OutputNode,
+        tree::{OutputNode, Transform},
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
-    jay_config::video::{TearingMode, Transform, VrrMode},
+    jay_config::video::{TearingMode, VrrMode},
     std::{
         cell::{Cell, RefCell},
         rc::Rc,

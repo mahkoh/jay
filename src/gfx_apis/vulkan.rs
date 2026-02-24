@@ -30,7 +30,7 @@ use {
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         format::Format,
         gfx_api::{
-            AsyncShmGfxTexture, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
+            AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
             GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus,
             STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
@@ -51,7 +51,6 @@ use {
     ahash::AHashMap,
     ash::vk,
     gpu_alloc::{AllocationError, MapError},
-    jay_config::video::GfxApi,
     log::Level,
     std::{
         cell::Cell,

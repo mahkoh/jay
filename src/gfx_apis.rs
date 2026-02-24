@@ -2,13 +2,12 @@ pub use vulkan::create_vulkan_allocator;
 use {
     crate::{
         async_engine::AsyncEngine,
-        gfx_api::{GfxContext, GfxError},
+        gfx_api::{GfxApi, GfxContext, GfxError},
         io_uring::IoUring,
         pr_caps::PrCapsThread,
         utils::errorfmt::ErrorFmt,
         video::drm::Drm,
     },
-    jay_config::video::GfxApi,
     std::rc::Rc,
 };
 
@@ -57,6 +56,5 @@ fn create_gfx_context_(
     match api {
         GfxApi::OpenGl => gl::create_gfx_context(drm, software),
         GfxApi::Vulkan => vulkan::create_graphics_context(eng, ring, drm, caps_thread, software),
-        _ => unreachable!(),
     }
 }

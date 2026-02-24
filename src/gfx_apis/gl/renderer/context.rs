@@ -4,8 +4,9 @@ use {
         cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
-            AsyncShmGfxTexture, BufferResvUser, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, ResetStatus, ShmGfxTexture,
+            AsyncShmGfxTexture, BufferResvUser, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
+            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, ResetStatus,
+            ShmGfxTexture,
         },
         gfx_apis::gl::{
             GfxGlState, RenderError, Texture,
@@ -24,7 +25,6 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::video::GfxApi,
     linearize::{Linearize, StaticMap, static_map},
     std::{
         cell::{Cell, RefCell},

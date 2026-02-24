@@ -22,8 +22,8 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId,
-            PlaceholderNode, StackedNode, ToplevelNode, container::ContainerNode,
-            walker::NodeVisitor,
+            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
+            container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -35,7 +35,6 @@ use {
         },
         wire::JayWorkspaceId,
     },
-    jay_config::workspace::WorkspaceDisplayOrder,
     std::{
         cell::{Cell, RefCell},
         fmt::Debug,

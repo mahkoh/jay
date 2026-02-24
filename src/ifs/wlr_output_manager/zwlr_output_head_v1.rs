@@ -11,12 +11,10 @@ use {
         object::{Object, Version},
         scale,
         state::OutputData,
-        tree::VrrMode,
-        utils::transform_ext::TransformExt,
+        tree::{self, VrrMode},
         wire::{ZwlrOutputHeadV1Id, zwlr_output_head_v1::*},
     },
     ahash::AHashMap,
-    jay_config::video,
     std::rc::Rc,
     thiserror::Error,
 };
@@ -111,7 +109,7 @@ impl ZwlrOutputHeadV1 {
         });
     }
 
-    pub fn send_transform(&self, transform: video::Transform) {
+    pub fn send_transform(&self, transform: tree::Transform) {
         self.client.event(Transform {
             self_id: self.id,
             transform: transform.to_wl(),
@@ -173,7 +171,7 @@ impl ZwlrOutputHeadV1 {
         }
     }
 
-    pub fn hande_transform_change(&self, transform: video::Transform) {
+    pub fn hande_transform_change(&self, transform: tree::Transform) {
         self.send_transform(transform);
         self.manager.schedule_done();
     }

@@ -1,7 +1,7 @@
 use {
     crate::{
         ifs::head_management::{HeadOp, HeadState},
-        utils::transform_ext::TransformExt,
+        tree::Transform,
         wire::{
             jay_head_ext_compositor_space_transformer_v1::{
                 JayHeadExtCompositorSpaceTransformerV1RequestHandler, SetTransform,
@@ -10,7 +10,6 @@ use {
             jay_head_manager_ext_compositor_space_transformer_v1::JayHeadManagerExtCompositorSpaceTransformerV1RequestHandler,
         },
     },
-    jay_config::video::Transform,
     std::rc::Rc,
 };
 

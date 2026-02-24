@@ -79,13 +79,13 @@ use {
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
-            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, VblankListener,
+            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform,
+            VblankListener,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
             linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
-            transform_ext::TransformExt,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -99,7 +99,6 @@ use {
     },
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
-    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::{Entry, OccupiedEntry},

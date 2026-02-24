@@ -10,7 +10,7 @@ use {
         tree::OutputNode,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt, rc_eq::rc_eq, transform_ext::TransformExt,
+            hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
     },
     std::{cell::Cell, ops::Deref, rc::Rc},

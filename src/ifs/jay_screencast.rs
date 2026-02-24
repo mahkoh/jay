@@ -12,7 +12,9 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::State,
-        tree::{LatchListener, OutputNode, ToplevelNode, WorkspaceNode, WorkspaceNodeId},
+        tree::{
+            LatchListener, OutputNode, ToplevelNode, Transform, WorkspaceNode, WorkspaceNodeId,
+        },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             errorfmt::ErrorFmt,
@@ -24,7 +26,6 @@ use {
         wire::{JayScreencastId, jay_screencast::*},
     },
     ahash::AHashSet,
-    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         ops::DerefMut,

@@ -43,10 +43,12 @@ use {
         scale::Scale,
         state::State,
         text::TextTexture,
+        theme::BarPosition,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
-            WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId, walker::NodeVisitor,
+            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination, Transform,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -59,18 +61,13 @@ use {
             linkedlist::{LinkedList, NodeRef},
             on_drop_event::OnDropEvent,
             scroller::Scroller,
-            transform_ext::TransformExt,
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
         },
     },
     ahash::AHashMap,
-    jay_config::{
-        theme::BarPosition,
-        video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
-        workspace::WorkspaceDisplayOrder,
-    },
+    jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -794,7 +791,7 @@ impl OutputNode {
                         Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bsw);
                     bar_rect = Rect::new_sized_saturating(x1, y1 + height - bh, width, bh);
                 }
-                BarPosition::Top | _ => {
+                BarPosition::Top => {
                     bar_rect = Rect::new_sized_saturating(x1, y1, width, bh);
                     bar_separator_rect = Rect::new_sized_saturating(x1, y1 + bh, width, bsw);
                     bar_rect_with_separator = Rect::new_sized_saturating(x1, y1, width, bh + bsw);
