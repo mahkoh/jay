@@ -2,7 +2,6 @@ mod context;
 pub mod error;
 mod extractor;
 mod keycodes;
-mod keysyms;
 mod parser;
 mod parsers;
 mod spanned;
