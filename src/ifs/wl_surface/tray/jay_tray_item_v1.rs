@@ -15,11 +15,11 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        theme::BarPosition,
         tree::NodeVisitor,
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
-    jay_config::theme::BarPosition,
     std::rc::Rc,
     thiserror::Error,
 };
@@ -64,7 +64,7 @@ impl JayTrayItemV1 {
     fn send_preferred_anchor(&self) {
         let anchor = match self.data.client.state.theme.bar_position.get() {
             BarPosition::Bottom => ANCHOR_TOP_RIGHT,
-            BarPosition::Top | _ => ANCHOR_BOTTOM_RIGHT,
+            BarPosition::Top => ANCHOR_BOTTOM_RIGHT,
         };
         self.data.client.event(PreferredAnchor {
             self_id: self.id,
@@ -75,7 +75,7 @@ impl JayTrayItemV1 {
     fn send_preferred_gravity(&self) {
         let gravity = match self.data.client.state.theme.bar_position.get() {
             BarPosition::Bottom => ANCHOR_TOP_LEFT,
-            BarPosition::Top | _ => ANCHOR_BOTTOM_LEFT,
+            BarPosition::Top => ANCHOR_BOTTOM_LEFT,
         };
         self.data.client.event(PreferredGravity {
             self_id: self.id,

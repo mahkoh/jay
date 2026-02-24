@@ -1433,14 +1433,18 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_set_bar_position(&self, position: BarPosition) {
+    fn handle_set_bar_position(&self, position: BarPosition) -> Result<(), CphError> {
+        let Ok(position) = position.try_into() else {
+            return Err(CphError::UnknownBarPosition(position));
+        };
         self.state.theme.bar_position.set(position);
         self.spaces_change();
+        Ok(())
     }
 
     fn handle_get_bar_position(&self) {
         self.respond(Response::GetBarPosition {
-            position: self.state.theme.bar_position.get(),
+            position: self.state.theme.bar_position.get().into(),
         });
     }
 
@@ -3289,7 +3293,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
             ClientMessage::GetShowTitles => self.handle_get_show_titles(),
-            ClientMessage::SetBarPosition { position } => self.handle_set_bar_position(position),
+            ClientMessage::SetBarPosition { position } => self
+                .handle_set_bar_position(position)
+                .wrn("set_bar_position")?,
             ClientMessage::GetBarPosition => self.handle_get_bar_position(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
@@ -3524,6 +3530,8 @@ enum CphError {
     ModifyConnectorState(#[source] BackendConnectorTransactionError),
     #[error("Unknown blend space {0:?}")]
     UnknownBlendSpace(ConfigBlendSpace),
+    #[error("Unknown bar position {0:?}")]
+    UnknownBarPosition(BarPosition),
 }
 
 trait WithRequestName {

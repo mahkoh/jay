@@ -43,6 +43,7 @@ use {
         scale::Scale,
         state::State,
         text::TextTexture,
+        theme::BarPosition,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination,
@@ -67,7 +68,6 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
-        theme::BarPosition,
         video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
         workspace::WorkspaceDisplayOrder,
     },
@@ -794,7 +794,7 @@ impl OutputNode {
                         Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bsw);
                     bar_rect = Rect::new_sized_saturating(x1, y1 + height - bh, width, bh);
                 }
-                BarPosition::Top | _ => {
+                BarPosition::Top => {
                     bar_rect = Rect::new_sized_saturating(x1, y1, width, bh);
                     bar_separator_rect = Rect::new_sized_saturating(x1, y1 + bh, width, bsw);
                     bar_rect_with_separator = Rect::new_sized_saturating(x1, y1, width, bh + bsw);

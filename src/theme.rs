@@ -6,7 +6,8 @@ use {
         gfx_api::AlphaMode,
         utils::clonecell::CloneCell,
     },
-    jay_config::theme::BarPosition,
+    jay_config::theme::BarPosition as ConfigBarPosition,
+    linearize::Linearize,
     num_traits::Float,
     std::{cell::Cell, cmp::Ordering, ops::Mul, sync::Arc},
 };
@@ -514,6 +515,35 @@ sizes! {
 }
 
 pub const DEFAULT_FONT: &str = "monospace 8";
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum BarPosition {
+    #[default]
+    Top,
+    Bottom,
+}
+
+impl TryFrom<ConfigBarPosition> for BarPosition {
+    type Error = ();
+
+    fn try_from(value: ConfigBarPosition) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigBarPosition::Top => Self::Top,
+            ConfigBarPosition::Bottom => Self::Bottom,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigBarPosition> for BarPosition {
+    fn into(self) -> ConfigBarPosition {
+        match self {
+            BarPosition::Top => ConfigBarPosition::Top,
+            BarPosition::Bottom => ConfigBarPosition::Bottom,
+        }
+    }
+}
 
 pub struct Theme {
     pub colors: ThemeColors,
