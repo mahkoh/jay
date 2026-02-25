@@ -68,7 +68,7 @@ impl JayReexec {
                     {
                         drop(p2);
                         fds.sort_by_key(|fd| fd.raw());
-                        let c2_dup = fds.last().unwrap().raw() + 1;
+                        let c2_dup = c1.raw().max(c2.raw()).max(fds.last().unwrap().raw()) + 1;
                         let c1_dup = c2_dup + 1;
                         let _ = dup2(c1.raw(), c1_dup);
                         let _ = dup2(c2.raw(), c2_dup);
