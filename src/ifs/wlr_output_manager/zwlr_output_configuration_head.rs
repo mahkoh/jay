@@ -29,7 +29,7 @@ pub struct ZwlrOutputConfigurationHeadV1 {
 pub struct OutputConfig {
     pub(super) transform: Option<Transform>,
     pub(super) scale: Option<Scale>,
-    pub(super) vrr_mode: Option<&'static VrrMode>,
+    pub(super) vrr_mode: Option<VrrMode>,
     pub(super) pos: Option<(i32, i32)>,
     pub(super) mode: Option<Mode>,
 }
@@ -112,7 +112,7 @@ impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHead
                 );
             }
         };
-        config.vrr_mode = Some(state);
+        config.vrr_mode = Some(*state);
         Ok(())
     }
 }

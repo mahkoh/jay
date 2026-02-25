@@ -1512,7 +1512,7 @@ impl ConfigProxyHandler {
                 let connector = self.get_output_node(c)?;
                 connector.set_vrr_mode(mode);
             }
-            _ => self.state.default_vrr_mode.set(mode),
+            _ => self.state.default_vrr_mode.set(*mode),
         }
         Ok(())
     }
@@ -1550,7 +1550,7 @@ impl ConfigProxyHandler {
                 let connector = self.get_output_node(c)?;
                 connector.set_tearing_mode(mode);
             }
-            _ => self.state.default_tearing_mode.set(mode),
+            _ => self.state.default_tearing_mode.set(*mode),
         }
         Ok(())
     }

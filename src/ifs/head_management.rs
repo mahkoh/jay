@@ -13,11 +13,10 @@ use {
         },
         scale::Scale,
         state::OutputData,
-        tree::{OutputNode, Transform},
+        tree::{OutputNode, TearingMode, Transform, VrrMode},
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
-    jay_config::video::{TearingMode, VrrMode},
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -239,8 +238,8 @@ impl HeadManagers {
             state.size = n.global.pos.get().size();
             state.mode = n.global.mode.get();
             state.transform = n.global.persistent.transform.get();
-            state.vrr_mode = n.global.persistent.vrr_mode.get().to_config();
-            state.tearing_mode = n.global.persistent.tearing_mode.get().to_config();
+            state.vrr_mode = n.global.persistent.vrr_mode.get();
+            state.tearing_mode = n.global.persistent.tearing_mode.get();
         }
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
@@ -431,9 +430,9 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_vrr_mode_change(&self, vrr_mode: VrrMode) {
+    pub fn handle_vrr_mode_change(&self, vrr_mode: &VrrMode) {
         let state = &mut *self.state.borrow_mut();
-        state.vrr_mode = vrr_mode;
+        state.vrr_mode = *vrr_mode;
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.jay_vrr_mode_info_v1 {
@@ -467,9 +466,9 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_tearing_mode_change(&self, tearing_mode: TearingMode) {
+    pub fn handle_tearing_mode_change(&self, tearing_mode: &TearingMode) {
         let state = &mut *self.state.borrow_mut();
-        state.tearing_mode = tearing_mode;
+        state.tearing_mode = *tearing_mode;
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.jay_tearing_mode_info_v1 {

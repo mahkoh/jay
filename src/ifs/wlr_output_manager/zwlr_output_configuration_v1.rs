@@ -114,7 +114,7 @@ impl ZwlrOutputConfigurationV1 {
                 if let Some(v) = config.scale {
                     node.set_preferred_scale(v);
                 }
-                if let Some(v) = config.vrr_mode {
+                if let Some(v) = &config.vrr_mode {
                     node.set_vrr_mode(v);
                 }
                 if let Some(v) = config.pos {

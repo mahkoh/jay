@@ -1460,28 +1460,28 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn set_vrr_mode(&self, mode: &'static VrrMode) {
-        let old = self.global.persistent.vrr_mode.replace(mode);
-        if old != mode {
+    pub fn set_vrr_mode(&self, mode: &VrrMode) {
+        let old = self.global.persistent.vrr_mode.replace(*mode);
+        if old != *mode {
             self.update_presentation_type();
             self.global
                 .connector
                 .head_managers
-                .handle_vrr_mode_change(mode.to_config());
+                .handle_vrr_mode_change(mode);
             for head in self.global.connector.wlr_output_heads.lock().values() {
                 head.handle_vrr_mode_change(mode);
             }
         }
     }
 
-    pub fn set_tearing_mode(&self, mode: &'static TearingMode) {
-        let old = self.global.persistent.tearing_mode.replace(mode);
-        if old != mode {
+    pub fn set_tearing_mode(&self, mode: &TearingMode) {
+        let old = self.global.persistent.tearing_mode.replace(*mode);
+        if old != *mode {
             self.update_presentation_type();
             self.global
                 .connector
                 .head_managers
-                .handle_tearing_mode_change(mode.to_config());
+                .handle_tearing_mode_change(mode);
         }
     }
 
@@ -1892,8 +1892,9 @@ pub fn calculate_logical_size(
     (width, height)
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum VrrMode {
+    #[default]
     Never,
     Always,
     Fullscreen {
@@ -1957,8 +1958,9 @@ impl VrrMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum TearingMode {
+    #[default]
     Never,
     Always,
     Fullscreen {

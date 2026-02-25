@@ -209,7 +209,7 @@ impl ZwlrOutputManagerV1 {
             head.send_position(p.pos.get().0, p.pos.get().1);
             head.send_transform(p.transform.get());
             if head.version >= ADAPTIVE_SYNC_SINCE {
-                head.send_adaptive_sync(p.vrr_mode.get());
+                head.send_adaptive_sync(&p.vrr_mode.get());
             }
         }
         self.schedule_done();

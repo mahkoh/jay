@@ -29,7 +29,7 @@ impl HeadName {
     pub(in super::super) fn send_mode(&self, state: &HeadState) {
         self.client.event(Mode {
             self_id: self.id,
-            mode: state.vrr_mode.0,
+            mode: state.vrr_mode.to_config().0,
         });
     }
 }
