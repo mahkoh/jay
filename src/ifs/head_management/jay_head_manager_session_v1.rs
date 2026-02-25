@@ -14,7 +14,6 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::{ConnectorData, State},
-        tree::{TearingMode, VrrMode},
         utils::{copyhashmap::CopyHashMap, numcell::NumCell},
         wire::{
             JayHeadManagerSessionV1Id, JayHeadTransactionResultV1Id,
@@ -558,8 +557,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 node.set_position(desired.position.0, desired.position.1);
                 node.set_preferred_scale(desired.scale);
                 node.update_transform(desired.transform);
-                node.set_vrr_mode(VrrMode::from_config(desired.vrr_mode).unwrap());
-                node.set_tearing_mode(TearingMode::from_config(desired.tearing_mode).unwrap());
+                node.set_vrr_mode(&desired.vrr_mode);
+                node.set_tearing_mode(&desired.tearing_mode);
                 node.set_brightness(desired.brightness);
             } else if let Some(mi) = &desired.monitor_info {
                 let pos = &self.client.state.persistent_output_states;
@@ -567,10 +566,8 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                 pos.pos.set(desired.position);
                 pos.scale.set(desired.scale);
                 pos.transform.set(desired.transform);
-                pos.vrr_mode
-                    .set(VrrMode::from_config(desired.vrr_mode).unwrap());
-                pos.tearing_mode
-                    .set(TearingMode::from_config(desired.tearing_mode).unwrap());
+                pos.vrr_mode.set(desired.vrr_mode);
+                pos.tearing_mode.set(desired.tearing_mode);
                 pos.brightness.set(desired.brightness);
             }
         }

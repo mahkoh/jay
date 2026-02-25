@@ -31,7 +31,7 @@ impl HeadName {
     pub(in super::super) fn send_mode(&self, state: &HeadState) {
         self.client.event(Mode {
             self_id: self.id,
-            mode: state.tearing_mode.0,
+            mode: state.tearing_mode.to_config().0,
         });
     }
 }

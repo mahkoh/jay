@@ -1,6 +1,7 @@
 use {
     crate::{
         ifs::head_management::{HeadOp, HeadState},
+        tree::VrrMode,
         wire::{
             jay_head_ext_jay_vrr_mode_setter_v1::{
                 JayHeadExtJayVrrModeSetterV1RequestHandler, SetMode, SupportedMode,
@@ -8,7 +9,7 @@ use {
             jay_head_manager_ext_jay_vrr_mode_setter_v1::JayHeadManagerExtJayVrrModeSetterV1RequestHandler,
         },
     },
-    jay_config::video::VrrMode,
+    jay_config::video::VrrMode as ConfigVrrMode,
     std::rc::Rc,
 };
 
@@ -26,10 +27,10 @@ impl HeadName {
         self.send_supported_mode(VrrMode::VARIANT_3);
     }
 
-    pub(in super::super) fn send_supported_mode(&self, mode: VrrMode) {
+    pub(in super::super) fn send_supported_mode(&self, mode: &VrrMode) {
         self.client.event(SupportedMode {
             self_id: self.id,
-            mode: mode.0,
+            mode: mode.to_config().0,
         });
     }
 }
@@ -46,10 +47,10 @@ impl JayHeadExtJayVrrModeSetterV1RequestHandler for HeadName {
     head_common_req!();
 
     fn set_mode(&self, req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        if req.mode > VrrMode::VARIANT_3.0 {
+        let Some(mode) = VrrMode::from_config(ConfigVrrMode(req.mode)) else {
             return Err(ErrorName::UnknownMode(req.mode));
-        }
-        self.common.push_op(HeadOp::SetVrrMode(VrrMode(req.mode)))?;
+        };
+        self.common.push_op(HeadOp::SetVrrMode(*mode))?;
         Ok(())
     }
 }
