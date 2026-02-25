@@ -50,7 +50,7 @@ impl Global for ZxdgDecorationManagerV1Global {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 

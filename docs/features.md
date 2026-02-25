@@ -211,7 +211,7 @@ Jay supports the following wayland protocols:
 | zwp_tablet_manager_v2                                | 2               |               |
 | zwp_text_input_manager_v3                            | 1               |               |
 | zwp_virtual_keyboard_manager_v1                      | 1               | Yes           |
-| zxdg_decoration_manager_v1                           | 1               |               |
+| zxdg_decoration_manager_v1                           | 2               |               |
 | zxdg_output_manager_v1                               | 3               |               |
 
 [^lsaccess]: Sandboxes can restrict access to this protocol.
