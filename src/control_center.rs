@@ -2,8 +2,8 @@ use {
     crate::{
         control_center::{
             cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_gpus::GpusPane, cc_idle::IdlePane, cc_input::InputPane, cc_outputs::OutputsPane,
-            cc_xwayland::XwaylandPane,
+            cc_gpus::GpusPane, cc_idle::IdlePane, cc_input::InputPane,
+            cc_look_and_feel::LookAndFeelPane, cc_outputs::OutputsPane, cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{
             EggError, EggWindow, EggWindowOwner,
@@ -39,6 +39,7 @@ mod cc_compositor;
 mod cc_gpus;
 mod cc_idle;
 mod cc_input;
+mod cc_look_and_feel;
 mod cc_outputs;
 mod cc_sidebar;
 mod cc_xwayland;
@@ -81,6 +82,7 @@ bitflags! {
         CCI_OUTPUTS,
         CCI_GPUS,
         CCI_INPUT,
+        CCI_LOOK_AND_FEEL,
 }
 
 pub struct ControlCenter {
@@ -128,6 +130,7 @@ enum PaneType {
     Outputs(Box<OutputsPane>),
     GPUs(GpusPane),
     Input(InputPane),
+    LookAndFeel(LookAndFeelPane),
 }
 
 struct CcBehavior<'a> {
@@ -153,6 +156,7 @@ impl Pane {
             PaneType::Outputs(v) => v.title(res),
             PaneType::GPUs(v) => v.title(res),
             PaneType::Input(v) => v.title(res),
+            PaneType::LookAndFeel(v) => v.title(res),
         }
     }
 
@@ -165,6 +169,7 @@ impl Pane {
             PaneType::Outputs(p) => p.show(&mut self.ps, ui),
             PaneType::GPUs(p) => p.show(ui),
             PaneType::Input(p) => p.show(&mut self.ps, ui),
+            PaneType::LookAndFeel(p) => p.show(ui),
         }
     }
 }
@@ -179,6 +184,7 @@ impl PaneType {
             PaneType::Outputs(_) => CCI_OUTPUTS,
             PaneType::GPUs(_) => CCI_GPUS,
             PaneType::Input(_) => CCI_INPUT,
+            PaneType::LookAndFeel(_) => CCI_LOOK_AND_FEEL,
         }
     }
 }

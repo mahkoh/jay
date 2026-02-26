@@ -17,8 +17,8 @@ use {
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         control_center::{
-            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_OUTPUTS, CCI_XWAYLAND,
-            ControlCenters,
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
+            CCI_OUTPUTS, CCI_XWAYLAND, ControlCenters,
         },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
@@ -1739,6 +1739,7 @@ impl State {
     pub fn set_primary_selection_enabled(&self, enabled: bool) {
         self.enable_primary_selection.set(enabled);
         self.expose_new_singletons();
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_explicit_sync_enabled(&self, enabled: bool) {
@@ -1774,6 +1775,7 @@ impl State {
         self.root.clone().node_visit(&mut V);
         self.damage(self.root.extents.get());
         self.icons.clear();
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn reset_colors(&self) {
@@ -1838,6 +1840,7 @@ impl State {
         self.root.clone().node_visit(&mut V);
         self.damage(self.root.extents.get());
         self.icons.update_sizes(self);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_show_bar(&self, show: bool) {
@@ -1852,15 +1855,18 @@ impl State {
 
     pub fn set_ui_drag_enabled(&self, enabled: bool) {
         self.ui_drag_enabled.set(enabled);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_ui_drag_threshold(&self, threshold: i32) {
         self.ui_drag_threshold_squared
             .set(threshold.saturating_mul(threshold));
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         for stacked in self.root.stacked.iter() {
             if let Some(float) = stacked.deref().clone().node_into_float() {
                 float.schedule_render_titles();
@@ -1870,6 +1876,7 @@ impl State {
 
     pub fn set_float_above_fullscreen(&self, v: bool) {
         self.float_above_fullscreen.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         for seat in self.globals.seats.lock().values() {
             seat.emulate_cursor_moved();
             seat.trigger_tree_changed(false);
@@ -1883,6 +1890,7 @@ impl State {
     }
 
     fn fonts_changed(&self) {
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
