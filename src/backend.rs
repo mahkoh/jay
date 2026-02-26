@@ -127,9 +127,9 @@ impl Display for ConnectorKernelId {
 
 bitflags! {
     ConnectorCaps: u32;
-        CONCAP_CONNECTOR        = 1 << 0,
-        CONCAP_MODE_SETTING     = 1 << 1,
-        CONCAP_PHYSICAL_DISPLAY = 1 << 2,
+        CONCAP_CONNECTOR,
+        CONCAP_MODE_SETTING,
+        CONCAP_PHYSICAL_DISPLAY,
 }
 
 pub trait Connector: Any {
@@ -343,11 +343,11 @@ pub const AXIS_120: i32 = 120;
 
 bitflags! {
     Leds: u32;
-        LED_NUM_LOCK = 1 << 0,
-        LED_CAPS_LOCK = 1 << 1,
-        LED_SCROLL_LOCK = 1 << 2,
-        LED_COMPOSE = 1 << 3,
-        LED_KANA = 1 << 4,
+        LED_NUM_LOCK,
+        LED_CAPS_LOCK,
+        LED_SCROLL_LOCK,
+        LED_COMPOSE,
+        LED_KANA,
 }
 
 #[derive(Debug)]

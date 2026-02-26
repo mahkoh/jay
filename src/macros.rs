@@ -456,8 +456,34 @@ macro_rules! fatal {
     }}
 }
 
+#[expect(clippy::allow_attributes)]
+#[allow(dead_code)]
+pub trait Bitflag {
+    type Type;
+}
+
 macro_rules! bitflags {
+    ($name:ident: $rep:ty; $($var:ident,)*) => {
+        with_builtin_macros::with_eager_expansions! {
+            bitflags! {
+                $name: $rep;
+                #{concat_idents!($name, Enum)};
+                $(
+                    $var = 1 << #{concat_idents!($name, Enum)}::$var as u32,
+                )*
+            }
+        }
+    };
     ($name:ident: $rep:ty; $($var:ident = $val:expr,)*) => {
+        with_builtin_macros::with_eager_expansions! {
+            bitflags! {
+                $name: $rep;
+                #{concat_idents!($name, Enum)};
+                $($var = $val,)*
+            }
+        }
+    };
+    ($name:ident: $rep:ty; $enum_name:ident; $($var:ident = $val:expr,)*) => {
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
         pub struct $name(pub $rep);
 
@@ -499,6 +525,20 @@ macro_rules! bitflags {
             pub fn intersects(self, other: Self) -> bool {
                 self.0 & other.0 != 0
             }
+
+            #[allow(clippy::allow_attributes, clippy::bad_bit_mask)]
+            pub fn to_map(self) -> linearize::StaticCopyMap<$enum_name, bool> {
+                let mut res = linearize::StaticCopyMap::default();
+                let v = self.0;
+                $(
+                    res[$enum_name::$var] = v & $val == $val;
+                )*
+                res
+            }
+        }
+
+        impl crate::macros::Bitflag for $name {
+            type Type = $rep;
         }
 
         impl std::ops::BitOr for $name {
@@ -567,7 +607,25 @@ macro_rules! bitflags {
                 Ok(())
             }
         }
-    }
+
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]
+        #[expect(clippy::allow_attributes)]
+        pub enum $enum_name {
+            $(
+                #[allow(non_camel_case_types, dead_code)]
+                $var,
+            )*
+        }
+
+        impl $enum_name {
+            #[allow(clippy::allow_attributes, dead_code)]
+            pub fn to_bits(self) -> $name {
+                match self {
+                    $(Self::$var => $var,)*
+                }
+            }
+        }
+    };
 }
 
 macro_rules! pw_opcodes {

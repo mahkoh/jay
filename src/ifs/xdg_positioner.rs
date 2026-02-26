@@ -25,10 +25,10 @@ pub const ANCHOR_BOTTOM_RIGHT: u32 = 8;
 
 bitflags! {
     Edge: u32;
-        E_TOP = 1 << 0,
-        E_BOTTOM = 1 << 1,
-        E_LEFT = 1 << 2,
-        E_RIGHT = 1 << 3,
+        E_TOP,
+        E_BOTTOM,
+        E_LEFT,
+        E_RIGHT,
 }
 
 impl Edge {

@@ -34,8 +34,8 @@ use {
 
 bitflags! {
     ClMatcherChange: u32;
-    CL_CHANGED_DESTROYED   = 1 << 0,
-    CL_CHANGED_NEW         = 1 << 1,
+    CL_CHANGED_DESTROYED,
+    CL_CHANGED_NEW,
 }
 
 type ClmFixedRootMatcher<T> = FixedRootMatcher<Rc<Client>, T>;

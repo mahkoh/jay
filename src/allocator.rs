@@ -17,12 +17,12 @@ pub struct AllocatorError(#[from] pub Box<dyn Error + Send>);
 
 bitflags! {
     BufferUsage: u32;
-        BO_USE_SCANOUT = 1 << 0,
-        BO_USE_CURSOR = 1 << 1,
-        BO_USE_RENDERING = 1 << 2,
-        BO_USE_WRITE = 1 << 3,
-        BO_USE_LINEAR = 1 << 4,
-        BO_USE_PROTECTED = 1 << 5,
+        BO_USE_SCANOUT,
+        BO_USE_CURSOR,
+        BO_USE_RENDERING,
+        BO_USE_WRITE,
+        BO_USE_LINEAR,
+        BO_USE_PROTECTED,
 }
 
 pub trait Allocator {
