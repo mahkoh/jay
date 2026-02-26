@@ -7,6 +7,7 @@ use {
             CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
             CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
             clm::clm_matchers::{
+                clmm_id::ClmMatchId,
                 clmm_is_xwayland::ClmMatchIsXwayland,
                 clmm_pid::ClmMatchPid,
                 clmm_sandboxed::ClmMatchSandboxed,
@@ -62,6 +63,7 @@ pub struct RootMatchers {
     comm: ClmRootMatcherMap<ClmMatchComm>,
     exe: ClmRootMatcherMap<ClmMatchExe>,
     tag: ClmRootMatcherMap<ClmMatchTag>,
+    id: ClmRootMatcherMap<ClmMatchId>,
 }
 
 impl RootMatchers {
@@ -74,6 +76,7 @@ impl RootMatchers {
         self.comm.clear();
         self.exe.clear();
         self.tag.clear();
+        self.id.clear();
     }
 }
 
@@ -184,6 +187,7 @@ impl ClMatcherManager {
             unconditional!(comm);
             unconditional!(exe);
             unconditional!(tag);
+            unconditional!(id);
             fixed!(sandboxed);
             fixed!(is_xwayland);
             self.constant[true].handle(data);
@@ -228,6 +232,10 @@ impl ClMatcherManager {
 
     pub fn tag(&self, string: CritLiteralOrRegex) -> Rc<ClmUpstreamNode> {
         self.root(ClmMatchTag::new(string))
+    }
+
+    pub fn id(&self, id: ClientId) -> Rc<ClmUpstreamNode> {
+        self.root(ClmMatchId(id))
     }
 }
 

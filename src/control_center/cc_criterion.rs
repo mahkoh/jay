@@ -202,7 +202,6 @@ where
         }
     }
 
-    #[expect(dead_code)]
     pub fn any(&self, mut any: impl FnMut(&T) -> bool) -> bool {
         self.any_(&mut any)
     }

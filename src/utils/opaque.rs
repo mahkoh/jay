@@ -10,7 +10,7 @@ use {
     thiserror::Error,
 };
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Opaque {
     lo: u64,
     hi: u64,

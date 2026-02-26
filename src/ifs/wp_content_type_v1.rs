@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        control_center::EnumText,
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
@@ -24,6 +25,16 @@ pub enum ContentType {
     Photo,
     Video,
     Game,
+}
+
+impl EnumText for ContentType {
+    fn text(self) -> &'static str {
+        match self {
+            Self::Photo => "Photo",
+            Self::Video => "Video",
+            Self::Game => "Game",
+        }
+    }
 }
 
 pub trait ContentTypeExt {

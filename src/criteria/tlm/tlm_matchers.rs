@@ -21,6 +21,7 @@ pub mod tlmm_client;
 pub mod tlmm_content_type;
 pub mod tlmm_floating;
 pub mod tlmm_fullscreen;
+pub mod tlmm_identifier;
 pub mod tlmm_just_mapped;
 pub mod tlmm_kind;
 pub mod tlmm_seat_focus;

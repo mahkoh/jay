@@ -16,6 +16,7 @@ use {
                 tlmm_content_type::TlmMatchContentType,
                 tlmm_floating::TlmMatchFloating,
                 tlmm_fullscreen::TlmMatchFullscreen,
+                tlmm_identifier::TlmMatchIdentifier,
                 tlmm_just_mapped::TlmMatchJustMapped,
                 tlmm_kind::TlmMatchKind,
                 tlmm_seat_focus::TlmMatchSeatFocus,
@@ -93,6 +94,7 @@ pub struct RootMatchers {
     role: TlmRootMatcherMap<TlmMatchRole>,
     workspace: TlmRootMatcherMap<TlmMatchWorkspace>,
     content_ty: TlmRootMatcherMap<TlmMatchContentType>,
+    identifiers: TlmRootMatcherMap<TlmMatchIdentifier>,
 }
 
 impl RootMatchers {
@@ -108,6 +110,7 @@ impl RootMatchers {
         self.role.clear();
         self.workspace.clear();
         self.content_ty.clear();
+        self.identifiers.clear();
     }
 }
 
@@ -221,6 +224,7 @@ impl TlMatcherManager {
             }
             unconditional!(kinds);
             unconditional!(clients);
+            unconditional!(identifiers);
             if self.constant[true].has_downstream() {
                 return true;
             }
@@ -300,6 +304,7 @@ impl TlMatcherManager {
             }
             unconditional!(kinds);
             unconditional!(clients);
+            unconditional!(identifiers);
             self.constant[true].handle(data);
         }
         macro_rules! conditional {
@@ -403,6 +408,10 @@ impl TlMatcherManager {
 
     pub fn content_type(&self, kind: ContentType) -> Rc<TlmUpstreamNode> {
         self.root(TlmMatchContentType::new(kind))
+    }
+
+    pub fn identifier(&self, id: ToplevelIdentifier) -> Rc<TlmUpstreamNode> {
+        self.root(TlmMatchIdentifier::new(id))
     }
 }
 
