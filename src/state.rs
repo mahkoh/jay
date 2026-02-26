@@ -16,8 +16,8 @@ use {
         compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         control_center::{
-            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_OUTPUTS, CCI_XWAYLAND,
-            ControlCenters,
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
+            CCI_OUTPUTS, CCI_XWAYLAND, ControlCenters,
         },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
@@ -98,7 +98,7 @@ use {
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         tagged_acceptor::TaggedAcceptors,
-        theme::{Color, Theme},
+        theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
@@ -1752,6 +1752,170 @@ impl State {
         self.enable_ei_acceptor.set(enabled);
         self.update_ei_acceptor();
         self.trigger_cci(CCI_COMPOSITOR);
+    }
+
+    fn spaces_changed(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+        self.damage(self.root.extents.get());
+        self.icons.update_sizes(self);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_show_bar(&self, show: bool) {
+        self.show_bar.set(show);
+        self.spaces_changed();
+    }
+
+    pub fn set_show_titles(&self, show: bool) {
+        self.theme.show_titles.set(show);
+        self.spaces_changed();
+    }
+
+    pub fn enable_primary_selection(&self, enabled: bool) {
+        self.enable_primary_selection.set(enabled);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_ui_drag_enabled(&self, enabled: bool) {
+        self.ui_drag_enabled.set(enabled);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_ui_drag_threshold(&self, threshold: i32) {
+        self.ui_drag_threshold_squared
+            .set(threshold.saturating_mul(threshold));
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_show_pin_icon(&self, show: bool) {
+        self.show_pin_icon.set(show);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+        for stacked in self.root.stacked.iter() {
+            if let Some(float) = stacked.deref().clone().node_into_float() {
+                float.schedule_render_titles();
+            }
+        }
+    }
+
+    pub fn set_float_above_fullscreen(&self, v: bool) {
+        self.float_above_fullscreen.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+        for seat in self.globals.seats.lock().values() {
+            seat.emulate_cursor_moved();
+            seat.trigger_tree_changed(false);
+        }
+        self.root.update_visible(self);
+    }
+
+    fn colors_changed(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_colors_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.schedule_update_render_data();
+                node.node_visit_children(self);
+            }
+
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_colors_changed();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+        self.damage(self.root.extents.get());
+        self.icons.clear();
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn reset_colors(&self) {
+        self.theme.colors.reset();
+        self.colors_changed();
+    }
+
+    pub fn reset_sizes(&self) {
+        self.theme.sizes.reset();
+        self.spaces_changed();
+    }
+
+    fn fonts_changed(&self) {
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.schedule_update_render_data();
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+    }
+
+    pub fn reset_fonts(&self) {
+        let theme = &self.theme;
+        theme.font.set(self.theme.default_font.clone());
+        theme.bar_font.set(None);
+        theme.title_font.set(None);
+        self.fonts_changed();
+    }
+
+    pub fn set_font(&self, font: &str) {
+        self.theme.font.set(Arc::new(font.to_string()));
+        self.fonts_changed();
+    }
+
+    pub fn set_bar_font(&self, font: Option<&str>) {
+        let font = font.map(|font| Arc::new(font.to_string()));
+        self.theme.bar_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_title_font(&self, font: Option<&str>) {
+        let font = font.map(|font| Arc::new(font.to_string()));
+        self.theme.title_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_bar_position(&self, p: BarPosition) {
+        self.theme.bar_position.set(p);
+        self.spaces_changed();
+    }
+
+    pub fn set_size(&self, sized: ThemeSized, size: i32) {
+        let field = sized.field(&self.theme);
+        field.val.set(size);
+        field.set.set(true);
+        self.spaces_changed();
+    }
+
+    pub fn set_color(&self, colored: ThemeColor, v: Color) {
+        colored.field(&self.theme).set(v);
+        self.colors_changed();
     }
 }
 

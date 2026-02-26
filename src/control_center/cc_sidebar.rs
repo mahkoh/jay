@@ -15,6 +15,7 @@ enum PaneName {
     Outputs,
     GPUs,
     Input,
+    LookAndFeel,
 }
 
 impl PaneName {
@@ -27,6 +28,7 @@ impl PaneName {
             PaneName::Outputs => "Outputs",
             PaneName::GPUs => "GPUs",
             PaneName::Input => "Input",
+            PaneName::LookAndFeel => "Look and Feel",
         }
     }
 }
@@ -65,6 +67,9 @@ impl ControlCenterInner {
                                 }
                                 PaneName::GPUs => PaneType::GPUs(self.create_gpus_pane()),
                                 PaneName::Input => PaneType::Input(self.create_input_pane()),
+                                PaneName::LookAndFeel => {
+                                    PaneType::LookAndFeel(self.create_look_and_feel_pane())
+                                }
                             };
                             self.open(tree, ty);
                         }

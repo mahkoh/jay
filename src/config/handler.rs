@@ -26,12 +26,11 @@ use {
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tagged_acceptor::TaggedAcceptorError,
-        theme::{Color, ThemeSized},
+        theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
+            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelNode,
+            VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -87,7 +86,6 @@ use {
         hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
-        sync::Arc,
         time::Duration,
     },
     thiserror::Error,
@@ -976,13 +974,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
-        self.state.ui_drag_enabled.set(enabled);
+        self.state.set_ui_drag_enabled(enabled);
     }
 
     fn handle_set_ui_drag_threshold(&self, threshold: i32) {
-        let threshold = threshold.max(1);
-        let squared = threshold.saturating_mul(threshold);
-        self.state.ui_drag_threshold_squared.set(squared);
+        self.state.set_ui_drag_threshold(threshold.max(1));
     }
 
     fn handle_set_direct_scanout_enabled(
@@ -1385,12 +1381,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_float_above_fullscreen(&self, above: bool) {
-        self.state.float_above_fullscreen.set(above);
-        for seat in self.state.globals.seats.lock().values() {
-            seat.emulate_cursor_moved();
-            seat.trigger_tree_changed(false);
-        }
-        self.state.root.update_visible(&self.state);
+        self.state.set_float_above_fullscreen(above);
     }
 
     fn handle_get_float_above_fullscreen(&self) {
@@ -1400,10 +1391,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_bar(&self, show: bool) {
-        self.state.show_bar.set(show);
-        for output in self.state.root.outputs.lock().values() {
-            output.on_spaces_changed();
-        }
+        self.state.set_show_bar(show);
     }
 
     fn handle_get_show_bar(&self) {
@@ -1413,8 +1401,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_titles(&self, show: bool) {
-        self.state.theme.show_titles.set(show);
-        self.spaces_change();
+        self.state.set_show_titles(show);
     }
 
     fn handle_get_show_titles(&self) {
@@ -1427,8 +1414,7 @@ impl ConfigProxyHandler {
         let Ok(position) = position.try_into() else {
             return Err(CphError::UnknownBarPosition(position));
         };
-        self.state.theme.bar_position.set(position);
-        self.spaces_change();
+        self.state.set_bar_position(position);
         Ok(())
     }
 
@@ -1439,12 +1425,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_float_pin_icon(&self, show: bool) {
-        self.state.show_pin_icon.set(show);
-        for stacked in self.state.root.stacked.iter() {
-            if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
-            }
-        }
+        self.state.set_show_pin_icon(show);
     }
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
@@ -2354,7 +2335,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_middle_click_paste_enabled(&self, enabled: bool) {
-        self.state.enable_primary_selection.set(enabled);
+        self.state.enable_primary_selection(enabled);
     }
 
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
@@ -2409,44 +2390,6 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn spaces_change(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.update_sizes(&self.state);
-    }
-
-    fn colors_changed(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.clear();
-    }
-
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -2474,46 +2417,32 @@ impl ConfigProxyHandler {
         if size > sized.max() {
             return Err(CphError::InvalidSize(size, sized));
         }
-        let field = sized.field(&self.state.theme);
-        field.val.set(size);
-        field.set.set(true);
-        self.spaces_change();
+        self.state.set_size(sized, size);
         Ok(())
     }
 
     fn handle_reset_colors(&self) {
-        self.state.theme.colors.reset();
-        self.colors_changed();
+        self.state.reset_colors();
     }
 
     fn handle_reset_sizes(&self) {
-        self.state.theme.sizes.reset();
-        self.spaces_change();
+        self.state.reset_sizes();
     }
 
     fn handle_reset_font(&self) {
-        let theme = &self.state.theme;
-        theme.font.set(self.state.theme.default_font.clone());
-        theme.bar_font.set(None);
-        theme.title_font.set(None);
+        self.state.reset_fonts();
     }
 
     fn handle_set_font(&self, font: &str) {
-        self.state.theme.font.set(Arc::new(font.to_string()));
+        self.state.set_font(font);
     }
 
     fn handle_set_bar_font(&self, font: &str) {
-        self.state
-            .theme
-            .bar_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_bar_font(Some(font));
     }
 
     fn handle_set_title_font(&self, font: &str) {
-        self.state
-            .theme
-            .title_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_title_font(Some(font));
     }
 
     fn handle_get_font(&self) {
@@ -2521,34 +2450,37 @@ impl ConfigProxyHandler {
         self.respond(Response::GetFont { font });
     }
 
-    fn get_color(&self, colorable: Colorable) -> Result<&Cell<Color>, CphError> {
-        let colors = &self.state.theme.colors;
+    fn get_color(&self, colorable: Colorable) -> Result<ThemeColor, CphError> {
         use jay_config::theme::colors::*;
         let colorable = match colorable {
-            UNFOCUSED_TITLE_BACKGROUND_COLOR => &colors.unfocused_title_background,
-            FOCUSED_TITLE_BACKGROUND_COLOR => &colors.focused_title_background,
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::focused_title_background,
             CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR => {
-                &colors.captured_unfocused_title_background
+                ThemeColor::captured_unfocused_title_background
             }
-            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => &colors.captured_focused_title_background,
-            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => &colors.focused_inactive_title_background,
-            BACKGROUND_COLOR => &colors.background,
-            BAR_BACKGROUND_COLOR => &colors.bar_background,
-            SEPARATOR_COLOR => &colors.separator,
-            BORDER_COLOR => &colors.border,
-            UNFOCUSED_TITLE_TEXT_COLOR => &colors.unfocused_title_text,
-            FOCUSED_TITLE_TEXT_COLOR => &colors.focused_title_text,
-            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => &colors.focused_inactive_title_text,
-            BAR_STATUS_TEXT_COLOR => &colors.bar_text,
-            ATTENTION_REQUESTED_BACKGROUND_COLOR => &colors.attention_requested_background,
-            HIGHLIGHT_COLOR => &colors.highlight,
+            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::captured_focused_title_background
+            }
+            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::focused_inactive_title_background
+            }
+            BACKGROUND_COLOR => ThemeColor::background,
+            BAR_BACKGROUND_COLOR => ThemeColor::bar_background,
+            SEPARATOR_COLOR => ThemeColor::separator,
+            BORDER_COLOR => ThemeColor::border,
+            UNFOCUSED_TITLE_TEXT_COLOR => ThemeColor::unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => ThemeColor::focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ThemeColor::focused_inactive_title_text,
+            BAR_STATUS_TEXT_COLOR => ThemeColor::bar_text,
+            ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColor::attention_requested_background,
+            HIGHLIGHT_COLOR => ThemeColor::highlight,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)
     }
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
-        let color = self.get_color(colorable)?.get();
+        let color = self.get_color(colorable)?.field(&self.state.theme).get();
         let [r, g, b, a] = color.to_array(Eotf::Gamma22);
         let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
@@ -2560,8 +2492,8 @@ impl ConfigProxyHandler {
         colorable: Colorable,
         color: jay_config::theme::Color,
     ) -> Result<(), CphError> {
-        self.get_color(colorable)?.set(color.into());
-        self.colors_changed();
+        self.state
+            .set_color(self.get_color(colorable)?, color.into());
         Ok(())
     }
 
