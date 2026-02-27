@@ -1,0 +1,9 @@
+request destroy { }
+
+event done {
+    name: str,
+}
+
+event failed {
+    msg: str,
+}

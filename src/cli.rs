@@ -11,6 +11,7 @@ mod quit;
 mod randr;
 mod reexec;
 mod run_privileged;
+mod run_tagged;
 pub mod screenshot;
 mod seat_test;
 mod set_log_level;
@@ -24,7 +25,7 @@ use {
         cli::{
             clients::ClientsArgs, color_management::ColorManagementArgs,
             damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
-            reexec::ReexecArgs, tree::TreeArgs, xwayland::XwaylandArgs,
+            reexec::ReexecArgs, run_tagged::RunTaggedArgs, tree::TreeArgs, xwayland::XwaylandArgs,
         },
         compositor::start_compositor,
         format::{Format, ref_formats},
@@ -72,6 +73,8 @@ pub enum Cmd {
     Idle(IdleArgs),
     /// Run a privileged program.
     RunPrivileged(RunPrivilegedArgs),
+    /// Run a program with a connection tag.
+    RunTagged(RunTaggedArgs),
     /// Tests the events produced by a seat.
     SeatTest(SeatTestArgs),
     /// Run the desktop portal.
@@ -245,6 +248,7 @@ pub fn main() {
         Cmd::Idle(a) => idle::main(cli.global, a),
         Cmd::Unlock => unlock::main(cli.global),
         Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
+        Cmd::RunTagged(a) => run_tagged::main(cli.global, a),
         Cmd::SeatTest(a) => seat_test::main(cli.global, a),
         Cmd::Portal => portal::run_freestanding(cli.global),
         Cmd::Randr(a) => randr::main(cli.global, a),
