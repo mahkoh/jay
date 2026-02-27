@@ -54,12 +54,14 @@ impl Parser for ClientMatchParser<'_> {
                 sandbox_instance_id_regex,
                 uid,
                 pid,
-                is_xwayland,
                 comm,
                 comm_regex,
                 exe,
                 exe_regex,
+                tag,
+                tag_regex,
             ),
+            (is_xwayland,),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -78,12 +80,14 @@ impl Parser for ClientMatchParser<'_> {
                 opt(str("sandbox-instance-id-regex")),
                 opt(s32("uid")),
                 opt(s32("pid")),
-                opt(bol("is-xwayland")),
                 opt(str("comm")),
                 opt(str("comm-regex")),
                 opt(str("exe")),
                 opt(str("exe-regex")),
+                opt(str("tag")),
+                opt(str("tag-regex")),
             ),
+            (opt(bol("is-xwayland")),),
         ))?;
         let mut not = None;
         if let Some(value) = not_val {
@@ -130,6 +134,8 @@ impl Parser for ClientMatchParser<'_> {
             comm_regex: comm_regex.despan_into(),
             exe: exe.despan_into(),
             exe_regex: exe_regex.despan_into(),
+            tag: tag.despan_into(),
+            tag_regex: tag_regex.despan_into(),
         })
     }
 }

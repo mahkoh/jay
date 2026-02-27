@@ -99,6 +99,7 @@ pub enum ClientCriterionStringField {
     SandboxInstanceId,
     Comm,
     Exe,
+    Tag,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

@@ -4,6 +4,7 @@ use {
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError, ClientId},
         globals::{Global, GlobalName},
         ifs::{
+            jay_acceptor_request::JayAcceptorRequest,
             jay_client_query::JayClientQuery,
             jay_color_management::JayColorManagement,
             jay_ei_session_builder::JayEiSessionBuilder,
@@ -79,7 +80,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        24
+        25
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -513,6 +514,27 @@ impl JayCompositorRequestHandler for JayCompositor {
         let obj = Rc::new(JayTreeQuery::new(&self.client, req.id, self.version));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn get_tagged_acceptor(
+        &self,
+        req: GetTaggedAcceptor<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayAcceptorRequest {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        let state = &self.client.state;
+        match state.tagged_acceptors.get(state, req.tag) {
+            Ok(d) => obj.send_done(&d),
+            Err(e) => obj.send_failed(e),
+        }
         Ok(())
     }
 }

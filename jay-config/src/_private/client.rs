@@ -348,7 +348,15 @@ impl ConfigClient {
             .drain()
             .map(|(a, b)| (a, b.into_raw_fd()))
             .collect();
-        if fds.is_empty() {
+        if command.tag.is_some() {
+            self.send(&ClientMessage::Run3 {
+                prog: &command.prog,
+                args: command.args.clone(),
+                env,
+                fds,
+                tag: command.tag.as_deref(),
+            });
+        } else if fds.is_empty() {
             self.send(&ClientMessage::Run {
                 prog: &command.prog,
                 args: command.args.clone(),
@@ -1764,6 +1772,8 @@ impl ConfigClient {
             ClientCriterion::CommRegex(t) => string!(t, Comm, true),
             ClientCriterion::Exe(t) => string!(t, Exe, false),
             ClientCriterion::ExeRegex(t) => string!(t, Exe, true),
+            ClientCriterion::Tag(t) => string!(t, Tag, false),
+            ClientCriterion::TagRegex(t) => string!(t, Tag, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
         get_response!(

@@ -91,6 +91,10 @@ pub enum ClientCriterion<'a> {
     Exe(&'a str),
     /// Matches the `/proc/pid/exe` of the client with a regular expression.
     ExeRegex(&'a str),
+    /// Matches the tag of the client verbatim.
+    Tag(&'a str),
+    /// Matches the tag of the client with a regular expression.
+    TagRegex(&'a str),
 }
 
 impl ClientCriterion<'_> {

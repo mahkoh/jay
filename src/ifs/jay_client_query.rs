@@ -9,7 +9,7 @@ use {
             jay_client_query::{
                 AddAll, AddId, Comm, Destroy, Done, End, Exe, Execute, IsXwayland,
                 JayClientQueryRequestHandler, Pid, SandboxAppId, SandboxEngine, SandboxInstanceId,
-                Sandboxed, Start, Uid,
+                Sandboxed, Start, Tag, Uid,
             },
         },
     },
@@ -25,6 +25,8 @@ pub struct JayClientQuery {
     ids: CopyHashMap<ClientId, ()>,
     all: Cell<bool>,
 }
+
+const TAG_SINCE: Version = Version(25);
 
 impl JayClientQuery {
     pub fn new(client: &Rc<Client>, id: JayClientQueryId, version: Version) -> Self {
@@ -93,6 +95,14 @@ impl JayClientQueryRequestHandler for JayClientQuery {
                 self.client.event(SandboxInstanceId {
                     self_id: self.id,
                     instance_id,
+                });
+            }
+            if self.version >= TAG_SINCE
+                && let Some(tag) = &client.acceptor.tag
+            {
+                self.client.event(Tag {
+                    self_id: self.id,
+                    tag,
                 });
             }
             self.client.event(End { self_id: self.id });

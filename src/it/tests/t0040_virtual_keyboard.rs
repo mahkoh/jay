@@ -149,8 +149,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 }
 
 fn read_keymap(fd: &Rc<OwnedFd>, size: usize) -> String {
-    let client_mem = ClientMem::new_private(fd, size - 1, true, None, None).unwrap();
-    let client_mem = Rc::new(client_mem).offset(0);
+    let size = size - 1;
+    let client_mem = ClientMem::new_private(fd, size, true, None, None).unwrap();
+    let client_mem = Rc::new(client_mem).offset(0, size);
     let mut v = vec![];
     client_mem.read(&mut v).unwrap();
     v.as_bstr().to_string()

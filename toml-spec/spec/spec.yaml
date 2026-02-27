@@ -858,6 +858,11 @@ Exec:
             If `true`, the executable gets access to privileged wayland protocols.
             
             The default is `false`.
+        tag:
+          kind: string
+          required: false
+          description: |
+            Specifies a tag to apply to all spawned wayland connections.
 
 
 SimpleActionName:
@@ -3823,6 +3828,14 @@ ClientMatch:
       kind: string
       required: false
       description: Matches the `/proc/pid/exe` of the client with a regular expression.
+    tag:
+      kind: string
+      required: false
+      description: Matches the tag of the client verbatim.
+    tag-regex:
+      kind: string
+      required: false
+      description: Matches the tag of the client with a regular expression.
 
 
 ClientMatchExactly:

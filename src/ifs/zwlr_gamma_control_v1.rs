@@ -111,22 +111,21 @@ impl ZwlrGammaControlV1RequestHandler for ZwlrGammaControlV1 {
             return Ok(());
         };
 
-        // 3 color channels
-        let data_size = gamma_lut_size * 3;
+        // 3 color channels of u16
+        let data_size = size_of::<u16>() * (3 * gamma_lut_size) as usize;
 
         let mut gamma_lut = vec![];
         Rc::new(ClientMem::new_private(
             &req.fd,
-            (2 * data_size) as _,
+            data_size,
             true,
             Some(&self.client),
             None,
         )?)
-        .offset(0)
+        .offset(0, data_size)
         .read(&mut gamma_lut)?;
-        let gamma_lut = &gamma_lut[..data_size as _];
 
-        let gamma_lut = wayland_gamma_lut_to_drm_gamma_lut(gamma_lut);
+        let gamma_lut = wayland_gamma_lut_to_drm_gamma_lut(&gamma_lut);
         let gamma_lut = Rc::new(BackendGammaLut::new(gamma_lut));
         if node.set_gamma_lut(Some(gamma_lut)).is_err() {
             fail();

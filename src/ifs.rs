@@ -11,6 +11,7 @@ pub mod ext_session_lock_manager_v1;
 pub mod ext_session_lock_v1;
 pub mod head_management;
 pub mod ipc;
+pub mod jay_acceptor_request;
 pub mod jay_client_query;
 pub mod jay_color_management;
 pub mod jay_compositor;

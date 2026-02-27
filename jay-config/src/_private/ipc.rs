@@ -834,6 +834,13 @@ pub enum ClientMessage<'a> {
     SetXWaylandEnabled {
         enabled: bool,
     },
+    Run3 {
+        prog: &'a str,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+        fds: Vec<(i32, i32)>,
+        tag: Option<&'a str>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

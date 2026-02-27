@@ -1242,6 +1242,18 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `tag` (optional):
+
+  Matches the tag of the client verbatim.
+
+  The value of this field should be a string.
+
+- `tag-regex` (optional):
+
+  Matches the tag of the client with a regular expression.
+
+  The value of this field should be a string.
+
 
 <a name="types-ClientMatchExactly"></a>
 ### `ClientMatchExactly`
@@ -2710,6 +2722,12 @@ The table has the following fields:
   The default is `false`.
 
   The value of this field should be a boolean.
+
+- `tag` (optional):
+
+  Specifies a tag to apply to all spawned wayland connections.
+
+  The value of this field should be a string.
 
 
 <a name="types-FallbackOutputMode"></a>

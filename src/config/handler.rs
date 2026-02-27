@@ -8,7 +8,7 @@ use {
         },
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
-        compositor::MAX_EXTENTS,
+        compositor::{MAX_EXTENTS, WAYLAND_DISPLAY},
         config::ConfigProxy,
         criteria::{
             CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
@@ -26,6 +26,7 @@ use {
         output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
+        tagged_acceptor::TaggedAcceptorError,
         theme::{Color, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
@@ -1823,9 +1824,18 @@ impl ConfigProxyHandler {
         &self,
         prog: &str,
         args: Vec<String>,
-        env: Vec<(String, String)>,
+        mut env: Vec<(String, String)>,
         fds: Vec<(i32, i32)>,
+        tag: Option<&str>,
     ) -> Result<(), CphError> {
+        if let Some(tag) = tag {
+            let display = self
+                .state
+                .tagged_acceptors
+                .get(&self.state, tag)
+                .map_err(CphError::CreateTaggedAcceptor)?;
+            env.push((WAYLAND_DISPLAY.to_string(), display.to_string()));
+        }
         let fds: Vec<_> = fds
             .into_iter()
             .map(|(a, b)| (a, Rc::new(OwnedFd::new(b))))
@@ -2107,6 +2117,7 @@ impl ConfigProxyHandler {
                     }
                     ClientCriterionStringField::Comm => mgr.comm(needle),
                     ClientCriterionStringField::Exe => mgr.exe(needle),
+                    ClientCriterionStringField::Tag => mgr.tag(needle),
                 }
             }
             ClientCriterionIpc::Sandboxed => mgr.sandboxed(),
@@ -2815,7 +2826,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
             ClientMessage::Run { prog, args, env } => {
-                self.handle_run(prog, args, env, vec![]).wrn("run")?
+                self.handle_run(prog, args, env, vec![], None).wrn("run")?
             }
             ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab).wrn("grab")?,
             ClientMessage::SetColor { colorable, color } => {
@@ -3023,7 +3034,7 @@ impl ConfigProxyHandler {
                 args,
                 env,
                 fds,
-            } => self.handle_run(prog, args, env, fds).wrn("run")?,
+            } => self.handle_run(prog, args, env, fds, None).wrn("run")?,
             ClientMessage::DisableDefaultSeat => self.state.create_default_seat.set(false),
             ClientMessage::DestroyKeymap { keymap } => self.handle_destroy_keymap(keymap),
             ClientMessage::GetConnectorName { connector } => self
@@ -3393,6 +3404,13 @@ impl ConfigProxyHandler {
             ClientMessage::SetXWaylandEnabled { enabled } => self
                 .handle_set_x_wayland_enabled(enabled)
                 .wrn("set_x_wayland_enabled")?,
+            ClientMessage::Run3 {
+                prog,
+                args,
+                env,
+                fds,
+                tag,
+            } => self.handle_run(prog, args, env, fds, tag).wrn("run")?,
         }
         Ok(())
     }
@@ -3548,6 +3566,8 @@ enum CphError {
     UnknownFallbackOutputMode(FallbackOutputMode),
     #[error("Unknown tile state {0:?}")]
     UnknownTileState(ConfigTileState),
+    #[error("Could not create a tagged acceptor")]
+    CreateTaggedAcceptor(#[source] TaggedAcceptorError),
 }
 
 trait WithRequestName {

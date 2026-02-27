@@ -197,14 +197,15 @@ impl JayInput {
     where
         F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
     {
+        let len = len as _;
         let cm = Rc::new(ClientMem::new_private(
             keymap,
-            len as _,
+            len,
             true,
             Some(&self.client),
             None,
         )?)
-        .offset(0);
+        .offset(0, len);
         let mut map = vec![];
         cm.read(&mut map)?;
         self.or_error(|| {

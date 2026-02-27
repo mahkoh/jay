@@ -742,6 +742,14 @@
         "exe-regex": {
           "type": "string",
           "description": "Matches the `/proc/pid/exe` of the client with a regular expression."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Matches the tag of the client verbatim."
+        },
+        "tag-regex": {
+          "type": "string",
+          "description": "Matches the tag of the client with a regular expression."
         }
       },
       "required": []
@@ -1283,6 +1291,10 @@
             "privileged": {
               "type": "boolean",
               "description": "If `true`, the executable gets access to privileged wayland protocols.\n\nThe default is `false`.\n"
+            },
+            "tag": {
+              "type": "string",
+              "description": "Specifies a tag to apply to all spawned wayland connections.\n"
             }
           },
           "required": []

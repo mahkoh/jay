@@ -147,7 +147,8 @@ impl WlBuffer {
         if required > mem.len() as u64 {
             return Err(WlBufferError::OutOfBounds);
         }
-        let mem = Rc::new(mem.offset(offset));
+        let size = bytes as usize;
+        let mem = Rc::new(mem.offset(offset, size));
         let min_row_size = width as u64 * format.bpp as u64;
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
@@ -155,7 +156,7 @@ impl WlBuffer {
         let udmabuf_impossible = !mem.pool().is_sealed_memfd();
         let dmabuf_buffer_params = match udmabuf {
             None => DmabufBufferParams {
-                size: bytes as usize,
+                size,
                 udmabuf: None,
                 udmabuf_offset: 0,
                 udmabuf_size: 0,

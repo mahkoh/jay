@@ -39,6 +39,7 @@ pub struct AcceptorMetadata {
     pub sandbox_engine: Option<String>,
     pub app_id: Option<String>,
     pub instance_id: Option<String>,
+    pub tag: Option<String>,
 }
 
 impl SecurityContextAcceptors {
@@ -67,6 +68,7 @@ impl SecurityContextAcceptors {
                 sandbox_engine,
                 app_id,
                 instance_id,
+                tag: None,
             }),
             listen_fd: listen_fd.clone(),
             close_fd: close_fd.clone(),

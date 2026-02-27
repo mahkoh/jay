@@ -127,6 +127,8 @@ impl Rule for ClientRule {
         value_ref!(CommRegex, comm_regex);
         value_ref!(Exe, exe);
         value_ref!(ExeRegex, exe_regex);
+        value_ref!(Tag, tag);
+        value_ref!(TagRegex, tag_regex);
         value!(Uid, uid);
         value!(Pid, pid);
         bool!(Sandboxed, sandboxed);

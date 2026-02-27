@@ -121,6 +121,11 @@ request create_tree_query (since = 18) {
     id: id(jay_tree_query),
 }
 
+request get_tagged_acceptor (since = 25) {
+    id: id(jay_acceptor_request),
+    tag: str,
+}
+
 # events
 
 event client_id {

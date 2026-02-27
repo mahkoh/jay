@@ -131,12 +131,12 @@ impl ClientMem {
         self.data.len()
     }
 
-    pub fn offset(self: &Rc<Self>, offset: usize) -> ClientMemOffset {
+    pub fn offset(self: &Rc<Self>, offset: usize, len: usize) -> ClientMemOffset {
         let mem = unsafe { &*self.data };
         ClientMemOffset {
             mem: self.clone(),
             offset,
-            data: &mem[offset..],
+            data: &mem[offset..][..len],
         }
     }
 

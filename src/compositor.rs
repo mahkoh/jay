@@ -324,6 +324,7 @@ fn start_compositor2(
         keyboard_state_ids: Default::default(),
         physical_keyboard_ids: Default::default(),
         security_context_acceptors: Default::default(),
+        tagged_acceptors: Default::default(),
         cursor_user_group_ids: Default::default(),
         cursor_user_ids: Default::default(),
         cursor_user_groups: Default::default(),

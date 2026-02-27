@@ -278,6 +278,8 @@ pub struct ClientMatch {
     pub comm_regex: Option<String>,
     pub exe: Option<String>,
     pub exe_regex: Option<String>,
+    pub tag: Option<String>,
+    pub tag_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -419,6 +421,7 @@ pub struct Exec {
     pub args: Vec<String>,
     pub envs: Vec<(String, String)>,
     pub privileged: bool,
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -15,6 +15,7 @@ pub type ClmMatchString<T> = CritMatchString<Rc<Client>, T>;
 pub type ClmMatchSandboxEngine = ClmMatchString<AcceptorMetadataAccess<SandboxEngineField>>;
 pub type ClmMatchSandboxAppId = ClmMatchString<AcceptorMetadataAccess<SandboxAppIdField>>;
 pub type ClmMatchSandboxInstanceId = ClmMatchString<AcceptorMetadataAccess<SandboxInstanceIdField>>;
+pub type ClmMatchTag = ClmMatchString<AcceptorMetadataAccess<TagField>>;
 pub type ClmMatchComm = ClmMatchString<CommAccess>;
 pub type ClmMatchExe = ClmMatchString<ExeAccess>;
 
@@ -22,7 +23,7 @@ pub struct AcceptorMetadataAccess<T>(PhantomData<T>);
 pub struct CommAccess;
 pub struct ExeAccess;
 
-trait SandboxField: Sized + 'static {
+trait AcceptorMetadataField: Sized + 'static {
     fn field(meta: &AcceptorMetadata) -> &Option<String>;
     fn nodes(
         roots: &RootMatchers,
@@ -32,10 +33,11 @@ trait SandboxField: Sized + 'static {
 pub struct SandboxEngineField;
 pub struct SandboxAppIdField;
 pub struct SandboxInstanceIdField;
+pub struct TagField;
 
 impl<T> StringAccess<Rc<Client>> for AcceptorMetadataAccess<T>
 where
-    T: SandboxField,
+    T: AcceptorMetadataField,
 {
     fn with_string(data: &Rc<Client>, f: impl FnOnce(&str) -> bool) -> bool {
         f(T::field(&data.acceptor).as_deref().unwrap_or_default())
@@ -46,7 +48,7 @@ where
     }
 }
 
-impl SandboxField for SandboxEngineField {
+impl AcceptorMetadataField for SandboxEngineField {
     fn field(meta: &AcceptorMetadata) -> &Option<String> {
         &meta.sandbox_engine
     }
@@ -58,7 +60,7 @@ impl SandboxField for SandboxEngineField {
     }
 }
 
-impl SandboxField for SandboxAppIdField {
+impl AcceptorMetadataField for SandboxAppIdField {
     fn field(meta: &AcceptorMetadata) -> &Option<String> {
         &meta.app_id
     }
@@ -70,7 +72,7 @@ impl SandboxField for SandboxAppIdField {
     }
 }
 
-impl SandboxField for SandboxInstanceIdField {
+impl AcceptorMetadataField for SandboxInstanceIdField {
     fn field(meta: &AcceptorMetadata) -> &Option<String> {
         &meta.instance_id
     }
@@ -79,6 +81,18 @@ impl SandboxField for SandboxInstanceIdField {
         roots: &RootMatchers,
     ) -> &ClmRootMatcherMap<ClmMatchString<AcceptorMetadataAccess<Self>>> {
         &roots.sandbox_instance_id
+    }
+}
+
+impl AcceptorMetadataField for TagField {
+    fn field(meta: &AcceptorMetadata) -> &Option<String> {
+        &meta.tag
+    }
+
+    fn nodes(
+        roots: &RootMatchers,
+    ) -> &ClmRootMatcherMap<ClmMatchString<AcceptorMetadataAccess<Self>>> {
+        &roots.tag
     }
 }
 
