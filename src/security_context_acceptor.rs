@@ -39,7 +39,6 @@ pub struct AcceptorMetadata {
     pub sandbox_engine: Option<String>,
     pub app_id: Option<String>,
     pub instance_id: Option<String>,
-    #[expect(dead_code)]
     pub tag: Option<String>,
 }
 

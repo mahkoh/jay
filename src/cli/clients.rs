@@ -157,6 +157,7 @@ pub struct Client {
     pub is_xwayland: bool,
     pub comm: Option<String>,
     pub exe: Option<String>,
+    pub tag: Option<String>,
 }
 
 pub async fn handle_client_query(
@@ -201,6 +202,9 @@ pub async fn handle_client_query(
     Exe::handle(tl, id, c.clone(), |c, event| {
         last!(c).exe = Some(event.exe.to_string());
     });
+    Tag::handle(tl, id, c.clone(), |c, event| {
+        last!(c).tag = Some(event.tag.to_string());
+    });
     tl.round_trip().await;
     mem::take(&mut *c.borrow_mut())
         .into_iter()
@@ -239,5 +243,6 @@ impl ClientPrinter<'_> {
         bol!(is_xwayland, "xwayland");
         opt!(comm, "comm");
         opt!(exe, "exe");
+        opt!(tag, "tag");
     }
 }

@@ -79,7 +79,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        24
+        25
     }
 
     fn required_caps(&self) -> ClientCaps {

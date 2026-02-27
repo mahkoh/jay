@@ -47,3 +47,7 @@ event comm {
 event exe {
     exe: str,
 }
+
+event tag (since = 25) {
+    tag: str,
+}
