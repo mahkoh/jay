@@ -2,8 +2,8 @@ use {
     crate::{
         compositor::DISPLAY,
         control_center::{
-            CcBehavior, ControlCenterInner, EnumText, bool, combo_box_ui, grid, label,
-            read_only_bool, tip,
+            CcBehavior, ControlCenterInner, EnumText, bool, cc_clients::show_client_collapsible,
+            combo_box_ui, grid, label, read_only_bool, tip,
         },
         state::State,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
@@ -46,7 +46,7 @@ impl XwaylandPane {
         res.push_str("Xwayland");
     }
 
-    pub fn show(&mut self, _behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
+    pub fn show(&mut self, behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
         let s = &self.state;
         grid(ui, "settings", |ui| {
             bool(ui, "Enabled", s.xwayland.enabled.get(), |b| {
@@ -83,6 +83,9 @@ impl XwaylandPane {
             && let Err(e) = uapi::kill(client.pid_info.pid, c::SIGTERM)
         {
             log::error!("Could not kill Xwayland: {}", ErrorFmt(OsError::from(e)));
+        }
+        if let Some(client) = self.state.xwayland.client.get() {
+            show_client_collapsible(behavior, ui, &client);
         }
     }
 }

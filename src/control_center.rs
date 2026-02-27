@@ -1,9 +1,15 @@
 use {
     crate::{
         control_center::{
-            cc_color_management::ColorManagementPane, cc_compositor::CompositorPane,
-            cc_gpus::GpusPane, cc_idle::IdlePane, cc_input::InputPane,
-            cc_look_and_feel::LookAndFeelPane, cc_outputs::OutputsPane, cc_xwayland::XwaylandPane,
+            cc_clients::{ClientPane, ClientsPane},
+            cc_color_management::ColorManagementPane,
+            cc_compositor::CompositorPane,
+            cc_gpus::GpusPane,
+            cc_idle::IdlePane,
+            cc_input::InputPane,
+            cc_look_and_feel::LookAndFeelPane,
+            cc_outputs::OutputsPane,
+            cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{EggError, EggWindow, EggWindowOwner},
         macros::Bitflag,
@@ -29,8 +35,10 @@ use {
     thiserror::Error,
 };
 
+mod cc_clients;
 mod cc_color_management;
 mod cc_compositor;
+mod cc_criterion;
 mod cc_gpus;
 mod cc_idle;
 mod cc_input;
@@ -124,10 +132,11 @@ enum PaneType {
     GPUs(GpusPane),
     Input(InputPane),
     LookAndFeel(LookAndFeelPane),
+    Clients(ClientsPane),
+    Client(ClientPane),
 }
 
 struct CcBehavior<'a> {
-    #[expect(dead_code)]
     cc: &'a Rc<ControlCenterInner>,
     close: Option<TileId>,
     open: Option<PaneType>,
@@ -150,6 +159,8 @@ impl Pane {
             PaneType::GPUs(v) => v.title(res),
             PaneType::Input(v) => v.title(res),
             PaneType::LookAndFeel(v) => v.title(res),
+            PaneType::Clients(v) => v.title(res),
+            PaneType::Client(v) => v.title(res),
         }
     }
 
@@ -163,6 +174,8 @@ impl Pane {
             PaneType::GPUs(p) => p.show(ui),
             PaneType::Input(p) => p.show(&mut self.ps, ui),
             PaneType::LookAndFeel(p) => p.show(ui),
+            PaneType::Clients(p) => p.show(behavior, ui),
+            PaneType::Client(p) => p.show(behavior, ui),
         }
     }
 }
@@ -178,6 +191,8 @@ impl PaneType {
             PaneType::GPUs(_) => CCI_GPUS,
             PaneType::Input(_) => CCI_INPUT,
             PaneType::LookAndFeel(_) => CCI_LOOK_AND_FEEL,
+            PaneType::Clients(_) => ControlCenterInterest::none(),
+            PaneType::Client(_) => ControlCenterInterest::none(),
         }
     }
 }
