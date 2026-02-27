@@ -427,10 +427,9 @@ impl Input {
     async fn handle_keymap(&self, input: JayInputId) -> Vec<u8> {
         let data = Rc::new(RefCell::new(Vec::new()));
         jay_input::Keymap::handle(&self.tc, input, data.clone(), |d, map| {
-            let mem = Rc::new(
-                ClientMem::new_private(&map.keymap, map.keymap_len as _, true, None, None).unwrap(),
-            )
-            .offset(0);
+            let len = map.keymap_len as _;
+            let mem = Rc::new(ClientMem::new_private(&map.keymap, len, true, None, None).unwrap())
+                .offset(0, len);
             mem.read(d.borrow_mut().deref_mut()).unwrap();
         });
         self.tc.round_trip().await;
