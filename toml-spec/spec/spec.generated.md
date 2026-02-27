@@ -2723,6 +2723,12 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `tag` (optional):
+
+  Specifies a tag to apply to all spawned wayland connections.
+
+  The value of this field should be a string.
+
 
 <a name="types-FallbackOutputMode"></a>
 ### `FallbackOutputMode`

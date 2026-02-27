@@ -22,6 +22,7 @@ pub struct Command {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) fds: RefCell<HashMap<i32, OwnedFd>>,
+    pub(crate) tag: Option<String>,
 }
 
 impl Command {
@@ -37,6 +38,7 @@ impl Command {
             args: vec![],
             env: Default::default(),
             fds: Default::default(),
+            tag: Default::default(),
         }
     }
 
@@ -94,6 +96,12 @@ impl Command {
                 log::error!("Compositor did not send the socket path");
             }
         }
+        self
+    }
+
+    /// Adds a tag to Wayland connections created by the spawned command.
+    pub fn tag(&mut self, tag: &str) -> &mut Self {
+        self.tag = Some(tag.to_owned());
         self
     }
 

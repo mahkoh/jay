@@ -348,7 +348,15 @@ impl ConfigClient {
             .drain()
             .map(|(a, b)| (a, b.into_raw_fd()))
             .collect();
-        if fds.is_empty() {
+        if command.tag.is_some() {
+            self.send(&ClientMessage::Run3 {
+                prog: &command.prog,
+                args: command.args.clone(),
+                env,
+                fds,
+                tag: command.tag.as_deref(),
+            });
+        } else if fds.is_empty() {
             self.send(&ClientMessage::Run {
                 prog: &command.prog,
                 args: command.args.clone(),

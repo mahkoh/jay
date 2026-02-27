@@ -53,6 +53,7 @@ impl Parser for ExecParser<'_> {
             args: vec![],
             envs: vec![],
             privileged: false,
+            tag: None,
         })
     }
 
@@ -70,6 +71,7 @@ impl Parser for ExecParser<'_> {
             args,
             envs: vec![],
             privileged: false,
+            tag: None,
         })
     }
 
@@ -79,12 +81,13 @@ impl Parser for ExecParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (prog_opt, shell_opt, args_val, envs_val, privileged) = ext.extract((
+        let (prog_opt, shell_opt, args_val, envs_val, privileged, tag) = ext.extract((
             opt(str("prog")),
             opt(str("shell")),
             opt(arr("args")),
             opt(val("env")),
             recover(opt(bol("privileged"))),
+            opt(str("tag")),
         ))?;
         let prog;
         let mut args = vec![];
@@ -112,11 +115,21 @@ impl Parser for ExecParser<'_> {
             None => vec![],
             Some(e) => e.parse_map(&mut EnvParser)?,
         };
+        if let Some(privileged) = privileged
+            && privileged.value
+            && tag.is_some()
+        {
+            log::warn!(
+                "Exec is privileged and tagged but tagged execs are always unprivileged: {}",
+                self.0.error3(privileged.span),
+            );
+        }
         Ok(Exec {
             prog,
             args,
             envs,
             privileged: privileged.despan().unwrap_or(false),
+            tag: tag.despan_into(),
         })
     }
 }

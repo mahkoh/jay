@@ -57,7 +57,6 @@ impl TaggedAcceptors {
         }
     }
 
-    #[expect(dead_code)]
     pub fn get(&self, state: &Rc<State>, tag: &str) -> Result<Rc<String>, TaggedAcceptorError> {
         let acceptors = &mut *self.acceptors.borrow_mut();
         if let Some(acceptor) = acceptors.get(tag) {

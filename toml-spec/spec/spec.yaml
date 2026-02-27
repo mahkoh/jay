@@ -858,6 +858,11 @@ Exec:
             If `true`, the executable gets access to privileged wayland protocols.
             
             The default is `false`.
+        tag:
+          kind: string
+          required: false
+          description: |
+            Specifies a tag to apply to all spawned wayland connections.
 
 
 SimpleActionName:

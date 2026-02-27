@@ -1646,6 +1646,9 @@ fn create_command(exec: &Exec) -> Command {
     if exec.privileged {
         command.privileged();
     }
+    if let Some(tag) = &exec.tag {
+        command.tag(tag);
+    }
     command
 }
 
