@@ -713,8 +713,8 @@ pub trait AsyncShmGfxTextureCallback {
 
 bitflags! {
     StagingBufferUsecase: u32;
-        STAGING_UPLOAD   = 1 << 0,
-        STAGING_DOWNLOAD = 1 << 1,
+        STAGING_UPLOAD,
+        STAGING_DOWNLOAD,
 }
 
 pub trait GfxStagingBuffer: Any {

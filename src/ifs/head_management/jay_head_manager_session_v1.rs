@@ -376,20 +376,20 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
         }
         bitflags! {
             ToSend: u32;
-            CORE_INFO                       = 1 << 0,
-            COMPOSITOR_SPACE_INFO_FULL      = 1 << 1,
-            COMPOSITOR_SPACE_INFO_POS       = 1 << 2,
-            COMPOSITOR_SPACE_INFO_SIZE      = 1 << 3,
-            COMPOSITOR_SPACE_INFO_TRANSFORM = 1 << 4,
-            COMPOSITOR_SPACE_INFO_SCALE     = 1 << 5,
-            MODE_INFO                       = 1 << 6,
-            NON_DESKTOP_INFO                = 1 << 7,
-            VRR_MODE_INFO                   = 1 << 8,
-            TEARING_MODE_INFO               = 1 << 9,
-            FORMAT_INFO                     = 1 << 10,
-            DRM_COLOR_SPACE_INFO            = 1 << 11,
-            BRIGHTNESS_INFO                 = 1 << 12,
-            COMPOSITOR_SPACE_INFO_ENABLED   = 1 << 13,
+            CORE_INFO,
+            COMPOSITOR_SPACE_INFO_FULL,
+            COMPOSITOR_SPACE_INFO_POS,
+            COMPOSITOR_SPACE_INFO_SIZE,
+            COMPOSITOR_SPACE_INFO_TRANSFORM,
+            COMPOSITOR_SPACE_INFO_SCALE,
+            MODE_INFO,
+            NON_DESKTOP_INFO,
+            VRR_MODE_INFO,
+            TEARING_MODE_INFO,
+            FORMAT_INFO,
+            DRM_COLOR_SPACE_INFO,
+            BRIGHTNESS_INFO,
+            COMPOSITOR_SPACE_INFO_ENABLED,
         }
         for head in self.heads.lock().values() {
             let pending = mem::take(&mut *head.common.pending.borrow_mut());

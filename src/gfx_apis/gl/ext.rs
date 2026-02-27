@@ -50,11 +50,11 @@ where
 
 bitflags! {
     ClientExt: u32;
-        EXT_CLIENT_EXTENSION   = 1 << 0,
-        EXT_PLATFORM_BASE      = 1 << 1,
-        KHR_PLATFORM_GBM       = 1 << 2,
-        KHR_DEBUG              = 1 << 3,
-        EXT_DEVICE_QUERY       = 1 << 4,
+        EXT_CLIENT_EXTENSION,
+        EXT_PLATFORM_BASE,
+        KHR_PLATFORM_GBM,
+        KHR_DEBUG,
+        EXT_DEVICE_QUERY,
 }
 
 pub fn get_client_ext() -> ClientExt {
@@ -72,17 +72,17 @@ pub fn get_client_ext() -> ClientExt {
 
 bitflags! {
     DisplayExt: u32;
-        KHR_IMAGE_BASE                     = 1 << 0,
-        EXT_IMAGE_DMA_BUF_IMPORT           = 1 << 1,
-        EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS = 1 << 2,
-        KHR_NO_CONFIG_CONTEXT              = 1 << 3,
-        MESA_CONFIGLESS_CONTEXT            = 1 << 4,
-        KHR_SURFACELESS_CONTEXT            = 1 << 5,
-        IMG_CONTEXT_PRIORITY               = 1 << 6,
-        EXT_CREATE_CONTEXT_ROBUSTNESS      = 1 << 7,
-        KHR_FENCE_SYNC                     = 1 << 8,
-        KHR_WAIT_SYNC                      = 1 << 9,
-        ANDROID_NATIVE_FENCE_SYNC          = 1 << 10,
+        KHR_IMAGE_BASE,
+        EXT_IMAGE_DMA_BUF_IMPORT,
+        EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS,
+        KHR_NO_CONFIG_CONTEXT,
+        MESA_CONFIGLESS_CONTEXT,
+        KHR_SURFACELESS_CONTEXT,
+        IMG_CONTEXT_PRIORITY,
+        EXT_CREATE_CONTEXT_ROBUSTNESS,
+        KHR_FENCE_SYNC,
+        KHR_WAIT_SYNC,
+        ANDROID_NATIVE_FENCE_SYNC,
 }
 
 pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
@@ -113,8 +113,8 @@ pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
 
 bitflags! {
     GlExt: u32;
-        GL_OES_EGL_IMAGE          = 1 << 0,
-        GL_OES_EGL_IMAGE_EXTERNAL = 1 << 1,
+        GL_OES_EGL_IMAGE,
+        GL_OES_EGL_IMAGE_EXTERNAL,
 }
 
 pub fn get_gl_ext() -> Result<GlExt, RenderError> {
@@ -133,7 +133,7 @@ pub fn get_gl_ext() -> Result<GlExt, RenderError> {
 
 bitflags! {
     DevExt: u32;
-        MESA_DEVICE_SOFTWARE = 1 << 0,
+        MESA_DEVICE_SOFTWARE,
 }
 
 pub fn get_device_ext(procs: &ExtProc, dpy: EGLDisplay) -> Result<DevExt, RenderError> {

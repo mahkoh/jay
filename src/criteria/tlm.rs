@@ -45,21 +45,21 @@ use {
 
 bitflags! {
     TlMatcherChange: u32;
-    TL_CHANGED_DESTROYED   = 1 << 0,
-    TL_CHANGED_NEW         = 1 << 1,
-    TL_CHANGED_TITLE       = 1 << 2,
-    TL_CHANGED_APP_ID      = 1 << 3,
-    TL_CHANGED_FLOATING    = 1 << 4,
-    TL_CHANGED_VISIBLE     = 1 << 5,
-    TL_CHANGED_URGENT      = 1 << 6,
-    TL_CHANGED_SEAT_FOCI   = 1 << 7,
-    TL_CHANGED_FULLSCREEN  = 1 << 8,
-    TL_CHANGED_JUST_MAPPED = 1 << 9,
-    TL_CHANGED_TAG         = 1 << 10,
-    TL_CHANGED_CLASS_INST  = 1 << 11,
-    TL_CHANGED_ROLE        = 1 << 12,
-    TL_CHANGED_WORKSPACE   = 1 << 13,
-    TL_CHANGED_CONTENT_TY  = 1 << 14,
+    TL_CHANGED_DESTROYED,
+    TL_CHANGED_NEW,
+    TL_CHANGED_TITLE,
+    TL_CHANGED_APP_ID,
+    TL_CHANGED_FLOATING,
+    TL_CHANGED_VISIBLE,
+    TL_CHANGED_URGENT,
+    TL_CHANGED_SEAT_FOCI,
+    TL_CHANGED_FULLSCREEN,
+    TL_CHANGED_JUST_MAPPED,
+    TL_CHANGED_TAG,
+    TL_CHANGED_CLASS_INST,
+    TL_CHANGED_ROLE,
+    TL_CHANGED_WORKSPACE,
+    TL_CHANGED_CONTENT_TY,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
