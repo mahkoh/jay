@@ -114,7 +114,6 @@ pub mod icons {
     pub const ICON_CLOSE: &str = "\u{e5cd}";
     pub const ICON_DRAG_INDICATOR: &str = "\u{e945}";
     pub const ICON_INFO: &str = "\u{e88e}";
-    #[expect(dead_code)]
     pub const ICON_OPEN_IN_NEW: &str = "\u{e89e}";
     pub const ICON_PENDING: &str = "\u{ef64}";
     pub const ICON_REMOVE: &str = "\u{e15b}";
