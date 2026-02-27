@@ -97,6 +97,7 @@ mod screenshoter;
 mod security_context_acceptor;
 mod sighand;
 mod state;
+mod tagged_acceptor;
 mod tasks;
 mod text;
 mod theme;

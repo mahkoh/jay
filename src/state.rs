@@ -91,6 +91,7 @@ use {
         renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
+        tagged_acceptor::TaggedAcceptors,
         theme::{Color, Theme},
         time::Time,
         tree::{
@@ -239,6 +240,7 @@ pub struct State {
     pub keyboard_state_ids: KeyboardStateIds,
     pub physical_keyboard_ids: PhysicalKeyboardIds,
     pub security_context_acceptors: SecurityContextAcceptors,
+    pub tagged_acceptors: TaggedAcceptors,
     pub cursor_user_group_ids: CursorUserGroupIds,
     pub cursor_user_ids: CursorUserIds,
     pub cursor_user_groups: CopyHashMap<CursorUserGroupId, Rc<CursorUserGroup>>,
@@ -1086,6 +1088,7 @@ impl State {
         self.workspace_watchers.clear();
         self.toplevel_lists.clear();
         self.security_context_acceptors.clear();
+        self.tagged_acceptors.clear();
         self.slow_clients.clear();
         for h in self.input_device_handlers.borrow_mut().drain_values() {
             h.async_event.clear();
