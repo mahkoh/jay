@@ -451,13 +451,7 @@ impl Forker {
         let res = match fork_with_pidfd(false) {
             Ok(o) => o,
             Err(e) => {
-                if let Some(id) = pidfd_id {
-                    self.outgoing.push(ForkerMessage::PidFd {
-                        id,
-                        success: false,
-                        pid: 0,
-                    });
-                }
+                self.fail_pidfd(pidfd_id);
                 self.outgoing.push(ForkerMessage::Log {
                     level: log::Level::Error as usize,
                     msg: ErrorFmt(e).to_string(),
@@ -467,14 +461,6 @@ impl Forker {
         };
         match res {
             Forked::Parent { pid, pidfd } => {
-                if let Some(id) = pidfd_id {
-                    self.fds.borrow_mut().push(Rc::new(pidfd));
-                    self.outgoing.push(ForkerMessage::PidFd {
-                        id,
-                        success: true,
-                        pid,
-                    });
-                }
                 drop(write);
                 let slf = self.clone();
                 let spawn = self.ae.spawn("await spawn", async move {
@@ -484,6 +470,7 @@ impl Forker {
                             "Cannot wait for the child fd to become readable: {}",
                             ErrorFmt(e)
                         );
+                        slf.fail_pidfd(pidfd_id);
                     } else {
                         let mut s = String::new();
                         let _ = Fd::new(read.raw()).read_to_string(&mut s);
@@ -492,6 +479,16 @@ impl Forker {
                                 level: log::Level::Error as _,
                                 msg: format!("Could not spawn `{}`: {}", prog, s),
                             });
+                            slf.fail_pidfd(pidfd_id);
+                        } else {
+                            if let Some(id) = pidfd_id {
+                                slf.fds.borrow_mut().push(Rc::new(pidfd));
+                                slf.outgoing.push(ForkerMessage::PidFd {
+                                    id,
+                                    success: true,
+                                    pid,
+                                });
+                            }
                         }
                     }
                     slf.pending_spawns.remove(&pid);
@@ -544,6 +541,16 @@ impl Forker {
                 }
                 std::process::exit(1);
             }
+        }
+    }
+
+    fn fail_pidfd(&self, pidfd_id: Option<u32>) {
+        if let Some(id) = pidfd_id {
+            self.outgoing.push(ForkerMessage::PidFd {
+                id,
+                success: false,
+                pid: 0,
+            });
         }
     }
 }
