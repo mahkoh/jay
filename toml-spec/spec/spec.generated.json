@@ -742,6 +742,14 @@
         "exe-regex": {
           "type": "string",
           "description": "Matches the `/proc/pid/exe` of the client with a regular expression."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Matches the tag of the client verbatim."
+        },
+        "tag-regex": {
+          "type": "string",
+          "description": "Matches the tag of the client with a regular expression."
         }
       },
       "required": []

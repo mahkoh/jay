@@ -2107,6 +2107,7 @@ impl ConfigProxyHandler {
                     }
                     ClientCriterionStringField::Comm => mgr.comm(needle),
                     ClientCriterionStringField::Exe => mgr.exe(needle),
+                    ClientCriterionStringField::Tag => mgr.tag(needle),
                 }
             }
             ClientCriterionIpc::Sandboxed => mgr.sandboxed(),

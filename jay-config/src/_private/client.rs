@@ -1764,6 +1764,8 @@ impl ConfigClient {
             ClientCriterion::CommRegex(t) => string!(t, Comm, true),
             ClientCriterion::Exe(t) => string!(t, Exe, false),
             ClientCriterion::ExeRegex(t) => string!(t, Exe, true),
+            ClientCriterion::Tag(t) => string!(t, Tag, false),
+            ClientCriterion::TagRegex(t) => string!(t, Tag, true),
         };
         let res = self.send_with_response(&ClientMessage::CreateClientMatcher { criterion });
         get_response!(

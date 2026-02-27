@@ -278,6 +278,8 @@ pub struct ClientMatch {
     pub comm_regex: Option<String>,
     pub exe: Option<String>,
     pub exe_regex: Option<String>,
+    pub tag: Option<String>,
+    pub tag_regex: Option<String>,
 }
 
 #[derive(Debug, Clone)]

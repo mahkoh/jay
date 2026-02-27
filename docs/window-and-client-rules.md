@@ -204,6 +204,7 @@ The full specification of client criteria can be found in
 - `is-xwayland` - Matches if the client is/isn't Xwayland.
 - `comm`, `comm-regex` - Matches the `/proc/self/comm` of the client.
 - `exe`, `exe-regex` - Matches the `/proc/self/exe` of the client.
+- `tag`, `tag-regex` - Matches the tag of the client.
 
 ## Window Rules
 

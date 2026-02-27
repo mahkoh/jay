@@ -3823,6 +3823,14 @@ ClientMatch:
       kind: string
       required: false
       description: Matches the `/proc/pid/exe` of the client with a regular expression.
+    tag:
+      kind: string
+      required: false
+      description: Matches the tag of the client verbatim.
+    tag-regex:
+      kind: string
+      required: false
+      description: Matches the tag of the client with a regular expression.
 
 
 ClientMatchExactly:
