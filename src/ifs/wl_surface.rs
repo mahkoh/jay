@@ -218,6 +218,7 @@ pub struct SurfaceBuffer {
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
     release: Option<SyncObjRelease>,
+    _surface_release: SmallVec<[SurfaceRelease; 1]>,
 }
 
 impl Drop for SurfaceBuffer {
@@ -462,6 +463,7 @@ struct PendingState {
     color_description: Option<Option<Rc<ColorDescription>>>,
     serial: Option<u64>,
     alpha_mode: Option<AlphaMode>,
+    surface_release: SmallVec<[SurfaceRelease; 1]>,
 }
 
 struct AttachedSubsurfaceState {
@@ -482,6 +484,7 @@ impl PendingState {
             self.acquire_point = next.acquire_point.take();
             self.release_point = next.release_point.take();
             self.explicit_sync = mem::take(&mut next.explicit_sync);
+            self.surface_release = mem::take(&mut next.surface_release);
         }
         macro_rules! opt {
             ($name:ident) => {
@@ -1096,6 +1099,9 @@ impl WlSurfaceRequestHandler for WlSurface {
             release.committed = true;
         }
         self.verify_explicit_sync(pending)?;
+        if pending.surface_release.is_not_empty() && not_matches!(pending.buffer, Some(Some(_))) {
+            return Err(WlSurfaceError::SurfaceReleaseWithoutAttach);
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1130,6 +1136,15 @@ impl WlSurfaceRequestHandler for WlSurface {
 
     fn offset(&self, req: Offset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending.borrow_mut().offset = (req.x, req.y);
+        Ok(())
+    }
+
+    fn get_release(&self, req: GetRelease, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let cb = Rc::new(WlCallback::new(req.callback, &self.client));
+        track!(self.client, cb);
+        self.client.add_client_obj(&cb)?;
+        let release = SurfaceRelease { cb };
+        self.pending.borrow_mut().surface_release.push(release);
         Ok(())
     }
 }
@@ -1219,6 +1234,7 @@ impl WlSurface {
                     sync_files: Default::default(),
                     release_sync,
                     release: pending.release_point.take(),
+                    _surface_release: mem::take(&mut pending.surface_release),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -2151,6 +2167,8 @@ pub enum WlSurfaceError {
     PrepareAsyncUpload(#[source] GfxError),
     #[error("Could not register a commit timeout")]
     RegisterCommitTimeout(#[source] IoUringError),
+    #[error("Content update contains release callbacks but no non-null buffer")]
+    SurfaceReleaseWithoutAttach,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
@@ -2280,5 +2298,16 @@ impl SyncObjRelease {
 impl Drop for SyncObjRelease {
     fn drop(&mut self) {
         self.signal(None);
+    }
+}
+
+pub struct SurfaceRelease {
+    cb: Rc<WlCallback>,
+}
+
+impl Drop for SurfaceRelease {
+    fn drop(&mut self) {
+        self.cb.send_done(0);
+        let _ = self.cb.client.remove_obj(&*self.cb);
     }
 }

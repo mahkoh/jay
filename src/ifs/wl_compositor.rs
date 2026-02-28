@@ -69,6 +69,11 @@ impl WlCompositorRequestHandler for WlCompositor {
         self.client.add_client_obj(&region)?;
         Ok(())
     }
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
 }
 
 global_base!(WlCompositorGlobal, WlCompositor, WlCompositorError);
@@ -79,7 +84,7 @@ impl Global for WlCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        6
+        7
     }
 }
 
