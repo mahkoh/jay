@@ -76,6 +76,7 @@ use {
         object::{Object, Version},
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
+        state::State,
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
@@ -99,6 +100,7 @@ use {
     },
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::{Entry, OccupiedEntry},
@@ -211,46 +213,18 @@ impl NodeVisitorBase for SurfaceSendPreferredColorDescription {
     }
 }
 
-struct SurfaceBufferExplicitRelease {
-    sync_obj: Rc<SyncObj>,
-    point: SyncObjPoint,
-}
-
 pub struct SurfaceBuffer {
     pub buffer: AttachedBuffer,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
-    release: Option<SurfaceBufferExplicitRelease>,
+    release: Option<SyncObjRelease>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let sync_files = self.sync_files.take();
-        if let Some(release) = &self.release {
-            let Some(ctx) = self.buffer.buf.client.state.render_ctx.get() else {
-                log::error!("Cannot signal release point because there is no render context");
-                return;
-            };
-            let Some(ctx) = ctx.sync_obj_ctx() else {
-                log::error!("Cannot signal release point because there is no syncobj context");
-                return;
-            };
-            if sync_files.is_not_empty() {
-                let res = ctx.import_sync_files(
-                    &release.sync_obj,
-                    release.point,
-                    sync_files.iter().map(|f| &f.1),
-                );
-                match res {
-                    Ok(_) => return,
-                    Err(e) => {
-                        log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
-                    }
-                }
-            }
-            if let Err(e) = ctx.signal(&release.sync_obj, release.point) {
-                log::error!("Could not signal release point: {}", ErrorFmt(e));
-            }
+        if let Some(release) = &mut self.release {
+            release.signal(Some(&sync_files));
             return;
         }
         if let Some(dmabuf) = &self.buffer.buf.client_dmabuf {
@@ -478,7 +452,7 @@ struct PendingState {
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
-    release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    release_point: Option<SyncObjRelease>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
     fifo_barrier_set: bool,
@@ -499,11 +473,6 @@ impl PendingState {
     fn merge(&mut self, next: &mut Self, client: &Rc<Client>) {
         // discard state
 
-        if next.buffer.is_some() {
-            if let Some((sync_obj, point)) = self.release_point.take() {
-                client.state.signal_point(&sync_obj, point);
-            }
-        }
         self.presentation_feedback.clear();
 
         // overwrite state
@@ -1123,6 +1092,9 @@ impl WlSurfaceRequestHandler for WlSurface {
         {
             buffer.send_release = true;
         }
+        if let Some(release) = &mut pending.release_point {
+            release.committed = true;
+        }
         self.verify_explicit_sync(pending)?;
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
@@ -1242,15 +1214,11 @@ impl WlSurface {
                     false => ReleaseSync::Implicit,
                     true => ReleaseSync::Explicit,
                 };
-                let release = pending
-                    .release_point
-                    .take()
-                    .map(|(sync_obj, point)| SurfaceBufferExplicitRelease { sync_obj, point });
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     sync_files: Default::default(),
                     release_sync,
-                    release,
+                    release: pending.release_point.take(),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -2266,5 +2234,51 @@ impl Drop for FrameRequest {
     fn drop(&mut self) {
         self.cb.send_done(self.now);
         let _ = self.cb.client.remove_obj(&*self.cb);
+    }
+}
+
+pub struct SyncObjRelease {
+    state: Rc<State>,
+    committed: bool,
+    syncobj: Option<Rc<SyncObj>>,
+    point: SyncObjPoint,
+}
+
+impl SyncObjRelease {
+    fn signal(&mut self, sync_files: Option<&SmallVec<[(BufferResvUser, SyncFile); 1]>>) {
+        if !self.committed {
+            return;
+        }
+        let Some(sync_obj) = self.syncobj.take() else {
+            return;
+        };
+        let Some(ctx) = self.state.render_ctx.get() else {
+            log::error!("Cannot signal release point because there is no render context");
+            return;
+        };
+        let Some(ctx) = ctx.sync_obj_ctx() else {
+            log::error!("Cannot signal release point because there is no syncobj context");
+            return;
+        };
+        if let Some(sync_files) = sync_files
+            && sync_files.is_not_empty()
+        {
+            let res = ctx.import_sync_files(&sync_obj, self.point, sync_files.iter().map(|f| &f.1));
+            match res {
+                Ok(_) => return,
+                Err(e) => {
+                    log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
+                }
+            }
+        }
+        if let Err(e) = ctx.signal(&sync_obj, self.point) {
+            log::error!("Could not signal release point: {}", ErrorFmt(e));
+        }
+    }
+}
+
+impl Drop for SyncObjRelease {
+    fn drop(&mut self) {
+        self.signal(None);
     }
 }

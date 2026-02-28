@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
+        ifs::wl_surface::{SyncObjRelease, WlSurface},
         leaks::Tracker,
         object::{Object, Version},
         video::drm::sync_obj::SyncObjPoint,
@@ -66,7 +66,12 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
     fn set_release_point(&self, req: SetReleasePoint, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let point = SyncObjPoint(req.point);
         let timeline = self.client.lookup(req.timeline)?;
-        self.surface.pending.borrow_mut().release_point = Some((timeline.sync_obj.clone(), point));
+        self.surface.pending.borrow_mut().release_point = Some(SyncObjRelease {
+            state: self.client.state.clone(),
+            committed: false,
+            syncobj: Some(timeline.sync_obj.clone()),
+            point,
+        });
         Ok(())
     }
 }
