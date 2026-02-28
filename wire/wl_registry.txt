@@ -2,7 +2,7 @@ request bind {
     name: u32,
     interface: str,
     version: u32,
-    id: id(object),
+    id: id(object) (new),
 }
 
 event global {

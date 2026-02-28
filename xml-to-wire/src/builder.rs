@@ -90,6 +90,10 @@ fn handle_file_(path: &str) -> Result<(), BuilderError> {
                         args.next();
                         continue;
                     }
+                    if arg.ty == ArgType::NewId && arg.interface.is_none() {
+                        writeln!(file, "    interface: str,")?;
+                        writeln!(file, "    version: u32,")?;
+                    }
                     write!(file, "    {}: ", arg.name)?;
                     'ty: {
                         let ty = match arg.ty {
