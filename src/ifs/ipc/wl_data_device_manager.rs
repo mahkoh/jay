@@ -81,6 +81,11 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
         self.client.add_client_obj(&dev)?;
         Ok(())
     }
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
 }
 
 global_base!(
@@ -95,7 +100,7 @@ impl Global for WlDataDeviceManagerGlobal {
     }
 
     fn version(&self) -> u32 {
-        3
+        4
     }
 }
 

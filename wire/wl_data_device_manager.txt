@@ -6,3 +6,6 @@ request get_data_device {
     id: id(wl_data_device) (new),
     seat: id(wl_seat),
 }
+
+request release (destructor, since = 4) {
+}
