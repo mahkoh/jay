@@ -167,7 +167,7 @@ Jay supports the following wayland protocols:
 | jay_tray_v1                                          | 1               |               |
 | org_kde_kwin_server_decoration_manager               | 1               |               |
 | wl_compositor                                        | 6               |               |
-| wl_data_device_manager                               | 3               |               |
+| wl_data_device_manager                               | 4               |               |
 | wl_drm                                               | 2               |               |
 | wl_fixes                                             | 1               |               |
 | wl_output                                            | 4               |               |
