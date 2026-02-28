@@ -96,12 +96,12 @@ impl Cursor for CursorSurface {
         let extents = self.surface.extents.get();
         renderer.render_surface(&self.surface, -extents.x1(), -extents.y1(), None);
 
-        struct FrameRequests(u64);
+        struct FrameRequests(u32);
         impl NodeVisitorBase for FrameRequests {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                for fr in node.frame_requests.borrow_mut().drain(..) {
-                    fr.send_done(self.0 as _);
-                    let _ = fr.client.remove_obj(fr.deref());
+                for mut fr in node.frame_requests.borrow_mut().drain(..) {
+                    fr.now = self.0;
+                    drop(fr);
                 }
                 for fr in node.presentation_feedback.borrow_mut().drain(..) {
                     fr.send_discarded();
@@ -114,7 +114,7 @@ impl Cursor for CursorSurface {
                 node.node_visit_children(self);
             }
         }
-        FrameRequests(self.surface.client.state.now_msec()).visit_surface(&self.surface);
+        FrameRequests(self.surface.client.state.now_msec() as u32).visit_surface(&self.surface);
     }
 
     fn extents_at_scale(&self, scale: Scale) -> Rect {

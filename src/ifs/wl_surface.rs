@@ -310,7 +310,7 @@ pub struct WlSurface {
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
-    frame_requests: RefCell<Vec<Rc<WlCallback>>>,
+    frame_requests: RefCell<Vec<FrameRequest>>,
     presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     latched_presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     seat_state: NodeSeatState,
@@ -465,7 +465,7 @@ struct PendingState {
     offset: (i32, i32),
     opaque_region: Option<Option<Rc<Region>>>,
     input_region: Option<Option<Rc<Region>>>,
-    frame_request: Vec<Rc<WlCallback>>,
+    frame_request: Vec<FrameRequest>,
     damage_full: bool,
     buffer_damage: Vec<Rect>,
     surface_damage: Vec<Rect>,
@@ -1094,7 +1094,10 @@ impl WlSurfaceRequestHandler for WlSurface {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
-        self.pending.borrow_mut().frame_request.push(cb);
+        self.pending
+            .borrow_mut()
+            .frame_request
+            .push(FrameRequest { now: 0, cb });
         Ok(())
     }
 
@@ -2197,10 +2200,10 @@ efrom!(WlSurfaceError, CommitTimelineError);
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
         if self.visible.get() {
-            let now = self.client.state.now_msec();
-            for fr in self.frame_requests.borrow_mut().drain(..) {
-                fr.send_done(now as _);
-                let _ = fr.client.remove_obj(&*fr);
+            let now = self.client.state.now_msec() as u32;
+            for mut fr in self.frame_requests.borrow_mut().drain(..) {
+                fr.now = now;
+                drop(fr);
             }
         }
         if self.clear_fifo_on_vblank.take() {
@@ -2272,5 +2275,17 @@ impl PresentationListener for WlSurface {
             let _ = pf.client.remove_obj(&*pf);
         }
         self.presentation_listener.detach();
+    }
+}
+
+pub struct FrameRequest {
+    now: u32,
+    cb: Rc<WlCallback>,
+}
+
+impl Drop for FrameRequest {
+    fn drop(&mut self) {
+        self.cb.send_done(self.now);
+        let _ = self.cb.client.remove_obj(&*self.cb);
     }
 }
