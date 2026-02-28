@@ -5,3 +5,6 @@ request create_surface {
 request create_region {
     id: id(wl_region) (new),
 }
+
+request release (destructor, since = 7) {
+}
