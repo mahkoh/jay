@@ -35,7 +35,7 @@ use {
         },
         ifs::{
             color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
-            wl_buffer::WlBuffer,
+            wl_buffer::AttachedBuffer,
             wl_callback::WlCallback,
             wl_seat::{
                 Dnd, NodeSeatState, SeatId, WlSeatGlobal,
@@ -217,7 +217,7 @@ struct SurfaceBufferExplicitRelease {
 }
 
 pub struct SurfaceBuffer {
-    pub buffer: Rc<WlBuffer>,
+    pub buffer: AttachedBuffer,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
     release: Option<SurfaceBufferExplicitRelease>,
@@ -227,7 +227,7 @@ impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let sync_files = self.sync_files.take();
         if let Some(release) = &self.release {
-            let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
+            let Some(ctx) = self.buffer.buf.client.state.render_ctx.get() else {
                 log::error!("Cannot signal release point because there is no render context");
                 return;
             };
@@ -253,15 +253,12 @@ impl Drop for SurfaceBuffer {
             }
             return;
         }
-        if let Some(dmabuf) = &self.buffer.client_dmabuf {
+        if let Some(dmabuf) = &self.buffer.buf.client_dmabuf {
             for (_, sync_file) in &sync_files {
                 if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
                     log::error!("Could not import sync file: {}", ErrorFmt(e));
                 }
             }
-        }
-        if !self.buffer.destroyed() {
-            self.buffer.send_release();
         }
     }
 }
@@ -461,7 +458,7 @@ impl SurfaceExt for NoneSurfaceExt {
 
 #[derive(Default)]
 struct PendingState {
-    buffer: Option<Option<Rc<WlBuffer>>>,
+    buffer: Option<Option<AttachedBuffer>>,
     offset: (i32, i32),
     opaque_region: Option<Option<Rc<Region>>>,
     input_region: Option<Option<Rc<Region>>>,
@@ -505,10 +502,6 @@ impl PendingState {
         if next.buffer.is_some() {
             if let Some((sync_obj, point)) = self.release_point.take() {
                 client.state.signal_point(&sync_obj, point);
-            } else if let Some(Some(prev)) = self.buffer.take() {
-                if !prev.destroyed() {
-                    prev.send_release();
-                }
             }
         }
         self.presentation_feedback.clear();
@@ -1074,7 +1067,10 @@ impl WlSurfaceRequestHandler for WlSurface {
         } else {
             None
         };
-        pending.buffer = Some(buf);
+        pending.buffer = Some(buf.map(|buf| AttachedBuffer {
+            send_release: false,
+            buf,
+        }));
         Ok(())
     }
 
@@ -1122,6 +1118,11 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn commit(&self, _req: Commit, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
+        if let Some(Some(buffer)) = &mut pending.buffer
+            && pending.release_point.is_none()
+        {
+            buffer.send_release = true;
+        }
         self.verify_explicit_sync(pending)?;
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
@@ -1227,16 +1228,16 @@ impl WlSurface {
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
-                old_raw_size = Some(buffer.buffer.rect);
+                old_raw_size = Some(buffer.buffer.buf.rect);
             }
             if let Some(buffer) = buffer_change {
-                if buffer.is_shm() {
+                if buffer.buf.is_shm() {
                     self.shm_textures.flip();
                     self.shm_textures.front().damage.clear();
                 } else {
                     self.reset_shm_textures();
                 }
-                buffer.update_texture_or_log(self, false);
+                buffer.buf.update_texture_or_log(self, false);
                 let release_sync = match pending.explicit_sync {
                     false => ReleaseSync::Implicit,
                     true => ReleaseSync::Explicit,
@@ -1304,11 +1305,10 @@ impl WlSurface {
                 new_size = Some(size);
             }
             if let Some(buffer) = self.buffer.get() {
+                let buf = &buffer.buffer.buf;
                 if new_size.is_none() {
-                    let (mut width, mut height) = self
-                        .buffer_transform
-                        .get()
-                        .maybe_swap(buffer.buffer.rect.size());
+                    let (mut width, mut height) =
+                        self.buffer_transform.get().maybe_swap(buf.rect.size());
                     let scale = self.buffer_scale.get();
                     if scale != 1 {
                         width = (width + scale - 1) / scale;
@@ -1316,14 +1316,12 @@ impl WlSurface {
                     }
                     new_size = Some((width, height));
                 }
-                if transform_changed || Some(buffer.buffer.rect) != old_raw_size {
+                if transform_changed || Some(buf.rect) != old_raw_size {
                     let (x1, y1, x2, y2) = if self.src_rect.is_none() {
                         (0.0, 0.0, 1.0, 1.0)
                     } else {
-                        let (width, height) = self
-                            .buffer_transform
-                            .get()
-                            .maybe_swap(buffer.buffer.rect.size());
+                        let (width, height) =
+                            self.buffer_transform.get().maybe_swap(buf.rect.size());
                         let width = width as f32;
                         let height = height as f32;
                         let x1 = buffer_points.x1 / width;
@@ -1342,7 +1340,7 @@ impl WlSurface {
                         y2,
                         buffer_transform: self.buffer_transform.get(),
                     };
-                    let (buffer_width, buffer_height) = buffer.buffer.rect.size();
+                    let (buffer_width, buffer_height) = buf.rect.size();
                     let (mut dst_width, mut dst_height) = new_size.unwrap_or_default();
                     client_wire_scale_to_logical!(self.client, dst_width, dst_height);
                     let damage_matrix = DamageMatrix::new(
@@ -1513,8 +1511,11 @@ impl WlSurface {
                 let matrix = self.damage_matrix.get();
                 if let Some(buffer) = self.buffer.get() {
                     for damage in &pending.buffer_damage {
-                        let mut damage =
-                            matrix.apply(pos.x1(), pos.y1(), damage.intersect(buffer.buffer.rect));
+                        let mut damage = matrix.apply(
+                            pos.x1(),
+                            pos.y1(),
+                            damage.intersect(buffer.buffer.buf.rect),
+                        );
                         if let Some(bounds) = bounds {
                             damage = damage.intersect(bounds);
                         }

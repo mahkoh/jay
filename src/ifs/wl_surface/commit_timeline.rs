@@ -598,6 +598,7 @@ fn schedule_async_upload(
     let Some(Some(buf)) = &pending.buffer else {
         return Ok(None);
     };
+    let buf = &buf.buf;
     let Some(WlBufferStorage::Shm {
         mem,
         stride,
@@ -698,6 +699,7 @@ struct CommitDataCollector {
 impl CommitDataCollector {
     fn collect(&mut self, pending: &mut PendingState) {
         if let Some(Some(buffer)) = &pending.buffer {
+            let buffer = &buffer.buf;
             if buffer.is_shm() {
                 self.shm_uploads += 1;
             }

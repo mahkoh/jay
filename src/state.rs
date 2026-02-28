@@ -689,10 +689,10 @@ impl State {
                 for surface in client.data.objects.surfaces.lock().values() {
                     let had_shm_texture = surface.reset_shm_textures();
                     if let Some(buffer) = surface.buffer.get() {
-                        let had_buffer_texture =
-                            *updated_buffers.get(&Rc::as_ptr(&buffer.buffer)).unwrap();
+                        let buf = &buffer.buffer.buf;
+                        let had_buffer_texture = *updated_buffers.get(&Rc::as_ptr(buf)).unwrap();
                         if had_shm_texture || had_buffer_texture {
-                            buffer.buffer.update_texture_or_log(surface, true);
+                            buf.update_texture_or_log(surface, true);
                         }
                     }
                 }

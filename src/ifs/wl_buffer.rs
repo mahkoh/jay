@@ -48,6 +48,19 @@ pub struct DmabufBufferParams {
     tex_impossible: bool,
 }
 
+pub struct AttachedBuffer {
+    pub send_release: bool,
+    pub buf: Rc<WlBuffer>,
+}
+
+impl Drop for AttachedBuffer {
+    fn drop(&mut self) {
+        if self.send_release && !self.buf.destroyed() {
+            self.buf.send_release();
+        }
+    }
+}
+
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,
@@ -507,7 +520,7 @@ impl WlBuffer {
         Ok(())
     }
 
-    pub fn send_release(&self) {
+    fn send_release(&self) {
         self.client.event(Release { self_id: self.id })
     }
 }
