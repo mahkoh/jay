@@ -10,7 +10,7 @@ use {
         scale::Scale,
         tree::{Node, NodeLocation, NodeVisitorBase, OutputNode},
     },
-    std::{cell::Cell, ops::Deref, rc::Rc},
+    std::{cell::Cell, rc::Rc},
 };
 
 pub struct CursorSurface {
@@ -103,14 +103,8 @@ impl Cursor for CursorSurface {
                     fr.now = self.0;
                     drop(fr);
                 }
-                for fr in node.presentation_feedback.borrow_mut().drain(..) {
-                    fr.send_discarded();
-                    let _ = fr.client.remove_obj(fr.deref());
-                }
-                for fr in node.latched_presentation_feedback.borrow_mut().drain(..) {
-                    fr.send_discarded();
-                    let _ = fr.client.remove_obj(fr.deref());
-                }
+                node.presentation_feedback.borrow_mut().clear();
+                node.latched_presentation_feedback.borrow_mut().clear();
                 node.node_visit_children(self);
             }
         }

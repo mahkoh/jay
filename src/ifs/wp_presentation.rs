@@ -3,7 +3,7 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::wp_presentation_feedback::WpPresentationFeedback,
+        ifs::wp_presentation_feedback::{PresentationFeedback, WpPresentationFeedback},
         leaks::Tracker,
         object::{Object, Version},
         state::State,
@@ -94,7 +94,7 @@ impl WpPresentationRequestHandler for WpPresentation {
         });
         track!(self.client, fb);
         self.client.add_client_obj(&fb)?;
-        surface.add_presentation_feedback(&fb);
+        surface.add_presentation_feedback(PresentationFeedback::new(fb));
         Ok(())
     }
 }

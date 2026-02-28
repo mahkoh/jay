@@ -4,10 +4,54 @@ use {
         ifs::{wl_output::WlOutput, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{WpPresentationFeedbackId, wp_presentation_feedback::*},
+        wire::{WlOutputId, WpPresentationFeedbackId, wp_presentation_feedback::*},
     },
+    ahash::AHashMap,
     std::{convert::Infallible, rc::Rc},
 };
+
+pub struct PresentationFeedback {
+    fb: Option<Rc<WpPresentationFeedback>>,
+}
+
+impl PresentationFeedback {
+    pub fn new(fb: Rc<WpPresentationFeedback>) -> Self {
+        Self { fb: Some(fb) }
+    }
+
+    pub fn presented(
+        mut self,
+        outputs: Option<&AHashMap<WlOutputId, Rc<WlOutput>>>,
+        tv_sec: u64,
+        tv_nsec: u32,
+        mut refresh: u32,
+        seq: u64,
+        flags: u32,
+        vrr: bool,
+    ) {
+        if let Some(fb) = self.fb.take() {
+            if let Some(outputs) = outputs {
+                for output in outputs.values() {
+                    fb.send_sync_output(output);
+                }
+            }
+            if vrr && fb.version < VRR_REFRESH_SINCE {
+                refresh = 0;
+            }
+            fb.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
+            let _ = fb.client.remove_obj(&*fb);
+        }
+    }
+}
+
+impl Drop for PresentationFeedback {
+    fn drop(&mut self) {
+        if let Some(fb) = self.fb.take() {
+            fb.send_discarded();
+            let _ = fb.client.remove_obj(&*fb);
+        }
+    }
+}
 
 pub struct WpPresentationFeedback {
     pub id: WpPresentationFeedbackId,
@@ -33,7 +77,7 @@ impl WpPresentationFeedback {
         });
     }
 
-    pub fn send_presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
+    fn send_presented(&self, tv_sec: u64, tv_nsec: u32, refresh: u32, seq: u64, flags: u32) {
         self.client.event(Presented {
             self_id: self.id,
             tv_sec,
@@ -44,7 +88,7 @@ impl WpPresentationFeedback {
         });
     }
 
-    pub fn send_discarded(&self) {
+    fn send_discarded(&self) {
         self.client.event(Discarded { self_id: self.id });
     }
 }

@@ -67,7 +67,7 @@ use {
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
-            wp_presentation_feedback::{VRR_REFRESH_SINCE, WpPresentationFeedback},
+            wp_presentation_feedback::PresentationFeedback,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUringError,
@@ -311,8 +311,8 @@ pub struct WlSurface {
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     frame_requests: RefCell<Vec<FrameRequest>>,
-    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
-    latched_presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
+    presentation_feedback: RefCell<Vec<PresentationFeedback>>,
+    latched_presentation_feedback: RefCell<Vec<PresentationFeedback>>,
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<CursorUserId, Rc<CursorSurface>, 1>,
@@ -469,7 +469,7 @@ struct PendingState {
     damage_full: bool,
     buffer_damage: Vec<Rect>,
     surface_damage: Vec<Rect>,
-    presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
+    presentation_feedback: Vec<PresentationFeedback>,
     src_rect: Option<Option<[Fixed; 4]>>,
     dst_size: Option<Option<(i32, i32)>>,
     scale: Option<i32>,
@@ -511,10 +511,7 @@ impl PendingState {
                 }
             }
         }
-        for fb in self.presentation_feedback.drain(..) {
-            fb.send_discarded();
-            let _ = client.remove_obj(&*fb);
-        }
+        self.presentation_feedback.clear();
 
         // overwrite state
 
@@ -799,11 +796,8 @@ impl WlSurface {
         }
     }
 
-    pub fn add_presentation_feedback(&self, fb: &Rc<WpPresentationFeedback>) {
-        self.pending
-            .borrow_mut()
-            .presentation_feedback
-            .push(fb.clone());
+    pub fn add_presentation_feedback(&self, fb: PresentationFeedback) {
+        self.pending.borrow_mut().presentation_feedback.push(fb);
     }
 
     pub fn is_cursor(&self) -> bool {
@@ -1382,10 +1376,7 @@ impl WlSurface {
         }
         let has_presentation_feedback = {
             let mut fbs = self.presentation_feedback.borrow_mut();
-            for fb in fbs.drain(..) {
-                fb.send_discarded();
-                let _ = self.client.remove_obj(&*fb);
-            }
+            fbs.clear();
             mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
             fbs.is_not_empty()
         };
@@ -2224,10 +2215,7 @@ impl LatchListener for WlSurface {
         if self.visible.get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();
-                for pf in latched.drain(..) {
-                    pf.send_discarded();
-                    let _ = pf.client.remove_obj(&*pf);
-                }
+                latched.clear();
                 latched.append(&mut self.presentation_feedback.borrow_mut());
                 if latched.is_not_empty() {
                     self.presentation_listener
@@ -2262,17 +2250,7 @@ impl PresentationListener for WlSurface {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
         for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
-            if let Some(bindings) = bindings {
-                for binding in bindings.values() {
-                    pf.send_sync_output(binding);
-                }
-            }
-            let mut refresh = refresh;
-            if vrr && pf.version < VRR_REFRESH_SINCE {
-                refresh = 0;
-            }
-            pf.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
-            let _ = pf.client.remove_obj(&*pf);
+            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags, vrr);
         }
         self.presentation_listener.detach();
     }
