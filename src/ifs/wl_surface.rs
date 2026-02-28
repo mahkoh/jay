@@ -35,7 +35,7 @@ use {
         },
         ifs::{
             color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
-            wl_buffer::WlBuffer,
+            wl_buffer::AttachedBuffer,
             wl_callback::WlCallback,
             wl_seat::{
                 Dnd, NodeSeatState, SeatId, WlSeatGlobal,
@@ -67,7 +67,7 @@ use {
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
-            wp_presentation_feedback::{VRR_REFRESH_SINCE, WpPresentationFeedback},
+            wp_presentation_feedback::PresentationFeedback,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUringError,
@@ -76,6 +76,7 @@ use {
         object::{Object, Version},
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
+        state::State,
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
@@ -99,6 +100,7 @@ use {
     },
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::{Entry, OccupiedEntry},
@@ -211,57 +213,26 @@ impl NodeVisitorBase for SurfaceSendPreferredColorDescription {
     }
 }
 
-struct SurfaceBufferExplicitRelease {
-    sync_obj: Rc<SyncObj>,
-    point: SyncObjPoint,
-}
-
 pub struct SurfaceBuffer {
-    pub buffer: Rc<WlBuffer>,
+    pub buffer: AttachedBuffer,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
-    release: Option<SurfaceBufferExplicitRelease>,
+    release: Option<SyncObjRelease>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let sync_files = self.sync_files.take();
-        if let Some(release) = &self.release {
-            let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
-                log::error!("Cannot signal release point because there is no render context");
-                return;
-            };
-            let Some(ctx) = ctx.sync_obj_ctx() else {
-                log::error!("Cannot signal release point because there is no syncobj context");
-                return;
-            };
-            if sync_files.is_not_empty() {
-                let res = ctx.import_sync_files(
-                    &release.sync_obj,
-                    release.point,
-                    sync_files.iter().map(|f| &f.1),
-                );
-                match res {
-                    Ok(_) => return,
-                    Err(e) => {
-                        log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
-                    }
-                }
-            }
-            if let Err(e) = ctx.signal(&release.sync_obj, release.point) {
-                log::error!("Could not signal release point: {}", ErrorFmt(e));
-            }
+        if let Some(release) = &mut self.release {
+            release.signal(Some(&sync_files));
             return;
         }
-        if let Some(dmabuf) = &self.buffer.client_dmabuf {
+        if let Some(dmabuf) = &self.buffer.buf.client_dmabuf {
             for (_, sync_file) in &sync_files {
                 if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
                     log::error!("Could not import sync file: {}", ErrorFmt(e));
                 }
             }
-        }
-        if !self.buffer.destroyed() {
-            self.buffer.send_release();
         }
     }
 }
@@ -310,9 +281,9 @@ pub struct WlSurface {
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
-    frame_requests: RefCell<Vec<Rc<WlCallback>>>,
-    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
-    latched_presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
+    frame_requests: RefCell<Vec<FrameRequest>>,
+    presentation_feedback: RefCell<Vec<PresentationFeedback>>,
+    latched_presentation_feedback: RefCell<Vec<PresentationFeedback>>,
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<CursorUserId, Rc<CursorSurface>, 1>,
@@ -461,15 +432,15 @@ impl SurfaceExt for NoneSurfaceExt {
 
 #[derive(Default)]
 struct PendingState {
-    buffer: Option<Option<Rc<WlBuffer>>>,
+    buffer: Option<Option<AttachedBuffer>>,
     offset: (i32, i32),
     opaque_region: Option<Option<Rc<Region>>>,
     input_region: Option<Option<Rc<Region>>>,
-    frame_request: Vec<Rc<WlCallback>>,
+    frame_request: Vec<FrameRequest>,
     damage_full: bool,
     buffer_damage: Vec<Rect>,
     surface_damage: Vec<Rect>,
-    presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
+    presentation_feedback: Vec<PresentationFeedback>,
     src_rect: Option<Option<[Fixed; 4]>>,
     dst_size: Option<Option<(i32, i32)>>,
     scale: Option<i32>,
@@ -481,7 +452,7 @@ struct PendingState {
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
-    release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    release_point: Option<SyncObjRelease>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
     fifo_barrier_set: bool,
@@ -502,19 +473,7 @@ impl PendingState {
     fn merge(&mut self, next: &mut Self, client: &Rc<Client>) {
         // discard state
 
-        if next.buffer.is_some() {
-            if let Some((sync_obj, point)) = self.release_point.take() {
-                client.state.signal_point(&sync_obj, point);
-            } else if let Some(Some(prev)) = self.buffer.take() {
-                if !prev.destroyed() {
-                    prev.send_release();
-                }
-            }
-        }
-        for fb in self.presentation_feedback.drain(..) {
-            fb.send_discarded();
-            let _ = client.remove_obj(&*fb);
-        }
+        self.presentation_feedback.clear();
 
         // overwrite state
 
@@ -799,11 +758,8 @@ impl WlSurface {
         }
     }
 
-    pub fn add_presentation_feedback(&self, fb: &Rc<WpPresentationFeedback>) {
-        self.pending
-            .borrow_mut()
-            .presentation_feedback
-            .push(fb.clone());
+    pub fn add_presentation_feedback(&self, fb: PresentationFeedback) {
+        self.pending.borrow_mut().presentation_feedback.push(fb);
     }
 
     pub fn is_cursor(&self) -> bool {
@@ -1080,7 +1036,10 @@ impl WlSurfaceRequestHandler for WlSurface {
         } else {
             None
         };
-        pending.buffer = Some(buf);
+        pending.buffer = Some(buf.map(|buf| AttachedBuffer {
+            send_release: false,
+            buf,
+        }));
         Ok(())
     }
 
@@ -1094,7 +1053,10 @@ impl WlSurfaceRequestHandler for WlSurface {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
-        self.pending.borrow_mut().frame_request.push(cb);
+        self.pending
+            .borrow_mut()
+            .frame_request
+            .push(FrameRequest { now: 0, cb });
         Ok(())
     }
 
@@ -1125,6 +1087,14 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn commit(&self, _req: Commit, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
+        if let Some(Some(buffer)) = &mut pending.buffer
+            && pending.release_point.is_none()
+        {
+            buffer.send_release = true;
+        }
+        if let Some(release) = &mut pending.release_point {
+            release.committed = true;
+        }
         self.verify_explicit_sync(pending)?;
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
@@ -1230,29 +1200,25 @@ impl WlSurface {
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
-                old_raw_size = Some(buffer.buffer.rect);
+                old_raw_size = Some(buffer.buffer.buf.rect);
             }
             if let Some(buffer) = buffer_change {
-                if buffer.is_shm() {
+                if buffer.buf.is_shm() {
                     self.shm_textures.flip();
                     self.shm_textures.front().damage.clear();
                 } else {
                     self.reset_shm_textures();
                 }
-                buffer.update_texture_or_log(self, false);
+                buffer.buf.update_texture_or_log(self, false);
                 let release_sync = match pending.explicit_sync {
                     false => ReleaseSync::Implicit,
                     true => ReleaseSync::Explicit,
                 };
-                let release = pending
-                    .release_point
-                    .take()
-                    .map(|(sync_obj, point)| SurfaceBufferExplicitRelease { sync_obj, point });
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     sync_files: Default::default(),
                     release_sync,
-                    release,
+                    release: pending.release_point.take(),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -1307,11 +1273,10 @@ impl WlSurface {
                 new_size = Some(size);
             }
             if let Some(buffer) = self.buffer.get() {
+                let buf = &buffer.buffer.buf;
                 if new_size.is_none() {
-                    let (mut width, mut height) = self
-                        .buffer_transform
-                        .get()
-                        .maybe_swap(buffer.buffer.rect.size());
+                    let (mut width, mut height) =
+                        self.buffer_transform.get().maybe_swap(buf.rect.size());
                     let scale = self.buffer_scale.get();
                     if scale != 1 {
                         width = (width + scale - 1) / scale;
@@ -1319,14 +1284,12 @@ impl WlSurface {
                     }
                     new_size = Some((width, height));
                 }
-                if transform_changed || Some(buffer.buffer.rect) != old_raw_size {
+                if transform_changed || Some(buf.rect) != old_raw_size {
                     let (x1, y1, x2, y2) = if self.src_rect.is_none() {
                         (0.0, 0.0, 1.0, 1.0)
                     } else {
-                        let (width, height) = self
-                            .buffer_transform
-                            .get()
-                            .maybe_swap(buffer.buffer.rect.size());
+                        let (width, height) =
+                            self.buffer_transform.get().maybe_swap(buf.rect.size());
                         let width = width as f32;
                         let height = height as f32;
                         let x1 = buffer_points.x1 / width;
@@ -1345,7 +1308,7 @@ impl WlSurface {
                         y2,
                         buffer_transform: self.buffer_transform.get(),
                     };
-                    let (buffer_width, buffer_height) = buffer.buffer.rect.size();
+                    let (buffer_width, buffer_height) = buf.rect.size();
                     let (mut dst_width, mut dst_height) = new_size.unwrap_or_default();
                     client_wire_scale_to_logical!(self.client, dst_width, dst_height);
                     let damage_matrix = DamageMatrix::new(
@@ -1379,10 +1342,7 @@ impl WlSurface {
         }
         let has_presentation_feedback = {
             let mut fbs = self.presentation_feedback.borrow_mut();
-            for fb in fbs.drain(..) {
-                fb.send_discarded();
-                let _ = self.client.remove_obj(&*fb);
-            }
+            fbs.clear();
             mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
             fbs.is_not_empty()
         };
@@ -1519,8 +1479,11 @@ impl WlSurface {
                 let matrix = self.damage_matrix.get();
                 if let Some(buffer) = self.buffer.get() {
                     for damage in &pending.buffer_damage {
-                        let mut damage =
-                            matrix.apply(pos.x1(), pos.y1(), damage.intersect(buffer.buffer.rect));
+                        let mut damage = matrix.apply(
+                            pos.x1(),
+                            pos.y1(),
+                            damage.intersect(buffer.buffer.buf.rect),
+                        );
                         if let Some(bounds) = bounds {
                             damage = damage.intersect(bounds);
                         }
@@ -2197,10 +2160,10 @@ efrom!(WlSurfaceError, CommitTimelineError);
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
         if self.visible.get() {
-            let now = self.client.state.now_msec();
-            for fr in self.frame_requests.borrow_mut().drain(..) {
-                fr.send_done(now as _);
-                let _ = fr.client.remove_obj(&*fr);
+            let now = self.client.state.now_msec() as u32;
+            for mut fr in self.frame_requests.borrow_mut().drain(..) {
+                fr.now = now;
+                drop(fr);
             }
         }
         if self.clear_fifo_on_vblank.take() {
@@ -2221,10 +2184,7 @@ impl LatchListener for WlSurface {
         if self.visible.get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();
-                for pf in latched.drain(..) {
-                    pf.send_discarded();
-                    let _ = pf.client.remove_obj(&*pf);
-                }
+                latched.clear();
                 latched.append(&mut self.presentation_feedback.borrow_mut());
                 if latched.is_not_empty() {
                     self.presentation_listener
@@ -2259,18 +2219,66 @@ impl PresentationListener for WlSurface {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
         for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
-            if let Some(bindings) = bindings {
-                for binding in bindings.values() {
-                    pf.send_sync_output(binding);
-                }
-            }
-            let mut refresh = refresh;
-            if vrr && pf.version < VRR_REFRESH_SINCE {
-                refresh = 0;
-            }
-            pf.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
-            let _ = pf.client.remove_obj(&*pf);
+            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags, vrr);
         }
         self.presentation_listener.detach();
+    }
+}
+
+pub struct FrameRequest {
+    now: u32,
+    cb: Rc<WlCallback>,
+}
+
+impl Drop for FrameRequest {
+    fn drop(&mut self) {
+        self.cb.send_done(self.now);
+        let _ = self.cb.client.remove_obj(&*self.cb);
+    }
+}
+
+pub struct SyncObjRelease {
+    state: Rc<State>,
+    committed: bool,
+    syncobj: Option<Rc<SyncObj>>,
+    point: SyncObjPoint,
+}
+
+impl SyncObjRelease {
+    fn signal(&mut self, sync_files: Option<&SmallVec<[(BufferResvUser, SyncFile); 1]>>) {
+        if !self.committed {
+            return;
+        }
+        let Some(sync_obj) = self.syncobj.take() else {
+            return;
+        };
+        let Some(ctx) = self.state.render_ctx.get() else {
+            log::error!("Cannot signal release point because there is no render context");
+            return;
+        };
+        let Some(ctx) = ctx.sync_obj_ctx() else {
+            log::error!("Cannot signal release point because there is no syncobj context");
+            return;
+        };
+        if let Some(sync_files) = sync_files
+            && sync_files.is_not_empty()
+        {
+            let res = ctx.import_sync_files(&sync_obj, self.point, sync_files.iter().map(|f| &f.1));
+            match res {
+                Ok(_) => return,
+                Err(e) => {
+                    log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
+                }
+            }
+        }
+        if let Err(e) = ctx.signal(&sync_obj, self.point) {
+            log::error!("Could not signal release point: {}", ErrorFmt(e));
+        }
+    }
+}
+
+impl Drop for SyncObjRelease {
+    fn drop(&mut self) {
+        self.signal(None);
     }
 }

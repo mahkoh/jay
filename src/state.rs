@@ -121,11 +121,7 @@ use {
         },
         video::{
             dmabuf::DmaBufIds,
-            drm::{
-                Drm,
-                sync_obj::{SyncObj, SyncObjPoint},
-                wait_for_sync_obj::WaitForSyncObj,
-            },
+            drm::{Drm, wait_for_sync_obj::WaitForSyncObj},
         },
         wheel::Wheel,
         wire::{
@@ -689,10 +685,10 @@ impl State {
                 for surface in client.data.objects.surfaces.lock().values() {
                     let had_shm_texture = surface.reset_shm_textures();
                     if let Some(buffer) = surface.buffer.get() {
-                        let had_buffer_texture =
-                            *updated_buffers.get(&Rc::as_ptr(&buffer.buffer)).unwrap();
+                        let buf = &buffer.buffer.buf;
+                        let had_buffer_texture = *updated_buffers.get(&Rc::as_ptr(buf)).unwrap();
                         if had_shm_texture || had_buffer_texture {
-                            buffer.buffer.update_texture_or_log(surface, true);
+                            buf.update_texture_or_log(surface, true);
                         }
                     }
                 }
@@ -1358,20 +1354,6 @@ impl State {
         self.globals.add_global(self, &seat);
         self.ei_clients.announce_seat(&seat);
         seat
-    }
-
-    pub fn signal_point(&self, sync_obj: &SyncObj, point: SyncObjPoint) {
-        let Some(ctx) = self.render_ctx.get() else {
-            log::error!("Cannot signal sync obj point because there is no render context");
-            return;
-        };
-        let Some(ctx) = ctx.sync_obj_ctx() else {
-            log::error!("Cannot signal sync obj point because there is no syncobj context");
-            return;
-        };
-        if let Err(e) = ctx.signal(sync_obj, point) {
-            log::error!("Could not signal sync obj: {}", ErrorFmt(e));
-        }
     }
 
     pub fn set_backend_idle(&self, idle: bool) {

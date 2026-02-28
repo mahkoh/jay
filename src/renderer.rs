@@ -468,10 +468,11 @@ impl Renderer<'_> {
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
+        let buf = &buffer.buffer.buf;
         let alpha = surface.alpha();
         let cd = surface.color_description();
         let alpha_mode = surface.alpha_mode();
-        if let Some(tex) = buffer.buffer.get_texture(surface) {
+        if let Some(tex) = buf.get_texture(surface) {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
                 opaque = self.bounds_are_opaque(x, y, bounds, surface);
@@ -492,7 +493,7 @@ impl Renderer<'_> {
                 &cd,
                 alpha_mode,
             );
-        } else if let Some(color) = &buffer.buffer.color {
+        } else if let Some(color) = &buf.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
                 let rect = match bounds {
                     None => rect,
