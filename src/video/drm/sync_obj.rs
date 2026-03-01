@@ -13,6 +13,7 @@ use {
             DrmError,
             sys::{
                 DRM_SYNCOBJ_CREATE_SIGNALED, DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
+                DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
                 DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE,
                 DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE, sync_ioc_merge, sync_obj_create,
                 sync_obj_destroy, sync_obj_eventfd, sync_obj_fd_to_handle, sync_obj_handle_to_fd,
@@ -21,6 +22,7 @@ use {
         },
     },
     std::{
+        cell::OnceCell,
         rc::Rc,
         sync::atomic::{AtomicU64, Ordering::Relaxed},
     },
@@ -84,6 +86,7 @@ struct Handles {
 pub struct SyncObjCtx {
     inner: Rc<Handles>,
     dummy: CloneCell<Option<Rc<SyncObj>>>,
+    supports_timeline_import: OnceCell<bool>,
 }
 
 impl SyncObjCtx {
@@ -95,6 +98,7 @@ impl SyncObjCtx {
                 links: Default::default(),
             }),
             dummy: Default::default(),
+            supports_timeline_import: Default::default(),
         }
     }
 
@@ -102,7 +106,7 @@ impl SyncObjCtx {
         if let Some(handle) = self.inner.handles.get(&sync_obj.id) {
             return Ok(handle);
         }
-        let handle = sync_obj_fd_to_handle(self.inner.drm.raw(), sync_obj.fd.raw(), 0, 0)
+        let handle = sync_obj_fd_to_handle(self.inner.drm.raw(), sync_obj.fd.raw(), 0, 0, 0)
             .map_err(DrmError::ImportSyncObj)?;
         let handle = SyncObjHandle(handle);
         let link = sync_obj.importers.add_last(self.inner.clone());
@@ -176,6 +180,40 @@ impl SyncObjCtx {
         Ok(())
     }
 
+    fn supports_timeline_import(&self) -> bool {
+        *self
+            .supports_timeline_import
+            .get_or_init(|| match self.test_timeline_import() {
+                Ok(_) => {
+                    log::info!("Kernel supports sync file timeline import");
+                    true
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Kernel does not support sync file timeline import: {}",
+                        ErrorFmt(e),
+                    );
+                    false
+                }
+            })
+    }
+
+    fn test_timeline_import(&self) -> Result<(), DrmError> {
+        let sync_obj = self.create_sync_obj()?;
+        let sync_obj = self.get_handle(&sync_obj)?;
+        let sync_file = self.create_signaled_sync_file()?;
+        sync_obj_fd_to_handle(
+            self.inner.drm.raw(),
+            sync_file.raw(),
+            DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE
+                | DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
+            sync_obj.0,
+            123,
+        )
+        .map(drop)
+        .map_err(DrmError::ImportSyncFile)
+    }
+
     pub fn signal(&self, sync_obj: &SyncObj, point: SyncObjPoint) -> Result<(), DrmError> {
         let handle = self.get_handle(sync_obj)?;
         sync_obj_signal(self.inner.drm.raw(), handle.0, point.0).map_err(DrmError::SignalSyncObj)
@@ -193,14 +231,25 @@ impl SyncObjCtx {
         let Some(fd) = merge_sync_files(sync_files)? else {
             return self.signal(sync_obj, point);
         };
+        let import = |flags: u32, handle: SyncObjHandle| {
+            sync_obj_fd_to_handle(
+                self.inner.drm.raw(),
+                fd.raw(),
+                DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE | flags,
+                handle.0,
+                point.0,
+            )
+            .map(drop)
+            .map_err(DrmError::ImportSyncFile)
+        };
+        if self.supports_timeline_import() {
+            return import(
+                DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
+                self.get_handle(sync_obj)?,
+            );
+        }
         let dummy = self.get_dummy()?;
-        sync_obj_fd_to_handle(
-            self.inner.drm.raw(),
-            fd.raw(),
-            DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
-            self.get_handle(&dummy)?.0,
-        )
-        .map_err(DrmError::ImportSyncFile)?;
+        import(0, self.get_handle(&dummy)?)?;
         self.transfer(&dummy, SyncObjPoint(0), sync_obj, point)
     }
 
