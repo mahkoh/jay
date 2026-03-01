@@ -1169,7 +1169,6 @@ impl FdSync {
         }
     }
 
-    #[expect(dead_code)]
     pub fn is_unsignaled(&self) -> bool {
         !self.is_signaled()
     }

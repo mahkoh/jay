@@ -2,12 +2,12 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         format::{FORMATS, Format},
-        gfx_api::{FdSync, SyncFile},
+        gfx_api::FdSync,
         io_uring::IoUring,
         rect::{Rect, Region},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, queue::AsyncQueue,
-            stack::Stack,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            queue::AsyncQueue, stack::Stack,
         },
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
@@ -15,7 +15,7 @@ use {
         },
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
-            fence::VulkanDeviceFenceExt, map_extension_properties,
+            map_extension_properties, sync::VulkanDeviceSyncExt,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -230,7 +230,8 @@ pub struct CopyDeviceCopy {
 
 struct CopyDeviceCopyInner {
     dev: Rc<CopyDeviceInner>,
-    busy: CloneCell<Option<SyncFile>>,
+    busy_id: NumCell<u64>,
+    busy: CloneCell<Option<FdSync>>,
     width: u32,
     height: u32,
     command_buffer: CommandBuffer,
@@ -269,10 +270,11 @@ enum CopyDeviceCopyType {
 
 struct Pending {
     dev: Rc<CopyDeviceInner>,
-    sync_file: Option<SyncFile>,
+    busy_id: u64,
+    sync: Option<FdSync>,
     copy: Rc<CopyDeviceCopyInner>,
     semaphore: Option<VulkanSemaphore>,
-    fence: Option<Rc<VulkanFence>>,
+    vulkan_sync: VulkanSync,
 }
 
 struct VulkanSemaphore {
@@ -281,6 +283,7 @@ struct VulkanSemaphore {
 }
 
 type VulkanFence = vulkan_core::fence::VulkanFence<CopyDeviceInner>;
+type VulkanSync = vulkan_core::sync::VulkanSync<CopyDeviceInner>;
 
 struct VulkanBuffer {
     dev: Rc<CopyDeviceInner>,
@@ -733,8 +736,8 @@ async fn wait_for_submissions(
         submissions.task_has_pending.set(false);
         let pending = submissions.pending.pop().await;
         submissions.task_has_pending.set(true);
-        if let Some(sync_file) = &pending.sync_file
-            && let Err(e) = ring.readable(sync_file).await
+        if let Some(sync) = &pending.sync
+            && let Err(e) = sync.try_signaled(&ring).await
         {
             log::warn!(
                 "Could not wait for sync file to become readable: {}",
@@ -742,6 +745,7 @@ async fn wait_for_submissions(
             );
             dev.wait_idle();
         }
+        pending.vulkan_sync.handle_validation();
     }
 }
 
@@ -1117,6 +1121,7 @@ impl CopyDevice {
         Ok(CopyDeviceCopy {
             inner: Rc::new(CopyDeviceCopyInner {
                 dev: self.dev.clone(),
+                busy_id: Default::default(),
                 busy: Default::default(),
                 width: src.width as _,
                 height: src.height as _,
@@ -1256,16 +1261,9 @@ impl CopyDeviceInner {
 impl CopyDeviceCopy {
     fn ensure_not_busy(&self) -> Result<(), CopyDeviceError> {
         let slf = &*self.inner;
-        let Some(busy) = slf.busy.get() else {
-            return Ok(());
-        };
-        let mut pollfd = c::pollfd {
-            fd: busy.raw(),
-            events: c::POLLIN,
-            revents: 0,
-        };
-        let res = uapi::poll(slice::from_mut(&mut pollfd), 0);
-        if res != Ok(1) {
+        if let Some(sync) = slf.busy.get()
+            && sync.is_unsignaled()
+        {
             return Err(CopyDeviceError::Busy);
         }
         slf.busy.take();
@@ -1648,42 +1646,33 @@ impl CopyDeviceCopy {
             wait_semaphores.push(info);
             wait_semaphore = Some(semaphore);
         }
-        let signal_fence = match slf.dev.fences.pop() {
-            Some(s) => s,
-            _ => slf.dev.create_fence()?,
-        };
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
         let submit_info = SubmitInfo2::default()
             .command_buffer_infos(slice::from_ref(&command_buffer_info))
             .wait_semaphore_infos(&wait_semaphores);
+        let vulkan_sync = slf.dev.create_sync()?;
         unsafe {
             slf.dev
                 .dev
                 .queue_submit2(
                     slf.dev.queues[tt],
                     slice::from_ref(&submit_info),
-                    signal_fence.fence,
+                    vulkan_sync.fence(),
                 )
                 .map_err(CopyDeviceError::SubmitCopy)?;
         }
-        let sync_file = match signal_fence.export_sync_file() {
-            Ok(f) => f,
-            Err(e) => {
-                log::error!("Could not export signal fence: {}", ErrorFmt(e));
-                slf.dev.wait_idle();
-                None
-            }
-        };
-        slf.busy.set(sync_file.clone());
+        let sync = vulkan_sync.to_sync(|| slf.dev.wait_idle());
+        slf.busy.set(sync.clone());
         let pending = Pending {
             dev: slf.dev.clone(),
-            sync_file: sync_file.clone(),
+            busy_id: slf.busy_id.add_fetch(1),
+            sync: sync.clone(),
             copy: self.inner.clone(),
             semaphore: wait_semaphore,
-            fence: Some(signal_fence),
+            vulkan_sync,
         };
         slf.dev.submissions[tt].pending.push(pending);
-        Ok(sync_file.map(FdSync::SyncFile))
+        Ok(sync)
     }
 }
 
@@ -1794,10 +1783,7 @@ impl Drop for Pending {
         if let Some(v) = self.semaphore.take() {
             self.dev.semaphores.push(v);
         }
-        if let Some(v) = self.fence.take() {
-            self.dev.fences.push(v);
-        }
-        if self.copy.busy.get() == self.sync_file {
+        if self.copy.busy_id.get() == self.busy_id {
             self.copy.busy.take();
         }
     }

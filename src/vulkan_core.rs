@@ -27,6 +27,7 @@ use {
 
 pub mod device;
 pub mod fence;
+pub mod sync;
 
 static VULKAN_ENTRY: Lazy<Result<Entry, Arc<LoadingError>>> =
     Lazy::new(|| unsafe { Entry::load() }.map_err(Arc::new));

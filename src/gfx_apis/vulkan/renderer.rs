@@ -9,10 +9,10 @@ use {
         cpu_worker::PendingJob,
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOpt, GfxBlendBuffer,
-            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
+            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync,
         },
         gfx_apis::vulkan::{
-            VulkanError, VulkanFence,
+            VulkanError, VulkanSync,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
             buffer_cache::{GenericBufferWriter, VulkanBuffer, VulkanBufferCache},
             command::{VulkanCommandBuffer, VulkanCommandPool},
@@ -39,7 +39,7 @@ use {
             stack::Stack,
         },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
-        vulkan_core::fence::VulkanDeviceFenceExt,
+        vulkan_core::sync::VulkanDeviceSyncExt,
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
@@ -65,7 +65,7 @@ use {
     std::{
         any::Any,
         borrow::Cow,
-        cell::{Cell, RefCell},
+        cell::{Cell, LazyCell, RefCell},
         collections::hash_map::Entry,
         fmt::{Debug, Formatter},
         mem,
@@ -162,8 +162,8 @@ pub(super) struct Memory {
     image_barriers: Vec<ImageMemoryBarrier2<'static>>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
-    release_fence: Option<Rc<VulkanFence>>,
-    release_sync_file: Option<SyncFile>,
+    release_vulkan_sync: Option<VulkanSync>,
+    release_sync: Option<FdSync>,
     used_buffers: ArrayVec<VulkanBuffer, 4>,
     paint_bounds: StaticMap<RenderPass, Option<PaintRegion>>,
     paint_regions: StaticMap<RenderPass, Vec<PaintRegion>>,
@@ -249,7 +249,7 @@ pub(super) struct PendingFrame {
     _textures: Vec<UsedTexture>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
-    _release_fence: Option<Rc<VulkanFence>>,
+    vulkan_sync: Option<VulkanSync>,
     _used_buffers: ArrayVec<VulkanBuffer, 4>,
 }
 
@@ -1705,11 +1705,11 @@ impl VulkanRenderer {
     fn import_release_semaphore(&self, fb: &VulkanImage, fb_release_sync: ReleaseSync) {
         zone!("import_release_semaphore");
         let memory = &mut *self.memory.borrow_mut();
-        let sync_file = match memory.release_sync_file.as_ref() {
-            Some(sync_file) => sync_file,
+        let fd_sync = match memory.release_sync.as_ref() {
+            Some(sync) => sync,
             _ => return,
         };
-        let fd_sync = FdSync::SyncFile(sync_file.clone());
+        let sync_file = LazyCell::new(|| fd_sync.get_sync_file());
         let import =
             |img: &VulkanImage, sync: ReleaseSync, resv: Option<Rc<dyn BufferResv>>, flag: u32| {
                 if sync == ReleaseSync::None {
@@ -1719,7 +1719,8 @@ impl VulkanRenderer {
                     resv.set_sync(self.buffer_resv_user, &fd_sync);
                 } else if sync == ReleaseSync::Implicit {
                     if let VulkanImageMemory::DmaBuf(buf) = &img.ty
-                        && let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file)
+                        && let Some(fd) = &*sync_file
+                        && let Err(e) = buf.template.dmabuf.import_sync_file(flag, fd)
                     {
                         log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
                         log::warn!("Relying on implicit sync");
@@ -1739,14 +1740,14 @@ impl VulkanRenderer {
                 && let VulkanImageMemory::Internal(shm) = &texture.tex.ty
                 && let Some(data) = &shm.async_data
             {
-                data.last_gfx_use.set(Some(sync_file.clone()));
+                data.last_gfx_use.set(Some(fd_sync.clone()));
             }
         }
         if attach_async_shm_sync_file
             && let VulkanImageMemory::Internal(shm) = &fb.ty
             && let Some(data) = &shm.async_data
         {
-            data.last_gfx_use.set(Some(sync_file.clone()));
+            data.last_gfx_use.set(Some(fd_sync.clone()));
         }
         import(fb, fb_release_sync, None, DMA_BUF_SYNC_WRITE);
     }
@@ -1754,33 +1755,24 @@ impl VulkanRenderer {
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
         zone!("submit");
         let mut memory = self.memory.borrow_mut();
-        let release_fence = self.device.create_fence()?;
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf);
         let submit_info = SubmitInfo2::default()
             .wait_semaphore_infos(&memory.wait_semaphore_infos)
             .command_buffer_infos(slice::from_ref(&command_buffer_info));
+        let vulkan_sync = self.device.create_sync()?;
         unsafe {
             self.device
                 .device
                 .queue_submit2(
                     self.device.graphics_queue,
                     slice::from_ref(&submit_info),
-                    release_fence.fence,
+                    vulkan_sync.fence(),
                 )
                 .inspect_err(self.device.idl())
                 .map_err(VulkanError::Submit)?;
         }
-        zone!("export_sync_file");
-        let release_sync_file = match release_fence.export_sync_file() {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
-                self.block();
-                None
-            }
-        };
-        memory.release_fence = Some(release_fence);
-        memory.release_sync_file = release_sync_file;
+        memory.release_sync = vulkan_sync.to_sync(|| self.block());
+        memory.release_vulkan_sync = Some(vulkan_sync);
         Ok(())
     }
 
@@ -1819,14 +1811,14 @@ impl VulkanRenderer {
             _textures: mem::take(&mut memory.textures),
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
-            _release_fence: memory.release_fence.take(),
+            vulkan_sync: memory.release_vulkan_sync.take(),
             _used_buffers: mem::take(&mut memory.used_buffers),
         });
         self.pending_frames.set(frame.point, frame.clone());
         let future = self.eng.spawn(
             "await release",
             await_release(
-                memory.release_sync_file.clone(),
+                memory.release_sync.clone(),
                 self.ring.clone(),
                 frame.clone(),
                 self.clone(),
@@ -1861,19 +1853,19 @@ impl VulkanRenderer {
             blend_buffer,
             blend_cd,
         );
-        let sync_file = {
+        let sync = {
             let mut memory = self.memory.borrow_mut();
             memory.textures.clear();
             memory.dmabuf_sample.clear();
             memory.queue_transfer.clear();
             memory.wait_semaphores.clear();
-            memory.release_fence.take();
+            memory.release_vulkan_sync.take();
             memory.used_buffers.clear();
             memory.ops.clear();
             memory.ops_tmp.clear();
-            memory.release_sync_file.take()
+            memory.release_sync.take()
         };
-        res.map(|_| sync_file.map(FdSync::SyncFile))
+        res.map(|_| sync)
     }
 
     fn allocate_semaphore(&self) -> Result<Rc<VulkanSemaphore>, VulkanError> {
@@ -2190,19 +2182,22 @@ pub(super) fn image_barrier() -> ImageMemoryBarrier2<'static> {
 }
 
 async fn await_release(
-    sync_file: Option<SyncFile>,
+    sync: Option<FdSync>,
     ring: Rc<IoUring>,
     frame: Rc<PendingFrame>,
     renderer: Rc<VulkanRenderer>,
 ) {
-    if let Some(sync_file) = sync_file
-        && let Err(e) = ring.readable(&sync_file).await
+    if let Some(sync) = sync
+        && let Err(e) = sync.try_signaled(&ring).await
     {
         log::error!(
             "Could not wait for release semaphore to be signaled: {}",
             ErrorFmt(e)
         );
         frame.renderer.block();
+    }
+    if let Some(vs) = &frame.vulkan_sync {
+        vs.handle_validation();
     }
     if let Some(buf) = frame.cmd.take() {
         frame.renderer.gfx_command_buffers.buffers.push(buf);

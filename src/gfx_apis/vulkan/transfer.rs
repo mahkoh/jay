@@ -8,10 +8,10 @@ use {
             },
         },
         gfx_api::{
-            AsyncShmGfxTextureCallback, PendingShmTransfer, ShmMemory, ShmMemoryBacking, SyncFile,
+            AsyncShmGfxTextureCallback, FdSync, PendingShmTransfer, ShmMemory, ShmMemoryBacking,
         },
         gfx_apis::vulkan::{
-            VulkanError, VulkanFence,
+            VulkanError, VulkanSync,
             command::VulkanCommandBuffer,
             dmabuf_buffer::{TRANSFER_QUEUE_BUFFER_ALIGNMENT, VulkanDmabufBuffer},
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
@@ -21,7 +21,7 @@ use {
         },
         rect::{Rect, Region},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
-        vulkan_core::fence::VulkanDeviceFenceExt,
+        vulkan_core::sync::VulkanDeviceSyncExt,
     },
     arrayvec::ArrayVec,
     ash::vk::{
@@ -48,7 +48,7 @@ pub struct VulkanShmImageAsyncData {
     pub(super) callback_id: Cell<u64>,
     pub(super) regions: RefCell<Vec<BufferImageCopy2<'static>>>,
     pub(super) cpu: Rc<CpuWorker>,
-    pub(super) last_gfx_use: Cell<Option<SyncFile>>,
+    pub(super) last_gfx_use: Cell<Option<FdSync>>,
     pub(super) data_copied: Cell<bool>,
 }
 
@@ -314,7 +314,7 @@ impl VulkanShmImage {
         img.renderer.check_defunct()?;
         let Some(transfer_queue_idx) = img.renderer.device.distinct_transfer_queue_family_idx
         else {
-            let Some(sync_file) = data.last_gfx_use.take() else {
+            let Some(sync) = data.last_gfx_use.take() else {
                 img.queue_state.set(QueueState::Released {
                     to: QueueFamily::Transfer,
                 });
@@ -323,7 +323,7 @@ impl VulkanShmImage {
             let id = img.renderer.allocate_point();
             let pending = img.renderer.eng.spawn(
                 "await_transfer_to_transfer",
-                await_gfx_queue_release(id, img.clone(), None, None, Some(sync_file), tt),
+                await_gfx_queue_release(id, img.clone(), None, None, Some(sync), tt),
             );
             img.renderer.pending_submits.set(id, pending);
             img.queue_state.set(QueueState::Releasing);
@@ -375,7 +375,6 @@ impl VulkanShmImage {
             .new_layout(transfer_layout);
         barriers.push(barrier);
         let dep_info = DependencyInfo::default().image_memory_barriers(&barriers);
-        let release_fence = img.renderer.device.create_fence()?;
         let dev = &img.renderer.device.device;
         let begin_info =
             CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -383,6 +382,7 @@ impl VulkanShmImage {
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
         let submit_info =
             SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
+        let vulkan_sync = img.renderer.device.create_sync()?;
         unsafe {
             dev.begin_command_buffer(cmd.buffer, &begin_info)
                 .map_err(VulkanError::BeginCommandBuffer)?;
@@ -392,23 +392,16 @@ impl VulkanShmImage {
             dev.queue_submit2(
                 img.renderer.device.graphics_queue,
                 slice::from_ref(&submit_info),
-                release_fence.fence,
+                vulkan_sync.fence(),
             )
             .inspect_err(img.renderer.device.idl())
             .map_err(VulkanError::Submit)?;
         }
-        let sync_file = release_fence.export_sync_file()?;
+        let sync = vulkan_sync.to_sync(|| img.renderer.block());
         let id = img.renderer.allocate_point();
         let pending = img.renderer.eng.spawn(
             "await_transfer_to_transfer",
-            await_gfx_queue_release(
-                id,
-                img.clone(),
-                Some(cmd),
-                Some(release_fence),
-                sync_file,
-                tt,
-            ),
+            await_gfx_queue_release(id, img.clone(), Some(cmd), Some(vulkan_sync), sync, tt),
         );
         img.renderer.pending_submits.set(id, pending);
         img.queue_state.set(QueueState::Releasing);
@@ -555,7 +548,7 @@ impl VulkanShmImage {
                 (host_buffer.buffer, host_buffer.size, true)
             }
         };
-        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+        let (cmd, vulkan_sync, sync, point) = self.submit_buffer_image_copy(
             img,
             buffer,
             size,
@@ -571,8 +564,8 @@ impl VulkanShmImage {
                 point,
                 img.clone(),
                 cmd,
-                fence,
-                sync_file,
+                vulkan_sync,
+                sync,
                 TransferType::Upload,
             ),
         );
@@ -590,7 +583,7 @@ impl VulkanShmImage {
             return Ok(());
         }
         img.renderer.check_defunct()?;
-        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+        let (cmd, vulkan_sync, sync, point) = self.submit_buffer_image_copy(
             img,
             staging.buffer,
             staging.size,
@@ -606,8 +599,8 @@ impl VulkanShmImage {
                 point,
                 img.clone(),
                 cmd,
-                fence,
-                sync_file,
+                vulkan_sync,
+                sync,
                 TransferType::Download,
             ),
         );
@@ -695,18 +688,21 @@ async fn await_gfx_queue_release(
     id: u64,
     img: Rc<VulkanImage>,
     buf: Option<Rc<VulkanCommandBuffer>>,
-    _fence: Option<Rc<VulkanFence>>,
-    sync_file: Option<SyncFile>,
+    vulkan_sync: Option<VulkanSync>,
+    sync: Option<FdSync>,
     tt: TransferType,
 ) {
-    if let Some(sync_file) = sync_file
-        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    if let Some(sync) = &sync
+        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
         );
         img.renderer.block();
+    }
+    if let Some(vs) = vulkan_sync {
+        vs.handle_validation();
     }
     if let Some(buf) = buf {
         img.renderer.gfx_command_buffers.buffers.push(buf);
@@ -738,12 +734,12 @@ pub async fn await_async_transfer_release_to_gfx(
     id: u64,
     img: Rc<VulkanImage>,
     buf: Rc<VulkanCommandBuffer>,
-    _fence: Rc<VulkanFence>,
-    sync_file: Option<SyncFile>,
+    vulkan_sync: VulkanSync,
+    sync: Option<FdSync>,
     tt: TransferType,
 ) {
-    if let Some(sync_file) = sync_file
-        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    if let Some(sync) = &sync
+        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
@@ -751,6 +747,7 @@ pub async fn await_async_transfer_release_to_gfx(
         );
         img.renderer.block();
     }
+    vulkan_sync.handle_validation();
     match &img.renderer.transfer_command_buffers {
         Some(b) => b.buffers.push(buf),
         None => img.renderer.gfx_command_buffers.buffers.push(buf),

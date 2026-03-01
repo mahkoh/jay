@@ -211,7 +211,7 @@ pub enum VulkanError {
     DmaBufBufferOffsetAlignment,
 }
 
-type VulkanFence = vulkan_core::fence::VulkanFence<VulkanDevice>;
+type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;
 
 impl From<VulkanError> for GfxError {
     fn from(value: VulkanError) -> Self {
