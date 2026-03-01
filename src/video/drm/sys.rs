@@ -1220,6 +1220,8 @@ pub fn sync_obj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
 }
 
 pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE: u32 = 1 << 0;
+pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE: u32 = 1 << 1;
+
 pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
 
 #[repr(C)]
@@ -1228,6 +1230,7 @@ struct drm_syncobj_handle {
     flags: u32,
     fd: i32,
     pad: u32,
+    point: u64,
 }
 
 const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1);
@@ -1239,6 +1242,7 @@ pub fn sync_obj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<O
         flags,
         fd: 0,
         pad: 0,
+        point: 0,
     };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD, &mut res)?;
@@ -1251,12 +1255,14 @@ pub fn sync_obj_fd_to_handle(
     fd: c::c_int,
     flags: u32,
     handle: u32,
+    point: u64,
 ) -> Result<u32, OsError> {
     let mut res = drm_syncobj_handle {
         handle,
         flags,
         fd,
         pad: 0,
+        point,
     };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE, &mut res)?;
