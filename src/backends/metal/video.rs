@@ -26,7 +26,7 @@ use {
         drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
-        gfx_api::{GfxApi, GfxContext, GfxFramebuffer, SyncFile},
+        gfx_api::{FdSync, GfxApi, GfxContext, GfxFramebuffer},
         ifs::{
             wl_output::OutputId,
             wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
@@ -534,7 +534,7 @@ pub struct MetalConnector {
     pub cursor_enabled: Cell<bool>,
     pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub cursor_swap_buffer: Cell<bool>,
-    pub cursor_sync_file: CloneCell<Option<SyncFile>>,
+    pub cursor_sync: CloneCell<Option<FdSync>>,
 
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
@@ -565,7 +565,7 @@ pub struct MetalHardwareCursor {
 }
 
 pub struct MetalHardwareCursorChange<'a> {
-    pub cursor_swap_buffer: Option<Option<SyncFile>>,
+    pub cursor_swap_buffer: Option<Option<FdSync>>,
     pub cursor_enabled: bool,
     pub cursor_x: i32,
     pub cursor_y: i32,
@@ -603,8 +603,8 @@ impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
         self.cursor_y = y;
     }
 
-    fn swap_buffer(&mut self, sync_file: Option<SyncFile>) {
-        self.cursor_swap_buffer = Some(sync_file);
+    fn swap_buffer(&mut self, sync: Option<FdSync>) {
+        self.cursor_swap_buffer = Some(sync);
     }
 
     fn size(&self) -> (i32, i32) {
@@ -1127,7 +1127,7 @@ fn create_connector(
         cursor_changed: Cell::new(false),
         cursor_damage: Cell::new(false),
         cursor_swap_buffer: Cell::new(false),
-        cursor_sync_file: Default::default(),
+        cursor_sync: Default::default(),
         drm_feedback: Default::default(),
         scanout_buffers: Default::default(),
         active_framebuffer: Default::default(),

@@ -5,11 +5,11 @@ use {
         cpu_worker::CpuWorker,
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
-            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FillRect,
-            FramebufferRect, GfxApi, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
-            ShmMemory, SyncFile,
+            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FdSync,
+            FillRect, FramebufferRect, GfxApi, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError,
+            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer,
+            GfxTexture, GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus,
+            ShmGfxTexture, ShmMemory,
         },
         rect::{Rect, Region},
         theme::Color,
@@ -387,7 +387,7 @@ impl GfxFramebuffer for TestGfxFb {
         _region: &Region,
         _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         _blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {
             let points = rect.to_points();
             let x1 = points[1][0];

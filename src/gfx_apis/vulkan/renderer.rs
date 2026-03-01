@@ -8,7 +8,7 @@ use {
         },
         cpu_worker::PendingJob,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, BufferResvUser, GfxApiOpt, GfxBlendBuffer,
+            AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOpt, GfxBlendBuffer,
             GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
@@ -1671,10 +1671,12 @@ impl VulkanRenderer {
                             }
                         }
                     }
-                    AcquireSync::SyncFile { sync_file } => {
-                        let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
-                            .map_err(|e| VulkanError::Dupfd(e.into()))?;
-                        import_sync_file(fd)?;
+                    AcquireSync::FdSync(sync) => {
+                        if let Some(sync_file) = sync.get_sync_file() {
+                            let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
+                                .map_err(|e| VulkanError::Dupfd(e.into()))?;
+                            import_sync_file(fd)?;
+                        }
                     }
                     AcquireSync::Unnecessary => {}
                 }
@@ -1707,13 +1709,14 @@ impl VulkanRenderer {
             Some(sync_file) => sync_file,
             _ => return,
         };
+        let fd_sync = FdSync::SyncFile(sync_file.clone());
         let import =
             |img: &VulkanImage, sync: ReleaseSync, resv: Option<Rc<dyn BufferResv>>, flag: u32| {
                 if sync == ReleaseSync::None {
                     return;
                 }
                 if let Some(resv) = resv {
-                    resv.set_sync_file(self.buffer_resv_user, sync_file);
+                    resv.set_sync(self.buffer_resv_user, &fd_sync);
                 } else if sync == ReleaseSync::Implicit {
                     if let VulkanImageMemory::DmaBuf(buf) = &img.ty
                         && let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file)
@@ -1844,7 +1847,7 @@ impl VulkanRenderer {
         region: &Region,
         blend_buffer: Option<Rc<VulkanImage>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, VulkanError> {
+    ) -> Result<Option<FdSync>, VulkanError> {
         zone!("execute");
         let res = self.try_execute(
             fb,
@@ -1870,7 +1873,7 @@ impl VulkanRenderer {
             memory.ops_tmp.clear();
             memory.release_sync_file.take()
         };
-        res.map(|_| sync_file)
+        res.map(|_| sync_file.map(FdSync::SyncFile))
     }
 
     fn allocate_semaphore(&self) -> Result<Rc<VulkanSemaphore>, VulkanError> {

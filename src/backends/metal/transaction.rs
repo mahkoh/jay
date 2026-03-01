@@ -242,7 +242,7 @@ impl MetalDeviceTransaction {
         let mut unused_crtcs = BinarySearchMap::<_, _, SIZE>::new();
         let mut unused_planes = BinarySearchMap::<_, _, SIZE>::new();
         let mut crtc_planes = BinarySearchMap::<_, _, SIZE>::new();
-        let mut sync_files = vec![];
+        let mut syncs = vec![];
         let slf = &mut self.common;
         for (_, crtc) in &mut slf.crtcs {
             crtc_planes.insert(crtc.obj.id, CrtcPlanes::default());
@@ -615,7 +615,7 @@ impl MetalDeviceTransaction {
                             new_buffer.clear(&cd)
                         };
                         match res {
-                            Ok(sf) => sync_files.extend(sf),
+                            Ok(sf) => syncs.extend(sf),
                             Err(e) => {
                                 log::warn!("Could not clear new buffer: {}", ErrorFmt(e));
                             }
@@ -653,7 +653,7 @@ impl MetalDeviceTransaction {
                                 match res {
                                     Ok(sf) => {
                                         buffer.locked.set(true);
-                                        sync_files.extend(sf);
+                                        syncs.extend(sf);
                                     }
                                     Err(e) => {
                                         log::error!(
@@ -753,19 +753,8 @@ impl MetalDeviceTransaction {
                 plane.new = DrmPlaneState::default();
             }
         }
-        for sf in sync_files {
-            let mut pollfd = c::pollfd {
-                fd: sf.0.raw(),
-                events: c::POLLIN,
-                revents: 0,
-            };
-            let res = uapi::poll(slice::from_mut(&mut pollfd), -1);
-            if let Err(e) = res {
-                log::warn!(
-                    "Could not wait for sync file to become readable: {}",
-                    ErrorFmt(e)
-                );
-            }
+        for sync in syncs {
+            sync.signaled_blocking("transaction");
         }
         Ok(MetalDeviceTransactionWithDrmState {
             common: self.common,

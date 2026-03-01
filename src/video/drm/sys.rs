@@ -1223,6 +1223,7 @@ pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE: u32 = 1 << 0;
 pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE: u32 = 1 << 1;
 
 pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
+pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_TIMELINE: u32 = 1 << 1;
 
 #[repr(C)]
 struct drm_syncobj_handle {
@@ -1236,13 +1237,18 @@ struct drm_syncobj_handle {
 const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1);
 const DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE: u64 = drm_iowr::<drm_syncobj_handle>(0xC2);
 
-pub fn syncobj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<OwnedFd, OsError> {
+pub fn syncobj_handle_to_fd(
+    drm: c::c_int,
+    handle: u32,
+    flags: u32,
+    point: u64,
+) -> Result<OwnedFd, OsError> {
     let mut res = drm_syncobj_handle {
         handle,
         flags,
         fd: 0,
         pad: 0,
-        point: 0,
+        point,
     };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD, &mut res)?;
@@ -1271,7 +1277,7 @@ pub fn syncobj_fd_to_handle(
 }
 
 // pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL: u32 = 1 << 0;
-// pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT: u32 = 1 << 1;
+pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT: u32 = 1 << 1;
 pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE: u32 = 1 << 2;
 
 #[repr(C)]

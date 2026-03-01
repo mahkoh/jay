@@ -9,7 +9,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::Format,
-        gfx_api::{GfxApi, GfxFramebuffer, SyncFile},
+        gfx_api::{FdSync, GfxApi, GfxFramebuffer},
         ifs::{
             wl_output::OutputId,
             wl_seat::{
@@ -186,7 +186,7 @@ pub trait HardwareCursorUpdate {
     fn set_enabled(&mut self, enabled: bool);
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer>;
     fn set_position(&mut self, x: i32, y: i32);
-    fn swap_buffer(&mut self, sync_file: Option<SyncFile>);
+    fn swap_buffer(&mut self, sync: Option<FdSync>);
     fn size(&self) -> (i32, i32);
 }
 

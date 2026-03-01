@@ -64,12 +64,10 @@ impl EventfdCache {
 }
 
 impl Eventfd {
-    #[expect(dead_code)]
     pub fn is_signaled(&self) -> bool {
         self.signaled.get()
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub async fn signaled(&self) -> Result<(), IoUringError> {
         if self.signaled.get() {
             return Ok(());
@@ -79,7 +77,6 @@ impl Eventfd {
         Ok(())
     }
 
-    #[expect(dead_code)]
     pub fn signaled_blocking(&self) -> Result<(), OsError> {
         if self.signaled.get() {
             return Ok(());

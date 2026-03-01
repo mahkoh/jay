@@ -32,9 +32,9 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
-            SampleRect, SyncFile,
+            AcquireSync, AlphaMode, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
+            GfxError, GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync,
+            STAGING_DOWNLOAD, SampleRect,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -1190,8 +1190,8 @@ impl State {
         render_hw_cursor: bool,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
-        let sync_file = fb.render_output(
+    ) -> Result<Option<FdSync>, GfxError> {
+        let sync = fb.render_output(
             acquire_sync,
             release_sync,
             cd,
@@ -1216,7 +1216,7 @@ impl State {
             0,
             None,
         );
-        Ok(sync_file)
+        Ok(sync)
     }
 
     pub fn perform_screencopy(
@@ -1238,7 +1238,7 @@ impl State {
         size: Option<(i32, i32)>,
         transform: Transform,
         scale: Scale,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, scale, target_transform),

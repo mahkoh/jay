@@ -139,6 +139,8 @@ pub enum DrmError {
     Merge(#[source] OsError),
     #[error("Could not import a sync file into a syncobj")]
     ImportSyncFile(#[source] OsError),
+    #[error("Could not export a sync file")]
+    ExportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),
     #[error("Could not drop DRM master")]

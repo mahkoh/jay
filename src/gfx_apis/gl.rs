@@ -69,8 +69,8 @@ use {
     crate::{
         cmm::cmm_eotf::Eotf,
         gfx_api::{
-            AcquireSync, CopyTexture, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
-            ReleaseSync, SyncFile,
+            AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOpt, GfxContext, GfxError,
+            GfxTexture, ReleaseSync, SyncFile,
         },
         gfx_apis::gl::{
             egl::image::EglImage,
@@ -221,7 +221,7 @@ struct GlFillRect {
     pub color: Color,
 }
 
-fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
+fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<FdSync> {
     let mut state = fb.ctx.gl_state.borrow_mut();
     let state = &mut *state;
     let mut fill_rect = state.fill_rect.take();
@@ -301,13 +301,14 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
                 return None;
             }
         };
+        let file = FdSync::SyncFile(file);
         let user = fb.ctx.buffer_resv_user;
         for op in ops {
             if let GfxApiOpt::CopyTexture(ct) = op
                 && ct.release_sync == ReleaseSync::Explicit
                 && let Some(resv) = &ct.buffer_resv
             {
-                resv.set_sync_file(user, &file);
+                resv.set_sync(user, &file);
             }
         }
         return Some(file);
@@ -417,9 +418,8 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
 }
 
 fn handle_explicit_sync(ctx: &GlRenderContext, img: Option<&Rc<EglImage>>, sync: &AcquireSync) {
-    let sync_file = match sync {
-        AcquireSync::None | AcquireSync::Implicit | AcquireSync::Unnecessary => return,
-        AcquireSync::SyncFile { sync_file } => sync_file,
+    let Some(sync_file) = sync.get_sync_file() else {
+        return;
     };
     let sync_file = match uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0) {
         Ok(s) => s,

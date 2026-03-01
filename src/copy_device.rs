@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         format::{FORMATS, Format},
-        gfx_api::SyncFile,
+        gfx_api::{FdSync, SyncFile},
         io_uring::IoUring,
         rect::{Rect, Region},
         utils::{
@@ -1296,9 +1296,9 @@ impl CopyDeviceCopy {
 
     pub fn execute(
         &self,
-        sync_file: Option<&SyncFile>,
+        sync: Option<&FdSync>,
         region: Option<&Region>,
-    ) -> Result<Option<SyncFile>, CopyDeviceError> {
+    ) -> Result<Option<FdSync>, CopyDeviceError> {
         self.ensure_not_busy()?;
         let slf = &*self.inner;
         let tt = slf.tt;
@@ -1656,7 +1656,9 @@ impl CopyDeviceCopy {
         }
         let mut wait_semaphore = None;
         let mut wait_semaphores = ArrayVec::<_, 1>::new();
-        if let Some(sync_file) = sync_file {
+        if let Some(sync) = sync
+            && let Some(sync_file) = sync.get_sync_file()
+        {
             let semaphore = match slf.dev.semaphores.pop() {
                 Some(s) => s,
                 _ => slf.dev.create_semaphore()?,
@@ -1703,7 +1705,7 @@ impl CopyDeviceCopy {
             fence: Some(signal_fence),
         };
         slf.dev.submissions[tt].pending.push(pending);
-        Ok(sync_file)
+        Ok(sync_file.map(FdSync::SyncFile))
     }
 }
 

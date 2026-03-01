@@ -240,13 +240,8 @@ impl MetalConnector {
         // current PresentFb if present_fb is None, potentially mutating the fb that is
         // currently being scanned out, which would render such a wait absurd.
         self.perform_screencopies(&present_fb, &node, &cd);
-        if let Some(sync_file) = self.cursor_sync_file.take()
-            && let Err(e) = self.state.ring.readable(&sync_file).await
-        {
-            log::error!(
-                "Could not wait for cursor sync file to complete: {}",
-                ErrorFmt(e)
-            );
+        if let Some(sync) = self.cursor_sync.take() {
+            sync.signaled(&self.state.ring, "cursor").await;
         }
         self.await_present_fb(present_fb.as_mut(), PresentFbWait::Scanout)
             .await;
@@ -353,19 +348,14 @@ impl MetalConnector {
             W::Render => &mut fb.copy.render_block,
             W::Scanout => &mut fb.copy.present_block,
         };
-        let Some(sync_file) = field.take() else {
+        let Some(sync) = field.take() else {
             return;
         };
-        if let Err(e) = self.state.ring.readable(&sync_file).await {
-            let name = match wait {
-                W::Render => "render",
-                W::Scanout => "scanout",
-            };
-            log::error!(
-                "Could not wait for primary {name} sync file to complete: {}",
-                ErrorFmt(e),
-            );
-        }
+        let name = match wait {
+            W::Render => "render",
+            W::Scanout => "scanout",
+        };
+        sync.signaled(&self.state.ring, name).await;
     }
 
     fn try_async_flip(&self) -> bool {
@@ -554,13 +544,13 @@ impl MetalConnector {
         self.state.present_hardware_cursor(node, &mut c);
         let swap_buffers = c.cursor_swap_buffer.is_some();
         self.cursor_swap_buffer.set(swap_buffers);
-        if let Some(sf) = c.cursor_swap_buffer.take() {
-            let sf = c
+        if let Some(sync) = c.cursor_swap_buffer.take() {
+            let sync = c
                 .cursor_buffer
-                .copy_to_dev(cd, None, sf)
+                .copy_to_dev(cd, None, sync)
                 .map_err(MetalError::CopyToDev)?
                 .present_block;
-            self.cursor_sync_file.set(sf);
+            self.cursor_sync.set(sync);
         }
         let mut cursor_changed = false;
         cursor_changed |= self.cursor_enabled.replace(c.cursor_enabled) != c.cursor_enabled;
@@ -886,13 +876,13 @@ impl MetalConnector {
                 tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
-                let sf = match &dsd.acquire_sync {
+                let sync = match &dsd.acquire_sync {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,
-                    AcquireSync::SyncFile { sync_file } => Some(sync_file.clone()),
+                    AcquireSync::FdSync(sync) => Some(sync.clone()),
                     AcquireSync::Unnecessary => None,
                 };
-                copy = RenderBufferCopy::for_both(sf);
+                copy = RenderBufferCopy::for_both(sync);
                 fb = dsd.fb.clone();
                 tex = dsd.tex.clone();
             }
