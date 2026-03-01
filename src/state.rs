@@ -27,6 +27,7 @@ use {
             ei_acceptor::EiAcceptor,
             ei_client::{EiClient, EiClients},
         },
+        eventfd_cache::EventfdCache,
         fixed::Fixed,
         forker::ForkerProxy,
         format::Format,
@@ -288,6 +289,8 @@ pub struct State {
     pub gfx_ctx_changed: EventSource<WlBuffer>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub supports_presentation_feedback: Cell<bool>,
+    #[expect(dead_code)]
+    pub eventfd_cache: Rc<EventfdCache>,
 }
 
 // impl Drop for State {

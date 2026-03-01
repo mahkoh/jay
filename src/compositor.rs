@@ -26,6 +26,7 @@ use {
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
         ei::ei_client::EiClients,
+        eventfd_cache::EventfdCache,
         forker,
         format::XRGB8888,
         gfx_api::GfxApi,
@@ -374,6 +375,7 @@ fn start_compositor2(
         gfx_ctx_changed: Default::default(),
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine)),
         supports_presentation_feedback: Default::default(),
+        eventfd_cache: EventfdCache::new(&ring, &engine),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
