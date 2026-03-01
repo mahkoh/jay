@@ -1,21 +1,24 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        eventfd_cache::EventfdCache,
         format::{FORMATS, Format},
         gfx_api::FdSync,
         io_uring::IoUring,
         rect::{Rect, Region},
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            queue::AsyncQueue, stack::Stack,
+            oserror::OsError, queue::AsyncQueue, stack::Stack,
         },
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
+            drm::{NodeType, get_drm_nodes_from_dev, syncobj::SyncobjCtx},
         },
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
             map_extension_properties, sync::VulkanDeviceSyncExt,
+            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -54,9 +57,10 @@ use {
             PhysicalDeviceExternalImageFormatInfoKHR, PhysicalDeviceExternalSemaphoreInfo,
             PhysicalDeviceFeatures2, PhysicalDeviceImageDrmFormatModifierInfoEXT,
             PhysicalDeviceImageFormatInfo2, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
-            Queue, QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
-            SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
+            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures,
+            PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue, QueueFlags, SampleCountFlags,
+            SemaphoreCreateInfo, SemaphoreImportFlags, SemaphoreSubmitInfo, SharingMode,
+            SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
         },
     },
     bstr::ByteSlice,
@@ -162,6 +166,12 @@ pub enum CopyDeviceError {
     BothOffDevice,
     #[error("Cannot blit between these formats")]
     BlitNotSupported,
+    #[error("Could not get DRM nodes")]
+    GetDrmNodes(#[source] OsError),
+    #[error("Device has no device nodes")]
+    NoDeviceNodes,
+    #[error("Could not open device node")]
+    OpenDeviceNode(#[source] OsError),
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
@@ -170,12 +180,15 @@ type KeyedCopy<T> = StaticCopyMap<TransferType, T>;
 pub struct PhysicalCopyDevice {
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
+    eventfd_cache: Rc<EventfdCache>,
+    sync_ctx: Rc<SyncobjCtx>,
     instance: VulkanCoreInstance,
     physical_device: PhysicalDevice,
     support: AHashMap<u32, StaticMap<Dir, Vec<CopyDeviceSupport>>>,
     queues_to_allocate: Vec<QueueToAllocate>,
     queues: KeyedCopy<QueueIndex>,
     supports_dmabuf_export: bool,
+    supports_timeline_opaque_export: bool,
     memory_types: Vec<MemoryType>,
     rects: RefCell<Vec<(i32, i32, u32, u32)>>,
     buffer_copy_2: RefCell<Vec<BufferCopy2<'static>>>,
@@ -201,6 +214,7 @@ struct QueueIndex {
 pub struct CopyDevice {
     _tasks: Vec<SpawnedFuture<()>>,
     dev: Rc<CopyDeviceInner>,
+    timeline_semaphore: Option<Rc<VulkanTimelineSemaphore>>,
 }
 
 struct CopyDeviceInner {
@@ -225,7 +239,7 @@ struct PendingSubmissions {
 
 pub struct CopyDeviceCopy {
     inner: Rc<CopyDeviceCopyInner>,
-    _dev: Rc<CopyDevice>,
+    dev: Rc<CopyDevice>,
 }
 
 struct CopyDeviceCopyInner {
@@ -283,6 +297,8 @@ struct VulkanSemaphore {
 }
 
 type VulkanFence = vulkan_core::fence::VulkanFence<CopyDeviceInner>;
+type VulkanTimelineSemaphore =
+    vulkan_core::timeline_semaphore::VulkanTimelineSemaphore<CopyDeviceInner>;
 type VulkanSync = vulkan_core::sync::VulkanSync<CopyDeviceInner>;
 
 struct VulkanBuffer {
@@ -336,6 +352,7 @@ struct ClassifiedDmabuf<'a> {
 pub struct CopyDeviceRegistry {
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
+    eventfd_cache: Rc<EventfdCache>,
     devs: CopyHashMap<c::dev_t, Option<Rc<PhysicalCopyDevice>>>,
 }
 
@@ -352,6 +369,7 @@ impl PhysicalCopyDevice {
     fn new(
         ring: &Rc<IoUring>,
         eng: &Rc<AsyncEngine>,
+        eventfd_cache: &Rc<EventfdCache>,
         dev: c::dev_t,
     ) -> Result<Rc<Self>, CopyDeviceError> {
         let core_instance = VulkanCoreInstance::new(Level::Debug)?;
@@ -404,6 +422,16 @@ impl PhysicalCopyDevice {
             }
             return Err(CopyDeviceError::NoVulkanDevice);
         }
+        let nodes = get_drm_nodes_from_dev(uapi::major(dev), uapi::minor(dev))
+            .map_err(CopyDeviceError::GetDrmNodes)?;
+        let path = nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+            .ok_or(CopyDeviceError::NoDeviceNodes)?;
+        let device_fd = uapi::open(path.as_c_str(), c::O_RDWR, 0)
+            .map(Rc::new)
+            .map_err(Into::into)
+            .map_err(CopyDeviceError::OpenDeviceNode)?;
         if device_properties.api_version < VULKAN_API_VERSION {
             return Err(CopyDeviceError::NoVulkan13);
         }
@@ -606,15 +634,21 @@ impl PhysicalCopyDevice {
         }
         let memory_info =
             unsafe { instance.get_physical_device_memory_properties(physical_device) };
+        let features = core_instance.get_features(physical_device);
+        let supports_timeline_opaque_export =
+            core_instance.supports_timeline_opaque_export(physical_device, &features);
         let dev = Rc::new(PhysicalCopyDevice {
             ring: ring.clone(),
             eng: eng.clone(),
+            eventfd_cache: eventfd_cache.clone(),
+            sync_ctx: Rc::new(SyncobjCtx::new(&device_fd)),
             instance: core_instance,
             physical_device,
             support,
             queues_to_allocate,
             queues: queue_indices,
             supports_dmabuf_export,
+            supports_timeline_opaque_export,
             memory_types: memory_info.memory_types_as_slice().to_vec(),
             rects: Default::default(),
             buffer_copy_2: Default::default(),
@@ -654,11 +688,14 @@ impl PhysicalCopyDevice {
                 })
                 .collect();
             let extensions = DEVICE_EXTENSIONS.map(|e| e.as_ptr());
+            let mut semaphore_features = PhysicalDeviceTimelineSemaphoreFeatures::default()
+                .timeline_semaphore(self.supports_timeline_opaque_export);
             let mut synchronization2_features =
                 PhysicalDeviceSynchronization2Features::default().synchronization2(true);
             let info = DeviceCreateInfo::default()
                 .queue_create_infos(&queue_create_info)
                 .enabled_extension_names(&extensions)
+                .push_next(&mut semaphore_features)
                 .push_next(&mut synchronization2_features);
             unsafe {
                 instance
@@ -722,7 +759,11 @@ impl PhysicalCopyDevice {
             let task = self.eng.spawn("copy-device-await-pending", future);
             tasks.push(task);
         }
-        let queue = Rc::new(CopyDevice { dev, _tasks: tasks });
+        let queue = Rc::new(CopyDevice {
+            timeline_semaphore: dev.create_timeline_semaphore_or_log(),
+            dev,
+            _tasks: tasks,
+        });
         Ok(queue)
     }
 }
@@ -1129,7 +1170,7 @@ impl CopyDevice {
                 tt,
                 ty,
             }),
-            _dev: self.clone(),
+            dev: self.clone(),
         })
     }
 
@@ -1647,10 +1688,15 @@ impl CopyDeviceCopy {
             wait_semaphore = Some(semaphore);
         }
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
-        let submit_info = SubmitInfo2::default()
+        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+        let mut submit_info = SubmitInfo2::default()
             .command_buffer_infos(slice::from_ref(&command_buffer_info))
             .wait_semaphore_infos(&wait_semaphores);
-        let vulkan_sync = slf.dev.create_sync()?;
+        let vulkan_sync = slf.dev.create_sync(
+            self.dev.timeline_semaphore.as_ref(),
+            &mut semaphore_submit_info,
+            &mut submit_info,
+        )?;
         unsafe {
             slf.dev
                 .dev
@@ -1698,10 +1744,15 @@ impl VulkanSemaphore {
 }
 
 impl CopyDeviceRegistry {
-    pub fn new(ring: &Rc<IoUring>, eng: &Rc<AsyncEngine>) -> Self {
+    pub fn new(
+        ring: &Rc<IoUring>,
+        eng: &Rc<AsyncEngine>,
+        eventfd_cache: &Rc<EventfdCache>,
+    ) -> Self {
         Self {
             ring: ring.clone(),
             eng: eng.clone(),
+            eventfd_cache: eventfd_cache.clone(),
             devs: Default::default(),
         }
     }
@@ -1714,7 +1765,7 @@ impl CopyDeviceRegistry {
         if let Some(dev) = self.devs.get(&dev) {
             return dev;
         }
-        match PhysicalCopyDevice::new(&self.ring, &self.eng, dev).map(Some) {
+        match PhysicalCopyDevice::new(&self.ring, &self.eng, &self.eventfd_cache, dev).map(Some) {
             Ok(cd) => {
                 self.devs.set(dev, cd.clone());
                 cd
@@ -1977,11 +2028,31 @@ fn allocate_queues(
 }
 
 impl VulkanDeviceInf for CopyDeviceInner {
+    fn instance(&self) -> &VulkanCoreInstance {
+        &self.phy.instance
+    }
+
     fn device(&self) -> &Device {
         &self.dev
     }
 
     fn external_fence_fd(&self) -> &external_fence_fd::Device {
         &self.external_fence_fd
+    }
+
+    fn external_semaphore_fd(&self) -> &external_semaphore_fd::Device {
+        &self.external_semaphore_fd
+    }
+
+    fn supports_timeline_opaque_export(&self) -> bool {
+        self.phy.supports_timeline_opaque_export
+    }
+
+    fn sync_ctx(&self) -> &Rc<SyncobjCtx> {
+        &self.phy.sync_ctx
+    }
+
+    fn eventfd_cache(&self) -> &Rc<EventfdCache> {
+        &self.phy.eventfd_cache
     }
 }

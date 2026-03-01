@@ -171,7 +171,10 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
 
 pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
+    get_drm_nodes_from_dev(maj, min)
+}
 
+pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, CString>, OsError> {
     let dir = device_dir(maj, min);
     let mut dir = uapi::opendir(dir)?;
 
@@ -1332,6 +1335,22 @@ pub fn syncobj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsEr
         ioctl(drm, DRM_IOCTL_SYNCOBJ_TIMELINE_SIGNAL, &mut res)?;
     }
     Ok(())
+}
+
+const DRM_IOCTL_SYNCOBJ_QUERY: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCB);
+
+pub fn syncobj_query(drm: c::c_int, handle: u32) -> Result<u64, OsError> {
+    let mut point = 0u64;
+    let mut res = drm_syncobj_timeline_array {
+        handles: &handle as *const u32 as u64,
+        points: &mut point as *mut u64 as u64,
+        count_handles: 1,
+        flags: 0,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_QUERY, &mut res)?;
+    }
+    Ok(point)
 }
 
 #[repr(C)]

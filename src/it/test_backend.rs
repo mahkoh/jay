@@ -211,7 +211,10 @@ impl TestBackend {
             };
         }
         let udmabuf = ("udmabuf", constructor!(Udmabuf::new()));
-        let vulkan = ("Vulkan", constructor!(create_vk_allocator(), nomap));
+        let vulkan = (
+            "Vulkan",
+            constructor!(create_vk_allocator(&self.state), nomap),
+        );
         let gbm = ("GBM", constructor!(create_gbm_allocator()));
         let allocators = match need_drm {
             true => [vulkan, gbm, udmabuf],
@@ -243,9 +246,10 @@ fn create_gbm_allocator() -> Result<GbmDevice, TestBackendError> {
     create_drm_allocator(|drm| GbmDevice::new(&drm).map_err(TestBackendError::CreateGbmDevice))
 }
 
-fn create_vk_allocator() -> Result<Rc<dyn Allocator>, TestBackendError> {
+fn create_vk_allocator(state: &State) -> Result<Rc<dyn Allocator>, TestBackendError> {
     create_drm_allocator(|drm| {
-        create_vulkan_allocator(&drm).map_err(TestBackendError::CreateVulkanAllocator)
+        create_vulkan_allocator(&drm, &state.eventfd_cache)
+            .map_err(TestBackendError::CreateVulkanAllocator)
     })
 }
 

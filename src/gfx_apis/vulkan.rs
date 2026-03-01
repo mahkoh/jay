@@ -27,6 +27,7 @@ use {
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
+        eventfd_cache::EventfdCache,
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
@@ -212,6 +213,8 @@ pub enum VulkanError {
 }
 
 type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;
+type VulkanTimelineSemaphore =
+    vulkan_core::timeline_semaphore::VulkanTimelineSemaphore<VulkanDevice>;
 
 impl From<VulkanError> for GfxError {
     fn from(value: VulkanError) -> Self {
@@ -222,6 +225,7 @@ impl From<VulkanError> for GfxError {
 pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
+    eventfd_cache: &Rc<EventfdCache>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -229,22 +233,25 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe { t.run(|| instance.create_device(drm, true, software)) } {
+            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm, false, software)?
+        instance.create_device(drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
 }
 
-pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
+pub fn create_vulkan_allocator(
+    drm: &Drm,
+    eventfd_cache: &Rc<EventfdCache>,
+) -> Result<Rc<dyn Allocator>, AllocatorError> {
     let instance = VulkanInstance::new(Level::Debug)?;
-    let device = instance.create_device(drm, false, false)?;
+    let device = instance.create_device(drm, eventfd_cache, false, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
 }

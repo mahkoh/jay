@@ -27,7 +27,7 @@ use {
     ash::vk::{
         AccessFlags2, BufferImageCopy2, CommandBufferBeginInfo, CommandBufferSubmitInfo,
         CommandBufferUsageFlags, DependencyInfo, Extent3D, ImageAspectFlags, ImageLayout,
-        ImageSubresourceLayers, Offset3D, PipelineStageFlags2, SubmitInfo2,
+        ImageSubresourceLayers, Offset3D, PipelineStageFlags2, SemaphoreSubmitInfo, SubmitInfo2,
     },
     std::{
         cell::{Cell, RefCell, RefMut},
@@ -380,9 +380,14 @@ impl VulkanShmImage {
             CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         let cmd = img.renderer.gfx_command_buffers.allocate()?;
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
-        let submit_info =
+        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+        let mut submit_info =
             SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
-        let vulkan_sync = img.renderer.device.create_sync()?;
+        let vulkan_sync = img.renderer.device.create_sync(
+            img.renderer.render_tls.as_ref(),
+            &mut semaphore_submit_info,
+            &mut submit_info,
+        )?;
         unsafe {
             dev.begin_command_buffer(cmd.buffer, &begin_info)
                 .map_err(VulkanError::BeginCommandBuffer)?;

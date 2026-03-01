@@ -1124,7 +1124,6 @@ impl Debug for ReservedSyncobjPoint {
 #[derive(Clone, Debug)]
 pub enum FdSync {
     SyncFile(SyncFile),
-    #[expect(dead_code)]
     Syncobj(Rc<ReservedSyncobjPoint>),
 }
 

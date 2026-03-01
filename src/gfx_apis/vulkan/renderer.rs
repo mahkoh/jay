@@ -12,7 +12,7 @@ use {
             GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync,
         },
         gfx_apis::vulkan::{
-            VulkanError, VulkanSync,
+            VulkanError, VulkanSync, VulkanTimelineSemaphore,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
             buffer_cache::{GenericBufferWriter, VulkanBuffer, VulkanBufferCache},
             command::{VulkanCommandBuffer, VulkanCommandPool},
@@ -39,7 +39,9 @@ use {
             stack::Stack,
         },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
-        vulkan_core::sync::VulkanDeviceSyncExt,
+        vulkan_core::{
+            sync::VulkanDeviceSyncExt, timeline_semaphore::VulkanDeviceTimelineSemaphoreExt,
+        },
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
@@ -113,6 +115,8 @@ pub struct VulkanRenderer {
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
+    pub(super) render_tls: Option<Rc<VulkanTimelineSemaphore>>,
+    pub(super) transfer_tls: Option<Rc<VulkanTimelineSemaphore>>,
 }
 
 pub(super) struct CachedCommandBuffers {
@@ -407,6 +411,8 @@ impl VulkanDevice {
             blend_buffers: Default::default(),
             shader_buffer_cache,
             uniform_buffer_cache,
+            render_tls: self.create_timeline_semaphore_or_log(),
+            transfer_tls: self.create_timeline_semaphore_or_log(),
         });
         Ok(render)
     }
@@ -1755,11 +1761,16 @@ impl VulkanRenderer {
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
         zone!("submit");
         let mut memory = self.memory.borrow_mut();
+        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf);
-        let submit_info = SubmitInfo2::default()
+        let mut submit_info = SubmitInfo2::default()
             .wait_semaphore_infos(&memory.wait_semaphore_infos)
             .command_buffer_infos(slice::from_ref(&command_buffer_info));
-        let vulkan_sync = self.device.create_sync()?;
+        let vulkan_sync = self.device.create_sync(
+            self.render_tls.as_ref(),
+            &mut semaphore_submit_info,
+            &mut submit_info,
+        )?;
         unsafe {
             self.device
                 .device

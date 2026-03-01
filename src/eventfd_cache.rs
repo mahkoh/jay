@@ -46,7 +46,6 @@ impl EventfdCache {
         Rc::new(Self { inner, _task: task })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn acquire(&self) -> Result<Eventfd, EventfdError> {
         let fd = match self.inner.fds.pop() {
             Some(fd) => fd,

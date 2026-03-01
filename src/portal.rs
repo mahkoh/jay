@@ -327,7 +327,6 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd)
 struct PortalState {
     xrd: String,
     ring: Rc<IoUring>,
-    #[expect(dead_code)]
     eventfd_cache: Rc<EventfdCache>,
     eng: Rc<AsyncEngine>,
     wheel: Rc<Wheel>,

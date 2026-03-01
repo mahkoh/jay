@@ -1,21 +1,33 @@
 pub mod syncobj;
 mod sys;
 pub mod wait_for_syncobj;
-pub use consts::*;
 
 use {
     crate::{
-        utils::oserror::OsError,
-        video::drm::sys::{
-            DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS,
-            DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC,
-            DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_PLANE,
-            DRM_MODE_OBJECT_PROPERTY, create_lease, drm_event, drm_event_vblank, gem_close,
-            get_cap, get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd,
-            get_nodes, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
-            mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
-            mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
-            mode_rmfb, prime_fd_to_handle, set_client_cap,
+        backend,
+        format::Format,
+        io_uring::{IoUring, IoUringError},
+        utils::{
+            buf::Buf, errorfmt::ErrorFmt, oserror::OsError, stack::Stack, syncqueue::SyncQueue,
+            vec_ext::VecExt,
+        },
+        video::{
+            INVALID_MODIFIER, Modifier,
+            dmabuf::DmaBuf,
+            drm::sys::{
+                DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH,
+                DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS,
+                DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC,
+                DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_PLANE,
+                DRM_MODE_OBJECT_PROPERTY, FORMAT_BLOB_CURRENT, auth_magic, create_lease, drm_event,
+                drm_event_crtc_sequence, drm_event_vblank, drm_format_modifier,
+                drm_format_modifier_blob, drop_master, gem_close, get_cap,
+                get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
+                get_version, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
+                mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
+                mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
+                mode_rmfb, prime_fd_to_handle, queue_sequence, revoke_lease, set_client_cap,
+            },
         },
     },
     ahash::AHashMap,
@@ -32,25 +44,13 @@ use {
     thiserror::Error,
     uapi::{OwnedFd, Pod, Ustring, c},
 };
-
-use crate::{
-    backend,
-    format::Format,
-    io_uring::{IoUring, IoUringError},
-    utils::{buf::Buf, errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
-    video::{
-        INVALID_MODIFIER, Modifier,
-        dmabuf::DmaBuf,
-        drm::sys::{
-            DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH,
-            FORMAT_BLOB_CURRENT, auth_magic, drm_event_crtc_sequence, drm_format_modifier,
-            drm_format_modifier_blob, drop_master, get_version, queue_sequence, revoke_lease,
-        },
+pub use {
+    consts::*,
+    sys::{
+        DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
+        DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT, drm_mode_modeinfo,
+        get_drm_nodes_from_dev,
     },
-};
-pub use sys::{
-    DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
-    DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT, drm_mode_modeinfo,
 };
 
 #[derive(Debug, Error)]
@@ -123,6 +123,8 @@ pub enum DrmError {
     CreateSyncobj(#[source] OsError),
     #[error("Could not export a syncobj")]
     ExportSyncobj(#[source] OsError),
+    #[error("Could not query a syncobj")]
+    QuerySyncobj(#[source] OsError),
     #[error("Could not register an eventfd with a syncobj")]
     RegisterEventfd(#[source] OsError),
     #[error("Could not create an eventfd")]

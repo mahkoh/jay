@@ -18,7 +18,7 @@ use {
                 DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_TIMELINE, DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE,
                 DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT, sync_ioc_merge, syncobj_create,
                 syncobj_destroy, syncobj_eventfd, syncobj_fd_to_handle, syncobj_handle_to_fd,
-                syncobj_signal, syncobj_transfer,
+                syncobj_query, syncobj_signal, syncobj_transfer,
             },
         },
     },
@@ -328,6 +328,11 @@ impl SyncobjCtx {
                 Ok(d)
             }
         }
+    }
+
+    pub fn query_last_signaled(&self, syncobj: &Syncobj) -> Result<u64, DrmError> {
+        let handle = self.get_handle(syncobj)?;
+        syncobj_query(self.inner.drm.raw(), handle.0).map_err(DrmError::QuerySyncobj)
     }
 }
 

@@ -187,6 +187,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
             let ctx = match create_gfx_context(
                 &self.state.eng,
                 &self.state.ring,
+                &self.state.eventfd_cache,
                 &drm,
                 GfxApi::OpenGl,
                 None,

@@ -214,6 +214,7 @@ fn start_compositor2(
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let color_manager = ColorManager::new();
     let crit_ids = Rc::new(CritMatcherIds::default());
+    let eventfd_cache = EventfdCache::new(&ring, &engine);
     let state = Rc::new(State {
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -373,9 +374,9 @@ fn start_compositor2(
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
         gfx_ctx_changed: Default::default(),
-        copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine)),
+        copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
         supports_presentation_feedback: Default::default(),
-        eventfd_cache: EventfdCache::new(&ring, &engine),
+        eventfd_cache,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

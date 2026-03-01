@@ -289,7 +289,6 @@ pub struct State {
     pub gfx_ctx_changed: EventSource<WlBuffer>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub supports_presentation_feedback: Cell<bool>,
-    #[expect(dead_code)]
     pub eventfd_cache: Rc<EventfdCache>,
 }
 
@@ -558,6 +557,7 @@ impl State {
         create_gfx_context(
             &self.eng,
             &self.ring,
+            &self.eventfd_cache,
             drm,
             api.unwrap_or(self.default_gfx_api.get()),
             self.caps_thread.as_ref(),
