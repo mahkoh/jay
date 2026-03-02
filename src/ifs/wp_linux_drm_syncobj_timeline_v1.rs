@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        video::drm::sync_obj::SyncObj,
+        video::drm::syncobj::Syncobj,
         wire::{WpLinuxDrmSyncobjTimelineV1Id, wp_linux_drm_syncobj_timeline_v1::*},
     },
     std::rc::Rc,
@@ -13,7 +13,7 @@ use {
 pub struct WpLinuxDrmSyncobjTimelineV1 {
     id: WpLinuxDrmSyncobjTimelineV1Id,
     client: Rc<Client>,
-    pub sync_obj: Rc<SyncObj>,
+    pub syncobj: Rc<Syncobj>,
     pub tracker: Tracker<Self>,
     version: Version,
 }
@@ -22,14 +22,14 @@ impl WpLinuxDrmSyncobjTimelineV1 {
     pub fn new(
         id: WpLinuxDrmSyncobjTimelineV1Id,
         client: &Rc<Client>,
-        sync_obj: &Rc<SyncObj>,
+        syncobj: &Rc<Syncobj>,
         version: Version,
     ) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
-            sync_obj: sync_obj.clone(),
+            syncobj: syncobj.clone(),
             version,
         }
     }

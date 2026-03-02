@@ -121,7 +121,7 @@ use {
         },
         video::{
             dmabuf::DmaBufIds,
-            drm::{Drm, wait_for_sync_obj::WaitForSyncObj},
+            drm::{Drm, wait_for_syncobj::WaitForSyncobj},
         },
         wheel::Wheel,
         wire::{
@@ -230,7 +230,7 @@ pub struct State {
     pub double_click_distance: Cell<i32>,
     pub create_default_seat: Cell<bool>,
     pub subsurface_ids: SubsurfaceIds,
-    pub wait_for_sync_obj: Rc<WaitForSyncObj>,
+    pub wait_for_syncobj: Rc<WaitForSyncobj>,
     pub explicit_sync_enabled: Cell<bool>,
     pub explicit_sync_supported: Cell<bool>,
     pub keyboard_state_ids: KeyboardStateIds,
@@ -627,8 +627,8 @@ impl State {
         self.cursors.set(None);
         self.drm_feedback.set(None);
         self.icons.clear();
-        self.wait_for_sync_obj
-            .set_ctx(ctx.as_ref().and_then(|c| c.sync_obj_ctx().cloned()));
+        self.wait_for_syncobj
+            .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -705,7 +705,7 @@ impl State {
         }
 
         if let Some(ctx) = &ctx {
-            if let Some(ctx) = ctx.sync_obj_ctx()
+            if let Some(ctx) = ctx.syncobj_ctx()
                 && ctx.supports_async_wait()
             {
                 self.explicit_sync_supported.set(true);
@@ -1121,7 +1121,7 @@ impl State {
         self.cursor_user_groups.clear();
         self.cursor_user_group_hardware_cursor.take();
         self.cpu_worker.clear();
-        self.wait_for_sync_obj.clear();
+        self.wait_for_syncobj.clear();
         self.xdg_surface_configure_events.clear();
     }
 

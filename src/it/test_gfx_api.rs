@@ -13,7 +13,7 @@ use {
         },
         rect::{Rect, Region},
         theme::Color,
-        video::{LINEAR_MODIFIER, dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx},
+        video::{LINEAR_MODIFIER, dmabuf::DmaBuf, drm::syncobj::SyncobjCtx},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -194,7 +194,7 @@ impl GfxContext for TestGfxCtx {
         }))
     }
 
-    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+    fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
         None
     }
 

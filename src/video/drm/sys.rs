@@ -1195,7 +1195,7 @@ struct drm_syncobj_create {
 
 const DRM_IOCTL_SYNCOBJ_CREATE: u64 = drm_iowr::<drm_syncobj_create>(0xBF);
 
-pub fn sync_obj_create(drm: c::c_int, flags: u32) -> Result<u32, OsError> {
+pub fn syncobj_create(drm: c::c_int, flags: u32) -> Result<u32, OsError> {
     let mut res = drm_syncobj_create { handle: 0, flags };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_CREATE, &mut res)?;
@@ -1211,7 +1211,7 @@ struct drm_syncobj_destroy {
 
 const DRM_IOCTL_SYNCOBJ_DESTROY: u64 = drm_iowr::<drm_syncobj_destroy>(0xC0);
 
-pub fn sync_obj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
+pub fn syncobj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
     let mut res = drm_syncobj_destroy { handle, pad: 0 };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_DESTROY, &mut res)?;
@@ -1236,7 +1236,7 @@ struct drm_syncobj_handle {
 const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1);
 const DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE: u64 = drm_iowr::<drm_syncobj_handle>(0xC2);
 
-pub fn sync_obj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<OwnedFd, OsError> {
+pub fn syncobj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<OwnedFd, OsError> {
     let mut res = drm_syncobj_handle {
         handle,
         flags,
@@ -1250,7 +1250,7 @@ pub fn sync_obj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<O
     Ok(OwnedFd::new(res.fd))
 }
 
-pub fn sync_obj_fd_to_handle(
+pub fn syncobj_fd_to_handle(
     drm: c::c_int,
     fd: c::c_int,
     flags: u32,
@@ -1285,7 +1285,7 @@ struct drm_syncobj_eventfd {
 
 const DRM_IOCTL_SYNCOBJ_EVENTFD: u64 = drm_iowr::<drm_syncobj_eventfd>(0xCF);
 
-pub fn sync_obj_eventfd(
+pub fn syncobj_eventfd(
     drm: c::c_int,
     eventfd: c::c_int,
     handle: u32,
@@ -1315,7 +1315,7 @@ struct drm_syncobj_timeline_array {
 
 const DRM_IOCTL_SYNCOBJ_TIMELINE_SIGNAL: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCD);
 
-pub fn sync_obj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsError> {
+pub fn syncobj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsError> {
     let mut res = drm_syncobj_timeline_array {
         handles: &handle as *const u32 as u64,
         points: &point as *const u64 as u64,
@@ -1340,7 +1340,7 @@ struct drm_syncobj_transfer {
 
 const DRM_IOCTL_SYNCOBJ_TRANSFER: u64 = drm_iowr::<drm_syncobj_transfer>(0xCC);
 
-pub fn sync_obj_transfer(
+pub fn syncobj_transfer(
     drm: c::c_int,
     src_handle: u32,
     src_point: u64,

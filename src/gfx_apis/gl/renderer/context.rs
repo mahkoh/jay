@@ -20,7 +20,7 @@ use {
         rect::Rect,
         video::{
             dmabuf::DmaBuf,
-            drm::{Drm, sync_obj::SyncObjCtx},
+            drm::{Drm, syncobj::SyncobjCtx},
             gbm::GbmDevice,
         },
     },
@@ -75,7 +75,7 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
-    pub sync_ctx: Rc<SyncObjCtx>,
+    pub sync_ctx: Rc<SyncobjCtx>,
 
     pub(crate) render_node: Rc<CString>,
 
@@ -166,7 +166,7 @@ impl GlRenderContext {
         Ok(Self {
             ctx: ctx.clone(),
             gbm: ctx.dpy.gbm.clone(),
-            sync_ctx: Rc::new(SyncObjCtx::new(ctx.dpy.gbm.drm.fd())),
+            sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.gbm.drm.fd())),
 
             render_node: node.clone(),
 
@@ -343,7 +343,7 @@ impl GfxContext for GlRenderContext {
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
     }
 
-    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+    fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
         Some(&self.sync_ctx)
     }
 

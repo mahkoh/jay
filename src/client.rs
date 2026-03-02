@@ -185,7 +185,7 @@ impl Clients {
             surfaces_by_xwayland_serial: Default::default(),
             activation_tokens: Default::default(),
             commit_timelines: Rc::new(CommitTimelines::new(
-                &global.wait_for_sync_obj,
+                &global.wait_for_syncobj,
                 &global.ring,
                 &global.eng,
                 slf,

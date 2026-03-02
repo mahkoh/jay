@@ -2470,7 +2470,7 @@ impl MetalBackend {
         }
         let ctx = dev.ctx.get();
         if self.signaled_sync_file.is_none()
-            && let Some(sync) = ctx.gfx.sync_obj_ctx()
+            && let Some(sync) = ctx.gfx.syncobj_ctx()
         {
             match sync.create_signaled_sync_file() {
                 Ok(sf) => {

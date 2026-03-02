@@ -43,7 +43,7 @@ use {
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::DmaBuf,
-            drm::{Drm, DrmError, sync_obj::SyncObjCtx},
+            drm::{Drm, DrmError, syncobj::SyncobjCtx},
             gbm::GbmError,
         },
         vulkan_core::VulkanCoreError,
@@ -358,7 +358,7 @@ impl GfxContext for Context {
         Ok(fb)
     }
 
-    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>> {
+    fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
         Some(&self.0.device.sync_ctx)
     }
 

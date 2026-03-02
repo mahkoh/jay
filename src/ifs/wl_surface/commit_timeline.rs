@@ -22,8 +22,8 @@ use {
         },
         video::drm::{
             DrmError,
-            sync_obj::{SyncObj, SyncObjPoint},
-            wait_for_sync_obj::{SyncObjWaiter, WaitForSyncObj, WaitForSyncObjHandle},
+            syncobj::{Syncobj, SyncobjPoint},
+            wait_for_syncobj::{SyncobjWaiter, WaitForSyncobj, WaitForSyncobjHandle},
         },
     },
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
@@ -45,7 +45,7 @@ linear_ids!(CommitTimelineIds, CommitTimelineId, u64);
 
 pub struct CommitTimelines {
     next_id: CommitTimelineIds,
-    wfs: Rc<WaitForSyncObj>,
+    wfs: Rc<WaitForSyncobj>,
     ring: Rc<IoUring>,
     depth: NumCell<usize>,
     gc: CopyHashMap<CommitTimelineId, LinkedList<Entry>>,
@@ -113,7 +113,7 @@ pub enum CommitTimelineError {
 
 impl CommitTimelines {
     pub fn new(
-        wfs: &Rc<WaitForSyncObj>,
+        wfs: &Rc<WaitForSyncobj>,
         ring: &Rc<IoUring>,
         eng: &Rc<AsyncEngine>,
         client: &Weak<Client>,
@@ -238,7 +238,7 @@ impl CommitTimeline {
             EntryKind::Commit(Commit {
                 surface: surface.clone(),
                 pending: RefCell::new(mem::take(pending)),
-                sync_obj: NumCell::new(points.len()),
+                syncobj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
                 shm_upload: RefCell::new(ShmUploadState::None),
@@ -256,11 +256,11 @@ impl CommitTimeline {
             };
             if points.is_not_empty() {
                 let mut wait_handles = SmallVec::new();
-                for (sync_obj, point) in points {
+                for (syncobj, point) in points {
                     let handle = self
                         .shared
                         .wfs
-                        .wait(&sync_obj, point, true, noderef.clone())
+                        .wait(&syncobj, point, true, noderef.clone())
                         .map_err(CommitTimelineError::RegisterWait)?;
                     wait_handles.push(handle);
                 }
@@ -336,7 +336,7 @@ impl CommitTimeline {
     }
 }
 
-impl SyncObjWaiter for NodeRef<Entry> {
+impl SyncobjWaiter for NodeRef<Entry> {
     fn done(self: Rc<Self>, result: Result<(), DrmError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
@@ -345,7 +345,7 @@ impl SyncObjWaiter for NodeRef<Entry> {
             commit.surface.client.error(CommitTimelineError::Wait(e));
             return;
         }
-        commit.sync_obj.fetch_sub(1);
+        commit.syncobj.fetch_sub(1);
         flush_commit(&self, commit);
     }
 }
@@ -440,8 +440,8 @@ enum CommitTimesState {
 struct Commit {
     surface: Rc<WlSurface>,
     pending: RefCell<Box<PendingState>>,
-    sync_obj: NumCell<usize>,
-    wait_handles: Cell<SmallVec<[WaitForSyncObjHandle; 1]>>,
+    syncobj: NumCell<usize>,
+    wait_handles: Cell<SmallVec<[WaitForSyncobjHandle; 1]>>,
     pending_uploads: NumCell<usize>,
     shm_upload: RefCell<ShmUploadState>,
     num_pending_polls: NumCell<usize>,
@@ -471,7 +471,7 @@ impl NodeRef<Entry> {
         match &self.kind {
             EntryKind::Commit(c) => {
                 let mut has_unmet_dependencies = false;
-                let may_access_buffer = c.sync_obj.get() == 0 && c.num_pending_polls.get() == 0;
+                let may_access_buffer = c.syncobj.get() == 0 && c.num_pending_polls.get() == 0;
                 if may_access_buffer {
                     if c.pending_uploads.get() > 0 {
                         check_shm_uploads(c)?;
@@ -687,7 +687,7 @@ fn schedule_async_upload(
         .map_err(WlSurfaceError::PrepareAsyncUpload)
 }
 
-type Point = (Rc<SyncObj>, SyncObjPoint);
+type Point = (Rc<Syncobj>, SyncobjPoint);
 
 struct CommitDataCollector {
     acquire_points: SmallVec<[Point; 1]>,
