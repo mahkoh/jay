@@ -11,10 +11,9 @@ use {
             AsyncShmGfxTextureCallback, PendingShmTransfer, ShmMemory, ShmMemoryBacking, SyncFile,
         },
         gfx_apis::vulkan::{
-            VulkanError,
+            VulkanError, VulkanFence,
             command::VulkanCommandBuffer,
             dmabuf_buffer::{TRANSFER_QUEUE_BUFFER_ALIGNMENT, VulkanDmabufBuffer},
-            fence::VulkanFence,
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             renderer::image_barrier,
             shm_image::VulkanShmImage,
@@ -22,6 +21,7 @@ use {
         },
         rect::{Rect, Region},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
+        vulkan_core::fence::VulkanDeviceFenceExt,
     },
     arrayvec::ArrayVec,
     ash::vk::{

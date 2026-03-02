@@ -4,10 +4,9 @@ use {
         format::Format,
         gfx_api::SyncFile,
         gfx_apis::vulkan::{
-            VulkanError,
+            VulkanError, VulkanFence,
             allocator::VulkanAllocation,
             command::VulkanCommandBuffer,
-            fence::VulkanFence,
             image::{QueueFamily, QueueState, VulkanImage, VulkanImageMemory},
             renderer::{VulkanRenderer, image_barrier},
             staging::VulkanStagingBuffer,
@@ -15,6 +14,7 @@ use {
         },
         rect::Rect,
         utils::errorfmt::ErrorFmt,
+        vulkan_core::fence::VulkanDeviceFenceExt,
     },
     ash::vk::{
         AccessFlags2, Buffer, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,

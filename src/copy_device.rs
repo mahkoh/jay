@@ -14,7 +14,8 @@ use {
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
         },
         vulkan_core::{
-            VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, map_extension_properties,
+            self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
+            fence::VulkanDeviceFenceExt, map_extension_properties,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -34,14 +35,13 @@ use {
             CommandPoolCreateInfo, CopyBufferInfo2, CopyBufferToImageInfo2, CopyImageInfo2,
             CopyImageToBufferInfo2, DependencyInfo, DeviceCreateInfo, DeviceMemory,
             DeviceQueueCreateInfo, DrmFormatModifierPropertiesEXT,
-            DrmFormatModifierPropertiesListEXT, ExportFenceCreateInfo, ExportMemoryAllocateInfo,
-            Extent3D, ExternalBufferProperties, ExternalFenceFeatureFlags,
-            ExternalFenceHandleTypeFlags, ExternalFenceProperties,
-            ExternalImageFormatPropertiesKHR, ExternalMemoryBufferCreateInfo,
-            ExternalMemoryBufferCreateInfoKHR, ExternalMemoryFeatureFlags,
-            ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo,
-            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
-            ExternalSemaphoreProperties, Fence, FenceCreateInfo, FenceGetFdInfoKHR, Filter,
+            DrmFormatModifierPropertiesListEXT, ExportMemoryAllocateInfo, Extent3D,
+            ExternalBufferProperties, ExternalFenceFeatureFlags, ExternalFenceHandleTypeFlags,
+            ExternalFenceProperties, ExternalImageFormatPropertiesKHR,
+            ExternalMemoryBufferCreateInfo, ExternalMemoryBufferCreateInfoKHR,
+            ExternalMemoryFeatureFlags, ExternalMemoryHandleTypeFlags,
+            ExternalMemoryImageCreateInfo, ExternalSemaphoreFeatureFlags,
+            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, Filter,
             FormatFeatureFlags, FormatProperties2, ImageAspectFlags, ImageBlit2, ImageCopy2,
             ImageCreateFlags, ImageCreateInfo, ImageDrmFormatModifierExplicitCreateInfoEXT,
             ImageFormatProperties2, ImageLayout, ImageMemoryBarrier2, ImageMemoryRequirementsInfo2,
@@ -84,16 +84,12 @@ pub enum CopyDeviceError {
     Core(#[from] VulkanCoreError),
     #[error("Could not create a semaphore")]
     CreateSemaphore(#[source] vk::Result),
-    #[error("Could not create a fence")]
-    CreateFence(#[source] vk::Result),
     #[error("Could not dup a sync file")]
     DupSyncFile(#[source] io::Error),
     #[error("Could not dup a dma buf")]
     DupDmaBuf(#[source] io::Error),
     #[error("Could not import a sync file")]
     ImportSyncFile(#[source] vk::Result),
-    #[error("Could not export a sync file")]
-    ExportSyncFile(#[source] vk::Result),
     #[error("Could not submit the copy")]
     SubmitCopy(#[source] vk::Result),
     #[error("Could not enumerate the physical devices")]
@@ -217,7 +213,7 @@ struct CopyDeviceInner {
     external_fence_fd: external_fence_fd::Device,
     external_memory_fd: external_memory_fd::Device,
     semaphores: Stack<VulkanSemaphore>,
-    fences: Stack<VulkanFence>,
+    fences: Stack<Rc<VulkanFence>>,
     submissions: Keyed<Rc<PendingSubmissions>>,
 }
 
@@ -276,7 +272,7 @@ struct Pending {
     sync_file: Option<SyncFile>,
     copy: Rc<CopyDeviceCopyInner>,
     semaphore: Option<VulkanSemaphore>,
-    fence: Option<VulkanFence>,
+    fence: Option<Rc<VulkanFence>>,
 }
 
 struct VulkanSemaphore {
@@ -284,10 +280,7 @@ struct VulkanSemaphore {
     semaphore: Semaphore,
 }
 
-struct VulkanFence {
-    dev: Rc<CopyDeviceInner>,
-    fence: Fence,
-}
+type VulkanFence = vulkan_core::fence::VulkanFence<CopyDeviceInner>;
 
 struct VulkanBuffer {
     dev: Rc<CopyDeviceInner>,
@@ -1258,21 +1251,6 @@ impl CopyDeviceInner {
             semaphore,
         })
     }
-
-    fn create_fence(self: &Rc<Self>) -> Result<VulkanFence, CopyDeviceError> {
-        let mut export_info =
-            ExportFenceCreateInfo::default().handle_types(ExternalFenceHandleTypeFlags::SYNC_FD);
-        let create_info = FenceCreateInfo::default().push_next(&mut export_info);
-        let fence = unsafe {
-            self.dev
-                .create_fence(&create_info, None)
-                .map_err(CopyDeviceError::CreateFence)?
-        };
-        Ok(VulkanFence {
-            dev: self.clone(),
-            fence,
-        })
-    }
 }
 
 impl CopyDeviceCopy {
@@ -1688,7 +1666,7 @@ impl CopyDeviceCopy {
                 )
                 .map_err(CopyDeviceError::SubmitCopy)?;
         }
-        let sync_file = match signal_fence.export() {
+        let sync_file = match signal_fence.export_sync_file() {
             Ok(f) => f,
             Err(e) => {
                 log::error!("Could not export signal fence: {}", ErrorFmt(e));
@@ -1727,26 +1705,6 @@ impl VulkanSemaphore {
         }
         let _ = fd.unwrap();
         Ok(())
-    }
-}
-
-impl VulkanFence {
-    fn export(&self) -> Result<Option<SyncFile>, CopyDeviceError> {
-        let info = FenceGetFdInfoKHR::default()
-            .fence(self.fence)
-            .handle_type(ExternalFenceHandleTypeFlags::SYNC_FD);
-        let fd = unsafe {
-            self.dev
-                .external_fence_fd
-                .get_fence_fd(&info)
-                .map_err(CopyDeviceError::ExportSyncFile)?
-        };
-        let fd = if fd == -1 {
-            None
-        } else {
-            Some(SyncFile(Rc::new(OwnedFd::new(fd))))
-        };
-        Ok(fd)
     }
 }
 
@@ -1790,14 +1748,6 @@ impl Drop for VulkanSemaphore {
     fn drop(&mut self) {
         unsafe {
             self.dev.dev.destroy_semaphore(self.semaphore, None);
-        }
-    }
-}
-
-impl Drop for VulkanFence {
-    fn drop(&mut self) {
-        unsafe {
-            self.dev.dev.destroy_fence(self.fence, None);
         }
     }
 }
@@ -2038,4 +1988,14 @@ fn allocate_queues(
         TransferType::Upload => upload,
     };
     (queues_to_allocate, queue_indices)
+}
+
+impl VulkanDeviceInf for CopyDeviceInner {
+    fn device(&self) -> &Device {
+        &self.dev
+    }
+
+    fn external_fence_fd(&self) -> &external_fence_fd::Device {
+        &self.external_fence_fd
+    }
 }

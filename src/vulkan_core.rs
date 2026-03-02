@@ -25,6 +25,9 @@ use {
     uapi::{Ustr, ustr},
 };
 
+pub mod device;
+pub mod fence;
+
 static VULKAN_ENTRY: Lazy<Result<Entry, Arc<LoadingError>>> =
     Lazy::new(|| unsafe { Entry::load() }.map_err(Arc::new));
 
@@ -45,6 +48,10 @@ pub enum VulkanCoreError {
     CreateInstance(#[source] vk::Result),
     #[error("Could not create a debug-utils messenger")]
     Messenger(#[source] vk::Result),
+    #[error("Could not create a fence")]
+    CreateFence(#[source] vk::Result),
+    #[error("Could not export a sync file from a semaphore")]
+    ExportSyncFile(#[source] vk::Result),
 }
 
 pub struct VulkanCoreInstance {

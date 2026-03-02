@@ -14,7 +14,8 @@ use {
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
         vulkan_core::{
-            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, map_extension_properties,
+            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, device::VulkanDeviceInf,
+            map_extension_properties,
         },
     },
     ahash::AHashMap,
@@ -637,5 +638,15 @@ fn log_device(
                 Ustr::from_ptr(driver_props.driver_info.as_ptr()).display()
             );
         }
+    }
+}
+
+impl VulkanDeviceInf for VulkanDevice {
+    fn device(&self) -> &Device {
+        &self.device
+    }
+
+    fn external_fence_fd(&self) -> &external_fence_fd::Device {
+        &self.external_fence_fd
     }
 }

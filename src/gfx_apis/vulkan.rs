@@ -9,7 +9,6 @@ mod descriptor_buffer;
 mod device;
 mod dmabuf_buffer;
 mod eotfs;
-mod fence;
 mod format;
 mod gpu_alloc_ash;
 mod image;
@@ -35,7 +34,8 @@ use {
             STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
-            image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
+            device::VulkanDevice, image::VulkanImageMemory, instance::VulkanInstance,
+            renderer::VulkanRenderer,
         },
         io_uring::IoUring,
         pr_caps::PrCapsThread,
@@ -46,7 +46,7 @@ use {
             drm::{Drm, DrmError, syncobj::SyncobjCtx},
             gbm::GbmError,
         },
-        vulkan_core::VulkanCoreError,
+        vulkan_core::{self, VulkanCoreError},
     },
     ahash::AHashMap,
     ash::vk,
@@ -73,8 +73,6 @@ pub enum VulkanError {
     CreateDevice(#[source] vk::Result),
     #[error("Could not create a semaphore")]
     CreateSemaphore(#[source] vk::Result),
-    #[error("Could not create a fence")]
-    CreateFence(#[source] vk::Result),
     #[error("Could not create the buffer")]
     CreateBuffer(#[source] vk::Result),
     #[error("Could not create a shader module")]
@@ -157,8 +155,6 @@ pub enum VulkanError {
     IoctlExportSyncFile(#[source] OsError),
     #[error("Could not import a sync file into a semaphore")]
     ImportSyncFile(#[source] vk::Result),
-    #[error("Could not export a sync file from a semaphore")]
-    ExportSyncFile(#[source] vk::Result),
     #[error("Could not fetch the render node of the device")]
     FetchRenderNode(#[source] DrmError),
     #[error("Device has no render node")]
@@ -214,6 +210,8 @@ pub enum VulkanError {
     #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
     DmaBufBufferOffsetAlignment,
 }
+
+type VulkanFence = vulkan_core::fence::VulkanFence<VulkanDevice>;
 
 impl From<VulkanError> for GfxError {
     fn from(value: VulkanError) -> Self {
