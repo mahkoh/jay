@@ -11,8 +11,8 @@ use {
         },
         format::Format,
         gfx_api::{
-            AcquireSync, GfxBlendBuffer, GfxError, GfxFormat, GfxFramebuffer, GfxTexture,
-            GfxWriteModifier, ReleaseSync, SyncFile, needs_render_usage,
+            AcquireSync, FdSync, GfxBlendBuffer, GfxError, GfxFormat, GfxFramebuffer, GfxTexture,
+            GfxWriteModifier, ReleaseSync, needs_render_usage,
         },
         rect::{DamageQueue, Rect, Region},
         udmabuf::{Udmabuf, UdmabufError},
@@ -120,15 +120,15 @@ pub enum RenderBufferError {
 
 #[derive(Default)]
 pub struct RenderBufferCopy {
-    pub render_block: Option<SyncFile>,
-    pub present_block: Option<SyncFile>,
+    pub render_block: Option<FdSync>,
+    pub present_block: Option<FdSync>,
 }
 
 impl RenderBufferCopy {
-    pub fn for_both(sf: Option<SyncFile>) -> Self {
+    pub fn for_both(sync: Option<FdSync>) -> Self {
         Self {
-            render_block: sf.clone(),
-            present_block: sf,
+            render_block: sync.clone(),
+            present_block: sync,
         }
     }
 }
@@ -138,12 +138,12 @@ impl RenderBuffer {
         &self,
         cd: &Rc<ColorDescription>,
         region: Option<&Region>,
-        sync_file: Option<SyncFile>,
+        sync: Option<FdSync>,
     ) -> Result<RenderBufferCopy, RenderBufferError> {
         match &self.prime {
             RenderBufferPrime::None => Ok(RenderBufferCopy {
                 render_block: None,
-                present_block: sync_file,
+                present_block: sync,
             }),
             RenderBufferPrime::Sampling {
                 dev_render_tex,
@@ -157,7 +157,7 @@ impl RenderBuffer {
                     dev_render_tex,
                     cd,
                     None,
-                    AcquireSync::from_sync_file(sync_file),
+                    AcquireSync::from_fd_sync(sync),
                     ReleaseSync::None,
                     0,
                     0,
@@ -175,7 +175,7 @@ impl RenderBuffer {
                 ..
             } => {
                 let render_block = render_copy
-                    .execute(sync_file.as_ref(), region)
+                    .execute(sync.as_ref(), region)
                     .map_err(RenderBufferError::CopyRenderToUdmabuf)?;
                 let present_block = dev_copy
                     .execute(render_block.as_ref(), region)
@@ -189,7 +189,7 @@ impl RenderBuffer {
             | RenderBufferPrime::CopyDirectPush {
                 render_copy: copy, ..
             } => copy
-                .execute(sync_file.as_ref(), region)
+                .execute(sync.as_ref(), region)
                 .map_err(RenderBufferError::CopyRenderToDev)
                 .map(RenderBufferCopy::for_both),
         }
@@ -201,8 +201,8 @@ impl RenderBuffer {
         self.damage_queue.damage(&[rect]);
     }
 
-    pub fn clear(&self, cd: &Rc<ColorDescription>) -> Result<Option<SyncFile>, RenderBufferError> {
-        let sync_file = match &self.prime {
+    pub fn clear(&self, cd: &Rc<ColorDescription>) -> Result<Option<FdSync>, RenderBufferError> {
+        let sync = match &self.prime {
             RenderBufferPrime::None => {
                 self.render
                     .fb
@@ -222,14 +222,14 @@ impl RenderBuffer {
                 self.copy_to_dev(cd, None, sf)?.present_block
             }
         };
-        Ok(sync_file)
+        Ok(sync)
     }
 
     pub fn copy_to_new(
         &self,
         new: &Self,
         cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, RenderBufferError> {
+    ) -> Result<Option<FdSync>, RenderBufferError> {
         let old = self;
 
         if (old.width, old.height) != (new.width, new.height) {

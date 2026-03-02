@@ -30,8 +30,8 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{
-            AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, GfxError, GfxStagingBuffer,
-            ReleaseSync, SampleRect, SyncFile,
+            AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, FdSync, GfxError,
+            GfxStagingBuffer, ReleaseSync, SampleRect,
         },
         ifs::{
             color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
@@ -215,7 +215,7 @@ impl NodeVisitorBase for SurfaceSendPreferredColorDescription {
 
 pub struct SurfaceBuffer {
     pub buffer: AttachedBuffer,
-    sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
+    syncs: SmallMap<BufferResvUser, FdSync, 1>,
     pub release_sync: ReleaseSync,
     release: Option<SyncobjRelease>,
     _surface_release: SmallVec<[SurfaceRelease; 1]>,
@@ -223,14 +223,16 @@ pub struct SurfaceBuffer {
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
-        let sync_files = self.sync_files.take();
+        let syncs = self.syncs.take();
         if let Some(release) = &mut self.release {
-            release.signal(Some(&sync_files));
+            release.signal(Some(&syncs));
             return;
         }
         if let Some(dmabuf) = &self.buffer.buf.client_dmabuf {
-            for (_, sync_file) in &sync_files {
-                if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
+            for (_, sync) in &syncs {
+                if let Some(sf) = sync.get_sync_file()
+                    && let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, &sf)
+                {
                     log::error!("Could not import sync file: {}", ErrorFmt(e));
                 }
             }
@@ -245,8 +247,8 @@ impl Debug for SurfaceBuffer {
 }
 
 impl BufferResv for SurfaceBuffer {
-    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile) {
-        self.sync_files.insert(user, sync_file.clone());
+    fn set_sync(&self, user: BufferResvUser, sync: &FdSync) {
+        self.syncs.insert(user, sync.clone());
     }
 }
 
@@ -1231,7 +1233,7 @@ impl WlSurface {
                 };
                 let surface_buffer = SurfaceBuffer {
                     buffer,
-                    sync_files: Default::default(),
+                    syncs: Default::default(),
                     release_sync,
                     release: pending.release_point.take(),
                     _surface_release: mem::take(&mut pending.surface_release),
@@ -2263,7 +2265,7 @@ pub struct SyncobjRelease {
 }
 
 impl SyncobjRelease {
-    fn signal(&mut self, sync_files: Option<&SmallVec<[(BufferResvUser, SyncFile); 1]>>) {
+    fn signal(&mut self, syncs: Option<&SmallVec<[(BufferResvUser, FdSync); 1]>>) {
         if !self.committed {
             return;
         }
@@ -2278,10 +2280,14 @@ impl SyncobjRelease {
             log::error!("Cannot signal release point because there is no syncobj context");
             return;
         };
-        if let Some(sync_files) = sync_files
-            && sync_files.is_not_empty()
+        if let Some(syncs) = syncs
+            && syncs.is_not_empty()
         {
-            let res = ctx.import_sync_files(&syncobj, self.point, sync_files.iter().map(|f| &f.1));
+            let res = ctx.import_sync_files(
+                &syncobj,
+                self.point,
+                syncs.iter().flat_map(|f| f.1.get_sync_file()),
+            );
             match res {
                 Ok(_) => return,
                 Err(e) => {

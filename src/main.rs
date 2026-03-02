@@ -68,6 +68,7 @@ mod dbus;
 mod drm_feedback;
 mod edid;
 mod ei;
+mod eventfd_cache;
 mod fixed;
 mod forker;
 mod format;

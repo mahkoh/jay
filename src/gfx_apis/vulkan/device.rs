@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::BufferObject,
+        eventfd_cache::EventfdCache,
         format::XRGB8888,
         gfx_apis::vulkan::{
             VulkanError,
@@ -14,7 +15,8 @@ use {
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
         vulkan_core::{
-            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, map_extension_properties,
+            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, VulkanCoreInstance,
+            device::VulkanDeviceInf, map_extension_properties,
         },
     },
     ahash::AHashMap,
@@ -63,6 +65,7 @@ pub struct VulkanDevice {
     pub(super) sync_ctx: Rc<SyncobjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Arc<Device>,
+    pub(super) eventfd_cache: Rc<EventfdCache>,
     pub(super) external_memory_fd: external_memory_fd::Device,
     pub(super) external_semaphore_fd: external_semaphore_fd::Device,
     pub(super) external_fence_fd: external_fence_fd::Device,
@@ -85,6 +88,7 @@ pub struct VulkanDevice {
     pub(super) uniform_buffer_descriptor_size: usize,
     pub(super) lost: Cell<bool>,
     pub(super) fast_ram_access: bool,
+    pub(super) supports_timeline_opaque_export: bool,
 }
 
 impl Drop for VulkanDevice {
@@ -337,6 +341,7 @@ impl VulkanInstance {
     pub fn create_device(
         self: &Rc<Self>,
         drm: &Drm,
+        eventfd_cache: &Rc<EventfdCache>,
         mut high_priority: bool,
         software: bool,
     ) -> Result<Rc<VulkanDevice>, VulkanError> {
@@ -379,6 +384,9 @@ impl VulkanInstance {
             }
             transfer_granularity_mask = (width_mask, height_mask);
         }
+        let features = self.get_features(phy_dev);
+        let supports_timeline_opaque_export =
+            self.supports_timeline_opaque_export(phy_dev, &features);
         if !self.supports_semaphore_import(phy_dev) {
             return Err(VulkanError::SyncFileImport);
         }
@@ -389,8 +397,8 @@ impl VulkanInstance {
         if supports_descriptor_buffer {
             enabled_extensions.push(descriptor_buffer::NAME.as_ptr());
         }
-        let mut semaphore_features =
-            PhysicalDeviceTimelineSemaphoreFeatures::default().timeline_semaphore(true);
+        let mut semaphore_features = PhysicalDeviceTimelineSemaphoreFeatures::default()
+            .timeline_semaphore(supports_timeline_opaque_export);
         let mut synchronization2_features =
             PhysicalDeviceSynchronization2Features::default().synchronization2(true);
         let mut dynamic_rendering_features =
@@ -557,6 +565,7 @@ impl VulkanInstance {
             gbm: Rc::new(gbm),
             instance: self.clone(),
             device: Arc::new(device),
+            eventfd_cache: eventfd_cache.clone(),
             external_memory_fd,
             external_semaphore_fd,
             external_fence_fd,
@@ -580,6 +589,7 @@ impl VulkanInstance {
             uniform_buffer_descriptor_size,
             lost: Cell::new(false),
             fast_ram_access,
+            supports_timeline_opaque_export,
         }))
     }
 }
@@ -637,5 +647,35 @@ fn log_device(
                 Ustr::from_ptr(driver_props.driver_info.as_ptr()).display()
             );
         }
+    }
+}
+
+impl VulkanDeviceInf for VulkanDevice {
+    fn instance(&self) -> &VulkanCoreInstance {
+        &self.instance
+    }
+
+    fn device(&self) -> &Device {
+        &self.device
+    }
+
+    fn external_fence_fd(&self) -> &external_fence_fd::Device {
+        &self.external_fence_fd
+    }
+
+    fn external_semaphore_fd(&self) -> &external_semaphore_fd::Device {
+        &self.external_semaphore_fd
+    }
+
+    fn supports_timeline_opaque_export(&self) -> bool {
+        self.supports_timeline_opaque_export
+    }
+
+    fn sync_ctx(&self) -> &Rc<SyncobjCtx> {
+        &self.sync_ctx
+    }
+
+    fn eventfd_cache(&self) -> &Rc<EventfdCache> {
+        &self.eventfd_cache
     }
 }

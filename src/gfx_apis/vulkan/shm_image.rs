@@ -2,12 +2,11 @@ use {
     crate::{
         cpu_worker::CpuWorker,
         format::Format,
-        gfx_api::SyncFile,
+        gfx_api::FdSync,
         gfx_apis::vulkan::{
-            VulkanError,
+            VulkanError, VulkanSync,
             allocator::VulkanAllocation,
             command::VulkanCommandBuffer,
-            fence::VulkanFence,
             image::{QueueFamily, QueueState, VulkanImage, VulkanImageMemory},
             renderer::{VulkanRenderer, image_barrier},
             staging::VulkanStagingBuffer,
@@ -15,6 +14,7 @@ use {
         },
         rect::Rect,
         utils::errorfmt::ErrorFmt,
+        vulkan_core::sync::VulkanDeviceSyncExt,
     },
     ash::vk::{
         AccessFlags2, Buffer, BufferImageCopy2, BufferMemoryBarrier2, CommandBufferBeginInfo,
@@ -22,7 +22,8 @@ use {
         CopyImageToBufferInfo2, DependencyInfoKHR, DeviceSize, Extent3D, ImageAspectFlags,
         ImageCreateInfo, ImageLayout, ImageSubresourceLayers, ImageSubresourceRange, ImageTiling,
         ImageType, ImageUsageFlags, ImageViewCreateInfo, ImageViewType, Offset3D,
-        PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, SampleCountFlags, SharingMode, SubmitInfo2,
+        PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, SampleCountFlags, SemaphoreSubmitInfo,
+        SharingMode, SubmitInfo2,
     },
     gpu_alloc::UsageFlags,
     isnt::std_1::primitive::IsntSliceExt,
@@ -136,7 +137,7 @@ impl VulkanShmImage {
                 ptr::copy_nonoverlapping(buf, mem, total_size as usize);
             }
         })?;
-        let (cmd, fence, sync_file, point) = self.submit_buffer_image_copy(
+        let (cmd, vulkan_sync, sync, point) = self.submit_buffer_image_copy(
             img,
             staging.buffer,
             staging.size,
@@ -147,7 +148,7 @@ impl VulkanShmImage {
         )?;
         let future = img.renderer.eng.spawn(
             "await upload",
-            await_upload(point, img.clone(), cmd, sync_file, fence, staging),
+            await_upload(point, img.clone(), cmd, sync, vulkan_sync, staging),
         );
         img.renderer.pending_submits.set(point, future);
         Ok(())
@@ -162,15 +163,7 @@ impl VulkanShmImage {
         use_transfer_queue: bool,
         tt: TransferType,
         foreign_buffer: bool,
-    ) -> Result<
-        (
-            Rc<VulkanCommandBuffer>,
-            Rc<VulkanFence>,
-            Option<SyncFile>,
-            u64,
-        ),
-        VulkanError,
-    > {
+    ) -> Result<(Rc<VulkanCommandBuffer>, VulkanSync, Option<FdSync>, u64), VulkanError> {
         let mut transfer_queue_family_idx = img.renderer.device.graphics_queue_idx;
         if use_transfer_queue
             && let Some(idx) = img.renderer.device.distinct_transfer_queue_family_idx
@@ -277,11 +270,20 @@ impl VulkanShmImage {
         };
         let dev = &img.renderer.device.device;
         let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
-        let submit_info =
+        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+        let mut submit_info =
             SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
         let begin_info =
             CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-        let release_fence = img.renderer.device.create_fence()?;
+        let tls = match use_transfer_queue {
+            true => &img.renderer.transfer_tls,
+            false => &img.renderer.render_tls,
+        };
+        let vulkan_sync = img.renderer.device.create_sync(
+            tls.as_ref(),
+            &mut semaphore_submit_info,
+            &mut submit_info,
+        )?;
         unsafe {
             dev.begin_command_buffer(cmd.buffer, &begin_info)
                 .map_err(VulkanError::BeginCommandBuffer)?;
@@ -313,7 +315,7 @@ impl VulkanShmImage {
                     _ => img.renderer.device.graphics_queue,
                 },
                 slice::from_ref(&submit_info),
-                release_fence.fence,
+                vulkan_sync.fence(),
             )
             .inspect_err(img.renderer.device.idl())
             .map_err(VulkanError::Submit)?;
@@ -322,16 +324,9 @@ impl VulkanShmImage {
             img.is_undefined.set(false);
             img.contents_are_undefined.set(false);
         }
-        let release_sync_file = match release_fence.export_sync_file() {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
-                img.renderer.block();
-                None
-            }
-        };
+        let release_sync = vulkan_sync.to_sync(|| img.renderer.block());
         let point = img.renderer.allocate_point();
-        Ok((cmd, release_fence, release_sync_file, point))
+        Ok((cmd, vulkan_sync, release_sync, point))
     }
 }
 
@@ -339,12 +334,12 @@ async fn await_upload(
     id: u64,
     img: Rc<VulkanImage>,
     buf: Rc<VulkanCommandBuffer>,
-    sync_file: Option<SyncFile>,
-    _fence: Rc<VulkanFence>,
+    sync: Option<FdSync>,
+    vulkan_sync: VulkanSync,
     _staging: VulkanStagingBuffer,
 ) {
-    if let Some(sync_file) = sync_file
-        && let Err(e) = img.renderer.ring.readable(&sync_file.0).await
+    if let Some(sync) = &sync
+        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
@@ -352,6 +347,7 @@ async fn await_upload(
         );
         img.renderer.block();
     }
+    vulkan_sync.handle_validation();
     img.renderer.gfx_command_buffers.buffers.push(buf);
     img.renderer.pending_submits.remove(&id);
 }

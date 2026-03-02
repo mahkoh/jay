@@ -4,9 +4,9 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureTransferCancellable, GfxApiOpt, GfxBlendBuffer, GfxBuffer, GfxError,
-            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory, SyncFile,
+            AsyncShmGfxTextureTransferCancellable, FdSync, GfxApiOpt, GfxBlendBuffer, GfxBuffer,
+            GfxError, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer,
+            GfxTexture, PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::vulkan::{
             VulkanError, allocator::VulkanAllocation, device::VulkanDevice,
@@ -563,7 +563,7 @@ impl GfxFramebuffer for VulkanImage {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let mut blend_buffer = blend_buffer
             .map(|b| b.clone().into_vk(&self.renderer.device.device))
             .transpose()?;

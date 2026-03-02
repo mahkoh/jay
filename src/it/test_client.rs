@@ -96,7 +96,12 @@ impl TestClient {
 
     pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
         let (dmabuf, dev) = self.jc.take_screenshot(include_cursor).await?;
-        let qoi = buf_to_bytes(dev.as_ref(), &dmabuf, ScreenshotFormat::Qoi)?;
+        let qoi = buf_to_bytes(
+            &self.run.state.eventfd_cache,
+            dev.as_ref(),
+            &dmabuf,
+            ScreenshotFormat::Qoi,
+        )?;
         Ok(qoi)
     }
 

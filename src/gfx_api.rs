@@ -5,16 +5,22 @@ use {
         cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
+        eventfd_cache::Eventfd,
         fixed::Fixed,
         format::Format,
+        io_uring::{IoUring, IoUringError},
         rect::{Rect, Region},
         renderer::{Renderer, renderer_base::RendererBase},
         scale::Scale,
         state::State,
         theme::Color,
         tree::{Node, OutputNode, Transform},
-        utils::clonecell::UnsafeCellCloneSafe,
-        video::{Modifier, dmabuf::DmaBuf, drm::syncobj::SyncobjCtx},
+        utils::{clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt},
+        video::{
+            Modifier,
+            dmabuf::DmaBuf,
+            drm::syncobj::{Syncobj, SyncobjCtx, SyncobjPoint},
+        },
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
@@ -22,16 +28,17 @@ use {
     linearize::Linearize,
     std::{
         any::Any,
-        cell::Cell,
+        cell::{Cell, OnceCell},
         error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
         ops::Deref,
         rc::Rc,
+        slice,
         sync::atomic::{AtomicU64, Ordering::Relaxed},
     },
     thiserror::Error,
-    uapi::OwnedFd,
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
@@ -285,15 +292,24 @@ unsafe impl UnsafeCellCloneSafe for SyncFile {}
 pub enum AcquireSync {
     None,
     Implicit,
-    SyncFile { sync_file: SyncFile },
+    FdSync(FdSync),
     Unnecessary,
 }
 
 impl AcquireSync {
-    pub fn from_sync_file(sync_file: Option<SyncFile>) -> Self {
-        match sync_file {
+    pub fn from_fd_sync(sync: Option<FdSync>) -> Self {
+        match sync {
             None => Self::Unnecessary,
-            Some(sync_file) => Self::SyncFile { sync_file },
+            Some(sync) => Self::FdSync(sync),
+        }
+    }
+
+    pub fn get_sync_file(&self) -> Option<&SyncFile> {
+        match self {
+            Self::None => None,
+            Self::Implicit => None,
+            Self::FdSync(sync) => sync.get_sync_file(),
+            Self::Unnecessary => None,
         }
     }
 }
@@ -310,7 +326,7 @@ impl Debug for AcquireSync {
         let name = match self {
             AcquireSync::None => "None",
             AcquireSync::Implicit => "Implicit",
-            AcquireSync::SyncFile { .. } => "SyncFile",
+            AcquireSync::FdSync(d) => return Debug::fmt(d, f),
             AcquireSync::Unnecessary => "Unnecessary",
         };
         f.debug_struct(name).finish_non_exhaustive()
@@ -318,7 +334,7 @@ impl Debug for AcquireSync {
 }
 
 pub trait BufferResv: Debug {
-    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile);
+    fn set_sync(&self, user: BufferResvUser, sync: &FdSync);
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -363,7 +379,7 @@ pub trait GfxFramebuffer: Debug {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError>;
+    ) -> Result<Option<FdSync>, GfxError>;
 
     fn format(&self) -> &'static Format;
 
@@ -398,7 +414,7 @@ impl dyn GfxFramebuffer {
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         self.clone().render_with_region(
             acquire_sync,
             release_sync,
@@ -417,7 +433,7 @@ impl dyn GfxFramebuffer {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         self.clear_with(
             acquire_sync,
             release_sync,
@@ -434,7 +450,7 @@ impl dyn GfxFramebuffer {
         cd: &Rc<ColorDescription>,
         color: &Color,
         color_cd: &Rc<LinearColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         self.render(
             acquire_sync,
             release_sync,
@@ -472,7 +488,7 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         x: i32,
         y: i32,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
@@ -516,7 +532,7 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
         f: &mut dyn FnMut(&mut RendererBase),
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
@@ -569,7 +585,7 @@ impl dyn GfxFramebuffer {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         self.clone().render_with_region(
             acquire_sync,
             release_sync,
@@ -596,7 +612,7 @@ impl dyn GfxFramebuffer {
         fill_black_in_grace_period: bool,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         self.render_node(
             acquire_sync,
             release_sync,
@@ -631,7 +647,7 @@ impl dyn GfxFramebuffer {
         transform: Transform,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let pass = self.create_render_pass(
             node,
             state,
@@ -664,7 +680,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         transform: Transform,
         cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
@@ -1086,4 +1102,109 @@ pub fn renderer_base<'a>(
 
 pub fn logical_size(physical_size: (i32, i32), transform: Transform) -> (i32, i32) {
     transform.maybe_swap(physical_size)
+}
+
+pub struct ReservedSyncobjPoint {
+    pub ctx: Rc<SyncobjCtx>,
+    pub syncobj: Rc<Syncobj>,
+    pub point: SyncobjPoint,
+    pub sync_file: OnceCell<Option<SyncFile>>,
+    pub signaled: Eventfd,
+}
+
+impl Debug for ReservedSyncobjPoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReservedSyncobjPoint")
+            .field("syncobj", &self.syncobj.id())
+            .field("point", &self.point)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum FdSync {
+    SyncFile(SyncFile),
+    Syncobj(Rc<ReservedSyncobjPoint>),
+}
+
+unsafe impl UnsafeCellCloneSafe for FdSync {}
+
+impl FdSync {
+    pub async fn try_signaled(&self, ring: &Rc<IoUring>) -> Result<(), IoUringError> {
+        match self {
+            FdSync::SyncFile(f) => ring.readable(&f.0).await.map(drop),
+            FdSync::Syncobj(obj) => obj.signaled.signaled().await,
+        }
+    }
+
+    pub async fn signaled(&self, ring: &Rc<IoUring>, name: &str) {
+        if let Err(e) = self.try_signaled(ring).await {
+            log::error!(
+                "Could not wait for {name} sync to become signaled: {}",
+                ErrorFmt(e),
+            );
+        }
+    }
+
+    pub fn signaled_blocking(&self, name: &str) {
+        let res = match self {
+            FdSync::Syncobj(obj) => obj.signaled.signaled_blocking(),
+            FdSync::SyncFile(f) => {
+                let mut pollfd = c::pollfd {
+                    fd: f.raw(),
+                    events: c::POLLIN,
+                    revents: 0,
+                };
+                uapi::poll(slice::from_mut(&mut pollfd), -1)
+                    .map(drop)
+                    .map_err(Into::into)
+            }
+        };
+        if let Err(e) = res {
+            log::error!(
+                "Could not wait for {name} sync to become signaled: {}",
+                ErrorFmt(e),
+            );
+        }
+    }
+
+    pub fn is_unsignaled(&self) -> bool {
+        !self.is_signaled()
+    }
+
+    pub fn is_signaled(&self) -> bool {
+        match self {
+            FdSync::Syncobj(obj) => obj.signaled.is_signaled(),
+            FdSync::SyncFile(f) => {
+                let mut pollfd = c::pollfd {
+                    fd: f.raw(),
+                    events: c::POLLIN,
+                    revents: 0,
+                };
+                uapi::poll(slice::from_mut(&mut pollfd), 0) == Ok(1)
+            }
+        }
+    }
+
+    pub fn get_sync_file(&self) -> Option<&SyncFile> {
+        match self {
+            FdSync::SyncFile(f) => Some(f),
+            FdSync::Syncobj(obj) => {
+                if obj.signaled.is_signaled() {
+                    return None;
+                }
+                obj.sync_file
+                    .get_or_init(|| {
+                        match obj.ctx.export_sync_file_blocking(&obj.syncobj, obj.point) {
+                            Ok(sf) => Some(sf),
+                            Err(e) => {
+                                log::error!("Could not export sync file: {}", ErrorFmt(e));
+                                None
+                            }
+                        }
+                    })
+                    .as_ref()
+            }
+        }
+    }
 }

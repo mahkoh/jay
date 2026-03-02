@@ -42,4 +42,9 @@ impl<T> Stack<T> {
     pub fn take(&self) -> Vec<T> {
         unsafe { mem::take(self.vec.get().deref_mut()) }
     }
+
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn len(&self) -> usize {
+        unsafe { self.vec.get().deref().len() }
+    }
 }

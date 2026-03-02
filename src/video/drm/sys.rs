@@ -171,7 +171,10 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
 
 pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
+    get_drm_nodes_from_dev(maj, min)
+}
 
+pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, CString>, OsError> {
     let dir = device_dir(maj, min);
     let mut dir = uapi::opendir(dir)?;
 
@@ -1223,6 +1226,7 @@ pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE: u32 = 1 << 0;
 pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE: u32 = 1 << 1;
 
 pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
+pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_TIMELINE: u32 = 1 << 1;
 
 #[repr(C)]
 struct drm_syncobj_handle {
@@ -1236,13 +1240,18 @@ struct drm_syncobj_handle {
 const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1);
 const DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE: u64 = drm_iowr::<drm_syncobj_handle>(0xC2);
 
-pub fn syncobj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<OwnedFd, OsError> {
+pub fn syncobj_handle_to_fd(
+    drm: c::c_int,
+    handle: u32,
+    flags: u32,
+    point: u64,
+) -> Result<OwnedFd, OsError> {
     let mut res = drm_syncobj_handle {
         handle,
         flags,
         fd: 0,
         pad: 0,
-        point: 0,
+        point,
     };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD, &mut res)?;
@@ -1271,7 +1280,7 @@ pub fn syncobj_fd_to_handle(
 }
 
 // pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL: u32 = 1 << 0;
-// pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT: u32 = 1 << 1;
+pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT: u32 = 1 << 1;
 pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE: u32 = 1 << 2;
 
 #[repr(C)]
@@ -1326,6 +1335,22 @@ pub fn syncobj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsEr
         ioctl(drm, DRM_IOCTL_SYNCOBJ_TIMELINE_SIGNAL, &mut res)?;
     }
     Ok(())
+}
+
+const DRM_IOCTL_SYNCOBJ_QUERY: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCB);
+
+pub fn syncobj_query(drm: c::c_int, handle: u32) -> Result<u64, OsError> {
+    let mut point = 0u64;
+    let mut res = drm_syncobj_timeline_array {
+        handles: &handle as *const u32 as u64,
+        points: &mut point as *mut u64 as u64,
+        count_handles: 1,
+        flags: 0,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_QUERY, &mut res)?;
+    }
+    Ok(point)
 }
 
 #[repr(C)]

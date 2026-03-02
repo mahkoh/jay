@@ -9,7 +9,6 @@ mod descriptor_buffer;
 mod device;
 mod dmabuf_buffer;
 mod eotfs;
-mod fence;
 mod format;
 mod gpu_alloc_ash;
 mod image;
@@ -28,6 +27,7 @@ use {
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
+        eventfd_cache::EventfdCache,
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
@@ -35,7 +35,8 @@ use {
             STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
-            image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
+            device::VulkanDevice, image::VulkanImageMemory, instance::VulkanInstance,
+            renderer::VulkanRenderer,
         },
         io_uring::IoUring,
         pr_caps::PrCapsThread,
@@ -46,7 +47,7 @@ use {
             drm::{Drm, DrmError, syncobj::SyncobjCtx},
             gbm::GbmError,
         },
-        vulkan_core::VulkanCoreError,
+        vulkan_core::{self, VulkanCoreError},
     },
     ahash::AHashMap,
     ash::vk,
@@ -73,8 +74,6 @@ pub enum VulkanError {
     CreateDevice(#[source] vk::Result),
     #[error("Could not create a semaphore")]
     CreateSemaphore(#[source] vk::Result),
-    #[error("Could not create a fence")]
-    CreateFence(#[source] vk::Result),
     #[error("Could not create the buffer")]
     CreateBuffer(#[source] vk::Result),
     #[error("Could not create a shader module")]
@@ -157,8 +156,6 @@ pub enum VulkanError {
     IoctlExportSyncFile(#[source] OsError),
     #[error("Could not import a sync file into a semaphore")]
     ImportSyncFile(#[source] vk::Result),
-    #[error("Could not export a sync file from a semaphore")]
-    ExportSyncFile(#[source] vk::Result),
     #[error("Could not fetch the render node of the device")]
     FetchRenderNode(#[source] DrmError),
     #[error("Device has no render node")]
@@ -215,6 +212,10 @@ pub enum VulkanError {
     DmaBufBufferOffsetAlignment,
 }
 
+type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;
+type VulkanTimelineSemaphore =
+    vulkan_core::timeline_semaphore::VulkanTimelineSemaphore<VulkanDevice>;
+
 impl From<VulkanError> for GfxError {
     fn from(value: VulkanError) -> Self {
         Self(Box::new(value))
@@ -224,6 +225,7 @@ impl From<VulkanError> for GfxError {
 pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
+    eventfd_cache: &Rc<EventfdCache>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -231,22 +233,25 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe { t.run(|| instance.create_device(drm, true, software)) } {
+            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm, false, software)?
+        instance.create_device(drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
 }
 
-pub fn create_vulkan_allocator(drm: &Drm) -> Result<Rc<dyn Allocator>, AllocatorError> {
+pub fn create_vulkan_allocator(
+    drm: &Drm,
+    eventfd_cache: &Rc<EventfdCache>,
+) -> Result<Rc<dyn Allocator>, AllocatorError> {
     let instance = VulkanInstance::new(Level::Debug)?;
-    let device = instance.create_device(drm, false, false)?;
+    let device = instance.create_device(drm, eventfd_cache, false, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
 }

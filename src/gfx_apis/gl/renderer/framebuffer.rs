@@ -6,9 +6,9 @@ use {
         },
         format::Format,
         gfx_api::{
-            AcquireSync, AsyncShmGfxTextureCallback, GfxApiOpt, GfxBlendBuffer, GfxError,
+            AcquireSync, AsyncShmGfxTextureCallback, FdSync, GfxApiOpt, GfxBlendBuffer, GfxError,
             GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer,
-            ReleaseSync, ShmMemory, SyncFile,
+            ReleaseSync, ShmMemory,
         },
         gfx_apis::gl::{
             RenderError,
@@ -74,7 +74,7 @@ impl Framebuffer {
         acquire_sync: AcquireSync,
         ops: &[GfxApiOpt],
         clear: Option<&Color>,
-    ) -> Result<Option<SyncFile>, RenderError> {
+    ) -> Result<Option<FdSync>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
         self.ctx.ctx.with_current(|| {
             handle_explicit_sync(&self.ctx, self.gl.rb._img.as_ref(), &acquire_sync);
@@ -88,13 +88,13 @@ impl Framebuffer {
                 }
                 (gles.glBlendFunc)(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
-            let fd = run_ops(self, ops);
-            if fd.is_none() {
+            let sync = run_ops(self, ops);
+            if sync.is_none() {
                 unsafe {
                     (gles.glFinish)();
                 }
             }
-            Ok(fd)
+            Ok(sync)
         })
     }
 }
@@ -115,7 +115,7 @@ impl GfxFramebuffer for Framebuffer {
         _region: &Region,
         _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         _blend_cd: &Rc<ColorDescription>,
-    ) -> Result<Option<SyncFile>, GfxError> {
+    ) -> Result<Option<FdSync>, GfxError> {
         (*self)
             .render(acquire_sync, ops, clear)
             .map_err(|e| e.into())

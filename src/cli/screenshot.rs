@@ -2,6 +2,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferUsage, MappedBuffer},
         cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
+        eventfd_cache::EventfdCache,
         format::XRGB8888,
         gfx_apis,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
@@ -109,7 +110,8 @@ async fn run(screenshot: Rc<Screenshot>) {
         }
     };
     let format = screenshot.args.format;
-    let data = match buf_to_bytes(drm_dev.as_ref(), &buf, format) {
+    let eventfd_cache = EventfdCache::new(&tc.ring, &tc.eng);
+    let data = match buf_to_bytes(&eventfd_cache, drm_dev.as_ref(), &buf, format) {
         Ok(d) => d,
         Err(e) => fatal!("{}", ErrorFmt(e)),
     };
@@ -159,6 +161,7 @@ fn map(
 }
 
 pub fn buf_to_bytes(
+    eventfd_cache: &Rc<EventfdCache>,
     drm_dev: Option<&Rc<OwnedFd>>,
     buf: &DmaBuf,
     format: ScreenshotFormat,
@@ -174,7 +177,7 @@ pub fn buf_to_bytes(
                     .map_err(ScreenshotError::CreateGbmDevice)
             });
             let vulkan = Box::new(move || {
-                gfx_apis::create_vulkan_allocator(&drm()?)
+                gfx_apis::create_vulkan_allocator(&drm()?, eventfd_cache)
                     .map_err(ScreenshotError::CreateVulkanAllocator)
             });
             allocators.push(vulkan);

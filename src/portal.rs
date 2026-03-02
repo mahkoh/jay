@@ -15,6 +15,7 @@ use {
             BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
             Dbus, DbusSocket,
         },
+        eventfd_cache::EventfdCache,
         forker::ForkerError,
         io_uring::IoUring,
         logger::Logger,
@@ -242,9 +243,11 @@ async fn run_async(
             None
         }
     };
+    let eventfd_cache = EventfdCache::new(&ring, &eng);
     let state = Rc::new(PortalState {
         xrd,
         ring,
+        eventfd_cache,
         eng,
         wheel,
         displays: Default::default(),
@@ -324,6 +327,7 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd)
 struct PortalState {
     xrd: String,
     ring: Rc<IoUring>,
+    eventfd_cache: Rc<EventfdCache>,
     eng: Rc<AsyncEngine>,
     wheel: Rc<Wheel>,
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,

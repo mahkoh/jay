@@ -3,8 +3,8 @@ use {
         client::{Client, ClientError},
         cmm::cmm_description::ColorDescription,
         gfx_api::{
-            AcquireSync, AsyncShmGfxTextureCallback, BufferResv, GfxError, GfxFramebuffer,
-            GfxTexture, ReleaseSync, STAGING_DOWNLOAD, SyncFile,
+            AcquireSync, AsyncShmGfxTextureCallback, BufferResv, FdSync, GfxError, GfxFramebuffer,
+            GfxTexture, ReleaseSync, STAGING_DOWNLOAD,
         },
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -78,7 +78,7 @@ impl ExtImageCopyCaptureFrameV1 {
             Rc<dyn GfxFramebuffer>,
             AcquireSync,
             ReleaseSync,
-        ) -> Result<Option<SyncFile>, GfxError>,
+        ) -> Result<Option<FdSync>, GfxError>,
     ) -> Result<(), FrameFailureReason> {
         let Some(ctx) = self.client.state.render_ctx.get() else {
             return Err(FrameFailureReason::BufferConstraints);
@@ -183,7 +183,7 @@ impl ExtImageCopyCaptureFrameV1 {
             Rc<dyn GfxFramebuffer>,
             AcquireSync,
             ReleaseSync,
-        ) -> Result<Option<SyncFile>, GfxError>,
+        ) -> Result<Option<FdSync>, GfxError>,
     ) {
         match self.try_copy(on, size, f) {
             Ok(()) => self.session.status.set(FrameStatus::Captured),
