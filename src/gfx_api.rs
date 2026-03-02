@@ -14,7 +14,7 @@ use {
         theme::Color,
         tree::{Node, OutputNode, Transform},
         utils::clonecell::UnsafeCellCloneSafe,
-        video::{Modifier, dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx},
+        video::{Modifier, dmabuf::DmaBuf, drm::syncobj::SyncobjCtx},
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
@@ -846,7 +846,7 @@ pub trait GfxContext: Debug {
         format: &'static Format,
     ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
 
-    fn sync_obj_ctx(&self) -> Option<&Rc<SyncObjCtx>>;
+    fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>>;
 
     fn create_staging_buffer(
         &self,

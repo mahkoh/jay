@@ -1,6 +1,6 @@
-pub mod sync_obj;
+pub mod syncobj;
 mod sys;
-pub mod wait_for_sync_obj;
+pub mod wait_for_syncobj;
 pub use consts::*;
 
 use {
@@ -117,27 +117,27 @@ pub enum DrmError {
     Version(#[source] OsError),
     #[error("Format of IN_FORMATS property is invalid")]
     InFormats,
-    #[error("Could not import a sync obj")]
-    ImportSyncObj(#[source] OsError),
-    #[error("Could not create a sync obj")]
-    CreateSyncObj(#[source] OsError),
-    #[error("Could not export a sync obj")]
-    ExportSyncObj(#[source] OsError),
-    #[error("Could not register an eventfd with a sync obj")]
+    #[error("Could not import a syncobj")]
+    ImportSyncobj(#[source] OsError),
+    #[error("Could not create a syncobj")]
+    CreateSyncobj(#[source] OsError),
+    #[error("Could not export a syncobj")]
+    ExportSyncobj(#[source] OsError),
+    #[error("Could not register an eventfd with a syncobj")]
     RegisterEventfd(#[source] OsError),
     #[error("Could not create an eventfd")]
     EventFd(#[source] OsError),
     #[error("Could not read from an eventfd")]
     ReadEventFd(#[source] IoUringError),
-    #[error("No sync obj context available")]
-    NoSyncObjContextAvailable,
-    #[error("Could not signal the sync obj")]
-    SignalSyncObj(#[source] OsError),
-    #[error("Could not transfer a sync obj point")]
+    #[error("No syncobj context available")]
+    NoSyncobjContextAvailable,
+    #[error("Could not signal the syncobj")]
+    SignalSyncobj(#[source] OsError),
+    #[error("Could not transfer a syncobj point")]
     TransferPoint(#[source] OsError),
     #[error("Could not merge two sync files")]
     Merge(#[source] OsError),
-    #[error("Could not import a sync file into a sync obj")]
+    #[error("Could not import a sync file into a syncobj")]
     ImportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),

@@ -10,7 +10,7 @@ use {
         utils::bitflags::BitflagsExt,
         video::{
             dmabuf::DmaBufIds,
-            drm::{Drm, sync_obj::SyncObjCtx},
+            drm::{Drm, syncobj::SyncobjCtx},
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
         vulkan_core::{
@@ -60,7 +60,7 @@ pub struct VulkanDevice {
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
     pub(super) gbm: Rc<GbmDevice>,
-    pub(super) sync_ctx: Rc<SyncObjCtx>,
+    pub(super) sync_ctx: Rc<SyncobjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Arc<Device>,
     pub(super) external_memory_fd: external_memory_fd::Device,
@@ -553,7 +553,7 @@ impl VulkanInstance {
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
-            sync_ctx: Rc::new(SyncObjCtx::new(gbm.drm.fd())),
+            sync_ctx: Rc::new(SyncobjCtx::new(gbm.drm.fd())),
             gbm: Rc::new(gbm),
             instance: self.clone(),
             device: Arc::new(device),

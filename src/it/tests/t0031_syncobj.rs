@@ -3,7 +3,7 @@ use {
         it::{test_error::TestResult, testrun::TestRun},
         theme::Color,
         utils::errorfmt::ErrorFmt,
-        video::drm::{DrmError, sync_obj::SyncObjPoint, wait_for_sync_obj::SyncObjWaiter},
+        video::drm::{DrmError, syncobj::SyncobjPoint, wait_for_syncobj::SyncobjWaiter},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -14,7 +14,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let _ds = run.create_default_setup2(true).await?;
 
     struct Waiter(Cell<bool>);
-    impl SyncObjWaiter for Waiter {
+    impl SyncobjWaiter for Waiter {
         fn done(self: Rc<Self>, result: Result<(), DrmError>) {
             result.unwrap();
             self.0.set(true);
@@ -23,13 +23,13 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let waiter = Rc::new(Waiter(Cell::new(false)));
 
     let eng = run.state.render_ctx.get().unwrap();
-    let Some(ctx) = eng.sync_obj_ctx() else {
+    let Some(ctx) = eng.syncobj_ctx() else {
         log::warn!(
             "Cannot test explicit sync on this system: render context does not support sync objects"
         );
         return Ok(());
     };
-    let syncobj = match ctx.create_sync_obj() {
+    let syncobj = match ctx.create_syncobj() {
         Ok(s) => Rc::new(s),
         Err(e) => {
             log::warn!("Cannot test explicit sync on this system: {}", ErrorFmt(e));
@@ -38,8 +38,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     };
     let _wait_handle =
         run.state
-            .wait_for_sync_obj
-            .wait(&syncobj, SyncObjPoint(2), true, waiter.clone())?;
+            .wait_for_syncobj
+            .wait(&syncobj, SyncobjPoint(2), true, waiter.clone())?;
 
     let client = run.create_client().await?;
 
@@ -62,7 +62,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
     tassert_eq!(waiter.0.get(), false);
 
-    ctx.signal(&syncobj, SyncObjPoint(1))?;
+    ctx.signal(&syncobj, SyncobjPoint(1))?;
 
     client.sync().await;
     tassert_eq!(waiter.0.get(), true);

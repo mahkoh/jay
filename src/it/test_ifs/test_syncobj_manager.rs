@@ -9,7 +9,7 @@ use {
             test_object::TestObject,
             test_transport::TestTransport,
         },
-        video::drm::sync_obj::SyncObj,
+        video::drm::syncobj::Syncobj,
         wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -52,7 +52,7 @@ impl TestSyncobjManager {
         Ok(obj)
     }
 
-    pub fn import_timeline(&self, syncobj: &SyncObj) -> TestResult<Rc<TestSyncobjTimeline>> {
+    pub fn import_timeline(&self, syncobj: &Syncobj) -> TestResult<Rc<TestSyncobjTimeline>> {
         let obj = Rc::new(TestSyncobjTimeline {
             id: self.tran.id(),
             tran: self.tran.clone(),

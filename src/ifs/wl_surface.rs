@@ -90,7 +90,7 @@ use {
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
-            drm::sync_obj::{SyncObj, SyncObjPoint},
+            drm::syncobj::{Syncobj, SyncobjPoint},
         },
         wire::{
             WlOutputId, WlSurfaceId, WpColorManagementSurfaceFeedbackV1Id, ZwpIdleInhibitorV1Id,
@@ -217,7 +217,7 @@ pub struct SurfaceBuffer {
     pub buffer: AttachedBuffer,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub release_sync: ReleaseSync,
-    release: Option<SyncObjRelease>,
+    release: Option<SyncobjRelease>,
     _surface_release: SmallVec<[SurfaceRelease; 1]>,
 }
 
@@ -303,7 +303,7 @@ pub struct WlSurface {
     pub has_content_type_manager: Cell<bool>,
     pub content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
-    sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
+    syncobj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,
     commit_timeline: CommitTimeline,
     alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
@@ -452,8 +452,8 @@ struct PendingState {
     xdg_surface: Option<Box<PendingXdgSurfaceData>>,
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
-    acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
-    release_point: Option<SyncObjRelease>,
+    acquire_point: Option<(Rc<Syncobj>, SyncobjPoint)>,
+    release_point: Option<SyncobjRelease>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
     fifo_barrier_set: bool,
@@ -652,7 +652,7 @@ impl WlSurface {
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
             drm_feedback: Default::default(),
-            sync_obj_surface: Default::default(),
+            syncobj_surface: Default::default(),
             destroyed: Cell::new(false),
             commit_timeline: client.commit_timelines.create_timeline(),
             alpha_modifier: Default::default(),
@@ -1541,7 +1541,7 @@ impl WlSurface {
     }
 
     fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
-        pending.explicit_sync = self.sync_obj_surface.is_some();
+        pending.explicit_sync = self.syncobj_surface.is_some();
         if !pending.explicit_sync {
             return Ok(());
         }
@@ -2255,47 +2255,47 @@ impl Drop for FrameRequest {
     }
 }
 
-pub struct SyncObjRelease {
+pub struct SyncobjRelease {
     state: Rc<State>,
     committed: bool,
-    syncobj: Option<Rc<SyncObj>>,
-    point: SyncObjPoint,
+    syncobj: Option<Rc<Syncobj>>,
+    point: SyncobjPoint,
 }
 
-impl SyncObjRelease {
+impl SyncobjRelease {
     fn signal(&mut self, sync_files: Option<&SmallVec<[(BufferResvUser, SyncFile); 1]>>) {
         if !self.committed {
             return;
         }
-        let Some(sync_obj) = self.syncobj.take() else {
+        let Some(syncobj) = self.syncobj.take() else {
             return;
         };
         let Some(ctx) = self.state.render_ctx.get() else {
             log::error!("Cannot signal release point because there is no render context");
             return;
         };
-        let Some(ctx) = ctx.sync_obj_ctx() else {
+        let Some(ctx) = ctx.syncobj_ctx() else {
             log::error!("Cannot signal release point because there is no syncobj context");
             return;
         };
         if let Some(sync_files) = sync_files
             && sync_files.is_not_empty()
         {
-            let res = ctx.import_sync_files(&sync_obj, self.point, sync_files.iter().map(|f| &f.1));
+            let res = ctx.import_sync_files(&syncobj, self.point, sync_files.iter().map(|f| &f.1));
             match res {
                 Ok(_) => return,
                 Err(e) => {
-                    log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
+                    log::error!("Could not import sync files into syncobj: {}", ErrorFmt(e));
                 }
             }
         }
-        if let Err(e) = ctx.signal(&sync_obj, self.point) {
+        if let Err(e) = ctx.signal(&syncobj, self.point) {
             log::error!("Could not signal release point: {}", ErrorFmt(e));
         }
     }
 }
 
-impl Drop for SyncObjRelease {
+impl Drop for SyncobjRelease {
     fn drop(&mut self) {
         self.signal(None);
     }

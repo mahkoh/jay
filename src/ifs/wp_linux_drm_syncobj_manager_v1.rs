@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::State,
-        video::drm::sync_obj::SyncObj,
+        video::drm::syncobj::Syncobj,
         wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
     },
     std::rc::Rc,
@@ -97,11 +97,11 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
     }
 
     fn import_timeline(&self, req: ImportTimeline, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let sync_obj = Rc::new(SyncObj::new(&req.fd));
+        let syncobj = Rc::new(Syncobj::new(&req.fd));
         let sync = Rc::new(WpLinuxDrmSyncobjTimelineV1::new(
             req.id,
             &self.client,
-            &sync_obj,
+            &syncobj,
             self.version,
         ));
         track!(self.client, sync);

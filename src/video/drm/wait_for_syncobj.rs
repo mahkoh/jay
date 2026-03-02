@@ -8,19 +8,19 @@ use {
         },
         video::drm::{
             DrmError,
-            sync_obj::{SyncObj, SyncObjCtx, SyncObjPoint},
+            syncobj::{Syncobj, SyncobjCtx, SyncobjPoint},
         },
     },
     std::{cell::Cell, rc::Rc},
     uapi::{OwnedFd, c},
 };
 
-pub struct WaitForSyncObj {
+pub struct WaitForSyncobj {
     inner: Rc<Inner>,
     eng: Rc<AsyncEngine>,
 }
 
-pub trait SyncObjWaiter {
+pub trait SyncobjWaiter {
     fn done(self: Rc<Self>, result: Result<(), DrmError>);
 }
 
@@ -28,13 +28,13 @@ pub trait SyncObjWaiter {
 struct JobId(u64);
 
 #[must_use]
-pub struct WaitForSyncObjHandle {
+pub struct WaitForSyncobjHandle {
     inner: Rc<Inner>,
     id: JobId,
 }
 
 struct Inner {
-    ctx: CloneCell<Option<Rc<SyncObjCtx>>>,
+    ctx: CloneCell<Option<Rc<SyncobjCtx>>>,
     next_id: NumCell<u64>,
     ring: Rc<IoUring>,
     busy: CopyHashMap<JobId, BusyWaiter>,
@@ -44,7 +44,7 @@ struct Inner {
 struct BusyWaiter {
     waiter: Waiter,
     job: Job,
-    sow: Rc<dyn SyncObjWaiter>,
+    sow: Rc<dyn SyncobjWaiter>,
 }
 
 struct Waiter {
@@ -55,8 +55,8 @@ struct Waiter {
 #[derive(Clone)]
 struct Job {
     id: JobId,
-    sync_obj: Rc<SyncObj>,
-    point: SyncObjPoint,
+    syncobj: Rc<Syncobj>,
+    point: SyncobjPoint,
     signaled: bool,
 }
 
@@ -67,13 +67,13 @@ struct WaiterInner {
     trigger: AsyncEvent,
 }
 
-impl Drop for WaitForSyncObjHandle {
+impl Drop for WaitForSyncobjHandle {
     fn drop(&mut self) {
         let _ = self.inner.busy.remove(&self.id);
     }
 }
 
-impl WaitForSyncObj {
+impl WaitForSyncobj {
     pub fn new(ring: &Rc<IoUring>, eng: &Rc<AsyncEngine>) -> Self {
         Self {
             inner: Rc::new(Inner {
@@ -93,13 +93,13 @@ impl WaitForSyncObj {
         self.inner.idle.take();
     }
 
-    pub fn set_ctx(&self, ctx: Option<Rc<SyncObjCtx>>) {
+    pub fn set_ctx(&self, ctx: Option<Rc<SyncobjCtx>>) {
         self.inner.ctx.set(ctx);
         let busy_waiters: Vec<_> = self.inner.busy.lock().drain_values().collect();
         for waiter in busy_waiters {
             let res = self.submit_job(
                 waiter.job.id,
-                &waiter.job.sync_obj,
+                &waiter.job.syncobj,
                 waiter.job.point,
                 waiter.job.signaled,
                 waiter.sow.clone(),
@@ -112,14 +112,14 @@ impl WaitForSyncObj {
 
     pub fn wait(
         &self,
-        sync_obj: &Rc<SyncObj>,
-        point: SyncObjPoint,
+        syncobj: &Rc<Syncobj>,
+        point: SyncobjPoint,
         signaled: bool,
-        sow: Rc<dyn SyncObjWaiter>,
-    ) -> Result<WaitForSyncObjHandle, DrmError> {
+        sow: Rc<dyn SyncobjWaiter>,
+    ) -> Result<WaitForSyncobjHandle, DrmError> {
         let job_id = JobId(self.inner.next_id.fetch_add(1));
-        self.submit_job(job_id, sync_obj, point, signaled, sow)?;
-        Ok(WaitForSyncObjHandle {
+        self.submit_job(job_id, syncobj, point, signaled, sow)?;
+        Ok(WaitForSyncobjHandle {
             inner: self.inner.clone(),
             id: job_id,
         })
@@ -128,10 +128,10 @@ impl WaitForSyncObj {
     fn submit_job(
         &self,
         job_id: JobId,
-        sync_obj: &Rc<SyncObj>,
-        point: SyncObjPoint,
+        syncobj: &Rc<Syncobj>,
+        point: SyncobjPoint,
         signaled: bool,
-        sow: Rc<dyn SyncObjWaiter>,
+        sow: Rc<dyn SyncobjWaiter>,
     ) -> Result<(), DrmError> {
         let waiter = match self.inner.idle.pop() {
             Some(w) => w,
@@ -146,14 +146,14 @@ impl WaitForSyncObj {
                     trigger: Default::default(),
                 });
                 Waiter {
-                    _task: self.eng.spawn("wait for sync obj", waiter.clone().run()),
+                    _task: self.eng.spawn("wait for syncobj", waiter.clone().run()),
                     inner: waiter,
                 }
             }
         };
         let job = Job {
             id: job_id,
-            sync_obj: sync_obj.clone(),
+            syncobj: syncobj.clone(),
             point,
             signaled,
         };
@@ -185,10 +185,10 @@ impl WaiterInner {
 
     async fn wait(&self, buf: &mut Buf, job: &Job) -> Result<(), DrmError> {
         let ctx = match self.inner.ctx.get() {
-            None => return Err(DrmError::NoSyncObjContextAvailable),
+            None => return Err(DrmError::NoSyncobjContextAvailable),
             Some(c) => c,
         };
-        ctx.wait_for_point(&self.eventfd, &job.sync_obj, job.point, job.signaled)?;
+        ctx.wait_for_point(&self.eventfd, &job.syncobj, job.point, job.signaled)?;
         self.inner
             .ring
             .read(&self.eventfd, buf.clone())
