@@ -3,15 +3,15 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_color_representation_surface_v1::{
-            AM_PREMULTIPLIED_ELECTRICAL, AM_PREMULTIPLIED_OPTICAL, AM_STRAIGHT,
-            WpColorRepresentationSurfaceV1, WpColorRepresentationSurfaceV1Error,
+            AM_PREMULTIPLIED_ELECTRICAL, AM_PREMULTIPLIED_OPTICAL, AM_STRAIGHT, COEF_IDENTITY,
+            RANGE_FULL, WpColorRepresentationSurfaceV1, WpColorRepresentationSurfaceV1Error,
         },
         leaks::Tracker,
         object::{Object, Version},
         wire::{
             WpColorRepresentationManagerV1Id,
             wp_color_representation_manager_v1::{
-                Destroy, Done, GetSurface, SupportedAlphaMode,
+                Destroy, Done, GetSurface, SupportedAlphaMode, SupportedCoefficientsAndRanges,
                 WpColorRepresentationManagerV1RequestHandler,
             },
         },
@@ -70,6 +70,7 @@ impl WpColorRepresentationManagerV1 {
             self.send_supported_alpha_mode(AM_PREMULTIPLIED_OPTICAL);
             self.send_supported_alpha_mode(AM_STRAIGHT);
         }
+        self.send_supported_coefficients_and_ranges(COEF_IDENTITY, RANGE_FULL);
         self.send_done();
     }
 
@@ -77,6 +78,14 @@ impl WpColorRepresentationManagerV1 {
         self.client.event(SupportedAlphaMode {
             self_id: self.id,
             alpha_mode,
+        });
+    }
+
+    fn send_supported_coefficients_and_ranges(&self, coefficients: u32, range: u32) {
+        self.client.event(SupportedCoefficientsAndRanges {
+            self_id: self.id,
+            coefficients,
+            range,
         });
     }
 
