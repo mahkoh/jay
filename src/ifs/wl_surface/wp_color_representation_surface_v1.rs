@@ -30,6 +30,9 @@ pub const AM_PREMULTIPLIED_ELECTRICAL: u32 = 0;
 pub const AM_PREMULTIPLIED_OPTICAL: u32 = 1;
 pub const AM_STRAIGHT: u32 = 2;
 
+pub const COEF_IDENTITY: u32 = 1;
+pub const RANGE_FULL: u32 = 1;
+
 impl WpColorRepresentationSurfaceV1 {
     pub fn install(self: &Rc<Self>) -> Result<(), WpColorRepresentationSurfaceV1Error> {
         if self.surface.color_representation_surface.is_some() {
@@ -71,12 +74,15 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
         req: SetCoefficientsAndRange,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        Err(
-            WpColorRepresentationSurfaceV1Error::UnsupportedCoefficientsAndRange(
-                req.coefficients,
-                req.range,
-            ),
-        )
+        if (req.coefficients, req.range) != (COEF_IDENTITY, RANGE_FULL) {
+            return Err(
+                WpColorRepresentationSurfaceV1Error::UnsupportedCoefficientsAndRange(
+                    req.coefficients,
+                    req.range,
+                ),
+            );
+        }
+        Ok(())
     }
 
     fn set_chroma_location(
