@@ -79,10 +79,6 @@ impl XwaylandShellV1RequestHandler for XwaylandShellV1 {
 global_base!(XwaylandShellV1Global, XwaylandShellV1, XwaylandShellV1Error);
 
 impl Global for XwaylandShellV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

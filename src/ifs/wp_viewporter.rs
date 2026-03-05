@@ -41,10 +41,6 @@ impl WpViewporterGlobal {
 global_base!(WpViewporterGlobal, WpViewporter, WpViewporterError);
 
 impl Global for WpViewporterGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

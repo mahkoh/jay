@@ -48,10 +48,6 @@ impl WpFifoManagerV1Global {
 global_base!(WpFifoManagerV1Global, WpFifoManagerV1, WpFifoManagerV1Error);
 
 impl Global for WpFifoManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

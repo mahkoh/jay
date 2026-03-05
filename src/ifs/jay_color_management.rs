@@ -49,8 +49,7 @@ impl JayColorManagementRequestHandler for JayColorManagement {
     fn set_enabled(&self, req: SetEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client
             .state
-            .color_management_enabled
-            .set(req.enabled != 0);
+            .set_color_management_enabled(req.enabled != 0);
         Ok(())
     }
 }

@@ -42,10 +42,6 @@ global_base!(WlFixesGlobal, WlFixes, WlFixesError);
 simple_add_global!(WlFixesGlobal);
 
 impl Global for WlFixesGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

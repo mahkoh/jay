@@ -45,10 +45,6 @@ impl WpPointerWarpV1Global {
 global_base!(WpPointerWarpV1Global, WpPointerWarpV1, WpPointerWarpV1Error);
 
 impl Global for WpPointerWarpV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

@@ -70,10 +70,6 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
 global_base!(WlSubcompositorGlobal, WlSubcompositor, WlSubcompositorError);
 
 impl Global for WlSubcompositorGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

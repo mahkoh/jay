@@ -47,10 +47,6 @@ global_base!(
 simple_add_global!(ZwlrGammaControlManagerV1Global);
 
 impl Global for ZwlrGammaControlManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

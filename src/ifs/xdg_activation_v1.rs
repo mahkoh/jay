@@ -44,10 +44,6 @@ global_base!(XdgActivationV1Global, XdgActivationV1, XdgActivationV1Error);
 simple_add_global!(XdgActivationV1Global);
 
 impl Global for XdgActivationV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

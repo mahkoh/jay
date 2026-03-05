@@ -80,6 +80,7 @@ use {
             numcell::NumCell,
         },
     },
+    arrayvec::ArrayVec,
     linearize::{Linearize, StaticMap},
     std::{
         error::Error,
@@ -135,10 +136,10 @@ pub trait GlobalBase {
         version: Version,
     ) -> Result<(), GlobalsError>;
     fn interface(&self) -> Interface;
+    fn singleton(&self) -> Option<Singleton>;
 }
 
 pub trait Global: GlobalBase {
-    fn singleton(&self) -> bool;
     fn version(&self) -> u32;
     fn required_caps(&self) -> ClientCaps {
         ClientCaps::none()
@@ -149,6 +150,12 @@ pub trait Global: GlobalBase {
     fn exposed(&self, state: &State) -> bool {
         let _ = state;
         true
+    }
+    fn permitted(&self, caps: ClientCaps, xwayland: bool) -> bool {
+        caps.contains(self.required_caps()) && (xwayland || !self.xwayland_only())
+    }
+    fn not_permitted(&self, caps: ClientCaps, xwayland: bool) -> bool {
+        !self.permitted(caps, xwayland)
     }
 }
 
@@ -166,6 +173,15 @@ macro_rules! singletons {
                     globals.add_global_no_broadcast(&Rc::new(#{concat_idents!($name, Global)}::new(name)));
                 }
                 globals.singletons[Singleton::$name] = name;
+            )*
+        }
+
+        #[expect(non_upper_case_globals)]
+        pub mod interface_singletons {
+            pub use crate::wire::interface_singletons::*;
+
+            $(
+                pub const $name: Option<crate::globals::Singleton> = Some(crate::globals::Singleton::$name);
             )*
         }
     };
@@ -239,7 +255,7 @@ pub struct Globals {
     removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
-    pub singletons: StaticMap<Singleton, GlobalName>,
+    singletons: StaticMap<Singleton, GlobalName>,
 }
 
 impl Globals {
@@ -281,7 +297,7 @@ impl Globals {
     fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
         self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
-            r.send_global(&global)
+            r.handle_global(&global)
         });
     }
 
@@ -292,9 +308,7 @@ impl Globals {
         allow_xwayland_only: bool,
     ) -> Result<Rc<dyn Global>, GlobalsError> {
         let global = self.take(name, false)?;
-        if client_caps.not_contains(global.required_caps())
-            || (global.xwayland_only() && !allow_xwayland_only)
-        {
+        if global.not_permitted(client_caps, allow_xwayland_only) {
             return Err(GlobalsError::GlobalDoesNotExist(name));
         }
         Ok(global)
@@ -312,7 +326,7 @@ impl Globals {
         assert_eq!(global.interface().0, replacement.interface().0);
         self.removed.set(global.name(), replacement);
         self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
-            r.send_global_remove(global.name())
+            r.handle_global_removed(&**global)
         });
         Ok(())
     }
@@ -328,12 +342,11 @@ impl Globals {
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
-                    if global.singleton() == $singleton {
+                    if global.singleton().is_some() == $singleton {
                         if global.exposed(&registry.client.state)
-                            && caps.contains(global.required_caps())
-                            && (xwayland || !global.xwayland_only())
+                            && global.permitted(caps, xwayland)
                         {
-                            registry.send_global(global);
+                            registry.handle_global(global);
                         }
                     }
                 }
@@ -390,6 +403,29 @@ impl Globals {
     pub fn add_global_no_broadcast<T: WaylandGlobal>(&self, global: &Rc<T>) {
         global.clone().add(self);
         self.insert_no_broadcast(global.clone());
+    }
+
+    pub fn expose_new_singletons(&self, state: &State) {
+        let mut singletons = ArrayVec::<_, { Singleton::LENGTH }>::new();
+        for name in self.singletons.values() {
+            if let Some(global) = self.registry.get(name)
+                && global.exposed(state)
+            {
+                singletons.push(global);
+            }
+        }
+        for client in state.clients.clients.borrow().values() {
+            let client = &client.data;
+            let caps = client.effective_caps.get();
+            let xwayland = client.is_xwayland;
+            for global in &singletons {
+                if global.permitted(caps, xwayland) {
+                    for registry in client.objects.registries.lock().values() {
+                        registry.handle_global(global);
+                    }
+                }
+            }
+        }
     }
 }
 

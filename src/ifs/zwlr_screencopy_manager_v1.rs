@@ -51,10 +51,6 @@ global_base!(
 simple_add_global!(ZwlrScreencopyManagerV1Global);
 
 impl Global for ZwlrScreencopyManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         3
     }

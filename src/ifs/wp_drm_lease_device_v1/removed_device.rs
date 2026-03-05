@@ -50,10 +50,6 @@ global_base!(
 simple_add_global!(RemovedWpDrmLeaseDeviceV1Global);
 
 impl Global for RemovedWpDrmLeaseDeviceV1Global {
-    fn singleton(&self) -> bool {
-        false
-    }
-
     fn version(&self) -> u32 {
         1
     }

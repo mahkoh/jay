@@ -47,10 +47,6 @@ global_base!(
 simple_add_global!(WpCursorShapeManagerV1Global);
 
 impl Global for WpCursorShapeManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         2
     }

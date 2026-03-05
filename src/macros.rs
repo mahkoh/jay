@@ -87,6 +87,10 @@ macro_rules! global_base {
             fn interface(&self) -> crate::object::Interface {
                 crate::wire::$ifname
             }
+
+            fn singleton(&self) -> Option<crate::globals::Singleton> {
+                crate::globals::interface_singletons::$ifname
+            }
         }
 
         impl From<$ename> for crate::globals::GlobalError {

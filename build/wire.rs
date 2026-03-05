@@ -299,12 +299,17 @@ fn write_request_handler<W: Write>(
     Ok(())
 }
 
-fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
+fn write_file<W: Write>(
+    f: &mut W,
+    file: &DirEntry,
+    interface_names: &mut Vec<String>,
+) -> Result<()> {
     let file_name = file.file_name();
     let file_name = std::str::from_utf8(file_name.as_bytes())?;
     println!("cargo:rerun-if-changed=wire/{}", file_name);
     let obj_name = file_name.split(".").next().unwrap();
     let camel_obj_name = to_camel(obj_name);
+    interface_names.push(camel_obj_name.clone());
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
     writeln!(f)?;
@@ -355,9 +360,21 @@ pub fn main() -> Result<()> {
         files.push(file?);
     }
     files.sort_by_key(|f| f.file_name());
+    let mut interface_names = vec![];
     for file in files {
-        write_file(&mut f, &file)
+        write_file(&mut f, &file, &mut interface_names)
             .with_context(|| format!("While processing {}", file.path().display()))?;
     }
+    writeln!(f)?;
+    writeln!(f, "#[doc(hidden)]")?;
+    writeln!(f, "#[expect(dead_code)]")?;
+    writeln!(f, "pub mod interface_singletons {{")?;
+    for interface in &interface_names {
+        writeln!(
+            f,
+            "    pub const {interface}: Option<crate::globals::Singleton> = None;"
+        )?;
+    }
+    writeln!(f, "}}")?;
     Ok(())
 }

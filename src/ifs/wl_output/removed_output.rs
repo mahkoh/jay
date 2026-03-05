@@ -38,10 +38,6 @@ impl RemovedOutputGlobal {
 global_base!(RemovedOutputGlobal, WlOutput, RemovedOutputError);
 
 impl Global for RemovedOutputGlobal {
-    fn singleton(&self) -> bool {
-        false
-    }
-
     fn version(&self) -> u32 {
         OUTPUT_VERSION
     }

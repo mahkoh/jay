@@ -1155,11 +1155,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
-        self.state.explicit_sync_enabled.set(enabled);
+        self.state.set_explicit_sync_enabled(enabled);
     }
 
     fn handle_set_color_management_enabled(&self, enabled: bool) {
-        self.state.color_management_enabled.set(enabled);
+        self.state.set_color_management_enabled(enabled);
     }
 
     fn handle_get_socket_path(&self) {
@@ -2366,7 +2366,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_middle_click_paste_enabled(&self, enabled: bool) {
-        self.state.enable_primary_selection.set(enabled);
+        self.state.set_primary_selection_enabled(enabled);
     }
 
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {

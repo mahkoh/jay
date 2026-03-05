@@ -85,10 +85,6 @@ impl WlShmRequestHandler for WlShm {
 global_base!(WlShmGlobal, WlShm, WlShmError);
 
 impl Global for WlShmGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         2
     }

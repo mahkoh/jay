@@ -77,10 +77,6 @@ global_base!(
 simple_add_global!(WpDrmLeaseDeviceV1Global);
 
 impl Global for WpDrmLeaseDeviceV1Global {
-    fn singleton(&self) -> bool {
-        false
-    }
-
     fn version(&self) -> u32 {
         1
     }

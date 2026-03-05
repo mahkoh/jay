@@ -102,10 +102,6 @@ global_base!(
 );
 
 impl Global for ZwlrDataControlManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         2
     }

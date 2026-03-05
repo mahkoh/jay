@@ -736,6 +736,8 @@ impl State {
         for sc in scs {
             sc.do_destroy();
         }
+
+        self.expose_new_singletons();
     }
 
     fn reload_cursors(&self) {
@@ -1666,6 +1668,25 @@ impl State {
         move_ws_to_output(&link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.tree_changed();
+    }
+
+    fn expose_new_singletons(&self) {
+        self.globals.expose_new_singletons(self);
+    }
+
+    pub fn set_color_management_enabled(&self, enabled: bool) {
+        self.color_management_enabled.set(enabled);
+        self.expose_new_singletons();
+    }
+
+    pub fn set_primary_selection_enabled(&self, enabled: bool) {
+        self.enable_primary_selection.set(enabled);
+        self.expose_new_singletons();
+    }
+
+    pub fn set_explicit_sync_enabled(&self, enabled: bool) {
+        self.explicit_sync_enabled.set(enabled);
+        self.expose_new_singletons();
     }
 }
 

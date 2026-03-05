@@ -62,10 +62,6 @@ global_base!(
 simple_add_global!(JayHeadManagerV1Global);
 
 impl Global for JayHeadManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

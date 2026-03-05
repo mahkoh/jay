@@ -1599,10 +1599,6 @@ impl CursorUserOwner for WlSeatGlobal {
 global_base!(WlSeatGlobal, WlSeat, WlSeatError);
 
 impl Global for WlSeatGlobal {
-    fn singleton(&self) -> bool {
-        false
-    }
-
     fn version(&self) -> u32 {
         10
     }

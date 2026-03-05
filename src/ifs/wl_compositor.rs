@@ -79,10 +79,6 @@ impl WlCompositorRequestHandler for WlCompositor {
 global_base!(WlCompositorGlobal, WlCompositor, WlCompositorError);
 
 impl Global for WlCompositorGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         7
     }
