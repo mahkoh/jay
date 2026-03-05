@@ -1,12 +1,13 @@
 use {
     crate::{
         client::Client,
-        globals::{Global, GlobalName, GlobalsError},
+        globals::{Global, GlobalName, GlobalsError, Singleton},
         leaks::Tracker,
         object::{Interface, Object, Version},
         wire::{WlRegistryId, wl_registry::*},
     },
-    std::rc::Rc,
+    linearize::StaticMap,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -14,6 +15,7 @@ pub struct WlRegistry {
     id: WlRegistryId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    advertised: StaticMap<Singleton, Cell<bool>>,
 }
 
 impl WlRegistry {
@@ -22,23 +24,34 @@ impl WlRegistry {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            advertised: Default::default(),
         }
     }
 
-    pub fn send_global(self: &Rc<Self>, global: &Rc<dyn Global>) {
+    pub fn handle_global(&self, global: &Rc<dyn Global>) {
+        if let Some(singleton) = global.singleton()
+            && self.advertised[singleton].replace(true)
+        {
+            return;
+        }
         self.client.event(crate::wire::wl_registry::Global {
             self_id: self.id,
             name: global.name().raw(),
             interface: global.interface().name(),
             version: global.version(),
-        })
+        });
     }
 
-    pub fn send_global_remove(self: &Rc<Self>, name: GlobalName) {
+    pub fn handle_global_removed(&self, global: &dyn Global) {
+        if let Some(singleton) = global.singleton()
+            && !self.advertised[singleton].replace(false)
+        {
+            return;
+        }
         self.client.event(GlobalRemove {
             self_id: self.id,
-            name: name.raw(),
-        })
+            name: global.name().raw(),
+        });
     }
 }
 
