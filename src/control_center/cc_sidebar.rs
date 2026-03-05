@@ -17,6 +17,7 @@ enum PaneName {
     Input,
     LookAndFeel,
     Clients,
+    WindowSearch,
 }
 
 impl PaneName {
@@ -31,6 +32,7 @@ impl PaneName {
             PaneName::Input => "Input",
             PaneName::LookAndFeel => "Look and Feel",
             PaneName::Clients => "Clients",
+            PaneName::WindowSearch => "Window Search",
         }
     }
 }
@@ -74,6 +76,9 @@ impl ControlCenterInner {
                                     PaneType::LookAndFeel(self.create_look_and_feel_pane())
                                 }
                                 PaneName::Clients => PaneType::Clients(self.create_clients_pane()),
+                                PaneName::WindowSearch => {
+                                    PaneType::WindowSearch(self.create_window_search_pane())
+                                }
                             };
                             self.open(tree, ty);
                             ui.ctx().request_repaint();

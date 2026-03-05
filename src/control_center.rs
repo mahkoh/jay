@@ -9,6 +9,7 @@ use {
             cc_input::InputPane,
             cc_look_and_feel::LookAndFeelPane,
             cc_outputs::OutputsPane,
+            cc_window::{WindowPane, WindowSearchPane},
             cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{
@@ -18,8 +19,8 @@ use {
         macros::Bitflag,
         state::State,
         utils::{
-            asyncevent::AsyncEvent, copyhashmap::CopyHashMap, numcell::NumCell,
-            static_text::StaticText,
+            asyncevent::AsyncEvent, copyhashmap::CopyHashMap,
+            event_listener::LazyEventSourceListener, numcell::NumCell, static_text::StaticText,
         },
     },
     egui::{
@@ -50,6 +51,7 @@ mod cc_input;
 mod cc_look_and_feel;
 mod cc_outputs;
 mod cc_sidebar;
+mod cc_window;
 mod cc_xwayland;
 
 #[derive(Debug, Error)]
@@ -141,6 +143,8 @@ enum PaneType {
     LookAndFeel(LookAndFeelPane),
     Clients(ClientsPane),
     Client(ClientPane),
+    WindowSearch(WindowSearchPane),
+    Window(WindowPane),
 }
 
 struct CcBehavior<'a> {
@@ -168,6 +172,8 @@ impl Pane {
             PaneType::LookAndFeel(v) => v.title(res),
             PaneType::Clients(v) => v.title(res),
             PaneType::Client(v) => v.title(res),
+            PaneType::WindowSearch(v) => v.title(res),
+            PaneType::Window(v) => v.title(res),
         }
     }
 
@@ -183,6 +189,8 @@ impl Pane {
             PaneType::LookAndFeel(p) => p.show(ui),
             PaneType::Clients(p) => p.show(behavior, ui),
             PaneType::Client(p) => p.show(behavior, ui),
+            PaneType::WindowSearch(p) => p.show(behavior, ui),
+            PaneType::Window(p) => p.show(behavior, ui),
         }
     }
 }
@@ -200,6 +208,8 @@ impl PaneType {
             PaneType::LookAndFeel(_) => CCI_LOOK_AND_FEEL,
             PaneType::Clients(_) => ControlCenterInterest::none(),
             PaneType::Client(_) => ControlCenterInterest::none(),
+            PaneType::WindowSearch(_) => ControlCenterInterest::none(),
+            PaneType::Window(_) => ControlCenterInterest::none(),
         }
     }
 }
@@ -661,5 +671,11 @@ impl DerefMut for GridRow<'_> {
 impl Drop for GridRow<'_> {
     fn drop(&mut self) {
         self.end_row();
+    }
+}
+
+impl LazyEventSourceListener for ControlCenterInner {
+    fn triggered(self: Rc<Self>) {
+        self.window.request_redraw();
     }
 }

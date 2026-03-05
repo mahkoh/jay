@@ -4,16 +4,28 @@ use {
         control_center::{
             CcBehavior, ControlCenterInner, PaneType,
             cc_criterion::{CcCriterion, CritImpl, CritRegex},
+            cc_window::show_window_collapsible,
             grid, icon_label, label, read_only_bool,
         },
         criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
         egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
         state::State,
-        utils::{copyhashmap::CopyHashMap, static_text::StaticText},
+        tree::ToplevelData,
+        utils::{
+            copyhashmap::CopyHashMap, static_text::StaticText,
+            toplevel_identifier::ToplevelIdentifier,
+        },
     },
-    egui::{CollapsingHeader, DragValue, Sense, TextFormat, Ui, Widget, text::LayoutJob},
+    ahash::AHashMap,
+    egui::{
+        CollapsingHeader, DragValue, Sense, TextFormat, Ui, Widget, cache::CacheTrait,
+        text::LayoutJob,
+    },
     linearize::Linearize,
-    std::rc::{Rc, Weak},
+    std::{
+        any::Any,
+        rc::{Rc, Weak},
+    },
 };
 
 pub enum ClientCrit {
@@ -318,7 +330,7 @@ pub fn show_client_collapsible(behavior: &mut CcBehavior, ui: &mut Ui, client: &
         });
 }
 
-pub fn show_client(_behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) {
+pub fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) {
     grid(ui, ("client", client.id), |ui| {
         label(ui, "ID", client.id.to_string());
         label(ui, "PID", client.pid_info.pid.to_string());
@@ -359,4 +371,93 @@ pub fn show_client(_behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client)
             }
         });
     });
+    ui.collapsing("Windows", |ui| {
+        let matcher = ui.memory_mut(|m| {
+            m.caches
+                .cache::<ClientWindowMatchersCache>()
+                .get(behavior.cc, client.id)
+                .clone()
+        });
+        let mut windows: Vec<_> = matcher.windows.lock().keys().copied().collect();
+        windows.sort();
+        for id in windows {
+            let Some(window) = client.state.toplevels.get(&id).and_then(|v| v.upgrade()) else {
+                continue;
+            };
+            show_window_collapsible(behavior, ui, &window);
+        }
+    });
+}
+
+#[derive(Default)]
+struct ClientWindowMatchersCache {
+    generation: u64,
+    matchers: AHashMap<ClientId, CachedWindowMatcher>,
+}
+
+struct CachedWindowMatcher {
+    generation: u64,
+    _matcher: Rc<CritLeafMatcher<ToplevelData>>,
+    matchers: Rc<WindowMatchers>,
+}
+
+struct WindowMatchers {
+    cc: Weak<ControlCenterInner>,
+    windows: CopyHashMap<ToplevelIdentifier, ()>,
+}
+
+impl ClientWindowMatchersCache {
+    fn get(&mut self, cc: &Rc<ControlCenterInner>, id: ClientId) -> &Rc<WindowMatchers> {
+        let res = self.matchers.entry(id).or_insert_with(|| {
+            let state = &cc.state;
+            let node = state.cl_matcher_manager.id(id);
+            let node = state.tl_matcher_manager.client(state, &node);
+            let matchers = Rc::new(WindowMatchers {
+                cc: Rc::downgrade(&cc),
+                windows: Default::default(),
+            });
+            let matchers2 = matchers.clone();
+            let matcher = state.tl_matcher_manager.leaf(&node, move |id| {
+                matchers2.windows.set(id, ());
+                if let Some(cc) = matchers2.cc.upgrade() {
+                    cc.window.request_redraw();
+                }
+                let matchers2 = matchers2.clone();
+                Box::new(move || {
+                    matchers2.windows.remove(&id);
+                    if let Some(cc) = matchers2.cc.upgrade() {
+                        cc.window.request_redraw();
+                    }
+                })
+            });
+            let res = CachedWindowMatcher {
+                generation: 0,
+                _matcher: matcher,
+                matchers,
+            };
+            state.cl_matcher_manager.rematch_all(state);
+            state.tl_matcher_manager.rematch_all(state);
+            res
+        });
+        res.generation = self.generation;
+        &res.matchers
+    }
+}
+
+unsafe impl Sync for ClientWindowMatchersCache {}
+unsafe impl Send for ClientWindowMatchersCache {}
+
+impl CacheTrait for ClientWindowMatchersCache {
+    fn update(&mut self) {
+        self.matchers.retain(|_, m| m.generation == self.generation);
+        self.generation += 1;
+    }
+
+    fn len(&self) -> usize {
+        self.matchers.len()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
