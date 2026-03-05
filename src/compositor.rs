@@ -68,6 +68,7 @@ use {
             clone3::ensure_reaper,
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
+            event_listener::handle_lazy_event_sources,
             fdcloser::FdCloser,
             nice::{did_elevate_scheduler, elevate_scheduler},
             numcell::NumCell,
@@ -377,6 +378,7 @@ fn start_compositor2(
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
+        lazy_event_sources: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -576,6 +578,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "xdg_surface configure events",
             Phase::PostLayout,
             handle_xdg_surface_configure_events(state.clone()),
+        ),
+        eng.spawn(
+            "lazy event sources",
+            handle_lazy_event_sources(state.clone()),
         ),
     ]
 }

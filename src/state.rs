@@ -110,7 +110,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
-            event_listener::{EventListener, EventSource},
+            event_listener::{EventListener, EventSource, LazyEventSources},
             fdcloser::FdCloser,
             hash_map_ext::HashMapExt,
             linkedlist::LinkedList,
@@ -290,6 +290,7 @@ pub struct State {
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
+    pub lazy_event_sources: Rc<LazyEventSources>,
 }
 
 // impl Drop for State {
@@ -1128,6 +1129,7 @@ impl State {
         self.cpu_worker.clear();
         self.wait_for_syncobj.clear();
         self.xdg_surface_configure_events.clear();
+        self.lazy_event_sources.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
