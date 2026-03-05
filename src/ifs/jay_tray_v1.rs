@@ -50,10 +50,6 @@ impl JayTrayV1Global {
 global_base!(JayTrayV1Global, JayTrayV1, JayTrayManagerV1Error);
 
 impl Global for JayTrayV1Global {
-    fn singleton(&self) -> bool {
-        false
-    }
-
     fn version(&self) -> u32 {
         1
     }

@@ -95,10 +95,6 @@ global_base!(
 );
 
 impl Global for WlDataDeviceManagerGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         4
     }

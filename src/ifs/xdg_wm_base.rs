@@ -107,10 +107,6 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
 global_base!(XdgWmBaseGlobal, XdgWmBase, XdgWmBaseError);
 
 impl Global for XdgWmBaseGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         7
     }

@@ -47,10 +47,6 @@ global_base!(
 simple_add_global!(WpContentTypeManagerV1Global);
 
 impl Global for WpContentTypeManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

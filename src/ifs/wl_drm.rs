@@ -56,10 +56,6 @@ impl WlDrmGlobal {
 global_base!(WlDrmGlobal, WlDrm, WlDrmError);
 
 impl Global for WlDrmGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         2
     }

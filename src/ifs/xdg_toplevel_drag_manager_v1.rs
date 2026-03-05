@@ -47,10 +47,6 @@ global_base!(
 simple_add_global!(XdgToplevelDragManagerV1Global);
 
 impl Global for XdgToplevelDragManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

@@ -43,10 +43,6 @@ impl XdgWmDialogV1Global {
 global_base!(XdgWmDialogV1Global, XdgWmDialogV1, XdgWmDialogV1Error);
 
 impl Global for XdgWmDialogV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

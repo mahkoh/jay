@@ -53,10 +53,6 @@ global_base!(
 );
 
 impl Global for OrgKdeKwinServerDecorationManagerGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }

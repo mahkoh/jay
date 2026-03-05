@@ -65,10 +65,6 @@ global_base!(
 );
 
 impl Global for ZwpLinuxDmabufV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         5
     }

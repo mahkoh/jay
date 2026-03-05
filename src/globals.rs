@@ -135,10 +135,10 @@ pub trait GlobalBase {
         version: Version,
     ) -> Result<(), GlobalsError>;
     fn interface(&self) -> Interface;
+    fn singleton(&self) -> Option<Singleton>;
 }
 
 pub trait Global: GlobalBase {
-    fn singleton(&self) -> bool;
     fn version(&self) -> u32;
     fn required_caps(&self) -> ClientCaps {
         ClientCaps::none()
@@ -166,6 +166,15 @@ macro_rules! singletons {
                     globals.add_global_no_broadcast(&Rc::new(#{concat_idents!($name, Global)}::new(name)));
                 }
                 globals.singletons[Singleton::$name] = name;
+            )*
+        }
+
+        #[expect(non_upper_case_globals)]
+        pub mod interface_singletons {
+            pub use crate::wire::interface_singletons::*;
+
+            $(
+                pub const $name: Option<crate::globals::Singleton> = Some(crate::globals::Singleton::$name);
             )*
         }
     };
@@ -328,7 +337,7 @@ impl Globals {
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
-                    if global.singleton() == $singleton {
+                    if global.singleton().is_some() == $singleton {
                         if global.exposed(&registry.client.state)
                             && caps.contains(global.required_caps())
                             && (xwayland || !global.xwayland_only())

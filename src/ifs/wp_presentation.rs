@@ -44,10 +44,6 @@ impl WpPresentationGlobal {
 global_base!(WpPresentationGlobal, WpPresentation, WpPresentationError);
 
 impl Global for WpPresentationGlobal {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         2
     }

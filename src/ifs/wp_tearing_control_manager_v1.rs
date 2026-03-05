@@ -45,10 +45,6 @@ global_base!(
 );
 
 impl Global for WpTearingControlManagerV1Global {
-    fn singleton(&self) -> bool {
-        true
-    }
-
     fn version(&self) -> u32 {
         1
     }
