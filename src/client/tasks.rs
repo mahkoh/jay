@@ -10,7 +10,9 @@ use {
         },
     },
     futures_util::{FutureExt, select},
+    run_on_drop::on_drop,
     std::{collections::VecDeque, mem, rc::Rc, time::Duration},
+    uapi::c,
 };
 
 pub async fn client(data: Rc<Client>) {
@@ -42,6 +44,9 @@ pub async fn client(data: Rc<Client>) {
 }
 
 async fn receive(data: Rc<Client>) {
+    let _shutdown_rd = on_drop(|| {
+        let _ = uapi::shutdown(data.socket.raw(), c::SHUT_RD);
+    });
     let display = data.display().unwrap();
     let recv = async {
         let mut buf = BufFdIn::new(&data.socket, &data.state.ring);
@@ -108,6 +113,10 @@ async fn receive(data: Rc<Client>) {
 }
 
 async fn send(data: Rc<Client>) {
+    let socket = data.socket.clone();
+    let _shutdown_wr = on_drop(|| {
+        let _ = uapi::shutdown(socket.raw(), c::SHUT_WR);
+    });
     let send = async {
         let mut out = BufFdOut::new(&data.socket, &data.state.ring);
         let mut buffers = VecDeque::new();
