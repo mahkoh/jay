@@ -1372,7 +1372,7 @@ impl State {
     }
 
     pub fn find_closest_output(&self, mut x: i32, mut y: i32) -> (Rc<OutputNode>, i32, i32) {
-        let mut optimal_dist = i32::MAX;
+        let mut optimal_dist = i128::MAX;
         let mut optimal_output = None;
         let outputs = self.root.outputs.lock();
         for output in outputs.values() {

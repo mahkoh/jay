@@ -704,3 +704,12 @@ fn new_saturating() {
     let r3 = Rect::new_sized_saturating(i32::MAX - 10, 0, 100, 10);
     assert_eq!(r3.x2(), i32::MAX);
 }
+
+#[test]
+fn dist_squared() {
+    let r1 = Rect::new_sized_saturating(i32::MIN, i32::MIN, 0, 0);
+    assert_eq!(
+        r1.dist_squared(i32::MAX, i32::MAX),
+        (1 << 65) + 2 - (1 << 34),
+    );
+}

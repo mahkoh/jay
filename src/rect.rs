@@ -222,19 +222,27 @@ where
         !self.contains(x, y)
     }
 
-    pub fn dist_squared(&self, x: i32, y: i32) -> i32 {
+    pub fn dist_squared(&self, x: i32, y: i32) -> i128 {
+        let x = x as i64;
+        let y = y as i64;
+        let x1 = self.raw.x1 as i64;
+        let x2 = self.raw.x2 as i64;
+        let y1 = self.raw.y1 as i64;
+        let y2 = self.raw.y2 as i64;
         let mut dx = 0;
-        if self.raw.x1 > x {
-            dx = self.raw.x1 - x;
-        } else if self.raw.x2 < x {
-            dx = x - self.raw.x2;
+        if x1 > x {
+            dx = x1 - x;
+        } else if x2 < x {
+            dx = x - x2;
         }
         let mut dy = 0;
-        if self.raw.y1 > y {
-            dy = self.raw.y1 - y;
-        } else if self.raw.y2 < y {
-            dy = y - self.raw.y2;
+        if y1 > y {
+            dy = y1 - y;
+        } else if y2 < y {
+            dy = y - y2;
         }
+        let dx = dx as i128;
+        let dy = dy as i128;
         dx * dx + dy * dy
     }
 
