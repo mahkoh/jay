@@ -24,7 +24,9 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::{ButtonState, Leds},
+        backend::{
+            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, Leds, TransformMatrix,
+        },
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -1859,6 +1861,54 @@ impl DeviceHandlerData {
             return output.pos.get();
         }
         state.root.extents.get()
+    }
+
+    pub fn set_accel_profile(&self, v: InputDeviceAccelProfile) {
+        self.device.set_accel_profile(v);
+    }
+
+    pub fn set_accel_speed(&self, v: f64) {
+        self.device.set_accel_speed(v);
+    }
+
+    pub fn set_tap_enabled(&self, v: bool) {
+        self.device.set_tap_enabled(v);
+    }
+
+    pub fn set_drag_enabled(&self, v: bool) {
+        self.device.set_drag_enabled(v);
+    }
+
+    pub fn set_drag_lock_enabled(&self, v: bool) {
+        self.device.set_drag_lock_enabled(v);
+    }
+
+    pub fn set_left_handed(&self, v: bool) {
+        self.device.set_left_handed(v);
+    }
+
+    pub fn set_natural_scrolling_enabled(&self, v: bool) {
+        self.device.set_natural_scrolling_enabled(v);
+    }
+
+    pub fn set_px_per_scroll_wheel(&self, v: f64) {
+        self.px_per_scroll_wheel.set(v);
+    }
+
+    pub fn set_transform_matrix(&self, v: TransformMatrix) {
+        self.device.set_transform_matrix(v);
+    }
+
+    pub fn set_calibration_matrix(&self, v: [[f32; 3]; 2]) {
+        self.device.set_calibration_matrix(v);
+    }
+
+    pub fn set_click_method(&self, v: InputDeviceClickMethod) {
+        self.device.set_click_method(v);
+    }
+
+    pub fn set_middle_button_emulation_enabled(&self, v: bool) {
+        self.device.set_middle_button_emulation_enabled(v);
     }
 }
 

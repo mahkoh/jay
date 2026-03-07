@@ -308,7 +308,7 @@ impl JayInputRequestHandler for JayInput {
                 LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
                 _ => return Err(JayInputError::UnknownAccelerationProfile(req.profile)),
             };
-            dev.device.set_accel_profile(profile);
+            dev.set_accel_profile(profile);
             Ok(())
         })
     }
@@ -316,7 +316,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_accel_speed(&self, req: SetAccelSpeed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_accel_speed(req.speed);
+            dev.set_accel_speed(req.speed);
             Ok(())
         })
     }
@@ -324,7 +324,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_tap_enabled(&self, req: SetTapEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_tap_enabled(req.enabled != 0);
+            dev.set_tap_enabled(req.enabled != 0);
             Ok(())
         })
     }
@@ -336,7 +336,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_drag_enabled(req.enabled != 0);
+            dev.set_drag_enabled(req.enabled != 0);
             Ok(())
         })
     }
@@ -348,7 +348,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_drag_lock_enabled(req.enabled != 0);
+            dev.set_drag_lock_enabled(req.enabled != 0);
             Ok(())
         })
     }
@@ -356,7 +356,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_left_handed(&self, req: SetLeftHanded, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_left_handed(req.enabled != 0);
+            dev.set_left_handed(req.enabled != 0);
             Ok(())
         })
     }
@@ -368,7 +368,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device.set_natural_scrolling_enabled(req.enabled != 0);
+            dev.set_natural_scrolling_enabled(req.enabled != 0);
             Ok(())
         })
     }
@@ -380,7 +380,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.px_per_scroll_wheel.set(req.px);
+            dev.set_px_per_scroll_wheel(req.px);
             Ok(())
         })
     }
@@ -392,8 +392,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device
-                .set_transform_matrix([[req.m11, req.m12], [req.m21, req.m22]]);
+            dev.set_transform_matrix([[req.m11, req.m12], [req.m21, req.m22]]);
             Ok(())
         })
     }
@@ -507,8 +506,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device
-                .set_calibration_matrix([[req.m00, req.m01, req.m02], [req.m10, req.m11, req.m12]]);
+            dev.set_calibration_matrix([[req.m00, req.m01, req.m02], [req.m10, req.m11, req.m12]]);
             Ok(())
         })
     }
@@ -522,7 +520,7 @@ impl JayInputRequestHandler for JayInput {
                 LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
                 _ => return Err(JayInputError::UnknownClickMethod(req.method)),
             };
-            dev.device.set_click_method(method);
+            dev.set_click_method(method);
             Ok(())
         })
     }
@@ -534,8 +532,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.device
-                .set_middle_button_emulation_enabled(req.enabled != 0);
+            dev.set_middle_button_emulation_enabled(req.enabled != 0);
             Ok(())
         })
     }

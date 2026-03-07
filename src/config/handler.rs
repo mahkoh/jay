@@ -798,7 +798,7 @@ impl ConfigProxyHandler {
         left_handed: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_left_handed(left_handed);
+        dev.set_left_handed(left_handed);
         Ok(())
     }
 
@@ -813,31 +813,31 @@ impl ConfigProxyHandler {
             ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
             _ => return Err(CphError::UnknownAccelProfile(accel_profile)),
         };
-        dev.device.set_accel_profile(profile);
+        dev.set_accel_profile(profile);
         Ok(())
     }
 
     fn handle_set_accel_speed(&self, device: InputDevice, speed: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_accel_speed(speed);
+        dev.set_accel_speed(speed);
         Ok(())
     }
 
     fn handle_set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.px_per_scroll_wheel.set(px);
+        dev.set_px_per_scroll_wheel(px);
         Ok(())
     }
 
     fn handle_set_tap_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_tap_enabled(enabled);
+        dev.set_tap_enabled(enabled);
         Ok(())
     }
 
     fn handle_set_drag_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_drag_enabled(enabled);
+        dev.set_drag_enabled(enabled);
         Ok(())
     }
 
@@ -847,7 +847,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_natural_scrolling_enabled(enabled);
+        dev.set_natural_scrolling_enabled(enabled);
         Ok(())
     }
 
@@ -857,7 +857,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_drag_lock_enabled(enabled);
+        dev.set_drag_lock_enabled(enabled);
         Ok(())
     }
 
@@ -867,7 +867,7 @@ impl ConfigProxyHandler {
         matrix: [[f64; 2]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_transform_matrix(matrix);
+        dev.set_transform_matrix(matrix);
         Ok(())
     }
 
@@ -877,7 +877,7 @@ impl ConfigProxyHandler {
         matrix: [[f32; 3]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_calibration_matrix(matrix);
+        dev.set_calibration_matrix(matrix);
         Ok(())
     }
 
@@ -893,7 +893,7 @@ impl ConfigProxyHandler {
             CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
             _ => return Err(CphError::UnknownClickMethod(click_method)),
         };
-        dev.device.set_click_method(method);
+        dev.set_click_method(method);
         Ok(())
     }
 
@@ -903,7 +903,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_middle_button_emulation_enabled(enabled);
+        dev.set_middle_button_emulation_enabled(enabled);
         Ok(())
     }
 
