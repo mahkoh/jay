@@ -1,6 +1,7 @@
 mod clients;
 mod color;
 mod color_management;
+mod control_center;
 mod damage_tracking;
 mod duration;
 mod generate;
@@ -97,6 +98,8 @@ pub enum Cmd {
     Clients(ClientsArgs),
     /// Inspect the surface tree.
     Tree(TreeArgs),
+    /// Opens the control center.
+    ControlCenter,
     /// Prints the Jay version and exits.
     Version,
     /// Prints the Jay PID and exits.
@@ -243,5 +246,6 @@ pub fn main() {
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
         Cmd::Reexec(a) => reexec::main(cli.global, a),
+        Cmd::ControlCenter => control_center::main(cli.global),
     }
 }

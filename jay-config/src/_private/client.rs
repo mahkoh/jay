@@ -1046,6 +1046,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }
 
+    pub fn open_control_center(&self) {
+        self.send(&ClientMessage::OpenControlCenter);
+    }
+
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
         self.send(&ClientMessage::SetWorkspaceDisplayOrder { order });
     }

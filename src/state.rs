@@ -16,6 +16,7 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
+        control_center::ControlCenters,
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -297,6 +298,7 @@ pub struct State {
     pub lazy_event_sources: Rc<LazyEventSources>,
     pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
     pub egg_state: EggState,
+    pub control_centers: ControlCenters,
 }
 
 // impl Drop for State {
@@ -1162,6 +1164,7 @@ impl State {
         self.lazy_event_sources.clear();
         self.bo_drop_queue.kill();
         self.egg_state.clear();
+        self.control_centers.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

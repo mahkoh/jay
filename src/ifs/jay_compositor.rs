@@ -11,6 +11,7 @@ use {
             jay_idle::JayIdle,
             jay_input::JayInput,
             jay_log_file::JayLogFile,
+            jay_open_control_center_request::JayOpenControlCenterRequest,
             jay_output::JayOutput,
             jay_pointer::JayPointer,
             jay_randr::JayRandr,
@@ -77,7 +78,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        27
+        28
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -539,6 +540,25 @@ impl JayCompositorRequestHandler for JayCompositor {
             self_id: self.id,
             pid: self.client.state.pid,
         });
+        Ok(())
+    }
+
+    fn open_control_center(
+        &self,
+        req: OpenControlCenter,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayOpenControlCenterRequest {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        if let Err(e) = self.client.state.open_control_center() {
+            obj.send_failed(e);
+        }
         Ok(())
     }
 }

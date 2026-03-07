@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
@@ -393,6 +394,7 @@ fn start_compositor2(
         lazy_event_sources: Default::default(),
         bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
         egg_state: Default::default(),
+        control_centers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -417,6 +419,7 @@ fn start_compositor2(
     let _compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
     ring.run()?;
     state.clear();
+    engine.clear();
     Ok(())
 }
 
@@ -596,6 +599,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "lazy event sources",
             handle_lazy_event_sources(state.clone()),
+        ),
+        eng.spawn(
+            "redraw control centers",
+            redraw_control_centers(state.clone()),
         ),
     ]
 }

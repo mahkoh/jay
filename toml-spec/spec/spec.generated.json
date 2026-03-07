@@ -1928,7 +1928,8 @@
         "disable-simple-im",
         "toggle-simple-im-enabled",
         "reload-simple-im",
-        "enable-unicode-input"
+        "enable-unicode-input",
+        "open-control-center"
       ]
     },
     "SimpleIm": {

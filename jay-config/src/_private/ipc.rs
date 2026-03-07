@@ -845,6 +845,7 @@ pub enum ClientMessage<'a> {
         proportional: Option<Vec<&'a str>>,
         monospace: Option<Vec<&'a str>>,
     },
+    OpenControlCenter,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

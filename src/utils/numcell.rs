@@ -100,6 +100,14 @@ impl<T> NumCell<T> {
     {
         !self.is_zero()
     }
+
+    #[inline(always)]
+    pub fn take(&self) -> T
+    where
+        T: Default,
+    {
+        self.t.replace(T::default())
+    }
 }
 
 impl<T: BitOr<Output = T> + Copy> BitOr<T> for &'_ NumCell<T> {

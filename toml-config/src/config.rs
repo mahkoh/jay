@@ -90,6 +90,7 @@ pub enum SimpleCommand {
     ToggleSimpleImEnabled,
     ReloadSimpleIm,
     EnableUnicodeInput,
+    OpenControlCenter,
 }
 
 #[derive(Debug, Clone)]

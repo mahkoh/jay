@@ -1811,6 +1811,12 @@ impl ConfigProxyHandler {
         self.state.set_egui_fonts(proportional, monospace);
     }
 
+    fn handle_open_control_center(&self) {
+        if let Err(e) = self.state.open_control_center() {
+            log::error!("Could not open control center: {}", ErrorFmt(e));
+        }
+    }
+
     fn handle_set_log_level(&self, level: ConfigLogLevel) {
         self.state.set_log_level(level.into());
     }
@@ -3319,6 +3325,7 @@ impl ConfigProxyHandler {
                 proportional,
                 monospace,
             } => self.handle_set_egui_fonts(proportional, monospace),
+            ClientMessage::OpenControlCenter => self.handle_open_control_center(),
         }
         Ok(())
     }
