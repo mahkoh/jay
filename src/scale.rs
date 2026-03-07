@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 
-const BASE: u32 = 120;
-const BASE64: i64 = BASE as i64;
-const BASEF: f64 = BASE as f64;
+pub const SCALE_BASE: u32 = 120;
+const BASE64: i64 = SCALE_BASE as i64;
+pub const SCALE_BASEF: f64 = SCALE_BASE as f64;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
@@ -16,23 +16,23 @@ impl Default for Scale {
 
 impl Scale {
     pub const fn from_int(f: u32) -> Self {
-        Self(f.saturating_mul(BASE))
+        Self(f.saturating_mul(SCALE_BASE))
     }
 
     pub fn from_f64(f: f64) -> Self {
-        Self((f * BASEF).round() as u32)
+        Self((f * SCALE_BASEF).round() as u32)
     }
 
     pub fn from_f64_as_float(f: f64) -> Self {
-        Self(((f * (BASEF / 15.0)).round() as u32).saturating_mul(15))
+        Self(((f * (SCALE_BASEF / 15.0)).round() as u32).saturating_mul(15))
     }
 
     pub fn to_f64(self) -> f64 {
-        self.0 as f64 / BASEF
+        self.0 as f64 / SCALE_BASEF
     }
 
     pub fn round_up(self) -> u32 {
-        self.0.saturating_add(BASE - 1) / BASE
+        self.0.saturating_add(SCALE_BASE - 1) / SCALE_BASE
     }
 
     pub const fn from_wl(wl: u32) -> Self {
@@ -55,7 +55,7 @@ impl Scale {
 
 impl PartialEq<u32> for Scale {
     fn eq(&self, other: &u32) -> bool {
-        self.0 == other * BASE
+        self.0 == other * SCALE_BASE
     }
 }
 
