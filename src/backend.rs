@@ -268,7 +268,7 @@ pub trait InputDevice {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]
 pub enum InputDeviceCapability {
     Keyboard,
     Pointer,
@@ -308,7 +308,7 @@ impl InputDeviceCapability {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceAccelProfile {
     Flat,
     Adaptive,
@@ -323,7 +323,7 @@ impl StaticText for InputDeviceAccelProfile {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceClickMethod {
     None,
     ButtonAreas,

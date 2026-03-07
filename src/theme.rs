@@ -499,7 +499,7 @@ macro_rules! sizes {
             )*
         }
 
-        #[derive(Copy, Clone, Debug)]
+        #[derive(Copy, Clone, Debug, Linearize)]
         #[expect(non_camel_case_types)]
         pub enum ThemeSized {
             $(

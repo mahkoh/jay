@@ -1,6 +1,8 @@
 use {
     crate::{
-        backend::{self, InputDeviceAccelProfile, InputDeviceClickMethod, InputDeviceId},
+        backend::{
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
+        },
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
         ifs::wl_seat::WlSeatGlobal,
@@ -16,6 +18,8 @@ use {
         utils::errorfmt::ErrorFmt,
         wire::{JayInputId, jay_input::*},
     },
+    arrayvec::ArrayVec,
+    linearize::{Linearize, LinearizeExt},
     std::rc::Rc,
     thiserror::Error,
     uapi::OwnedFd,
@@ -84,11 +88,8 @@ impl JayInput {
     }
 
     fn send_input_device(&self, data: &InputDeviceData) {
-        use backend::InputDeviceCapability::*;
-        let mut caps = vec![];
-        for cap in [
-            Keyboard, Pointer, Touch, TabletTool, TabletPad, Gesture, Switch,
-        ] {
+        let mut caps = ArrayVec::<_, { InputDeviceCapability::LENGTH }>::new();
+        for cap in InputDeviceCapability::variants() {
             if data.data.device.has_capability(cap) {
                 caps.push(cap.to_libinput().raw());
             }
