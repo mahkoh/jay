@@ -145,10 +145,12 @@ use {
         time::Duration,
     },
     thiserror::Error,
-    uapi::OwnedFd,
+    uapi::{OwnedFd, c},
 };
 
 pub struct State {
+    #[expect(dead_code)]
+    pub pid: c::pid_t,
     pub kb_ctx: KbvmContext,
     pub backend: CloneCell<Rc<dyn Backend>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,

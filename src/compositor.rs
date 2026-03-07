@@ -199,7 +199,8 @@ fn start_compositor2(
     test_future: Option<TestFuture>,
     caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
-    log::info!("pid = {}", uapi::getpid());
+    let pid = uapi::getpid();
+    log::info!("pid = {pid}");
     log::info!("version = {VERSION}");
     if did_elevate_scheduler() {
         log::info!("Running with elevated scheduler: SCHED_RR");
@@ -224,6 +225,7 @@ fn start_compositor2(
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
     let state = Rc::new(State {
+        pid,
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
