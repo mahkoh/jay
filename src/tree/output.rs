@@ -1920,14 +1920,24 @@ pub enum VrrMode {
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct VrrSurfaceRequirements {
-    content_type: Option<VrrContentTypeRequirements>,
+    pub content_type: Option<VrrContentTypeRequirements>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct VrrContentTypeRequirements {
-    photo: bool,
-    video: bool,
-    game: bool,
+    pub photo: bool,
+    pub video: bool,
+    pub game: bool,
+}
+
+impl Default for VrrContentTypeRequirements {
+    fn default() -> Self {
+        Self {
+            photo: true,
+            video: true,
+            game: true,
+        }
+    }
 }
 
 impl VrrMode {
@@ -1986,7 +1996,15 @@ pub enum TearingMode {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TearingSurfaceRequirements {
-    tearing_requested: bool,
+    pub tearing_requested: bool,
+}
+
+impl Default for TearingSurfaceRequirements {
+    fn default() -> Self {
+        Self {
+            tearing_requested: true,
+        }
+    }
 }
 
 impl TearingMode {
