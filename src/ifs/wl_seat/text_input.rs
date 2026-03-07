@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::KeyState,
+        control_center::CCI_INPUT,
         ifs::{
             wl_seat::{
                 WlSeatGlobal,
@@ -89,6 +90,7 @@ impl WlSeatGlobal {
                 im.cancel_simple(self);
             }
         }
+        self.state.trigger_cci(CCI_INPUT);
     }
 
     pub fn simple_im_enabled(&self) -> bool {
