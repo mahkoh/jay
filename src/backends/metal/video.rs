@@ -186,6 +186,12 @@ impl BackendDrmDevice for MetalDrmDevice {
         Some(self.id) == self.backend.ctx.get().map(|c| c.dev_id)
     }
 
+    fn direct_scanout_enabled(&self) -> bool {
+        self.direct_scanout_enabled
+            .get()
+            .unwrap_or(self.backend.state.direct_scanout_enabled.get())
+    }
+
     fn create_lease(
         self: Rc<Self>,
         lessee: Rc<dyn BackendDrmLessee>,
@@ -309,10 +315,14 @@ impl BackendDrmDevice for MetalDrmDevice {
                 c.post_commit_margin.set(margin);
                 c.post_commit_margin_decay.reset(margin);
                 if let Some(output) = self.backend.state.root.outputs.get(&c.connector_id) {
-                    output.flip_margin_ns.set(Some(margin));
+                    output.set_flip_margin(margin);
                 }
             }
         }
+    }
+
+    fn flip_margin(&self) -> Option<u64> {
+        Some(self.min_post_commit_margin.get())
     }
 }
 
@@ -2457,7 +2467,7 @@ impl MetalBackend {
         };
         connector.post_commit_margin.set(new_margin);
         if let Some(global) = &global {
-            global.flip_margin_ns.set(Some(new_margin));
+            global.set_flip_margin(new_margin);
         }
     }
 

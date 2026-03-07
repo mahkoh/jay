@@ -198,6 +198,11 @@ impl CursorUserGroup {
         }
     }
 
+    #[expect(dead_code)]
+    pub fn cursor_size(&self) -> u32 {
+        self.size.get()
+    }
+
     fn output_center(&self, output: &Rc<OutputNode>) -> (Fixed, Fixed) {
         let pos = output.global.pos.get();
         let x = Fixed::from_int((pos.x1() + pos.x2()) / 2);

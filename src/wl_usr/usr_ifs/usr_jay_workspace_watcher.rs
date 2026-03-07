@@ -1,11 +1,12 @@
 use {
     crate::{
+        globals::GlobalName,
         object::Version,
         utils::clonecell::CloneCell,
         wire::{JayWorkspaceWatcherId, jay_workspace_watcher::*},
         wl_usr::{UsrCon, usr_ifs::usr_jay_workspace::UsrJayWorkspace, usr_object::UsrObject},
     },
-    std::{convert::Infallible, ops::Deref, rc::Rc},
+    std::{cell::Cell, convert::Infallible, ops::Deref, rc::Rc},
 };
 
 pub struct UsrJayWorkspaceWatcher {
@@ -32,7 +33,7 @@ impl JayWorkspaceWatcherEventHandler for UsrJayWorkspaceWatcher {
             owner: Default::default(),
             version: self.version,
             linear_id: Default::default(),
-            output: Default::default(),
+            output: Cell::new(GlobalName::from_raw(0)),
             name: Default::default(),
         });
         self.con.add_object(jw.clone());

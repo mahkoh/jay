@@ -43,11 +43,13 @@ impl ZwpIdleInhibitorV1 {
     }
 
     pub fn activate(self: &Rc<Self>) {
-        self.client.state.idle.add_inhibitor(self);
+        let state = &self.client.state;
+        state.idle.add_inhibitor(self);
     }
 
     pub fn deactivate(&self) {
-        self.client.state.idle.remove_inhibitor(self);
+        let state = &self.client.state;
+        state.idle.remove_inhibitor(self);
     }
 }
 

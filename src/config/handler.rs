@@ -9,7 +9,6 @@ use {
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
         compositor::{MAX_EXTENTS, WAYLAND_DISPLAY},
-        config::ConfigProxy,
         criteria::{
             CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
             clm::ClmLeafMatcher,
@@ -27,12 +26,11 @@ use {
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tagged_acceptor::TaggedAcceptorError,
-        theme::{Color, ThemeSized},
+        theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
+            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelNode,
+            VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -66,7 +64,7 @@ use {
             },
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
-        logging::LogLevel,
+        logging::LogLevel as ConfigLogLevel,
         theme::{BarPosition, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
@@ -88,7 +86,6 @@ use {
         hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
-        sync::Arc,
         time::Duration,
     },
     thiserror::Error,
@@ -263,17 +260,17 @@ impl ConfigProxyHandler {
 
     fn handle_log_request(
         &self,
-        level: LogLevel,
+        level: ConfigLogLevel,
         msg: &str,
         file: Option<&str>,
         line: Option<u32>,
     ) {
         let level = match level {
-            LogLevel::Error => Level::Error,
-            LogLevel::Warn => Level::Warn,
-            LogLevel::Info => Level::Info,
-            LogLevel::Debug => Level::Debug,
-            LogLevel::Trace => Level::Trace,
+            ConfigLogLevel::Error => Level::Error,
+            ConfigLogLevel::Warn => Level::Warn,
+            ConfigLogLevel::Info => Level::Info,
+            ConfigLogLevel::Debug => Level::Debug,
+            ConfigLogLevel::Trace => Level::Trace,
         };
         let debug = fmt::from_fn(|fmt| {
             if let Some(file) = file {
@@ -424,22 +421,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reload(&self) {
-        log::info!("Reloading config");
-        let config = match ConfigProxy::from_config_dir(&self.state) {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("Cannot reload config: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        if let Some(config) = self.state.config.take() {
-            config.destroy();
-            for seat in self.state.globals.seats.lock().values() {
-                seat.clear_shortcuts();
-            }
-        }
-        config.configure(true);
-        self.state.config.set(Some(Rc::new(config)));
+        self.state.reload_config();
     }
 
     fn handle_get_seat_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
@@ -816,7 +798,7 @@ impl ConfigProxyHandler {
         left_handed: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_left_handed(left_handed);
+        dev.set_left_handed(left_handed);
         Ok(())
     }
 
@@ -831,31 +813,31 @@ impl ConfigProxyHandler {
             ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
             _ => return Err(CphError::UnknownAccelProfile(accel_profile)),
         };
-        dev.device.set_accel_profile(profile);
+        dev.set_accel_profile(profile);
         Ok(())
     }
 
     fn handle_set_accel_speed(&self, device: InputDevice, speed: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_accel_speed(speed);
+        dev.set_accel_speed(speed);
         Ok(())
     }
 
     fn handle_set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.px_per_scroll_wheel.set(px);
+        dev.set_px_per_scroll_wheel(px);
         Ok(())
     }
 
     fn handle_set_tap_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_tap_enabled(enabled);
+        dev.set_tap_enabled(enabled);
         Ok(())
     }
 
     fn handle_set_drag_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_drag_enabled(enabled);
+        dev.set_drag_enabled(enabled);
         Ok(())
     }
 
@@ -865,7 +847,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_natural_scrolling_enabled(enabled);
+        dev.set_natural_scrolling_enabled(enabled);
         Ok(())
     }
 
@@ -875,7 +857,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_drag_lock_enabled(enabled);
+        dev.set_drag_lock_enabled(enabled);
         Ok(())
     }
 
@@ -885,7 +867,7 @@ impl ConfigProxyHandler {
         matrix: [[f64; 2]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_transform_matrix(matrix);
+        dev.set_transform_matrix(matrix);
         Ok(())
     }
 
@@ -895,7 +877,7 @@ impl ConfigProxyHandler {
         matrix: [[f32; 3]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_calibration_matrix(matrix);
+        dev.set_calibration_matrix(matrix);
         Ok(())
     }
 
@@ -911,7 +893,7 @@ impl ConfigProxyHandler {
             CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
             _ => return Err(CphError::UnknownClickMethod(click_method)),
         };
-        dev.device.set_click_method(method);
+        dev.set_click_method(method);
         Ok(())
     }
 
@@ -921,13 +903,12 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.device.set_middle_button_emulation_enabled(enabled);
+        dev.set_middle_button_emulation_enabled(enabled);
         Ok(())
     }
 
     fn handle_set_ei_socket_enabled(&self, enabled: bool) {
-        self.state.enable_ei_acceptor.set(enabled);
-        self.state.update_ei_acceptor();
+        self.state.set_ei_socket_enabled(enabled);
     }
 
     fn handle_get_workspace(&self, name: &str) {
@@ -971,7 +952,6 @@ impl ConfigProxyHandler {
 
     fn handle_set_flip_margin(&self, device: DrmDevice, margin: Duration) -> Result<(), CphError> {
         self.get_drm_device(device)?
-            .dev
             .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
         Ok(())
     }
@@ -982,8 +962,7 @@ impl ConfigProxyHandler {
             XScalingMode::DOWNSCALED => true,
             _ => return Err(CphError::UnknownXScalingMode(mode)),
         };
-        self.state.xwayland.use_wire_scale.set(use_wire_scale);
-        self.state.update_xwayland_wire_scale();
+        self.state.set_xwayland_use_wire_scale(use_wire_scale);
         Ok(())
     }
 
@@ -993,13 +972,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
-        self.state.ui_drag_enabled.set(enabled);
+        self.state.set_ui_drag_enabled(enabled);
     }
 
     fn handle_set_ui_drag_threshold(&self, threshold: i32) {
-        let threshold = threshold.max(1);
-        let squared = threshold.saturating_mul(threshold);
-        self.state.ui_drag_threshold_squared.set(squared);
+        self.state.set_ui_drag_threshold(threshold.max(1));
     }
 
     fn handle_set_direct_scanout_enabled(
@@ -1010,7 +987,6 @@ impl ConfigProxyHandler {
         match device {
             Some(dev) => self
                 .get_drm_device(dev)?
-                .dev
                 .set_direct_scanout_enabled(enabled),
             _ => self.state.direct_scanout_enabled.set(enabled),
         }
@@ -1403,12 +1379,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_float_above_fullscreen(&self, above: bool) {
-        self.state.float_above_fullscreen.set(above);
-        for seat in self.state.globals.seats.lock().values() {
-            seat.emulate_cursor_moved();
-            seat.trigger_tree_changed(false);
-        }
-        self.state.root.update_visible(&self.state);
+        self.state.set_float_above_fullscreen(above);
     }
 
     fn handle_get_float_above_fullscreen(&self) {
@@ -1418,10 +1389,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_bar(&self, show: bool) {
-        self.state.show_bar.set(show);
-        for output in self.state.root.outputs.lock().values() {
-            output.on_spaces_changed();
-        }
+        self.state.set_show_bar(show);
     }
 
     fn handle_get_show_bar(&self) {
@@ -1431,8 +1399,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_titles(&self, show: bool) {
-        self.state.theme.show_titles.set(show);
-        self.spaces_change();
+        self.state.set_show_titles(show);
     }
 
     fn handle_get_show_titles(&self) {
@@ -1445,8 +1412,7 @@ impl ConfigProxyHandler {
         let Ok(position) = position.try_into() else {
             return Err(CphError::UnknownBarPosition(position));
         };
-        self.state.theme.bar_position.set(position);
-        self.spaces_change();
+        self.state.set_bar_position(position);
         Ok(())
     }
 
@@ -1457,19 +1423,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_float_pin_icon(&self, show: bool) {
-        self.state.show_pin_icon.set(show);
-        for stacked in self.state.root.stacked.iter() {
-            if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
-            }
-        }
+        self.state.set_show_pin_icon(show);
     }
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
-        self.state.workspace_display_order.set(order.into());
-        for output in self.state.root.outputs.lock().values() {
-            output.handle_workspace_display_order_update();
-        }
+        self.state.set_workspace_display_order(order.into());
     }
 
     fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
@@ -1849,17 +1807,8 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_log_level(&self, level: LogLevel) {
-        let level = match level {
-            LogLevel::Error => Level::Error,
-            LogLevel::Warn => Level::Warn,
-            LogLevel::Info => Level::Info,
-            LogLevel::Debug => Level::Debug,
-            LogLevel::Trace => Level::Trace,
-        };
-        if let Some(logger) = &self.state.logger {
-            logger.set_level(level);
-        }
+    fn handle_set_log_level(&self, level: ConfigLogLevel) {
+        self.state.set_log_level(level.into());
     }
 
     fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), CphError> {
@@ -2421,44 +2370,6 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn spaces_change(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.update_sizes(&self.state);
-    }
-
-    fn colors_changed(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.clear();
-    }
-
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -2486,46 +2397,32 @@ impl ConfigProxyHandler {
         if size > sized.max() {
             return Err(CphError::InvalidSize(size, sized));
         }
-        let field = sized.field(&self.state.theme);
-        field.val.set(size);
-        field.set.set(true);
-        self.spaces_change();
+        self.state.set_size(sized, size);
         Ok(())
     }
 
     fn handle_reset_colors(&self) {
-        self.state.theme.colors.reset();
-        self.colors_changed();
+        self.state.reset_colors();
     }
 
     fn handle_reset_sizes(&self) {
-        self.state.theme.sizes.reset();
-        self.spaces_change();
+        self.state.reset_sizes();
     }
 
     fn handle_reset_font(&self) {
-        let theme = &self.state.theme;
-        theme.font.set(self.state.theme.default_font.clone());
-        theme.bar_font.set(None);
-        theme.title_font.set(None);
+        self.state.reset_fonts();
     }
 
     fn handle_set_font(&self, font: &str) {
-        self.state.theme.font.set(Arc::new(font.to_string()));
+        self.state.set_font(font);
     }
 
     fn handle_set_bar_font(&self, font: &str) {
-        self.state
-            .theme
-            .bar_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_bar_font(Some(font));
     }
 
     fn handle_set_title_font(&self, font: &str) {
-        self.state
-            .theme
-            .title_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_title_font(Some(font));
     }
 
     fn handle_get_font(&self) {
@@ -2533,34 +2430,37 @@ impl ConfigProxyHandler {
         self.respond(Response::GetFont { font });
     }
 
-    fn get_color(&self, colorable: Colorable) -> Result<&Cell<Color>, CphError> {
-        let colors = &self.state.theme.colors;
+    fn get_color(&self, colorable: Colorable) -> Result<ThemeColor, CphError> {
         use jay_config::theme::colors::*;
         let colorable = match colorable {
-            UNFOCUSED_TITLE_BACKGROUND_COLOR => &colors.unfocused_title_background,
-            FOCUSED_TITLE_BACKGROUND_COLOR => &colors.focused_title_background,
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::focused_title_background,
             CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR => {
-                &colors.captured_unfocused_title_background
+                ThemeColor::captured_unfocused_title_background
             }
-            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => &colors.captured_focused_title_background,
-            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => &colors.focused_inactive_title_background,
-            BACKGROUND_COLOR => &colors.background,
-            BAR_BACKGROUND_COLOR => &colors.bar_background,
-            SEPARATOR_COLOR => &colors.separator,
-            BORDER_COLOR => &colors.border,
-            UNFOCUSED_TITLE_TEXT_COLOR => &colors.unfocused_title_text,
-            FOCUSED_TITLE_TEXT_COLOR => &colors.focused_title_text,
-            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => &colors.focused_inactive_title_text,
-            BAR_STATUS_TEXT_COLOR => &colors.bar_text,
-            ATTENTION_REQUESTED_BACKGROUND_COLOR => &colors.attention_requested_background,
-            HIGHLIGHT_COLOR => &colors.highlight,
+            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::captured_focused_title_background
+            }
+            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::focused_inactive_title_background
+            }
+            BACKGROUND_COLOR => ThemeColor::background,
+            BAR_BACKGROUND_COLOR => ThemeColor::bar_background,
+            SEPARATOR_COLOR => ThemeColor::separator,
+            BORDER_COLOR => ThemeColor::border,
+            UNFOCUSED_TITLE_TEXT_COLOR => ThemeColor::unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => ThemeColor::focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ThemeColor::focused_inactive_title_text,
+            BAR_STATUS_TEXT_COLOR => ThemeColor::bar_text,
+            ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColor::attention_requested_background,
+            HIGHLIGHT_COLOR => ThemeColor::highlight,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)
     }
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
-        let color = self.get_color(colorable)?.get();
+        let color = self.get_color(colorable)?.field(&self.state.theme).get();
         let [r, g, b, a] = color.to_array(Eotf::Gamma22);
         let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
@@ -2572,8 +2472,8 @@ impl ConfigProxyHandler {
         colorable: Colorable,
         color: jay_config::theme::Color,
     ) -> Result<(), CphError> {
-        self.get_color(colorable)?.set(color.into());
-        self.colors_changed();
+        self.state
+            .set_color(self.get_color(colorable)?, color.into());
         Ok(())
     }
 

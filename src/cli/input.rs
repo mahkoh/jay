@@ -9,7 +9,7 @@ use {
             LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
         },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, string_ext::StringExt},
+        utils::{errorfmt::ErrorFmt, static_text::StaticText, string_ext::StringExt},
         wire::{JayInputId, jay_compositor, jay_input},
     },
     clap::{Args, Subcommand, ValueEnum, ValueHint},
@@ -324,7 +324,7 @@ pub struct UseHardwareCursorArgs {
 }
 
 pub fn main(global: GlobalArgs, args: InputArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let idle = Rc::new(Input { tc: tc.clone() });
         idle.run(args).await;
     });
@@ -854,21 +854,11 @@ impl Input {
         print!("{prefix}  capabilities:");
         let mut first = true;
         for cap in &device.capabilities {
-            use InputDeviceCapability::*;
             print!(" ");
             if !mem::take(&mut first) {
                 print!("| ");
             }
-            let name = match cap {
-                Keyboard => "keyboard",
-                Pointer => "pointer",
-                Touch => "touch",
-                TabletTool => "tablet tool",
-                TabletPad => "tablet pad",
-                Gesture => "gesture",
-                Switch => "switch",
-            };
-            print!("{}", name);
+            print!("{}", cap.text());
         }
         println!();
         if let Some(v) = &device.accel_profile {

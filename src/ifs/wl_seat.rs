@@ -24,7 +24,9 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::{ButtonState, Leds},
+        backend::{
+            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, Leds, TransformMatrix,
+        },
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
@@ -251,6 +253,12 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
+}
+
+impl PartialEq for WlSeatGlobal {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -954,8 +962,18 @@ impl WlSeatGlobal {
         self.focus_history_visible_only.set(visible);
     }
 
+    #[expect(dead_code)]
+    pub fn focus_history_visible(&self) -> bool {
+        self.focus_history_visible_only.get()
+    }
+
     pub fn focus_history_set_same_workspace(&self, same_workspace: bool) {
         self.focus_history_same_workspace.set(same_workspace);
+    }
+
+    #[expect(dead_code)]
+    pub fn focus_history_same_workspace(&self) -> bool {
+        self.focus_history_same_workspace.get()
     }
 
     fn focus_layer_rel<LI, SI>(
@@ -1460,8 +1478,18 @@ impl WlSeatGlobal {
         self.focus_follows_mouse.set(focus_follows_mouse);
     }
 
+    #[expect(dead_code)]
+    pub fn focus_follows_mouse(&self) -> bool {
+        self.focus_follows_mouse.get()
+    }
+
     pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
         self.fallback_output_mode.set(fallback_output_mode);
+    }
+
+    #[expect(dead_code)]
+    pub fn fallback_output_mode(&self) -> FallbackOutputMode {
+        self.fallback_output_mode.get()
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
@@ -1579,6 +1607,11 @@ impl WlSeatGlobal {
 
     pub fn set_pointer_revert_key(&self, key: KeySym) {
         self.revert_key.set(key);
+    }
+
+    #[expect(dead_code)]
+    pub fn pointer_revert_key(&self) -> KeySym {
+        self.revert_key.get()
     }
 }
 
@@ -1859,6 +1892,54 @@ impl DeviceHandlerData {
             return output.pos.get();
         }
         state.root.extents.get()
+    }
+
+    pub fn set_accel_profile(&self, v: InputDeviceAccelProfile) {
+        self.device.set_accel_profile(v);
+    }
+
+    pub fn set_accel_speed(&self, v: f64) {
+        self.device.set_accel_speed(v);
+    }
+
+    pub fn set_tap_enabled(&self, v: bool) {
+        self.device.set_tap_enabled(v);
+    }
+
+    pub fn set_drag_enabled(&self, v: bool) {
+        self.device.set_drag_enabled(v);
+    }
+
+    pub fn set_drag_lock_enabled(&self, v: bool) {
+        self.device.set_drag_lock_enabled(v);
+    }
+
+    pub fn set_left_handed(&self, v: bool) {
+        self.device.set_left_handed(v);
+    }
+
+    pub fn set_natural_scrolling_enabled(&self, v: bool) {
+        self.device.set_natural_scrolling_enabled(v);
+    }
+
+    pub fn set_px_per_scroll_wheel(&self, v: f64) {
+        self.px_per_scroll_wheel.set(v);
+    }
+
+    pub fn set_transform_matrix(&self, v: TransformMatrix) {
+        self.device.set_transform_matrix(v);
+    }
+
+    pub fn set_calibration_matrix(&self, v: [[f32; 3]; 2]) {
+        self.device.set_calibration_matrix(v);
+    }
+
+    pub fn set_click_method(&self, v: InputDeviceClickMethod) {
+        self.device.set_click_method(v);
+    }
+
+    pub fn set_middle_button_emulation_enabled(&self, v: bool) {
+        self.device.set_middle_button_emulation_enabled(v);
     }
 }
 

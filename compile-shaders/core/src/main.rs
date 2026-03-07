@@ -1,5 +1,8 @@
-use compile_shaders_core::update_hash;
+use compile_shaders_core::{update_hash, TREES};
 
 fn main() -> anyhow::Result<()> {
-    update_hash()
+    for tree in TREES {
+        update_hash(tree)?;
+    }
+    Ok(())
 }

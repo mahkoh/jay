@@ -67,7 +67,7 @@ struct KillIdArgs {
 }
 
 pub fn main(global: GlobalArgs, clients_args: ClientsArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let clients = Rc::new(Clients { tc: tc.clone() });
         clients.run(clients_args).await;
     });

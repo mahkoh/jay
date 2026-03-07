@@ -26,7 +26,7 @@ pub enum ColorManagementCmd {
 }
 
 pub fn main(global: GlobalArgs, args: ColorManagementArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let cm = ColorManagement { tc: tc.clone() };
         cm.run(args).await;
     });

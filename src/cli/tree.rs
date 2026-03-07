@@ -62,7 +62,7 @@ struct QueryWorkspaceNameArgs {
 }
 
 pub fn main(global: GlobalArgs, tree_args: TreeArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let comp = tc.jay_compositor().await;
         let tree = Rc::new(Tree {
             tc: tc.clone(),

@@ -36,7 +36,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -68,6 +68,7 @@ use {
             clone3::ensure_reaper,
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
+            event_listener::handle_lazy_event_sources,
             fdcloser::FdCloser,
             nice::{did_elevate_scheduler, elevate_scheduler},
             numcell::NumCell,
@@ -76,6 +77,7 @@ use {
             rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            static_text::StaticText,
             tri::Try,
         },
         version::VERSION,
@@ -83,8 +85,11 @@ use {
         wheel::{Wheel, WheelError},
     },
     ahash::AHashSet,
+    clap::ValueEnum,
     forker::ForkerProxy,
-    jay_config::_private::DEFAULT_SEAT_NAME,
+    jay_config::{_private::DEFAULT_SEAT_NAME, logging::LogLevel as ConfigLogLevel},
+    linearize::Linearize,
+    log::LevelFilter,
     std::{
         cell::{Cell, RefCell},
         env,
@@ -100,6 +105,9 @@ use {
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
+pub const MIN_SCALE: Scale = Scale::from_wl(60);
+pub const MAX_SCALE: Scale = Scale::from_int(16);
+
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
@@ -112,9 +120,9 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         None
     };
     let forker = create_forker(reaper_pid);
-    let portal = portal::run_from_compositor(global.log_level.into());
+    let portal = portal::run_from_compositor(global.log_level);
     enable_profiler();
-    let logger = Logger::install_compositor(global.log_level.into());
+    let logger = Logger::install_compositor(global.log_level);
     let portal = match portal {
         Ok(p) => Some(p),
         Err(e) => {
@@ -191,7 +199,8 @@ fn start_compositor2(
     test_future: Option<TestFuture>,
     caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
-    log::info!("pid = {}", uapi::getpid());
+    let pid = uapi::getpid();
+    log::info!("pid = {pid}");
     log::info!("version = {VERSION}");
     if did_elevate_scheduler() {
         log::info!("Running with elevated scheduler: SCHED_RR");
@@ -216,6 +225,7 @@ fn start_compositor2(
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
     let state = Rc::new(State {
+        pid,
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
@@ -286,6 +296,8 @@ fn start_compositor2(
             use_wire_scale: Default::default(),
             wire_scale: Default::default(),
             windows: Default::default(),
+            client: Default::default(),
+            display: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),
@@ -377,6 +389,7 @@ fn start_compositor2(
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
+        lazy_event_sources: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -577,6 +590,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             Phase::PostLayout,
             handle_xdg_surface_configure_events(state.clone()),
         ),
+        eng.spawn(
+            "lazy event sources",
+            handle_lazy_event_sources(state.clone()),
+        ),
     ]
 }
 
@@ -695,6 +712,9 @@ fn create_dummy_output(state: &Rc<State>) {
         eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
+        blend_space: BlendSpace::Srgb,
+        use_native_gamut: false,
+        vrr_cursor_hz: None,
     };
     let connector_data = Rc::new(ConnectorData {
         id,
@@ -796,5 +816,67 @@ pub fn config_dir() -> Option<String> {
     } else {
         log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
         None
+    }
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, Eq, PartialEq, Linearize)]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    #[default]
+    Info,
+    Warn,
+    Error,
+    Off,
+}
+
+impl Into<LevelFilter> for LogLevel {
+    fn into(self) -> LevelFilter {
+        match self {
+            LogLevel::Trace => LevelFilter::Trace,
+            LogLevel::Debug => LevelFilter::Debug,
+            LogLevel::Info => LevelFilter::Info,
+            LogLevel::Warn => LevelFilter::Warn,
+            LogLevel::Error => LevelFilter::Error,
+            LogLevel::Off => LevelFilter::Off,
+        }
+    }
+}
+
+impl From<LevelFilter> for LogLevel {
+    fn from(value: LevelFilter) -> Self {
+        match value {
+            LevelFilter::Trace => LogLevel::Trace,
+            LevelFilter::Debug => LogLevel::Debug,
+            LevelFilter::Info => LogLevel::Info,
+            LevelFilter::Warn => LogLevel::Warn,
+            LevelFilter::Error => LogLevel::Error,
+            LevelFilter::Off => LogLevel::Off,
+        }
+    }
+}
+
+impl StaticText for LogLevel {
+    fn text(&self) -> &'static str {
+        match self {
+            LogLevel::Off => "Off",
+            LogLevel::Error => "Error",
+            LogLevel::Warn => "Warn",
+            LogLevel::Info => "Info",
+            LogLevel::Debug => "Debug",
+            LogLevel::Trace => "Trace",
+        }
+    }
+}
+
+impl From<ConfigLogLevel> for LogLevel {
+    fn from(value: ConfigLogLevel) -> Self {
+        match value {
+            ConfigLogLevel::Trace => LogLevel::Trace,
+            ConfigLogLevel::Debug => LogLevel::Debug,
+            ConfigLogLevel::Info => LogLevel::Info,
+            ConfigLogLevel::Warn => LogLevel::Warn,
+            ConfigLogLevel::Error => LogLevel::Error,
+        }
     }
 }

@@ -1,8 +1,11 @@
 use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsError},
+    crate::{
+        compositor::LogLevel,
+        utils::{atomic_enum::AtomicEnum, errorfmt::ErrorFmt, oserror::OsError},
+    },
     backtrace::Backtrace,
     bstr::BString,
-    log::{Level, Log, Metadata, Record},
+    log::{LevelFilter, Log, Metadata, Record},
     parking_lot::Mutex,
     std::{
         cell::Cell,
@@ -24,14 +27,15 @@ thread_local! {
 }
 
 pub struct Logger {
-    level: AtomicU32,
+    level: AtomicEnum<LogLevel>,
+    filter: AtomicU32,
     path: Mutex<Arc<BString>>,
     _file: Mutex<OwnedFd>,
     file_fd: AtomicI32,
 }
 
 impl Logger {
-    pub fn install_stderr(level: Level) -> Arc<Self> {
+    pub fn install_stderr(level: LogLevel) -> Arc<Self> {
         let file = match uapi::fcntl_dupfd_cloexec(2, 0) {
             Ok(fd) => fd,
             Err(e) => {
@@ -42,18 +46,20 @@ impl Logger {
         Self::install(level, b"STDERR", file)
     }
 
-    pub fn install_compositor(level: Level) -> Arc<Self> {
+    pub fn install_compositor(level: LogLevel) -> Arc<Self> {
         let (path, file) = open_log_file("jay");
         Self::install(level, path.as_bytes(), file)
     }
 
-    pub fn install_pipe(file: OwnedFd, level: Level) -> Arc<Self> {
+    pub fn install_pipe(file: OwnedFd, level: LogLevel) -> Arc<Self> {
         Self::install(level, b"PIPE", file)
     }
 
-    fn install(level: Level, path: &[u8], file: OwnedFd) -> Arc<Self> {
+    fn install(level: LogLevel, path: &[u8], file: OwnedFd) -> Arc<Self> {
+        let filter: LevelFilter = level.into();
         let slf = Arc::new(Self {
-            level: AtomicU32::new(level as _),
+            level: AtomicEnum::new(level),
+            filter: AtomicU32::new(filter as _),
             path: Mutex::new(Arc::new(path.to_vec().into())),
             file_fd: AtomicI32::new(file.raw()),
             _file: Mutex::new(file),
@@ -62,14 +68,21 @@ impl Logger {
             logger: slf.clone(),
         }))
         .unwrap();
-        log::set_max_level(level.to_level_filter());
+        log::set_max_level(filter);
         set_panic_hook();
         slf
     }
 
-    pub fn set_level(&self, level: Level) {
-        self.level.store(level as _, Relaxed);
-        log::set_max_level(level.to_level_filter());
+    pub fn set_level(&self, level: LogLevel) {
+        let filter: LevelFilter = level.into();
+        self.level.store(level, Relaxed);
+        self.filter.store(filter as _, Relaxed);
+        log::set_max_level(filter);
+    }
+
+    #[expect(dead_code)]
+    pub fn level(&self) -> LogLevel {
+        self.level.load(Relaxed)
     }
 
     pub fn path(&self) -> Arc<BString> {
@@ -166,11 +179,11 @@ struct LogWrapper {
 
 impl Log for LogWrapper {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() as u32 <= self.logger.level.load(Relaxed)
+        metadata.level() as u32 <= self.logger.filter.load(Relaxed)
     }
 
     fn log(&self, record: &Record) {
-        if record.level() as u32 > self.logger.level.load(Relaxed) {
+        if record.level() as u32 > self.logger.filter.load(Relaxed) {
             return;
         }
         let mut buffer = BUFFER.get();

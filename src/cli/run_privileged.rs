@@ -10,7 +10,7 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: RunPrivilegedArgs) {
-    Logger::install_stderr(global.log_level.into());
+    Logger::install_stderr(global.log_level);
     if let Some(xrd) = xrd() {
         let mut wd = match std::env::var(WAYLAND_DISPLAY) {
             Ok(v) => v,

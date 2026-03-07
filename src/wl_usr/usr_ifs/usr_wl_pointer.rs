@@ -3,7 +3,7 @@ use {
         ifs::wl_seat::wl_pointer::PendingScroll,
         object::Version,
         utils::clonecell::CloneCell,
-        wire::{WlPointerId, wl_pointer::*},
+        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
         wl_usr::{UsrCon, usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject},
     },
     std::{cell::Cell, convert::Infallible, rc::Rc},
@@ -19,34 +19,34 @@ pub struct UsrWlPointer {
 }
 
 pub trait UsrWlPointerOwner {
-    fn enter(&self, ev: &Enter) {
+    fn enter(self: Rc<Self>, ev: &Enter) {
         let _ = ev;
     }
 
-    fn leave(&self, ev: &Leave) {
+    fn leave(self: Rc<Self>, ev: &Leave) {
         let _ = ev;
     }
 
-    fn motion(&self, ev: &Motion) {
+    fn motion(self: Rc<Self>, ev: &Motion) {
         let _ = ev;
     }
 
-    fn button(&self, ev: &Button) {
+    fn button(self: Rc<Self>, ev: &Button) {
         let _ = ev;
     }
 
-    fn scroll(&self, ps: &PendingScroll) {
+    fn scroll(self: Rc<Self>, ps: &PendingScroll) {
         let _ = ps;
     }
 }
 
 impl UsrWlPointer {
     #[expect(dead_code)]
-    pub fn set_cursor(&self, serial: u32, cursor: &UsrWlSurface, hot_x: i32, hot_y: i32) {
+    pub fn set_cursor(&self, serial: u32, cursor: Option<&UsrWlSurface>, hot_x: i32, hot_y: i32) {
         self.con.request(SetCursor {
             self_id: self.id,
             serial,
-            surface: cursor.id,
+            surface: cursor.map(|c| c.id).unwrap_or(WlSurfaceId::NONE),
             hotspot_x: hot_x,
             hotspot_y: hot_y,
         });

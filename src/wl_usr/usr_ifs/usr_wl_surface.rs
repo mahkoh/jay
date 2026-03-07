@@ -37,16 +37,14 @@ impl UsrWlSurface {
         });
     }
 
-    pub fn frame<F>(&self, f: F)
-    where
-        F: FnOnce() + 'static,
-    {
-        let cb = Rc::new(UsrWlCallback::new(&self.con, f));
+    pub fn frame(&self) -> Rc<UsrWlCallback> {
+        let cb = Rc::new(UsrWlCallback::new(&self.con));
         self.con.request(Frame {
             self_id: self.id,
             callback: cb.id,
         });
-        self.con.add_object(cb);
+        self.con.add_object(cb.clone());
+        cb
     }
 
     pub fn commit(&self) {

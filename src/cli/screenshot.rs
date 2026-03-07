@@ -30,7 +30,7 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let screenshot = Rc::new(Screenshot {
             tc: tc.clone(),
             args,

@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::Connector,
+        backend::{BackendDrmDevice, Connector},
         backends::metal::{
             MetalError,
             allocator::{RenderBuffer, RenderBufferCopy},
@@ -814,13 +814,6 @@ impl MetalConnector {
         data
     }
 
-    fn direct_scanout_enabled(&self) -> bool {
-        self.dev
-            .direct_scanout_enabled
-            .get()
-            .unwrap_or(self.state.direct_scanout_enabled.get())
-    }
-
     fn prepare_present_fb(
         &self,
         cd: &Rc<ColorDescription>,
@@ -832,7 +825,7 @@ impl MetalConnector {
     ) -> Result<PresentFb, MetalError> {
         self.trim_scanout_cache();
         let try_direct_scanout = try_direct_scanout
-            && self.direct_scanout_enabled()
+            && self.dev.direct_scanout_enabled()
             // at least on AMD, using a FB on a different device for rendering will fail
             // and destroy the render context. it's possible to work around this by waiting
             // until the FB is no longer being scanned out, but if a notification pops up

@@ -3,7 +3,11 @@ use {
         object::Version,
         utils::clonecell::CloneCell,
         wire::{WlSeatId, wl_seat::*},
-        wl_usr::{UsrCon, usr_ifs::usr_wl_pointer::UsrWlPointer, usr_object::UsrObject},
+        wl_usr::{
+            UsrCon,
+            usr_ifs::{usr_wl_keyboard::UsrWlKeyboard, usr_wl_pointer::UsrWlPointer},
+            usr_object::UsrObject,
+        },
     },
     std::{cell::Cell, convert::Infallible, rc::Rc},
 };
@@ -41,6 +45,23 @@ impl UsrWlSeat {
             id: ptr.id,
         });
         ptr
+    }
+
+    #[expect(dead_code)]
+    pub fn get_keyboard(&self) -> Rc<UsrWlKeyboard> {
+        let kb = Rc::new(UsrWlKeyboard {
+            id: self.con.id(),
+            con: self.con.clone(),
+            keyboard: Default::default(),
+            owner: Default::default(),
+            version: self.version,
+        });
+        self.con.add_object(kb.clone());
+        self.con.request(GetKeyboard {
+            self_id: self.id,
+            id: kb.id,
+        });
+        kb
     }
 }
 

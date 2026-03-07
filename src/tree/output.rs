@@ -478,6 +478,10 @@ impl OutputNode {
         }
     }
 
+    pub fn on_colors_changed(self: &Rc<Self>) {
+        self.schedule_update_render_data();
+    }
+
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
         let old_scale = self.global.persistent.scale.replace(scale);
         if scale == old_scale {
@@ -996,6 +1000,10 @@ impl OutputNode {
             .replace(use_native_gamut);
         if old != use_native_gamut {
             self.update_color_description();
+            self.global
+                .connector
+                .head_managers
+                .handle_use_native_gamut_change(use_native_gamut);
         }
     }
 
@@ -1003,6 +1011,10 @@ impl OutputNode {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
             self.state.damage(self.global.position());
+            self.global
+                .connector
+                .head_managers
+                .handle_blend_space_change(blend_space);
         }
     }
     fn find_stacked_at(
@@ -1528,6 +1540,10 @@ impl OutputNode {
                 log::error!("Could not set gamma_lut: {}", ErrorFmt(e));
             })
     }
+
+    pub fn set_flip_margin(&self, margin_ns: u64) {
+        self.flip_margin_ns.set(Some(margin_ns));
+    }
 }
 
 pub struct OutputTitle {
@@ -1904,14 +1920,24 @@ pub enum VrrMode {
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct VrrSurfaceRequirements {
-    content_type: Option<VrrContentTypeRequirements>,
+    pub content_type: Option<VrrContentTypeRequirements>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct VrrContentTypeRequirements {
-    photo: bool,
-    video: bool,
-    game: bool,
+    pub photo: bool,
+    pub video: bool,
+    pub game: bool,
+}
+
+impl Default for VrrContentTypeRequirements {
+    fn default() -> Self {
+        Self {
+            photo: true,
+            video: true,
+            game: true,
+        }
+    }
 }
 
 impl VrrMode {
@@ -1970,7 +1996,15 @@ pub enum TearingMode {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TearingSurfaceRequirements {
-    tearing_requested: bool,
+    pub tearing_requested: bool,
+}
+
+impl Default for TearingSurfaceRequirements {
+    fn default() -> Self {
+        Self {
+            tearing_requested: true,
+        }
+    }
 }
 
 impl TearingMode {

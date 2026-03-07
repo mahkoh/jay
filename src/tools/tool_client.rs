@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         client::{EventFormatter, RequestParser},
-        compositor::WAYLAND_DISPLAY,
+        compositor::{LogLevel, WAYLAND_DISPLAY},
         io_uring::{IoUring, IoUringError},
         logger::Logger,
         object::{ObjectId, WL_DISPLAY_ID},
@@ -30,7 +30,6 @@ use {
         },
     },
     ahash::AHashMap,
-    log::Level,
     std::{
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -97,7 +96,7 @@ pub struct ToolClient {
     jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
-pub fn with_tool_client<T, F>(level: Level, f: F)
+pub fn with_tool_client<T, F>(level: LogLevel, f: F)
 where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,
@@ -111,7 +110,7 @@ fn handle_error(e: ToolClientError) -> ! {
     fatal!("Could not create a tool client: {}", ErrorFmt(e));
 }
 
-fn with_tool_client_<T, F>(level: Level, f: F) -> Result<(), ToolClientError>
+fn with_tool_client_<T, F>(level: LogLevel, f: F) -> Result<(), ToolClientError>
 where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,

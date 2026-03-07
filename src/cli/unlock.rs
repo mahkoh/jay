@@ -8,7 +8,7 @@ use {
 };
 
 pub fn main(global: GlobalArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let logger = Rc::new(Unlocker { tc: tc.clone() });
         run(logger).await;
     });

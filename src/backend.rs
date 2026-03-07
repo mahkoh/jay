@@ -22,6 +22,7 @@ use {
             },
         },
         libinput::consts::DeviceCapability,
+        utils::static_text::StaticText,
         video::drm::{
             ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
             DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
@@ -267,7 +268,7 @@ pub trait InputDevice {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]
 pub enum InputDeviceCapability {
     Keyboard,
     Pointer,
@@ -276,6 +277,20 @@ pub enum InputDeviceCapability {
     TabletPad,
     Gesture,
     Switch,
+}
+
+impl StaticText for InputDeviceCapability {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceCapability::Keyboard => "keyboard",
+            InputDeviceCapability::Pointer => "pointer",
+            InputDeviceCapability::Touch => "touch",
+            InputDeviceCapability::TabletTool => "tablet tool",
+            InputDeviceCapability::TabletPad => "tablet pad",
+            InputDeviceCapability::Gesture => "gesture",
+            InputDeviceCapability::Switch => "switch",
+        }
+    }
 }
 
 impl InputDeviceCapability {
@@ -293,17 +308,36 @@ impl InputDeviceCapability {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceAccelProfile {
     Flat,
     Adaptive,
 }
 
-#[derive(Debug, Copy, Clone)]
+impl StaticText for InputDeviceAccelProfile {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceAccelProfile::Flat => "Flat",
+            InputDeviceAccelProfile::Adaptive => "Adaptive",
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
 pub enum InputDeviceClickMethod {
     None,
     ButtonAreas,
     Clickfinger,
+}
+
+impl StaticText for InputDeviceClickMethod {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceClickMethod::None => "none",
+            InputDeviceClickMethod::ButtonAreas => "button-areas",
+            InputDeviceClickMethod::Clickfinger => "clickfinger",
+        }
+    }
 }
 
 pub enum BackendEvent {
@@ -540,6 +574,9 @@ pub trait BackendDrmDevice {
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;
+    fn direct_scanout_enabled(&self) -> bool {
+        false
+    }
     fn create_lease(
         self: Rc<Self>,
         lessee: Rc<dyn BackendDrmLessee>,
@@ -550,6 +587,10 @@ pub trait BackendDrmDevice {
     }
     fn set_flip_margin(&self, margin: u64) {
         let _ = margin;
+    }
+    #[expect(dead_code)]
+    fn flip_margin(&self) -> Option<u64> {
+        None
     }
 }
 

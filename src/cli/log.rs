@@ -18,7 +18,7 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let logger = Rc::new(Log {
             tc: tc.clone(),
             path: RefCell::new(None),
