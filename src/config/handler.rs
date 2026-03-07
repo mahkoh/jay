@@ -9,7 +9,6 @@ use {
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
         compositor::{MAX_EXTENTS, WAYLAND_DISPLAY},
-        config::ConfigProxy,
         criteria::{
             CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
             clm::ClmLeafMatcher,
@@ -29,10 +28,9 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
-            TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
+            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelNode,
+            VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -88,7 +86,6 @@ use {
         hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
-        sync::Arc,
         time::Duration,
     },
     thiserror::Error,
@@ -424,22 +421,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reload(&self) {
-        log::info!("Reloading config");
-        let config = match ConfigProxy::from_config_dir(&self.state) {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("Cannot reload config: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        if let Some(config) = self.state.config.take() {
-            config.destroy();
-            for seat in self.state.globals.seats.lock().values() {
-                seat.clear_shortcuts();
-            }
-        }
-        config.configure(true);
-        self.state.config.set(Some(Rc::new(config)));
+        self.state.reload_config();
     }
 
     fn handle_get_seat_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
@@ -926,8 +908,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_ei_socket_enabled(&self, enabled: bool) {
-        self.state.enable_ei_acceptor.set(enabled);
-        self.state.update_ei_acceptor();
+        self.state.set_ei_socket_enabled(enabled);
     }
 
     fn handle_get_workspace(&self, name: &str) {
@@ -971,7 +952,6 @@ impl ConfigProxyHandler {
 
     fn handle_set_flip_margin(&self, device: DrmDevice, margin: Duration) -> Result<(), CphError> {
         self.get_drm_device(device)?
-            .dev
             .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
         Ok(())
     }
@@ -982,8 +962,7 @@ impl ConfigProxyHandler {
             XScalingMode::DOWNSCALED => true,
             _ => return Err(CphError::UnknownXScalingMode(mode)),
         };
-        self.state.xwayland.use_wire_scale.set(use_wire_scale);
-        self.state.update_xwayland_wire_scale();
+        self.state.set_xwayland_use_wire_scale(use_wire_scale);
         Ok(())
     }
 
@@ -993,13 +972,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
-        self.state.ui_drag_enabled.set(enabled);
+        self.state.set_ui_drag_enabled(enabled);
     }
 
     fn handle_set_ui_drag_threshold(&self, threshold: i32) {
-        let threshold = threshold.max(1);
-        let squared = threshold.saturating_mul(threshold);
-        self.state.ui_drag_threshold_squared.set(squared);
+        self.state.set_ui_drag_threshold(threshold.max(1));
     }
 
     fn handle_set_direct_scanout_enabled(
@@ -1010,7 +987,6 @@ impl ConfigProxyHandler {
         match device {
             Some(dev) => self
                 .get_drm_device(dev)?
-                .dev
                 .set_direct_scanout_enabled(enabled),
             _ => self.state.direct_scanout_enabled.set(enabled),
         }
@@ -1403,12 +1379,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_float_above_fullscreen(&self, above: bool) {
-        self.state.float_above_fullscreen.set(above);
-        for seat in self.state.globals.seats.lock().values() {
-            seat.emulate_cursor_moved();
-            seat.trigger_tree_changed(false);
-        }
-        self.state.root.update_visible(&self.state);
+        self.state.set_float_above_fullscreen(above);
     }
 
     fn handle_get_float_above_fullscreen(&self) {
@@ -1418,10 +1389,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_bar(&self, show: bool) {
-        self.state.show_bar.set(show);
-        for output in self.state.root.outputs.lock().values() {
-            output.on_spaces_changed();
-        }
+        self.state.set_show_bar(show);
     }
 
     fn handle_get_show_bar(&self) {
@@ -1431,8 +1399,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_titles(&self, show: bool) {
-        self.state.theme.show_titles.set(show);
-        self.spaces_change();
+        self.state.set_show_titles(show);
     }
 
     fn handle_get_show_titles(&self) {
@@ -1445,8 +1412,7 @@ impl ConfigProxyHandler {
         let Ok(position) = position.try_into() else {
             return Err(CphError::UnknownBarPosition(position));
         };
-        self.state.theme.bar_position.set(position);
-        self.spaces_change();
+        self.state.set_bar_position(position);
         Ok(())
     }
 
@@ -1457,19 +1423,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_show_float_pin_icon(&self, show: bool) {
-        self.state.show_pin_icon.set(show);
-        for stacked in self.state.root.stacked.iter() {
-            if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
-            }
-        }
+        self.state.set_show_pin_icon(show);
     }
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
-        self.state.workspace_display_order.set(order.into());
-        for output in self.state.root.outputs.lock().values() {
-            output.handle_workspace_display_order_update();
-        }
+        self.state.set_workspace_display_order(order.into());
     }
 
     fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
@@ -2412,27 +2370,6 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn spaces_change(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.update_sizes(&self.state);
-    }
-
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -2460,10 +2397,7 @@ impl ConfigProxyHandler {
         if size > sized.max() {
             return Err(CphError::InvalidSize(size, sized));
         }
-        let field = sized.field(&self.state.theme);
-        field.val.set(size);
-        field.set.set(true);
-        self.spaces_change();
+        self.state.set_size(sized, size);
         Ok(())
     }
 
@@ -2472,33 +2406,23 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reset_sizes(&self) {
-        self.state.theme.sizes.reset();
-        self.spaces_change();
+        self.state.reset_sizes();
     }
 
     fn handle_reset_font(&self) {
-        let theme = &self.state.theme;
-        theme.font.set(self.state.theme.default_font.clone());
-        theme.bar_font.set(None);
-        theme.title_font.set(None);
+        self.state.reset_fonts();
     }
 
     fn handle_set_font(&self, font: &str) {
-        self.state.theme.font.set(Arc::new(font.to_string()));
+        self.state.set_font(font);
     }
 
     fn handle_set_bar_font(&self, font: &str) {
-        self.state
-            .theme
-            .bar_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_bar_font(Some(font));
     }
 
     fn handle_set_title_font(&self, font: &str) {
-        self.state
-            .theme
-            .title_font
-            .set(Some(Arc::new(font.to_string())));
+        self.state.set_title_font(Some(font));
     }
 
     fn handle_get_font(&self) {

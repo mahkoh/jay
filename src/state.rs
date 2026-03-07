@@ -93,7 +93,7 @@ use {
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         tagged_acceptor::TaggedAcceptors,
-        theme::{Color, Theme, ThemeColor},
+        theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
@@ -341,12 +341,15 @@ pub struct IdleState {
 impl IdleState {
     pub fn set_timeout(&self, timeout: Duration) {
         self.timeout.set(timeout);
-        self.timeout_changed.set(true);
-        self.change.trigger();
+        self.timeout_changed();
     }
 
     pub fn set_grace_period(&self, grace_period: Duration) {
         self.grace_period.set(grace_period);
+        self.timeout_changed();
+    }
+
+    fn timeout_changed(&self) {
         self.timeout_changed.set(true);
         self.change.trigger();
     }
@@ -519,6 +522,14 @@ impl DrmDevData {
             self.devnode.as_deref().unwrap_or("unknown"),
         );
         self.dev.clone().make_render_device();
+    }
+
+    pub fn set_direct_scanout_enabled(&self, enabled: bool) {
+        self.dev.set_direct_scanout_enabled(enabled);
+    }
+
+    pub fn set_flip_margin(&self, margin: u64) {
+        self.dev.set_flip_margin(margin);
     }
 }
 
@@ -985,6 +996,13 @@ impl State {
         } else {
             self.stop_xwayland();
         }
+    }
+
+    pub fn set_xwayland_use_wire_scale(&self, use_wire_scale: bool) {
+        if self.xwayland.use_wire_scale.replace(use_wire_scale) == use_wire_scale {
+            return;
+        }
+        self.update_xwayland_wire_scale();
     }
 
     pub fn next_serial(&self, client: Option<&Client>) -> u64 {
@@ -1725,6 +1743,161 @@ impl State {
     pub fn reset_colors(&self) {
         self.theme.colors.reset();
         self.colors_changed();
+    }
+
+    pub fn quit(&self) {
+        log::info!("Quitting");
+        self.ring.stop();
+    }
+
+    pub fn reload_config(self: &Rc<Self>) {
+        log::info!("Reloading config");
+        let config = match ConfigProxy::from_config_dir(self) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Cannot reload config: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        if let Some(config) = self.config.take() {
+            config.destroy();
+            for seat in self.globals.seats.lock().values() {
+                seat.clear_shortcuts();
+            }
+        }
+        config.configure(true);
+        self.config.set(Some(Rc::new(config)));
+    }
+
+    pub fn set_ei_socket_enabled(self: &Rc<Self>, enabled: bool) {
+        self.enable_ei_acceptor.set(enabled);
+        self.update_ei_acceptor();
+    }
+
+    pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
+        self.workspace_display_order.set(order);
+        for output in self.root.outputs.lock().values() {
+            output.handle_workspace_display_order_update();
+        }
+    }
+
+    fn spaces_changed(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+        self.damage(self.root.extents.get());
+        self.icons.update_sizes(self);
+    }
+
+    pub fn set_show_bar(&self, show: bool) {
+        self.show_bar.set(show);
+        self.spaces_changed();
+    }
+
+    pub fn set_show_titles(&self, show: bool) {
+        self.theme.show_titles.set(show);
+        self.spaces_changed();
+    }
+
+    pub fn set_ui_drag_enabled(&self, enabled: bool) {
+        self.ui_drag_enabled.set(enabled);
+    }
+
+    pub fn set_ui_drag_threshold(&self, threshold: i32) {
+        self.ui_drag_threshold_squared
+            .set(threshold.saturating_mul(threshold));
+    }
+
+    pub fn set_show_pin_icon(&self, show: bool) {
+        self.show_pin_icon.set(show);
+        for stacked in self.root.stacked.iter() {
+            if let Some(float) = stacked.deref().clone().node_into_float() {
+                float.schedule_render_titles();
+            }
+        }
+    }
+
+    pub fn set_float_above_fullscreen(&self, v: bool) {
+        self.float_above_fullscreen.set(v);
+        for seat in self.globals.seats.lock().values() {
+            seat.emulate_cursor_moved();
+            seat.trigger_tree_changed(false);
+        }
+        self.root.update_visible(self);
+    }
+
+    pub fn reset_sizes(&self) {
+        self.theme.sizes.reset();
+        self.spaces_changed();
+    }
+
+    fn fonts_changed(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.schedule_update_render_data();
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+    }
+
+    pub fn reset_fonts(&self) {
+        let theme = &self.theme;
+        theme.font.set(self.theme.default_font.clone());
+        theme.bar_font.set(None);
+        theme.title_font.set(None);
+        self.fonts_changed();
+    }
+
+    pub fn set_font(&self, font: &str) {
+        self.theme.font.set(Arc::new(font.to_string()));
+        self.fonts_changed();
+    }
+
+    pub fn set_bar_font(&self, font: Option<&str>) {
+        let font = font.map(|font| Arc::new(font.to_string()));
+        self.theme.bar_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_title_font(&self, font: Option<&str>) {
+        let font = font.map(|font| Arc::new(font.to_string()));
+        self.theme.title_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_bar_position(&self, p: BarPosition) {
+        self.theme.bar_position.set(p);
+        self.spaces_changed();
+    }
+
+    pub fn set_size(&self, sized: ThemeSized, size: i32) {
+        let field = sized.field(&self.theme);
+        field.val.set(size);
+        field.set.set(true);
+        self.spaces_changed();
     }
 
     pub fn set_color(&self, colored: ThemeColor, v: Color) {

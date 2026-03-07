@@ -179,8 +179,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn quit(&self, _req: Quit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        log::info!("Quitting");
-        self.client.state.ring.stop();
+        self.client.state.quit();
         Ok(())
     }
 
