@@ -1540,6 +1540,10 @@ impl OutputNode {
                 log::error!("Could not set gamma_lut: {}", ErrorFmt(e));
             })
     }
+
+    pub fn set_flip_margin(&self, margin_ns: u64) {
+        self.flip_margin_ns.set(Some(margin_ns));
+    }
 }
 
 pub struct OutputTitle {

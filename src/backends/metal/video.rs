@@ -315,7 +315,7 @@ impl BackendDrmDevice for MetalDrmDevice {
                 c.post_commit_margin.set(margin);
                 c.post_commit_margin_decay.reset(margin);
                 if let Some(output) = self.backend.state.root.outputs.get(&c.connector_id) {
-                    output.flip_margin_ns.set(Some(margin));
+                    output.set_flip_margin(margin);
                 }
             }
         }
@@ -2467,7 +2467,7 @@ impl MetalBackend {
         };
         connector.post_commit_margin.set(new_margin);
         if let Some(global) = &global {
-            global.flip_margin_ns.set(Some(new_margin));
+            global.set_flip_margin(new_margin);
         }
     }
 
