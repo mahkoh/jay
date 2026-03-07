@@ -68,14 +68,14 @@ impl JayIdleRequestHandler for JayIdle {
     fn set_interval(&self, req: SetInterval, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let interval = Duration::from_secs(req.interval);
         let state = &self.client.state;
-        state.idle.set_timeout(interval);
+        state.idle.set_timeout(state, interval);
         Ok(())
     }
 
     fn set_grace_period(&self, req: SetGracePeriod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let period = Duration::from_secs(req.period);
         let state = &self.client.state;
-        state.idle.set_grace_period(period);
+        state.idle.set_grace_period(state, period);
         Ok(())
     }
 }
