@@ -18,7 +18,7 @@ use {
         wire::JayHeadManagerSessionV1Id,
     },
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, Ref, RefCell},
         rc::Rc,
     },
     thiserror::Error,
@@ -92,6 +92,17 @@ pub struct HeadState {
     pub eotf: BackendEotfs,
     pub supported_formats: RcEq<Vec<&'static Format>>,
     pub brightness: Option<f64>,
+}
+
+pub struct ReadOnlyHeadState {
+    state: Rc<RefCell<HeadState>>,
+}
+
+impl ReadOnlyHeadState {
+    #[expect(dead_code)]
+    pub fn borrow(&self) -> Ref<'_, HeadState> {
+        self.state.borrow()
+    }
 }
 
 impl HeadState {
@@ -215,6 +226,13 @@ impl HeadManagers {
             name,
             state: Rc::new(RefCell::new(state)),
             managers: Default::default(),
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn state(&self) -> ReadOnlyHeadState {
+        ReadOnlyHeadState {
+            state: self.state.clone(),
         }
     }
 
