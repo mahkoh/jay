@@ -105,6 +105,9 @@ use {
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
+pub const MIN_SCALE: Scale = Scale::from_wl(60);
+pub const MAX_SCALE: Scale = Scale::from_int(16);
+
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
