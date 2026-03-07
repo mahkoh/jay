@@ -255,6 +255,12 @@ pub struct WlSeatGlobal {
     simple_im_enabled: Cell<bool>,
 }
 
+impl PartialEq for WlSeatGlobal {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Copy, Clone)]
 enum MarkMode {
     Mark,
