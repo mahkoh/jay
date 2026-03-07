@@ -93,7 +93,7 @@ use {
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         tagged_acceptor::TaggedAcceptors,
-        theme::{Color, Theme},
+        theme::{Color, Theme, ThemeColor},
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
@@ -1695,6 +1695,39 @@ impl State {
         if let Some(logger) = &self.logger {
             logger.set_level(level);
         }
+    }
+
+    fn colors_changed(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_colors_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.on_colors_changed();
+                node.node_visit_children(self);
+            }
+
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_colors_changed();
+                node.node_visit_children(self);
+            }
+        }
+        self.root.clone().node_visit(&mut V);
+        self.damage(self.root.extents.get());
+        self.icons.clear();
+    }
+
+    pub fn reset_colors(&self) {
+        self.theme.colors.reset();
+        self.colors_changed();
+    }
+
+    pub fn set_color(&self, colored: ThemeColor, v: Color) {
+        colored.field(&self.theme).set(v);
+        self.colors_changed();
     }
 }
 

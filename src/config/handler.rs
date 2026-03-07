@@ -27,7 +27,7 @@ use {
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tagged_acceptor::TaggedAcceptorError,
-        theme::{Color, ThemeSized},
+        theme::{ThemeColor, ThemeSized},
         tree::{
             ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode,
             TearingMode, TileState, ToplevelData, ToplevelNode, VrrMode, WorkspaceNode,
@@ -2433,23 +2433,6 @@ impl ConfigProxyHandler {
         self.state.icons.update_sizes(&self.state);
     }
 
-    fn colors_changed(&self) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.state.root.clone().node_visit(&mut V);
-        self.state.damage(self.state.root.extents.get());
-        self.state.icons.clear();
-    }
-
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -2485,8 +2468,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_reset_colors(&self) {
-        self.state.theme.colors.reset();
-        self.colors_changed();
+        self.state.reset_colors();
     }
 
     fn handle_reset_sizes(&self) {
@@ -2524,34 +2506,37 @@ impl ConfigProxyHandler {
         self.respond(Response::GetFont { font });
     }
 
-    fn get_color(&self, colorable: Colorable) -> Result<&Cell<Color>, CphError> {
-        let colors = &self.state.theme.colors;
+    fn get_color(&self, colorable: Colorable) -> Result<ThemeColor, CphError> {
         use jay_config::theme::colors::*;
         let colorable = match colorable {
-            UNFOCUSED_TITLE_BACKGROUND_COLOR => &colors.unfocused_title_background,
-            FOCUSED_TITLE_BACKGROUND_COLOR => &colors.focused_title_background,
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::focused_title_background,
             CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR => {
-                &colors.captured_unfocused_title_background
+                ThemeColor::captured_unfocused_title_background
             }
-            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => &colors.captured_focused_title_background,
-            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => &colors.focused_inactive_title_background,
-            BACKGROUND_COLOR => &colors.background,
-            BAR_BACKGROUND_COLOR => &colors.bar_background,
-            SEPARATOR_COLOR => &colors.separator,
-            BORDER_COLOR => &colors.border,
-            UNFOCUSED_TITLE_TEXT_COLOR => &colors.unfocused_title_text,
-            FOCUSED_TITLE_TEXT_COLOR => &colors.focused_title_text,
-            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => &colors.focused_inactive_title_text,
-            BAR_STATUS_TEXT_COLOR => &colors.bar_text,
-            ATTENTION_REQUESTED_BACKGROUND_COLOR => &colors.attention_requested_background,
-            HIGHLIGHT_COLOR => &colors.highlight,
+            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::captured_focused_title_background
+            }
+            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => {
+                ThemeColor::focused_inactive_title_background
+            }
+            BACKGROUND_COLOR => ThemeColor::background,
+            BAR_BACKGROUND_COLOR => ThemeColor::bar_background,
+            SEPARATOR_COLOR => ThemeColor::separator,
+            BORDER_COLOR => ThemeColor::border,
+            UNFOCUSED_TITLE_TEXT_COLOR => ThemeColor::unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => ThemeColor::focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ThemeColor::focused_inactive_title_text,
+            BAR_STATUS_TEXT_COLOR => ThemeColor::bar_text,
+            ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColor::attention_requested_background,
+            HIGHLIGHT_COLOR => ThemeColor::highlight,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)
     }
 
     fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
-        let color = self.get_color(colorable)?.get();
+        let color = self.get_color(colorable)?.field(&self.state.theme).get();
         let [r, g, b, a] = color.to_array(Eotf::Gamma22);
         let color = jay_config::theme::Color::new_f32_premultiplied(r, g, b, a);
         self.respond(Response::GetColor { color });
@@ -2563,8 +2548,8 @@ impl ConfigProxyHandler {
         colorable: Colorable,
         color: jay_config::theme::Color,
     ) -> Result<(), CphError> {
-        self.get_color(colorable)?.set(color.into());
-        self.colors_changed();
+        self.state
+            .set_color(self.get_color(colorable)?, color.into());
         Ok(())
     }
 

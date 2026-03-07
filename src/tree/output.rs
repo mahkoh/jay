@@ -478,6 +478,10 @@ impl OutputNode {
         }
     }
 
+    pub fn on_colors_changed(self: &Rc<Self>) {
+        self.schedule_update_render_data();
+    }
+
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
         let old_scale = self.global.persistent.scale.replace(scale);
         if scale == old_scale {

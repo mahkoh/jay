@@ -392,6 +392,25 @@ macro_rules! colors {
             )*
         }
 
+        #[derive(Copy, Clone, Debug, Linearize)]
+        #[expect(non_camel_case_types)]
+        pub enum ThemeColor {
+            $(
+                $name,
+            )*
+        }
+
+        impl ThemeColor {
+            pub fn field(self, theme: &Theme) -> &Cell<Color> {
+                let colors = &theme.colors;
+                match self {
+                    $(
+                        Self::$name => &colors.$name,
+                    )*
+                }
+            }
+        }
+
         impl ThemeColors {
             pub fn reset(&self) {
                 let default = Self::default();
