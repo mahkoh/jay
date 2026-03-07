@@ -77,6 +77,7 @@ use {
             rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            static_text::StaticText,
             tri::Try,
         },
         version::VERSION,
@@ -846,6 +847,19 @@ impl From<LevelFilter> for LogLevel {
             LevelFilter::Warn => LogLevel::Warn,
             LevelFilter::Error => LogLevel::Error,
             LevelFilter::Off => LogLevel::Off,
+        }
+    }
+}
+
+impl StaticText for LogLevel {
+    fn text(&self) -> &'static str {
+        match self {
+            LogLevel::Off => "Off",
+            LogLevel::Error => "Error",
+            LogLevel::Warn => "Warn",
+            LogLevel::Info => "Info",
+            LogLevel::Debug => "Debug",
+            LogLevel::Trace => "Trace",
         }
     }
 }

@@ -25,7 +25,7 @@ use {
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
-        utils::{linkedlist::NodeRef, numcell::NumCell},
+        utils::{linkedlist::NodeRef, numcell::NumCell, static_text::StaticText},
     },
     jay_config::{
         Direction as JayDirection, video::Transform as ConfigTransform,
@@ -75,6 +75,15 @@ impl Into<ConfigWorkspaceDisplayOrder> for WorkspaceDisplayOrder {
         match self {
             WorkspaceDisplayOrder::Manual => ConfigWorkspaceDisplayOrder::Manual,
             WorkspaceDisplayOrder::Sorted => ConfigWorkspaceDisplayOrder::Sorted,
+        }
+    }
+}
+
+impl StaticText for WorkspaceDisplayOrder {
+    fn text(&self) -> &'static str {
+        match self {
+            WorkspaceDisplayOrder::Manual => "Manual",
+            WorkspaceDisplayOrder::Sorted => "Sorted",
         }
     }
 }

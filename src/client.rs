@@ -25,6 +25,7 @@ use {
             pending_serial::PendingSerial,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
             pidfd_send_signal::pidfd_send_signal,
+            static_text::StaticText,
         },
         wire::WlRegistryId,
     },
@@ -66,6 +67,28 @@ bitflags! {
         CAP_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
         CAP_HEAD_MANAGER             = 1 << 13,
         CAP_GAMMA_CONTROL_MANAGER    = 1 << 14,
+}
+
+impl StaticText for ClientCapsEnum {
+    fn text(&self) -> &'static str {
+        match self {
+            ClientCapsEnum::CAP_DATA_CONTROL_MANAGER => "data-control",
+            ClientCapsEnum::CAP_VIRTUAL_KEYBOARD_MANAGER => "virtual-keyboard",
+            ClientCapsEnum::CAP_FOREIGN_TOPLEVEL_LIST => "foreign-toplevel-list",
+            ClientCapsEnum::CAP_IDLE_NOTIFIER => "idle-notifier",
+            ClientCapsEnum::CAP_SESSION_LOCK_MANAGER => "session-lock",
+            ClientCapsEnum::CAP_JAY_COMPOSITOR => "jay-compositor",
+            ClientCapsEnum::CAP_LAYER_SHELL => "layer-shell",
+            ClientCapsEnum::CAP_SCREENCOPY_MANAGER => "screencopy",
+            ClientCapsEnum::CAP_SEAT_MANAGER => "seat-manager",
+            ClientCapsEnum::CAP_DRM_LEASE => "drm-lease",
+            ClientCapsEnum::CAP_INPUT_METHOD => "input-method",
+            ClientCapsEnum::CAP_WORKSPACE => "workspace-manager",
+            ClientCapsEnum::CAP_FOREIGN_TOPLEVEL_MANAGER => "foreign-toplevel-manager",
+            ClientCapsEnum::CAP_HEAD_MANAGER => "head-manager",
+            ClientCapsEnum::CAP_GAMMA_CONTROL_MANAGER => "gamma-control-manager",
+        }
+    }
 }
 
 pub const CAPS_DEFAULT: ClientCaps = ClientCaps(CAP_LAYER_SHELL.0 | CAP_DRM_LEASE.0);

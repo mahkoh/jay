@@ -4,6 +4,7 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
+        utils::static_text::StaticText,
         wire::{WpContentTypeV1Id, wp_content_type_v1::*},
     },
     jay_config::window::{
@@ -24,6 +25,16 @@ pub enum ContentType {
     Photo,
     Video,
     Game,
+}
+
+impl StaticText for ContentType {
+    fn text(&self) -> &'static str {
+        match self {
+            Self::Photo => "Photo",
+            Self::Video => "Video",
+            Self::Game => "Game",
+        }
+    }
 }
 
 pub trait ContentTypeExt {

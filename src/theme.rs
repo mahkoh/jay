@@ -4,7 +4,7 @@ use {
     crate::{
         cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
         gfx_api::AlphaMode,
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, static_text::StaticText},
     },
     jay_config::theme::BarPosition as ConfigBarPosition,
     linearize::Linearize,
@@ -456,6 +456,30 @@ colors! {
     highlight = (0x9d, 0x28, 0xc6, 0x7f),
 }
 
+impl StaticText for ThemeColor {
+    fn text(&self) -> &'static str {
+        match self {
+            ThemeColor::background => "Background",
+            ThemeColor::unfocused_title_background => "Title Background (unfocused)",
+            ThemeColor::focused_title_background => "Title Background (focused)",
+            ThemeColor::captured_unfocused_title_background => {
+                "Title Background (unfocused, captured)"
+            }
+            ThemeColor::captured_focused_title_background => "Title Background (focused, captured)",
+            ThemeColor::focused_inactive_title_background => "Title Background (focused, inactive)",
+            ThemeColor::unfocused_title_text => "Title Text (unfocused)",
+            ThemeColor::focused_title_text => "Title Text (focused)",
+            ThemeColor::focused_inactive_title_text => "Title Text (focused, inactive)",
+            ThemeColor::separator => "Separator",
+            ThemeColor::border => "Border",
+            ThemeColor::bar_background => "Bar Background",
+            ThemeColor::bar_text => "Bar Text",
+            ThemeColor::attention_requested_background => "Attention Requested",
+            ThemeColor::highlight => "Highlight",
+        }
+    }
+}
+
 pub struct ThemeSize {
     pub val: Cell<i32>,
     pub set: Cell<bool>,
@@ -564,6 +588,17 @@ sizes! {
     bar_separator_width = (0, 1000, 1),
 }
 
+impl StaticText for ThemeSized {
+    fn text(&self) -> &'static str {
+        match self {
+            ThemeSized::title_height => "Title Height",
+            ThemeSized::bar_height => "Bar Height",
+            ThemeSized::border_width => "Border Width",
+            ThemeSized::bar_separator_width => "Bar Separator Width",
+        }
+    }
+}
+
 pub const DEFAULT_FONT: &str = "monospace 8";
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
@@ -571,6 +606,15 @@ pub enum BarPosition {
     #[default]
     Top,
     Bottom,
+}
+
+impl StaticText for BarPosition {
+    fn text(&self) -> &'static str {
+        match self {
+            BarPosition::Top => "Top",
+            BarPosition::Bottom => "Bottom",
+        }
+    }
 }
 
 impl TryFrom<ConfigBarPosition> for BarPosition {

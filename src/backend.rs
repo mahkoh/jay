@@ -22,6 +22,7 @@ use {
             },
         },
         libinput::consts::DeviceCapability,
+        utils::static_text::StaticText,
         video::drm::{
             ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
             DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
@@ -278,6 +279,20 @@ pub enum InputDeviceCapability {
     Switch,
 }
 
+impl StaticText for InputDeviceCapability {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceCapability::Keyboard => "keyboard",
+            InputDeviceCapability::Pointer => "pointer",
+            InputDeviceCapability::Touch => "touch",
+            InputDeviceCapability::TabletTool => "tablet tool",
+            InputDeviceCapability::TabletPad => "tablet pad",
+            InputDeviceCapability::Gesture => "gesture",
+            InputDeviceCapability::Switch => "switch",
+        }
+    }
+}
+
 impl InputDeviceCapability {
     pub fn to_libinput(self) -> DeviceCapability {
         use crate::libinput::consts::*;
@@ -299,11 +314,30 @@ pub enum InputDeviceAccelProfile {
     Adaptive,
 }
 
+impl StaticText for InputDeviceAccelProfile {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceAccelProfile::Flat => "Flat",
+            InputDeviceAccelProfile::Adaptive => "Adaptive",
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum InputDeviceClickMethod {
     None,
     ButtonAreas,
     Clickfinger,
+}
+
+impl StaticText for InputDeviceClickMethod {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceClickMethod::None => "none",
+            InputDeviceClickMethod::ButtonAreas => "button-areas",
+            InputDeviceClickMethod::Clickfinger => "clickfinger",
+        }
+    }
 }
 
 pub enum BackendEvent {

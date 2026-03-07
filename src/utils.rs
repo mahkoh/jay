@@ -54,6 +54,7 @@ pub mod run_toplevel;
 pub mod scroller;
 pub mod smallmap;
 pub mod stack;
+pub mod static_text;
 pub mod string_ext;
 pub mod syncqueue;
 pub mod threshold_counter;

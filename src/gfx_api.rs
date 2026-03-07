@@ -15,7 +15,7 @@ use {
         state::State,
         theme::Color,
         tree::{Node, OutputNode, Transform},
-        utils::{clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt},
+        utils::{clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, static_text::StaticText},
         video::{
             Modifier,
             dmabuf::DmaBuf,
@@ -45,6 +45,12 @@ use {
 pub enum GfxApi {
     OpenGl,
     Vulkan,
+}
+
+impl StaticText for GfxApi {
+    fn text(&self) -> &'static str {
+        self.to_str()
+    }
 }
 
 impl TryFrom<ConfigGfxApi> for GfxApi {
