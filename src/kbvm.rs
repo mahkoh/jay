@@ -13,6 +13,7 @@ use {
             self, Keymap,
             diagnostic::{Diagnostic, WriteToLog},
             keymap::{Indicator, IndicatorMatcher},
+            rmlvo::Group,
         },
     },
     std::{
@@ -51,6 +52,8 @@ pub struct KbvmMap {
     pub id: KbvmMapId,
     pub state_machine: StateMachine,
     pub lookup_table: LookupTable,
+    #[expect(dead_code)]
+    pub map_text: String,
     pub map: KeymapFd,
     pub xwayland_map: KeymapFd,
     pub has_indicators: bool,
@@ -96,11 +99,36 @@ impl KbvmContext {
         self.create_keymap(id, map)
     }
 
+    pub fn keymap_from_rmlvo(
+        &self,
+        rules: Option<&str>,
+        model: Option<&str>,
+        layout: Option<&str>,
+        variant: Option<&str>,
+        options: Option<&str>,
+    ) -> Result<Rc<KbvmMap>, KbvmError> {
+        let mut groups = None::<Vec<_>>;
+        if layout.is_some() || variant.is_some() {
+            groups = Some(
+                Group::from_layouts_and_variants(
+                    layout.unwrap_or_default(),
+                    variant.unwrap_or_default(),
+                )
+                .collect(),
+            );
+        }
+        let mut options_vec = None::<Vec<_>>;
+        if let Some(options) = options {
+            options_vec = Some(options.split(",").collect());
+        }
+        self.keymap_from_names(rules, model, groups.as_deref(), options_vec.as_deref())
+    }
+
     pub fn keymap_from_names(
         &self,
         rules: Option<&str>,
         model: Option<&str>,
-        groups: Option<&[xkb::rmlvo::Group<'_>]>,
+        groups: Option<&[Group<'_>]>,
         options: Option<&[&str]>,
     ) -> Result<Rc<KbvmMap>, KbvmError> {
         let map = self
@@ -129,11 +157,14 @@ impl KbvmContext {
             has_indicators = true;
         }
         let builder = map.to_builder();
+        let (_, xwayland_map) = create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?;
+        let (map_text, map) = create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?;
         Ok(Rc::new(KbvmMap {
             id,
             state_machine: builder.build_state_machine(),
-            map: create_keymap_memfd(&map, false).map_err(KbvmError::KeymapMemfd)?,
-            xwayland_map: create_keymap_memfd(&map, true).map_err(KbvmError::KeymapMemfd)?,
+            map,
+            map_text,
+            xwayland_map,
             lookup_table: builder.build_lookup_table(),
             has_indicators,
             num_lock,
@@ -145,7 +176,7 @@ impl KbvmContext {
     }
 }
 
-fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<KeymapFd, OsError> {
+fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<(String, KeymapFd), OsError> {
     let mut format = map.format();
     if xwayland {
         format = format.lookup_only(true).rename_long_keys(true);
@@ -159,10 +190,11 @@ fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<KeymapFd, OsError
         memfd.raw(),
         c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
     )?;
-    Ok(KeymapFd {
+    let fd = KeymapFd {
         map: Rc::new(memfd),
         len: str.len() + 1,
-    })
+    };
+    Ok((str, fd))
 }
 
 impl KbvmMap {

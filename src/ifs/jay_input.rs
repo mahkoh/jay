@@ -16,7 +16,6 @@ use {
         utils::errorfmt::ErrorFmt,
         wire::{JayInputId, jay_input::*},
     },
-    kbvm::xkb::rmlvo::Group,
     std::rc::Rc,
     thiserror::Error,
     uapi::OwnedFd,
@@ -228,26 +227,11 @@ impl JayInput {
         F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
     {
         self.or_error(|| {
-            let mut groups = None::<Vec<_>>;
-            if layout.is_some() || variant.is_some() {
-                groups = Some(
-                    Group::from_layouts_and_variants(
-                        layout.unwrap_or_default(),
-                        variant.unwrap_or_default(),
-                    )
-                    .collect(),
-                );
-            }
-            let mut options_vec = None::<Vec<_>>;
-            if let Some(options) = options {
-                options_vec = Some(options.split(",").collect());
-            }
-            let keymap = self.client.state.kb_ctx.keymap_from_names(
-                rules,
-                model,
-                groups.as_deref(),
-                options_vec.as_deref(),
-            )?;
+            let keymap = self
+                .client
+                .state
+                .kb_ctx
+                .keymap_from_rmlvo(rules, model, layout, variant, options)?;
             f(&keymap)?;
             Ok(())
         })
