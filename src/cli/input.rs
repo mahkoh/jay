@@ -324,7 +324,7 @@ pub struct UseHardwareCursorArgs {
 }
 
 pub fn main(global: GlobalArgs, args: InputArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let idle = Rc::new(Input { tc: tc.clone() });
         idle.run(args).await;
     });

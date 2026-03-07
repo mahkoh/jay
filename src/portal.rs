@@ -11,6 +11,7 @@ use {
         async_engine::AsyncEngine,
         cli::GlobalArgs,
         cmm::cmm_manager::ColorManager,
+        compositor::LogLevel,
         dbus::{
             BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
             Dbus, DbusSocket,
@@ -44,7 +45,6 @@ use {
         wheel::Wheel,
         wire_dbus::org,
     },
-    log::Level,
     std::{
         ffi::OsStr,
         io::{BufReader, BufWriter},
@@ -64,7 +64,7 @@ const PORTAL_CANCELLED: u32 = 1;
 const PORTAL_ENDED: u32 = 2;
 
 pub fn run_freestanding(global: GlobalArgs) {
-    let logger = Logger::install_stderr(global.log_level.into());
+    let logger = Logger::install_stderr(global.log_level);
     run(logger, true);
 }
 
@@ -131,7 +131,7 @@ impl PortalStartup {
     }
 }
 
-pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
+pub fn run_from_compositor(level: LogLevel) -> Result<PortalStartup, PortalError> {
     let Pipe { read, write } = match pipe() {
         Ok(p) => p,
         Err(e) => return Err(PortalError::CreatePipe(e)),

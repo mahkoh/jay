@@ -27,12 +27,11 @@ use {
             damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
             reexec::ReexecArgs, run_tagged::RunTaggedArgs, tree::TreeArgs, xwayland::XwaylandArgs,
         },
-        compositor::start_compositor,
+        compositor::{LogLevel, start_compositor},
         format::{Format, ref_formats},
         portal,
         pr_caps::drop_all_pr_caps,
     },
-    ::log::Level,
     clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
     clap_complete::Shell,
 };
@@ -50,7 +49,7 @@ struct Jay {
 pub struct GlobalArgs {
     /// The log level.
     #[clap(value_enum, long, default_value_t)]
-    pub log_level: CliLogLevel,
+    pub log_level: LogLevel,
 }
 
 #[derive(Subcommand, Debug)]
@@ -176,7 +175,7 @@ pub struct LogArgs {
 pub struct SetLogArgs {
     /// The new log level.
     #[clap(value_enum)]
-    level: CliLogLevel,
+    level: LogLevel,
 }
 
 #[derive(Args, Debug)]
@@ -192,28 +191,6 @@ pub struct SeatTestArgs {
 pub enum CliBackend {
     X11,
     Metal,
-}
-
-#[derive(ValueEnum, Debug, Copy, Clone, Hash, Default)]
-pub enum CliLogLevel {
-    Trace,
-    Debug,
-    #[default]
-    Info,
-    Warn,
-    Error,
-}
-
-impl Into<Level> for CliLogLevel {
-    fn into(self) -> Level {
-        match self {
-            CliLogLevel::Trace => Level::Trace,
-            CliLogLevel::Debug => Level::Debug,
-            CliLogLevel::Info => Level::Info,
-            CliLogLevel::Warn => Level::Warn,
-            CliLogLevel::Error => Level::Error,
-        }
-    }
 }
 
 #[derive(Args, Debug)]

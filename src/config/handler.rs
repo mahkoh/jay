@@ -66,7 +66,7 @@ use {
             },
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
-        logging::LogLevel,
+        logging::LogLevel as ConfigLogLevel,
         theme::{BarPosition, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
@@ -263,17 +263,17 @@ impl ConfigProxyHandler {
 
     fn handle_log_request(
         &self,
-        level: LogLevel,
+        level: ConfigLogLevel,
         msg: &str,
         file: Option<&str>,
         line: Option<u32>,
     ) {
         let level = match level {
-            LogLevel::Error => Level::Error,
-            LogLevel::Warn => Level::Warn,
-            LogLevel::Info => Level::Info,
-            LogLevel::Debug => Level::Debug,
-            LogLevel::Trace => Level::Trace,
+            ConfigLogLevel::Error => Level::Error,
+            ConfigLogLevel::Warn => Level::Warn,
+            ConfigLogLevel::Info => Level::Info,
+            ConfigLogLevel::Debug => Level::Debug,
+            ConfigLogLevel::Trace => Level::Trace,
         };
         let debug = fmt::from_fn(|fmt| {
             if let Some(file) = file {
@@ -1849,17 +1849,8 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_log_level(&self, level: LogLevel) {
-        let level = match level {
-            LogLevel::Error => Level::Error,
-            LogLevel::Warn => Level::Warn,
-            LogLevel::Info => Level::Info,
-            LogLevel::Debug => Level::Debug,
-            LogLevel::Trace => Level::Trace,
-        };
-        if let Some(logger) = &self.state.logger {
-            logger.set_level(level);
-        }
+    fn handle_set_log_level(&self, level: ConfigLogLevel) {
+        self.state.set_log_level(level.into());
     }
 
     fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), CphError> {

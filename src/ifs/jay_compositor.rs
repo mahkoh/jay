@@ -1,7 +1,7 @@
 use {
     crate::{
-        cli::CliLogLevel,
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError, ClientId},
+        compositor::LogLevel,
         globals::{Global, GlobalName},
         ifs::{
             jay_acceptor_request::JayAcceptorRequest,
@@ -35,7 +35,7 @@ use {
         },
     },
     bstr::ByteSlice,
-    log::Level,
+    linearize::LinearizeExt,
     std::{cell::Cell, ops::Deref, rc::Rc, str::FromStr},
     thiserror::Error,
 };
@@ -185,22 +185,10 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn set_log_level(&self, req: SetLogLevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        const ERROR: u32 = CliLogLevel::Error as u32;
-        const WARN: u32 = CliLogLevel::Warn as u32;
-        const INFO: u32 = CliLogLevel::Info as u32;
-        const DEBUG: u32 = CliLogLevel::Debug as u32;
-        const TRACE: u32 = CliLogLevel::Trace as u32;
-        let level = match req.level {
-            ERROR => Level::Error,
-            WARN => Level::Warn,
-            INFO => Level::Info,
-            DEBUG => Level::Debug,
-            TRACE => Level::Trace,
-            _ => return Err(JayCompositorError::UnknownLogLevel(req.level)),
+        let Some(level) = LogLevel::from_linear(req.level as usize) else {
+            return Err(JayCompositorError::UnknownLogLevel(req.level));
         };
-        if let Some(logger) = &self.client.state.logger {
-            logger.set_level(level);
-        }
+        self.client.state.set_log_level(level);
         Ok(())
     }
 

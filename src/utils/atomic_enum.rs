@@ -31,12 +31,10 @@ where
         }
     }
 
-    #[expect(dead_code)]
     pub fn load(&self, ordering: Ordering) -> T {
         unsafe { T::from_linear_unchecked(self.v.load(ordering)) }
     }
 
-    #[expect(dead_code)]
     pub fn store(&self, t: T, ordering: Ordering) {
         self.v.store(t.linearize(), ordering);
     }

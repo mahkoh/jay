@@ -13,7 +13,7 @@ use {
         client::{Client, ClientCaps, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
-        compositor::LIBEI_SOCKET,
+        compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
@@ -1689,6 +1689,12 @@ impl State {
     pub fn set_explicit_sync_enabled(&self, enabled: bool) {
         self.explicit_sync_enabled.set(enabled);
         self.expose_new_singletons();
+    }
+
+    pub fn set_log_level(&self, level: LogLevel) {
+        if let Some(logger) = &self.logger {
+            logger.set_level(level);
+        }
     }
 }
 

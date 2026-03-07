@@ -84,8 +84,11 @@ use {
         wheel::{Wheel, WheelError},
     },
     ahash::AHashSet,
+    clap::ValueEnum,
     forker::ForkerProxy,
-    jay_config::_private::DEFAULT_SEAT_NAME,
+    jay_config::{_private::DEFAULT_SEAT_NAME, logging::LogLevel as ConfigLogLevel},
+    linearize::Linearize,
+    log::LevelFilter,
     std::{
         cell::{Cell, RefCell},
         env,
@@ -113,9 +116,9 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         None
     };
     let forker = create_forker(reaper_pid);
-    let portal = portal::run_from_compositor(global.log_level.into());
+    let portal = portal::run_from_compositor(global.log_level);
     enable_profiler();
-    let logger = Logger::install_compositor(global.log_level.into());
+    let logger = Logger::install_compositor(global.log_level);
     let portal = match portal {
         Ok(p) => Some(p),
         Err(e) => {
@@ -802,5 +805,54 @@ pub fn config_dir() -> Option<String> {
     } else {
         log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
         None
+    }
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, Eq, PartialEq, Linearize)]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    #[default]
+    Info,
+    Warn,
+    Error,
+    Off,
+}
+
+impl Into<LevelFilter> for LogLevel {
+    fn into(self) -> LevelFilter {
+        match self {
+            LogLevel::Trace => LevelFilter::Trace,
+            LogLevel::Debug => LevelFilter::Debug,
+            LogLevel::Info => LevelFilter::Info,
+            LogLevel::Warn => LevelFilter::Warn,
+            LogLevel::Error => LevelFilter::Error,
+            LogLevel::Off => LevelFilter::Off,
+        }
+    }
+}
+
+impl From<LevelFilter> for LogLevel {
+    fn from(value: LevelFilter) -> Self {
+        match value {
+            LevelFilter::Trace => LogLevel::Trace,
+            LevelFilter::Debug => LogLevel::Debug,
+            LevelFilter::Info => LogLevel::Info,
+            LevelFilter::Warn => LogLevel::Warn,
+            LevelFilter::Error => LogLevel::Error,
+            LevelFilter::Off => LogLevel::Off,
+        }
+    }
+}
+
+impl From<ConfigLogLevel> for LogLevel {
+    fn from(value: ConfigLogLevel) -> Self {
+        match value {
+            ConfigLogLevel::Trace => LogLevel::Trace,
+            ConfigLogLevel::Debug => LogLevel::Debug,
+            ConfigLogLevel::Info => LogLevel::Info,
+            ConfigLogLevel::Warn => LogLevel::Warn,
+            ConfigLogLevel::Error => LogLevel::Error,
+        }
     }
 }

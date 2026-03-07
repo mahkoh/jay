@@ -4,11 +4,12 @@ use {
         tools::tool_client::{ToolClient, with_tool_client},
         wire::jay_compositor::SetLogLevel,
     },
+    linearize::Linearize,
     std::rc::Rc,
 };
 
 pub fn main(global: GlobalArgs, args: SetLogArgs) {
-    with_tool_client(global.log_level.into(), |tc| async move {
+    with_tool_client(global.log_level, |tc| async move {
         let logger = Rc::new(Log {
             tc: tc.clone(),
             args,
@@ -27,7 +28,7 @@ async fn run(log: Rc<Log>) {
     let comp = tc.jay_compositor().await;
     tc.send(SetLogLevel {
         self_id: comp,
-        level: log.args.level as u32,
+        level: log.args.level.linearize() as u32,
     });
     tc.round_trip().await;
 }
