@@ -105,14 +105,13 @@ pub struct ReadOnlyHeadState {
 }
 
 impl ReadOnlyHeadState {
-    #[expect(dead_code)]
     pub fn borrow(&self) -> Ref<'_, HeadState> {
         self.state.borrow()
     }
 }
 
 impl HeadState {
-    fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
+    pub fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
         self.in_compositor_space = false;
         self.wl_output = None;
         if !self.connector_enabled {
@@ -131,7 +130,7 @@ impl HeadState {
         self.wl_output = wl_output;
     }
 
-    fn update_size(&mut self) {
+    pub fn update_size(&mut self) {
         self.size =
             OutputNode::calculate_extents_(self.mode, self.transform, self.scale, self.position)
                 .size();
@@ -213,7 +212,7 @@ pub enum HeadCommonError {
 }
 
 pub struct HeadManagers {
-    name: HeadName,
+    pub name: HeadName,
     state: Rc<RefCell<HeadState>>,
     managers: CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<Head>>,
 }
@@ -235,7 +234,6 @@ impl HeadManagers {
         }
     }
 
-    #[expect(dead_code)]
     pub fn state(&self) -> ReadOnlyHeadState {
         ReadOnlyHeadState {
             state: self.state.clone(),

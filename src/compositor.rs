@@ -744,8 +744,7 @@ fn create_dummy_output(state: &Rc<State>) {
         wlr_output_heads: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
-        &state.ring,
-        &state.eng,
+        state,
         &connector_data,
         &persistent_state,
     ));

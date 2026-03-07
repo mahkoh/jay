@@ -110,7 +110,6 @@ pub enum EggError {
 }
 
 pub mod icons {
-    #[expect(dead_code)]
     pub const ICON_ADD: &str = "\u{e145}";
     pub const ICON_CLOSE: &str = "\u{e5cd}";
     pub const ICON_DRAG_INDICATOR: &str = "\u{e945}";
@@ -119,7 +118,6 @@ pub mod icons {
     pub const ICON_OPEN_IN_NEW: &str = "\u{e89e}";
     #[expect(dead_code)]
     pub const ICON_PENDING: &str = "\u{ef64}";
-    #[expect(dead_code)]
     pub const ICON_REMOVE: &str = "\u{e15b}";
 }
 

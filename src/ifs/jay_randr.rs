@@ -456,7 +456,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.schedule.set_cursor_hz(req.hz);
+        c.schedule.set_cursor_hz(&self.state, req.hz);
         Ok(())
     }
 

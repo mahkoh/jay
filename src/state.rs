@@ -17,7 +17,8 @@ use {
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         control_center::{
-            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, CCI_XWAYLAND, ControlCenters,
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_IDLE, CCI_OUTPUTS, CCI_XWAYLAND,
+            ControlCenters,
         },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
@@ -493,30 +494,39 @@ impl ConnectorData {
             return;
         }
         *self.state.borrow_mut() = s.clone();
-        if old.enabled != s.enabled {
+        macro_rules! b {
+            ($expr:expr) => {{
+                let e = $expr;
+                if e {
+                    state.trigger_cci(CCI_OUTPUTS);
+                }
+                e
+            }};
+        }
+        if b!(old.enabled != s.enabled) {
             self.head_managers.handle_enabled_change(s.enabled);
         }
-        if old.active != s.active {
+        if b!(old.active != s.active) {
             self.head_managers.handle_active_change(s.active);
         }
-        if old.non_desktop_override != s.non_desktop_override {
+        if b!(old.non_desktop_override != s.non_desktop_override) {
             self.head_managers
                 .handle_non_desktop_override_changed(s.non_desktop_override);
         }
-        if old.vrr != s.vrr {
+        if b!(old.vrr != s.vrr) {
             self.head_managers.handle_vrr_change(s.vrr);
         }
-        if old.tearing != s.tearing {
+        if b!(old.tearing != s.tearing) {
             self.head_managers.handle_tearing_enabled_change(s.tearing);
         }
-        if old.format != s.format {
+        if b!(old.format != s.format) {
             self.head_managers.handle_format_change(s.format);
         }
-        if (old.color_space, old.eotf) != (s.color_space, s.eotf) {
+        if b!((old.color_space, old.eotf) != (s.color_space, s.eotf)) {
             self.head_managers
                 .handle_colors_change(s.color_space, s.eotf);
         }
-        if old.mode != s.mode {
+        if b!(old.mode != s.mode) {
             self.head_managers.handle_mode_change(s.mode);
             for head in self.wlr_output_heads.lock().values() {
                 head.handle_mode_change(s.mode);
