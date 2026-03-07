@@ -34,6 +34,7 @@ use {
             array_to_tuple::ArrayToTuple,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            event_listener::LazyEventSource,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
             rc_eq::rc_eq,
@@ -48,7 +49,7 @@ use {
     jay_config::{window, window::WindowType},
     std::{
         borrow::Borrow,
-        cell::{Cell, RefCell},
+        cell::{Cell, OnceCell, RefCell},
         ops::Deref,
         rc::{Rc, Weak},
     },
@@ -404,6 +405,7 @@ pub struct ToplevelData {
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
     pub content_type: Cell<Option<ContentType>>,
+    pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
 }
 
 impl ToplevelData {
@@ -457,6 +459,7 @@ impl ToplevelData {
             just_mapped_scheduled: Cell::new(false),
             seat_foci: Default::default(),
             content_type: Default::default(),
+            property_changed_source: Default::default(),
         }
     }
 
@@ -497,7 +500,14 @@ impl ToplevelData {
         (width, height)
     }
 
+    fn trigger_property_source(&self) {
+        if let Some(source) = self.property_changed_source.get() {
+            source.trigger();
+        }
+    }
+
     pub fn property_changed(&self, change: TlMatcherChange) {
+        self.trigger_property_source();
         let mgr = &self.state.tl_matcher_manager;
         let props = self.changed_properties.get();
         if props.is_none() && mgr.has_no_interest(self, change) {
@@ -924,6 +934,12 @@ impl ToplevelData {
             return false;
         };
         parent.node_is_workspace()
+    }
+
+    #[expect(dead_code)]
+    pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {
+        self.property_changed_source
+            .get_or_init(|| self.state.lazy_event_sources.create_source())
     }
 }
 

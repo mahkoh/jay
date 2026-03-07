@@ -129,7 +129,6 @@ impl Deref for LazyEventSource {
 }
 
 impl LazyEventSource {
-    #[expect(dead_code)]
     pub fn trigger(self: &Rc<Self>) {
         if self.listeners.is_empty() {
             return;
@@ -142,7 +141,6 @@ impl LazyEventSource {
 }
 
 impl LazyEventSources {
-    #[expect(dead_code)]
     pub fn create_source(self: &Rc<Self>) -> Rc<LazyEventSource> {
         Rc::new(LazyEventSource {
             sources: self.clone(),
