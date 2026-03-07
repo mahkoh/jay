@@ -356,17 +356,20 @@ impl IdleState {
 
     pub fn add_inhibitor(&self, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
         self.inhibitors.set(inhibitor.inhibit_id, inhibitor.clone());
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed();
     }
 
     pub fn remove_inhibitor(&self, inhibitor: &ZwpIdleInhibitorV1) {
         self.inhibitors.remove(&inhibitor.inhibit_id);
-        self.inhibitors_changed.set(true);
-        self.change.trigger();
+        self.inhibitors_changed();
         if self.inhibitors.is_empty() {
             self.resume_inhibited_notifications();
         }
+    }
+
+    fn inhibitors_changed(&self) {
+        self.inhibitors_changed.set(true);
+        self.change.trigger();
     }
 
     fn resume_inhibited_notifications(&self) {
