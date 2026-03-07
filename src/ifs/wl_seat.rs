@@ -956,8 +956,18 @@ impl WlSeatGlobal {
         self.focus_history_visible_only.set(visible);
     }
 
+    #[expect(dead_code)]
+    pub fn focus_history_visible(&self) -> bool {
+        self.focus_history_visible_only.get()
+    }
+
     pub fn focus_history_set_same_workspace(&self, same_workspace: bool) {
         self.focus_history_same_workspace.set(same_workspace);
+    }
+
+    #[expect(dead_code)]
+    pub fn focus_history_same_workspace(&self) -> bool {
+        self.focus_history_same_workspace.get()
     }
 
     fn focus_layer_rel<LI, SI>(
@@ -1462,8 +1472,18 @@ impl WlSeatGlobal {
         self.focus_follows_mouse.set(focus_follows_mouse);
     }
 
+    #[expect(dead_code)]
+    pub fn focus_follows_mouse(&self) -> bool {
+        self.focus_follows_mouse.get()
+    }
+
     pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {
         self.fallback_output_mode.set(fallback_output_mode);
+    }
+
+    #[expect(dead_code)]
+    pub fn fallback_output_mode(&self) -> FallbackOutputMode {
+        self.fallback_output_mode.get()
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
@@ -1581,6 +1601,11 @@ impl WlSeatGlobal {
 
     pub fn set_pointer_revert_key(&self, key: KeySym) {
         self.revert_key.set(key);
+    }
+
+    #[expect(dead_code)]
+    pub fn pointer_revert_key(&self) -> KeySym {
+        self.revert_key.get()
     }
 }
 
