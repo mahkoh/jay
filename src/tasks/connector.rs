@@ -74,6 +74,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
+        blend_space: BlendSpace::Srgb,
+        use_native_gamut: false,
+        vrr_cursor_hz: None,
     };
     let data = Rc::new(ConnectorData {
         id,

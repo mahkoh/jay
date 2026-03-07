@@ -127,6 +127,7 @@ impl OutputSchedule {
             Some(v) => v,
         };
         self.persistent.vrr_cursor_hz.set(hz);
+        self.connector.head_managers.handle_cursor_hz_change(hz);
         self.cursor_delta_nsec.set(delta);
         self.trigger();
     }

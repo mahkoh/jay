@@ -36,7 +36,7 @@ use {
                 HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
             },
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::handle_position_hint_requests,
             wl_surface::{
                 NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
@@ -704,6 +704,9 @@ fn create_dummy_output(state: &Rc<State>) {
         eotf: backend_state.eotf,
         supported_formats: Default::default(),
         brightness: None,
+        blend_space: BlendSpace::Srgb,
+        use_native_gamut: false,
+        vrr_cursor_hz: None,
     };
     let connector_data = Rc::new(ConnectorData {
         id,

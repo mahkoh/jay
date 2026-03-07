@@ -1000,6 +1000,10 @@ impl OutputNode {
             .replace(use_native_gamut);
         if old != use_native_gamut {
             self.update_color_description();
+            self.global
+                .connector
+                .head_managers
+                .handle_use_native_gamut_change(use_native_gamut);
         }
     }
 
@@ -1007,6 +1011,10 @@ impl OutputNode {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
             self.state.damage(self.global.position());
+            self.global
+                .connector
+                .head_managers
+                .handle_blend_space_change(blend_space);
         }
     }
     fn find_stacked_at(
