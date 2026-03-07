@@ -290,6 +290,8 @@ fn start_compositor2(
             use_wire_scale: Default::default(),
             wire_scale: Default::default(),
             windows: Default::default(),
+            client: Default::default(),
+            display: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),

@@ -320,6 +320,8 @@ pub struct XWaylandState {
     pub use_wire_scale: Cell<bool>,
     pub wire_scale: Cell<Option<i32>>,
     pub windows: CopyHashMap<XwindowId, Rc<Xwindow>>,
+    pub client: CloneCell<Option<Rc<Client>>>,
+    pub display: CloneCell<Option<Rc<String>>>,
 }
 
 pub struct IdleState {
