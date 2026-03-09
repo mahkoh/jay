@@ -149,7 +149,6 @@ use {
 };
 
 pub struct State {
-    #[expect(dead_code)]
     pub pid: c::pid_t,
     pub kb_ctx: KbvmContext,
     pub backend: CloneCell<Rc<dyn Backend>>,

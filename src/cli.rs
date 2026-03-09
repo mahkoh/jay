@@ -7,6 +7,7 @@ mod generate;
 mod idle;
 mod input;
 mod log;
+mod pid;
 mod quit;
 mod randr;
 mod reexec;
@@ -98,6 +99,8 @@ pub enum Cmd {
     Tree(TreeArgs),
     /// Prints the Jay version and exits.
     Version,
+    /// Prints the Jay PID and exits.
+    Pid,
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -236,6 +239,7 @@ pub fn main() {
         Cmd::Clients(a) => clients::main(cli.global, a),
         Cmd::Tree(a) => tree::main(cli.global, a),
         Cmd::Version => version::main(cli.global),
+        Cmd::Pid => pid::main(cli.global),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
         Cmd::Reexec(a) => reexec::main(cli.global, a),

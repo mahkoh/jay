@@ -131,6 +131,10 @@ request get_sync_file_surface (since = 26) {
     surface: id(wl_surface),
 }
 
+request get_pid (since = 27) {
+
+}
+
 # events
 
 event client_id {
@@ -144,4 +148,8 @@ event seat {
 
 event capabilities {
     cap: array(pod(u16)),
+}
+
+event pid (since = 27) {
+    pid: pod(uapi::c::pid_t),
 }
