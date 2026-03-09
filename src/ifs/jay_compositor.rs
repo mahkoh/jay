@@ -77,7 +77,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        26
+        27
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -531,6 +531,14 @@ impl JayCompositorRequestHandler for JayCompositor {
         let obj = Rc::new(JaySyncFileSurface::new(req.id, self.version, &surface));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn get_pid(&self, _req: GetPid, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.event(Pid {
+            self_id: self.id,
+            pid: self.client.state.pid,
+        });
         Ok(())
     }
 }
