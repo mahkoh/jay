@@ -70,6 +70,7 @@ mod edid;
 mod ei;
 mod eventfd_cache;
 mod fixed;
+mod fontconfig;
 mod forker;
 mod format;
 mod gfx_api;

@@ -8,6 +8,7 @@ The following libraries must be installed before compiling Jay:
 - libgbm.so
 - libudev.so
 - libpangocairo-1.0.so
+- libfontconfig.so
 
 You must also have a C compiler (GCC or Clang) and the latest version of rust installed.
 You can install rust with [rustup](https://rustup.rs/).
