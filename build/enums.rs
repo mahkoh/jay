@@ -15,6 +15,9 @@ mod libinput;
 #[path = "../src/pango/consts.rs"]
 mod pango;
 
+#[path = "../src/fontconfig/consts.rs"]
+mod fontconfig;
+
 fn get_target() -> repc::Target {
     let rustc_target = env::var("TARGET").unwrap();
     repc::TARGET_MAP
@@ -147,6 +150,10 @@ pub fn main() -> anyhow::Result<()> {
     write_ty(&mut f, pango::CAIRO_STATUSES, "cairo_status_t")?;
     write_ty(&mut f, pango::CAIRO_OPERATORS, "cairo_operator_t")?;
     write_ty(&mut f, pango::PANGO_ELLIPSIZE_MODES, "PangoEllipsizeMode_")?;
+
+    let mut f = open("fontconfig_tys.rs")?;
+    write_ty(&mut f, fontconfig::FC_MATCH_KINDS, "FcMatchKind")?;
+    write_ty(&mut f, fontconfig::FC_RESULTS, "FcResult")?;
 
     Ok(())
 }
