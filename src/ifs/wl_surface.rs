@@ -2,6 +2,8 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
+pub mod jay_sync_file_release;
+pub mod jay_sync_file_surface;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
@@ -31,7 +33,7 @@ use {
         fixed::Fixed,
         gfx_api::{
             AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, FdSync, GfxError,
-            GfxStagingBuffer, ReleaseSync, SampleRect,
+            GfxStagingBuffer, ReleaseSync, SampleRect, SyncFile,
         },
         ifs::{
             color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
@@ -52,6 +54,7 @@ use {
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
                 dnd_icon::DndIcon,
+                jay_sync_file_release::SyncFileRelease,
                 tray::TrayItemId,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
@@ -90,7 +93,7 @@ use {
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
-            drm::syncobj::{Syncobj, SyncobjPoint},
+            drm::syncobj::{Syncobj, SyncobjPoint, merge_sync_files},
         },
         wire::{
             WlOutputId, WlSurfaceId, WpColorManagementSurfaceFeedbackV1Id, ZwpIdleInhibitorV1Id,
@@ -219,11 +222,20 @@ pub struct SurfaceBuffer {
     pub release_sync: ReleaseSync,
     release: Option<SyncobjRelease>,
     _surface_release: SmallVec<[SurfaceRelease; 1]>,
+    sync_file_release: Option<SyncFileRelease>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let syncs = self.syncs.take();
+        if let Some(release) = &mut self.sync_file_release {
+            let sync_file = merge_sync_files(syncs.iter().flat_map(|f| f.1.get_sync_file()))
+                .unwrap_or_else(|e| {
+                    log::error!("Could not merge sync files: {}", ErrorFmt(e));
+                    None
+                });
+            release.done(sync_file.as_ref());
+        }
         if let Some(release) = &mut self.release {
             release.signal(Some(&syncs));
             return;
@@ -456,8 +468,10 @@ struct PendingState {
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<Syncobj>, SyncobjPoint)>,
     release_point: Option<SyncobjRelease>,
+    sync_file_acquire: Option<Option<SyncFile>>,
+    sync_file_release: Option<SyncFileRelease>,
     alpha_multiplier: Option<Option<f32>>,
-    explicit_sync: bool,
+    syncobj_sync: bool,
     fifo_barrier_set: bool,
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
@@ -485,8 +499,9 @@ impl PendingState {
             self.buffer = Some(buffer);
             self.acquire_point = next.acquire_point.take();
             self.release_point = next.release_point.take();
-            self.explicit_sync = mem::take(&mut next.explicit_sync);
+            self.syncobj_sync = mem::take(&mut next.syncobj_sync);
             self.surface_release = mem::take(&mut next.surface_release);
+            self.sync_file_release = next.sync_file_release.take();
         }
         macro_rules! opt {
             ($name:ident) => {
@@ -510,6 +525,7 @@ impl PendingState {
         opt!(color_description);
         opt!(serial);
         opt!(alpha_mode);
+        opt!(sync_file_acquire);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -1094,15 +1110,19 @@ impl WlSurfaceRequestHandler for WlSurface {
         let pending = &mut *self.pending.borrow_mut();
         if let Some(Some(buffer)) = &mut pending.buffer
             && pending.release_point.is_none()
+            && pending.sync_file_release.is_none()
         {
             buffer.send_release = true;
         }
         if let Some(release) = &mut pending.release_point {
             release.committed = true;
         }
-        self.verify_explicit_sync(pending)?;
+        self.verify_syncobj_sync(pending)?;
         if pending.surface_release.is_not_empty() && not_matches!(pending.buffer, Some(Some(_))) {
             return Err(WlSurfaceError::SurfaceReleaseWithoutAttach);
+        }
+        if pending.sync_file_release.is_some() && not_matches!(pending.buffer, Some(Some(_))) {
+            return Err(WlSurfaceError::SyncFileReleaseWithoutAttach);
         }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
@@ -1227,16 +1247,17 @@ impl WlSurface {
                     self.reset_shm_textures();
                 }
                 buffer.buf.update_texture_or_log(self, false);
-                let release_sync = match pending.explicit_sync {
-                    false => ReleaseSync::Implicit,
-                    true => ReleaseSync::Explicit,
-                };
+                let mut release_sync = ReleaseSync::Implicit;
+                if pending.syncobj_sync || pending.sync_file_release.is_some() {
+                    release_sync = ReleaseSync::Explicit;
+                }
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     syncs: Default::default(),
                     release_sync,
                     release: pending.release_point.take(),
                     _surface_release: mem::take(&mut pending.surface_release),
+                    sync_file_release: pending.sync_file_release.take(),
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
@@ -1542,9 +1563,9 @@ impl WlSurface {
         }
     }
 
-    fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
-        pending.explicit_sync = self.syncobj_surface.is_some();
-        if !pending.explicit_sync {
+    fn verify_syncobj_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        pending.syncobj_sync = self.syncobj_surface.is_some();
+        if !pending.syncobj_sync {
             return Ok(());
         }
         let have_new_buffer = match &pending.buffer {
@@ -2171,6 +2192,8 @@ pub enum WlSurfaceError {
     RegisterCommitTimeout(#[source] IoUringError),
     #[error("Content update contains release callbacks but no non-null buffer")]
     SurfaceReleaseWithoutAttach,
+    #[error("Content update contains sync file release but no non-null buffer")]
+    SyncFileReleaseWithoutAttach,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
