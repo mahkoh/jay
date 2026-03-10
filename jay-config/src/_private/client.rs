@@ -407,6 +407,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatMove { seat, direction });
     }
 
+    pub fn seat_warp_mouse_to_focus(&self, seat: Seat) {
+        self.send(&ClientMessage::SeatWarpMouseToFocus { seat });
+    }
+
     pub fn window_move(&self, window: Window, direction: Direction) {
         self.send(&ClientMessage::WindowMove { window, direction });
     }

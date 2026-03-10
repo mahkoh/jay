@@ -168,6 +168,7 @@ impl ActionParser<'_> {
             "reload-simple-im" => ReloadSimpleIm,
             "enable-unicode-input" => EnableUnicodeInput,
             "open-control-center" => OpenControlCenter,
+            "warp-mouse-to-focus" => WarpMouseToFocus,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

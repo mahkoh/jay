@@ -91,6 +91,7 @@ pub enum SimpleCommand {
     ReloadSimpleIm,
     EnableUnicodeInput,
     OpenControlCenter,
+    WarpMouseToFocus,
 }
 
 #[derive(Debug, Clone)]

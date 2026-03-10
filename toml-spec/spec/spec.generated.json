@@ -1995,7 +1995,8 @@
         "toggle-simple-im-enabled",
         "reload-simple-im",
         "enable-unicode-input",
-        "open-control-center"
+        "open-control-center",
+        "warp-mouse-to-focus"
       ]
     },
     "SimpleIm": {
