@@ -2425,6 +2425,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_set_mouse_follows_focus(
+        &self,
+        seat: Seat,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_mouse_follows_focus(enabled);
+        Ok(())
+    }
+
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -2597,6 +2607,7 @@ impl ConfigProxyHandler {
             return Err(CphError::WindowNotVisible(window_id));
         }
         seat.focus_toplevel(window);
+        seat.maybe_schedule_warp_mouse_to_focus();
         Ok(())
     }
 
@@ -3354,6 +3365,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatWarpMouseToFocus { seat } => self
                 .handle_seat_warp_mouse_to_focus(seat)
                 .wrn("seat_warp_mouse_to_focus")?,
+            ClientMessage::SeatSetMouseFollowsFocus { seat, enabled } => self
+                .handle_seat_set_mouse_follows_focus(seat, enabled)
+                .wrn("seat_set_mouse_follows_focus")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

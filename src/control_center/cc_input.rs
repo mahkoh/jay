@@ -232,6 +232,9 @@ impl InputPane {
                     bool(ui, "Focus Follows Mouse", seat.focus_follows_mouse(), |v| {
                         seat.set_focus_follows_mouse(v);
                     });
+                    bool(ui, "Mouse Follows Focus", seat.mouse_follows_focus(), |v| {
+                        seat.set_mouse_follows_focus(v);
+                    });
                     combo_box_ui(
                         ui,
                         "Fallback Output Mode",

@@ -871,6 +871,10 @@ pub enum ClientMessage<'a> {
         dx2: i32,
         dy2: i32,
     },
+    SeatSetMouseFollowsFocus {
+        seat: Seat,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

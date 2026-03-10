@@ -1084,6 +1084,7 @@ impl WlSeatGlobal {
                 }
             }
             self.focus_node(node);
+            self.maybe_schedule_warp_mouse_to_focus();
         }
     }
 

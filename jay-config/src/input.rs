@@ -655,6 +655,15 @@ impl Seat {
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         self.window().resize(dx1, dy1, dx2, dy2);
     }
+
+    /// Sets whether the cursor should automatically move to the center of a window
+    /// when focus changes via keyboard commands (move-left, focus-right, show-workspace, etc.).
+    ///
+    /// The default is `false`.
+    #[deprecated = "This setting is unstable and might be removed in the future"]
+    pub fn unstable_set_mouse_follows_focus(self, enabled: bool) {
+        get!().seat_set_mouse_follows_focus(self, enabled)
+    }
 }
 
 /// A focus-follows-mouse mode.
