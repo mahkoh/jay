@@ -1,7 +1,7 @@
 use {
     crate::{
         utils::{errorfmt::ErrorFmt, numcell::NumCell},
-        video::drm::syncobj::Syncobj,
+        video::drm::syncobj::{Syncobj, SyncobjCtx},
         vulkan_core::{VulkanCoreError, device::VulkanDeviceInf},
     },
     ash::vk::{
@@ -20,6 +20,7 @@ where
 {
     pub(super) device: Rc<D>,
     pub(super) semaphore: Semaphore,
+    pub(super) sync_ctx: Rc<SyncobjCtx>,
     pub(super) syncobj: Rc<Syncobj>,
     pub(super) next_point: NumCell<u64>,
 }
@@ -55,6 +56,9 @@ where
         if !self.supports_timeline_opaque_export() {
             return Err(VulkanCoreError::TimelineExportNotSupported);
         }
+        let Some(sync_ctx) = self.sync_ctx() else {
+            return Err(VulkanCoreError::NoSyncobjCtx);
+        };
         let sem = {
             let mut export_info = ExportSemaphoreCreateInfo::default()
                 .handle_types(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD);
@@ -87,8 +91,7 @@ where
         for _ in 0..2 {
             let n = next_point.fetch_add(1);
             signal(n)?;
-            let signaled = self
-                .sync_ctx()
+            let signaled = sync_ctx
                 .query_last_signaled(&syncobj)
                 .map_err(VulkanCoreError::QueryLastSignaled)?;
             if signaled != n {
@@ -99,6 +102,7 @@ where
         Ok(Rc::new(VulkanTimelineSemaphore {
             device: self.clone(),
             semaphore: sem,
+            sync_ctx: sync_ctx.clone(),
             syncobj: Rc::new(syncobj),
             next_point,
         }))

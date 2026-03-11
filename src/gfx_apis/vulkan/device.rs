@@ -671,8 +671,8 @@ impl VulkanDeviceInf for VulkanDevice {
         self.supports_timeline_opaque_export
     }
 
-    fn sync_ctx(&self) -> &Rc<SyncobjCtx> {
-        &self.sync_ctx
+    fn sync_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
+        Some(&self.sync_ctx)
     }
 
     fn eventfd_cache(&self) -> &Rc<EventfdCache> {

@@ -76,6 +76,8 @@ pub enum VulkanCoreError {
     AcquireEventfd(#[source] EventfdError),
     #[error("Could not create a sync obj eventfd wait")]
     CreateSyncobjWait(#[source] DrmError),
+    #[error("Device does not have a syncobj ctx")]
+    NoSyncobjCtx,
 }
 
 pub struct VulkanCoreInstance {

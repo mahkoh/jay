@@ -2037,8 +2037,8 @@ impl VulkanDeviceInf for CopyDeviceInner {
         self.phy.supports_timeline_opaque_export
     }
 
-    fn sync_ctx(&self) -> &Rc<SyncobjCtx> {
-        &self.phy.sync_ctx
+    fn sync_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
+        Some(&self.phy.sync_ctx)
     }
 
     fn eventfd_cache(&self) -> &Rc<EventfdCache> {
