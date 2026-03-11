@@ -83,6 +83,7 @@ use {
     arrayvec::ArrayVec,
     linearize::{Linearize, StaticMap},
     std::{
+        cell::Cell,
         error::Error,
         fmt::{Display, Formatter},
         rc::Rc,
@@ -256,6 +257,7 @@ pub struct Globals {
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
     singletons: StaticMap<Singleton, GlobalName>,
+    exposed: StaticMap<Singleton, Cell<bool>>,
 }
 
 impl Globals {
@@ -267,6 +269,7 @@ impl Globals {
             outputs: Default::default(),
             seats: Default::default(),
             singletons: StaticMap::from_fn(|_| GlobalName(0)),
+            exposed: Default::default(),
         };
         add_singletons(&mut slf);
         slf
@@ -407,12 +410,16 @@ impl Globals {
 
     pub fn expose_new_singletons(&self, state: &State) {
         let mut singletons = ArrayVec::<_, { Singleton::LENGTH }>::new();
-        for name in self.singletons.values() {
-            if let Some(global) = self.registry.get(name)
-                && global.exposed(state)
-            {
-                singletons.push(global);
+        for (singleton, name) in self.singletons.iter() {
+            if let Some(global) = self.registry.get(name) {
+                let exposed = global.exposed(state);
+                if self.exposed[singleton].replace(exposed) != exposed && exposed {
+                    singletons.push(global);
+                }
             }
+        }
+        if singletons.is_empty() {
+            return;
         }
         for client in state.clients.clients.borrow().values() {
             let client = &client.data;
