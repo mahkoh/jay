@@ -113,12 +113,11 @@ where
         .eventfd_cache()
         .acquire()
         .map_err(VulkanCoreError::AcquireEventfd)?;
-    device
-        .sync_ctx()
+    tls.sync_ctx
         .wait_for_point(&eventfd.fd, &tls.syncobj, point, true)
         .map_err(VulkanCoreError::CreateSyncobjWait)?;
     let pending = Rc::new(ReservedSyncobjPoint {
-        ctx: device.sync_ctx().clone(),
+        ctx: tls.sync_ctx.clone(),
         syncobj: tls.syncobj.clone(),
         point,
         sync_file: Default::default(),

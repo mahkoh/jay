@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::SyncFile,
+        gfx_api::FdSync,
         object::Version,
         wire::{JaySyncFileSurfaceId, jay_sync_file_surface::*},
         wl_usr::{
@@ -19,8 +19,8 @@ pub struct UsrJaySyncFileSurface {
 
 impl UsrJaySyncFileSurface {
     #[expect(dead_code)]
-    pub fn set_acquire(&self, sf: Option<&SyncFile>) {
-        match sf {
+    pub fn set_acquire(&self, sf: Option<&FdSync>) {
+        match sf.and_then(|s| s.get_sync_file()) {
             None => {
                 self.con.request(SetAcquireImmediate { self_id: self.id });
             }

@@ -151,6 +151,8 @@ pub enum DrmError {
     QueueSequence(#[source] OsError),
     #[error("Could not stat the DRM fd")]
     Stat(#[source] OsError),
+    #[error("Device has no device nodes")]
+    NoDeviceNodes,
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
