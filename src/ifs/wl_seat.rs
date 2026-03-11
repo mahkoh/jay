@@ -1974,6 +1974,6 @@ pub async fn handle_position_hint_requests(state: Rc<State>) {
             req.new_pos.0 + (current_pos.0 - req.old_pos.0),
             req.new_pos.1 + (current_pos.1 - req.old_pos.1),
         );
-        req.seat.motion_event_abs(state.now_usec(), x, y, false);
+        req.seat.motion_event_abs(state.now_usec(), x, y);
     }
 }

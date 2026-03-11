@@ -595,10 +595,10 @@ impl WlSeatGlobal {
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
-        self.motion_event_abs(time_usec, x, y, false);
+        self.motion_event_abs(time_usec, x, y);
     }
 
-    pub fn motion_event_abs(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed, defer: bool) {
+    pub fn motion_event_abs(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
@@ -611,7 +611,7 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
-        self.cursor_moved(time_usec, defer);
+        self.cursor_moved(time_usec);
     }
 
     pub fn motion_event(
@@ -666,7 +666,7 @@ impl WlSeatGlobal {
             );
         });
         self.set_pointer_cursor_position(x, y);
-        self.cursor_moved(time_usec, false);
+        self.cursor_moved(time_usec);
     }
 
     fn motion_absolute_event(
@@ -678,7 +678,7 @@ impl WlSeatGlobal {
     ) {
         let x = Fixed::from_f32(rect.x1() as f32 + x_normed * rect.width() as f32);
         let y = Fixed::from_f32(rect.y1() as f32 + y_normed * rect.height() as f32);
-        self.motion_event_abs(time_usec, x, y, false);
+        self.motion_event_abs(time_usec, x, y);
     }
 
     pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: ButtonState) {
@@ -1283,14 +1283,10 @@ impl WlSeatGlobal {
         });
     }
 
-    fn cursor_moved(self: &Rc<Self>, time_usec: u64, defer: bool) {
+    fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
         self.pos_time_usec.set(time_usec);
         self.changes.or_assign(CHANGE_CURSOR_MOVED);
-        if defer {
-            self.trigger_tree_changed(false);
-        } else {
-            self.apply_changes();
-        }
+        self.apply_changes();
     }
 
     pub fn emulate_cursor_moved(&self) {
