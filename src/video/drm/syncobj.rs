@@ -10,7 +10,7 @@ use {
             oserror::OsError,
         },
         video::drm::{
-            DrmError,
+            DrmError, NodeType, get_drm_nodes_from_dev,
             sys::{
                 DRM_SYNCOBJ_CREATE_SIGNALED, DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE,
                 DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
@@ -105,6 +105,20 @@ impl SyncobjCtx {
             dummy: Default::default(),
             supports_timeline_import: Default::default(),
         }
+    }
+
+    pub fn from_dev_t(dev: c::dev_t) -> Result<Self, DrmError> {
+        let nodes = get_drm_nodes_from_dev(uapi::major(dev), uapi::minor(dev))
+            .map_err(DrmError::GetNodes)?;
+        let path = nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+            .ok_or(DrmError::NoDeviceNodes)?;
+        let device_fd = uapi::open(path.as_c_str(), c::O_RDWR | c::O_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_err(Into::into)
+            .map_err(DrmError::ReopenNode)?;
+        Ok(Self::new(&device_fd))
     }
 
     fn get_handle(&self, syncobj: &Syncobj) -> Result<SyncobjHandle, DrmError> {

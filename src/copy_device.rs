@@ -8,12 +8,12 @@ use {
         rect::{Rect, Region},
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            oserror::OsError, queue::AsyncQueue, stack::Stack,
+            queue::AsyncQueue, stack::Stack,
         },
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::{NodeType, get_drm_nodes_from_dev, syncobj::SyncobjCtx},
+            drm::{DrmError, syncobj::SyncobjCtx},
         },
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
@@ -166,12 +166,8 @@ pub enum CopyDeviceError {
     BothOffDevice,
     #[error("Cannot blit between these formats")]
     BlitNotSupported,
-    #[error("Could not get DRM nodes")]
-    GetDrmNodes(#[source] OsError),
-    #[error("Device has no device nodes")]
-    NoDeviceNodes,
-    #[error("Could not open device node")]
-    OpenDeviceNode(#[source] OsError),
+    #[error("Could not create syncobj ctx")]
+    CreateSyncobjCtx(#[source] DrmError),
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
@@ -422,16 +418,9 @@ impl PhysicalCopyDevice {
             }
             return Err(CopyDeviceError::NoVulkanDevice);
         }
-        let nodes = get_drm_nodes_from_dev(uapi::major(dev), uapi::minor(dev))
-            .map_err(CopyDeviceError::GetDrmNodes)?;
-        let path = nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
-            .ok_or(CopyDeviceError::NoDeviceNodes)?;
-        let device_fd = uapi::open(path.as_c_str(), c::O_RDWR, 0)
+        let sync_ctx = SyncobjCtx::from_dev_t(dev)
             .map(Rc::new)
-            .map_err(Into::into)
-            .map_err(CopyDeviceError::OpenDeviceNode)?;
+            .map_err(CopyDeviceError::CreateSyncobjCtx)?;
         if device_properties.api_version < VULKAN_API_VERSION {
             return Err(CopyDeviceError::NoVulkan13);
         }
@@ -641,7 +630,7 @@ impl PhysicalCopyDevice {
             ring: ring.clone(),
             eng: eng.clone(),
             eventfd_cache: eventfd_cache.clone(),
-            sync_ctx: Rc::new(SyncobjCtx::new(&device_fd)),
+            sync_ctx,
             instance: core_instance,
             physical_device,
             support,
