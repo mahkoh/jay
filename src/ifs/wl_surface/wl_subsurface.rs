@@ -191,6 +191,13 @@ impl WlSubsurface {
         self.surface.set_absolute_position(x, y);
         self.surface
             .set_output(&self.parent.output.get(), self.parent.location.get());
+
+        let has_buffer = self.surface.buffer.is_some();
+        self.had_buffer.set(has_buffer);
+        if has_buffer && self.parent.visible.get() {
+            self.surface.set_visible(true);
+            self.damage();
+        }
         Ok(())
     }
 
