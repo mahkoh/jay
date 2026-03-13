@@ -84,6 +84,7 @@ mod t0050_fifo;
 mod t0051_pointer_warp;
 mod t0052_bar;
 mod t0053_theme;
+mod t0054_subsurface_already_attached;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -156,5 +157,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0051_pointer_warp,
         t0052_bar,
         t0053_theme,
+        t0054_subsurface_already_attached,
     }
 }
