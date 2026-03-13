@@ -90,16 +90,14 @@ impl Renderer<'_> {
                 let non_exclusive_rect_rel = output.non_exclusive_rect_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
                 let bar_rect = output.bar_rect_rel.get();
-                let bar_bg =
-                    bar_rect.move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
+                let bar_bg = bar_rect.move_(
+                    x - non_exclusive_rect_rel.x1(),
+                    y - non_exclusive_rect_rel.y1(),
+                );
                 let bar_bg = self.base.scale_rect(bar_bg);
-                let bar_bg_abs = {
-                    let (x, y) = self.base.scale_point(x, y);
-                    bar_bg.move_(x, y)
-                };
                 let c = theme.colors.bar_background.get();
                 self.base
-                    .fill_boxes3(slice::from_ref(&bar_bg), &c, None, srgb, x, y, true);
+                    .fill_scaled_boxes(slice::from_ref(&bar_bg), &c, None, srgb);
                 self.base.sync();
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
@@ -139,7 +137,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         scale,
-                        Some(&bar_bg_abs),
+                        Some(&bar_bg),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
@@ -162,7 +160,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         scale,
-                        Some(&bar_bg_abs),
+                        Some(&bar_bg),
                         None,
                         AcquireSync::None,
                         ReleaseSync::None,
