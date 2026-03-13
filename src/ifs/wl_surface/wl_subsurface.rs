@@ -45,6 +45,7 @@ pub struct WlSubsurface {
     pub tracker: Tracker<Self>,
     had_buffer: Cell<bool>,
     version: Version,
+    initial_commit: Cell<bool>,
 }
 
 #[derive(Default)]
@@ -111,6 +112,7 @@ impl WlSubsurface {
             tracker: Default::default(),
             had_buffer: Cell::new(false),
             version,
+            initial_commit: Cell::new(true),
         }
     }
 
@@ -128,6 +130,9 @@ impl WlSubsurface {
     }
 
     pub fn apply_state(&self, pending: &mut PendingSubsurfaceData) -> Result<(), WlSurfaceError> {
+        if self.initial_commit.take() {
+            self.update_has_buffer();
+        }
         if let Some(state) = &mut pending.state.take() {
             self.surface.apply_state(state)?;
         }
@@ -283,6 +288,23 @@ impl WlSubsurface {
         }
         self.surface.client.state.damage(rect);
     }
+
+    fn update_has_buffer(&self) {
+        let has_buffer = self.surface.buffer.is_some();
+        if self.had_buffer.replace(has_buffer) != has_buffer {
+            if has_buffer {
+                if self.parent.visible.get() {
+                    self.surface.set_visible(true);
+                    self.damage();
+                }
+            } else {
+                if self.surface.toplevel.is_some() {
+                    self.damage();
+                }
+                self.surface.destroy_node();
+            }
+        }
+    }
 }
 
 impl WlSubsurfaceRequestHandler for WlSubsurface {
@@ -381,20 +403,7 @@ impl SurfaceExt for WlSubsurface {
     }
 
     fn after_apply_commit(self: Rc<Self>) {
-        let has_buffer = self.surface.buffer.is_some();
-        if self.had_buffer.replace(has_buffer) != has_buffer {
-            if has_buffer {
-                if self.parent.visible.get() {
-                    self.surface.set_visible(true);
-                    self.damage();
-                }
-            } else {
-                if self.surface.toplevel.is_some() {
-                    self.damage();
-                }
-                self.surface.destroy_node();
-            }
-        }
+        self.update_has_buffer();
     }
 
     fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {
