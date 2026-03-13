@@ -1,6 +1,7 @@
 use {
     crate::{
         acceptor::Acceptor,
+        allocator::BufferObject,
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
             Backend, BackendConnectorState, BackendConnectorStateSerials, BackendDrmDevice,
@@ -15,6 +16,10 @@ use {
         cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
+        control_center::{
+            CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
+            CCI_OUTPUTS, CCI_XWAYLAND, ControlCenters,
+        },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
@@ -23,6 +28,7 @@ use {
         damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
+        egui_adapter::egui_platform::EggState,
         ei::{
             ei_acceptor::EiAcceptor,
             ei_client::{EiClient, EiClients},
@@ -115,6 +121,7 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::LinkedList,
             numcell::NumCell,
+            object_drop_queue::ObjectDropQueue,
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
@@ -224,7 +231,7 @@ pub struct State {
     pub activation_tokens: CopyHashMap<ActivationToken, ()>,
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
-    pub dma_buf_ids: DmaBufIds,
+    pub dma_buf_ids: Rc<DmaBufIds>,
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
     pub persistent_output_states: CopyHashMap<Rc<OutputId>, Rc<PersistentOutputState>>,
@@ -292,6 +299,9 @@ pub struct State {
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
+    pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
+    pub egg_state: EggState,
+    pub control_centers: ControlCenters,
 }
 
 // impl Drop for State {
@@ -340,37 +350,39 @@ pub struct IdleState {
 }
 
 impl IdleState {
-    pub fn set_timeout(&self, timeout: Duration) {
+    pub fn set_timeout(&self, state: &State, timeout: Duration) {
         self.timeout.set(timeout);
-        self.timeout_changed();
+        self.timeout_changed(state);
     }
 
-    pub fn set_grace_period(&self, grace_period: Duration) {
+    pub fn set_grace_period(&self, state: &State, grace_period: Duration) {
         self.grace_period.set(grace_period);
-        self.timeout_changed();
+        self.timeout_changed(state);
     }
 
-    fn timeout_changed(&self) {
+    fn timeout_changed(&self, state: &State) {
         self.timeout_changed.set(true);
         self.change.trigger();
+        state.trigger_cci(CCI_IDLE);
     }
 
-    pub fn add_inhibitor(&self, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
+    pub fn add_inhibitor(&self, state: &State, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
         self.inhibitors.set(inhibitor.inhibit_id, inhibitor.clone());
-        self.inhibitors_changed();
+        self.inhibitors_changed(state);
     }
 
-    pub fn remove_inhibitor(&self, inhibitor: &ZwpIdleInhibitorV1) {
+    pub fn remove_inhibitor(&self, state: &State, inhibitor: &ZwpIdleInhibitorV1) {
         self.inhibitors.remove(&inhibitor.inhibit_id);
-        self.inhibitors_changed();
+        self.inhibitors_changed(state);
         if self.inhibitors.is_empty() {
             self.resume_inhibited_notifications();
         }
     }
 
-    fn inhibitors_changed(&self) {
+    fn inhibitors_changed(&self, state: &State) {
         self.inhibitors_changed.set(true);
         self.change.trigger();
+        state.trigger_cci(CCI_IDLE);
     }
 
     fn resume_inhibited_notifications(&self) {
@@ -482,30 +494,39 @@ impl ConnectorData {
             return;
         }
         *self.state.borrow_mut() = s.clone();
-        if old.enabled != s.enabled {
+        macro_rules! b {
+            ($expr:expr) => {{
+                let e = $expr;
+                if e {
+                    state.trigger_cci(CCI_OUTPUTS);
+                }
+                e
+            }};
+        }
+        if b!(old.enabled != s.enabled) {
             self.head_managers.handle_enabled_change(s.enabled);
         }
-        if old.active != s.active {
+        if b!(old.active != s.active) {
             self.head_managers.handle_active_change(s.active);
         }
-        if old.non_desktop_override != s.non_desktop_override {
+        if b!(old.non_desktop_override != s.non_desktop_override) {
             self.head_managers
                 .handle_non_desktop_override_changed(s.non_desktop_override);
         }
-        if old.vrr != s.vrr {
+        if b!(old.vrr != s.vrr) {
             self.head_managers.handle_vrr_change(s.vrr);
         }
-        if old.tearing != s.tearing {
+        if b!(old.tearing != s.tearing) {
             self.head_managers.handle_tearing_enabled_change(s.tearing);
         }
-        if old.format != s.format {
+        if b!(old.format != s.format) {
             self.head_managers.handle_format_change(s.format);
         }
-        if (old.color_space, old.eotf) != (s.color_space, s.eotf) {
+        if b!((old.color_space, old.eotf) != (s.color_space, s.eotf)) {
             self.head_managers
                 .handle_colors_change(s.color_space, s.eotf);
         }
-        if old.mode != s.mode {
+        if b!(old.mode != s.mode) {
             self.head_managers.handle_mode_change(s.mode);
             for head in self.wlr_output_heads.lock().values() {
                 head.handle_mode_change(s.mode);
@@ -528,12 +549,14 @@ impl DrmDevData {
         self.dev.clone().make_render_device();
     }
 
-    pub fn set_direct_scanout_enabled(&self, enabled: bool) {
+    pub fn set_direct_scanout_enabled(&self, state: &State, enabled: bool) {
         self.dev.set_direct_scanout_enabled(enabled);
+        state.trigger_cci(CCI_GPUS);
     }
 
-    pub fn set_flip_margin(&self, margin: u64) {
+    pub fn set_flip_margin(&self, state: &State, margin: u64) {
         self.dev.set_flip_margin(margin);
+        state.trigger_cci(CCI_GPUS);
     }
 }
 
@@ -642,6 +665,7 @@ impl State {
     }
 
     pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
+        self.egg_state.clear();
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
@@ -756,6 +780,7 @@ impl State {
         }
 
         self.expose_new_singletons();
+        self.trigger_cci(CCI_COLOR_MANAGEMENT | CCI_GPUS);
     }
 
     fn reload_cursors(&self) {
@@ -1000,6 +1025,7 @@ impl State {
         } else {
             self.stop_xwayland();
         }
+        self.trigger_cci(CCI_XWAYLAND);
     }
 
     pub fn set_xwayland_use_wire_scale(&self, use_wire_scale: bool) {
@@ -1007,6 +1033,7 @@ impl State {
             return;
         }
         self.update_xwayland_wire_scale();
+        self.trigger_cci(CCI_XWAYLAND);
     }
 
     pub fn next_serial(&self, client: Option<&Client>) -> u64 {
@@ -1154,6 +1181,9 @@ impl State {
         self.wait_for_syncobj.clear();
         self.xdg_surface_configure_events.clear();
         self.lazy_event_sources.clear();
+        self.bo_drop_queue.kill();
+        self.egg_state.clear();
+        self.control_centers.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1703,11 +1733,13 @@ impl State {
     pub fn set_color_management_enabled(&self, enabled: bool) {
         self.color_management_enabled.set(enabled);
         self.expose_new_singletons();
+        self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
     pub fn set_primary_selection_enabled(&self, enabled: bool) {
         self.enable_primary_selection.set(enabled);
         self.expose_new_singletons();
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_explicit_sync_enabled(&self, enabled: bool) {
@@ -1718,6 +1750,7 @@ impl State {
     pub fn set_log_level(&self, level: LogLevel) {
         if let Some(logger) = &self.logger {
             logger.set_level(level);
+            self.trigger_cci(CCI_COMPOSITOR);
         }
     }
 
@@ -1742,6 +1775,7 @@ impl State {
         self.root.clone().node_visit(&mut V);
         self.damage(self.root.extents.get());
         self.icons.clear();
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn reset_colors(&self) {
@@ -1776,6 +1810,7 @@ impl State {
     pub fn set_ei_socket_enabled(self: &Rc<Self>, enabled: bool) {
         self.enable_ei_acceptor.set(enabled);
         self.update_ei_acceptor();
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
@@ -1783,6 +1818,7 @@ impl State {
         for output in self.root.outputs.lock().values() {
             output.handle_workspace_display_order_update();
         }
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 
     fn spaces_changed(&self) {
@@ -1804,6 +1840,7 @@ impl State {
         self.root.clone().node_visit(&mut V);
         self.damage(self.root.extents.get());
         self.icons.update_sizes(self);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_show_bar(&self, show: bool) {
@@ -1818,15 +1855,18 @@ impl State {
 
     pub fn set_ui_drag_enabled(&self, enabled: bool) {
         self.ui_drag_enabled.set(enabled);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_ui_drag_threshold(&self, threshold: i32) {
         self.ui_drag_threshold_squared
             .set(threshold.saturating_mul(threshold));
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         for stacked in self.root.stacked.iter() {
             if let Some(float) = stacked.deref().clone().node_into_float() {
                 float.schedule_render_titles();
@@ -1836,6 +1876,7 @@ impl State {
 
     pub fn set_float_above_fullscreen(&self, v: bool) {
         self.float_above_fullscreen.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         for seat in self.globals.seats.lock().values() {
             seat.emulate_cursor_moved();
             seat.trigger_tree_changed(false);
@@ -1849,6 +1890,7 @@ impl State {
     }
 
     fn fonts_changed(&self) {
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -1872,6 +1914,7 @@ impl State {
         theme.font.set(self.theme.default_font.clone());
         theme.bar_font.set(None);
         theme.title_font.set(None);
+        self.egg_state.reset_fonts();
         self.fonts_changed();
     }
 
@@ -1889,6 +1932,16 @@ impl State {
     pub fn set_title_font(&self, font: Option<&str>) {
         let font = font.map(|font| Arc::new(font.to_string()));
         self.theme.title_font.set(font);
+        self.fonts_changed();
+    }
+
+    pub fn set_egui_fonts(&self, proportional: Option<Vec<&str>>, monospace: Option<Vec<&str>>) {
+        if let Some(fonts) = &proportional {
+            self.egg_state.set_proportional_fonts(fonts);
+        }
+        if let Some(fonts) = &monospace {
+            self.egg_state.set_monospace_fonts(fonts);
+        }
         self.fonts_changed();
     }
 

@@ -936,7 +936,6 @@ impl ToplevelData {
         parent.node_is_workspace()
     }
 
-    #[expect(dead_code)]
     pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {
         self.property_changed_source
             .get_or_init(|| self.state.lazy_event_sources.create_source())

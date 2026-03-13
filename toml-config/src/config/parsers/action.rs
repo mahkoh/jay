@@ -167,6 +167,7 @@ impl ActionParser<'_> {
             "toggle-simple-im-enabled" => ToggleSimpleImEnabled,
             "reload-simple-im" => ReloadSimpleIm,
             "enable-unicode-input" => EnableUnicodeInput,
+            "open-control-center" => OpenControlCenter,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

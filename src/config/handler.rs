@@ -478,7 +478,7 @@ impl ConfigProxyHandler {
         } else {
             Some(self.get_keymap(keymap)?)
         };
-        dev.set_keymap(map);
+        dev.set_keymap(&self.state, map);
         Ok(())
     }
 
@@ -532,13 +532,13 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(input_device)?;
         let output = self.get_output_node(connector)?;
-        dev.set_output(Some(&output.global));
+        dev.set_output(&self.state, Some(&output.global));
         Ok(())
     }
 
     fn handle_remove_input_mapping(&self, input_device: InputDevice) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(input_device)?;
-        dev.set_output(None);
+        dev.set_output(&self.state, None);
         Ok(())
     }
 
@@ -788,7 +788,7 @@ impl ConfigProxyHandler {
             Some(self.get_seat(seat)?)
         };
         let dev = self.get_device_handler_data(device)?;
-        dev.set_seat(seat);
+        dev.set_seat(&self.state, seat);
         Ok(())
     }
 
@@ -798,7 +798,7 @@ impl ConfigProxyHandler {
         left_handed: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_left_handed(left_handed);
+        dev.set_left_handed(&self.state, left_handed);
         Ok(())
     }
 
@@ -813,31 +813,31 @@ impl ConfigProxyHandler {
             ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
             _ => return Err(CphError::UnknownAccelProfile(accel_profile)),
         };
-        dev.set_accel_profile(profile);
+        dev.set_accel_profile(&self.state, profile);
         Ok(())
     }
 
     fn handle_set_accel_speed(&self, device: InputDevice, speed: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_accel_speed(speed);
+        dev.set_accel_speed(&self.state, speed);
         Ok(())
     }
 
     fn handle_set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_px_per_scroll_wheel(px);
+        dev.set_px_per_scroll_wheel(&self.state, px);
         Ok(())
     }
 
     fn handle_set_tap_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_tap_enabled(enabled);
+        dev.set_tap_enabled(&self.state, enabled);
         Ok(())
     }
 
     fn handle_set_drag_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_drag_enabled(enabled);
+        dev.set_drag_enabled(&self.state, enabled);
         Ok(())
     }
 
@@ -847,7 +847,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_natural_scrolling_enabled(enabled);
+        dev.set_natural_scrolling_enabled(&self.state, enabled);
         Ok(())
     }
 
@@ -857,7 +857,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_drag_lock_enabled(enabled);
+        dev.set_drag_lock_enabled(&self.state, enabled);
         Ok(())
     }
 
@@ -867,7 +867,7 @@ impl ConfigProxyHandler {
         matrix: [[f64; 2]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_transform_matrix(matrix);
+        dev.set_transform_matrix(&self.state, matrix);
         Ok(())
     }
 
@@ -877,7 +877,7 @@ impl ConfigProxyHandler {
         matrix: [[f32; 3]; 2],
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_calibration_matrix(matrix);
+        dev.set_calibration_matrix(&self.state, matrix);
         Ok(())
     }
 
@@ -893,7 +893,7 @@ impl ConfigProxyHandler {
             CLICK_METHOD_CLICKFINGER => InputDeviceClickMethod::Clickfinger,
             _ => return Err(CphError::UnknownClickMethod(click_method)),
         };
-        dev.set_click_method(method);
+        dev.set_click_method(&self.state, method);
         Ok(())
     }
 
@@ -903,7 +903,7 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        dev.set_middle_button_emulation_enabled(enabled);
+        dev.set_middle_button_emulation_enabled(&self.state, enabled);
         Ok(())
     }
 
@@ -951,8 +951,10 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_flip_margin(&self, device: DrmDevice, margin: Duration) -> Result<(), CphError> {
-        self.get_drm_device(device)?
-            .set_flip_margin(margin.as_nanos().try_into().unwrap_or(u64::MAX));
+        self.get_drm_device(device)?.set_flip_margin(
+            &self.state,
+            margin.as_nanos().try_into().unwrap_or(u64::MAX),
+        );
         Ok(())
     }
 
@@ -987,7 +989,7 @@ impl ConfigProxyHandler {
         match device {
             Some(dev) => self
                 .get_drm_device(dev)?
-                .set_direct_scanout_enabled(enabled),
+                .set_direct_scanout_enabled(&self.state, enabled),
             _ => self.state.direct_scanout_enabled.set(enabled),
         }
         Ok(())
@@ -1123,11 +1125,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_set_idle(&self, timeout: Duration) {
-        self.state.idle.set_timeout(timeout);
+        self.state.idle.set_timeout(&self.state, timeout);
     }
 
     fn handle_set_idle_grace_period(&self, period: Duration) {
-        self.state.idle.set_grace_period(period);
+        self.state.idle.set_grace_period(&self.state, period);
     }
 
     fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
@@ -1484,7 +1486,7 @@ impl ConfigProxyHandler {
         match connector {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
-                connector.schedule.set_cursor_hz(hz);
+                connector.schedule.set_cursor_hz(&self.state, hz);
             }
             _ => {
                 let Some((hz, _)) = map_cursor_hz(hz) else {
@@ -1805,6 +1807,16 @@ impl ConfigProxyHandler {
         let env = env.into_iter().map(|(k, v)| (k, Some(v))).collect();
         forker.spawn(prog.to_string(), args, env, fds);
         Ok(())
+    }
+
+    fn handle_set_egui_fonts(&self, proportional: Option<Vec<&str>>, monospace: Option<Vec<&str>>) {
+        self.state.set_egui_fonts(proportional, monospace);
+    }
+
+    fn handle_open_control_center(&self) {
+        if let Err(e) = self.state.open_control_center() {
+            log::error!("Could not open control center: {}", ErrorFmt(e));
+        }
     }
 
     fn handle_set_log_level(&self, level: ConfigLogLevel) {
@@ -3311,6 +3323,11 @@ impl ConfigProxyHandler {
                 fds,
                 tag,
             } => self.handle_run(prog, args, env, fds, tag).wrn("run")?,
+            ClientMessage::SetEguiFonts {
+                proportional,
+                monospace,
+            } => self.handle_set_egui_fonts(proportional, monospace),
+            ClientMessage::OpenControlCenter => self.handle_open_control_center(),
         }
         Ok(())
     }

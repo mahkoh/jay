@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
         criteria::{
@@ -72,6 +73,7 @@ use {
             fdcloser::FdCloser,
             nice::{did_elevate_scheduler, elevate_scheduler},
             numcell::NumCell,
+            object_drop_queue::ObjectDropQueue,
             oserror::OsError,
             queue::AsyncQueue,
             rc_eq::RcEq,
@@ -390,6 +392,9 @@ fn start_compositor2(
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
         lazy_event_sources: Default::default(),
+        bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
+        egg_state: Default::default(),
+        control_centers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -414,6 +419,7 @@ fn start_compositor2(
     let _compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
     ring.run()?;
     state.clear();
+    engine.clear();
     Ok(())
 }
 
@@ -594,6 +600,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "lazy event sources",
             handle_lazy_event_sources(state.clone()),
         ),
+        eng.spawn(
+            "redraw control centers",
+            redraw_control_centers(state.clone()),
+        ),
     ]
 }
 
@@ -734,8 +744,7 @@ fn create_dummy_output(state: &Rc<State>) {
         wlr_output_heads: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
-        &state.ring,
-        &state.eng,
+        state,
         &connector_data,
         &persistent_state,
     ));

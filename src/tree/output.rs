@@ -6,6 +6,7 @@ use {
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
+        control_center::CCI_OUTPUTS,
         cursor::KnownCursor,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
@@ -243,6 +244,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_tearing_active_change(tearing);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -501,6 +503,7 @@ impl OutputNode {
             .connector
             .head_managers
             .handle_scale_change(scale);
+        self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_new_scale(scale);
         }
@@ -873,6 +876,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_transform_change(transform);
+            self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
                 head.hande_transform_change(transform);
             }
@@ -935,6 +939,7 @@ impl OutputNode {
             .connector
             .head_managers
             .handle_position_size_change(self);
+        self.state.trigger_cci(CCI_OUTPUTS);
     }
 
     pub fn update_state(self: &Rc<Self>, old: BackendConnectorState, state: BackendConnectorState) {
@@ -989,6 +994,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_brightness_change(brightness);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -1004,6 +1010,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_use_native_gamut_change(use_native_gamut);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -1015,6 +1022,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_blend_space_change(blend_space);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
     fn find_stacked_at(
@@ -1480,6 +1488,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_vrr_mode_change(mode);
+            self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
                 head.handle_vrr_mode_change(mode);
             }
@@ -1494,6 +1503,7 @@ impl OutputNode {
                 .connector
                 .head_managers
                 .handle_tearing_mode_change(mode);
+            self.state.trigger_cci(CCI_OUTPUTS);
         }
     }
 
@@ -1543,6 +1553,7 @@ impl OutputNode {
 
     pub fn set_flip_margin(&self, margin_ns: u64) {
         self.flip_margin_ns.set(Some(margin_ns));
+        self.state.trigger_cci(CCI_OUTPUTS);
     }
 }
 

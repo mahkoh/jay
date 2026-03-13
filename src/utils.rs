@@ -31,6 +31,7 @@ pub mod nice;
 pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;
+pub mod object_drop_queue;
 pub mod on_change;
 pub mod on_drop_event;
 pub mod once;

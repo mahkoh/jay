@@ -841,6 +841,11 @@ pub enum ClientMessage<'a> {
         fds: Vec<(i32, i32)>,
         tag: Option<&'a str>,
     },
+    SetEguiFonts {
+        proportional: Option<Vec<&'a str>>,
+        monospace: Option<Vec<&'a str>>,
+    },
+    OpenControlCenter,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

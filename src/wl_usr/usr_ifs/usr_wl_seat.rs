@@ -47,7 +47,6 @@ impl UsrWlSeat {
         ptr
     }
 
-    #[expect(dead_code)]
     pub fn get_keyboard(&self) -> Rc<UsrWlKeyboard> {
         let kb = Rc::new(UsrWlKeyboard {
             id: self.con.id(),

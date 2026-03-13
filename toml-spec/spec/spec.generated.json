@@ -1081,6 +1081,10 @@
         "fallback-output-mode": {
           "description": "Sets the fallback output mode.\n\nThe default is `cursor`.\n\n- Example:\n\n  ```toml\n  fallback-output-mode = \"focus\"\n  ```\n",
           "$ref": "#/$defs/FallbackOutputMode"
+        },
+        "egui": {
+          "description": "Sets the egui settings of the compositor.\n",
+          "$ref": "#/$defs/Egui"
         }
       },
       "required": []
@@ -1236,6 +1240,29 @@
           "required": []
         }
       ]
+    },
+    "Egui": {
+      "description": "The egui settings.\n",
+      "type": "object",
+      "properties": {
+        "proportional-fonts": {
+          "type": "array",
+          "description": "The list of proportional fonts.\n\nThe default is `[\"sans-serif\", \"Noto Sans\", \"Noto Color Emoji\"]`.\n",
+          "items": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "monospace-fonts": {
+          "type": "array",
+          "description": "The list of monospace fonts.\n\nThe default is `[\"monospace\", \"Noto Sans Mono\", \"Noto Color Emoji\"]`.\n",
+          "items": {
+            "type": "string",
+            "description": ""
+          }
+        }
+      },
+      "required": []
     },
     "Eotf": {
       "type": "string",
@@ -1901,7 +1928,8 @@
         "disable-simple-im",
         "toggle-simple-im-enabled",
         "reload-simple-im",
-        "enable-unicode-input"
+        "enable-unicode-input",
+        "open-control-center"
       ]
     },
     "SimpleIm": {

@@ -380,3 +380,8 @@ pub fn on_unload(f: impl FnOnce() + 'static) {
 pub fn set_middle_click_paste_enabled(enabled: bool) {
     get!().set_middle_click_paste_enabled(enabled);
 }
+
+/// Opens the control center.
+pub fn open_control_center() {
+    get!().open_control_center();
+}

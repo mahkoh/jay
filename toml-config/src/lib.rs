@@ -36,16 +36,17 @@ use {
         is_reload,
         keyboard::Keymap,
         logging::set_log_level,
-        on_devices_enumerated, on_idle, on_unload, quit, reload, set_color_management_enabled,
-        set_default_workspace_capture, set_explicit_sync_enabled, set_float_above_fullscreen,
-        set_idle, set_idle_grace_period, set_middle_click_paste_enabled, set_show_bar,
-        set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
+        on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
+        set_color_management_enabled, set_default_workspace_capture, set_explicit_sync_enabled,
+        set_float_above_fullscreen, set_idle, set_idle_grace_period,
+        set_middle_click_paste_enabled, set_show_bar, set_show_float_pin_icon, set_show_titles,
+        set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
         theme::{
-            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position, set_font,
-            set_title_font,
+            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position,
+            set_egui_monospace_fonts, set_egui_proportional_fonts, set_font, set_title_font,
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
@@ -245,6 +246,7 @@ impl Action {
                     let persistent = state.persistent.clone();
                     b.new(move || persistent.seat.enable_unicode_input())
                 }
+                SimpleCommand::OpenControlCenter => b.new(open_control_center),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1632,6 +1634,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.fallback_output_mode {
         persistent.seat.set_fallback_output_mode(v);
+    }
+    if let Some(f) = &config.egui.proportional_fonts {
+        set_egui_proportional_fonts(f.iter().map(|s| &**s));
+    }
+    if let Some(f) = &config.egui.monospace_fonts {
+        set_egui_monospace_fonts(f.iter().map(|s| &**s));
     }
 }
 

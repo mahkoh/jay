@@ -234,7 +234,6 @@ impl ClMatcherManager {
         self.root(ClmMatchTag::new(string))
     }
 
-    #[expect(dead_code)]
     pub fn id(&self, id: ClientId) -> Rc<ClmUpstreamNode> {
         self.root(ClmMatchId(id))
     }

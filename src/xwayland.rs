@@ -5,6 +5,7 @@ use {
     crate::{
         client::{ClientCaps, ClientError},
         compositor::DISPLAY,
+        control_center::CCI_XWAYLAND,
         forker::{ForkerError, ForkerProxy},
         ifs::{
             ipc::{DataOfferId, DataSourceId, IpcLocation, x_data_offer::XDataOffer},
@@ -117,9 +118,11 @@ pub async fn manage(state: Rc<State>) {
         let display = Rc::new(format!(":{}", xsocket.id));
         forker.setenv(DISPLAY.as_bytes(), display.as_bytes());
         state.xwayland.display.set(Some(display.clone()));
+        state.trigger_cci(CCI_XWAYLAND);
         let _unsetenv = on_drop(|| {
             forker.unsetenv(DISPLAY.as_bytes());
             state.xwayland.display.take();
+            state.trigger_cci(CCI_XWAYLAND);
         });
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
@@ -212,9 +215,11 @@ async fn run(
     state.xwayland.queue.clear();
     state.xwayland.pidfd.set(Some(pidfd.clone()));
     state.xwayland.client.set(Some(client.clone()));
+    state.trigger_cci(CCI_XWAYLAND);
     let _remove_pidfd = on_drop(|| {
         state.xwayland.pidfd.take();
         state.xwayland.client.take();
+        state.trigger_cci(CCI_XWAYLAND);
     });
     {
         let shared = Rc::new(XwmShared::default());

@@ -135,6 +135,10 @@ request get_pid (since = 27) {
 
 }
 
+request open_control_center (since = 28) {
+    id: id(jay_open_control_center_request),
+}
+
 # events
 
 event client_id {

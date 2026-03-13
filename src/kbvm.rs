@@ -52,7 +52,6 @@ pub struct KbvmMap {
     pub id: KbvmMapId,
     pub state_machine: StateMachine,
     pub lookup_table: LookupTable,
-    #[expect(dead_code)]
     pub map_text: String,
     pub map: KeymapFd,
     pub xwayland_map: KeymapFd,

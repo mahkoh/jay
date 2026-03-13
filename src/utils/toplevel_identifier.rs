@@ -10,7 +10,7 @@ use {
     },
 };
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
 pub struct ToplevelIdentifier(Opaque);
 
 unsafe impl UnsafeCellCloneSafe for ToplevelIdentifier {}

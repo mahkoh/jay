@@ -1,7 +1,7 @@
 use {
     crate::{
         config::{
-            Action, Config, Libei, Theme, UiDrag,
+            Action, Config, Egui, Libei, Theme, UiDrag,
             context::Context,
             extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
@@ -13,6 +13,7 @@ use {
                 connector::ConnectorsParser,
                 drm_device::DrmDevicesParser,
                 drm_device_match::DrmDeviceMatchParser,
+                egui::EguiParser,
                 env::EnvParser,
                 fallback_output_mode::FallbackOutputModeParser,
                 float::FloatParser,
@@ -150,6 +151,7 @@ impl Parser for ConfigParser<'_> {
                 simple_im_val,
                 show_titles,
                 fallback_output_mode_val,
+                egui_val,
             ),
         ) = ext.extract((
             (
@@ -208,6 +210,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("simple-im")),
                 recover(opt(bol("show-titles"))),
                 opt(val("fallback-output-mode")),
+                opt(val("egui")),
             ),
         ))?;
         let mut keymap = None;
@@ -310,6 +313,15 @@ impl Parser for ConfigParser<'_> {
                 Ok(v) => theme = v,
                 Err(e) => {
                     log::warn!("Could not parse the theme: {}", self.0.error(e));
+                }
+            }
+        }
+        let mut egui = Egui::default();
+        if let Some(value) = egui_val {
+            match value.parse(&mut EguiParser(self.0)) {
+                Ok(v) => egui = v,
+                Err(e) => {
+                    log::warn!("Could not parse the egui settings: {}", self.0.error(e));
                 }
             }
         }
@@ -556,6 +568,7 @@ impl Parser for ConfigParser<'_> {
             auto_reload: auto_reload.despan(),
             log_level,
             theme,
+            egui,
             gfx_api,
             drm_devices,
             direct_scanout_enabled: direct_scanout.despan(),

@@ -21,7 +21,6 @@ pub struct UsrWlDataDevice {
 }
 
 impl UsrWlDataDevice {
-    #[expect(dead_code)]
     pub fn set_selection(&self, serial: u32, source: &UsrWlDataSource) {
         self.con.request(SetSelection {
             self_id: self.id,

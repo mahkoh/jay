@@ -1089,6 +1089,8 @@ SimpleActionName:
         Enables Unicode input in the simple, XCompose based input method.
         
         This has no effect if the simple IM is not currently active.
+    - value: open-control-center
+      description: Opens the control center.
 
 
 Color:
@@ -3004,6 +3006,11 @@ Config:
           ```toml
           fallback-output-mode = "focus"
           ```
+    egui:
+      ref: Egui
+      required: false
+      description: |
+        Sets the egui settings of the compositor.
 
 
 Idle:
@@ -4426,3 +4433,28 @@ FallbackOutputMode:
       description: Use the output the cursor is on.
     - value: focus
       description: Use the output the focus is on (highlighted window).
+
+
+Egui:
+  kind: table
+  description: |
+    The egui settings.
+  fields:
+    proportional-fonts:
+      kind: array
+      items:
+        kind: string
+      required: false
+      description: |
+        The list of proportional fonts.
+        
+        The default is `["sans-serif", "Noto Sans", "Noto Color Emoji"]`.
+    monospace-fonts:
+      kind: array
+      items:
+        kind: string
+      required: false
+      description: |
+        The list of monospace fonts.
+        
+        The default is `["monospace", "Noto Sans Mono", "Noto Color Emoji"]`.

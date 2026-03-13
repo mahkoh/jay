@@ -21,7 +21,6 @@ pub struct UsrWlDataDeviceManager {
 }
 
 impl UsrWlDataDeviceManager {
-    #[expect(dead_code)]
     pub fn create_data_source(&self) -> Rc<UsrWlDataSource> {
         let obj = Rc::new(UsrWlDataSource {
             id: self.con.id(),
@@ -37,7 +36,6 @@ impl UsrWlDataDeviceManager {
         obj
     }
 
-    #[expect(dead_code)]
     pub fn get_data_device(&self, seat: &UsrWlSeat) -> Rc<UsrWlDataDevice> {
         let obj = Rc::new(UsrWlDataDevice {
             id: self.con.id(),

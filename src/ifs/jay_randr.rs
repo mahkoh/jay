@@ -350,7 +350,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
-        dev.set_direct_scanout_enabled(req.enabled != 0);
+        dev.set_direct_scanout_enabled(&self.state, req.enabled != 0);
         Ok(())
     }
 
@@ -456,7 +456,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.schedule.set_cursor_hz(req.hz);
+        c.schedule.set_cursor_hz(&self.state, req.hz);
         Ok(())
     }
 
@@ -493,7 +493,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
-        dev.set_flip_margin(req.margin_ns);
+        dev.set_flip_margin(&self.state, req.margin_ns);
         Ok(())
     }
 

@@ -1,8 +1,12 @@
 use {
     crate::{
         format::Format,
+        gfx_api::SyncFile,
         utils::{compat::IoctlNumber, oserror::OsError},
-        video::{LINEAR_MODIFIER, Modifier},
+        video::{
+            LINEAR_MODIFIER, Modifier,
+            drm::{DrmError, syncobj::merge_sync_files},
+        },
     },
     arrayvec::ArrayVec,
     std::{cell::OnceCell, rc::Rc, sync::OnceLock},
@@ -112,6 +116,22 @@ impl DmaBuf {
             }
         }
         Ok(())
+    }
+
+    pub fn export_sync_file(&self, flags: u32) -> Result<Option<SyncFile>, DrmError> {
+        let mut sf = PlaneVec::new();
+        for plane in &self.planes {
+            sf.push(
+                dma_buf_export_sync_file(&plane.fd, flags)
+                    .map(Rc::new)
+                    .map(SyncFile)
+                    .map_err(DrmError::ExportSyncFile)?,
+            );
+            if self.is_one_file() {
+                break;
+            }
+        }
+        merge_sync_files(sf.iter())
     }
 }
 

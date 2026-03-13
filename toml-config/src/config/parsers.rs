@@ -19,6 +19,7 @@ mod connector_match;
 mod content_type;
 mod drm_device;
 mod drm_device_match;
+mod egui;
 mod env;
 pub mod exec;
 mod fallback_output_mode;

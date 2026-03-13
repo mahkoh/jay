@@ -34,14 +34,12 @@ pub enum FontconfigError {
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
 pub struct Font {
     pub fullname: String,
     pub file: PathBuf,
     pub index: Option<i32>,
 }
 
-#[expect(dead_code)]
 pub fn match_font(family: &str) -> Result<Font, FontconfigError> {
     thread_local! {
         static CONFIG: *mut FcConfig = FcConfigGetCurrent();
