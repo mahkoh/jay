@@ -72,6 +72,7 @@ use {
             fdcloser::FdCloser,
             nice::{did_elevate_scheduler, elevate_scheduler},
             numcell::NumCell,
+            object_drop_queue::ObjectDropQueue,
             oserror::OsError,
             queue::AsyncQueue,
             rc_eq::RcEq,
@@ -390,6 +391,7 @@ fn start_compositor2(
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
         lazy_event_sources: Default::default(),
+        bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

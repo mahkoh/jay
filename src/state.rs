@@ -1,6 +1,7 @@
 use {
     crate::{
         acceptor::Acceptor,
+        allocator::BufferObject,
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
             Backend, BackendConnectorState, BackendConnectorStateSerials, BackendDrmDevice,
@@ -115,6 +116,7 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::LinkedList,
             numcell::NumCell,
+            object_drop_queue::ObjectDropQueue,
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
@@ -292,6 +294,7 @@ pub struct State {
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
+    pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
 }
 
 // impl Drop for State {
@@ -1154,6 +1157,7 @@ impl State {
         self.wait_for_syncobj.clear();
         self.xdg_surface_configure_events.clear();
         self.lazy_event_sources.clear();
+        self.bo_drop_queue.kill();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
