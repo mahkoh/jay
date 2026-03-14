@@ -168,11 +168,13 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         return Ok(Rc::new(fd));
     }
     let path = 'path: {
-        if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
-            break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
-        }
-        if !need_primary && let Ok(path) = render_node_name(fd) {
-            break 'path path;
+        if !need_primary {
+            if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
+                break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
+            }
+            if let Ok(path) = render_node_name(fd) {
+                break 'path path;
+            }
         }
         device_node_name(fd)?
     };
@@ -210,6 +212,10 @@ impl Drm {
 
     pub fn raw(&self) -> c::c_int {
         self.fd.raw()
+    }
+
+    pub fn dup_primary(&self) -> Result<Self, DrmError> {
+        Self::reopen(self.fd.raw(), true)
     }
 
     pub fn dup_render(&self) -> Result<Self, DrmError> {
