@@ -17,7 +17,11 @@ use {
         ffi::CString,
         io::{BufRead, BufReader},
     },
-    uapi::{OwnedFd, Pod, Ustring, c, pod_zeroed},
+    uapi::{
+        OwnedFd, Pod, Ustring,
+        c::{self, c_int},
+        pod_zeroed,
+    },
 };
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
@@ -546,15 +550,25 @@ pub fn mode_get_resources(fd: c::c_int) -> Result<DrmCardResources, DrmError> {
     }
 
     Ok(DrmCardResources {
-        min_width: res.min_width,
-        max_width: res.max_width,
-        min_height: res.min_height,
-        max_height: res.max_height,
+        _min_width: res.min_width,
+        _max_width: res.max_width,
+        _min_height: res.min_height,
+        _max_height: res.max_height,
         _fbs: fbs,
         crtcs,
         connectors,
         encoders,
     })
+}
+
+pub fn mode_supports_get_resources(fd: c_int) -> Result<bool, DrmError> {
+    let mut res = drm_mode_card_res::default();
+    let res = unsafe { ioctl(fd, DRM_IOCTL_MODE_GETRESOURCES, &mut res) };
+    match res {
+        Ok(_) => Ok(true),
+        Err(e) if e.0 == c::EOPNOTSUPP => Ok(false),
+        Err(e) => Err(DrmError::GetResources(e)),
+    }
 }
 
 #[repr(C)]

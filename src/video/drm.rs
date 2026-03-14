@@ -26,7 +26,8 @@ use {
                 get_version, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
                 mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
                 mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
-                mode_rmfb, prime_fd_to_handle, queue_sequence, revoke_lease, set_client_cap,
+                mode_rmfb, mode_supports_get_resources, prime_fd_to_handle, queue_sequence,
+                revoke_lease, set_client_cap,
             },
         },
     },
@@ -337,6 +338,10 @@ impl DrmMaster {
 
     pub fn get_resources(&self) -> Result<DrmCardResources, DrmError> {
         mode_get_resources(self.raw())
+    }
+
+    pub fn supports_get_resources(&self) -> Result<bool, DrmError> {
+        mode_supports_get_resources(self.raw())
     }
 
     pub fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
@@ -751,12 +756,12 @@ drm_obj!(DrmFb, DRM_MODE_OBJECT_FB);
 drm_obj!(DrmBlob, DRM_MODE_OBJECT_BLOB);
 drm_obj!(DrmPlane, DRM_MODE_OBJECT_PLANE);
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DrmCardResources {
-    pub min_width: u32,
-    pub max_width: u32,
-    pub min_height: u32,
-    pub max_height: u32,
+    pub _min_width: u32,
+    pub _max_width: u32,
+    pub _min_height: u32,
+    pub _max_height: u32,
     pub _fbs: Vec<DrmFb>,
     pub crtcs: Vec<DrmCrtc>,
     pub connectors: Vec<DrmConnector>,
