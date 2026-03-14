@@ -1643,7 +1643,7 @@
       "anyOf": [
         {
           "type": "string",
-          "description": "Defines a keymap by its XKB representation.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n      xkb_keymap {\n          xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n          xkb_types    { include \"complete\"              };\n          xkb_compat   { include \"complete\"              };\n          xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n      };\n      \"\"\"\n  ```\n"
+          "description": "Defines a keymap by its XKB representation.\n\n- Example 1:\n\n  ```toml\n  keymap = \"\"\"\n      xkb_keymap {\n          xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n          xkb_types    { include \"complete\"              };\n          xkb_compat   { include \"complete\"              };\n          xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n      };\n      \"\"\"\n  ```\n\n- Example 2:\n\n  ```toml\n  keymap.rmlvo = {\n      layout = \"us,de\",\n      variants = \"dvorak\",\n      options = \"grp:ctrl_space_toggle\",\n  }\n  ```\n"
         },
         {
           "description": "Defines or references a keymap.\n\n- Example:\n\n  ```toml\n  keymap.name = \"my-keymap\"\n\n  [[keymaps]]\n  name = \"my-keymap\"\n  path = \"./my-keymap.xkb\"\n  ```\n",
@@ -1655,11 +1655,15 @@
             },
             "map": {
               "type": "string",
-              "description": "Defines a keymap by its XKB representation.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of `map`\nand `path` has to be defined.\n"
+              "description": "Defines a keymap by its XKB representation.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of\n`map`, `path`, and `rmlvo` has to be defined.\n"
             },
             "path": {
               "type": "string",
-              "description": "Loads a keymap's XKB representation from a file.\n\nIf the path is relative, it will be interpreted relative to the Jay config\ndirectory.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of `map`\nand `path` has to be defined.\n"
+              "description": "Loads a keymap's XKB representation from a file.\n\nIf the path is relative, it will be interpreted relative to the Jay config\ndirectory.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of\n`map`, `path`, and `rmlvo` has to be defined.\n"
+            },
+            "rmlvo": {
+              "description": "Creates a keymap from RMLVO names.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of\n`map`, `path`, and `rmlvo` has to be defined.\n",
+              "$ref": "#/$defs/Rmlvo"
             }
           },
           "required": []
@@ -1863,6 +1867,33 @@
         "rate",
         "delay"
       ]
+    },
+    "Rmlvo": {
+      "description": "An RMLVO keymap definition.\n\nIf a parameter is not given, a value from the environment or a default is used:\n\n| name                   | default                |\n| ---------------------- | ---------------------- |\n| `XKB_DEFAULT_RULES`    | `evdev`                |\n| `XKB_DEFAULT_MODEL`    | `pc105`                |\n| `XKB_DEFAULT_LAYOUT`   | `us`                   |\n| `XKB_DEFAULT_VARIANTS` |                        |\n| `XKB_DEFAULT_OPTIONS`  |                        |\n\n- Example:\n\n  ```toml\n  keymap.rmlvo = { layout = \"us,de\", variants = \"dvorak\" }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "rules": {
+          "type": "string",
+          "description": "The name of the rules file."
+        },
+        "model": {
+          "type": "string",
+          "description": "The name of the device model."
+        },
+        "layout": {
+          "type": "string",
+          "description": "A comma-separated list of layouts."
+        },
+        "variants": {
+          "type": "string",
+          "description": "A comma-separated list of variants."
+        },
+        "options": {
+          "type": "string",
+          "description": "A comma-separated list of options."
+        }
+      },
+      "required": []
     },
     "SimpleActionName": {
       "type": "string",

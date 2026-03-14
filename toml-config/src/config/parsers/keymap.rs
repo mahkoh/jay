@@ -3,19 +3,20 @@ use {
         config::{
             ConfigKeymap,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, str},
+            extractor::{Extractor, ExtractorError, opt, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
-            toml_span::{Span, Spanned, SpannedExt},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
     indexmap::IndexMap,
     jay_config::{
         config_dir,
-        keyboard::{Keymap, parse_keymap},
+        keyboard::{Keymap, keymap_from_names, parse_keymap},
     },
+    kbvm::xkb::rmlvo::Group,
     std::{io, path::PathBuf},
     thiserror::Error,
 };
@@ -28,9 +29,11 @@ pub enum KeymapParserError {
     Extractor(#[from] ExtractorError),
     #[error("The keymap is invalid")]
     Invalid,
-    #[error("Keymap table must contain at least one of `name`, `map`")]
+    #[error("Keymap table must contain at least one of `name`, `map`, `path`, `rmlvo`")]
     MissingField,
-    #[error("Keymap must have both `name` and `map` fields in this context")]
+    #[error(
+        "Keymap must have both `name` and one of `map`, `path`, `rmlvo` fields in this context"
+    )]
     DefinitionRequired,
     #[error("Could not read {0}")]
     ReadFile(String, #[source] io::Error),
@@ -56,14 +59,27 @@ impl Parser for KeymapParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mut name_val, mut map_val, mut path) =
-            ext.extract((opt(str("name")), opt(str("map")), opt(str("path"))))?;
-        if map_val.is_some() && path.is_some() {
+        let (mut name_val, mut map_val, mut path, mut rmlvo) = ext.extract((
+            opt(str("name")),
+            opt(str("map")),
+            opt(str("path")),
+            opt(val("rmlvo")),
+        ))?;
+        if map_val.is_some() as u32 + path.is_some() as u32 + rmlvo.is_some() as u32 > 1 {
             log::warn!(
-                "Both `name` and `path` are specified. Ignoring `path`: {}",
-                self.cx.error3(span)
+                "At most one of `map`, `path`, and `rmlvo` should be specified: {}",
+                self.cx.error3(span),
             );
-            path = None;
+            let ignore_path = map_val.is_some();
+            let ignore_rmlvo = map_val.is_some() || path.is_some();
+            if ignore_path && path.is_some() {
+                log::warn!("Ignoring `path`");
+                path = None;
+            }
+            if ignore_rmlvo && rmlvo.is_some() {
+                log::warn!("Ignoring `rmlvo`");
+                rmlvo = None;
+            }
         }
         let file_content;
         if let Some(path) = path {
@@ -78,10 +94,17 @@ impl Parser for KeymapParser<'_> {
             };
             map_val = Some(file_content.as_str().spanned(path.span));
         }
-        if self.definition && (name_val.is_none() || map_val.is_none()) {
+        let mut map = None;
+        if let Some(val) = &map_val {
+            map = Some(parse(val.span, val.value)?);
+        }
+        if let Some(val) = rmlvo {
+            map = Some(val.parse(&mut RmlvoParser(self.cx))?);
+        }
+        if self.definition && (name_val.is_none() || map.is_none()) {
             return Err(KeymapParserError::DefinitionRequired.spanned(span));
         }
-        if !self.definition && map_val.is_some() {
+        if !self.definition && map.is_some() {
             if let Some(val) = name_val {
                 log::warn!(
                     "Cannot use both `name` and `map` in this position. Ignoring `name`: {}",
@@ -101,16 +124,67 @@ impl Parser for KeymapParser<'_> {
                 self.cx.used.borrow_mut().keymaps.push(name.into());
             }
         }
-        let res = match (name_val, map_val) {
-            (Some(name_val), Some(map_val)) => ConfigKeymap::Defined {
+        let res = match (name_val, map) {
+            (Some(name_val), Some(map)) => ConfigKeymap::Defined {
                 name: name_val.value.to_string(),
-                map: parse(map_val.span, map_val.value)?,
+                map,
             },
             (Some(name_val), None) => ConfigKeymap::Named(name_val.value.to_string()),
-            (None, Some(map_val)) => ConfigKeymap::Literal(parse(map_val.span, map_val.value)?),
+            (None, Some(map)) => ConfigKeymap::Literal(map),
             (None, None) => return Err(KeymapParserError::MissingField.spanned(span)),
         };
         Ok(res)
+    }
+}
+
+struct RmlvoParser<'a>(&'a Context<'a>);
+
+impl Parser for RmlvoParser<'_> {
+    type Value = Keymap;
+    type Error = KeymapParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Table];
+
+    fn parse_table(
+        &mut self,
+        span: Span,
+        table: &IndexMap<Spanned<String>, Spanned<Value>>,
+    ) -> ParseResult<Self> {
+        let mut ext = Extractor::new(self.0, span, table);
+        let (rules, model, layout, variants, options) = ext.extract((
+            opt(str("rules")),
+            opt(str("model")),
+            opt(str("layout")),
+            opt(str("variants")),
+            opt(str("options")),
+        ))?;
+        let mut groups = None::<Vec<_>>;
+        if layout.is_some() || variants.is_some() {
+            groups = Some(
+                Group::from_layouts_and_variants(
+                    layout.despan().unwrap_or_default(),
+                    variants.despan().unwrap_or_default(),
+                )
+                .map(|g| jay_config::keyboard::Group {
+                    layout: g.layout,
+                    variant: g.variant,
+                })
+                .collect(),
+            );
+        }
+        let mut options_vec = None::<Vec<_>>;
+        if let Some(options) = options {
+            options_vec = Some(options.value.split(",").collect());
+        }
+        let map = keymap_from_names(
+            rules.despan(),
+            model.despan(),
+            groups.as_deref(),
+            options_vec.as_deref(),
+        );
+        match map.is_valid() {
+            true => Ok(map),
+            false => Err(KeymapParserError::Invalid.spanned(span)),
+        }
     }
 }
 

@@ -7,7 +7,7 @@ Keymap:
       description: |
         Defines a keymap by its XKB representation.
         
-        - Example:
+        - Example 1:
         
           ```toml
           keymap = """
@@ -18,6 +18,16 @@ Keymap:
                   xkb_symbols  { include "pc+us+inet(evdev)"     };
               };
               """
+          ```
+        
+        - Example 2:
+        
+          ```toml
+          keymap.rmlvo = {
+              layout = "us,de",
+              variants = "dvorak",
+              options = "grp:ctrl_space_toggle",
+          }
           ```
     - kind: table
       description: |
@@ -50,8 +60,8 @@ Keymap:
           description: |
             Defines a keymap by its XKB representation.
             
-            For each keymap defined in the top-level `keymaps` array, exactly one of `map`
-            and `path` has to be defined.
+            For each keymap defined in the top-level `keymaps` array, exactly one of
+            `map`, `path`, and `rmlvo` has to be defined.
         path:
           kind: string
           required: false
@@ -61,8 +71,59 @@ Keymap:
             If the path is relative, it will be interpreted relative to the Jay config
             directory.
             
-            For each keymap defined in the top-level `keymaps` array, exactly one of `map`
-            and `path` has to be defined.
+            For each keymap defined in the top-level `keymaps` array, exactly one of
+            `map`, `path`, and `rmlvo` has to be defined.
+        rmlvo:
+          ref: Rmlvo
+          required: false
+          description: |
+            Creates a keymap from RMLVO names.
+            
+            For each keymap defined in the top-level `keymaps` array, exactly one of
+            `map`, `path`, and `rmlvo` has to be defined.
+
+
+Rmlvo:
+  description: |
+    An RMLVO keymap definition.
+    
+    If a parameter is not given, a value from the environment or a default is used:
+    
+    | name                   | default                |
+    | ---------------------- | ---------------------- |
+    | `XKB_DEFAULT_RULES`    | `evdev`                |
+    | `XKB_DEFAULT_MODEL`    | `pc105`                |
+    | `XKB_DEFAULT_LAYOUT`   | `us`                   |
+    | `XKB_DEFAULT_VARIANTS` |                        |
+    | `XKB_DEFAULT_OPTIONS`  |                        |
+
+    - Example:
+    
+      ```toml
+      keymap.rmlvo = { layout = "us,de", variants = "dvorak" }
+      ```
+  kind: table
+  fields:
+    rules:
+      kind: string
+      required: false
+      description: The name of the rules file.
+    model:
+      kind: string
+      required: false
+      description: The name of the device model.
+    layout:
+      kind: string
+      required: false
+      description: A comma-separated list of layouts.
+    variants:
+      kind: string
+      required: false
+      description: A comma-separated list of variants.
+    options:
+      kind: string
+      required: false
+      description: A comma-separated list of options.
 
 
 Action:
@@ -2998,7 +3059,7 @@ Config:
       required: false
       description: |
         Sets the fallback output mode.
-       
+
         The default is `cursor`.
 
         - Example:
