@@ -142,6 +142,10 @@ Jay uses frame scheduling to achieve input latency as low as 1.5 ms.
 
 Jay supports the color management protocol and HDR10.
 
+## Night Light
+
+Jay supports night-light applications via `zwlr_gamma_control_manager_v1`.
+
 ## Window and Client Rules
 
 Jay supports powerful window and client rules.

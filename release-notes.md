@@ -1,5 +1,322 @@
 # Unreleased
 
+## Fixes
+
+As always, this release contains many bug fixes. Thanks to the following people for
+reporting or fixing bugs:
+
+- @danielfrrrr
+- @disluckyguy
+- @flammablebunny
+- @Jeff-WuYo
+- @khyperia
+- @kotarac
+- @krakow10
+- @KyunLFA
+- @llyyr
+- @luvvlyjude
+- @Richochet1
+- @rrtt217
+- @sday-ssc
+- @Stoppedpuma
+
+## Control Center
+
+Jay now has a built-in control center that can be opened with the `open-control-center`
+action. In the default config, this action is bound to `alt-c`.
+
+The control center runs in the same thread as the rest of the compositor and therefore has
+easy access to all compositor internals. In this version it does not make much use of this
+ability and limits itself to exposing the capabilities that are already available through
+the configuration and on the command line.
+
+Since the control center runs in the same thread, it also takes away resources from the
+rest of the compositor and might increase latency. You should close the control center
+when you are not using it.
+
+## Support for Render-Only GPUs
+
+Jay now supports render-only GPUs, that is, GPUs that themselves don't support driving
+displays. This is useful on some embedded devices where the GPU that supports accelerated
+rendering is render-only and displays are connected to a separate GPU that doesn't support
+accelerated rendering. On such devices, you would want to use the render-only GPU as the
+primary GPU.
+
+You can test this via `sudo modprobe vgem` which will create a virtual render-only GPU.
+
+## Vulkan Improvements
+
+- Jay now ships pre-compiled shaders. You no longer need to have shaderc installed to
+  compile Jay.
+
+- The renderer will now fall back to software rendering in virtual machines where
+  accelerated rendering is not available. Previously this would fall back to software
+  rendering via OpenGL.
+
+- The blend space can now be configured. Previously the renderer always blended in linear
+  space which made some transparent textures much lighter than intended. Since most
+  textures are designed to be blended in sRGB space, this is the new default. If you're
+  not using HDR, this is also significantly more efficient. The easiest way to temporarily
+  change the blend space is in the control center in the outputs pane.
+
+- Shared-memory buffers can now be imported directly into the renderer via the udmabuf
+  mechanism. This can significantly improve the compositor-side performance by reducing
+  the number of copies from 2 to 1. On integrated GPUs, the renderer will try to use such
+  buffers directly as images, eliminating all copies.
+
+- The renderer will now opportunistically use timeline semaphores as syncobjs which
+  eliminates a significant number of system calls. This is known to not work with the
+  Nvidia driver since it does not use syncobjs for timeline semaphores. A new vulkan
+  extension for official timeline semaphore/syncobj interop is being discussed at Khronos,
+  which would allow this feature to also work on Nvidia.
+
+## Toml Improvements
+
+- `exec` actions now have a `shell` field to execute a program via the shell. For example,
+
+  ```toml
+  [shortcuts]
+  alt-x = { type = "exec", exec.shell = "echo $WAYLAND_DISPLAY >file" }
+  ```
+  
+- The config can now be reloaded automatically when the config file has changed. This is
+  disabled by default and can be enabled with the top-level, boolean `auto-reload` field.
+
+  Note that reloading the config has side effects such as reverting changes to the theme
+  made via the command line and the control center.
+
+  Thanks to @disluckyguy for implementing this.
+
+## Client Capabilities
+
+Client rules can now grant clients additional capabilities. This allows more fine-grained
+control over exposed globals in contrast to the existing feature that only allowed
+granting all capabilities to a client. See the next section for an example.
+
+## Tagging Clients
+
+You can now add a _tag_ to applications launched via `exec` actions and on the command
+line. This tag applies to the application and all of its children. For example, on the
+command line
+
+```shell
+~$ jay run-tagged my-tag chromium
+```
+
+and in an action
+
+```toml
+[shortcuts]
+alt-x = { type = "exec", exec.prog = "chromium", exec.tag = "my-tag" }
+```
+
+This tag can in turn be used in client rules to match clients:
+
+```toml
+[[clients]]
+match.tag = "my-tag"
+capabilities = ["data-control"]
+```
+
+Tags are incompatible with `exec.privileged = true`. All capabilities must be assigned via
+client rules.
+
+## Pid Subcommand
+
+The new `jay pid` subcommand prints the process ID of Jay and exits. This can be useful
+when debugging issues and can be used as follows:
+
+```shell
+~$ cd /proc/$(jay pid)
+~$ sudo strace -p $(jay pid)
+```
+
+## Tray Applications
+
+Jay now supports running almost all wayland-native applications as tray applications. This
+can be accomplished with the
+[window-to-tray](https://github.com/mahkoh/wl-proxy/tree/master/apps/window-to-tray)
+tool from the wl-proxy project.
+
+For example, to have an easily accessible volume mixer in the tray:
+
+```shell
+~$ window-to-tray pavucontrol-qt
+```
+
+## Keymaps from RMLVO Names
+
+In addition to XKB, keymaps can now also be specified via their RMLVO names that might be
+known from other compositors:
+
+```toml
+keymap.rmlvo = {
+    layout = "us,de",
+    variants = "dvorak",
+    options = "grp:ctrl_space_toggle",
+}
+```
+
+Thanks to @khyperia for implementing this.
+
+## Night Light
+
+Jay now supports night-light applications that attach gamma tables to outputs via
+`zwlr_gamma_control_manager_v1`.
+
+Thanks to @khyperia for implementing this.
+
+## Improved Multi-GPU Blits
+
+On some systems, displays are connected to GPUs other than the GPU used for rendering. The
+embedded scenario with render-only GPUs is one example. Another are laptops with dedicated
+GPUs where the internal display is hard-wired to the iGPU and external displays are
+hard-wired to the dGPU.
+
+Jay has always supported such systems with the open-source mesa drivers. However, it did
+not support using Nvidia devices as the primary GPU and the method used to copy images
+from the primary GPU to the output GPU was not optimized.
+
+This release adds several new implementations for these blits:
+
+- direct-pull
+- direct-sampling
+- indirect-pull
+- udmabuf
+- direct-push
+
+By default, the compositor will try to use the methods in this order. It is currently not
+possible to know which method is the most optimal on a given system without trying them.
+In the embedded scenario, direct-push is most likely the most efficient, but on a dual-AMD
+system it is likely to crash the compositor due to bugs in the AMD driver.
+
+You can modify the order in which these methods are attempted, and exclude methods, with
+the `JAY_PRIME_METHODS` environment variable. For example:
+
+```shell
+~$ JAY_PRIME_METHODS=udmabuf,-direct-push jay run
+```
+
+This would result in the methods being attempted in this order:
+
+- udmabuf
+- direct-pull
+- direct-sampling
+- indirect-pull
+
+On systems with an Nvidia primary device and mesa secondary devices, you might
+need to explicitly select the udmabuf method due to bugs in the Nvidia driver.
+
+## Look & Feel Improvements
+
+- The bar can now be moved to the bottom of the screen.
+
+  ```toml
+  [theme]
+  bar-position = "bottom"
+  ```
+  
+  Thanks to @kotarac for implementing this.
+
+- The width of the separator between the bar and the rest of the output can now
+  be configured.
+
+  ```toml
+  [theme]
+  bar-separator-width = 2
+  ```
+
+  Thanks to @kotarac for implementing this.
+
+- Directional commands now work across neighboring outputs.
+
+  Thanks to @ArthurHeymans for implementing this.
+
+- Jay can now be configured to display workspaces in alphabetical order.
+
+  ```toml
+  workspace-display-order = "sorted"
+  ```
+
+  Thanks to @kotarac for implementing this.
+  
+- All configurable sizes can now be reduced to 0 instead of 1.
+
+- The bar and title heights can now be configured separately.
+
+  ```toml
+  [theme]
+  title-height = 16
+  bar-height = 17
+  ```
+  
+## Fallback Output Mode
+
+By default, when opening new windows or executing actions that don't specify an output but
+need an output, Jay will use the output that contains the cursor. To enable more
+keyboard-centric workflows, Jay can now be configured to fall back to the output that has
+the keyboard focus.
+
+```toml
+fallback-output-mode = "focus"
+```
+
+To allow this to work with empty outputs, it is now also possible to
+
+- specify an output when creating a workspace
+
+  ```toml
+  [shortcuts]
+  alt-x = { type = "show-workspace", name = "abcd", output.connector = "DP-3" }
+  ```
+
+- focus an empty workspace.
+
+Thanks to @khyperia for implementing this.
+
+## Disabling Xwayland
+
+If you don't need Xwayland and want to ensure that no application uses Xwayland,
+you can now disable Xwayland outright:
+
+```toml
+[xwayland]
+enabled = false
+```
+
+Thanks to @khyperia for implementing this.
+
+## Simple Input Method
+
+If no external input method is used, Jay will now provide a built-in simple
+input method. This IM can operate in two modes:
+
+- By default, it provides completions based on `~/.XCompose`.
+- When the `enable-unicode-input` action is executed, it allows inputting
+  characters by their unicode code point.
+
+The simple input method can be disabled:
+
+```toml
+[simple-im]
+enabled = false
+```
+
+## Protocol Updates and Additions
+
+This version of Jay supports the following new and improved protocols:
+
+| Global                             | Old | New |
+|------------------------------------|:----|:----|
+| jay_popup_ext_manager_v1           |     | 1   |
+| wl_compositor                      | 6   | 7   |
+| wl_data_device_manager             | 3   | 4   |
+| wl_seat                            | 9   | 10  |
+| wp_color_manager_v1                | 1   | 2   |
+| wp_color_representation_manager_v1 |     | 1   |
+| zwlr_gamma_control_manager_v1      |     | 1   |
+| zxdg_decoration_manager_v1         | 1   | 2   |
+
 # 1.11.0 (2025-07-26)
 
 ## Fixes

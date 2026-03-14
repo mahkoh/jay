@@ -68,9 +68,11 @@ alt-m = "toggle-mono"
 # windowed and fullscreen.
 alt-u = "toggle-fullscreen"
 
-# The focus-parent action moves the keyboard focus to the parrent of
+# The focus-parent action moves the keyboard focus to the parent of
 # the currently focused window.
 alt-f = "focus-parent"
+# The open-control-center action opens the control center.
+alt-c = "open-control-center"
 # The close action requests the currently focused window to close.
 alt-shift-c = "close"
 # The toggle-floating action changes the currently focused window between
