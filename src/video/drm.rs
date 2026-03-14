@@ -26,7 +26,8 @@ use {
                 get_version, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
                 mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
                 mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
-                mode_rmfb, prime_fd_to_handle, queue_sequence, revoke_lease, set_client_cap,
+                mode_rmfb, mode_supports_get_resources, prime_fd_to_handle, queue_sequence,
+                revoke_lease, set_client_cap,
             },
         },
     },
@@ -168,11 +169,13 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         return Ok(Rc::new(fd));
     }
     let path = 'path: {
-        if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
-            break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
-        }
-        if !need_primary && let Ok(path) = render_node_name(fd) {
-            break 'path path;
+        if !need_primary {
+            if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
+                break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
+            }
+            if let Ok(path) = render_node_name(fd) {
+                break 'path path;
+            }
         }
         device_node_name(fd)?
     };
@@ -210,6 +213,10 @@ impl Drm {
 
     pub fn raw(&self) -> c::c_int {
         self.fd.raw()
+    }
+
+    pub fn dup_primary(&self) -> Result<Self, DrmError> {
+        Self::reopen(self.fd.raw(), true)
     }
 
     pub fn dup_render(&self) -> Result<Self, DrmError> {
@@ -331,6 +338,10 @@ impl DrmMaster {
 
     pub fn get_resources(&self) -> Result<DrmCardResources, DrmError> {
         mode_get_resources(self.raw())
+    }
+
+    pub fn supports_get_resources(&self) -> Result<bool, DrmError> {
+        mode_supports_get_resources(self.raw())
     }
 
     pub fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
@@ -745,12 +756,12 @@ drm_obj!(DrmFb, DRM_MODE_OBJECT_FB);
 drm_obj!(DrmBlob, DRM_MODE_OBJECT_BLOB);
 drm_obj!(DrmPlane, DRM_MODE_OBJECT_PLANE);
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DrmCardResources {
-    pub min_width: u32,
-    pub max_width: u32,
-    pub min_height: u32,
-    pub max_height: u32,
+    pub _min_width: u32,
+    pub _max_width: u32,
+    pub _min_height: u32,
+    pub _max_height: u32,
     pub _fbs: Vec<DrmFb>,
     pub crtcs: Vec<DrmCrtc>,
     pub connectors: Vec<DrmConnector>,

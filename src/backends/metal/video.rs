@@ -44,10 +44,10 @@ use {
             INVALID_MODIFIER, Modifier,
             dmabuf::DmaBufId,
             drm::{
-                ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC, DrmBlob, DrmConnector,
-                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
-                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
+                ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC, DrmBlob, DrmCardResources,
+                DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster,
+                DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
+                DrmPropertyType, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
                 hdr_output_metadata,
             },
             gbm::GbmDevice,
@@ -105,13 +105,10 @@ pub struct MetalDrmDevice {
     pub devnum: c::dev_t,
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
+    pub supports_kms: bool,
     pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
     pub encoders: AHashMap<DrmEncoder, Rc<MetalEncoder>>,
     pub planes: AHashMap<DrmPlane, Rc<MetalPlane>>,
-    pub _min_width: u32,
-    pub _max_width: u32,
-    pub _min_height: u32,
-    pub _max_height: u32,
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
@@ -1822,6 +1819,9 @@ impl MetalBackend {
     }
 
     fn handle_drm_change_(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>) -> Result<(), MetalError> {
+        if !dev.dev.supports_kms {
+            return Ok(());
+        }
         if let Err(e) = self.update_device_properties(dev) {
             return Err(MetalError::UpdateProperties(e));
         }
@@ -1982,46 +1982,44 @@ impl MetalBackend {
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,
     ) -> Result<Rc<MetalDrmDeviceData>, MetalError> {
-        if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
-            return Err(MetalError::AtomicModesetting(e));
-        }
-        let resources = master.get_resources()?;
-
-        let (cursor_width, cursor_height) = match master.get_cursor_size() {
-            Ok(s) => s,
-            Err(e) => {
+        let mut resources = DrmCardResources::default();
+        let mut planes = AHashMap::new();
+        let mut crtcs = AHashMap::new();
+        let mut encoders = AHashMap::new();
+        let (mut cursor_width, mut cursor_height) = (1, 1);
+        let supports_kms = master.supports_get_resources()?;
+        if supports_kms {
+            if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
+                return Err(MetalError::AtomicModesetting(e));
+            }
+            resources = master.get_resources()?;
+            (cursor_width, cursor_height) = master.get_cursor_size().unwrap_or_else(|e| {
                 log::warn!("Can't determine size of cursor planes: {}", ErrorFmt(e));
                 (64, 64)
-            }
-        };
-
-        let mut planes = AHashMap::new();
-        for plane in master.get_planes()? {
-            match create_plane(plane, master) {
-                Ok(p) => {
-                    planes.insert(p.id, Rc::new(p));
+            });
+            for plane in master.get_planes()? {
+                match create_plane(plane, master) {
+                    Ok(p) => {
+                        planes.insert(p.id, Rc::new(p));
+                    }
+                    Err(e) => return Err(MetalError::CreatePlane(e)),
                 }
-                Err(e) => return Err(MetalError::CreatePlane(e)),
             }
-        }
-
-        let mut crtcs = AHashMap::new();
-        for (idx, crtc) in resources.crtcs.iter().copied().enumerate() {
-            match create_crtc(crtc, idx, master, &planes) {
-                Ok(c) => {
-                    crtcs.insert(c.id, Rc::new(c));
+            for (idx, crtc) in resources.crtcs.iter().copied().enumerate() {
+                match create_crtc(crtc, idx, master, &planes) {
+                    Ok(c) => {
+                        crtcs.insert(c.id, Rc::new(c));
+                    }
+                    Err(e) => return Err(MetalError::CreateCrtc(e)),
                 }
-                Err(e) => return Err(MetalError::CreateCrtc(e)),
             }
-        }
-
-        let mut encoders = AHashMap::new();
-        for encoder in resources.encoders {
-            match create_encoder(encoder, master, &crtcs) {
-                Ok(e) => {
-                    encoders.insert(e.id, Rc::new(e));
+            for encoder in resources.encoders {
+                match create_encoder(encoder, master, &crtcs) {
+                    Ok(e) => {
+                        encoders.insert(e.id, Rc::new(e));
+                    }
+                    Err(e) => return Err(MetalError::CreateEncoder(e)),
                 }
-                Err(e) => return Err(MetalError::CreateEncoder(e)),
             }
         }
 
@@ -2072,13 +2070,10 @@ impl MetalBackend {
             devnum: pending.devnum,
             devnode: pending.devnode,
             master: master.clone(),
+            supports_kms,
             crtcs,
             encoders,
             planes,
-            _min_width: resources.min_width,
-            _max_width: resources.max_width,
-            _min_height: resources.min_height,
-            _max_height: resources.max_height,
             cursor_width,
             cursor_height,
             supports_async_commit: master.supports_async_commit(),
@@ -2099,7 +2094,11 @@ impl MetalBackend {
             min_post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
         });
 
-        let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
+        let mut connectors = CopyHashMap::new();
+        let mut futures = CopyHashMap::new();
+        if supports_kms {
+            (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
+        }
 
         let slf = Rc::new(MetalDrmDeviceData {
             dev: dev.clone(),
@@ -2574,6 +2573,9 @@ impl MetalBackend {
 
     fn init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) -> Result<(), MetalError> {
         self.break_leases(dev);
+        if dev.connectors.is_empty() {
+            return Ok(());
+        }
         enum Quirks {
             DirectScanout,
             NonDefaultFormat,

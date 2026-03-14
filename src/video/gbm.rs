@@ -7,8 +7,8 @@ use {
             BO_USE_RENDERING, BO_USE_SCANOUT, BO_USE_WRITE, BufferObject, BufferUsage,
             MappedBuffer,
         },
-        format::{Format, formats},
-        utils::oserror::OsError,
+        format::{Format, XRGB8888, formats},
+        utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             INVALID_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
@@ -214,14 +214,26 @@ unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmEr
 
 impl GbmDevice {
     pub fn new(drm: &Drm) -> Result<Self, GbmError> {
-        let drm = drm.dup_render()?;
-        let dev = unsafe { gbm_create_device(drm.raw()) };
-        if dev.is_null() {
-            Err(GbmError::CreateDevice)
-        } else {
-            let dev = Rc::new(DeviceHolder { dev });
-            Ok(Self { drm, dev })
-        }
+        let open = |drm: Drm| {
+            let dev = unsafe { gbm_create_device(drm.raw()) };
+            if dev.is_null() {
+                Err(GbmError::CreateDevice)
+            } else {
+                let dev = Rc::new(DeviceHolder { dev });
+                Ok(Self { drm, dev })
+            }
+        };
+        let dma_buf_ids = DmaBufIds::default();
+        let create_bo =
+            |gbm: &GbmDevice| gbm.create_bo(&dma_buf_ids, 1, 1, XRGB8888, &[INVALID_MODIFIER], 0);
+        let gbm = open(drm.dup_render()?)?;
+        match create_bo(&gbm) {
+            Ok(..) => return Ok(gbm),
+            Err(e) => log::warn!("Render node cannot allocate buffers: {}", ErrorFmt(e)),
+        };
+        let gbm = open(drm.dup_primary()?)?;
+        create_bo(&gbm)?;
+        Ok(gbm)
     }
 
     pub fn raw(&self) -> *mut Device {

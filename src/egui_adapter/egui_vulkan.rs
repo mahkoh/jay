@@ -408,49 +408,56 @@ impl EgvRenderer {
                     .enumerate_physical_devices()
                     .map_err(EgvError::EnumeratePhysicalDevice)?
             };
-            'outer: for phy in devices {
-                let res = unsafe { instance.enumerate_device_extension_properties(phy) };
-                let exts = match res {
-                    Ok(res) => map_extension_properties(res),
-                    Err(e) => {
-                        log::error!(
-                            "Could not enumerate extensions of physical device: {}",
-                            ErrorFmt(e),
-                        );
-                        continue;
+            for software in [false, true] {
+                'outer: for &phy in &devices {
+                    let res = unsafe { instance.enumerate_device_extension_properties(phy) };
+                    let exts = match res {
+                        Ok(res) => map_extension_properties(res),
+                        Err(e) => {
+                            log::error!(
+                                "Could not enumerate extensions of physical device: {}",
+                                ErrorFmt(e),
+                            );
+                            continue;
+                        }
+                    };
+                    let mut drm_props = PhysicalDeviceDrmPropertiesEXT::default();
+                    let mut props = PhysicalDeviceProperties2::default().push_next(&mut drm_props);
+                    unsafe {
+                        instance.get_physical_device_properties2(phy, &mut props);
                     }
-                };
-                let mut drm_props = PhysicalDeviceDrmPropertiesEXT::default();
-                let mut props = PhysicalDeviceProperties2::default().push_next(&mut drm_props);
-                unsafe {
-                    instance.get_physical_device_properties2(phy, &mut props);
-                }
-                let props = props.properties;
-                physical_device = phy;
-                device_extensions = exts;
-                device_properties = props;
-                if let Some(dev) = dev {
-                    if device_extensions.not_contains_key(physical_device_drm::NAME) {
-                        continue 'outer;
-                    }
-                    let major = uapi::major(dev) as i64;
-                    let minor = uapi::minor(dev) as i64;
-                    let matches = (drm_props.has_primary == vk::TRUE
-                        && drm_props.primary_major == major
-                        && drm_props.primary_minor == minor)
-                        || (drm_props.has_render == vk::TRUE
-                            && drm_props.render_major == major
-                            && drm_props.render_minor == minor);
-                    if matches {
-                        break 'find_device;
-                    }
-                } else {
-                    if device_properties.device_type == PhysicalDeviceType::CPU {
-                        break 'find_device;
+                    let props = props.properties;
+                    physical_device = phy;
+                    device_extensions = exts;
+                    device_properties = props;
+                    if let Some(dev) = dev
+                        && !software
+                    {
+                        if device_extensions.not_contains_key(physical_device_drm::NAME) {
+                            continue 'outer;
+                        }
+                        let major = uapi::major(dev) as i64;
+                        let minor = uapi::minor(dev) as i64;
+                        let matches = (drm_props.has_primary == vk::TRUE
+                            && drm_props.primary_major == major
+                            && drm_props.primary_minor == minor)
+                            || (drm_props.has_render == vk::TRUE
+                                && drm_props.render_major == major
+                                && drm_props.render_minor == minor);
+                        if matches {
+                            break 'find_device;
+                        }
+                    } else {
+                        if device_properties.device_type == PhysicalDeviceType::CPU {
+                            break 'find_device;
+                        }
                     }
                 }
             }
             return Err(EgvError::NoVulkanDevice);
+        }
+        if device_properties.device_type == PhysicalDeviceType::CPU && dev.is_some() {
+            log::warn!("Using software rendering");
         }
         if device_properties.api_version < VULKAN_API_VERSION {
             return Err(EgvError::NoVulkan13);
