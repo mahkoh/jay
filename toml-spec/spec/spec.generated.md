@@ -3557,7 +3557,7 @@ Values of this type should have one of the following forms:
 
 Defines a keymap by its XKB representation.
 
-- Example:
+- Example 1:
 
   ```toml
   keymap = """
@@ -3568,6 +3568,16 @@ Defines a keymap by its XKB representation.
           xkb_symbols  { include "pc+us+inet(evdev)"     };
       };
       """
+  ```
+
+- Example 2:
+
+  ```toml
+  keymap.rmlvo = {
+      layout = "us,de",
+      variants = "dvorak",
+      options = "grp:ctrl_space_toggle",
+  }
   ```
 
 #### A table
@@ -3602,8 +3612,8 @@ The table has the following fields:
 
   Defines a keymap by its XKB representation.
   
-  For each keymap defined in the top-level `keymaps` array, exactly one of `map`
-  and `path` has to be defined.
+  For each keymap defined in the top-level `keymaps` array, exactly one of
+  `map`, `path`, and `rmlvo` has to be defined.
 
   The value of this field should be a string.
 
@@ -3614,10 +3624,19 @@ The table has the following fields:
   If the path is relative, it will be interpreted relative to the Jay config
   directory.
   
-  For each keymap defined in the top-level `keymaps` array, exactly one of `map`
-  and `path` has to be defined.
+  For each keymap defined in the top-level `keymaps` array, exactly one of
+  `map`, `path`, and `rmlvo` has to be defined.
 
   The value of this field should be a string.
+
+- `rmlvo` (optional):
+
+  Creates a keymap from RMLVO names.
+  
+  For each keymap defined in the top-level `keymaps` array, exactly one of
+  `map`, `path`, and `rmlvo` has to be defined.
+
+  The value of this field should be a [Rmlvo](#types-Rmlvo).
 
 
 <a name="types-Libei"></a>
@@ -4097,6 +4116,62 @@ The table has the following fields:
   The value of this field should be a number.
 
   The numbers should be integers.
+
+
+<a name="types-Rmlvo"></a>
+### `Rmlvo`
+
+An RMLVO keymap definition.
+
+If a parameter is not given, a value from the environment or a default is used:
+
+| name                   | default                |
+| ---------------------- | ---------------------- |
+| `XKB_DEFAULT_RULES`    | `evdev`                |
+| `XKB_DEFAULT_MODEL`    | `pc105`                |
+| `XKB_DEFAULT_LAYOUT`   | `us`                   |
+| `XKB_DEFAULT_VARIANTS` |                        |
+| `XKB_DEFAULT_OPTIONS`  |                        |
+
+- Example:
+
+  ```toml
+  keymap.rmlvo = { layout = "us,de", variants = "dvorak" }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `rules` (optional):
+
+  The name of the rules file.
+
+  The value of this field should be a string.
+
+- `model` (optional):
+
+  The name of the device model.
+
+  The value of this field should be a string.
+
+- `layout` (optional):
+
+  A comma-separated list of layouts.
+
+  The value of this field should be a string.
+
+- `variants` (optional):
+
+  A comma-separated list of variants.
+
+  The value of this field should be a string.
+
+- `options` (optional):
+
+  A comma-separated list of options.
+
+  The value of this field should be a string.
 
 
 <a name="types-SimpleActionName"></a>
