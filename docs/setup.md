@@ -112,6 +112,10 @@ Then restart `xdg-deskop-portal`.
   ~$ window-to-tray pavucontrol-qt
   ```
 
+# Mouse Interactions
+
+See [mouse-interactions.md](./mouse-interactions.md).
+
 # Running
 
 1. Switch to a virtual terminal by pressing `ctrl-alt-F2` (or F3, F4, ...).

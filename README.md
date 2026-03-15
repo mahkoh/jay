@@ -24,4 +24,4 @@ Jay is free software licensed under the GNU General Public License v3.0.
 
 ## Community
 
-[Community Discord server(unofficial)](https://discord.gg/Hby736z28G)
+[Community Discord server (unofficial)](https://discord.gg/Hby736z28G)
