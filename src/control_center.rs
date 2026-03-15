@@ -108,6 +108,8 @@ struct ControlCenterInner {
     window: Rc<EggWindow>,
     pane_ids: PaneIds,
     interests: Rc<Interests>,
+    had_focus_prev_frame: NumCell<bool>,
+    had_popup_open_prev_frame: NumCell<bool>,
 }
 
 #[derive(Default)]
@@ -332,32 +334,49 @@ impl EggWindowOwner for ControlCenterInner {
     }
 
     fn render(self: Rc<Self>, ctx: &Context) {
-        let settings = &mut *self.tree.borrow_mut();
-        SidePanel::left("sidebar").show(ctx, |ui| self.show_sidebar(&mut settings.tree, ui));
-        CentralPanel::default()
-            .frame(
-                Frame::central_panel(&ctx.style())
-                    .outer_margin(0.0)
-                    .inner_margin(0.0),
-            )
-            .show(ctx, |ui| {
-                let tree = &mut settings.tree;
-                let mut behavior = CcBehavior {
-                    cc: &self,
-                    close: Default::default(),
-                    open: Default::default(),
-                };
-                tree.ui(&mut behavior, ui);
-                if let Some(close) = behavior.close {
-                    tree.set_visible(close, false);
-                    tree.remove_recursively(close);
-                    ui.ctx().request_repaint();
-                }
-                if let Some(ty) = behavior.open {
-                    self.open(tree, ty);
-                    ui.ctx().request_repaint();
-                }
-            });
+        let had_focus_prev_frame = self.had_focus_prev_frame.get();
+        let had_popup_open_prev_frame = self.had_popup_open_prev_frame.get();
+        {
+            let settings = &mut *self.tree.borrow_mut();
+            SidePanel::left("sidebar").show(ctx, |ui| self.show_sidebar(&mut settings.tree, ui));
+            CentralPanel::default()
+                .frame(
+                    Frame::central_panel(&ctx.style())
+                        .outer_margin(0.0)
+                        .inner_margin(0.0),
+                )
+                .show(ctx, |ui| {
+                    let tree = &mut settings.tree;
+                    let mut behavior = CcBehavior {
+                        cc: &self,
+                        close: Default::default(),
+                        open: Default::default(),
+                    };
+                    tree.ui(&mut behavior, ui);
+                    if let Some(close) = behavior.close {
+                        tree.set_visible(close, false);
+                        tree.remove_recursively(close);
+                        ui.ctx().request_repaint();
+                    }
+                    if let Some(ty) = behavior.open {
+                        self.open(tree, ty);
+                        ui.ctx().request_repaint();
+                    }
+                });
+        }
+        let escape_pressed =
+            ctx.input(|i| i.key_pressed(egui::Key::Escape) && i.modifiers.is_none());
+        let had_focus = ctx.memory(|m| m.focused().is_some());
+        let had_popup_open = egui::containers::Popup::is_any_open(ctx);
+        self.had_focus_prev_frame.set(had_focus);
+        self.had_popup_open_prev_frame.set(had_popup_open);
+        if !escape_pressed {
+            return;
+        }
+        if had_focus_prev_frame || had_popup_open_prev_frame {
+            return;
+        }
+        self.close();
     }
 }
 
@@ -377,6 +396,8 @@ impl State {
                 }),
                 pane_ids: Default::default(),
                 interests: Default::default(),
+                had_focus_prev_frame: Default::default(),
+                had_popup_open_prev_frame: Default::default(),
             }),
         });
         cc.inner.window.set_owner(Some(cc.inner.clone()));
