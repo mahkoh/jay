@@ -92,6 +92,26 @@ This step is only required to enable screen sharing.
 
 Then restart `xdg-deskop-portal`.
 
+## Recommended Applications
+
+- [xdg-desktop-portal-gtk4](https://github.com/mahkoh/xdg-desktop-portal-gtk4)
+
+  Provides a file-picker portal that supports thumbnails. It will be used
+  automatically if it is installed.
+
+- [wl-tray-bridge](https://github.com/mahkoh/wl-tray-bridge)
+
+  Shows applications using the D-Bus StatusNotifierItem protocol as tray icons.
+
+- [window-to-tray](https://github.com/mahkoh/wl-proxy/tree/master/apps/window-to-tray)
+
+  Allows you to run most wayland applications as tray applications. For example,
+  to get a quick-access volume mixer in the tray:
+
+  ```shell
+  ~$ window-to-tray pavucontrol-qt
+  ```
+
 # Running
 
 1. Switch to a virtual terminal by pressing `ctrl-alt-F2` (or F3, F4, ...).
