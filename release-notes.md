@@ -7,18 +7,22 @@ reporting or fixing bugs:
 
 - @danielfrrrr
 - @disluckyguy
+- @effectsbot
 - @flammablebunny
 - @Jeff-WuYo
 - @khyperia
 - @kotarac
 - @krakow10
 - @KyunLFA
+- @LeaPhant
 - @llyyr
 - @luvvlyjude
+- @noxvail
 - @Richochet1
 - @rrtt217
 - @sday-ssc
 - @Stoppedpuma
+- @uku3lig
 
 ## Control Center
 
