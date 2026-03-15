@@ -203,7 +203,6 @@ impl VulkanInstance {
         } else {
             log::warn!("Found the following devices but none matches:");
             for (props, extensions, driver_props) in devices.iter() {
-                log::warn!("Found the following devices but none matches:");
                 log::warn!("-----");
                 log_device(
                     self.log_level,
