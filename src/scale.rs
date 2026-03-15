@@ -49,7 +49,7 @@ impl Scale {
             return v;
         }
         let scale = self.0 as i64;
-        v.map(|v| ((v as i64 * scale + BASE64 / 2) / BASE64) as i32)
+        v.map(|v| ((v as i64 * scale + v.signum() as i64 * BASE64 / 2) / BASE64) as i32)
     }
 }
 
