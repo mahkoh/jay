@@ -45,6 +45,7 @@ pub mod wl_buffer;
 pub mod wl_callback;
 pub mod wl_compositor;
 pub mod wl_display;
+pub mod wl_display_upgrade;
 pub mod wl_drm;
 pub mod wl_fixes;
 pub mod wl_output;

@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::Client,
+        client::{Client, ClientError},
         globals::{Global, GlobalName, GlobalsError, Singleton},
         leaks::Tracker,
         object::{Interface, Object, Version},
@@ -15,15 +15,17 @@ pub struct WlRegistry {
     id: WlRegistryId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
     advertised: StaticMap<Singleton, Cell<bool>>,
 }
 
 impl WlRegistry {
-    pub fn new(id: WlRegistryId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlRegistryId, version: Version, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
             advertised: Default::default(),
         }
     }
@@ -84,11 +86,16 @@ impl WlRegistryRequestHandler for WlRegistry {
         global.bind(&self.client, bind.id, Version(bind.version))?;
         Ok(())
     }
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
 }
 
 object_base! {
     self = WlRegistry;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for WlRegistry {}
@@ -98,6 +105,8 @@ dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 #[derive(Debug, Error)]
 pub enum WlRegistryError {
     #[error(transparent)]
+    ClientError(Box<ClientError>),
+    #[error(transparent)]
     GlobalsError(Box<GlobalsError>),
     #[error("Tried to bind to global {} of type {} using interface {}", .0.name, .0.interface.name(), .0.actual)]
     InvalidInterface(InterfaceError),
@@ -105,6 +114,7 @@ pub enum WlRegistryError {
     InvalidVersion(VersionError),
 }
 efrom!(WlRegistryError, GlobalsError);
+efrom!(WlRegistryError, ClientError);
 
 #[derive(Debug)]
 pub struct InterfaceError {

@@ -1,0 +1,7 @@
+event max_version {
+    version: u32,
+}
+
+request upgrade (destructor) {
+    version: u32,
+}

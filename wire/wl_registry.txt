@@ -14,3 +14,6 @@ event global {
 event global_remove {
     name: u32,
 }
+
+request release (destructor, since = 2) {
+}

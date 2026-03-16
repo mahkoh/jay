@@ -148,6 +148,10 @@ impl Objects {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.registry.len()
+    }
+
     pub fn destroy(&self) {
         for surface in self.surfaces.lock().values() {
             if let Some(tl) = surface.get_toplevel() {

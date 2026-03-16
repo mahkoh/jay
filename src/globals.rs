@@ -23,6 +23,7 @@ use {
             jay_popup_ext_manager_v1::JayPopupExtManagerV1Global,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
+            wl_display_upgrade::WlDisplayUpgradeGlobal,
             wl_drm::WlDrmGlobal,
             wl_fixes::WlFixesGlobal,
             wl_output::WlOutputGlobal,
@@ -248,6 +249,7 @@ singletons! {
     ZwpLinuxDmabufV1,
     WpLinuxDrmSyncobjManagerV1,
     WpPresentation,
+    WlDisplayUpgrade,
 }
 
 pub struct Globals {
