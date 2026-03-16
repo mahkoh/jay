@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "jay-compositor"
-version = "1.11.0"
+version = "1.12.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "jay-config"
-version = "1.9.0"
+version = "1.10.0"
 dependencies = [
  "backtrace",
  "bincode",
@@ -806,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "jay-toml-config"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "ahash",
  "bstr",
