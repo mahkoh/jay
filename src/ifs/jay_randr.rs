@@ -270,6 +270,11 @@ impl JayRandr {
     }
 
     fn get_connector(&self, name: &str) -> Option<Rc<ConnectorData>> {
+        for c in self.client.state.connectors.lock().values() {
+            if *c.name == name {
+                return Some(c.clone());
+            }
+        }
         let namelc = name.to_ascii_lowercase();
         for c in self.client.state.connectors.lock().values() {
             if c.name.to_ascii_lowercase() == namelc {
@@ -281,6 +286,11 @@ impl JayRandr {
     }
 
     fn get_output(&self, name: &str) -> Option<Rc<OutputData>> {
+        for c in self.client.state.outputs.lock().values() {
+            if *c.connector.name == name {
+                return Some(c.clone());
+            }
+        }
         let namelc = name.to_ascii_lowercase();
         for c in self.client.state.outputs.lock().values() {
             if c.connector.name.to_ascii_lowercase() == namelc {
@@ -586,6 +596,28 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.set_use_native_gamut(req.use_native_gamut != 0);
+        Ok(())
+    }
+
+    fn create_virtual_output(
+        &self,
+        req: CreateVirtualOutput<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.state
+            .virtual_outputs
+            .get_or_create(&self.state, req.name);
+        Ok(())
+    }
+
+    fn remove_virtual_output(
+        &self,
+        req: RemoveVirtualOutput<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.state
+            .virtual_outputs
+            .remove_output(&self.state, req.name);
         Ok(())
     }
 }

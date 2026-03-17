@@ -1605,6 +1605,14 @@ impl ConfigProxyHandler {
         self.respond(Response::GetConnector { connector });
     }
 
+    fn handle_create_virtual_output(&self, name: &str) {
+        self.state.virtual_outputs.get_or_create(&self.state, name);
+    }
+
+    fn handle_remove_virtual_output(&self, name: &str) {
+        self.state.virtual_outputs.remove_output(&self.state, name);
+    }
+
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
         let workspace = output
@@ -3357,6 +3365,8 @@ impl ConfigProxyHandler {
                 .handle_connector_supports_arbitrary_modes(connector)
                 .wrn("connector_supports_arbitrary_modes")?,
             ClientMessage::GetConnectorByName { name } => self.handle_get_connector_by_name(name),
+            ClientMessage::CreateVirtualOutput { name } => self.handle_create_virtual_output(name),
+            ClientMessage::RemoveVirtualOutput { name } => self.handle_remove_virtual_output(name),
         }
         Ok(())
     }

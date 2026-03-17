@@ -810,6 +810,47 @@ Action:
               description: The name of the mode.
               required: true
               kind: string
+        create-virtual-output:
+          description: |
+            Creates a virtual output.
+
+            This is a no-op if a virtual output with that name already exists.
+            
+            The virtual output has the connector name `VO-{name}` and the serial number
+            `{name}`.
+            
+            A newly created connector is initially disabled. When a connector is destroyed
+            and later recreated, its previous state is restored.
+            
+            - Example:
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "create-virtual-output", name = "abcd" }
+            
+              [[connectors]]
+              match.name = "VO-abcd"
+              enabled = true
+            
+              [[outputs]]
+              match.connector = "VO-abcd"
+              mode = { width = 1920, height = 1080, refresh-rate = 120.0 }
+              ```
+          fields:
+            name:
+              description: The name of the output.
+              required: true
+              kind: string
+        remove-virtual-output:
+          description: |
+            Removes a virtual output.
+
+            This is a no-op if no virtual output with that name exists.
+          fields:
+            name:
+              description: The name of the output.
+              required: true
+              kind: string
 
 
 Exec:

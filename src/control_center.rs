@@ -9,6 +9,7 @@ use {
             cc_input::InputPane,
             cc_look_and_feel::LookAndFeelPane,
             cc_outputs::OutputsPane,
+            cc_virtual_outputs::VirtualOutputsPane,
             cc_window::{WindowPane, WindowSearchPane},
             cc_xwayland::XwaylandPane,
         },
@@ -51,6 +52,7 @@ mod cc_input;
 mod cc_look_and_feel;
 mod cc_outputs;
 mod cc_sidebar;
+mod cc_virtual_outputs;
 mod cc_window;
 mod cc_xwayland;
 
@@ -93,6 +95,7 @@ bitflags! {
         CCI_GPUS,
         CCI_INPUT,
         CCI_LOOK_AND_FEEL,
+        CCI_VIRTUAL_OUTPUTS,
 }
 
 pub struct ControlCenter {
@@ -145,6 +148,7 @@ enum PaneType {
     Client(ClientPane),
     WindowSearch(WindowSearchPane),
     Window(WindowPane),
+    VirtualOutputs(VirtualOutputsPane),
 }
 
 struct CcBehavior<'a> {
@@ -174,6 +178,7 @@ impl Pane {
             PaneType::Client(v) => v.title(res),
             PaneType::WindowSearch(v) => v.title(res),
             PaneType::Window(v) => v.title(res),
+            PaneType::VirtualOutputs(v) => v.title(res),
         }
     }
 
@@ -191,6 +196,7 @@ impl Pane {
             PaneType::Client(p) => p.show(behavior, ui),
             PaneType::WindowSearch(p) => p.show(behavior, ui),
             PaneType::Window(p) => p.show(behavior, ui),
+            PaneType::VirtualOutputs(p) => p.show(ui),
         }
     }
 }
@@ -210,6 +216,7 @@ impl PaneType {
             PaneType::Client(_) => ControlCenterInterest::none(),
             PaneType::WindowSearch(_) => ControlCenterInterest::none(),
             PaneType::Window(_) => ControlCenterInterest::none(),
+            PaneType::VirtualOutputs(_) => CCI_VIRTUAL_OUTPUTS,
         }
     }
 }

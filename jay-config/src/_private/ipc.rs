@@ -852,6 +852,12 @@ pub enum ClientMessage<'a> {
     GetConnectorByName {
         name: &'a str,
     },
+    CreateVirtualOutput {
+        name: &'a str,
+    },
+    RemoveVirtualOutput {
+        name: &'a str,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -114,6 +114,7 @@ mod user_session;
 mod utils;
 mod version;
 mod video;
+mod virtual_output;
 mod vulkan_core;
 mod wheel;
 mod wire;

@@ -395,6 +395,7 @@ fn start_compositor2(
         bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
         egg_state: Default::default(),
         control_centers: Default::default(),
+        virtual_outputs: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

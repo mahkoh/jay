@@ -4,7 +4,6 @@ use {
             BackendColorSpace, BackendConnectorState, BackendEotfs, Connector, ConnectorId,
             ConnectorKernelId, Mode,
         },
-        backends::metal::MetalError,
         state::State,
         utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::drm::DrmError,
@@ -14,6 +13,7 @@ use {
         any::{Any, TypeId},
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
+        error::Error,
         hash::{Hash, Hasher},
         rc::Rc,
     },
@@ -119,13 +119,17 @@ pub enum BackendConnectorTransactionError {
     #[error("Could not create a mode blob")]
     CreateModeBlob(#[source] DrmError),
     #[error("Could not allocate buffers for connector {}", .0)]
-    AllocateScanoutBuffers(ConnectorKernelId, #[source] Box<MetalError>),
+    AllocateScanoutBuffers(ConnectorKernelId, #[source] Box<dyn Error>),
     #[error("Test commit failed")]
     AtomicTestFailed(#[source] DrmError),
     #[error("Commit failed")]
     AtomicCommitFailed(#[source] DrmError),
     #[error("Could not create a gamma lut blob")]
     CreateGammaLutBlob(#[source] DrmError),
+    #[error("Connector {} does not support gamma lut", .0)]
+    GammaLutNotSupported(ConnectorKernelId),
+    #[error("There is no render context")]
+    NoRenderContext,
 }
 
 pub trait BackendConnectorTransaction {

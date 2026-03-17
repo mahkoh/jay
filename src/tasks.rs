@@ -19,7 +19,9 @@ use {
     },
     std::{rc::Rc, time::Duration},
 };
-pub use {hardware_cursor::handle_hardware_cursor_tick, idle::idle};
+pub use {
+    connector::handle as handle_connector, hardware_cursor::handle_hardware_cursor_tick, idle::idle,
+};
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };

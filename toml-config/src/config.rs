@@ -183,6 +183,12 @@ pub enum Action {
         name: String,
         latch: bool,
     },
+    CreateVirtualOutput {
+        name: String,
+    },
+    RemoveVirtualOutput {
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Default)]

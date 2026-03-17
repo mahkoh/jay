@@ -42,6 +42,8 @@ pub enum RandrCmd {
     Card(CardArgs),
     /// Modify the settings of an output.
     Output(OutputArgs),
+    /// Modify virtual outputs.
+    VirtualOutput(VirtualOutputArgs),
 }
 
 impl Default for RandrCmd {
@@ -465,6 +467,32 @@ fn blend_space_possible_values() -> Vec<PossibleValue> {
     res
 }
 
+#[derive(Args, Debug)]
+pub struct VirtualOutputArgs {
+    #[clap(subcommand)]
+    pub command: VirtualOutputCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum VirtualOutputCommand {
+    /// Create a virtual output.
+    Create(CreateVirtualOutputArgs),
+    /// Remove a virtual output.
+    Remove(RemoveVirtualOutputArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct CreateVirtualOutputArgs {
+    /// The name of the virtual output.
+    pub name: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct RemoveVirtualOutputArgs {
+    /// The name of the virtual output.
+    pub name: String,
+}
+
 pub fn main(global: GlobalArgs, args: RandrArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let idle = Rc::new(Randr { tc: tc.clone() });
@@ -580,6 +608,7 @@ impl Randr {
             RandrCmd::Show(args) => self.show(randr, args).await,
             RandrCmd::Card(args) => self.card(randr, args).await,
             RandrCmd::Output(args) => self.output(randr, args).await,
+            RandrCmd::VirtualOutput(args) => self.virtual_output(randr, args).await,
         }
     }
 
@@ -842,6 +871,31 @@ impl Randr {
                     self_id: randr,
                     output: &args.output,
                     use_native_gamut: a.use_native_gamut as _,
+                });
+            }
+        }
+        tc.round_trip().await;
+    }
+
+    async fn virtual_output(self: &Rc<Self>, randr: JayRandrId, args: VirtualOutputArgs) {
+        let tc = &self.tc;
+        match args.command {
+            VirtualOutputCommand::Create(t) => {
+                self.handle_error(randr, |msg| {
+                    eprintln!("Could not create a virtual output: {}", msg);
+                });
+                tc.send(jay_randr::CreateVirtualOutput {
+                    self_id: randr,
+                    name: &t.name,
+                });
+            }
+            VirtualOutputCommand::Remove(t) => {
+                self.handle_error(randr, |msg| {
+                    eprintln!("Could not remove a virtual output: {}", msg);
+                });
+                tc.send(jay_randr::RemoveVirtualOutput {
+                    self_id: randr,
+                    name: &t.name,
                 });
             }
         }

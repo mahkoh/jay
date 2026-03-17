@@ -1236,6 +1236,14 @@ impl ConfigClient {
         self.send(&ClientMessage::SetTearingMode { connector, mode })
     }
 
+    pub fn create_virtual_output(&self, name: &str) {
+        self.send(&ClientMessage::CreateVirtualOutput { name })
+    }
+
+    pub fn remove_virtual_output(&self, name: &str) {
+        self.send(&ClientMessage::RemoveVirtualOutput { name })
+    }
+
     pub fn drm_devices(&self) -> Vec<DrmDevice> {
         let res = self.send_with_response(&ClientMessage::GetDrmDevices);
         get_response!(res, vec![], GetDrmDevices { devices });

@@ -50,10 +50,10 @@ use {
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
-            ColorSpace, Connector, DrmDevice, Eotf, connectors, drm_devices,
+            ColorSpace, Connector, DrmDevice, Eotf, connectors, create_virtual_output, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
-            on_new_connector, on_new_drm_device, set_direct_scanout_enabled, set_gfx_api,
-            set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
+            on_new_connector, on_new_drm_device, remove_virtual_output, set_direct_scanout_enabled,
+            set_gfx_api, set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
         },
         window::Window,
         workspace::set_workspace_display_order,
@@ -476,6 +476,8 @@ impl Action {
                     state.set_mode(new, latch);
                 })
             }
+            Action::CreateVirtualOutput { name } => b.new(move || create_virtual_output(&name)),
+            Action::RemoveVirtualOutput { name } => b.new(move || remove_virtual_output(&name)),
         }
     }
 }
