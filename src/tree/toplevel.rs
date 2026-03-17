@@ -930,6 +930,9 @@ impl ToplevelData {
     }
 
     pub fn is_root_container(&self) -> bool {
+        if not_matches!(self.kind, ToplevelType::Container) {
+            return false;
+        }
         let Some(parent) = self.parent.get() else {
             return false;
         };
