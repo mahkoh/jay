@@ -33,7 +33,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     }
     let backend_state = connector.state();
     let id = connector.id();
-    let name = Rc::new(connector.kernel_id().to_string());
+    let name = Rc::new(connector.name());
     let head_state = HeadState {
         name: RcEq(name.clone()),
         position: (0, 0),
@@ -137,7 +137,11 @@ impl ConnectorHandler {
     }
 
     async fn handle_connected(&self, info: MonitorInfo) {
-        log::info!("Connector {} connected", self.data.connector.kernel_id());
+        log::info!(
+            "Connector {} connected ({})",
+            self.data.name,
+            self.data.connector.kernel_id(),
+        );
         self.data.connected.set(true);
         self.data.set_state(&self.state, info.state.clone());
         *self.data.description.borrow_mut() = create_description(&info);
@@ -153,7 +157,7 @@ impl ConnectorHandler {
         for head in self.data.wlr_output_heads.lock().drain_values() {
             head.handle_disconnected();
         }
-        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
+        log::info!("Connector {} disconnected", self.data.name);
     }
 
     async fn handle_desktop_connected(&self, info: MonitorInfo, name: GlobalName) {

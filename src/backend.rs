@@ -170,6 +170,9 @@ pub trait Connector: Any {
     fn gamma_lut_size(&self) -> Option<u32> {
         None
     }
+    fn name(&self) -> String {
+        self.kernel_id().to_string()
+    }
 }
 
 #[derive(Debug)]

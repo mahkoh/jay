@@ -134,11 +134,11 @@ impl GpusPane {
                         .connectors
                         .lock()
                         .values()
-                        .map(|v| v.connector.kernel_id().to_string())
+                        .map(|v| v.name.clone())
                         .collect::<Vec<_>>();
                     cs.sort();
                     for c in cs {
-                        ui.label(c);
+                        ui.label(&**c);
                     }
                 });
         });
