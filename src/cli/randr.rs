@@ -527,6 +527,7 @@ struct Output {
     pub blend_space: Option<String>,
     pub native_gamut: Option<Primaries>,
     pub use_native_gamut: bool,
+    pub arbitrary_modes: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -641,9 +642,22 @@ impl Randr {
                     log::error!("Connector {} is not connected", connector.name);
                     return;
                 };
-                let Some(mode) = output.modes.iter().find(|m| {
-                    m.width == t.width && m.height == t.height && m.refresh_rate() == t.refresh_rate
-                }) else {
+                let mode = 'mode: {
+                    if let Some(mode) = output.modes.iter().find(|m| {
+                        m.width == t.width
+                            && m.height == t.height
+                            && m.refresh_rate() == t.refresh_rate
+                    }) {
+                        break 'mode *mode;
+                    }
+                    if output.arbitrary_modes {
+                        break 'mode Mode {
+                            width: t.width,
+                            height: t.height,
+                            refresh_rate_millihz: (t.refresh_rate * 1_000.0).round() as u32,
+                            current: false,
+                        };
+                    }
                     log::error!(
                         "Output {} does not support this refresh rate",
                         connector.name
@@ -1082,6 +1096,9 @@ impl Randr {
                 p.b.0.0, p.b.1.0, p.wp.0.0, p.wp.1.0
             );
         }
+        if o.arbitrary_modes {
+            println!("        supports arbitrary modes");
+        }
         if o.modes.is_not_empty() && modes {
             println!("        modes:");
             for mode in &o.modes {
@@ -1279,6 +1296,12 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.use_native_gamut = true;
+        });
+        jay_randr::ArbitraryModes::handle(tc, randr, data.clone(), |data, _| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.arbitrary_modes = true;
         });
         tc.round_trip().await;
         data.borrow_mut().clone()

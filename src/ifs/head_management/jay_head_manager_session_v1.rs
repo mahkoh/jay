@@ -422,7 +422,13 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                         to_send |= COMPOSITOR_SPACE_INFO_SIZE;
                     }
                     HeadOp::SetMode(i) => {
-                        state.mode = snapshot.monitor_info.as_deref().unwrap().modes[i];
+                        state.mode = snapshot
+                            .monitor_info
+                            .as_deref()
+                            .unwrap()
+                            .modes
+                            .as_ref()
+                            .unwrap()[i];
                         state.update_size();
                         to_send |= MODE_INFO;
                         to_send |= COMPOSITOR_SPACE_INFO_SIZE;

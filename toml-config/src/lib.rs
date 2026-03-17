@@ -830,11 +830,20 @@ impl Output {
                     Some(rr) => m.refresh_rate() as f64 / 1000.0 == rr,
                 }
             });
-            match m {
-                None => {
+            'set_mode: {
+                let (w, h, mhz) = 'mode: {
+                    if let Some(m) = m {
+                        break 'mode (m.width(), m.height(), m.refresh_rate());
+                    }
+                    if c.supports_arbitrary_modes()
+                        && let Some(refresh) = mode.refresh_rate
+                    {
+                        break 'mode (mode.width, mode.height, (refresh * 1_000.0).round() as u32);
+                    }
                     log::warn!("Output {} does not support mode {mode}", c.name());
-                }
-                Some(m) => c.set_mode(m.width(), m.height(), Some(m.refresh_rate())),
+                    break 'set_mode;
+                };
+                c.set_mode(w, h, Some(mhz));
             }
         }
         if let Some(vrr) = &self.vrr {

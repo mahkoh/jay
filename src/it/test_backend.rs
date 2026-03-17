@@ -126,7 +126,7 @@ impl TestBackend {
             refresh_rate_millihz: 60_000,
         };
         let default_monitor_info = MonitorInfo {
-            modes: vec![mode],
+            modes: Some(vec![mode]),
             output_id: Rc::new(OutputId {
                 connector: None,
                 manufacturer: "jay".to_string(),

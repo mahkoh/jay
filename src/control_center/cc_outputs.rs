@@ -27,7 +27,7 @@ use {
     egui::{
         Align, Button, Checkbox, Color32, ComboBox, DragValue, EventFilter, FontId, Frame, Grid,
         Id, Key, Layout, PointerButton, Rect, ScrollArea, Sense, Shadow, Stroke, StrokeKind, Style,
-        TextFormat, Ui, UiBuilder, Vec2, Widget, WidgetText, pos2, text::LayoutJob, vec2,
+        TextFormat, Ui, UiBuilder, Vec2, Widget, WidgetText, emath, pos2, text::LayoutJob, vec2,
     },
     egui_tiles::{
         Behavior, Container, Linear, LinearDir, ResizeState, SimplificationOptions, Tile, TileId,
@@ -1087,15 +1087,33 @@ fn show_mode(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
         )
     };
     if let Some(monitor_info) = &m.monitor_info
-        && monitor_info.modes.len() > 1
+        && let Some(modes) = &monitor_info.modes
+        && modes.len() > 1
     {
         ComboBox::from_id_salt("modes")
             .selected_text(mode_text(mode))
             .show_ui(ui, |ui| {
-                for v in &monitor_info.modes {
+                for v in modes {
                     ui.selectable_value(&mut mode, *v, mode_text(*v));
                 }
             });
+    } else if let Some(monitor_info) = &m.monitor_info
+        && monitor_info.modes.is_none()
+    {
+        ui.horizontal(|ui| {
+            fn value<T: emath::Numeric>(ui: &mut Ui, v: &mut T, min: T, max: T) -> bool {
+                let res = DragValue::new(v).range(min..=max).speed(1.0).ui(ui);
+                res.changed()
+            }
+            value(ui, &mut mode.width, 1, u16::MAX as i32);
+            ui.label("x");
+            value(ui, &mut mode.height, 1, u16::MAX as i32);
+            ui.label("@");
+            let mut hz = mode.refresh_rate_millihz as f64 / 1_000.0;
+            if value(ui, &mut hz, 0.0, 1_000_000.0) {
+                mode.refresh_rate_millihz = (hz * 1_000.0).round() as u32;
+            }
+        });
     } else {
         ui.label(mode_text(mode));
     }

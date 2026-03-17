@@ -754,7 +754,7 @@ fn create_dummy_output(state: &Rc<State>) {
             state.globals.name(),
             state,
             &connector_data,
-            Vec::new(),
+            Some(Vec::new()),
             0,
             0,
             &output_id,

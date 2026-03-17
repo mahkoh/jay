@@ -590,7 +590,7 @@ impl XBackend {
             .backend_events
             .push(BackendEvent::NewConnector(output.clone()));
         output.events.push(ConnectorEvent::Connected(MonitorInfo {
-            modes: vec![],
+            modes: Some(vec![]),
             output_id: Rc::new(OutputId::new(
                 String::new(),
                 "X.Org Foundation".to_string(),

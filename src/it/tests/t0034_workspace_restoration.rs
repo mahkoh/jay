@@ -39,7 +39,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         damage_calls: NumCell::new(0),
     });
     let new_monitor_info = MonitorInfo {
-        modes: vec![],
+        modes: Some(vec![]),
         output_id: Rc::new(OutputId {
             connector: None,
             manufacturer: "jay".to_string(),

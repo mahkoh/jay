@@ -157,6 +157,14 @@ impl Connector {
         get!(Vec::new()).connector_modes(self)
     }
 
+    /// Returns whether this connector supports arbitrary modes.
+    pub fn supports_arbitrary_modes(self) -> bool {
+        if !self.exists() {
+            return false;
+        }
+        get!(false).connector_supports_arbitrary_modes(self)
+    }
+
     /// Returns the logical width of the connector.
     ///
     /// The returned value will be different from `mode().width()` if the scale is not 1.

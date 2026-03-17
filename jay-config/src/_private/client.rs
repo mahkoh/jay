@@ -1191,6 +1191,19 @@ impl ConfigClient {
         modes.into_iter().map(WireMode::to_mode).collect()
     }
 
+    pub fn connector_supports_arbitrary_modes(&self, connector: Connector) -> bool {
+        let res =
+            self.send_with_response(&ClientMessage::ConnectorSupportsArbitraryModes { connector });
+        get_response!(
+            res,
+            false,
+            ConnectorSupportsArbitraryModes {
+                supports_arbitrary_modes
+            }
+        );
+        supports_arbitrary_modes
+    }
+
     pub fn connector_size(&self, connector: Connector) -> (i32, i32) {
         let res = self.send_with_response(&ClientMessage::ConnectorSize { connector });
         get_response!(res, (0, 0), ConnectorSize { width, height });

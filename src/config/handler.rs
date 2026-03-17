@@ -1205,12 +1205,24 @@ impl ConfigProxyHandler {
                 .global
                 .modes
                 .iter()
+                .flatten()
                 .map(|m| WireMode {
                     width: m.width,
                     height: m.height,
                     refresh_millihz: m.refresh_rate_millihz,
                 })
                 .collect(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_supports_arbitrary_modes(
+        &self,
+        connector: Connector,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output_node(connector)?;
+        self.respond(Response::ConnectorSupportsArbitraryModes {
+            supports_arbitrary_modes: connector.global.modes.is_none(),
         });
         Ok(())
     }
@@ -3328,6 +3340,9 @@ impl ConfigProxyHandler {
                 monospace,
             } => self.handle_set_egui_fonts(proportional, monospace),
             ClientMessage::OpenControlCenter => self.handle_open_control_center(),
+            ClientMessage::ConnectorSupportsArbitraryModes { connector } => self
+                .handle_connector_supports_arbitrary_modes(connector)
+                .wrn("connector_supports_arbitrary_modes")?,
         }
         Ok(())
     }

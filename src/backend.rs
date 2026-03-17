@@ -100,7 +100,7 @@ impl Display for Mode {
 
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
-    pub modes: Vec<Mode>,
+    pub modes: Option<Vec<Mode>>,
     pub output_id: Rc<OutputId>,
     pub width_mm: i32,
     pub height_mm: i32,
