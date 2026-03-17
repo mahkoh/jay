@@ -1113,6 +1113,10 @@ impl Connector for XOutput {
         true
     }
 
+    fn state(&self) -> BackendConnectorState {
+        self.state.borrow().clone()
+    }
+
     fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {
         Box::new(XTransactionType)
     }

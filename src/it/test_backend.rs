@@ -37,7 +37,15 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    std::{any::Any, cell::Cell, error::Error, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
+    std::{
+        any::Any,
+        cell::{Cell, RefCell},
+        error::Error,
+        io,
+        os::unix::ffi::OsStrExt,
+        pin::Pin,
+        rc::Rc,
+    },
     thiserror::Error,
     uapi::c,
 };
@@ -75,6 +83,24 @@ pub struct TestBackend {
 impl TestBackend {
     pub fn new(state: &Rc<State>, future: TestFuture) -> Self {
         state.set_backend_idle(false);
+        let mode = Mode {
+            width: 800,
+            height: 600,
+            refresh_rate_millihz: 60_000,
+        };
+        let bcs = BackendConnectorState {
+            serial: state.backend_connector_state_serials.next(),
+            enabled: true,
+            active: true,
+            mode,
+            non_desktop_override: None,
+            vrr: false,
+            tearing: false,
+            format: XRGB8888,
+            color_space: Default::default(),
+            eotf: Default::default(),
+            gamma_lut: Default::default(),
+        };
         let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
             kernel_id: ConnectorKernelId {
@@ -85,6 +111,7 @@ impl TestBackend {
             feedback: Default::default(),
             idle: Default::default(),
             damage_calls: NumCell::new(0),
+            state: RefCell::new(bcs.clone()),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -120,11 +147,6 @@ impl TestBackend {
                 state: state.clone(),
             },
         });
-        let mode = Mode {
-            width: 800,
-            height: 600,
-            refresh_rate_millihz: 60_000,
-        };
         let default_monitor_info = MonitorInfo {
             modes: Some(vec![mode]),
             output_id: Rc::new(OutputId {
@@ -142,19 +164,7 @@ impl TestBackend {
             color_spaces: vec![],
             primaries: Primaries::SRGB,
             luminance: None,
-            state: BackendConnectorState {
-                serial: state.backend_connector_state_serials.next(),
-                enabled: true,
-                active: true,
-                mode,
-                non_desktop_override: None,
-                vrr: false,
-                tearing: false,
-                format: XRGB8888,
-                color_space: Default::default(),
-                eotf: Default::default(),
-                gamma_lut: Default::default(),
-            },
+            state: bcs,
         };
         Self {
             state: state.clone(),
@@ -325,6 +335,7 @@ pub struct TestConnector {
     pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub idle: TEEH<bool>,
     pub damage_calls: NumCell<u32>,
+    pub state: RefCell<BackendConnectorState>,
 }
 
 impl Connector for TestConnector {
@@ -355,6 +366,10 @@ impl Connector for TestConnector {
     fn effectively_locked(&self) -> bool {
         // todo
         true
+    }
+
+    fn state(&self) -> BackendConnectorState {
+        self.state.borrow().clone()
     }
 
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
@@ -404,6 +419,7 @@ impl BackendPreparedConnectorTransaction for TestBackendTransaction {
         self: Box<Self>,
     ) -> Result<Box<dyn BackendAppliedConnectorTransaction>, BackendConnectorTransactionError> {
         for (c, s) in self.connectors.values() {
+            *c.state.borrow_mut() = s.clone();
             c.idle.push(!s.active);
         }
         Ok(self)

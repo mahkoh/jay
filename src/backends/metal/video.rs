@@ -867,6 +867,10 @@ impl Connector for MetalConnector {
         fb.locked
     }
 
+    fn state(&self) -> BackendConnectorState {
+        self.display.borrow().persistent.state.borrow().clone()
+    }
+
     fn caps(&self) -> ConnectorCaps {
         CONCAP_CONNECTOR | CONCAP_MODE_SETTING | CONCAP_PHYSICAL_DISPLAY
     }

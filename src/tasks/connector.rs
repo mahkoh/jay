@@ -1,11 +1,7 @@
 use {
     crate::{
-        backend::{
-            BackendConnectorState, BackendConnectorStateSerial, Connector, ConnectorEvent,
-            ConnectorId, MonitorInfo,
-        },
+        backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         control_center::CCI_OUTPUTS,
-        format::XRGB8888,
         globals::GlobalName,
         ifs::{
             head_management::{HeadManagers, HeadState},
@@ -35,19 +31,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
             _ => panic!("connector's drm device does not exist"),
         };
     }
-    let backend_state = BackendConnectorState {
-        serial: BackendConnectorStateSerial::from_raw(0),
-        enabled: true,
-        active: false,
-        mode: Default::default(),
-        non_desktop_override: None,
-        vrr: false,
-        tearing: false,
-        format: XRGB8888,
-        color_space: Default::default(),
-        eotf: Default::default(),
-        gamma_lut: None,
-    };
+    let backend_state = connector.state();
     let id = connector.id();
     let name = Rc::new(connector.kernel_id().to_string());
     let head_state = HeadState {

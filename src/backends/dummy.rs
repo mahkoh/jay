@@ -2,8 +2,10 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            self, Backend, BackendConnectorState, BackendConnectorStateSerial, Connector,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
         },
+        format::XRGB8888,
         video::drm::ConnectorType,
     },
     std::{error::Error, rc::Rc},
@@ -51,5 +53,26 @@ impl Connector for DummyOutput {
 
     fn effectively_locked(&self) -> bool {
         true
+    }
+
+    fn state(&self) -> BackendConnectorState {
+        let mode = backend::Mode {
+            width: 0,
+            height: 0,
+            refresh_rate_millihz: 40_000,
+        };
+        BackendConnectorState {
+            serial: BackendConnectorStateSerial::from_raw(0),
+            enabled: true,
+            active: false,
+            mode,
+            non_desktop_override: None,
+            vrr: false,
+            tearing: false,
+            format: XRGB8888,
+            color_space: Default::default(),
+            eotf: Default::default(),
+            gamma_lut: Default::default(),
+        }
     }
 }

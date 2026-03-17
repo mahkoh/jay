@@ -10,7 +10,7 @@ use {
         utils::numcell::NumCell,
         video::drm::ConnectorType,
     },
-    std::rc::Rc,
+    std::{cell::RefCell, rc::Rc},
 };
 
 testcase!();
@@ -27,6 +27,19 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         bail!("no dummy output");
     };
 
+    let bcs = BackendConnectorState {
+        serial: run.state.backend_connector_state_serials.next(),
+        enabled: true,
+        active: true,
+        mode: Default::default(),
+        non_desktop_override: None,
+        vrr: false,
+        tearing: false,
+        format: XRGB8888,
+        color_space: Default::default(),
+        eotf: Default::default(),
+        gamma_lut: Default::default(),
+    };
     let new_connector = Rc::new(TestConnector {
         id: run.state.connector_ids.next(),
         kernel_id: ConnectorKernelId {
@@ -37,6 +50,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         feedback: Default::default(),
         idle: Default::default(),
         damage_calls: NumCell::new(0),
+        state: RefCell::new(bcs.clone()),
     });
     let new_monitor_info = MonitorInfo {
         modes: Some(vec![]),
@@ -55,19 +69,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         color_spaces: vec![],
         primaries: Primaries::SRGB,
         luminance: None,
-        state: BackendConnectorState {
-            serial: run.state.backend_connector_state_serials.next(),
-            enabled: true,
-            active: true,
-            mode: Default::default(),
-            non_desktop_override: None,
-            vrr: false,
-            tearing: false,
-            format: XRGB8888,
-            color_space: Default::default(),
-            eotf: Default::default(),
-            gamma_lut: Default::default(),
-        },
+        state: bcs,
     };
     run.backend
         .state
