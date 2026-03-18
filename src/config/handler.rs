@@ -1205,12 +1205,24 @@ impl ConfigProxyHandler {
                 .global
                 .modes
                 .iter()
+                .flatten()
                 .map(|m| WireMode {
                     width: m.width,
                     height: m.height,
                     refresh_millihz: m.refresh_rate_millihz,
                 })
                 .collect(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_supports_arbitrary_modes(
+        &self,
+        connector: Connector,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output_node(connector)?;
+        self.respond(Response::ConnectorSupportsArbitraryModes {
+            supports_arbitrary_modes: connector.global.modes.is_none(),
         });
         Ok(())
     }
@@ -1578,6 +1590,19 @@ impl ConfigProxyHandler {
         };
         self.respond(Response::GetConnector { connector });
         Ok(())
+    }
+
+    fn handle_get_connector_by_name(&self, name: &str) {
+        let connector = self
+            .state
+            .connectors
+            .lock()
+            .values()
+            .find(|c| *c.name == name)
+            .map(|c| c.connector.id().raw() as _)
+            .map(Connector)
+            .unwrap_or(Connector(0));
+        self.respond(Response::GetConnector { connector });
     }
 
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
@@ -3328,6 +3353,10 @@ impl ConfigProxyHandler {
                 monospace,
             } => self.handle_set_egui_fonts(proportional, monospace),
             ClientMessage::OpenControlCenter => self.handle_open_control_center(),
+            ClientMessage::ConnectorSupportsArbitraryModes { connector } => self
+                .handle_connector_supports_arbitrary_modes(connector)
+                .wrn("connector_supports_arbitrary_modes")?,
+            ClientMessage::GetConnectorByName { name } => self.handle_get_connector_by_name(name),
         }
         Ok(())
     }

@@ -157,6 +157,14 @@ impl Connector {
         get!(Vec::new()).connector_modes(self)
     }
 
+    /// Returns whether this connector supports arbitrary modes.
+    pub fn supports_arbitrary_modes(self) -> bool {
+        if !self.exists() {
+            return false;
+        }
+        get!(false).connector_supports_arbitrary_modes(self)
+    }
+
     /// Returns the logical width of the connector.
     ///
     /// The returned value will be different from `mode().width()` if the scale is not 1.
@@ -444,6 +452,14 @@ pub fn get_connector(id: impl ToConnectorId) -> Connector {
         }
     };
     get!(Connector(0)).get_connector(ty, idx)
+}
+
+/// Returns the connector with the given name.
+///
+/// Unlike [`get_connector`], this function can also be used for connectors whose names
+/// don't follow the `<type>-<id>` pattern.
+pub fn get_connector_by_name(name: &str) -> Connector {
+    get!(Connector(0)).get_connector_by_name(name)
 }
 
 /// A type that can be converted to a `(ConnectorType, idx)` tuple.

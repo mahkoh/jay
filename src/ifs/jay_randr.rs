@@ -16,7 +16,7 @@ use {
     },
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     linearize::LinearizeExt,
-    std::rc::Rc,
+    std::{rc::Rc, slice},
     thiserror::Error,
 };
 
@@ -36,6 +36,7 @@ const COLORIMETRY_SINCE: Version = Version(15);
 const BRIGHTNESS_SINCE: Version = Version(16);
 const BLEND_SPACE_SINCE: Version = Version(21);
 const NATIVE_GAMUT_SINCE: Version = Version(23);
+const ARBITRARY_MODES_SINCE: Version = Version(29);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -162,7 +163,11 @@ impl JayRandr {
             }
         }
         let current_mode = global.mode.get();
-        for mode in &global.modes {
+        for mode in global
+            .modes
+            .as_deref()
+            .unwrap_or(slice::from_ref(&current_mode))
+        {
             self.client.event(Mode {
                 self_id: self.id,
                 width: mode.width,
@@ -231,6 +236,9 @@ impl JayRandr {
             if node.global.persistent.use_native_gamut.get() {
                 self.client.event(UseNativeGamut { self_id: self.id });
             }
+        }
+        if self.version >= ARBITRARY_MODES_SINCE && global.modes.is_none() {
+            self.client.event(ArbitraryModes { self_id: self.id });
         }
     }
 

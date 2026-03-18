@@ -9,12 +9,11 @@ use {
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, GfxApiOpt, GfxRenderPass, GfxTexture, ReleaseSync,
+            AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, ReleaseSync,
             SyncFile, create_render_pass,
         },
         ifs::wl_output::BlendSpace,
         rect::Region,
-        theme::Color,
         time::Time,
         tracy::FrameName,
         tree::OutputNode,
@@ -54,16 +53,6 @@ pub struct DirectScanoutData {
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
     position: DirectScanoutPosition,
-}
-
-#[derive(Debug)]
-pub struct DirectScanoutPosition {
-    pub src_width: i32,
-    pub src_height: i32,
-    pub crtc_x: i32,
-    pub crtc_y: i32,
-    pub crtc_width: i32,
-    pub crtc_height: i32,
 }
 
 pub struct PresentFb {
@@ -643,121 +632,16 @@ impl MetalConnector {
         blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
     ) -> Option<DirectScanoutData> {
-        let ct = 'ct: {
-            let mut ops = pass.ops.iter().rev();
-            let ct = 'ct2: {
-                for opt in &mut ops {
-                    match opt {
-                        GfxApiOpt::Sync => {}
-                        GfxApiOpt::FillRect(_) => {
-                            // Top-most layer must be a texture.
-                            return None;
-                        }
-                        GfxApiOpt::CopyTexture(ct) => break 'ct2 ct,
-                    }
-                }
-                return None;
-            };
-            if ct.alpha_mode != AlphaMode::PremultipliedElectrical {
-                // Direct scanout requires premultiplied electrical alpha.
-                return None;
-            }
-            if !ct.cd.embeds_into(cd) {
-                // Direct scanout requires embeddable color descriptions.
-                return None;
-            }
-            if !ct.opaque && !ct.cd.embeds_into(blend_cd) {
-                // Blending changes the appearance of translucent buffers.
-                return None;
-            }
-            if ct.alpha.is_some() {
-                // Direct scanout with alpha factor is not supported.
-                return None;
-            }
-            if !ct.tex.format().has_alpha && ct.target.is_covering() {
-                // Texture covers the entire screen and is opaque.
-                break 'ct ct;
-            }
-            for opt in ops {
-                match opt {
-                    GfxApiOpt::Sync => {}
-                    GfxApiOpt::FillRect(fr) => {
-                        if fr.effective_color() == Color::SOLID_BLACK {
-                            // Black fills can be ignored because this is the CRTC background color.
-                            if fr.rect.is_covering() {
-                                // If fill covers the entire screen, we don't have to look further.
-                                break 'ct ct;
-                            }
-                        } else {
-                            // Fill could be visible.
-                            return None;
-                        }
-                    }
-                    GfxApiOpt::CopyTexture(_) => {
-                        // Texture could be visible.
-                        return None;
-                    }
-                }
-            }
-            if let Some(clear) = pass.clear
-                && clear != Color::SOLID_BLACK
-            {
-                // Background could be visible.
-                return None;
-            }
-            ct
-        };
-        if let AcquireSync::None | AcquireSync::Implicit = ct.acquire_sync {
-            // Cannot perform scanout without explicit sync.
-            return None;
-        }
-        if ct.source.buffer_transform != ct.target.output_transform {
-            // Rotations and mirroring are not supported.
-            return None;
-        }
-        if !ct.source.is_covering() {
-            // Viewports are not supported.
-            return None;
-        }
-        if ct.target.x1 < -1.0 || ct.target.y1 < -1.0 || ct.target.x2 > 1.0 || ct.target.y2 > 1.0 {
-            // Rendering outside the screen is not supported.
-            return None;
-        }
-        let (tex_w, tex_h) = ct.tex.size();
-        let (x1, x2, y1, y2) = {
-            let plane_w = plane.mode_w.get() as f32;
-            let plane_h = plane.mode_h.get() as f32;
-            let ((x1, x2), (y1, y2)) = ct
-                .target
-                .output_transform
-                .maybe_swap(((ct.target.x1, ct.target.x2), (ct.target.y1, ct.target.y2)));
-            (
-                (x1 + 1.0) * plane_w / 2.0,
-                (x2 + 1.0) * plane_w / 2.0,
-                (y1 + 1.0) * plane_h / 2.0,
-                (y2 + 1.0) * plane_h / 2.0,
-            )
-        };
-        let (crtc_w, crtc_h) = (x2 - x1, y2 - y1);
-        if crtc_w < 0.0 || crtc_h < 0.0 {
-            // Flipping x or y axis is not supported.
-            return None;
-        }
-        if self.cursor_enabled.get() && (tex_w as f32, tex_h as f32) != (crtc_w, crtc_h) {
-            // If hardware cursors are used, we cannot scale the texture.
-            return None;
-        }
+        let (ct, position) = pass.prepare_direct_scanout(
+            plane.mode_w.get(),
+            plane.mode_h.get(),
+            blend_cd,
+            cd,
+            self.cursor_enabled.get(),
+        )?;
         let Some(dmabuf) = ct.tex.dmabuf() else {
             // Shm buffers cannot be scanned out.
             return None;
-        };
-        let position = DirectScanoutPosition {
-            src_width: tex_w,
-            src_height: tex_h,
-            crtc_x: x1 as _,
-            crtc_y: y1 as _,
-            crtc_width: crtc_w as _,
-            crtc_height: crtc_h as _,
         };
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {

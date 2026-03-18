@@ -25,9 +25,10 @@ use {
     },
     ahash::AHashMap,
     egui::{
-        Align, Button, Checkbox, Color32, ComboBox, DragValue, EventFilter, FontId, Frame, Grid,
-        Id, Key, Layout, PointerButton, Rect, ScrollArea, Sense, Shadow, Stroke, StrokeKind, Style,
-        TextFormat, Ui, UiBuilder, Vec2, Widget, WidgetText, pos2, text::LayoutJob, vec2,
+        Align, Button, Checkbox, CollapsingHeader, Color32, ComboBox, DragValue, EventFilter,
+        FontId, Frame, Grid, Id, Key, Layout, PointerButton, Rect, ScrollArea, Sense, Shadow,
+        Stroke, StrokeKind, Style, TextFormat, Ui, UiBuilder, Vec2, Widget, WidgetText, emath,
+        pos2, text::LayoutJob, vec2,
     },
     egui_tiles::{
         Behavior, Container, Linear, LinearDir, ResizeState, SimplificationOptions, Tile, TileId,
@@ -68,6 +69,7 @@ enum Pane {
 struct CompleteHead {
     id: ConnectorId,
     name: HeadName,
+    pretty_name: Rc<String>,
     live_state: ReadOnlyHeadState,
     changed_state: Option<HeadState>,
     z: u64,
@@ -123,9 +125,9 @@ pub enum View {
 #[derive(Error, Debug)]
 enum HeadTransactionError {
     #[error("The connector {} has been removed", .0)]
-    HeadRemoved(ConnectorId),
+    HeadRemoved(Rc<String>),
     #[error("The display connected to connector {} has changed", .0)]
-    MonitorChanged(ConnectorId),
+    MonitorChanged(Rc<String>),
     #[error(transparent)]
     Backend(#[from] BackendConnectorTransactionError),
 }
@@ -811,10 +813,12 @@ impl OutputsPaneInner {
                 continue;
             };
             let Some(connector) = self.state.connectors.get(&head.id) else {
-                return Err(HeadTransactionError::HeadRemoved(head.id));
+                return Err(HeadTransactionError::HeadRemoved(head.pretty_name.clone()));
             };
             if head.live_state.borrow().monitor_info != desired.monitor_info {
-                return Err(HeadTransactionError::MonitorChanged(head.id));
+                return Err(HeadTransactionError::MonitorChanged(
+                    head.pretty_name.clone(),
+                ));
             }
             let old = connector.state.borrow().clone();
             let mut new = old.clone();
@@ -838,6 +842,7 @@ impl OutputsPaneInner {
             let Some(desired) = &head.changed_state else {
                 continue;
             };
+            desired.flush_persistent_state(&self.state);
             if let Some(output) = self.state.outputs.get(&head.id)
                 && let Some(node) = &output.node
             {
@@ -894,6 +899,7 @@ impl OutputsPaneInner {
             self.heads.entry(mgrs.name).or_insert_with(|| CompleteHead {
                 id: connector.id,
                 name: mgrs.name,
+                pretty_name: connector.name.clone(),
                 live_state: mgrs.state(),
                 changed_state: None,
                 z: 0,
@@ -946,36 +952,38 @@ fn show_connector(state: &State, settings: &Settings, head: &mut CompleteHead, u
             ..Default::default()
         },
     );
-    ui.collapsing(layout_job, |ui| {
-        grid(ui, ("settings", head.name), |ui| {
-            let mut diff = false;
-            show_serial_number(ui, m);
-            diff |= show_enablement(ui, m, t);
-            diff |= show_position(ui, m, t);
-            diff |= show_scale(ui, m, t);
-            diff |= show_mode(ui, m, t);
-            diff |= show_size(ui, m, t);
-            diff |= show_transform(ui, m, t);
-            diff |= show_brightness(ui, m, t);
-            diff |= show_color_space(ui, m, t);
-            diff |= show_eotf(ui, m, t);
-            diff |= show_format(ui, m, t);
-            diff |= show_tearing(ui, m, t);
-            diff |= show_vrr(ui, m, t);
-            diff |= show_non_desktop(ui, m, t);
-            diff |= show_blend_space(ui, m, t);
-            diff |= show_use_native_gamut(ui, m, t);
-            show_native_gamut(ui, m);
-            diff |= show_cursor_hz(ui, m, t);
-            show_flip_margin(state, ui, m, t, head.id);
-            if diff {
-                let ui = &mut *ui.row();
-                ui.label("");
-                ui.label("");
-                ui.label("^ current");
-            }
+    CollapsingHeader::new(layout_job)
+        .id_salt(("connector", head.name))
+        .show(ui, |ui| {
+            grid(ui, ("settings", head.name), |ui| {
+                let mut diff = false;
+                show_serial_number(ui, m);
+                diff |= show_enablement(state, ui, m, t);
+                diff |= show_position(ui, m, t);
+                diff |= show_scale(ui, m, t);
+                diff |= show_mode(ui, m, t);
+                diff |= show_size(ui, m, t);
+                diff |= show_transform(ui, m, t);
+                diff |= show_brightness(ui, m, t);
+                diff |= show_color_space(ui, m, t);
+                diff |= show_eotf(ui, m, t);
+                diff |= show_format(ui, m, t);
+                diff |= show_tearing(ui, m, t);
+                diff |= show_vrr(ui, m, t);
+                diff |= show_non_desktop(state, ui, m, t);
+                diff |= show_blend_space(ui, m, t);
+                diff |= show_use_native_gamut(ui, m, t);
+                show_native_gamut(ui, m);
+                diff |= show_cursor_hz(ui, m, t);
+                show_flip_margin(state, ui, m, t, head.id);
+                if diff {
+                    let ui = &mut *ui.row();
+                    ui.label("");
+                    ui.label("");
+                    ui.label("^ current");
+                }
+            });
         });
-    });
 }
 
 fn show_serial_number(ui: &mut Ui, m: &HeadState) {
@@ -986,7 +994,7 @@ fn show_serial_number(ui: &mut Ui, m: &HeadState) {
     }
 }
 
-fn show_enablement(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
+fn show_enablement(state: &State, ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     let ui = &mut *ui.row();
     grid_label(ui, "Enabled");
     let mut v = effective!(m, t).connector_enabled;
@@ -994,7 +1002,7 @@ fn show_enablement(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> boo
     if changed {
         let t = modify!(m, t);
         t.connector_enabled = v;
-        t.update_in_compositor_space(m.wl_output);
+        t.update_in_compositor_space(state, m.wl_output);
     }
     let diff = v != m.connector_enabled;
     if diff {
@@ -1087,15 +1095,33 @@ fn show_mode(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
         )
     };
     if let Some(monitor_info) = &m.monitor_info
-        && monitor_info.modes.len() > 1
+        && let Some(modes) = &monitor_info.modes
+        && modes.len() > 1
     {
         ComboBox::from_id_salt("modes")
             .selected_text(mode_text(mode))
             .show_ui(ui, |ui| {
-                for v in &monitor_info.modes {
+                for v in modes {
                     ui.selectable_value(&mut mode, *v, mode_text(*v));
                 }
             });
+    } else if let Some(monitor_info) = &m.monitor_info
+        && monitor_info.modes.is_none()
+    {
+        ui.horizontal(|ui| {
+            fn value<T: emath::Numeric>(ui: &mut Ui, v: &mut T, min: T, max: T) -> bool {
+                let res = DragValue::new(v).range(min..=max).speed(1.0).ui(ui);
+                res.changed()
+            }
+            value(ui, &mut mode.width, 1, u16::MAX as i32);
+            ui.label("x");
+            value(ui, &mut mode.height, 1, u16::MAX as i32);
+            ui.label("@");
+            let mut hz = mode.refresh_rate_millihz as f64 / 1_000.0;
+            if value(ui, &mut hz, 0.0, 1_000_000.0) {
+                mode.refresh_rate_millihz = (hz * 1_000.0).round() as u32;
+            }
+        });
     } else {
         ui.label(mode_text(mode));
     }
@@ -1525,7 +1551,7 @@ fn show_vrr(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     diff
 }
 
-fn show_non_desktop(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
+fn show_non_desktop(state: &State, ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     {
         let ui = &mut *ui.row();
         grid_label(ui, "Non-desktop");
@@ -1555,7 +1581,7 @@ fn show_non_desktop(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bo
     if changed {
         let t = modify!(m, t);
         t.override_non_desktop = v;
-        t.update_in_compositor_space(m.wl_output);
+        t.update_in_compositor_space(state, m.wl_output);
     }
     let diff = v != m.override_non_desktop;
     if diff {

@@ -560,6 +560,12 @@ impl ConfigClient {
         connector
     }
 
+    pub fn get_connector_by_name(&self, name: &str) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetConnectorByName { name });
+        get_response!(res, Connector(0), GetConnector { connector });
+        connector
+    }
+
     pub fn get_seat_cursor_workspace(&self, seat: Seat) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetSeatCursorWorkspace { seat });
         get_response!(res, Workspace(0), GetSeatCursorWorkspace { workspace });
@@ -1189,6 +1195,19 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::ConnectorModes { connector });
         get_response!(res, Vec::new(), ConnectorModes { modes });
         modes.into_iter().map(WireMode::to_mode).collect()
+    }
+
+    pub fn connector_supports_arbitrary_modes(&self, connector: Connector) -> bool {
+        let res =
+            self.send_with_response(&ClientMessage::ConnectorSupportsArbitraryModes { connector });
+        get_response!(
+            res,
+            false,
+            ConnectorSupportsArbitraryModes {
+                supports_arbitrary_modes
+            }
+        );
+        supports_arbitrary_modes
     }
 
     pub fn connector_size(&self, connector: Connector) -> (i32, i32) {

@@ -229,3 +229,6 @@ event native_gamut (since = 23) {
 
 event use_native_gamut (since = 23) {
 }
+
+event arbitrary_modes (since = 29) {
+}

@@ -4,7 +4,7 @@ use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
         async_engine::{AsyncEngine, Phase, SpawnedFuture},
-        backend::{self, Backend, BackendConnectorState, BackendConnectorStateSerial, Connector},
+        backend::{Backend, Connector},
         backends::{
             dummy::{DummyBackend, DummyOutput},
             metal, x,
@@ -675,29 +675,13 @@ fn create_dummy_output(state: &Rc<State>) {
         serial_number: "".to_string(),
     });
     let persistent_state = Rc::new(PersistentOutputState::default());
-    let mode = backend::Mode {
-        width: 0,
-        height: 0,
-        refresh_rate_millihz: 40_000,
-    };
-    let backend_state = BackendConnectorState {
-        serial: BackendConnectorStateSerial::from_raw(0),
-        enabled: true,
-        active: false,
-        mode,
-        non_desktop_override: None,
-        vrr: false,
-        tearing: false,
-        format: XRGB8888,
-        color_space: Default::default(),
-        eotf: Default::default(),
-        gamma_lut: Default::default(),
-    };
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;
+    let backend_state = connector.state();
     let name = Rc::new("Dummy".to_string());
     let head_name = state.head_names.next();
     let head_state = HeadState {
+        connector_id: id,
         name: RcEq(name.clone()),
         position: (0, 0),
         size: (0, 0),
@@ -725,6 +709,7 @@ fn create_dummy_output(state: &Rc<State>) {
         blend_space: BlendSpace::Srgb,
         use_native_gamut: false,
         vrr_cursor_hz: None,
+        persistent_state: Some(RcEq(persistent_state.clone())),
     };
     let connector_data = Rc::new(ConnectorData {
         id,
@@ -754,7 +739,7 @@ fn create_dummy_output(state: &Rc<State>) {
             state.globals.name(),
             state,
             &connector_data,
-            Vec::new(),
+            Some(Vec::new()),
             0,
             0,
             &output_id,

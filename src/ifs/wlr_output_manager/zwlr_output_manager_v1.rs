@@ -1,23 +1,24 @@
 use {
     crate::{
+        backend::Mode,
         client::{CAP_HEAD_MANAGER, Client, ClientCaps, ClientError},
         globals::{Global, GlobalName},
         ifs::wlr_output_manager::{
             zwlr_output_configuration_v1::ZwlrOutputConfigurationV1,
             zwlr_output_head_v1::{
-                ADAPTIVE_SYNC_SINCE, MAKE_SINCE, MODEL_SINCE, SERIAL_NUMBER_SINCE, ZwlrOutputHeadV1,
+                ADAPTIVE_SYNC_SINCE, MAKE_SINCE, MODEL_SINCE, SERIAL_NUMBER_SINCE, WlrOutputHeadId,
+                ZwlrOutputHeadV1,
             },
             zwlr_output_mode_v1::ZwlrOutputModeV1,
         },
         leaks::Tracker,
         object::{Object, Version},
         state::OutputData,
-        utils::numcell::NumCell,
+        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
         wire::{ZwlrOutputManagerV1Id, zwlr_output_manager_v1::*},
     },
-    ahash::AHashMap,
     isnt::std_1::string::IsntStringExt,
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, rc::Rc, slice},
     thiserror::Error,
 };
 
@@ -134,38 +135,27 @@ impl ZwlrOutputManagerV1 {
         let state_mode = output.connector.state.borrow().mode;
         let head_id = self.client.state.wlr_output_managers.head_ids.next();
         let mut modes_list = vec![];
-        let mut modes = AHashMap::new();
+        let modes = CopyHashMap::new();
         let mut have_current = false;
-        for (idx, mode) in mi.modes.iter().enumerate() {
-            if modes.contains_key(mode) {
+        for (idx, mode) in mi
+            .modes
+            .as_deref()
+            .unwrap_or(slice::from_ref(&state_mode))
+            .iter()
+            .enumerate()
+        {
+            if modes.contains(mode) {
                 continue;
             }
             let current = !have_current && *mode == state_mode;
             if current {
                 have_current = true;
             }
-            let id = match self.client.new_id() {
-                Ok(id) => id,
-                Err(e) => {
-                    self.client.error(e);
-                    return;
-                }
+            let Some(output_mode) = self.create_mode(head_id, mode, idx == 0, current) else {
+                return;
             };
-            let output_mode = Rc::new(ZwlrOutputModeV1 {
-                id,
-                head_id,
-                client: self.client.clone(),
-                tracker: Default::default(),
-                version: self.version,
-                mode: *mode,
-                preferred: idx == 0,
-                initial_current: current,
-                destroyed: Cell::new(false),
-            });
-            track!(self.client, output_mode);
-            self.client.add_server_obj(&output_mode);
             modes_list.push(output_mode.clone());
-            modes.insert(*mode, output_mode);
+            modes.set(*mode, output_mode);
         }
         let head = Rc::new(ZwlrOutputHeadV1 {
             id,
@@ -243,6 +233,36 @@ impl ZwlrOutputManagerV1 {
             .wlr_output_managers
             .queue
             .push(self.clone());
+    }
+
+    pub(super) fn create_mode(
+        self: &Rc<Self>,
+        head_id: WlrOutputHeadId,
+        mode: &Mode,
+        preferred: bool,
+        initial_current: bool,
+    ) -> Option<Rc<ZwlrOutputModeV1>> {
+        let id = match self.client.new_id() {
+            Ok(id) => id,
+            Err(e) => {
+                self.client.error(e);
+                return None;
+            }
+        };
+        let output_mode = Rc::new(ZwlrOutputModeV1 {
+            id,
+            head_id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            mode: *mode,
+            preferred,
+            initial_current,
+            destroyed: Cell::new(false),
+        });
+        track!(self.client, output_mode);
+        self.client.add_server_obj(&output_mode);
+        Some(output_mode)
     }
 }
 

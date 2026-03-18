@@ -100,7 +100,7 @@ impl Display for Mode {
 
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
-    pub modes: Vec<Mode>,
+    pub modes: Option<Vec<Mode>>,
     pub output_id: Rc<OutputId>,
     pub width_mm: i32,
     pub height_mm: i32,
@@ -141,6 +141,7 @@ pub trait Connector: Any {
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn effectively_locked(&self) -> bool;
+    fn state(&self) -> BackendConnectorState;
     fn caps(&self) -> ConnectorCaps {
         ConnectorCaps::none()
     }
@@ -168,6 +169,9 @@ pub trait Connector: Any {
     }
     fn gamma_lut_size(&self) -> Option<u32> {
         None
+    }
+    fn name(&self) -> String {
+        self.kernel_id().to_string()
     }
 }
 

@@ -12,9 +12,9 @@ use {
         scale,
         state::OutputData,
         tree::{self, VrrMode},
+        utils::copyhashmap::CopyHashMap,
         wire::{ZwlrOutputHeadV1Id, zwlr_output_head_v1::*},
     },
-    ahash::AHashMap,
     std::rc::Rc,
     thiserror::Error,
 };
@@ -44,7 +44,7 @@ pub struct ZwlrOutputHeadV1 {
     pub(super) manager: Rc<ZwlrOutputManagerV1>,
     pub(super) head_id: WlrOutputHeadId,
     pub(super) connector_id: ConnectorId,
-    pub(super) modes: AHashMap<backend::Mode, Rc<ZwlrOutputModeV1>>,
+    pub(super) modes: CopyHashMap<backend::Mode, Rc<ZwlrOutputModeV1>>,
 }
 
 impl ZwlrOutputHeadV1 {
@@ -177,13 +177,21 @@ impl ZwlrOutputHeadV1 {
     }
 
     pub fn handle_mode_change(&self, new: backend::Mode) {
-        let Some(mode) = self.modes.get(&new) else {
+        let Some(mode) = self.modes.get(&new).or_else(|| {
+            self.manager
+                .create_mode(self.head_id, &new, false, false)
+                .inspect(|mode| {
+                    self.modes.set(new, mode.clone());
+                    self.send_mode(mode);
+                    mode.send();
+                })
+        }) else {
             return;
         };
         if mode.destroyed.get() {
             return;
         }
-        self.send_current_mode(mode);
+        self.send_current_mode(&mode);
         self.manager.schedule_done();
     }
 
@@ -207,7 +215,7 @@ impl ZwlrOutputHeadV1 {
 
     pub fn handle_disconnected(&self) {
         self.send_finished();
-        for mode in self.modes.values() {
+        for mode in self.modes.lock().values() {
             if !mode.destroyed.get() {
                 mode.send_finished();
             }

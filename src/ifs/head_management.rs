@@ -12,16 +12,17 @@ use {
                 head_management_macros::HeadExts,
                 jay_head_manager_session_v1::JayHeadManagerSessionV1, jay_head_v1::JayHeadV1,
             },
-            wl_output::BlendSpace,
+            wl_output::{BlendSpace, PersistentOutputState},
         },
         scale::Scale,
-        state::OutputData,
+        state::{OutputData, State},
         tree::{OutputNode, TearingMode, Transform, VrrMode},
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, rc_eq::RcEq},
         wire::JayHeadManagerSessionV1Id,
     },
     std::{
         cell::{Cell, Ref, RefCell},
+        collections::hash_map::Entry,
         rc::Rc,
     },
     thiserror::Error,
@@ -71,6 +72,7 @@ struct HeadCommon {
 
 #[derive(Clone, PartialEq)]
 pub struct HeadState {
+    pub connector_id: ConnectorId,
     pub name: RcEq<String>,
     pub wl_output: Option<GlobalName>,
     pub connector_enabled: bool,
@@ -98,6 +100,7 @@ pub struct HeadState {
     pub blend_space: BlendSpace,
     pub use_native_gamut: bool,
     pub vrr_cursor_hz: Option<f64>,
+    pub persistent_state: Option<RcEq<PersistentOutputState>>,
 }
 
 pub struct ReadOnlyHeadState {
@@ -111,7 +114,7 @@ impl ReadOnlyHeadState {
 }
 
 impl HeadState {
-    pub fn update_in_compositor_space(&mut self, wl_output: Option<GlobalName>) {
+    pub fn update_in_compositor_space(&mut self, state: &State, wl_output: Option<GlobalName>) {
         self.in_compositor_space = false;
         self.wl_output = None;
         if !self.connector_enabled {
@@ -128,12 +131,44 @@ impl HeadState {
         }
         self.in_compositor_space = true;
         self.wl_output = wl_output;
+        if self.persistent_state.is_none() {
+            let ds = state
+                .persistent_output_states
+                .get(&mi.output_id)
+                .unwrap_or_else(|| state.new_persistent_output_state());
+            self.position = ds.pos.get();
+            self.transform = ds.transform.get();
+            self.vrr_mode = ds.vrr_mode.get();
+            self.tearing_mode = ds.tearing_mode.get();
+            self.brightness = ds.brightness.get();
+            self.blend_space = ds.blend_space.get();
+            self.use_native_gamut = ds.use_native_gamut.get();
+            self.vrr_cursor_hz = ds.vrr_cursor_hz.get();
+            self.scale = ds.scale.get();
+            self.persistent_state = Some(RcEq(ds));
+            if let Some(c) = state.connectors.get(&self.connector_id) {
+                self.mode = c.state.borrow().mode;
+            }
+            self.update_size();
+        }
     }
 
     pub fn update_size(&mut self) {
         self.size =
             OutputNode::calculate_extents_(self.mode, self.transform, self.scale, self.position)
                 .size();
+    }
+
+    pub fn flush_persistent_state(&self, state: &State) {
+        if let Some(mi) = &self.monitor_info
+            && let Some(ds) = &self.persistent_state
+            && let Entry::Vacant(v) = state
+                .persistent_output_states
+                .lock()
+                .entry(mi.output_id.clone())
+        {
+            v.insert(ds.0.clone());
+        }
     }
 }
 
@@ -249,24 +284,13 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_output_connected(&self, output: &OutputData) {
+    pub fn handle_output_connected(&self, s: &State, output: &OutputData) {
         let state = &mut *self.state.borrow_mut();
         state.connected = true;
         state.monitor_info = Some(RcEq(output.monitor_info.clone()));
+        state.persistent_state = None;
         state.inherent_non_desktop = output.monitor_info.non_desktop;
-        state.update_in_compositor_space(output.node.as_ref().map(|n| n.global.name));
-        if let Some(n) = &output.node {
-            state.position = n.global.pos.get().position();
-            state.size = n.global.pos.get().size();
-            state.mode = n.global.mode.get();
-            state.transform = n.global.persistent.transform.get();
-            state.vrr_mode = n.global.persistent.vrr_mode.get();
-            state.tearing_mode = n.global.persistent.tearing_mode.get();
-            state.brightness = n.global.persistent.brightness.get();
-            state.blend_space = n.global.persistent.blend_space.get();
-            state.use_native_gamut = n.global.persistent.use_native_gamut.get();
-            state.vrr_cursor_hz = n.global.persistent.vrr_cursor_hz.get();
-        }
+        state.update_in_compositor_space(s, output.node.as_ref().map(|n| n.global.name));
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.connector_info_v1 {
@@ -321,11 +345,12 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_output_disconnected(&self) {
+    pub fn handle_output_disconnected(&self, s: &State) {
         let state = &mut *self.state.borrow_mut();
         state.connected = false;
         state.monitor_info = None;
-        state.update_in_compositor_space(None);
+        state.persistent_state = None;
+        state.update_in_compositor_space(s, None);
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.compositor_space_info_v1 {
@@ -406,10 +431,10 @@ impl HeadManagers {
         }
     }
 
-    pub fn handle_enabled_change(&self, enabled: bool) {
+    pub fn handle_enabled_change(&self, s: &State, enabled: bool) {
         let state = &mut *self.state.borrow_mut();
         state.connector_enabled = enabled;
-        state.update_in_compositor_space(state.wl_output);
+        state.update_in_compositor_space(s, state.wl_output);
         for head in self.managers.lock().values() {
             skip_in_transaction!(head);
             if let Some(ext) = &head.ext.compositor_space_info_v1 {

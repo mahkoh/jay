@@ -590,7 +590,7 @@ impl XBackend {
             .backend_events
             .push(BackendEvent::NewConnector(output.clone()));
         output.events.push(ConnectorEvent::Connected(MonitorInfo {
-            modes: vec![],
+            modes: Some(vec![]),
             output_id: Rc::new(OutputId::new(
                 String::new(),
                 "X.Org Foundation".to_string(),
@@ -1111,6 +1111,10 @@ impl Connector for XOutput {
     fn effectively_locked(&self) -> bool {
         // todo
         true
+    }
+
+    fn state(&self) -> BackendConnectorState {
+        self.state.borrow().clone()
     }
 
     fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {

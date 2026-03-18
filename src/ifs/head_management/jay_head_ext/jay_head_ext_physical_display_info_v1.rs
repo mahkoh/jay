@@ -43,7 +43,7 @@ impl HeadName {
     pub(in super::super) fn send_info(&self, state: &HeadState) {
         self.send_reset();
         if let Some(mi) = &state.monitor_info {
-            for mode in &mi.modes {
+            for mode in mi.modes.iter().flatten() {
                 self.send_mode(mode);
             }
             self.send_manufacturer(&mi.output_id.manufacturer);

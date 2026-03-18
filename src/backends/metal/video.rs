@@ -867,6 +867,10 @@ impl Connector for MetalConnector {
         fb.locked
     }
 
+    fn state(&self) -> BackendConnectorState {
+        self.display.borrow().persistent.state.borrow().clone()
+    }
+
     fn caps(&self) -> ConnectorCaps {
         CONCAP_CONNECTOR | CONCAP_MODE_SETTING | CONCAP_PHYSICAL_DISPLAY
     }
@@ -1959,7 +1963,7 @@ impl MetalBackend {
         let mut state = dd.persistent.state.borrow().clone();
         state.serial = self.state.backend_connector_state_serials.next();
         connector.send_event(ConnectorEvent::Connected(MonitorInfo {
-            modes,
+            modes: Some(modes),
             output_id: dd.output_id.clone(),
             width_mm: dd.mm_width as _,
             height_mm: dd.mm_height as _,

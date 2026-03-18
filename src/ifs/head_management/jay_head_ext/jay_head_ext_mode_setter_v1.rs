@@ -41,8 +41,10 @@ impl HeadName {
 
     pub(in super::super) fn send_modes(&self, state: &HeadState) {
         self.client.event(Reset { self_id: self.id });
-        if let Some(mi) = &state.monitor_info {
-            for mode in &mi.modes {
+        if let Some(mi) = &state.monitor_info
+            && let Some(modes) = &mi.modes
+        {
+            for mode in modes {
                 self.client.event(Mode {
                     self_id: self.id,
                     width: mode.width,
@@ -73,7 +75,8 @@ impl JayHeadExtModeSetterV1RequestHandler for HeadName {
             .borrow()
             .monitor_info
             .as_deref()
-            .map(|i| i.modes.len())
+            .and_then(|i| i.modes.as_ref())
+            .map(|m| m.len())
             .unwrap_or(0);
         let idx = req.idx as usize;
         if idx >= num_modes {

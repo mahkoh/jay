@@ -846,6 +846,12 @@ pub enum ClientMessage<'a> {
         monospace: Option<Vec<&'a str>>,
     },
     OpenControlCenter,
+    ConnectorSupportsArbitraryModes {
+        connector: Connector,
+    },
+    GetConnectorByName {
+        name: &'a str,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1095,6 +1101,9 @@ pub enum Response {
     },
     KeymapFromNames {
         keymap: Keymap,
+    },
+    ConnectorSupportsArbitraryModes {
+        supports_arbitrary_modes: bool,
     },
 }
 
