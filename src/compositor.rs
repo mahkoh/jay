@@ -681,6 +681,7 @@ fn create_dummy_output(state: &Rc<State>) {
     let name = Rc::new("Dummy".to_string());
     let head_name = state.head_names.next();
     let head_state = HeadState {
+        connector_id: id,
         name: RcEq(name.clone()),
         position: (0, 0),
         size: (0, 0),
@@ -708,6 +709,7 @@ fn create_dummy_output(state: &Rc<State>) {
         blend_space: BlendSpace::Srgb,
         use_native_gamut: false,
         vrr_cursor_hz: None,
+        persistent_state: Some(RcEq(persistent_state.clone())),
     };
     let connector_data = Rc::new(ConnectorData {
         id,

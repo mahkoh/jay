@@ -62,7 +62,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_buffer::WlBuffer,
-            wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
+            wl_output::{BlendSpace, OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{
                 PhysicalKeyboardId, PhysicalKeyboardIds, PositionHintRequest, SeatIds,
                 WlSeatGlobal,
@@ -504,7 +504,7 @@ impl ConnectorData {
             }};
         }
         if b!(old.enabled != s.enabled) {
-            self.head_managers.handle_enabled_change(s.enabled);
+            self.head_managers.handle_enabled_change(state, s.enabled);
         }
         if b!(old.active != s.active) {
             self.head_managers.handle_active_change(s.active);
@@ -1960,6 +1960,43 @@ impl State {
     pub fn set_color(&self, colored: ThemeColor, v: Color) {
         colored.field(&self.theme).set(v);
         self.colors_changed();
+    }
+
+    pub fn ensure_persistent_output_state(
+        &self,
+        output_id: &Rc<OutputId>,
+    ) -> Rc<PersistentOutputState> {
+        match self.persistent_output_states.get(output_id) {
+            Some(ds) => ds,
+            _ => {
+                let ds = self.new_persistent_output_state();
+                self.persistent_output_states
+                    .set(output_id.clone(), ds.clone());
+                ds
+            }
+        }
+    }
+
+    pub fn new_persistent_output_state(&self) -> Rc<PersistentOutputState> {
+        let x1 = self
+            .root
+            .outputs
+            .lock()
+            .values()
+            .map(|o| o.global.pos.get().x2())
+            .max()
+            .unwrap_or(0);
+        Rc::new(PersistentOutputState {
+            transform: Default::default(),
+            scale: Default::default(),
+            pos: Cell::new((x1, 0)),
+            vrr_mode: Cell::new(self.default_vrr_mode.get()),
+            vrr_cursor_hz: Cell::new(self.default_vrr_cursor_hz.get()),
+            tearing_mode: Cell::new(self.default_tearing_mode.get()),
+            brightness: Cell::new(None),
+            blend_space: Cell::new(BlendSpace::Srgb),
+            use_native_gamut: Cell::new(false),
+        })
     }
 }
 

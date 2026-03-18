@@ -404,7 +404,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     }
                     HeadOp::SetConnectorEnabled(enabled) => {
                         state.connector_enabled = enabled;
-                        state.update_in_compositor_space(snapshot.wl_output);
+                        state.update_in_compositor_space(&self.client.state, snapshot.wl_output);
                         to_send |= COMPOSITOR_SPACE_INFO_FULL;
                         to_send |= COMPOSITOR_SPACE_INFO_ENABLED;
                         to_send |= CORE_INFO;
@@ -435,7 +435,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
                     }
                     HeadOp::SetNonDesktopOverride(m) => {
                         state.override_non_desktop = m;
-                        state.update_in_compositor_space(snapshot.wl_output);
+                        state.update_in_compositor_space(&self.client.state, snapshot.wl_output);
                         to_send |= COMPOSITOR_SPACE_INFO_FULL;
                         to_send |= CORE_INFO;
                         to_send |= NON_DESKTOP_INFO;
@@ -557,6 +557,7 @@ impl JayHeadManagerSessionV1RequestHandler for JayHeadManagerSessionV1 {
         }
         for head in self.heads.lock().values() {
             let desired = &*head.common.transaction_state.borrow();
+            desired.flush_persistent_state(&self.client.state);
             if let Some(output) = self.client.state.outputs.get(&head.common.id)
                 && let Some(node) = &output.node
             {

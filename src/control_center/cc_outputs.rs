@@ -842,6 +842,7 @@ impl OutputsPaneInner {
             let Some(desired) = &head.changed_state else {
                 continue;
             };
+            desired.flush_persistent_state(&self.state);
             if let Some(output) = self.state.outputs.get(&head.id)
                 && let Some(node) = &output.node
             {
@@ -957,7 +958,7 @@ fn show_connector(state: &State, settings: &Settings, head: &mut CompleteHead, u
             grid(ui, ("settings", head.name), |ui| {
                 let mut diff = false;
                 show_serial_number(ui, m);
-                diff |= show_enablement(ui, m, t);
+                diff |= show_enablement(state, ui, m, t);
                 diff |= show_position(ui, m, t);
                 diff |= show_scale(ui, m, t);
                 diff |= show_mode(ui, m, t);
@@ -969,7 +970,7 @@ fn show_connector(state: &State, settings: &Settings, head: &mut CompleteHead, u
                 diff |= show_format(ui, m, t);
                 diff |= show_tearing(ui, m, t);
                 diff |= show_vrr(ui, m, t);
-                diff |= show_non_desktop(ui, m, t);
+                diff |= show_non_desktop(state, ui, m, t);
                 diff |= show_blend_space(ui, m, t);
                 diff |= show_use_native_gamut(ui, m, t);
                 show_native_gamut(ui, m);
@@ -993,7 +994,7 @@ fn show_serial_number(ui: &mut Ui, m: &HeadState) {
     }
 }
 
-fn show_enablement(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
+fn show_enablement(state: &State, ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     let ui = &mut *ui.row();
     grid_label(ui, "Enabled");
     let mut v = effective!(m, t).connector_enabled;
@@ -1001,7 +1002,7 @@ fn show_enablement(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> boo
     if changed {
         let t = modify!(m, t);
         t.connector_enabled = v;
-        t.update_in_compositor_space(m.wl_output);
+        t.update_in_compositor_space(state, m.wl_output);
     }
     let diff = v != m.connector_enabled;
     if diff {
@@ -1550,7 +1551,7 @@ fn show_vrr(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     diff
 }
 
-fn show_non_desktop(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
+fn show_non_desktop(state: &State, ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     {
         let ui = &mut *ui.row();
         grid_label(ui, "Non-desktop");
@@ -1580,7 +1581,7 @@ fn show_non_desktop(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bo
     if changed {
         let t = modify!(m, t);
         t.override_non_desktop = v;
-        t.update_in_compositor_space(m.wl_output);
+        t.update_in_compositor_space(state, m.wl_output);
     }
     let diff = v != m.override_non_desktop;
     if diff {

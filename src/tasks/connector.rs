@@ -6,7 +6,7 @@ use {
         ifs::{
             head_management::{HeadManagers, HeadState},
             jay_tray_v1::JayTrayV1Global,
-            wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
+            wl_output::{BlendSpace, WlOutputGlobal},
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
@@ -35,6 +35,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     let id = connector.id();
     let name = Rc::new(connector.name());
     let head_state = HeadState {
+        connector_id: id,
         name: RcEq(name.clone()),
         position: (0, 0),
         size: (0, 0),
@@ -45,7 +46,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         wl_output: None,
         connector_enabled: backend_state.enabled,
         in_compositor_space: false,
-        mode: Default::default(),
+        mode: backend_state.mode,
         monitor_info: None,
         inherent_non_desktop: false,
         override_non_desktop: backend_state.non_desktop_override,
@@ -62,6 +63,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         blend_space: BlendSpace::Srgb,
         use_native_gamut: false,
         vrr_cursor_hz: None,
+        persistent_state: None,
     };
     let data = Rc::new(ConnectorData {
         id,
@@ -152,7 +154,9 @@ impl ConnectorHandler {
             self.handle_desktop_connected(info, name).await;
         }
         self.data.connected.set(false);
-        self.data.head_managers.handle_output_disconnected();
+        self.data
+            .head_managers
+            .handle_output_disconnected(&self.state);
         self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.data.wlr_output_heads.lock().drain_values() {
             head.handle_disconnected();
@@ -162,35 +166,7 @@ impl ConnectorHandler {
 
     async fn handle_desktop_connected(&self, info: MonitorInfo, name: GlobalName) {
         let output_id = info.output_id.clone();
-        let desired_state = match self.state.persistent_output_states.get(&output_id) {
-            Some(ds) => ds,
-            _ => {
-                let x1 = self
-                    .state
-                    .root
-                    .outputs
-                    .lock()
-                    .values()
-                    .map(|o| o.global.pos.get().x2())
-                    .max()
-                    .unwrap_or(0);
-                let ds = Rc::new(PersistentOutputState {
-                    transform: Default::default(),
-                    scale: Default::default(),
-                    pos: Cell::new((x1, 0)),
-                    vrr_mode: Cell::new(self.state.default_vrr_mode.get()),
-                    vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
-                    tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
-                    brightness: Cell::new(None),
-                    blend_space: Cell::new(BlendSpace::Srgb),
-                    use_native_gamut: Cell::new(false),
-                });
-                self.state
-                    .persistent_output_states
-                    .set(output_id.clone(), ds.clone());
-                ds
-            }
-        };
+        let desired_state = self.state.ensure_persistent_output_state(&output_id);
         let global = Rc::new(WlOutputGlobal::new(
             name,
             &self.state,
@@ -327,7 +303,7 @@ impl ConnectorHandler {
         self.state.workspace_managers.announce_output(&on);
         self.data
             .head_managers
-            .handle_output_connected(&output_data);
+            .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
@@ -454,7 +430,7 @@ impl ConnectorHandler {
         }
         self.data
             .head_managers
-            .handle_output_connected(&output_data);
+            .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
         'outer: loop {
