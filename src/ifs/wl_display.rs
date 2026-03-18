@@ -6,7 +6,7 @@ use {
         object::{Object, ObjectId, Version, WL_DISPLAY_ID},
         wire::{WlDisplayId, wl_display::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -16,10 +16,14 @@ const INVALID_METHOD: u32 = 1;
 const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
+pub const MIN_DISPLAY_VERSION: Version = Version(1);
+pub const MAX_DISPLAY_VERSION: Version = Version(2);
+
 pub struct WlDisplay {
     pub id: WlDisplayId,
     pub client: Rc<Client>,
     pub tracker: Tracker<WlDisplay>,
+    pub version: Cell<Version>,
 }
 
 impl WlDisplay {
@@ -28,6 +32,7 @@ impl WlDisplay {
             id: WL_DISPLAY_ID,
             client: client.clone(),
             tracker: Default::default(),
+            version: Cell::new(MIN_DISPLAY_VERSION),
         }
     }
 }
@@ -45,7 +50,11 @@ impl WlDisplayRequestHandler for WlDisplay {
     }
 
     fn get_registry(&self, req: GetRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let registry = Rc::new(WlRegistry::new(req.registry, &self.client));
+        let registry = Rc::new(WlRegistry::new(
+            req.registry,
+            self.version.get(),
+            &self.client,
+        ));
         track!(self.client, registry);
         self.client.add_client_obj(&registry)?;
         self.client.state.globals.notify_all(&registry);
@@ -93,7 +102,7 @@ impl WlDisplay {
 
 object_base! {
     self = WlDisplay;
-    version = Version(1);
+    version = self.version.get();
 }
 
 impl Object for WlDisplay {}

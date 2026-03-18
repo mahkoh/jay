@@ -218,6 +218,7 @@ impl Clients {
             changed_properties: Default::default(),
             destroyed: Default::default(),
             acceptor: acceptor.clone(),
+            has_display_upgrade: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -345,6 +346,7 @@ pub struct Client {
     pub changed_properties: Cell<ClMatcherChange>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
     pub acceptor: Rc<AcceptorMetadata>,
+    pub has_display_upgrade: Cell<bool>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
