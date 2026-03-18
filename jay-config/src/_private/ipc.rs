@@ -849,6 +849,9 @@ pub enum ClientMessage<'a> {
     ConnectorSupportsArbitraryModes {
         connector: Connector,
     },
+    GetConnectorByName {
+        name: &'a str,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

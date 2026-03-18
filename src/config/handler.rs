@@ -1592,6 +1592,19 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_connector_by_name(&self, name: &str) {
+        let connector = self
+            .state
+            .connectors
+            .lock()
+            .values()
+            .find(|c| *c.name == name)
+            .map(|c| c.connector.id().raw() as _)
+            .map(Connector)
+            .unwrap_or(Connector(0));
+        self.respond(Response::GetConnector { connector });
+    }
+
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
         let workspace = output
@@ -3343,6 +3356,7 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSupportsArbitraryModes { connector } => self
                 .handle_connector_supports_arbitrary_modes(connector)
                 .wrn("connector_supports_arbitrary_modes")?,
+            ClientMessage::GetConnectorByName { name } => self.handle_get_connector_by_name(name),
         }
         Ok(())
     }

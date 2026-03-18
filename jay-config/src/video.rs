@@ -454,6 +454,14 @@ pub fn get_connector(id: impl ToConnectorId) -> Connector {
     get!(Connector(0)).get_connector(ty, idx)
 }
 
+/// Returns the connector with the given name.
+///
+/// Unlike [`get_connector`], this function can also be used for connectors whose names
+/// don't follow the `<type>-<id>` pattern.
+pub fn get_connector_by_name(name: &str) -> Connector {
+    get!(Connector(0)).get_connector_by_name(name)
+}
+
 /// A type that can be converted to a `(ConnectorType, idx)` tuple.
 pub trait ToConnectorId {
     fn to_connector_id(&self) -> Result<(ConnectorType, u32), String>;
