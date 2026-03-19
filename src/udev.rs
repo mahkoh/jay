@@ -218,7 +218,7 @@ impl UdevMonitor {
 
     pub fn add_match_subsystem_devtype(
         &self,
-        subsystem: Option<&str>,
+        subsystem: Option<&[u8]>,
         devtype: Option<&str>,
     ) -> Result<(), UdevError> {
         let subsystem = subsystem.map(|s| s.into_ustr());
