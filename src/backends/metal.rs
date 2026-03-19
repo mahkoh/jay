@@ -280,8 +280,8 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
     });
     let udev = Rc::new(Udev::new()?);
     let monitor = Rc::new(udev.create_monitor()?);
-    monitor.add_match_subsystem_devtype(Some("input"), None)?;
-    monitor.add_match_subsystem_devtype(Some("drm"), None)?;
+    monitor.add_match_subsystem_devtype(Some(b"input"), None)?;
+    monitor.add_match_subsystem_devtype(Some(b"drm"), None)?;
     monitor.enable_receiving()?;
     let libinput = Rc::new(LibInput::new(device_holder.clone())?);
     let monitor_fd = dup_fd(monitor.fd())?;

@@ -197,6 +197,7 @@ pub struct SeatTestArgs {
 pub enum CliBackend {
     X11,
     Metal,
+    Headless,
 }
 
 #[derive(Args, Debug)]
