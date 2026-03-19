@@ -50,6 +50,7 @@ use {
         keyboard::ModifiedKeySym,
         video::Connector,
         window::Window,
+        workspace::WorkspaceEmptyBehavior,
     },
     serde::{Deserialize, Serialize},
     std::{
@@ -176,7 +177,9 @@ impl Workspace {
 
     /// Moves this workspace to another output.
     ///
-    /// This has no effect if the workspace is not currently being shown.
+    /// Hidden workspaces remain hidden and are restored on the new output when shown again.
+    ///
+    /// This has no effect if the workspace does not exist or the output is not connected.
     pub fn move_to_output(self, output: Connector) {
         get!().move_to_output(WorkspaceSource::Explicit(self), output);
     }
@@ -222,6 +225,21 @@ impl Workspace {
     /// This has no effect for normal workspaces.
     pub fn hide(self) {
         get!().hide_workspace(self);
+    }
+
+    /// Sets what should happen when this workspace is empty.
+    pub fn set_empty_behavior(self, behavior: WorkspaceEmptyBehavior) {
+        self.set_empty_behavior_override(Some(behavior));
+    }
+
+    /// Clears the per-workspace empty behavior override.
+    pub fn clear_empty_behavior(self) {
+        self.set_empty_behavior_override(None);
+    }
+
+    /// Sets the per-workspace empty behavior override.
+    pub fn set_empty_behavior_override(self, behavior: Option<WorkspaceEmptyBehavior>) {
+        get!().set_workspace_empty_behavior2(self, behavior);
     }
 }
 

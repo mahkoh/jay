@@ -57,7 +57,7 @@ use {
             set_gfx_api, set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
         },
         window::Window,
-        workspace::set_workspace_display_order,
+        workspace::{set_workspace_display_order, set_workspace_empty_behavior},
         xwayland::{set_x_scaling_mode, set_x_wayland_enabled},
     },
     run_on_drop::on_drop,
@@ -1693,6 +1693,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.workspace_display_order {
         set_workspace_display_order(v);
+    }
+    if let Some(v) = config.workspace_empty_behavior {
+        set_workspace_empty_behavior(v);
     }
     if let Some(simple_im) = config.simple_im {
         if let Some(enabled) = simple_im.enabled {

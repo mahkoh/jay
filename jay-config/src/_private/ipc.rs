@@ -20,7 +20,7 @@ use {
             Transform, VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
-        workspace::WorkspaceDisplayOrder,
+        workspace::{WorkspaceDisplayOrder, WorkspaceEmptyBehavior},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -922,6 +922,13 @@ pub enum ClientMessage<'a> {
     },
     SetWindowIconsGrayscale {
         grayscale: bool,
+    },
+    SetWorkspaceEmptyBehavior {
+        behavior: WorkspaceEmptyBehavior,
+    },
+    SetWorkspaceEmptyBehavior2 {
+        workspace: Workspace,
+        behavior: Option<WorkspaceEmptyBehavior>,
     },
 }
 

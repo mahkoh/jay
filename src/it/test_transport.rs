@@ -62,6 +62,7 @@ impl TestTransport {
             xdg: Default::default(),
             activation: Default::default(),
             foreign_toplevel_list: Default::default(),
+            workspace_manager: Default::default(),
             data_device_manager: Default::default(),
             cursor_shape_manager: Default::default(),
             syncobj_manager: Default::default(),

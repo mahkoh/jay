@@ -11,6 +11,7 @@ use {
                 test_data_control_manager::TestDataControlManager,
                 test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
+                test_ext_workspace_manager::TestExtWorkspaceManager,
                 test_fifo_manager::TestFifoManager,
                 test_input_method_manager::TestInputMethodManager,
                 test_jay_compositor::TestJayCompositor, test_pointer_warp::TestPointerWarp,
@@ -50,6 +51,7 @@ pub struct TestRegistrySingletons {
     pub wp_viewporter: u32,
     pub xdg_activation_v1: u32,
     pub ext_foreign_toplevel_list_v1: u32,
+    pub ext_workspace_manager_v1: u32,
     pub wl_data_device_manager: u32,
     pub wp_cursor_shape_manager_v1: u32,
     pub wp_linux_drm_syncobj_manager_v1: u32,
@@ -81,6 +83,7 @@ pub struct TestRegistry {
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub activation: CloneCell<Option<Rc<TestXdgActivation>>>,
     pub foreign_toplevel_list: CloneCell<Option<Rc<TestExtForeignToplevelList>>>,
+    pub workspace_manager: CloneCell<Option<Rc<TestExtWorkspaceManager>>>,
     pub data_device_manager: CloneCell<Option<Rc<TestDataDeviceManager>>>,
     pub cursor_shape_manager: CloneCell<Option<Rc<TestCursorShapeManager>>>,
     pub syncobj_manager: CloneCell<Option<Rc<TestSyncobjManager>>>,
@@ -156,6 +159,7 @@ impl TestRegistry {
             wp_viewporter,
             xdg_activation_v1,
             ext_foreign_toplevel_list_v1,
+            ext_workspace_manager_v1,
             wl_data_device_manager,
             wp_cursor_shape_manager_v1,
             wp_linux_drm_syncobj_manager_v1,
@@ -214,6 +218,13 @@ impl TestRegistry {
         ext_foreign_toplevel_list_v1,
         1,
         TestExtForeignToplevelList
+    );
+    create_singleton!(
+        get_workspace_manager,
+        workspace_manager,
+        ext_workspace_manager_v1,
+        1,
+        TestExtWorkspaceManager
     );
     create_singleton!(
         get_data_device_manager,

@@ -23,12 +23,13 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, PlaceholderNode,
-            StackedNode, ToplevelNode, WorkspaceDisplayOrder, container::ContainerNode,
-            walker::NodeVisitor,
+            StackedNode, ToplevelNode, WorkspaceDisplayOrder, WorkspaceEmptyBehavior,
+            container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
             numcell::NumCell,
             obj_and_id::{ObjAndId, ObjWithId},
@@ -37,6 +38,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    ahash::AHashMap,
     linearize::Linearize,
     smallvec::SmallVec,
     std::{
@@ -65,6 +67,8 @@ pub struct WorkspaceNode {
     pub seat_state: NodeSeatState,
     pub name: Rc<String>,
     pub name_hash: WorkspaceNameHash,
+    pub hidden: Cell<bool>,
+    pub eb: Cell<Option<WorkspaceEmptyBehavior>>,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
@@ -113,6 +117,14 @@ impl WorkspaceNode {
             seat_state: Default::default(),
             name: Rc::new(name.to_string()),
             name_hash: WorkspaceNameHash::hash(name),
+            hidden: Default::default(),
+            eb: Cell::new(
+                output
+                    .state
+                    .config
+                    .get()
+                    .and_then(|config| config.workspace_empty_behavior(name)),
+            ),
             visible_on_desired_output: Default::default(),
             desired_output: CloneCell::new(output.global.output_id.clone()),
             jay_workspaces: Default::default(),
@@ -139,6 +151,7 @@ impl WorkspaceNode {
     pub fn clear(&self) {
         self.seat_state.destroy_node(self);
         self.node_state.clear();
+        self.hidden.set(false);
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
         self.opt.set(None);
@@ -228,6 +241,213 @@ impl WorkspaceNode {
             stacked.deref().clone().node_visit(&mut visitor);
         }
         self.state.trigger_cci(CCI_WORKSPACES);
+    }
+
+    pub fn set_hidden_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        if !self.hidden.get() {
+            return;
+        }
+        let ns = &self.node_state;
+        if ns.output.id() == output.id {
+            return;
+        }
+        let before = match output.state.workspace_display_order.get() {
+            WorkspaceDisplayOrder::Sorted => output.find_workspace_insertion_point(&self.name),
+            WorkspaceDisplayOrder::Manual => None,
+        };
+        let output_link = ns.output_link.borrow();
+        if let Some(link) = &*output_link {
+            let ws = link.to_ref();
+            self.set_output(output);
+            if let Some(before) = before
+                && let Some(link) = &*before.node_state.output_link.borrow()
+            {
+                link.prepend_existing(&ws);
+                return;
+            }
+            output.workspaces.add_last_existing(&ws);
+            return;
+        }
+        drop(output_link);
+        self.set_output(output);
+        let link = if let Some(before) = before {
+            before.prepend(self.clone())
+        } else {
+            output.workspaces.add_last(self.clone())
+        };
+        *ns.output_link.borrow_mut() = Some(link);
+    }
+
+    pub fn restore_hidden_workspace(
+        self: &Rc<Self>,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Option<Rc<OutputNode>> {
+        self.restore_hidden_workspace2(output, seat, true)
+    }
+
+    pub fn restore_hidden_workspace2(
+        self: &Rc<Self>,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        schedule_tree_changed: bool,
+    ) -> Option<Rc<OutputNode>> {
+        if !self.hidden.get() {
+            return Some(self.node_state.output.get());
+        }
+        let target = self.resolve_hidden_workspace_output(output, seat)?;
+        let prev_output = self.node_state.output.get();
+        if prev_output.id != target.id {
+            self.set_hidden_output(&target);
+        }
+        self.hidden.set(false);
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_visibility_changed();
+        }
+        self.update_has_captures();
+        self.desired_output.set(target.global.output_id.clone());
+        self.state.trigger_cci(CCI_WORKSPACES);
+        self.announce_to_watchers();
+        if schedule_tree_changed {
+            target.schedule_update_render_data();
+            self.state.tree_changed();
+        }
+        Some(target)
+    }
+
+    pub fn announce_to_watchers(self: &Rc<Self>) {
+        let mut clients_to_kill = AHashMap::new();
+        for watcher in self.state.workspace_watchers.lock().values() {
+            if let Err(e) = watcher.send_workspace(self) {
+                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
+            }
+        }
+        for (client, e) in clients_to_kill.values() {
+            client.error(e);
+        }
+    }
+
+    pub fn effective_empty_behavior(&self) -> WorkspaceEmptyBehavior {
+        self.eb
+            .get()
+            .unwrap_or_else(|| self.state.workspace_empty_behavior.get())
+    }
+
+    fn can_apply_empty_behavior(&self) -> bool {
+        if self.ty == WorkspaceType::Overlay {
+            return false;
+        }
+        if self.node_state.output.get().is_dummy && !self.hidden.get() {
+            return false;
+        }
+        if !self.is_empty() {
+            return false;
+        }
+        if self.is_active() {
+            return false;
+        }
+        true
+    }
+
+    fn is_active(&self) -> bool {
+        let output = self.node_state.output.get();
+        let Some(active) = output.node_state.workspace.id() else {
+            return false;
+        };
+        active == self.id
+    }
+
+    pub fn enforce_workspace_empty_behavior(self: &Rc<Self>) {
+        self.enforce_workspace_empty_behavior2(true);
+    }
+
+    pub fn enforce_workspace_empty_behavior2(self: &Rc<Self>, update_desired_output: bool) {
+        match self.effective_empty_behavior() {
+            WorkspaceEmptyBehavior::Preserve => {}
+            WorkspaceEmptyBehavior::DestroyOnLeave => {}
+            WorkspaceEmptyBehavior::HideOnLeave => {}
+            WorkspaceEmptyBehavior::Destroy => self.destroy_empty_workspace(),
+            WorkspaceEmptyBehavior::Hide => self.hide_empty_workspace(update_desired_output),
+        }
+    }
+
+    pub fn destroy_empty_workspace(self: &Rc<Self>) {
+        if !self.can_apply_empty_behavior() {
+            return;
+        }
+        let output = self.node_state.output.get();
+        for jw in self.jay_workspaces.lock().values() {
+            jw.send_destroyed();
+            jw.workspace.set(None);
+        }
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_destroyed();
+        }
+        self.clear();
+        self.state.workspaces.remove(&*self.name);
+        self.state.trigger_cci(CCI_WORKSPACES);
+        if !output.is_dummy {
+            output.schedule_update_render_data();
+            self.state.tree_changed();
+        }
+    }
+
+    pub fn hide_empty_workspace(self: &Rc<Self>, update_desired_output: bool) {
+        if !self.can_apply_empty_behavior() {
+            return;
+        }
+        if self.hidden.get() {
+            return;
+        }
+        let prev_output = self.node_state.output.get();
+        let mut jay_workspaces = self.jay_workspaces.lock();
+        for jw in jay_workspaces.drain_values() {
+            jw.send_destroyed();
+            jw.workspace.set(None);
+        }
+        drop(jay_workspaces);
+        if update_desired_output {
+            self.desired_output
+                .set(prev_output.global.output_id.clone());
+        }
+        self.hidden.set(true);
+        self.set_visible(false);
+        prev_output.schedule_update_render_data();
+        self.state.tree_changed();
+    }
+
+    fn resolve_hidden_workspace_output(
+        &self,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Option<Rc<OutputNode>> {
+        if let Some(output) = output
+            && !output.is_dummy
+        {
+            return Some(output);
+        }
+        let current = self.node_state.output.get();
+        if !current.is_dummy {
+            return Some(current);
+        }
+        let desired_output = self.desired_output.get();
+        for candidate in self.state.root.outputs.lock().values() {
+            if candidate.global.output_id == desired_output {
+                return Some(candidate.clone());
+            }
+        }
+        if let Some(seat) = seat {
+            let fallback = seat.get_fallback_output();
+            if !fallback.is_dummy {
+                return Some(fallback);
+            }
+        }
+        for candidate in self.state.root.outputs.lock().values() {
+            if !candidate.is_dummy {
+                return Some(candidate.clone());
+            }
+        }
+        None
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
@@ -564,12 +784,18 @@ impl ContainingNode for WorkspaceNode {
             self.discard_child_properties(&*container);
             ns.container.set(None);
             self.state.damage(ns.position.get());
+            if self.is_empty() {
+                self.enforce_workspace_empty_behavior();
+            }
             return;
         }
         if let Some(fs) = ns.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
             self.remove_fullscreen_node();
+            if self.is_empty() {
+                self.enforce_workspace_empty_behavior();
+            }
             return;
         }
         log::error!("Trying to remove child that's not a child");
@@ -621,7 +847,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         new_source_ws = source
             .workspaces
             .iter()
-            .find(|c| c.id != ws.id)
+            .find(|c| c.id != ws.id && !c.hidden.get())
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
             new_source_ws = Some(source.generate_normal_workspace());
@@ -665,6 +891,9 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         ws.state.show_workspace2(None, target, &ws);
     } else {
         ws.set_visible(false);
+        if ws.is_empty() {
+            ws.enforce_workspace_empty_behavior2(!config.source_is_destroyed);
+        }
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {

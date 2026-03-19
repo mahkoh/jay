@@ -1,10 +1,12 @@
 use {
     crate::{
-        control_center::{ControlCenterInner, bool, grid, label, row},
+        control_center::{ControlCenterInner, bool, grid, label, read_only_bool, row},
         state::State,
-        tree::{Node, WorkspaceType},
+        tree::{Node, WorkspaceEmptyBehavior, WorkspaceType},
+        utils::static_text::StaticText,
     },
     egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
+    linearize::LinearizeExt,
     std::rc::Rc,
 };
 
@@ -59,24 +61,50 @@ impl WorkspacesPane {
                     label(ui, "Type", ty);
                     row(ui, "Position", |ui| {
                         let p = ns.position.get();
-                        if output.is_dummy {
+                        if ws.hidden.get() || output.is_dummy {
                             ui.label("hidden");
-                        } else {
-                            ui.label(format!(
-                                "{}x{} + {}x{}",
-                                p.x1(),
-                                p.y1(),
-                                p.width(),
-                                p.height(),
-                            ));
+                            return;
                         }
+                        ui.label(format!(
+                            "{}x{} + {}x{}",
+                            p.x1(),
+                            p.y1(),
+                            p.width(),
+                            p.height()
+                        ));
                     });
+                    read_only_bool(ui, "Hidden", ws.hidden.get());
                     bool(ui, "Visible", ns.visible.get(), |v| {
                         if v {
                             ws.clone().node_make_visible();
                         } else if ws.ty == WorkspaceType::Overlay {
                             ns.output.get().hide_overlay();
                         }
+                    });
+                    row(ui, "Empty Behavior", |ui| {
+                        let mut v = ws.eb.get();
+                        let global = self.state.workspace_empty_behavior.get();
+                        let name = |v: Option<WorkspaceEmptyBehavior>| match v {
+                            None => format!("Global ({})", global.text()),
+                            Some(v) => v.text().to_string(),
+                        };
+                        let mut changed = false;
+                        ComboBox::from_id_salt("empty-behavior")
+                            .selected_text(name(v))
+                            .show_ui(ui, |ui| {
+                                for s in [None]
+                                    .into_iter()
+                                    .chain(WorkspaceEmptyBehavior::variants().map(Some))
+                                {
+                                    changed |= ui.selectable_value(&mut v, s, name(s)).changed();
+                                }
+                            });
+                        if !changed {
+                            return;
+                        }
+                        ws.eb.set(v);
+                        ws.enforce_workspace_empty_behavior();
+                        ui.request_repaint();
                     });
                     row(ui, "Output", |ui| {
                         let mut new = &output;

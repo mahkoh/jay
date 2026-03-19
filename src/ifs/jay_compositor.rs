@@ -333,6 +333,9 @@ impl JayCompositorRequestHandler for JayCompositor {
             .workspace_watchers
             .set((self.client.id, req.id), watcher.clone());
         for ws in self.client.state.workspaces.lock().values() {
+            if ws.hidden.get() {
+                continue;
+            }
             watcher.send_workspace(ws)?;
         }
         Ok(())

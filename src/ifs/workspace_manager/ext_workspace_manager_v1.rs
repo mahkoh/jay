@@ -11,7 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, WorkspaceEmptyBehavior, WorkspaceNode},
         utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
         wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
     },
@@ -71,18 +71,22 @@ impl ExtWorkspaceManagerV1Global {
             .workspace_managers
             .managers
             .set(obj.manager_id, obj.clone());
+        for output in client.state.root.outputs.lock().values() {
+            obj.announce_output(output);
+        }
         let dummy_output = client.state.dummy_output.get().unwrap();
         for ws in dummy_output.workspaces.iter() {
             obj.announce_workspace(&dummy_output, &ws);
-        }
-        for output in client.state.root.outputs.lock().values() {
-            obj.announce_output(output);
         }
         Ok(())
     }
 }
 
 impl ExtWorkspaceManagerV1 {
+    fn assign_workspace(&self, ws: &Rc<WorkspaceNode>, output: &Rc<OutputNode>) {
+        self.client.state.move_ws_to_output(ws, output);
+    }
+
     pub(super) fn announce_output(&self, node: &OutputNode) {
         let id = match self.client.new_id() {
             Ok(id) => id,
@@ -256,15 +260,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(o) = o.node() else {
                         continue;
                     };
-                    let config = WsMoveConfig {
-                        make_visible_always: false,
-                        make_visible_if_empty: true,
-                        source_is_destroyed: false,
-                        before: None,
-                    };
-                    move_ws_to_output(&ws, &o, config);
-                    ws.desired_output.set(o.global.output_id.clone());
-                    self.client.state.tree_changed();
+                    self.assign_workspace(&ws, &o);
                 }
                 WorkspaceChange::CreateWorkspace(name, output) => {
                     if self.client.state.workspaces.contains(&name) {
@@ -273,7 +269,23 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(output) = output.node() else {
                         continue;
                     };
-                    output.create_normal_workspace(&name);
+                    let had_workspace = output.node_state.workspace.is_some();
+                    let ws = match had_workspace {
+                        true => output.create_workspace_without_watchers(&name),
+                        false => output.create_normal_workspace(&name),
+                    };
+                    let behavior = ws.effective_empty_behavior();
+                    let enforce = matches!(
+                        behavior,
+                        WorkspaceEmptyBehavior::Destroy | WorkspaceEmptyBehavior::Hide
+                    );
+                    if enforce {
+                        ws.enforce_workspace_empty_behavior();
+                        continue;
+                    }
+                    if had_workspace {
+                        ws.announce_to_watchers();
+                    }
                 }
             }
         }

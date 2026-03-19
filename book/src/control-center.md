@@ -64,6 +64,9 @@ LIBEI_SOCKET
 Workspace Display Order
 : Dropdown to select how workspaces are ordered in the bar
 
+Workspace Empty Behavior
+: Dropdown to select what happens to empty workspaces when they are left or become inactive
+
 Log Level
 : Dropdown to change the active log level at runtime (shown when the logger is available)
 
@@ -234,11 +237,18 @@ name.
 
 Position
 : The workspace's position and size in compositor space. Shows `hidden` when the
-  workspace is on a disconnected (dummy) output.
+  workspace is hidden or on a disconnected (dummy) output.
+
+Hidden
+: Read-only indicator for whether the workspace is hidden by the workspace empty
+  behavior.
 
 Visible
 : Toggle workspace visibility. Enabling this makes the workspace the active
   workspace on its output. Disabling it hides an [overlay](overlays.md).
+
+Empty Behavior
+: Dropdown to select the workspace-specific empty behavior override.
 
 Output
 : Dropdown to move the workspace to a different output.

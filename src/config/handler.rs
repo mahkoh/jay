@@ -29,9 +29,9 @@ use {
         theme::{ThemeColor, ThemeSized},
         tree::{
             ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WorkspaceType,
-            WsMoveConfig, move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceEmptyBehavior,
+            WorkspaceNode, WorkspaceType, WsMoveConfig, move_ws_to_output, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -75,7 +75,9 @@ use {
             VrrMode as ConfigVrrMode,
         },
         window::{TileState as ConfigTileState, Window, WindowMatcher},
-        workspace::WorkspaceDisplayOrder,
+        workspace::{
+            WorkspaceDisplayOrder, WorkspaceEmptyBehavior as ConfigWorkspaceEmptyBehavior,
+        },
         xwayland::XScalingMode,
     },
     kbvm::{GroupIndex, Keycode},
@@ -163,6 +165,7 @@ pub struct ConfigWorkspace {
     id: u64,
     name: String,
     ty: Cell<WorkspaceType>,
+    eb: Cell<Option<WorkspaceEmptyBehavior>>,
 }
 
 pub struct Pollable {
@@ -254,6 +257,7 @@ impl ConfigProxyHandler {
                     id,
                     name: name.to_string(),
                     ty: Cell::new(ty),
+                    eb: Cell::new(None),
                 });
                 self.workspaces_by_name.set(name.clone(), ws.clone());
                 self.workspaces_by_id.set(id, ws);
@@ -265,6 +269,10 @@ impl ConfigProxyHandler {
             }
         };
         Workspace(id)
+    }
+
+    pub fn workspace_empty_behavior(&self, name: &str) -> Option<WorkspaceEmptyBehavior> {
+        self.workspaces_by_name.get(name)?.eb.get()
     }
 
     fn handle_log_request(
@@ -588,6 +596,9 @@ impl ConfigProxyHandler {
     fn handle_get_workspaces(&self) {
         let mut workspaces = vec![];
         for ws in self.state.workspaces.lock().values() {
+            if ws.hidden.get() {
+                continue;
+            }
             workspaces.push(self.get_workspace_by_name(&ws.name, ws.ty));
         }
         self.respond(Response::GetWorkspaces { workspaces });
@@ -1219,7 +1230,7 @@ impl ConfigProxyHandler {
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
                 }
-                if output.id == self.state.dummy_output_id {
+                if output.id == self.state.dummy_output_id && !ws.hidden.get() {
                     log::warn!("Could not determine output to show workspace on");
                     return Ok(());
                 }
@@ -1245,7 +1256,7 @@ impl ConfigProxyHandler {
             }
         };
         let mut did_focus = false;
-        if move_ {
+        if move_ && !ws.hidden.get() {
             move_ws_to_output(
                 &ws,
                 &output,
@@ -1263,7 +1274,8 @@ impl ConfigProxyHandler {
                 ws.desired_output.set(output.global.output_id.clone());
             }
             self.state.tree_changed();
-        } else {
+        }
+        if !move_ || ws.hidden.get() {
             did_focus = self.state.show_workspace2(seat.as_ref(), &output, &ws);
         }
         if (did_focus || ws.ty == WorkspaceType::Normal)
@@ -1277,6 +1289,9 @@ impl ConfigProxyHandler {
     fn handle_set_seat_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let ws = self.get_workspace(ws)?;
+        let Some(toplevel) = seat.get_keyboard_node().node_toplevel() else {
+            return Ok(());
+        };
         let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
             _ => match ws.ty.get() {
@@ -1286,7 +1301,14 @@ impl ConfigProxyHandler {
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
-        seat.set_workspace(&workspace);
+        if workspace.hidden.get()
+            && workspace
+                .restore_hidden_workspace(None, Some(&seat))
+                .is_none()
+        {
+            return Ok(());
+        }
+        seat.set_workspace(toplevel, &workspace);
         Ok(())
     }
 
@@ -1303,6 +1325,9 @@ impl ConfigProxyHandler {
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
+        if workspace.hidden.get() && workspace.restore_hidden_workspace(None, None).is_none() {
+            return Ok(());
+        }
         toplevel_set_workspace(&self.state, window, &workspace);
         Ok(())
     }
@@ -1675,6 +1700,26 @@ impl ConfigProxyHandler {
         self.state.set_workspace_display_order(order.into());
     }
 
+    fn handle_set_workspace_empty_behavior(&self, behavior: ConfigWorkspaceEmptyBehavior) {
+        self.state.set_workspace_empty_behavior(behavior.into());
+    }
+
+    fn handle_set_workspace_empty_behavior2(
+        &self,
+        workspace: Workspace,
+        behavior: Option<ConfigWorkspaceEmptyBehavior>,
+    ) -> Result<(), CphError> {
+        let ws = self.get_workspace(workspace)?;
+        let behavior = behavior.map(Into::into);
+        ws.eb.set(behavior);
+        let Some(ws) = self.state.workspaces.get(&ws.name) else {
+            return Ok(());
+        };
+        ws.eb.set(behavior);
+        ws.enforce_workspace_empty_behavior();
+        Ok(())
+    }
+
     fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetFloatPinned {
@@ -1859,6 +1904,7 @@ impl ConfigProxyHandler {
         let workspaces = output
             .workspaces
             .iter()
+            .filter(|ws| !ws.hidden.get())
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });
@@ -1868,6 +1914,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
         let connector = self
             .get_existing_workspace(workspace)?
+            .filter(|ws| !ws.hidden.get())
             .map(|ws| ws.node_state.output.get())
             .filter(|o| !o.is_dummy)
             .map(|o| Connector(o.global.connector.id.raw() as _))
@@ -3757,6 +3804,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowIconsGrayscale { grayscale } => {
                 self.state.set_window_icons_grayscale(grayscale)
             }
+            ClientMessage::SetWorkspaceEmptyBehavior { behavior } => {
+                self.handle_set_workspace_empty_behavior(behavior)
+            }
+            ClientMessage::SetWorkspaceEmptyBehavior2 {
+                workspace,
+                behavior,
+            } => self
+                .handle_set_workspace_empty_behavior2(workspace, behavior)
+                .wrn("set_workspace_empty_behavior2")?,
         }
         Ok(())
     }

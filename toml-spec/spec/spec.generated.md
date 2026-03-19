@@ -2591,6 +2591,20 @@ The table has the following fields:
 
   The value of this field should be a table whose values are [Workspaces](#types-Workspace).
 
+- `workspace-empty-behavior` (optional):
+
+  Configures what happens to empty workspaces when you leave them or when they become inactive.
+  
+  The default is `destroy-on-leave`.
+  
+  - Example:
+  
+    ```toml
+    workspace-empty-behavior = "hide-on-leave"
+    ```
+
+  The value of this field should be a [WorkspaceEmptyBehavior](#types-WorkspaceEmptyBehavior).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -5850,6 +5864,12 @@ The table has the following fields:
 
   The value of this field should be a [WorkspaceType](#types-WorkspaceType).
 
+- `empty-behavior` (optional):
+
+  Overrides `workspace-empty-behavior` for this workspace.
+
+  The value of this field should be a [WorkspaceEmptyBehavior](#types-WorkspaceEmptyBehavior).
+
 
 <a name="types-WorkspaceDisplayOrder"></a>
 ### `WorkspaceDisplayOrder`
@@ -5867,6 +5887,69 @@ The string should have one of the following values:
 - `sorted`:
 
   Workspaces are sorted using natural ordering and cannot be manually dragged.
+
+
+
+<a name="types-WorkspaceEmptyBehavior"></a>
+### `WorkspaceEmptyBehavior`
+
+Configures what happens to empty workspaces when they are left or become inactive.
+
+This is evaluated per-output.
+
+- "leave" means that the workspace stops being the active workspace on its output
+  because another workspace was shown on that same output.
+- "inactive" means the workspace is currently not the active workspace on its output.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `preserve`:
+
+  Never destroy or hide empty workspaces automatically.
+  
+  Empty workspaces remain present and keep showing up in workspace lists.
+
+- `destroy-on-leave`:
+
+  Destroy an empty workspace when leaving it.
+  
+  The workspace is destroyed only if it is empty at the moment you switch to another
+  workspace on the same output.
+
+- `hide-on-leave`:
+
+  Hide an empty workspace when leaving it.
+  
+  The workspace is hidden only if it is empty at the moment you switch to another
+  workspace on the same output.
+  
+  Hidden workspaces are omitted from Jay's built-in workspace lists and the bar.
+  Some external workspace tools may still show them as hidden. They can be
+  restored by showing the workspace by name. When restoring, the compositor
+  prefers the output the workspace was last shown on if it is still connected.
+
+- `destroy`:
+
+  Destroy an empty workspace whenever it is empty and inactive.
+  
+  For example, if the last window on an inactive workspace is closed (or moved away),
+  the workspace is destroyed immediately.
+  
+  An active empty workspace is not destroyed until it becomes inactive.
+
+- `hide`:
+
+  Hide an empty workspace whenever it is empty and inactive.
+  
+  For example, if the last window on an inactive workspace is closed (or moved away),
+  the workspace is hidden immediately.
+  
+  Hidden workspaces are omitted from Jay's built-in workspace lists and the bar.
+  Some external workspace tools may still show them as hidden. They can be
+  restored by showing the workspace by name. When restoring, the compositor
+  prefers the output the workspace was last shown on if it is still connected.
 
 
 

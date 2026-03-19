@@ -60,9 +60,9 @@ use {
         tracy::enable_profiler,
         tree::{
             DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
-            WorkspaceDisplayOrder, container_layout, container_render_positions,
-            container_render_titles, float_layout, float_titles, output_render_data,
-            placeholder_render_textures,
+            WorkspaceDisplayOrder, WorkspaceEmptyBehavior, container_layout,
+            container_render_positions, container_render_titles, float_layout, float_titles,
+            output_render_data, placeholder_render_textures,
         },
         user_session::import_environment,
         utils::{
@@ -390,6 +390,7 @@ fn start_compositor2(
         enable_primary_selection: Cell::new(true),
         xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
+        workspace_empty_behavior: Cell::new(WorkspaceEmptyBehavior::DestroyOnLeave),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
         gfx_ctx_changed: Default::default(),
