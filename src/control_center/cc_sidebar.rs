@@ -18,6 +18,7 @@ enum PaneName {
     LookAndFeel,
     Clients,
     WindowSearch,
+    VirtualOutputs,
 }
 
 impl PaneName {
@@ -33,6 +34,7 @@ impl PaneName {
             PaneName::LookAndFeel => "Look and Feel",
             PaneName::Clients => "Clients",
             PaneName::WindowSearch => "Window Search",
+            PaneName::VirtualOutputs => "Virtual Outputs",
         }
     }
 }
@@ -78,6 +80,9 @@ impl ControlCenterInner {
                                 PaneName::Clients => PaneType::Clients(self.create_clients_pane()),
                                 PaneName::WindowSearch => {
                                     PaneType::WindowSearch(self.create_window_search_pane())
+                                }
+                                PaneName::VirtualOutputs => {
+                                    PaneType::VirtualOutputs(self.create_virtual_outputs_pane())
                                 }
                             };
                             self.open(tree, ty);

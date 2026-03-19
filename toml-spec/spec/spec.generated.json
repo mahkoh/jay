@@ -574,6 +574,40 @@
                 "type",
                 "name"
               ]
+            },
+            {
+              "description": "Creates a virtual output.\n\nThis is a no-op if a virtual output with that name already exists.\n\nThe virtual output has the connector name `VO-{name}` and the serial number\n`{name}`.\n\nA newly created connector is initially disabled. When a connector is destroyed\nand later recreated, its previous state is restored.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"create-virtual-output\", name = \"abcd\" }\n\n  [[connectors]]\n  match.name = \"VO-abcd\"\n  enabled = true\n\n  [[outputs]]\n  match.connector = \"VO-abcd\"\n  mode = { width = 1920, height = 1080, refresh-rate = 120.0 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "create-virtual-output"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the output."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "Removes a virtual output.\n\nThis is a no-op if no virtual output with that name exists.\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "remove-virtual-output"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the output."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
             }
           ]
         }

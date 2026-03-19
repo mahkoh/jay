@@ -84,6 +84,10 @@ impl Mode {
             n => 1_000_000_000_000 / (n as u64),
         }
     }
+
+    pub fn size(&self) -> (i32, i32) {
+        (self.width, self.height)
+    }
 }
 
 impl Display for Mode {

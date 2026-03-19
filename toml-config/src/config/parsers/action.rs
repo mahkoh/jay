@@ -480,6 +480,20 @@ impl ActionParser<'_> {
             latch: true,
         })
     }
+
+    fn parse_create_virtual_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::CreateVirtualOutput {
+            name: name.value.to_string(),
+        })
+    }
+
+    fn parse_remove_virtual_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        Ok(Action::RemoveVirtualOutput {
+            name: name.value.to_string(),
+        })
+    }
 }
 
 impl Parser for ActionParser<'_> {
@@ -539,6 +553,8 @@ impl Parser for ActionParser<'_> {
             "copy-mark" => self.parse_copy_mark(&mut ext),
             "push-mode" => self.parse_push_mode(&mut ext),
             "latch-mode" => self.parse_latch_mode(&mut ext),
+            "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
+            "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

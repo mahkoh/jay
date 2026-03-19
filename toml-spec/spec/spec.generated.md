@@ -840,6 +840,55 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
+- `create-virtual-output`:
+
+  Creates a virtual output.
+  
+  This is a no-op if a virtual output with that name already exists.
+  
+  The virtual output has the connector name `VO-{name}` and the serial number
+  `{name}`.
+  
+  A newly created connector is initially disabled. When a connector is destroyed
+  and later recreated, its previous state is restored.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "create-virtual-output", name = "abcd" }
+  
+    [[connectors]]
+    match.name = "VO-abcd"
+    enabled = true
+  
+    [[outputs]]
+    match.connector = "VO-abcd"
+    mode = { width = 1920, height = 1080, refresh-rate = 120.0 }
+    ```
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the output.
+
+    The value of this field should be a string.
+
+- `remove-virtual-output`:
+
+  Removes a virtual output.
+  
+  This is a no-op if no virtual output with that name exists.
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the output.
+
+    The value of this field should be a string.
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`

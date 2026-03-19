@@ -131,6 +131,7 @@ use {
             dmabuf::DmaBufIds,
             drm::{Drm, wait_for_syncobj::WaitForSyncobj},
         },
+        virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerSessionV1Id,
@@ -302,6 +303,7 @@ pub struct State {
     pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
     pub egg_state: EggState,
     pub control_centers: ControlCenters,
+    pub virtual_outputs: VirtualOutputs,
 }
 
 // impl Drop for State {
@@ -674,6 +676,7 @@ impl State {
         self.icons.clear();
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
+        self.virtual_outputs.handle_render_ctx_change(self);
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -1184,6 +1187,7 @@ impl State {
         self.bo_drop_queue.kill();
         self.egg_state.clear();
         self.control_centers.clear();
+        self.virtual_outputs.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

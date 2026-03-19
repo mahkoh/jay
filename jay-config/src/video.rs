@@ -539,6 +539,7 @@ pub mod connector_type {
     pub const CON_SPI: ConnectorType = ConnectorType(19);
     pub const CON_USB: ConnectorType = ConnectorType(20);
     pub const CON_EMBEDDED_WINDOW: ConnectorType = ConnectorType(u32::MAX);
+    pub const CON_VIRTUAL_OUTPUT: ConnectorType = ConnectorType(u32::MAX - 1);
 }
 
 /// A *Direct Rendering Manager* (DRM) device.
@@ -728,6 +729,25 @@ impl TearingMode {
 /// This setting can be overwritten on a per-connector basis with [Connector::set_tearing_mode].
 pub fn set_tearing_mode(mode: TearingMode) {
     get!().set_tearing_mode(None, mode)
+}
+
+/// Creates a virtual output with the given name.
+///
+/// This is a no-op if a virtual output with that name already exists.
+///
+/// The created connector can be accessed with [`get_connector_by_name("VO-{name}")`].
+///
+/// A newly created connector is initially disabled. When a connector is destroyed and
+/// later recreated, its previous state is restored.
+pub fn create_virtual_output(name: &str) {
+    get!().create_virtual_output(name);
+}
+
+/// Removes the virtual output with the given name.
+///
+/// This is a no-op if a virtual output with that name does not exist.
+pub fn remove_virtual_output(name: &str) {
+    get!().remove_virtual_output(name);
 }
 
 /// A graphics format.

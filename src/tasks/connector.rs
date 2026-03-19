@@ -306,6 +306,8 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
+        global.add_damage_area(&global.pos.get());
+        self.data.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {

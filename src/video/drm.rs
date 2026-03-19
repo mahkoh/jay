@@ -1146,6 +1146,7 @@ pub enum ConnectorType {
     SPI,
     USB,
     EmbeddedWindow,
+    VirtualOutput,
 }
 
 impl ConnectorType {
@@ -1200,6 +1201,7 @@ impl ConnectorType {
             Self::SPI => sys::DRM_MODE_CONNECTOR_SPI,
             Self::USB => sys::DRM_MODE_CONNECTOR_USB,
             Self::EmbeddedWindow => sys::DRM_MODE_CONNECTOR_Unknown,
+            Self::VirtualOutput => sys::DRM_MODE_CONNECTOR_Unknown,
         }
     }
 
@@ -1228,6 +1230,7 @@ impl ConnectorType {
             Self::SPI => CON_SPI,
             Self::USB => CON_USB,
             Self::EmbeddedWindow => CON_EMBEDDED_WINDOW,
+            Self::VirtualOutput => CON_VIRTUAL_OUTPUT,
         }
     }
 }
@@ -1257,6 +1260,7 @@ impl Display for ConnectorType {
             Self::SPI => "SPI",
             Self::USB => "USB",
             Self::EmbeddedWindow => "EmbeddedWindow",
+            Self::VirtualOutput => "VO",
         };
         f.write_str(s)
     }

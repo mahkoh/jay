@@ -105,6 +105,14 @@ request set_use_native_gamut (since = 23) {
     use_native_gamut: u32,
 }
 
+request create_virtual_output (since = 30) {
+    name: str,
+}
+
+request remove_virtual_output (since = 30) {
+    name: str,
+}
+
 # events
 
 event global {
