@@ -89,12 +89,12 @@ use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceDisplayOrder;
 use crate::tree::WorkspaceDragDestination;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceOutputLink;
 use crate::tree::WorkspaceType;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::bhash::BHashMap;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -726,6 +726,9 @@ impl OutputNode {
         let ns = &self.node_state[RenderTL];
         let active_id = ns.workspace.id();
         for ws in self.workspaces.iter_valid(RenderTL) {
+            if ws.hidden.get() {
+                continue;
+            }
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
@@ -868,6 +871,9 @@ impl OutputNode {
             pos += title_width;
         };
         for ws in self.workspaces.iter_valid(RenderTL) {
+            if ws.hidden.get() {
+                continue;
+            }
             handle_workspace(&ws, false);
         }
         if let Some(ws) = ns.overlay.get() {
@@ -903,7 +909,10 @@ impl OutputNode {
             return ws;
         }
         if self.is_dummy
-            && let Some(ws) = self.workspaces.last_valid(LiveTL)
+            && let Some(ws) = self
+                .workspaces
+                .rev_iter_valid(LiveTL)
+                .find(|ws| !ws.hidden.get())
         {
             return ws.item.clone();
         }
@@ -965,16 +974,17 @@ impl OutputNode {
                 pinned.deref().clone().set_workspace(ws, false);
             }
             if old.is_empty() {
-                for jw in old.jay_workspaces.lock().values() {
-                    jw.send_destroyed();
-                    jw.workspace.set(None);
+                match old.effective_empty_behavior() {
+                    WorkspaceEmptyBehavior::Preserve => {
+                        old.set_visible(false);
+                        old.flush_jay_workspaces();
+                    }
+                    WorkspaceEmptyBehavior::DestroyOnLeave => old.destroy_empty_workspace(),
+                    WorkspaceEmptyBehavior::HideOnLeave => old.hide_empty_workspace(true),
+                    WorkspaceEmptyBehavior::Destroy | WorkspaceEmptyBehavior::Hide => {
+                        old.enforce_empty_behavior();
+                    }
                 }
-                for wh in old.ext_workspaces.lock().values() {
-                    wh.handle_destroyed();
-                }
-                old.clear();
-                self.state.workspaces.remove(&*old.name);
-                self.state.trigger_cci(CCI_WORKSPACES);
             } else {
                 old.set_visible(false);
                 old.flush_jay_workspaces();
@@ -1112,6 +1122,21 @@ impl OutputNode {
     }
 
     pub fn create_normal_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
+        self.create_workspace2(name, true)
+    }
+
+    pub(crate) fn create_workspace_without_jay_watchers(
+        self: &Rc<Self>,
+        name: &str,
+    ) -> Rc<WorkspaceNode> {
+        self.create_workspace2(name, false)
+    }
+
+    fn create_workspace2(
+        self: &Rc<Self>,
+        name: &str,
+        announce_to_jay_watchers: bool,
+    ) -> Rc<WorkspaceNode> {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
@@ -1127,14 +1152,8 @@ impl OutputNode {
         if self.node_state[LiveTL].workspace.is_none() {
             self.show_workspace(&ws);
         }
-        let mut clients_to_kill = BHashMap::default();
-        for watcher in self.state.workspace_watchers.lock().values() {
-            if let Err(e) = watcher.send_workspace(&ws) {
-                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
-            }
-        }
-        for (client, e) in clients_to_kill.values() {
-            client.error(e);
+        if announce_to_jay_watchers {
+            ws.announce_to_jay_watchers();
         }
         self.state.workspace_managers.announce_workspace(self, &ws);
         self.schedule_update_render_data();
@@ -2503,15 +2522,15 @@ impl NodeBase for OutputNode {
             return;
         };
         for _ in 0..steps.abs() {
-            let new = if steps < 0 {
-                ws.prev_valid(LiveTL)
+            let next_ws = if steps < 0 {
+                ws.prev_with(|ws| ws.valid[LiveTL].get() && !ws.hidden.get())
             } else {
-                ws.next_valid(LiveTL)
+                ws.next_with(|ws| ws.valid[LiveTL].get() && !ws.hidden.get())
             };
-            ws = match new {
-                Some(n) => n,
-                None => break,
+            let Some(next_ws) = next_ws else {
+                break;
             };
+            ws = next_ws;
         }
         self.state.show_workspace2(Some(seat), &self, &ws);
     }

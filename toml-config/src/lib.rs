@@ -34,6 +34,7 @@ use crate::config::Theme;
 use crate::config::TomlWorkspace;
 pub use crate::config::WindowMatch;
 use crate::config::WindowRule;
+use crate::config::WorkspaceSlot;
 pub use crate::config::parse_client_match;
 use crate::config::parse_config;
 pub use crate::config::parse_window_match;
@@ -132,6 +133,7 @@ use jay_config::video::set_vrr_cursor_hz;
 use jay_config::video::set_vrr_mode;
 use jay_config::window::Window;
 use jay_config::workspace::set_workspace_display_order;
+use jay_config::workspace::set_workspace_empty_behavior;
 use jay_config::xwayland::set_x_scaling_mode;
 use jay_config::xwayland::set_x_wayland_enabled;
 use run_on_drop::on_drop;
@@ -1282,6 +1284,8 @@ struct PersistentState {
     watcher_handle: RefCell<Option<JoinHandle<()>>>,
     last_config: RefCell<Option<Vec<u8>>>,
     workspaces_with_initial_outputs: RefCell<AHashSet<Workspace>>,
+    workspaces_with_empty_behavior_overrides: RefCell<AHashSet<Workspace>>,
+    default_workspaces: AHashMap<String, Rc<WorkspaceSlot>>,
 }
 
 async fn watch_config(persistent: Rc<PersistentState>) {
@@ -1481,6 +1485,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             match parsed {
                 None if initial_load => {
                     log::warn!("Using default config instead");
+                    workspaces = persistent.default_workspaces.clone();
                     persistent.default.clone()
                 }
                 None => {
@@ -1498,6 +1503,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                 log::info!("Auto reloading config")
             }
             log::info!("{} does not exist. Using default config.", path.display());
+            workspaces = persistent.default_workspaces.clone();
             persistent.default.clone()
         }
         Err(e) => {
@@ -1507,6 +1513,29 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         }
     };
     drop(last_config);
+    let mut new_workspace_empty_behavior_overrides = AHashSet::new();
+    for workspace in workspaces.values() {
+        let Some(behavior) = workspace.empty_behavior.get() else {
+            continue;
+        };
+        let workspace = workspace.ws.get();
+        workspace.set_empty_behavior(Some(behavior));
+        new_workspace_empty_behavior_overrides.insert(workspace);
+    }
+    if let Some(behavior) = config.workspace_empty_behavior {
+        set_workspace_empty_behavior(behavior);
+    }
+    let mut workspace_empty_behavior_overrides = persistent
+        .workspaces_with_empty_behavior_overrides
+        .borrow_mut();
+    for workspace in workspace_empty_behavior_overrides.drain() {
+        if new_workspace_empty_behavior_overrides.contains(&workspace) {
+            continue;
+        }
+        workspace.set_empty_behavior(None);
+    }
+    *workspace_empty_behavior_overrides = new_workspace_empty_behavior_overrides;
+    drop(workspace_empty_behavior_overrides);
     for ws in persistent
         .workspaces_with_initial_outputs
         .borrow_mut()
@@ -1920,7 +1949,8 @@ pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
     let mark_names = Default::default();
-    let default = parse_config(DEFAULT, &mark_names, &mut Default::default(), |e| {
+    let mut default_workspaces = Default::default();
+    let default = parse_config(DEFAULT, &mark_names, &mut default_workspaces, |e| {
         panic!("Could not parse the default config: {}", Report::new(e))
     });
     let persistent = Rc::new(PersistentState {
@@ -1936,6 +1966,8 @@ pub fn configure() {
         watcher_handle: Default::default(),
         last_config: Default::default(),
         workspaces_with_initial_outputs: Default::default(),
+        workspaces_with_empty_behavior_overrides: Default::default(),
+        default_workspaces,
     });
     {
         let p = persistent.clone();

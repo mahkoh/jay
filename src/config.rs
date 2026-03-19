@@ -15,6 +15,7 @@ use crate::tree::OutputNode;
 use crate::tree::TileState;
 use crate::tree::ToplevelData;
 use crate::tree::ToplevelIdentifier;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::nice::dont_allow_unprivileged_config_so;
 use crate::utils::numcell::NumCell;
@@ -210,6 +211,10 @@ impl ConfigProxy {
 
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         self.handler.get()?.initial_output_for_workspace(name)
+    }
+
+    pub fn workspace_empty_behavior(&self, name: &str) -> Option<WorkspaceEmptyBehavior> {
+        self.handler.get()?.workspace_empty_behavior(name)
     }
 
     pub fn update_capabilities(

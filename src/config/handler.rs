@@ -56,6 +56,7 @@ use crate::tree::ToplevelIdentifier;
 use crate::tree::ToplevelNode;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::VrrMode;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::WsMoveConfig;
@@ -150,6 +151,7 @@ use jay_config::window::TileState as ConfigTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
 use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::workspace::WorkspaceEmptyBehavior as ConfigWorkspaceEmptyBehavior;
 use jay_config::xwayland::XScalingMode;
 use kbvm::GroupIndex;
 use kbvm::Keycode;
@@ -238,6 +240,7 @@ pub struct ConfigWorkspace {
     name: String,
     ty: Cell<WorkspaceType>,
     initial_connector: Cell<Option<Connector>>,
+    empty_behavior: Cell<Option<WorkspaceEmptyBehavior>>,
 }
 
 pub struct Pollable {
@@ -330,6 +333,7 @@ impl ConfigProxyHandler {
                     name: name.to_string(),
                     ty: Cell::new(ty),
                     initial_connector: Default::default(),
+                    empty_behavior: Cell::new(None),
                 });
                 self.workspaces_by_name.set(name.clone(), ws.clone());
                 self.workspaces_by_id.set(id, ws);
@@ -341,6 +345,10 @@ impl ConfigProxyHandler {
             }
         };
         Workspace(id)
+    }
+
+    pub fn workspace_empty_behavior(&self, name: &str) -> Option<WorkspaceEmptyBehavior> {
+        self.workspaces_by_name.get(name)?.empty_behavior.get()
     }
 
     fn handle_log_request(
@@ -666,6 +674,9 @@ impl ConfigProxyHandler {
     fn handle_get_workspaces(&self) {
         let mut workspaces = vec![];
         for ws in self.state.workspaces.lock().values() {
+            if ws.hidden.get() {
+                continue;
+            }
             workspaces.push(self.get_workspace_by_name(&ws.name, ws.ty));
         }
         self.respond(Response::GetWorkspaces { workspaces });
@@ -1374,7 +1385,7 @@ impl ConfigProxyHandler {
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
                 }
-                if output.id == self.state.dummy_output_id {
+                if output.id == self.state.dummy_output_id && !ws.hidden.get() {
                     log::warn!("Could not determine output to show workspace on");
                     return Ok(());
                 }
@@ -1400,7 +1411,7 @@ impl ConfigProxyHandler {
             }
         };
         let mut did_focus = false;
-        if move_ {
+        if move_ && !ws.hidden.get() {
             move_ws_to_output(
                 &ws,
                 &output,
@@ -1418,7 +1429,8 @@ impl ConfigProxyHandler {
                 ws.desired_output.set(output.global.output_id.clone());
             }
             self.state.tree_changed();
-        } else {
+        }
+        if !move_ || ws.hidden.get() {
             did_focus = self.state.show_workspace2(seat.as_ref(), &output, &ws);
         }
         if (did_focus || ws.ty == WorkspaceType::Normal)
@@ -1448,6 +1460,16 @@ impl ConfigProxyHandler {
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
+        if workspace.hidden.get() && seat.get_keyboard_node().node_toplevel().is_none() {
+            return Ok(());
+        }
+        if workspace.hidden.get()
+            && workspace
+                .restore_hidden_workspace(None, Some(&seat))
+                .is_none()
+        {
+            return Ok(());
+        }
         seat.set_workspace(&workspace);
         Ok(())
     }
@@ -1473,6 +1495,9 @@ impl ConfigProxyHandler {
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
+        if workspace.hidden.get() && workspace.restore_hidden_workspace(None, None).is_none() {
+            return Ok(());
+        }
         toplevel_set_workspace(&self.state, window, &workspace);
         Ok(())
     }
@@ -1858,6 +1883,26 @@ impl ConfigProxyHandler {
         self.state.set_workspace_display_order(order.into());
     }
 
+    fn handle_set_workspace_empty_behavior(&self, behavior: ConfigWorkspaceEmptyBehavior) {
+        self.state.set_workspace_empty_behavior(behavior.into());
+    }
+
+    fn handle_set_workspace_empty_behavior_override(
+        &self,
+        workspace: Workspace,
+        behavior: Option<ConfigWorkspaceEmptyBehavior>,
+    ) -> Result<(), CphError> {
+        let ws = self.get_workspace(workspace)?;
+        let behavior = behavior.map(Into::into);
+        ws.empty_behavior.set(behavior);
+        let Some(ws) = self.state.workspaces.get(&ws.name) else {
+            return Ok(());
+        };
+        ws.empty_behavior_override.set(behavior);
+        ws.enforce_empty_behavior();
+        Ok(())
+    }
+
     fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetFloatPinned {
@@ -2041,6 +2086,7 @@ impl ConfigProxyHandler {
         let workspaces = output
             .workspaces
             .iter_valid(LiveTL)
+            .filter(|ws| !ws.hidden.get())
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });
@@ -2050,6 +2096,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
         let connector = self
             .get_existing_workspace(workspace)?
+            .filter(|ws| !ws.hidden.get())
             .map(|ws| ws.node_state[LiveTL].output.get())
             .filter(|o| !o.is_dummy)
             .map(|o| Connector(o.global.connector.id.raw() as _))
@@ -4043,6 +4090,15 @@ impl ConfigProxyHandler {
             ClientMessage::GetPlaneColorPipelinesEnabled { device } => self
                 .handle_get_plane_color_pipelines_enabled(device)
                 .wrn("get_plane_color_pipelines_enabled")?,
+            ClientMessage::SetWorkspaceEmptyBehavior { behavior } => {
+                self.handle_set_workspace_empty_behavior(behavior)
+            }
+            ClientMessage::SetWorkspaceEmptyBehaviorOverride {
+                workspace,
+                behavior,
+            } => self
+                .handle_set_workspace_empty_behavior_override(workspace, behavior)
+                .wrn("set_workspace_empty_behavior_override")?,
         }
         Ok(())
     }

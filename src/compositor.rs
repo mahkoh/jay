@@ -102,6 +102,7 @@ use crate::tree::TearingMode;
 use crate::tree::Transform;
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::tree::container_layout;
 use crate::tree::container_render_positions;
 use crate::tree::container_render_titles;
@@ -451,6 +452,7 @@ fn start_compositor2(
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
+        workspace_empty_behavior: Cell::new(WorkspaceEmptyBehavior::DestroyOnLeave),
         outputs_without_hc: Default::default(),
         udmabuf,
         gfx_ctx_changed: Default::default(),

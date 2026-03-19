@@ -54,6 +54,7 @@ use crate::window::Window;
 use crate::window::WindowMatcher;
 use crate::window::WindowType;
 use crate::workspace::WorkspaceDisplayOrder;
+use crate::workspace::WorkspaceEmptyBehavior;
 use crate::xwayland::XScalingMode;
 use serde::Deserialize;
 use serde::Serialize;
@@ -1007,6 +1008,13 @@ pub enum ClientMessage<'a> {
     },
     GetPlaneColorPipelinesEnabled {
         device: DrmDevice,
+    },
+    SetWorkspaceEmptyBehavior {
+        behavior: WorkspaceEmptyBehavior,
+    },
+    SetWorkspaceEmptyBehaviorOverride {
+        workspace: Workspace,
+        behavior: Option<WorkspaceEmptyBehavior>,
     },
 }
 

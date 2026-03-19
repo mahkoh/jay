@@ -218,6 +218,9 @@ impl ConnectorHandler {
             }
             let dummy = self.state.dummy_output.get().unwrap();
             for ws in dummy.workspaces.iter_valid(LiveTL) {
+                if ws.hidden.get() {
+                    continue;
+                }
                 ws_to_move.push_back(ws.item.clone());
             }
         }
@@ -226,6 +229,9 @@ impl ConnectorHandler {
                 continue;
             }
             for ws in source.workspaces.iter_valid(LiveTL) {
+                if ws.hidden.get() {
+                    continue;
+                }
                 if ws.desired_output.get() == global.output_id {
                     ws_to_move.push_back(ws.item.clone());
                 }
@@ -246,11 +252,17 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        let hidden_workspaces = self
+            .state
+            .collect_hidden_workspaces(|ws| ws.desired_output.get() == output_id);
         self.state.add_global(&global);
         self.state.add_global(&tray);
         self.state.tree_changed();
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
+        for ws in hidden_workspaces {
+            ws.set_hidden_output(&on);
+        }
         self.data
             .head_manager
             .handle_output_connected(&self.state, &output_data);
@@ -320,8 +332,14 @@ impl ConnectorHandler {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
+        let hidden_workspaces = self
+            .state
+            .collect_hidden_workspaces(|ws| ws.node_state[LiveTL].output.id() == on.id);
         for ws in on.workspaces.iter_valid(LiveTL) {
             let wns = &ws.node_state[LiveTL];
+            if ws.hidden.get() {
+                continue;
+            }
             if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(wns.visible.get());
             }
@@ -332,6 +350,10 @@ impl ConnectorHandler {
                 before: None,
             };
             move_ws_to_output(&ws, &target, config);
+        }
+        let dummy = self.state.dummy_output.get().unwrap();
+        for ws in hidden_workspaces {
+            ws.set_hidden_output(&dummy);
         }
         for group in on.ext_workspace_groups.lock().drain_values() {
             group.handle_destroyed();

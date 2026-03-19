@@ -42,11 +42,14 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::tree::calculate_float_position;
 use crate::tree::container::ContainerNode;
 use crate::tree::walker::NodeVisitor;
+use crate::utils::bhash::BHashMap;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
@@ -57,6 +60,7 @@ use crate::utils::opt::Opt;
 use crate::utils::threshold_counter::ThresholdCounter;
 use crate::wire::JayWorkspaceId;
 use linearize::Linearize;
+use run_on_drop::on_drop;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -82,6 +86,9 @@ pub struct WorkspaceNode {
     pub seat_state: NodeSeatState,
     pub name: Rc<String>,
     pub name_hash: WorkspaceNameHash,
+    pub hidden: Cell<bool>,
+    pub empty_behavior_override: Cell<Option<WorkspaceEmptyBehavior>>,
+    empty_behavior_suspended: ThresholdCounter,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
@@ -127,6 +134,15 @@ impl WorkspaceNode {
             seat_state: Default::default(),
             name: Rc::new(name.to_string()),
             name_hash: WorkspaceNameHash::hash(name),
+            hidden: Default::default(),
+            empty_behavior_override: Cell::new(
+                output
+                    .state
+                    .config
+                    .get()
+                    .and_then(|config| config.workspace_empty_behavior(name)),
+            ),
+            empty_behavior_suspended: Default::default(),
             visible_on_desired_output: Default::default(),
             desired_output: CloneCell::new(output.global.output_id.clone()),
             jay_workspaces: Default::default(),
@@ -151,6 +167,7 @@ impl WorkspaceNode {
         self.set_ns_container(None);
         self.set_ns_output_link(None);
         self.set_ns_fullscreen(None);
+        self.hidden.set(false);
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
         self.opt.set(None);
@@ -246,6 +263,222 @@ impl WorkspaceNode {
             stacked.deref().clone().node_visit_dyn(&mut visitor);
         }
         self.state.trigger_cci(CCI_WORKSPACES);
+    }
+
+    pub fn set_hidden_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        if !self.hidden.get() {
+            return;
+        }
+        let ns = &self.node_state[LiveTL];
+        if ns.output.id() == output.id {
+            return;
+        }
+        let before = match output.state.workspace_display_order.get() {
+            WorkspaceDisplayOrder::Sorted => output.find_workspace_insertion_point(&self.name),
+            WorkspaceDisplayOrder::Manual => None,
+        };
+        if let Some(output_link) = ns.output_link.get() {
+            self.set_output(output);
+            if let Some(before) = before
+                && let Some(link) = before.node_state[LiveTL].output_link.get()
+            {
+                link.prepend_existing(&output_link);
+                return;
+            }
+            output.workspaces.add_last_existing(&output_link);
+            return;
+        }
+        self.set_output(output);
+        let data = TreeLink::new(self.clone());
+        let link = if let Some(before) = before {
+            before.prepend(data)
+        } else {
+            output.workspaces.add_last(data)
+        };
+        self.set_ns_output_link(Some(link));
+    }
+
+    pub fn restore_hidden_workspace(
+        self: &Rc<Self>,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Option<Rc<OutputNode>> {
+        self.restore_hidden_workspace2(output, seat, true)
+    }
+
+    pub fn restore_hidden_workspace2(
+        self: &Rc<Self>,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+        schedule_tree_changed: bool,
+    ) -> Option<Rc<OutputNode>> {
+        if !self.hidden.get() {
+            return Some(self.node_state[LiveTL].output.get());
+        }
+        let target = self.resolve_hidden_workspace_output(output, seat)?;
+        let prev_output = self.node_state[LiveTL].output.get();
+        if prev_output.id != target.id {
+            self.set_hidden_output(&target);
+        }
+        self.hidden.set(false);
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_visibility_changed();
+        }
+        self.update_has_captures();
+        self.desired_output.set(target.global.output_id.clone());
+        self.state.trigger_cci(CCI_WORKSPACES);
+        self.announce_to_jay_watchers();
+        if schedule_tree_changed {
+            target.schedule_update_render_data();
+            self.state.tree_changed();
+        }
+        Some(target)
+    }
+
+    pub fn announce_to_jay_watchers(self: &Rc<Self>) {
+        let mut clients_to_kill = BHashMap::default();
+        for watcher in self.state.workspace_watchers.lock().values() {
+            if let Err(e) = watcher.send_workspace(self) {
+                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
+            }
+        }
+        for (client, e) in clients_to_kill.values() {
+            client.error(e);
+        }
+    }
+
+    pub fn effective_empty_behavior(&self) -> WorkspaceEmptyBehavior {
+        self.empty_behavior_override
+            .get()
+            .unwrap_or_else(|| self.state.workspace_empty_behavior.get())
+    }
+
+    fn can_apply_empty_behavior(&self) -> bool {
+        if self.empty_behavior_suspended.active() {
+            return false;
+        }
+        if self.ty == WorkspaceType::Overlay {
+            return false;
+        }
+        if self.node_state[LiveTL].output.get().is_dummy && !self.hidden.get() {
+            return false;
+        }
+        if !self.is_empty() {
+            return false;
+        }
+        if self.is_active() {
+            return false;
+        }
+        true
+    }
+
+    fn is_active(&self) -> bool {
+        let output = self.node_state[LiveTL].output.get();
+        let Some(active) = output.node_state[LiveTL].workspace.id() else {
+            return false;
+        };
+        active == self.id
+    }
+
+    pub fn with_empty_behavior_suspended<T>(&self, f: impl FnOnce() -> T) -> T {
+        self.empty_behavior_suspended.inc();
+        let _resume = on_drop(|| {
+            self.empty_behavior_suspended.dec();
+        });
+        f()
+    }
+
+    pub fn enforce_empty_behavior(self: &Rc<Self>) {
+        self.enforce_empty_behavior2(true);
+    }
+
+    pub fn enforce_empty_behavior2(self: &Rc<Self>, update_desired_output: bool) {
+        match self.effective_empty_behavior() {
+            WorkspaceEmptyBehavior::Preserve
+            | WorkspaceEmptyBehavior::DestroyOnLeave
+            | WorkspaceEmptyBehavior::HideOnLeave => {}
+            WorkspaceEmptyBehavior::Destroy => self.destroy_empty_workspace(),
+            WorkspaceEmptyBehavior::Hide => self.hide_empty_workspace(update_desired_output),
+        }
+    }
+
+    pub fn destroy_empty_workspace(self: &Rc<Self>) {
+        if !self.can_apply_empty_behavior() {
+            return;
+        }
+        let output = self.node_state[LiveTL].output.get();
+        for jw in self.jay_workspaces.lock().values() {
+            jw.send_destroyed();
+            jw.workspace.set(None);
+        }
+        for wh in self.ext_workspaces.lock().values() {
+            wh.handle_destroyed();
+        }
+        self.clear();
+        self.state.workspaces.remove(&*self.name);
+        self.state.trigger_cci(CCI_WORKSPACES);
+        if !output.is_dummy {
+            output.schedule_update_render_data();
+            self.state.tree_changed();
+        }
+    }
+
+    pub fn hide_empty_workspace(self: &Rc<Self>, update_desired_output: bool) {
+        if self.hidden.get() {
+            return;
+        }
+        if !self.can_apply_empty_behavior() {
+            return;
+        }
+        let prev_output = self.node_state[LiveTL].output.get();
+        let mut jay_workspaces = self.jay_workspaces.lock();
+        for jw in jay_workspaces.drain_values() {
+            jw.send_destroyed();
+            jw.workspace.set(None);
+        }
+        drop(jay_workspaces);
+        if update_desired_output {
+            self.desired_output
+                .set(prev_output.global.output_id.clone());
+        }
+        self.hidden.set(true);
+        self.set_visible(false);
+        prev_output.schedule_update_render_data();
+        self.state.tree_changed();
+    }
+
+    fn resolve_hidden_workspace_output(
+        &self,
+        output: Option<Rc<OutputNode>>,
+        seat: Option<&Rc<WlSeatGlobal>>,
+    ) -> Option<Rc<OutputNode>> {
+        if let Some(output) = output
+            && !output.is_dummy
+        {
+            return Some(output);
+        }
+        let current = self.node_state[LiveTL].output.get();
+        if !current.is_dummy {
+            return Some(current);
+        }
+        let desired_output = self.desired_output.get();
+        for candidate in self.state.root.outputs.lock().values() {
+            if candidate.global.output_id == desired_output {
+                return Some(candidate.clone());
+            }
+        }
+        if let Some(seat) = seat {
+            let fallback = seat.get_fallback_output();
+            if !fallback.is_dummy {
+                return Some(fallback);
+            }
+        }
+        for candidate in self.state.root.outputs.lock().values() {
+            if !candidate.is_dummy {
+                return Some(candidate.clone());
+            }
+        }
+        None
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
@@ -625,12 +858,14 @@ impl ContainingNode for WorkspaceNode {
         {
             self.discard_child_properties(&*container);
             self.set_ns_container(None);
+            self.enforce_empty_behavior();
             return;
         }
         if let Some(fs) = ns.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
             self.remove_fullscreen_node();
+            self.enforce_empty_behavior();
             return;
         }
         log::error!("Trying to remove child that's not a child");
@@ -681,7 +916,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         new_source_ws = source
             .workspaces
             .iter_valid(LiveTL)
-            .find(|c| c.id != ws.id)
+            .find(|c| c.id != ws.id && !c.hidden.get())
             .map(|c| c.item.clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
             new_source_ws = Some(source.generate_normal_workspace());
@@ -696,9 +931,11 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         }
     }
     if let Some(new_source_ws) = &new_source_ws {
-        for pinned in source.pinned.iter() {
-            pinned.deref().clone().set_workspace(new_source_ws, false);
-        }
+        ws.with_empty_behavior_suspended(|| {
+            for pinned in source.pinned.iter() {
+                pinned.deref().clone().set_workspace(new_source_ws, false);
+            }
+        });
     }
     ws.set_output(&target);
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
@@ -727,6 +964,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         ws.state.show_workspace2(None, target, &ws);
     } else {
         ws.set_visible(false);
+        ws.enforce_empty_behavior2(!config.source_is_destroyed);
     }
     ws.flush_jay_workspaces();
     if let Some(ws) = new_source_ws {

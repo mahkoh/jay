@@ -1,6 +1,7 @@
 use crate::client::ClientId;
 use crate::it::test_error::TestError;
 use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_jay_workspace_watcher::TestJayWorkspaceWatcher;
 use crate::it::test_ifs::test_screenshot::TestJayScreenshot;
 use crate::it::test_object::TestObject;
 use crate::it::test_transport::TestTransport;
@@ -44,6 +45,20 @@ impl TestJayCompositor {
     pub fn enable_symmetric_delete(&self) -> TestResult {
         self.tran.send(EnableSymmetricDelete { self_id: self.id })?;
         Ok(())
+    }
+
+    pub fn watch_workspaces(&self) -> Result<Rc<TestJayWorkspaceWatcher>, TestError> {
+        let watcher = Rc::new(TestJayWorkspaceWatcher {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+            workspaces: Default::default(),
+        });
+        self.tran.send(WatchWorkspaces {
+            self_id: self.id,
+            id: watcher.id,
+        })?;
+        self.tran.add_obj(watcher.clone())?;
+        Ok(watcher)
     }
 
     pub async fn take_screenshot(

@@ -47,6 +47,7 @@ use jay_config::Direction as JayDirection;
 use jay_config::video::Transform as ConfigTransform;
 use jay_config::window::TileState as ConfigTileState;
 use jay_config::workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder;
+use jay_config::workspace::WorkspaceEmptyBehavior as ConfigWorkspaceEmptyBehavior;
 use linearize::Linearize;
 use linearize::LinearizeExt;
 use linearize::StaticMap;
@@ -270,6 +271,53 @@ impl From<JayDirection> for Direction {
             JayDirection::Down => Self::Down,
             JayDirection::Up => Self::Up,
             JayDirection::Right => Self::Right,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum WorkspaceEmptyBehavior {
+    Preserve,
+    #[default]
+    DestroyOnLeave,
+    HideOnLeave,
+    Destroy,
+    Hide,
+}
+
+impl From<ConfigWorkspaceEmptyBehavior> for WorkspaceEmptyBehavior {
+    fn from(value: ConfigWorkspaceEmptyBehavior) -> Self {
+        match value {
+            ConfigWorkspaceEmptyBehavior::Preserve => WorkspaceEmptyBehavior::Preserve,
+            ConfigWorkspaceEmptyBehavior::DestroyOnLeave => WorkspaceEmptyBehavior::DestroyOnLeave,
+            ConfigWorkspaceEmptyBehavior::HideOnLeave => WorkspaceEmptyBehavior::HideOnLeave,
+            ConfigWorkspaceEmptyBehavior::Destroy => WorkspaceEmptyBehavior::Destroy,
+            ConfigWorkspaceEmptyBehavior::Hide => WorkspaceEmptyBehavior::Hide,
+            _ => WorkspaceEmptyBehavior::DestroyOnLeave,
+        }
+    }
+}
+
+impl Into<ConfigWorkspaceEmptyBehavior> for WorkspaceEmptyBehavior {
+    fn into(self) -> ConfigWorkspaceEmptyBehavior {
+        match self {
+            WorkspaceEmptyBehavior::Preserve => ConfigWorkspaceEmptyBehavior::Preserve,
+            WorkspaceEmptyBehavior::DestroyOnLeave => ConfigWorkspaceEmptyBehavior::DestroyOnLeave,
+            WorkspaceEmptyBehavior::HideOnLeave => ConfigWorkspaceEmptyBehavior::HideOnLeave,
+            WorkspaceEmptyBehavior::Destroy => ConfigWorkspaceEmptyBehavior::Destroy,
+            WorkspaceEmptyBehavior::Hide => ConfigWorkspaceEmptyBehavior::Hide,
+        }
+    }
+}
+
+impl StaticText for WorkspaceEmptyBehavior {
+    fn text(&self) -> &'static str {
+        match self {
+            WorkspaceEmptyBehavior::Preserve => "Preserve",
+            WorkspaceEmptyBehavior::DestroyOnLeave => "Destroy on Leave",
+            WorkspaceEmptyBehavior::HideOnLeave => "Hide on Leave",
+            WorkspaceEmptyBehavior::Destroy => "Destroy",
+            WorkspaceEmptyBehavior::Hide => "Hide",
         }
     }
 }

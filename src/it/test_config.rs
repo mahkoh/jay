@@ -9,12 +9,15 @@ use bincode::Options;
 use isnt::std_1::primitive::IsntConstPtrExt;
 use jay_config::_private::ConfigEntry;
 use jay_config::_private::VERSION;
+use jay_config::_private::WorkspaceShowOpV1;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::ClientMessage;
 use jay_config::_private::ipc::Response;
 use jay_config::_private::ipc::ServerMessage;
+use jay_config::_private::ipc::WorkspaceSource;
 use jay_config::Axis;
 use jay_config::Direction;
+use jay_config::Workspace;
 use jay_config::input::InputDevice;
 use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
@@ -24,6 +27,8 @@ use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
 use jay_config::video::Connector;
 use jay_config::video::Transform;
+use jay_config::window::Window;
+use jay_config::workspace::WorkspaceEmptyBehavior;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::ptr;
@@ -202,13 +207,100 @@ impl TestConfig {
         Ok(SeatId::from_raw(seat.0 as _))
     }
 
-    pub fn show_workspace(&self, seat: SeatId, name: &str) -> Result<(), TestError> {
+    pub fn get_workspace(&self, name: &str) -> Result<Workspace, TestError> {
         let reply = self.send_with_reply(ClientMessage::GetWorkspace { name })?;
         get_response!(reply, GetWorkspace { workspace });
+        Ok(workspace)
+    }
+
+    pub fn get_workspaces(&self) -> Result<Vec<Workspace>, TestError> {
+        let reply = self.send_with_reply(ClientMessage::GetWorkspaces)?;
+        get_response!(reply, GetWorkspaces { workspaces });
+        Ok(workspaces)
+    }
+
+    pub fn get_workspace_connector(&self, name: &str) -> Result<Connector, TestError> {
+        let workspace = self.get_workspace(name)?;
+        let reply = self.send_with_reply(ClientMessage::GetWorkspaceConnector { workspace })?;
+        get_response!(reply, GetWorkspaceConnector { connector });
+        Ok(connector)
+    }
+
+    pub fn get_workspace_window(&self, name: &str) -> Result<Window, TestError> {
+        let workspace = self.get_workspace(name)?;
+        let reply = self.send_with_reply(ClientMessage::GetWorkspaceWindow { workspace })?;
+        get_response!(reply, GetWorkspaceWindow { window });
+        Ok(window)
+    }
+
+    pub fn show_workspace(&self, seat: SeatId, name: &str) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
         self.send(ClientMessage::ShowWorkspace {
             seat: Seat(seat.raw() as _),
             workspace,
         })
+    }
+
+    pub fn show_workspace_on(
+        &self,
+        seat: SeatId,
+        name: &str,
+        output: &OutputNode,
+    ) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
+        self.send(ClientMessage::ShowWorkspaceOn {
+            seat: Seat(seat.raw() as _),
+            workspace,
+            connector: Connector(output.global.connector.connector.id().raw() as _),
+        })
+    }
+
+    pub fn show_workspace_move_to_output(
+        &self,
+        seat: SeatId,
+        name: &str,
+        output: &OutputNode,
+    ) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
+        self.send(ClientMessage::ShowWorkspace3 {
+            v1: WorkspaceShowOpV1 {
+                workspace,
+                connector: Some(Connector(output.global.connector.connector.id().raw() as _)),
+                move_to_connector: true,
+                seat: Some(Seat(seat.raw() as _)),
+                fallback_output_mode: None,
+                focus: true,
+            },
+        })
+    }
+
+    pub fn move_workspace_to_output(
+        &self,
+        name: &str,
+        output: &OutputNode,
+    ) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
+        self.send(ClientMessage::MoveToOutput {
+            workspace: WorkspaceSource::Explicit(workspace),
+            connector: Connector(output.global.connector.connector.id().raw() as _),
+        })
+    }
+
+    pub fn set_seat_workspace(&self, seat: SeatId, name: &str) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
+        self.send(ClientMessage::SetSeatWorkspace {
+            seat: Seat(seat.raw() as _),
+            workspace,
+        })
+    }
+
+    pub fn set_window_workspace(&self, window: Window, name: &str) -> Result<(), TestError> {
+        let workspace = self.get_workspace(name)?;
+        self.send(ClientMessage::SetWindowWorkspace { window, workspace })
+    }
+
+    pub fn set_window_floating(&self, window: Window, floating: bool) -> TestResult {
+        self.send(ClientMessage::SetWindowFloating { window, floating })
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Result<Keymap, TestError> {
@@ -336,6 +428,28 @@ impl TestConfig {
 
     pub fn set_show_titles(&self, show: bool) -> TestResult {
         self.send(ClientMessage::SetShowTitles { show })
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) -> TestResult {
+        self.send(ClientMessage::SetWorkspaceEmptyBehavior { behavior })
+    }
+
+    pub fn set_workspace_empty_behavior_override(
+        &self,
+        workspace: Workspace,
+        behavior: WorkspaceEmptyBehavior,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWorkspaceEmptyBehaviorOverride {
+            workspace,
+            behavior: Some(behavior),
+        })
+    }
+
+    pub fn clear_workspace_empty_behavior_override(&self, workspace: Workspace) -> TestResult {
+        self.send(ClientMessage::SetWorkspaceEmptyBehaviorOverride {
+            workspace,
+            behavior: None,
+        })
     }
 }
 
