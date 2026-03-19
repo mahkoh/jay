@@ -1177,6 +1177,10 @@
         "egui": {
           "description": "Sets the egui settings of the compositor.\n",
           "$ref": "#/$defs/Egui"
+        },
+        "workspace-empty-behavior": {
+          "description": "Configures what happens to empty workspaces when you leave them or when they become inactive.\n\nThe default is `destroy-on-leave`.\n\n- Example:\n\n  ```toml\n  workspace-empty-behavior = \"hide-on-leave\"\n  ```\n",
+          "$ref": "#/$defs/WorkspaceEmptyBehavior"
         }
       },
       "required": []
@@ -2504,6 +2508,17 @@
       "enum": [
         "manual",
         "sorted"
+      ]
+    },
+    "WorkspaceEmptyBehavior": {
+      "type": "string",
+      "description": "Configures what happens to empty workspaces when they are left or become inactive.\n\nThis is evaluated per-output.\n\n- \"leave\" means that the workspace stops being the active workspace on its output\n  because another workspace was shown on that same output.\n- \"inactive\" means the workspace is currently not the active workspace on its output.\n",
+      "enum": [
+        "preserve",
+        "destroy-on-leave",
+        "hide-on-leave",
+        "destroy",
+        "hide"
       ]
     },
     "XScalingMode": {

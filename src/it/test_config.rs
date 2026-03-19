@@ -21,6 +21,7 @@ use {
             sized::{BAR_SEPARATOR_WIDTH, Resizable},
         },
         video::{Connector, Transform},
+        workspace::WorkspaceEmptyBehavior,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
 };
@@ -330,6 +331,10 @@ impl TestConfig {
 
     pub fn set_show_titles(&self, show: bool) -> TestResult {
         self.send(ClientMessage::SetShowTitles { show })
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) -> TestResult {
+        self.send(ClientMessage::SetWorkspaceEmptyBehavior { behavior })
     }
 }
 

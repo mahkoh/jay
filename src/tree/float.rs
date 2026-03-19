@@ -904,6 +904,10 @@ impl ContainingNode for FloatNode {
         if self.visible.get() {
             self.state.damage(self.position.get());
         }
+        let ws = self.workspace.get();
+        if ws.is_empty() {
+            self.state.enforce_workspace_empty_behavior(&ws);
+        }
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {

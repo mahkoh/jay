@@ -60,9 +60,9 @@ use {
         tracy::enable_profiler,
         tree::{
             DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
-            WorkspaceDisplayOrder, WorkspaceNode, container_layout, container_render_positions,
-            container_render_titles, float_layout, float_titles, output_render_data,
-            placeholder_render_textures,
+            WorkspaceDisplayOrder, WorkspaceEmptyBehavior, WorkspaceNode, container_layout,
+            container_render_positions, container_render_titles, float_layout, float_titles,
+            output_render_data, placeholder_render_textures,
         },
         user_session::import_environment,
         utils::{
@@ -398,6 +398,7 @@ fn start_compositor2(
         control_centers: Default::default(),
         virtual_outputs: Default::default(),
         clean_logs_older_than: Default::default(),
+        workspace_empty_behavior: Cell::new(WorkspaceEmptyBehavior::DestroyOnLeave),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

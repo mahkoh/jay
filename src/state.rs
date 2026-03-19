@@ -109,8 +109,8 @@ use {
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
             TearingMode, TileState, ToplevelData, ToplevelIdentifier, ToplevelNode,
-            ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder, WorkspaceNode,
-            WsMoveConfig, generic_node_visitor, move_ws_to_output,
+            ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder, WorkspaceEmptyBehavior,
+            WorkspaceNode, WsMoveConfig, generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -298,6 +298,7 @@ pub struct State {
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
+    pub workspace_empty_behavior: Cell<WorkspaceEmptyBehavior>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
@@ -930,6 +931,48 @@ impl State {
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
+        let mut output = output.clone();
+        if ws.hidden.get() {
+            let desired_output = ws.desired_output.get();
+            let mut target = None;
+            for candidate in self.root.outputs.lock().values() {
+                if candidate.global.output_id == desired_output {
+                    target = Some(candidate.clone());
+                    break;
+                }
+            }
+            if target.is_none() && !output.is_dummy {
+                target = Some(output.clone());
+            }
+            if target.is_none()
+                && let Some(seat) = seat
+            {
+                let fallback = seat.get_fallback_output();
+                if !fallback.is_dummy {
+                    target = Some(fallback);
+                }
+            }
+            let Some(target) = target else {
+                return;
+            };
+            if target.is_dummy {
+                return;
+            }
+            ws.hidden.set(false);
+            ws.set_output(&target);
+            let link = if self.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
+                if let Some(before) = target.find_workspace_insertion_point(&ws.name) {
+                    before.prepend(ws.clone())
+                } else {
+                    target.workspaces.add_last(ws.clone())
+                }
+            } else {
+                target.workspaces.add_last(ws.clone())
+            };
+            *ws.output_link.borrow_mut() = Some(link);
+            ws.desired_output.set(target.global.output_id.clone());
+            output = target;
+        }
         let mut pinned_is_focused = false;
         if let Some(seat) = seat {
             for pinned in output.pinned.iter() {
@@ -1837,6 +1880,101 @@ impl State {
             output.handle_workspace_display_order_update();
         }
         self.trigger_cci(CCI_COMPOSITOR);
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) {
+        self.workspace_empty_behavior.set(behavior);
+        self.trigger_cci(CCI_COMPOSITOR);
+        if !matches!(
+            behavior,
+            WorkspaceEmptyBehavior::Destroy | WorkspaceEmptyBehavior::Hide
+        ) {
+            return;
+        }
+        let workspaces: Vec<Rc<WorkspaceNode>> = self.workspaces.lock().values().cloned().collect();
+        for ws in workspaces {
+            self.enforce_workspace_empty_behavior(&ws);
+        }
+    }
+
+    pub fn enforce_workspace_empty_behavior(&self, ws: &Rc<WorkspaceNode>) {
+        if ws.is_dummy {
+            return;
+        }
+        if !ws.is_empty() {
+            return;
+        }
+        if self.workspace_is_active(ws) {
+            return;
+        }
+        match self.workspace_empty_behavior.get() {
+            WorkspaceEmptyBehavior::Preserve => {}
+            WorkspaceEmptyBehavior::DestroyOnLeave => {}
+            WorkspaceEmptyBehavior::HideOnLeave => {}
+            WorkspaceEmptyBehavior::Destroy => self.destroy_empty_workspace(ws),
+            WorkspaceEmptyBehavior::Hide => self.hide_empty_workspace(ws),
+        }
+    }
+
+    fn workspace_is_active(&self, ws: &WorkspaceNode) -> bool {
+        let output = ws.output.get();
+        if let Some(active) = output.workspace.get() {
+            return active.id == ws.id;
+        }
+        false
+    }
+
+    pub fn destroy_empty_workspace(&self, ws: &Rc<WorkspaceNode>) {
+        if ws.is_dummy {
+            return;
+        }
+        if !ws.is_empty() {
+            return;
+        }
+        if self.workspace_is_active(ws) {
+            return;
+        }
+        let output = ws.output.get();
+        for jw in ws.jay_workspaces.lock().values() {
+            jw.send_destroyed();
+            jw.workspace.set(None);
+        }
+        for wh in ws.ext_workspaces.lock().values() {
+            wh.handle_destroyed();
+        }
+        ws.clear();
+        self.workspaces.remove(&ws.name);
+        if !output.is_dummy {
+            output.schedule_update_render_data();
+            self.tree_changed();
+        }
+    }
+
+    pub fn hide_empty_workspace(&self, ws: &Rc<WorkspaceNode>) {
+        if ws.is_dummy {
+            return;
+        }
+        if !ws.is_empty() {
+            return;
+        }
+        if self.workspace_is_active(ws) {
+            return;
+        }
+        let prev_output = ws.output.get();
+        if prev_output.is_dummy {
+            return;
+        }
+        ws.desired_output.set(prev_output.global.output_id.clone());
+        ws.output_link.borrow_mut().take();
+        ws.hidden.set(true);
+        ws.set_visible(false);
+        let Some(dummy_output) = self.dummy_output.get() else {
+            return;
+        };
+        ws.set_output(&dummy_output);
+        ws.flush_jay_workspaces();
+        prev_output.schedule_update_render_data();
+        self.tree_changed();
     }
 
     fn spaces_changed(&self) {

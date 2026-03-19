@@ -72,7 +72,7 @@ use {
             VrrMode as ConfigVrrMode,
         },
         window::{TileState as ConfigTileState, Window, WindowMatcher},
-        workspace::WorkspaceDisplayOrder,
+        workspace::{WorkspaceDisplayOrder, WorkspaceEmptyBehavior},
         xwayland::XScalingMode,
     },
     kbvm::Keycode,
@@ -579,6 +579,9 @@ impl ConfigProxyHandler {
     fn handle_get_workspaces(&self) {
         let mut workspaces = vec![];
         for ws in self.state.workspaces.lock().values() {
+            if ws.hidden.get() {
+                continue;
+            }
             workspaces.push(self.get_workspace_by_name(&ws.name));
         }
         self.respond(Response::GetWorkspaces { workspaces });
@@ -1441,6 +1444,10 @@ impl ConfigProxyHandler {
 
     fn handle_set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
         self.state.set_workspace_display_order(order.into());
+    }
+
+    fn handle_set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) {
+        self.state.set_workspace_empty_behavior(behavior.into());
     }
 
     fn handle_get_seat_float_pinned(&self, seat: Seat) -> Result<(), CphError> {
@@ -3412,6 +3419,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_window_resize(window, dx1, dy1, dx2, dy2)
                 .wrn("window_resize")?,
+            ClientMessage::SetWorkspaceEmptyBehavior { behavior } => {
+                self.handle_set_workspace_empty_behavior(behavior)
+            }
         }
         Ok(())
     }

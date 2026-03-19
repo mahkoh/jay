@@ -58,6 +58,7 @@ pub struct WorkspaceNode {
     pub name: String,
     pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
+    pub hidden: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
@@ -86,6 +87,7 @@ impl WorkspaceNode {
             name: name.to_string(),
             output_link: Default::default(),
             visible: Default::default(),
+            hidden: Default::default(),
             fullscreen: Default::default(),
             visible_on_desired_output: Default::default(),
             desired_output: CloneCell::new(output.global.output_id.clone()),
@@ -105,6 +107,7 @@ impl WorkspaceNode {
     pub fn clear(&self) {
         self.container.set(None);
         *self.output_link.borrow_mut() = None;
+        self.hidden.set(false);
         self.fullscreen.set(None);
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
@@ -464,12 +467,18 @@ impl ContainingNode for WorkspaceNode {
             self.discard_child_properties(&*container);
             self.container.set(None);
             self.state.damage(self.position.get());
+            if self.is_empty() {
+                self.state.enforce_workspace_empty_behavior(&self);
+            }
             return;
         }
         if let Some(fs) = self.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
             self.remove_fullscreen_node();
+            if self.is_empty() {
+                self.state.enforce_workspace_empty_behavior(&self);
+            }
             return;
         }
         log::error!("Trying to remove child that's not a child");
@@ -567,6 +576,7 @@ pub fn move_ws_to_output(
     if target.node_visible() {
         target.state.damage(target.global.pos.get());
     }
+    ws.state.enforce_workspace_empty_behavior(&ws);
 }
 
 pub struct WorkspaceDragDestination {

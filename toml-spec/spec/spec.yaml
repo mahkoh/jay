@@ -3222,6 +3222,19 @@ Config:
       required: false
       description: |
         Sets the egui settings of the compositor.
+    workspace-empty-behavior:
+      ref: WorkspaceEmptyBehavior
+      required: false
+      description: |
+        Configures what happens to empty workspaces when you leave them or when they become inactive.
+
+        The default is `destroy-on-leave`.
+
+        - Example:
+
+          ```toml
+          workspace-empty-behavior = "hide-on-leave"
+          ```
 
 
 Idle:
@@ -4697,3 +4710,55 @@ Egui:
         The list of monospace fonts.
         
         The default is `["monospace", "Noto Sans Mono", "Noto Color Emoji"]`.
+
+
+WorkspaceEmptyBehavior:
+  kind: string
+  description: |
+    Configures what happens to empty workspaces when they are left or become inactive.
+
+    This is evaluated per-output.
+
+    - "leave" means that the workspace stops being the active workspace on its output
+      because another workspace was shown on that same output.
+    - "inactive" means the workspace is currently not the active workspace on its output.
+  values:
+    - value: preserve
+      description: |
+        Never destroy or hide empty workspaces automatically.
+
+        Empty workspaces remain present and keep showing up in workspace lists.
+    - value: destroy-on-leave
+      description: |
+        Destroy an empty workspace when leaving it.
+
+        The workspace is destroyed only if it is empty at the moment you switch to another
+        workspace on the same output.
+    - value: hide-on-leave
+      description: |
+        Hide an empty workspace when leaving it.
+
+        The workspace is hidden only if it is empty at the moment you switch to another
+        workspace on the same output.
+
+        Hidden workspaces are not listed, but they can be restored by showing the workspace
+        by name. When restoring, the compositor prefers the output the workspace was last
+        shown on if it is still connected.
+    - value: destroy
+      description: |
+        Destroy an empty workspace whenever it is empty and inactive.
+
+        For example, if the last window on an inactive workspace is closed (or moved away),
+        the workspace is destroyed immediately.
+
+        An active empty workspace is not destroyed until it becomes inactive.
+    - value: hide
+      description: |
+        Hide an empty workspace whenever it is empty and inactive.
+
+        For example, if the last window on an inactive workspace is closed (or moved away),
+        the workspace is hidden immediately.
+
+        Hidden workspaces are not listed, but they can be restored by showing the workspace
+        by name. When restoring, the compositor prefers the output the workspace was last
+        shown on if it is still connected.

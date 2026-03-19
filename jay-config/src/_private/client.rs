@@ -37,7 +37,7 @@ use {
             ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
             WindowType,
         },
-        workspace::WorkspaceDisplayOrder,
+        workspace::{WorkspaceDisplayOrder, WorkspaceEmptyBehavior},
         xwayland::XScalingMode,
     },
     bincode::Options,
@@ -1076,6 +1076,10 @@ impl ConfigClient {
 
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
         self.send(&ClientMessage::SetWorkspaceDisplayOrder { order });
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) {
+        self.send(&ClientMessage::SetWorkspaceEmptyBehavior { behavior });
     }
 
     pub fn seat_create_mark(&self, seat: Seat, kc: Option<u32>) {
