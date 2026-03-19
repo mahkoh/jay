@@ -67,6 +67,7 @@ bitflags! {
         CAP_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
         CAP_HEAD_MANAGER             = 1 << 13,
         CAP_GAMMA_CONTROL_MANAGER    = 1 << 14,
+        CAP_VIRTUAL_POINTER_MANAGER  = 1 << 15,
 }
 
 impl StaticText for ClientCapsEnum {
@@ -87,6 +88,7 @@ impl StaticText for ClientCapsEnum {
             ClientCapsEnum::CAP_FOREIGN_TOPLEVEL_MANAGER => "foreign-toplevel-manager",
             ClientCapsEnum::CAP_HEAD_MANAGER => "head-manager",
             ClientCapsEnum::CAP_GAMMA_CONTROL_MANAGER => "gamma-control-manager",
+            ClientCapsEnum::CAP_VIRTUAL_POINTER_MANAGER => "virtual-pointer",
         }
     }
 }

@@ -15,7 +15,7 @@ use {
 #[expect(dead_code)]
 const ROLE: u32 = 0;
 
-pub(super) const RELEASED: u32 = 0;
+pub const RELEASED: u32 = 0;
 pub const PRESSED: u32 = 1;
 
 pub const VERTICAL_SCROLL: usize = 0;

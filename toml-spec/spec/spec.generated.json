@@ -676,7 +676,8 @@
             "workspace-manager",
             "foreign-toplevel-manager",
             "head-manager",
-            "gamma-control-manager"
+            "gamma-control-manager",
+            "virtual-pointer"
           ]
         },
         {

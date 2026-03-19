@@ -94,6 +94,8 @@ pub mod zwlr_gamma_control_v1;
 pub mod zwlr_layer_shell_v1;
 pub mod zwlr_screencopy_frame_v1;
 pub mod zwlr_screencopy_manager_v1;
+pub mod zwlr_virtual_pointer_manager_v1;
+pub mod zwlr_virtual_pointer_v1;
 pub mod zwp_idle_inhibit_manager_v1;
 pub mod zwp_linux_buffer_params_v1;
 pub mod zwp_linux_dmabuf_feedback_v1;
