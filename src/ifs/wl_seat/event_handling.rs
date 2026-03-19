@@ -669,7 +669,7 @@ impl WlSeatGlobal {
         self.cursor_moved(time_usec);
     }
 
-    fn motion_absolute_event(
+    pub fn motion_absolute_event(
         self: &Rc<Self>,
         time_usec: u64,
         rect: Rect,

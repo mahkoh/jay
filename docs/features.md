@@ -205,6 +205,7 @@ Jay supports the following wayland protocols:
 | zwlr_layer_shell_v1                                  | 5               | No[^lsaccess] |
 | zwlr_output_manager_v1                               | 4               | Yes           |
 | zwlr_screencopy_manager_v1                           | 3               | Yes           |
+| zwlr_virtual_pointer_manager_v1                      | 2               | Yes           |
 | zwp_idle_inhibit_manager_v1                          | 1               |               |
 | zwp_input_method_manager_v2                          | 1               | Yes           |
 | zwp_linux_dmabuf_v1                                  | 5               |               |

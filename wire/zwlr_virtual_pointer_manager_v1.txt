@@ -1,0 +1,13 @@
+request create_virtual_pointer {
+    seat: id(wl_seat),
+    id: id(zwlr_virtual_pointer_v1) (new),
+}
+
+request destroy (destructor, since = 1) {
+}
+
+request create_virtual_pointer_with_output (since = 2) {
+    seat: id(wl_seat),
+    output: id(wl_output),
+    id: id(zwlr_virtual_pointer_v1) (new),
+}

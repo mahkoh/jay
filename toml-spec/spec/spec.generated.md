@@ -1066,6 +1066,10 @@ The string should have one of the following values:
 
   Grants access to the `zwlr_gamma_control_manager_v1` global.
 
+- `virtual-pointer`:
+
+  Grants access to the `zwlr_virtual_pointer_manager_v1` global.
+
 
 #### An array
 

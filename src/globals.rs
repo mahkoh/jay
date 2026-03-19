@@ -68,6 +68,7 @@ use {
             zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1Global,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
+            zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
@@ -248,6 +249,7 @@ singletons! {
     ZwpLinuxDmabufV1,
     WpLinuxDrmSyncobjManagerV1,
     WpPresentation,
+    ZwlrVirtualPointerManagerV1,
 }
 
 pub struct Globals {

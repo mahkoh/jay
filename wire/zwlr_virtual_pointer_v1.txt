@@ -1,0 +1,47 @@
+request motion {
+    time: u32,
+    dx: fixed,
+    dy: fixed,
+}
+
+request motion_absolute {
+    time: u32,
+    x: u32,
+    y: u32,
+    x_extent: u32,
+    y_extent: u32,
+}
+
+request button {
+    time: u32,
+    button: u32,
+    state: u32,
+}
+
+request axis {
+    time: u32,
+    axis: u32,
+    value: fixed,
+}
+
+request frame {
+}
+
+request axis_source {
+    axis_source: u32,
+}
+
+request axis_stop {
+    time: u32,
+    axis: u32,
+}
+
+request axis_discrete {
+    time: u32,
+    axis: u32,
+    value: fixed,
+    discrete: i32,
+}
+
+request destroy (destructor, since = 1) {
+}
