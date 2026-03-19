@@ -7,7 +7,7 @@ use {
         backend::{Backend, Connector},
         backends::{
             dummy::{DummyBackend, DummyOutput},
-            metal, x,
+            headless, metal, x,
         },
         cli::{CliBackend, GlobalArgs, RunArgs},
         client::{ClientId, Clients},
@@ -641,6 +641,15 @@ async fn create_backend(
                     Ok(b) => return Some(b),
                     Err(e) => {
                         log::error!("Could not create metal backend: {}", ErrorFmt(e));
+                    }
+                }
+            }
+            CliBackend::Headless => {
+                log::info!("Trying to create headless backend");
+                match headless::create(state).await {
+                    Ok(b) => return Some(b),
+                    Err(e) => {
+                        log::error!("Could not create headless backend: {}", ErrorFmt(e));
                     }
                 }
             }
