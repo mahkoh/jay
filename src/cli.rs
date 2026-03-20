@@ -1,6 +1,7 @@
 mod clients;
 mod color;
 mod color_management;
+mod config;
 mod control_center;
 mod damage_tracking;
 mod duration;
@@ -25,7 +26,7 @@ mod xwayland;
 use {
     crate::{
         cli::{
-            clients::ClientsArgs, color_management::ColorManagementArgs,
+            clients::ClientsArgs, color_management::ColorManagementArgs, config::ConfigArgs,
             damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
             reexec::ReexecArgs, run_tagged::RunTaggedArgs, tree::TreeArgs, xwayland::XwaylandArgs,
         },
@@ -58,6 +59,8 @@ pub struct GlobalArgs {
 pub enum Cmd {
     /// Run the compositor.
     Run(RunArgs),
+    /// Create/modify the toml config.
+    Config(ConfigArgs),
     /// Generate shell completion scripts for jay.
     GenerateCompletion(GenerateArgs),
     /// Open the log file.
@@ -248,5 +251,6 @@ pub fn main() {
         Cmd::RunTests => crate::it::run_tests(),
         Cmd::Reexec(a) => reexec::main(cli.global, a),
         Cmd::ControlCenter => control_center::main(cli.global),
+        Cmd::Config(a) => config::main(cli.global, a),
     }
 }

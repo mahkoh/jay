@@ -1298,7 +1298,7 @@ async fn watch_config(persistent: Rc<PersistentState>) {
     }
 }
 
-const CONFIG_TOML: &str = "config.toml";
+pub const CONFIG_TOML: &str = "config.toml";
 
 fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<PersistentState>) {
     let mut path = PathBuf::from(config_dir());
@@ -1675,7 +1675,7 @@ fn create_command(exec: &Exec) -> Command {
     command
 }
 
-const DEFAULT: &[u8] = include_bytes!("default-config.toml");
+pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
     let mark_names = Default::default();
