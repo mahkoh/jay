@@ -284,6 +284,7 @@ pub struct State {
     pub caps_thread: Option<PrCapsThread>,
     pub node_at_tree: RefCell<Vec<FoundNode>>,
     pub position_hint_requests: AsyncQueue<PositionHintRequest>,
+    pub pending_warp_mouse_to_focus: AsyncQueue<Rc<WlSeatGlobal>>,
     pub backend_connector_state_serials: BackendConnectorStateSerials,
     pub head_names: HeadNames,
     pub head_managers:
@@ -1175,6 +1176,7 @@ impl State {
         self.tl_matcher_manager.clear();
         self.node_at_tree.borrow_mut().clear();
         self.position_hint_requests.clear();
+        self.pending_warp_mouse_to_focus.clear();
         self.head_managers.clear();
         self.head_managers_async.clear();
         self.const_40hz_latch.clear();

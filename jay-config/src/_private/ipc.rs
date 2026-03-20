@@ -858,6 +858,9 @@ pub enum ClientMessage<'a> {
     RemoveVirtualOutput {
         name: &'a str,
     },
+    SeatWarpMouseToFocus {
+        seat: Seat,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -2415,6 +2415,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_warp_mouse_to_focus(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.schedule_warp_mouse_to_focus();
+        Ok(())
+    }
+
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -3329,6 +3335,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatEnableUnicodeInput { seat } => self
                 .handle_seat_enable_unicode_input(seat)
                 .wrn("seat_enable_unicode_input")?,
+            ClientMessage::SeatWarpMouseToFocus { seat } => self
+                .handle_seat_warp_mouse_to_focus(seat)
+                .wrn("seat_warp_mouse_to_focus")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

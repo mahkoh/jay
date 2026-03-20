@@ -258,6 +258,7 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
+    warp_mouse_to_focus_scheduled: Cell<bool>,
 }
 
 impl PartialEq for WlSeatGlobal {
@@ -400,6 +401,7 @@ impl WlSeatGlobal {
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
+            warp_mouse_to_focus_scheduled: Cell::new(false),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
@@ -817,6 +819,12 @@ impl WlSeatGlobal {
             {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
+        }
+    }
+
+    pub fn schedule_warp_mouse_to_focus(self: &Rc<Self>) {
+        if !self.warp_mouse_to_focus_scheduled.replace(true) {
+            self.state.pending_warp_mouse_to_focus.push(self.clone());
         }
     }
 
@@ -2005,5 +2013,27 @@ pub async fn handle_position_hint_requests(state: Rc<State>) {
             req.new_pos.1 + (current_pos.1 - req.old_pos.1),
         );
         req.seat.motion_event_abs(state.now_usec(), x, y);
+    }
+}
+
+pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
+    loop {
+        state.pending_warp_mouse_to_focus.non_empty().await;
+        state.eng.yield_now().await;
+        while let Some(seat) = state.pending_warp_mouse_to_focus.try_pop() {
+            seat.warp_mouse_to_focus_scheduled.set(false);
+            let Some(tl) = seat.keyboard_node.get().node_toplevel() else {
+                continue;
+            };
+            let (x, y) = tl.node_absolute_position().center();
+            let Some(target) = state.node_at(x, y).node.node_toplevel() else {
+                continue;
+            };
+            if target.node_id() != tl.node_id() {
+                continue;
+            }
+            let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
+            seat.motion_event_abs(state.now_usec(), x, y);
+        }
     }
 }

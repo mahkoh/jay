@@ -645,6 +645,11 @@ impl Seat {
     pub fn enable_unicode_input(self) {
         get!().seat_enable_unicode_input(self);
     }
+
+    /// Warps the cursor to the center of the currently focused window.
+    pub fn warp_mouse_to_focus(self) {
+        get!().seat_warp_mouse_to_focus(self)
+    }
 }
 
 /// A focus-follows-mouse mode.

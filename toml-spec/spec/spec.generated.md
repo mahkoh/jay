@@ -4559,6 +4559,10 @@ The string should have one of the following values:
 
   Opens the control center.
 
+- `warp-mouse-to-focus`:
+
+  Warps the cursor to the center of the currently focused window.
+
 
 
 <a name="types-SimpleIm"></a>

@@ -1193,6 +1193,9 @@ SimpleActionName:
         This has no effect if the simple IM is not currently active.
     - value: open-control-center
       description: Opens the control center.
+    - value: warp-mouse-to-focus
+      description: |
+        Warps the cursor to the center of the currently focused window.
 
 
 Color:
