@@ -37,6 +37,7 @@ Usage: jay [OPTIONS] <COMMAND>
 
 Commands:
   run                  Run the compositor
+  config               Create/modify the toml config
   generate-completion  Generate shell completion scripts for jay
   log                  Open the log file
   set-log-level        Sets the log level
@@ -45,6 +46,7 @@ Commands:
   screenshot           Take a screenshot
   idle                 Inspect/modify the idle (screensaver) settings
   run-privileged       Run a privileged program
+  run-tagged           Run a program with a connection tag
   seat-test            Tests the events produced by a seat
   portal               Run the desktop portal
   randr                Inspect/modify graphics card and connector settings
@@ -53,10 +55,13 @@ Commands:
   color-management     Inspect/modify the color-management settings
   clients              Inspect/manipulate the connected clients
   tree                 Inspect the surface tree
+  control-center       Opens the control center
+  version              Prints the Jay version and exits
+  pid                  Prints the Jay PID and exits
   help                 Print this message or the help of the given subcommand(s)
 
 Options:
-      --log-level <LOG_LEVEL>  The log level [default: info] [possible values: trace, debug, info, warn, error]
+      --log-level <LOG_LEVEL>  The log level [default: info] [possible values: trace, debug, info, warn, error, off]
   -h, --help                   Print help
 ```
 
