@@ -73,6 +73,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
     fn tl_mark_fullscreen(&self, fullscreen: bool);
+    fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -249,6 +250,18 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
         self.tl_mark_fullscreen_ext();
+    }
+
+    fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
+        let Some(parent) = self.tl_data().parent.get() else {
+            return;
+        };
+        let pos = self.node_absolute_position();
+        let x1 = (dx1 != 0).then_some(pos.x1().saturating_add(dx1));
+        let y1 = (dy1 != 0).then_some(pos.y1().saturating_add(dy1));
+        let x2 = (dx2 != 0).then_some(pos.x2().saturating_add(dx2));
+        let y2 = (dy2 != 0).then_some(pos.y2().saturating_add(dy2));
+        parent.cnode_resize_child(self, x1, y1, x2, y2);
     }
 }
 

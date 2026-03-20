@@ -650,6 +650,11 @@ impl Seat {
     pub fn warp_mouse_to_focus(self) {
         get!().seat_warp_mouse_to_focus(self)
     }
+
+    /// Resizes the focused window.
+    pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
+        self.window().resize(dx1, dy1, dx2, dy2);
+    }
 }
 
 /// A focus-follows-mouse mode.

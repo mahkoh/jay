@@ -3,7 +3,7 @@ use {
         config::{
             Action, SimpleCommand,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 StringParser, StringParserError,
@@ -495,6 +495,21 @@ impl ActionParser<'_> {
             name: name.value.to_string(),
         })
     }
+
+    fn parse_resize(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (dx1, dy1, dx2, dy2) = ext.extract((
+            opt(s32("dx1")),
+            opt(s32("dy1")),
+            opt(s32("dx2")),
+            opt(s32("dy2")),
+        ))?;
+        Ok(Action::Resize {
+            dx1: dx1.despan().unwrap_or(0),
+            dy1: dy1.despan().unwrap_or(0),
+            dx2: dx2.despan().unwrap_or(0),
+            dy2: dy2.despan().unwrap_or(0),
+        })
+    }
 }
 
 impl Parser for ActionParser<'_> {
@@ -556,6 +571,7 @@ impl Parser for ActionParser<'_> {
             "latch-mode" => self.parse_latch_mode(&mut ext),
             "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
+            "resize" => self.parse_resize(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

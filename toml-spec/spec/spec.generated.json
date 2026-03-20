@@ -608,6 +608,34 @@
                 "type",
                 "name"
               ]
+            },
+            {
+              "description": "Resizes the focused window.\n\n- Example (Growing the window by 2 pixels on the left):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"resize\", dx1 = -2 }\n  ```\n\n- Example (Moving the window 2 pixels to the left):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"resize\", dx1 = -2, dx2 = -2 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "resize"
+                },
+                "dx1": {
+                  "type": "integer",
+                  "description": "The change at the left edge of the window."
+                },
+                "dy1": {
+                  "type": "integer",
+                  "description": "The change at the top edge of the window."
+                },
+                "dx2": {
+                  "type": "integer",
+                  "description": "The change at the right edge of the window."
+                },
+                "dy2": {
+                  "type": "integer",
+                  "description": "The change at the bottom edge of the window."
+                }
+              },
+              "required": [
+                "type"
+              ]
             }
           ]
         }

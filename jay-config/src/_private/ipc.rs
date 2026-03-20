@@ -864,6 +864,13 @@ pub enum ClientMessage<'a> {
     CleanLogsOlderThan {
         time: SystemTime,
     },
+    WindowResize {
+        window: Window,
+        dx1: i32,
+        dy1: i32,
+        dx2: i32,
+        dy2: i32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

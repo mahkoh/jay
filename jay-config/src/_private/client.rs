@@ -826,6 +826,16 @@ impl ConfigClient {
         self.send(&ClientMessage::WindowClose { window });
     }
 
+    pub fn resize_window(&self, window: Window, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
+        self.send(&ClientMessage::WindowResize {
+            window,
+            dx1,
+            dy1,
+            dx2,
+            dy2,
+        });
+    }
+
     pub fn focus_seat_parent(&self, seat: Seat) {
         self.send(&ClientMessage::FocusSeatParent { seat });
     }

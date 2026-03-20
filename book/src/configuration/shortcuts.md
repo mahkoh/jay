@@ -196,6 +196,46 @@ logo-ctrl-shift-Left = {
 }
 ```
 
+### Resizing windows
+
+The `resize` action resizes the focused window by adjusting its edges.
+Each of the four optional fields (`dx1`, `dy1`, `dx2`, `dy2`) specifies a
+pixel offset for one edge of the window. Fields default to `0` when omitted.
+
+`dx1`
+: Change at the left edge (negative = grow left, positive = shrink left)
+
+`dy1`
+: Change at the top edge (negative = grow up, positive = shrink down)
+
+`dx2`
+: Change at the right edge (positive = grow right, negative = shrink right)
+
+`dy2`
+: Change at the bottom edge (positive = grow down, negative = shrink down)
+
+Growing the window by 10 pixels on the right:
+
+```toml
+[shortcuts]
+alt-Right = { type = "resize", dx2 = 10 }
+```
+
+Shrinking the window by 10 pixels on the right:
+
+```toml
+[shortcuts]
+alt-Left = { type = "resize", dx2 = -10 }
+```
+
+Moving the window 10 pixels to the right without changing its size (both
+left and right edges shift by the same amount):
+
+```toml
+[shortcuts]
+alt-shift-Right = { type = "resize", dx1 = 10, dx2 = 10 }
+```
+
 ### Other parameterized actions
 
 - `set-keymap` -- change the active keymap
@@ -499,7 +539,7 @@ affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
 `split-horizontal`, `split-vertical`, `toggle-split`, `tile-horizontal`,
 `tile-vertical`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
-`tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
+`tile`, `toggle-float-pinned`, `pin-float`, `unpin-float`, and `resize`.
 
 Similarly, `kill-client` applies to the matched window's client in a window
 rule, or to the matched client in a client rule.
