@@ -1208,7 +1208,7 @@ Color:
     - `#rgb`
     - `#rrggbb`
     - `#rgba`
-    - `#rrggbba`
+    - `#rrggbbaa`
 
 
 ConnectorMatch:
@@ -1626,6 +1626,18 @@ InputMatch:
               tap-enabled = true
               ```
         is-gesture:
+          kind: boolean
+          required: false
+          description: |
+            Whether the devices has been identified as a gesture device.
+            
+            - Example:
+            
+              ```toml
+              [[inputs]]
+              match.is-gesture = true
+              ```
+        is-switch:
           kind: boolean
           required: false
           description: |
@@ -3080,6 +3092,28 @@ Config:
 
           ```toml
           workspace-display-order = "sorted"
+          ```
+    auto-reload:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether the compositor automatically reloads the configuration when
+        the config file changes on disk.
+
+        When enabled, the compositor uses inotify to watch the config file and its parent
+        directories for changes. Changes are debounced with a 400ms delay to avoid
+        redundant reloads from rapid successive writes. If the file contents have not
+        changed, the reload is skipped.
+
+        Setting this to `false` and will stop the file watcher. Removing this key entirely
+        leaves the watcher state unchanged.
+
+        The default is `false`.
+
+        - Example:
+
+          ```toml
+          auto-reload = true
           ```
     simple-im:
       ref: SimpleIm

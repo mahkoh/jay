@@ -1,0 +1,7 @@
+[book]
+title = "The Jay Book"
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/mahkoh/jay"

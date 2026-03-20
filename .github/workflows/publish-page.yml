@@ -1,0 +1,40 @@
+name: publish-page
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install mdbook
+        run: |
+          VERSION=0.5.2
+          URL=https://github.com/rust-lang/mdBook/releases/download/v${VERSION}/mdbook-v${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+          mkdir mdbook
+          curl -sSL $URL | tar -xz --directory=mdbook
+      - name: Create root
+        run: |
+          mkdir page
+      - name: Build book
+        run: |
+          cd book
+          ../mdbook/mdbook build
+          mv book ../page
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: page
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@v4
