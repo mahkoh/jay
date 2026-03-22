@@ -844,7 +844,7 @@
     },
     "Color": {
       "type": "string",
-      "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
+      "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbbaa`\n"
     },
     "ColorManagement": {
       "description": "Describes color-management settings.\n\n- Example:\n\n  ```toml\n  [color-management]\n  enabled = true\n  ```\n",
@@ -1108,6 +1108,10 @@
         "workspace-display-order": {
           "description": "Configures the order of workspaces displayed.\n\nThe default is `manual`.\n\n- Example:\n\n  ```toml\n  workspace-display-order = \"sorted\"\n  ```\n",
           "$ref": "#/$defs/WorkspaceDisplayOrder"
+        },
+        "auto-reload": {
+          "type": "boolean",
+          "description": "Configures whether the compositor automatically reloads the configuration when\nthe config file changes on disk.\n\nWhen enabled, the compositor uses inotify to watch the config file and its parent\ndirectories for changes. Changes are debounced with a 400ms delay to avoid\nredundant reloads from rapid successive writes. If the file contents have not\nchanged, the reload is skipped.\n\nSetting this to `false` and will stop the file watcher. Removing this key entirely\nleaves the watcher state unchanged.\n\nThe default is `false`.\n\n- Example:\n\n  ```toml\n  auto-reload = true\n  ```\n"
         },
         "simple-im": {
           "description": "Configures the simple, XCompose based input method.\n\nBy default, the input method is enabled. \n\nEven if the input method is enabled, it will only be used if there is no\nrunning external IM.\n\n- Example:\n\n  ```toml\n  [simple-im]\n  enabled = false\n  ```\n",
@@ -1638,6 +1642,10 @@
               "description": "Whether the devices has been identified as a tablet pad.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-tablet-tool = true\n  tap-enabled = true\n  ```\n"
             },
             "is-gesture": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a gesture device.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-gesture = true\n  ```\n"
+            },
+            "is-switch": {
               "type": "boolean",
               "description": "Whether the devices has been identified as a switch.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-switch = true\n  ```\n"
             }

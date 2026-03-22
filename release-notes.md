@@ -400,7 +400,7 @@ action = "enter-fullscreen"
 ```
 
 These rules are described in detail in
-[window-and-client-rules.md](docs/window-and-client-rules.md).
+[Window & Client Rules](https://mahkoh.github.io/jay/book/window-rules.html).
 
 ## Window Management
 

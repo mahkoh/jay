@@ -1420,7 +1420,7 @@ The format should be one of the following:
 - `#rgb`
 - `#rrggbb`
 - `#rgba`
-- `#rrggbba`
+- `#rrggbbaa`
 
 Values of this type should be strings.
 
@@ -2268,6 +2268,29 @@ The table has the following fields:
     ```
 
   The value of this field should be a [WorkspaceDisplayOrder](#types-WorkspaceDisplayOrder).
+
+- `auto-reload` (optional):
+
+  Configures whether the compositor automatically reloads the configuration when
+  the config file changes on disk.
+  
+  When enabled, the compositor uses inotify to watch the config file and its parent
+  directories for changes. Changes are debounced with a 400ms delay to avoid
+  redundant reloads from rapid successive writes. If the file contents have not
+  changed, the reload is skipped.
+  
+  Setting this to `false` and will stop the file watcher. Removing this key entirely
+  leaves the watcher state unchanged.
+  
+  The default is `false`.
+  
+  - Example:
+  
+    ```toml
+    auto-reload = true
+    ```
+
+  The value of this field should be a boolean.
 
 - `simple-im` (optional):
 
@@ -3533,6 +3556,19 @@ The table has the following fields:
   The value of this field should be a boolean.
 
 - `is-gesture` (optional):
+
+  Whether the devices has been identified as a gesture device.
+  
+  - Example:
+  
+    ```toml
+    [[inputs]]
+    match.is-gesture = true
+    ```
+
+  The value of this field should be a boolean.
+
+- `is-switch` (optional):
 
   Whether the devices has been identified as a switch.
   
