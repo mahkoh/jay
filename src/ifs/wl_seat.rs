@@ -108,6 +108,7 @@ use {
         },
         wire_ei::EiSeatId,
     },
+    CursorPositionType::Warp,
     ahash::AHashMap,
     jay_config::{
         input::FallbackOutputMode as ConfigFallbackOutputMode,
@@ -2012,7 +2013,7 @@ pub async fn handle_position_hint_requests(state: Rc<State>) {
             req.new_pos.0 + (current_pos.0 - req.old_pos.0),
             req.new_pos.1 + (current_pos.1 - req.old_pos.1),
         );
-        req.seat.motion_event_abs(state.now_usec(), x, y);
+        req.seat.motion_event_abs(state.now_usec(), x, y, Warp);
     }
 }
 
@@ -2033,7 +2034,13 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
                 continue;
             }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
-            seat.motion_event_abs(state.now_usec(), x, y);
+            seat.motion_event_abs(state.now_usec(), x, y, Warp);
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum CursorPositionType {
+    Motion,
+    Warp,
 }

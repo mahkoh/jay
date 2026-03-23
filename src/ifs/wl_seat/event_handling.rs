@@ -18,7 +18,8 @@ use {
                 },
             },
             wl_seat::{
-                CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, MarkMode, SeatId, WlSeat, WlSeatGlobal,
+                CHANGE_CURSOR_MOVED, CHANGE_TREE, CursorPositionType, Dnd, MarkMode, SeatId,
+                WlSeat, WlSeatGlobal,
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::WlKeyboard,
@@ -49,6 +50,7 @@ use {
         },
         wire::WlDataOfferId,
     },
+    CursorPositionType::Motion,
     isnt::std_1::primitive::IsntSliceExt,
     jay_config::{
         input::SwitchEvent,
@@ -595,10 +597,16 @@ impl WlSeatGlobal {
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
-        self.motion_event_abs(time_usec, x, y);
+        self.motion_event_abs(time_usec, x, y, Motion);
     }
 
-    pub fn motion_event_abs(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
+    pub fn motion_event_abs(
+        self: &Rc<Self>,
+        time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+        cursor_position_type: CursorPositionType,
+    ) {
         self.for_each_ei_seat(|ei_seat| {
             ei_seat.handle_motion_abs(time_usec, x, y);
         });
@@ -611,7 +619,7 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
-        self.cursor_moved(time_usec);
+        self.apply_cursor_position(time_usec, cursor_position_type);
     }
 
     pub fn motion_event(
@@ -666,7 +674,7 @@ impl WlSeatGlobal {
             );
         });
         self.set_pointer_cursor_position(x, y);
-        self.cursor_moved(time_usec);
+        self.apply_cursor_position(time_usec, Motion);
     }
 
     pub fn motion_absolute_event(
@@ -678,7 +686,7 @@ impl WlSeatGlobal {
     ) {
         let x = Fixed::from_f32(rect.x1() as f32 + x_normed * rect.width() as f32);
         let y = Fixed::from_f32(rect.y1() as f32 + y_normed * rect.height() as f32);
-        self.motion_event_abs(time_usec, x, y);
+        self.motion_event_abs(time_usec, x, y, Motion);
     }
 
     pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: ButtonState) {
@@ -1283,9 +1291,15 @@ impl WlSeatGlobal {
         });
     }
 
-    fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
+    fn apply_cursor_position(
+        self: &Rc<Self>,
+        time_usec: u64,
+        cursor_position_type: CursorPositionType,
+    ) {
         self.pos_time_usec.set(time_usec);
-        self.changes.or_assign(CHANGE_CURSOR_MOVED);
+        if cursor_position_type == Motion {
+            self.changes.or_assign(CHANGE_CURSOR_MOVED);
+        }
         self.apply_changes();
     }
 

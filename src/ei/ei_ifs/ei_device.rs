@@ -7,7 +7,7 @@ use {
             ei_object::{EiObject, EiVersion},
         },
         fixed::Fixed,
-        ifs::wl_seat::PX_PER_SCROLL,
+        ifs::wl_seat::{CursorPositionType, PX_PER_SCROLL},
         leaks::Tracker,
         rect::Rect,
         scale::Scale,
@@ -22,6 +22,7 @@ use {
             },
         },
     },
+    CursorPositionType::Motion,
     linearize::LinearizeExt,
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -227,7 +228,7 @@ impl EiDeviceRequestHandler for EiDevice {
         if let Some((x, y)) = self.absolute_motion.take() {
             let x = Fixed::from_f32(x);
             let y = Fixed::from_f32(y);
-            seat.motion_event_abs(time, x, y);
+            seat.motion_event_abs(time, x, y, Motion);
         }
         {
             let mut need_frame = false;
