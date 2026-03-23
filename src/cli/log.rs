@@ -1,6 +1,6 @@
 use {
     crate::{
-        cli::{GlobalArgs, LogArgs},
+        cli::{GlobalArgs, LogArgs, json::jsonl},
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::errorfmt::ErrorFmt,
         wire::{jay_compositor, jay_log_file},
@@ -24,7 +24,7 @@ pub fn main(global: GlobalArgs, args: LogArgs) {
             path: RefCell::new(None),
             args,
         });
-        run(logger).await;
+        run(&global, logger).await;
     });
 }
 
@@ -34,7 +34,7 @@ struct Log {
     args: LogArgs,
 }
 
-async fn run(log: Rc<Log>) {
+async fn run(global: &GlobalArgs, log: Rc<Log>) {
     let tc = &log.tc;
     let comp = tc.jay_compositor().await;
     let log_file = tc.id();
@@ -52,7 +52,12 @@ async fn run(log: Rc<Log>) {
         _ => fatal!("Server did not send the path of the log file"),
     };
     if log.args.path {
-        println!("{}", path);
+        if global.json {
+            let path = path.to_string();
+            jsonl(&path);
+        } else {
+            println!("{}", path);
+        }
         process::exit(0);
     }
     let mut command = Command::new("less");

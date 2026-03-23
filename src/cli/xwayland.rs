@@ -1,6 +1,9 @@
 use {
     crate::{
-        cli::GlobalArgs,
+        cli::{
+            GlobalArgs,
+            json::{JsonXwaylandStatus, jsonl},
+        },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         wire::{JayXwaylandId, jay_compositor, jay_xwayland},
     },
@@ -41,7 +44,7 @@ pub enum CliScalingMode {
 pub fn main(global: GlobalArgs, args: XwaylandArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let xwayland = Xwayland { tc: tc.clone() };
-        xwayland.run(args).await;
+        xwayland.run(&global, args).await;
     });
 }
 
@@ -50,7 +53,7 @@ struct Xwayland {
 }
 
 impl Xwayland {
-    async fn run(self, args: XwaylandArgs) {
+    async fn run(self, global: &GlobalArgs, args: XwaylandArgs) {
         let tc = &self.tc;
         let comp = tc.jay_compositor().await;
         let xwayland = tc.id();
@@ -59,12 +62,12 @@ impl Xwayland {
             id: xwayland,
         });
         match args.command.unwrap_or_default() {
-            XwaylandCmd::Status => self.status(xwayland).await,
+            XwaylandCmd::Status => self.status(global, xwayland).await,
             XwaylandCmd::SetScalingMode(args) => self.set_scaling_mode(xwayland, args).await,
         }
     }
 
-    async fn status(self, xwayland: JayXwaylandId) {
+    async fn status(self, global: &GlobalArgs, xwayland: JayXwaylandId) {
         let tc = &self.tc;
         tc.send(jay_xwayland::GetScaling { self_id: xwayland });
         let mode = Rc::new(Cell::new(0));
@@ -85,9 +88,16 @@ impl Xwayland {
                 &mode_str
             }
         };
-        println!("scaling mode: {}", mode);
-        if let Some(scale) = scale.get() {
-            println!("implied scale: {}", scale);
+        if global.json {
+            jsonl(&JsonXwaylandStatus {
+                scaling_mode: mode,
+                implied_scale: scale.get().map(|s| s as f64),
+            });
+        } else {
+            println!("scaling mode: {}", mode);
+            if let Some(scale) = scale.get() {
+                println!("implied scale: {}", scale);
+            }
         }
     }
 

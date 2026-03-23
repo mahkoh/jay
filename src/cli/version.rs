@@ -1,5 +1,12 @@
-use crate::{cli::GlobalArgs, version::VERSION};
+use crate::{
+    cli::{GlobalArgs, json::jsonl},
+    version::VERSION,
+};
 
-pub fn main(_global: GlobalArgs) {
-    println!("{VERSION}");
+pub fn main(global: GlobalArgs) {
+    if global.json {
+        jsonl(&VERSION);
+    } else {
+        println!("{VERSION}");
+    }
 }

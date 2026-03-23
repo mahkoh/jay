@@ -1,14 +1,20 @@
 use {
     crate::{
         backend::{BackendColorSpace, BackendEotfs},
-        cli::GlobalArgs,
+        cli::{
+            GlobalArgs,
+            json::{
+                JsonConnector, JsonDrmDevice, JsonMode, JsonOutput, JsonPrimaries, JsonRandrData,
+                JsonTearingMode, JsonVrrMode, jsonl,
+            },
+        },
         cmm::cmm_primaries::Primaries,
         format::{Format, XRGB8888},
         ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         tree::Transform,
-        utils::{errorfmt::ErrorFmt, ordered_float::F64},
+        utils::{errorfmt::ErrorFmt, ordered_float::F64, static_text::StaticText},
         wire::{JayRandrId, jay_compositor, jay_randr},
     },
     clap::{
@@ -496,7 +502,7 @@ pub struct RemoveVirtualOutputArgs {
 pub fn main(global: GlobalArgs, args: RandrArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let idle = Rc::new(Randr { tc: tc.clone() });
-        idle.run(args).await;
+        idle.run(&global, args).await;
     });
 }
 
@@ -596,7 +602,7 @@ struct Randr {
 }
 
 impl Randr {
-    async fn run(self: &Rc<Self>, args: RandrArgs) {
+    async fn run(self: &Rc<Self>, global: &GlobalArgs, args: RandrArgs) {
         let tc = &self.tc;
         let comp = tc.jay_compositor().await;
         let randr = tc.id();
@@ -605,7 +611,7 @@ impl Randr {
             id: randr,
         });
         match args.command.unwrap_or_default() {
-            RandrCmd::Show(args) => self.show(randr, args).await,
+            RandrCmd::Show(args) => self.show(global, randr, args).await,
             RandrCmd::Card(args) => self.card(randr, args).await,
             RandrCmd::Output(args) => self.output(randr, args).await,
             RandrCmd::VirtualOutput(args) => self.virtual_output(randr, args).await,
@@ -957,9 +963,51 @@ impl Randr {
         tc.round_trip().await;
     }
 
-    async fn show(self: &Rc<Self>, randr: JayRandrId, args: ShowArgs) {
+    async fn show(self: &Rc<Self>, global: &GlobalArgs, randr: JayRandrId, args: ShowArgs) {
         let mut data = self.get(randr).await;
         data.drm_devices.sort_by(|l, r| l.devnode.cmp(&r.devnode));
+        if global.json {
+            self.show_json(&data);
+        } else {
+            self.show_text(&data, &args);
+        }
+    }
+
+    fn show_json(&self, data: &Data) {
+        let mut drm_devices = Vec::new();
+        for dev in &data.drm_devices {
+            let mut connectors: Vec<_> = data
+                .connectors
+                .iter()
+                .filter(|c| c.drm_device == Some(dev.id))
+                .collect();
+            connectors.sort_by_key(|c| &c.name);
+            drm_devices.push(JsonDrmDevice {
+                devnode: &dev.devnode,
+                syspath: &dev.syspath,
+                vendor: dev.vendor,
+                vendor_name: &dev.vendor_name,
+                model: dev.model,
+                model_name: &dev.model_name,
+                gfx_api: &dev.gfx_api,
+                render_device: dev.render_device,
+                connectors: connectors.into_iter().map(make_json_connector).collect(),
+            });
+        }
+        let mut unbound: Vec<_> = data
+            .connectors
+            .iter()
+            .filter(|c| c.drm_device.is_none())
+            .collect();
+        unbound.sort_by_key(|c| &c.name);
+        let json = JsonRandrData {
+            drm_devices,
+            unbound_connectors: unbound.into_iter().map(make_json_connector).collect(),
+        };
+        jsonl(&json);
+    }
+
+    fn show_text(&self, data: &Data, args: &ShowArgs) {
         if data.drm_devices.is_not_empty() {
             println!("drm devices:");
         }
@@ -1077,17 +1125,7 @@ impl Randr {
             println!("        scale: {}", o.scale);
         }
         if o.transform != Transform::None {
-            let name = match o.transform {
-                Transform::None => "none",
-                Transform::Rotate90 => "rotate-90",
-                Transform::Rotate180 => "rotate-180",
-                Transform::Rotate270 => "rotate-270",
-                Transform::Flip => "flip",
-                Transform::FlipRotate90 => "flip-rotate-90",
-                Transform::FlipRotate180 => "flip-rotate-180",
-                Transform::FlipRotate270 => "flip-rotate-270",
-            };
-            println!("        transform: {}", name);
+            println!("        transform: {}", o.transform.text());
         }
         if let Some(flip_margin_ns) = o.flip_margin_ns {
             println!(
@@ -1359,5 +1397,79 @@ impl Randr {
         });
         tc.round_trip().await;
         data.borrow_mut().clone()
+    }
+}
+
+fn make_json_connector(c: &Connector) -> JsonConnector<'_> {
+    let output = c.output.as_ref().map(|o| {
+        let modes = o
+            .modes
+            .iter()
+            .map(|m| JsonMode {
+                width: m.width,
+                height: m.height,
+                refresh_rate_millihz: m.refresh_rate_millihz,
+                current: m.current,
+            })
+            .collect();
+        let formats = o.formats.iter().map(|f| f.as_str()).collect();
+        JsonOutput {
+            product: &o.product,
+            manufacturer: &o.manufacturer,
+            serial_number: &o.serial_number,
+            width_mm: o.width_mm,
+            height_mm: o.height_mm,
+            non_desktop: o.non_desktop,
+            scale: o.scale,
+            x: o.x,
+            y: o.y,
+            width: o.width,
+            height: o.height,
+            transform: o.transform.text(),
+            mode: o.current_mode.map(|m| JsonMode {
+                width: m.width,
+                height: m.height,
+                refresh_rate_millihz: m.refresh_rate_millihz,
+                current: m.current,
+            }),
+            format: o.format.as_deref(),
+            vrr_capable: o.vrr_capable,
+            vrr_enabled: o.vrr_enabled,
+            vrr_mode: JsonVrrMode(o.vrr_mode),
+            vrr_cursor_hz: o.vrr_cursor_hz,
+            tearing_mode: JsonTearingMode(o.tearing_mode),
+            flip_margin_ns: o.flip_margin_ns,
+            supported_color_spaces: o
+                .supported_color_spaces
+                .iter()
+                .map(|s| s.as_str())
+                .collect(),
+            current_color_space: o.current_color_space.as_deref(),
+            supported_eotfs: o.supported_eotfs.iter().map(|s| s.as_str()).collect(),
+            current_eotf: o.current_eotf.as_deref(),
+            min_brightness: o.brightness_range.map(|(min, _)| min),
+            max_brightness: o.brightness_range.map(|(_, max)| max),
+            brightness: o.brightness,
+            blend_space: o.blend_space.as_deref(),
+            native_gamut: o.native_gamut.as_ref().map(|p| JsonPrimaries {
+                r_x: p.r.0.0,
+                r_y: p.r.1.0,
+                g_x: p.g.0.0,
+                g_y: p.g.1.0,
+                b_x: p.b.0.0,
+                b_y: p.b.1.0,
+                w_x: p.wp.0.0,
+                w_y: p.wp.1.0,
+            }),
+            use_native_gamut: o.use_native_gamut,
+            arbitrary_modes: o.arbitrary_modes,
+            modes,
+            formats,
+        }
+    });
+    JsonConnector {
+        name: &c.name,
+        enabled: c.enabled,
+        output,
     }
 }

@@ -1,6 +1,10 @@
 use {
     crate::{
-        cli::{GlobalArgs, IdleArgs, duration::parse_duration},
+        cli::{
+            GlobalArgs, IdleArgs,
+            duration::parse_duration,
+            json::{JsonIdle, JsonIdleInhibitor, jsonl},
+        },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::stack::Stack,
         wire::{JayIdleId, WlSurfaceId, jay_compositor, jay_idle},
@@ -53,7 +57,7 @@ pub struct IdleSetGracePeriodArgs {
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let idle = Idle { tc: tc.clone() };
-        idle.run(args).await;
+        idle.run(&global, args).await;
     });
 }
 
@@ -62,7 +66,7 @@ struct Idle {
 }
 
 impl Idle {
-    async fn run(self, args: IdleArgs) {
+    async fn run(self, global: &GlobalArgs, args: IdleArgs) {
         let tc = &self.tc;
         let comp = tc.jay_compositor().await;
         let idle = tc.id();
@@ -71,13 +75,13 @@ impl Idle {
             id: idle,
         });
         match args.command.unwrap_or_default() {
-            IdleCmd::Status => self.status(idle).await,
+            IdleCmd::Status => self.status(global, idle).await,
             IdleCmd::Set(args) => self.set(idle, args).await,
             IdleCmd::SetGracePeriod(args) => self.set_grace_period(idle, args).await,
         }
     }
 
-    async fn status(self, idle: JayIdleId) {
+    async fn status(self, global: &GlobalArgs, idle: JayIdleId) {
         let tc = &self.tc;
         tc.send(jay_idle::GetStatus { self_id: idle });
         let timeout = Rc::new(Cell::new(0u64));
@@ -90,7 +94,7 @@ impl Idle {
         });
         struct Inhibitor {
             surface: WlSurfaceId,
-            _client_id: u64,
+            client_id: u64,
             pid: u64,
             comm: String,
         }
@@ -98,47 +102,63 @@ impl Idle {
         jay_idle::Inhibitor::handle(tc, idle, inhibitors.clone(), |iv, msg| {
             iv.push(Inhibitor {
                 surface: msg.surface,
-                _client_id: msg.client_id,
+                client_id: msg.client_id,
                 pid: msg.pid,
                 comm: msg.comm.to_string(),
             });
         });
         tc.round_trip().await;
-        let interval = |iv: u64| {
-            fmt::from_fn(move |f| {
-                let minutes = iv / 60;
-                let seconds = iv % 60;
-                if minutes == 0 && seconds == 0 {
-                    write!(f, " disabled")?;
-                } else {
-                    if minutes > 0 {
-                        write!(f, " {} minute", minutes)?;
-                        if minutes > 1 {
-                            write!(f, "s")?;
-                        }
-                    }
-                    if seconds > 0 {
-                        write!(f, " {} second", seconds)?;
-                        if seconds > 1 {
-                            write!(f, "s")?;
-                        }
-                    }
-                }
-                Ok(())
-            })
-        };
-        println!("Interval:{}", interval(timeout.get()));
-        println!("Grace period:{}", interval(grace.get()));
         let mut inhibitors = inhibitors.take();
-        inhibitors.sort_by_key(|i| i.pid);
-        inhibitors.sort_by_key(|i| i.surface);
-        if inhibitors.len() > 0 {
-            println!("Inhibitors:");
-            for inhibitor in inhibitors {
-                println!(
-                    "  {}, surface {}, pid {}",
-                    inhibitor.comm, inhibitor.surface, inhibitor.pid
-                );
+        inhibitors.sort_by_key(|i| (i.pid, i.surface));
+        if global.json {
+            let mut json = JsonIdle {
+                idle_sec: timeout.get(),
+                grace_sec: grace.get(),
+                inhibitors: vec![],
+            };
+            for inhibitor in &inhibitors {
+                json.inhibitors.push(JsonIdleInhibitor {
+                    surface: inhibitor.surface.raw(),
+                    client_id: inhibitor.client_id,
+                    pid: inhibitor.pid,
+                    comm: &inhibitor.comm,
+                });
+            }
+            jsonl(&json);
+        } else {
+            let interval = |iv: u64| {
+                fmt::from_fn(move |f| {
+                    let minutes = iv / 60;
+                    let seconds = iv % 60;
+                    if minutes == 0 && seconds == 0 {
+                        write!(f, " disabled")?;
+                    } else {
+                        if minutes > 0 {
+                            write!(f, " {} minute", minutes)?;
+                            if minutes > 1 {
+                                write!(f, "s")?;
+                            }
+                        }
+                        if seconds > 0 {
+                            write!(f, " {} second", seconds)?;
+                            if seconds > 1 {
+                                write!(f, "s")?;
+                            }
+                        }
+                    }
+                    Ok(())
+                })
+            };
+            println!("Interval:{}", interval(timeout.get()));
+            println!("Grace period:{}", interval(grace.get()));
+            if inhibitors.len() > 0 {
+                println!("Inhibitors:");
+                for inhibitor in inhibitors {
+                    println!(
+                        "  {}, surface {}, pid {}",
+                        inhibitor.comm, inhibitor.surface, inhibitor.pid
+                    );
+                }
             }
         }
     }

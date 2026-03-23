@@ -21,7 +21,7 @@ use {
         scale::{SCALE_BASE, SCALE_BASEF, Scale},
         state::State,
         tree::{TearingMode, Transform, VrrMode},
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, static_text::StaticText},
     },
     ahash::AHashMap,
     egui::{
@@ -1166,18 +1166,8 @@ fn show_transform(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool
     grid_label(ui, "Transform");
     let mut v = effective!(m, t).transform;
     let mut changed = false;
-    let transform_name = |t: Transform| match t {
-        Transform::None => "none",
-        Transform::Rotate90 => "rotate-90",
-        Transform::Rotate180 => "rotate-180",
-        Transform::Rotate270 => "rotate-270",
-        Transform::Flip => "flip",
-        Transform::FlipRotate90 => "flip-rotate-90",
-        Transform::FlipRotate180 => "flip-rotate-180",
-        Transform::FlipRotate270 => "flip-rotate-270",
-    };
     ComboBox::from_id_salt("transform")
-        .selected_text(transform_name(v))
+        .selected_text(v.text())
         .show_ui(ui, |ui| {
             let transforms = [
                 Transform::None,
@@ -1190,7 +1180,7 @@ fn show_transform(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool
                 Transform::FlipRotate270,
             ];
             for s in transforms {
-                changed |= ui.selectable_value(&mut v, s, transform_name(s)).changed();
+                changed |= ui.selectable_value(&mut v, s, s.text()).changed();
             }
         });
     if changed {
@@ -1200,7 +1190,7 @@ fn show_transform(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool
     }
     let diff = m.transform != v;
     if diff {
-        ui.label(transform_name(m.transform));
+        ui.label(m.transform.text());
     }
     diff
 }

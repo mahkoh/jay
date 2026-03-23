@@ -1,6 +1,9 @@
 use {
     crate::{
-        cli::GlobalArgs,
+        cli::{
+            GlobalArgs,
+            json::{JsonClient, jsonl},
+        },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         wire::{JayClientQueryId, jay_client_query, jay_compositor},
     },
@@ -69,7 +72,7 @@ struct KillIdArgs {
 pub fn main(global: GlobalArgs, clients_args: ClientsArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let clients = Rc::new(Clients { tc: tc.clone() });
-        clients.run(clients_args).await;
+        clients.run(&global, clients_args).await;
     });
 }
 
@@ -78,7 +81,7 @@ struct Clients {
 }
 
 impl Clients {
-    async fn run(&self, args: ClientsArgs) {
+    async fn run(&self, global: &GlobalArgs, args: ClientsArgs) {
         let tc = &self.tc;
         let comp = tc.jay_compositor().await;
         let cmd = args
@@ -113,13 +116,20 @@ impl Clients {
                 let clients = handle_client_query(tc, id).await;
                 let mut clients = clients.values().collect::<Vec<_>>();
                 clients.sort_by_key(|c| c.id);
-                let mut prefix = "    ".to_string();
-                let mut printer = ClientPrinter {
-                    prefix: &mut prefix,
-                };
-                for client in clients {
-                    println!("- client:");
-                    printer.print_client(client);
+                if global.json {
+                    for client in clients {
+                        let client = make_json_client(client);
+                        jsonl(&client);
+                    }
+                } else {
+                    let mut prefix = "    ".to_string();
+                    let mut printer = ClientPrinter {
+                        prefix: &mut prefix,
+                    };
+                    for client in clients {
+                        println!("- client:");
+                        printer.print_client(client);
+                    }
                 }
             }
             ClientsCmd::Kill(a) => match a.cmd {
@@ -244,5 +254,21 @@ impl ClientPrinter<'_> {
         opt!(comm, "comm");
         opt!(exe, "exe");
         opt!(tag, "tag");
+    }
+}
+
+pub fn make_json_client(client: &Client) -> JsonClient<'_> {
+    JsonClient {
+        client_id: client.id,
+        sandboxed: client.sandboxed,
+        sandbox_engine: client.sandbox_engine.as_deref(),
+        sandbox_app_id: client.sandbox_app_id.as_deref(),
+        sandbox_instance_id: client.sandbox_instance_id.as_deref(),
+        uid: client.uid,
+        pid: client.pid,
+        is_xwayland: client.is_xwayland,
+        comm: client.comm.as_deref(),
+        exe: client.exe.as_deref(),
+        tag: client.tag.as_deref(),
     }
 }
