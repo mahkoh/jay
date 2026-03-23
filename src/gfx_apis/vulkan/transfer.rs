@@ -54,9 +54,12 @@ pub struct VulkanShmImageAsyncData {
 
 impl VulkanShmImageAsyncData {
     fn complete(&self, result: Result<(), VulkanError>) {
-        self.busy.set(false);
-        if let Some(staging) = self.staging.take() {
-            staging.busy.set(false);
+        let staging = self.staging.take();
+        if result.is_ok() {
+            self.busy.set(false);
+            if let Some(staging) = staging {
+                staging.busy.set(false);
+            }
         }
         self.buffer.take();
         self.client_mem.take();
