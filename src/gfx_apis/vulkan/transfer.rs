@@ -679,6 +679,7 @@ fn complete_async_host_copy(
     store(data);
     if let Err(e) = res {
         data.complete(Err(VulkanError::AsyncCopyToStaging(e)));
+        return;
     }
     data.data_copied.set(true);
     match tt {
