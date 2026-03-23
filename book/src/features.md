@@ -42,7 +42,8 @@ There is a small but growing integration test suite that is used to ensure this.
 ## Command-Line Interface
 
 Jay has a comprehensive CLI that can be used to inspect and configure the
-compositor at runtime:
+compositor at runtime. All query commands support `--json` for machine-readable
+output:
 
 ```
 ~$ jay
@@ -77,7 +78,9 @@ Commands:
 
 Options:
       --log-level <LOG_LEVEL>  The log level [default: info] [possible values: trace, debug, info, warn, error, off]
-  -h, --help                   Print help
+      --json                   Output data as JSONL
+      --all-json-fields        Print all fields in JSON output
+  -h, --help                   Print help (see more with '--help')
 ```
 
 See the full [Command-Line Interface](cli.md) reference for details.

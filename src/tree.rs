@@ -101,6 +101,21 @@ pub enum Transform {
     FlipRotate270,
 }
 
+impl StaticText for Transform {
+    fn text(&self) -> &'static str {
+        match self {
+            Transform::None => "none",
+            Transform::Rotate90 => "rotate-90",
+            Transform::Rotate180 => "rotate-180",
+            Transform::Rotate270 => "rotate-270",
+            Transform::Flip => "flip",
+            Transform::FlipRotate90 => "flip-rotate-90",
+            Transform::FlipRotate180 => "flip-rotate-180",
+            Transform::FlipRotate270 => "flip-rotate-270",
+        }
+    }
+}
+
 impl From<ConfigTransform> for Transform {
     fn from(value: ConfigTransform) -> Self {
         match value {

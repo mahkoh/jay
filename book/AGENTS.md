@@ -61,6 +61,12 @@ A third review pass fixed:
 - `outputs.md`: VRR variant3 description said "describes its content as"
   instead of the correct protocol term "describes its content type as".
 
+A fourth update documented the new `--json` and `--all-json-fields` global
+CLI flags, which enable machine-readable JSONL output from all query/status
+subcommands. A new "JSON Output" section was added to `cli.md` listing all
+supported commands, the JSONL format, field omission behavior, and `jq`
+usage examples.
+
 **Future work might include:**
 
 - Keeping the book in sync as Jay adds new features or changes behavior.

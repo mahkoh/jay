@@ -20,6 +20,79 @@ Every subcommand accepts a global `--log-level` option (`trace`, `debug`,
 
 ---
 
+## JSON Output
+
+Most query and status commands can output machine-readable JSON instead of
+human-readable text. Pass the global `--json` flag before the subcommand:
+
+```shell
+~$ jay --json randr
+~$ jay --json clients
+~$ jay --json idle
+```
+
+Each command prints one or more JSON objects, one per line (JSONL format). This
+makes it easy to process with tools like `jq`:
+
+```shell
+~$ jay --json randr | jq '.drm_devices[].connectors[].name'
+~$ jay --json clients | jq 'select(.pid != null) | .pid'
+```
+
+By default, fields that are empty arrays, `null`, or `false` are omitted from
+the output to reduce noise. To include every field, pass `--all-json-fields`:
+
+```shell
+~$ jay --all-json-fields --json randr
+```
+
+### Supported Commands
+
+The following commands support `--json`:
+
+`jay clients`
+: One JSON object per client.
+
+`jay color-management status`
+: Color management enabled/available status.
+
+`jay config path`
+: The config file path as a JSON string.
+
+`jay idle status`
+: Idle interval, grace period, and inhibitors.
+
+`jay input show`, `jay input seat <seat> show`, `jay input device <id> show`
+: Seats and input devices with all properties.
+
+`jay log --path`
+: The log file path as a JSON string.
+
+`jay pid`
+: The compositor PID as a JSON number.
+
+`jay randr show`
+: DRM devices, connectors, outputs, modes, and display properties.
+
+`jay seat-test`
+: Streaming JSONL -- one JSON object per input event (key, pointer, touch,
+  gesture, tablet, switch).
+
+`jay tree query`
+: One JSON object per root node, with children nested recursively.
+
+`jay version`
+: The version string as a JSON value.
+
+`jay xwayland status`
+: Xwayland scaling mode and implied scale.
+
+> [!TIP]
+> Mutating commands (e.g., `jay idle set`, `jay randr output ... enable`)
+> produce no output, so `--json` has no effect on them.
+
+---
+
 ## Running
 
 ### `jay run`

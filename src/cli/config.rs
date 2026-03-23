@@ -1,5 +1,10 @@
 use {
-    crate::{cli::GlobalArgs, compositor::config_dir, logger::Logger, utils::errorfmt::ErrorFmt},
+    crate::{
+        cli::{GlobalArgs, json::jsonl},
+        compositor::config_dir,
+        logger::Logger,
+        utils::errorfmt::ErrorFmt,
+    },
     clap::{Args, Subcommand},
     jay_toml_config::CONFIG_TOML,
     std::path::Path,
@@ -87,7 +92,12 @@ pub fn main(global: GlobalArgs, args: ConfigArgs) {
         ConfigCmd::Path => {
             let dir = dir();
             let toml_path = Path::new(&dir).join(CONFIG_TOML);
-            println!("{}", toml_path.display());
+            if global.json {
+                let path = toml_path.display().to_string();
+                jsonl(&path);
+            } else {
+                println!("{}", toml_path.display());
+            }
         }
         ConfigCmd::OpenDir => {
             const XDG_OPEN: &str = "xdg-open";

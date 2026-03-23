@@ -8,6 +8,7 @@ mod duration;
 mod generate;
 mod idle;
 mod input;
+mod json;
 mod log;
 mod pid;
 mod quit;
@@ -27,8 +28,9 @@ use {
     crate::{
         cli::{
             clients::ClientsArgs, color_management::ColorManagementArgs, config::ConfigArgs,
-            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs, randr::RandrArgs,
-            reexec::ReexecArgs, run_tagged::RunTaggedArgs, tree::TreeArgs, xwayland::XwaylandArgs,
+            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs,
+            json::VERBOSE_JSON, randr::RandrArgs, reexec::ReexecArgs, run_tagged::RunTaggedArgs,
+            tree::TreeArgs, xwayland::XwaylandArgs,
         },
         compositor::{LogLevel, start_compositor},
         format::{Format, ref_formats},
@@ -37,6 +39,7 @@ use {
     },
     clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
     clap_complete::Shell,
+    std::sync::atomic::Ordering::Relaxed,
 };
 
 /// A wayland compositor.
@@ -53,6 +56,14 @@ pub struct GlobalArgs {
     /// The log level.
     #[clap(value_enum, long, default_value_t)]
     pub log_level: LogLevel,
+    /// Output data as JSONL.
+    #[clap(long)]
+    pub json: bool,
+    /// Print all fields in JSON output.
+    ///
+    /// By default, some fields that are empty arrays, null, or false are omitted.
+    #[clap(long)]
+    pub all_json_fields: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -224,6 +235,9 @@ pub fn main() {
     let cli = Jay::parse();
     if not_matches!(cli.command, Cmd::Run(_)) {
         drop_all_pr_caps();
+    }
+    if cli.global.all_json_fields {
+        VERBOSE_JSON.store(true, Relaxed);
     }
     match cli.command {
         Cmd::Run(a) => start_compositor(cli.global, a),

@@ -2,7 +2,8 @@ use {
     crate::{
         cli::{
             GlobalArgs,
-            clients::{Client, ClientPrinter, handle_client_query},
+            clients::{Client, ClientPrinter, handle_client_query, make_json_client},
+            json::{JsonRect, JsonTreeNode, JsonTreeNodeType, jsonl},
         },
         ifs::jay_tree_query::{
             TREE_TY_CONTAINER, TREE_TY_DISPLAY, TREE_TY_FLOAT, TREE_TY_LAYER_SURFACE,
@@ -68,7 +69,7 @@ pub fn main(global: GlobalArgs, tree_args: TreeArgs) {
             tc: tc.clone(),
             comp,
         });
-        tree.run(tree_args).await;
+        tree.run(&global, tree_args).await;
     });
 }
 
@@ -78,13 +79,13 @@ struct Tree {
 }
 
 impl Tree {
-    async fn run(&self, args: TreeArgs) {
+    async fn run(&self, global: &GlobalArgs, args: TreeArgs) {
         match &args.cmd {
-            TreeCmd::Query(a) => self.query(a).await,
+            TreeCmd::Query(a) => self.query(global, a).await,
         }
     }
 
-    async fn query(&self, args: &QueryArgs) {
+    async fn query(&self, global: &GlobalArgs, args: &QueryArgs) {
         let id = self.tc.id();
         self.tc.send(jay_compositor::CreateTreeQuery {
             self_id: self.comp,
@@ -95,7 +96,7 @@ impl Tree {
             tc: &self.tc,
             id,
         };
-        query.run(args).await;
+        query.run(global, args).await;
     }
 }
 
@@ -137,7 +138,7 @@ struct Node {
 }
 
 impl Query<'_> {
-    async fn run(&mut self, args: &QueryArgs) {
+    async fn run(&mut self, global: &GlobalArgs, args: &QueryArgs) {
         match &args.cmd {
             QueryCmd::Root => {
                 self.tc.send(SetRootDisplay { self_id: self.id });
@@ -296,17 +297,65 @@ impl Query<'_> {
             tl.send(Execute { self_id: id });
             handle_client_query(tl, id).await
         };
-        let mut printer = Printer {
-            clients,
-            printed_clients: Default::default(),
-            verbose: args.all_clients,
-            prefix: "".to_string(),
-            output_depth: 0,
-            workspace_depth: 0,
-        };
-        for node in &d.borrow().roots {
-            printer.print(node);
+        if global.json {
+            for node in &d.borrow().roots {
+                let node = make_json_tree_node(&clients, node);
+                jsonl(&node);
+            }
+        } else {
+            let mut printer = Printer {
+                clients,
+                printed_clients: Default::default(),
+                verbose: args.all_clients,
+                prefix: "".to_string(),
+                output_depth: 0,
+                workspace_depth: 0,
+            };
+            for node in &d.borrow().roots {
+                printer.print(node);
+            }
         }
+    }
+}
+
+fn make_json_tree_node<'b>(clients: &'b AHashMap<u64, Client>, node: &'b Node) -> JsonTreeNode<'b> {
+    let position = node.position.map(|r| JsonRect {
+        x1: r.x1(),
+        y1: r.y1(),
+        x2: r.x2(),
+        y2: r.y2(),
+        width: r.width(),
+        height: r.height(),
+    });
+    let client = node
+        .client
+        .and_then(|client_id| clients.get(&client_id))
+        .map(make_json_client);
+    let children = node
+        .children
+        .iter()
+        .map(|c| make_json_tree_node(clients, c))
+        .collect();
+    JsonTreeNode {
+        ty: JsonTreeNodeType(node.ty),
+        output: node.output.as_deref(),
+        workspace: node.workspace.as_deref(),
+        toplevel_id: node.toplevel_id.as_deref(),
+        placeholder_for: node.placeholder_for.as_deref(),
+        position,
+        client,
+        title: node.title.as_deref(),
+        app_id: node.app_id.as_deref(),
+        tag: node.tag.as_deref(),
+        content_type: node.content_type.as_deref(),
+        x_class: node.x_class.as_deref(),
+        x_instance: node.x_instance.as_deref(),
+        x_role: node.x_role.as_deref(),
+        floating: node.floating,
+        visible: node.visible,
+        urgent: node.urgent,
+        fullscreen: node.fullscreen,
+        children,
     }
 }
 

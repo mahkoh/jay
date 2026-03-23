@@ -1,7 +1,10 @@
 use {
     crate::{
         backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod},
-        cli::GlobalArgs,
+        cli::{
+            GlobalArgs,
+            json::{JsonInputData, JsonInputDevice, JsonSeat, jsonl},
+        },
         clientmem::ClientMem,
         libinput::consts::{
             ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -326,7 +329,7 @@ pub struct UseHardwareCursorArgs {
 pub fn main(global: GlobalArgs, args: InputArgs) {
     with_tool_client(global.log_level, |tc| async move {
         let idle = Rc::new(Input { tc: tc.clone() });
-        idle.run(args).await;
+        idle.run(&global, args).await;
     });
 }
 
@@ -372,7 +375,7 @@ struct Input {
 }
 
 impl Input {
-    async fn run(self: &Rc<Self>, args: InputArgs) {
+    async fn run(self: &Rc<Self>, global: &GlobalArgs, args: InputArgs) {
         let tc = &self.tc;
         let comp = tc.jay_compositor().await;
         let input = tc.id();
@@ -381,9 +384,9 @@ impl Input {
             id: input,
         });
         match args.command.unwrap_or_default() {
-            InputCmd::Show(args) => self.show(input, args).await,
-            InputCmd::Seat(args) => self.seat(input, args).await,
-            InputCmd::Device(args) => self.device(input, args).await,
+            InputCmd::Show(args) => self.show(global, input, args).await,
+            InputCmd::Seat(args) => self.seat(global, input, args).await,
+            InputCmd::Device(args) => self.device(global, input, args).await,
         }
     }
 
@@ -436,7 +439,7 @@ impl Input {
         data.take()
     }
 
-    async fn seat(self: &Rc<Self>, input: JayInputId, args: SeatArgs) {
+    async fn seat(self: &Rc<Self>, global: &GlobalArgs, input: JayInputId, args: SeatArgs) {
         let tc = &self.tc;
         match args.command.unwrap_or_default() {
             SeatCommand::Show(a) => {
@@ -448,7 +451,11 @@ impl Input {
                     name: &args.seat,
                 });
                 let data = self.get(input).await;
-                self.print_data(data, a.verbose);
+                if global.json {
+                    self.print_data_json(data);
+                } else {
+                    self.print_data(data, a.verbose);
+                }
             }
             SeatCommand::SetRepeatRate(a) => {
                 self.handle_error(input, |e| {
@@ -543,7 +550,7 @@ impl Input {
         tc.round_trip().await;
     }
 
-    async fn device(self: &Rc<Self>, input: JayInputId, args: DeviceArgs) {
+    async fn device(self: &Rc<Self>, global: &GlobalArgs, input: JayInputId, args: DeviceArgs) {
         let tc = &self.tc;
         match args.command.unwrap_or_default() {
             DeviceCommand::Show => {
@@ -555,8 +562,12 @@ impl Input {
                     id: args.device,
                 });
                 let data = self.get(input).await;
-                for device in &data.input_device {
-                    self.print_device("", true, device);
+                if global.json {
+                    self.print_data_json(data);
+                } else {
+                    for device in &data.input_device {
+                        self.print_device("", true, device);
+                    }
                 }
             }
             DeviceCommand::SetAccelProfile(a) => {
@@ -779,10 +790,14 @@ impl Input {
         tc.round_trip().await;
     }
 
-    async fn show(self: &Rc<Self>, input: JayInputId, args: ShowArgs) {
+    async fn show(self: &Rc<Self>, global: &GlobalArgs, input: JayInputId, args: ShowArgs) {
         self.tc.send(jay_input::GetAll { self_id: input });
         let data = self.get(input).await;
-        self.print_data(data, args.verbose);
+        if global.json {
+            self.print_data_json(data);
+        } else {
+            self.print_data(data, args.verbose);
+        }
     }
 
     fn print_data(self: &Rc<Self>, mut data: Data, verbose: bool) {
@@ -911,6 +926,38 @@ impl Input {
         }
     }
 
+    fn print_data_json(&self, mut data: Data) {
+        data.seats.sort_by(|l, r| l.name.cmp(&r.name));
+        data.input_device.sort_by_key(|l| l.id);
+        let mut seats = Vec::new();
+        for seat in &data.seats {
+            let devices = data
+                .input_device
+                .iter()
+                .filter(|c| c.seat.as_ref() == Some(&seat.name))
+                .map(make_json_device)
+                .collect();
+            seats.push(JsonSeat {
+                name: &seat.name,
+                repeat_rate: seat.repeat_rate,
+                repeat_delay: seat.repeat_delay,
+                hardware_cursor: seat.hardware_cursor,
+                devices,
+            });
+        }
+        let detached_devices = data
+            .input_device
+            .iter()
+            .filter(|c| c.seat.is_none())
+            .map(make_json_device)
+            .collect();
+        let json = JsonInputData {
+            seats,
+            detached_devices,
+        };
+        jsonl(&json);
+    }
+
     async fn get(self: &Rc<Self>, input: JayInputId) -> Data {
         let tc = &self.tc;
         let data = Rc::new(RefCell::new(Data::default()));
@@ -1016,5 +1063,29 @@ impl Input {
         });
         tc.round_trip().await;
         data.borrow_mut().clone()
+    }
+}
+
+fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
+    JsonInputDevice {
+        input_device_id: device.id,
+        name: &device.name,
+        seat: device.seat.as_deref(),
+        syspath: device.syspath.as_deref(),
+        devnode: device.devnode.as_deref(),
+        capabilities: device.capabilities.iter().map(|c| c.text()).collect(),
+        accel_profile: device.accel_profile.as_ref().map(|v| v.text()),
+        accel_speed: device.accel_speed,
+        tap_enabled: device.tap_enabled,
+        tap_drag_enabled: device.tap_drag_enabled,
+        tap_drag_lock_enabled: device.tap_drag_lock_enabled,
+        left_handed: device.left_handed,
+        natural_scrolling: device.natural_scrolling_enabled,
+        px_per_wheel_scroll: device.px_per_wheel_scroll,
+        transform_matrix: device.transform_matrix,
+        output: device.output.as_deref(),
+        calibration_matrix: device.calibration_matrix,
+        click_method: device.click_method.as_ref().map(|v| v.text()),
+        middle_button_emulation: device.middle_button_emulation_enabled,
     }
 }
