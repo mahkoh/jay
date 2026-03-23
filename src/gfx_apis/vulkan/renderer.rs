@@ -2304,6 +2304,9 @@ where
     }
     let x2 = x2.min(fb.width as i32);
     let y2 = y2.min(fb.height as i32);
+    if x1 == x2 || y1 == y2 {
+        return None;
+    }
     Some([x1, y1, x2, y2])
 }
 
