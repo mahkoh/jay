@@ -100,10 +100,12 @@ impl VulkanAllocation {
     }
 
     fn incoherent_range(&self, mask: u64) -> MappedMemoryRange<'static> {
+        let lo = self.offset & !mask;
+        let hi = (self.offset + self.size + mask) & !mask;
         MappedMemoryRange::default()
             .memory(self.memory)
-            .offset(self.offset & !mask)
-            .size((self.size + mask) & !mask)
+            .offset(lo)
+            .size(hi - lo)
     }
 
     fn device(&self) -> &VulkanDevice {

@@ -258,7 +258,10 @@ impl VulkanShmImage {
                     TransferType::Upload => AccessFlags2::SHADER_SAMPLED_READ,
                     TransferType::Download => AccessFlags2::COLOR_ATTACHMENT_WRITE,
                 })
-                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
+                .dst_stage_mask(match tt {
+                    TransferType::Upload => PipelineStageFlags2::FRAGMENT_SHADER,
+                    TransferType::Download => PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT,
+                });
         }
         let final_buffer_barrier = memory_barrier(true);
         let final_dep_info = DependencyInfoKHR::default()
