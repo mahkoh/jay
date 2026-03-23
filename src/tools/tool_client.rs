@@ -30,6 +30,7 @@ use {
         },
     },
     ahash::AHashMap,
+    isnt::std_1::primitive::IsntSliceExt,
     std::{
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -155,7 +156,11 @@ impl ToolClient {
             Ok(d) => d,
             Err(_) => return Err(ToolClientError::WaylandDisplayNotSet),
         };
-        let path = format_ustr!("{}/{}.jay", xrd, wd);
+        let mut path = format_ustr!("{}/{}", xrd, wd);
+        let suffix = b".jay";
+        if path.not_ends_with(suffix) {
+            path.push(suffix.as_slice());
+        }
         let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(s) => Rc::new(s),
             Err(e) => return Err(ToolClientError::CreateSocket(e.into())),
