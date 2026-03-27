@@ -2680,6 +2680,19 @@ Config:
           ```toml
           log-level = "debug"
           ```
+    clean-logs-older-than:
+      ref: CleanLogsOlderThan
+      required: false
+      description: |
+        If specified on startup, deletes Jay's log files older than the specified time period.
+
+        Possible keys in the table are `days` and `weeks`.
+
+        - Example:
+
+          ```toml
+          clean-logs-older-than.days = 7
+          ```
     theme:
       ref: Theme
       required: false
@@ -3214,6 +3227,31 @@ GracePeriod:
       description: The number of seconds the grace period lasts.
       kind: number
       integer_only: true
+      minimum: 0
+      required: false
+
+
+CleanLogsOlderThan:
+  kind: table
+  description: |
+    The definition of how old logfiles need to be for them to be automatically deleted.
+    
+    Omitted values are set to 0. At least one of `weeks` or `days` must be specified.
+    
+    - Example:
+    
+      ```toml
+      clean-logs-older-than.weeks = 2
+      ```
+  fields:
+    weeks:
+      description: The number of weeks.
+      kind: number
+      minimum: 0
+      required: false
+    days:
+      description: The number of days.
+      kind: number
       minimum: 0
       required: false
 

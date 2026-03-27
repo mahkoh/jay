@@ -21,7 +21,7 @@ use {
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
-    std::time::Duration,
+    std::time::{Duration, SystemTime},
 };
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -860,6 +860,9 @@ pub enum ClientMessage<'a> {
     },
     SeatWarpMouseToFocus {
         seat: Seat,
+    },
+    CleanLogsOlderThan {
+        time: SystemTime,
     },
 }
 

@@ -4,7 +4,7 @@ use {
         utils::{atomic_enum::AtomicEnum, errorfmt::ErrorFmt, oserror::OsError},
     },
     backtrace::Backtrace,
-    bstr::BString,
+    bstr::{BStr, BString, ByteSlice},
     log::{LevelFilter, Log, Metadata, Record},
     parking_lot::Mutex,
     std::{
@@ -17,9 +17,11 @@ use {
             Arc,
             atomic::{AtomicI32, AtomicU32, Ordering::Relaxed},
         },
+        thread,
         time::SystemTime,
     },
-    uapi::{Errno, Fd, OwnedFd, Ustring, c, format_ustr},
+    thiserror::Error,
+    uapi::{AsUstr, Dirent, Errno, Fd, OwnedFd, Ustring, c, format_ustr},
 };
 
 thread_local! {
@@ -80,6 +82,17 @@ impl Logger {
         log::set_max_level(filter);
     }
 
+    pub fn clean_logs_older_than(&self, time: SystemTime) {
+        let time_formatted = humantime::format_rfc3339_millis(time);
+        log::info!("Cleaning unused log files older than {}", time_formatted);
+        let path = self.path();
+        thread::spawn(move || {
+            if let Err(e) = clean_logs_older_than(path.as_bstr(), time) {
+                log::error!("Could not clean log files: {}", ErrorFmt(e));
+            }
+        });
+    }
+
     pub fn level(&self) -> LogLevel {
         self.level.load(Relaxed)
     }
@@ -105,6 +118,7 @@ impl Logger {
 
 pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
     let log_dir = create_log_dir(ty);
+    let mut flock_fail_count = 0;
     for i in 0.. {
         let file_name = format_ustr!(
             "{}/{ty}-{}-{}.txt",
@@ -117,7 +131,22 @@ pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
             c::O_CREAT | c::O_EXCL | c::O_CLOEXEC | c::O_WRONLY,
             0o644,
         ) {
-            Ok(f) => return (file_name, f),
+            Ok(f) => {
+                if let Err(e) = uapi::flock(f.raw(), c::LOCK_EX | c::LOCK_NB) {
+                    log::warn!("Unable to flock just-opened logfile: {}", ErrorFmt(e));
+                    flock_fail_count += 1;
+                    if flock_fail_count > 10 {
+                        log::error!(concat!(
+                            "Failed to flock just-opened logfile more than 10 times in a row. ",
+                            "Not flocking the logfile, if the cleanup routine later succeeds to ",
+                            "flock this logfile, it will be deleted even if it is still in use."
+                        ));
+                    } else {
+                        continue;
+                    }
+                }
+                return (file_name, f);
+            }
             Err(Errno(c::EEXIST)) => {}
             Err(e) => {
                 let e: OsError = e.into();
@@ -208,4 +237,74 @@ impl Log for LogWrapper {
     fn flush(&self) {
         // nothing
     }
+}
+
+#[derive(Debug, Error)]
+enum CleanLogsError {
+    #[error("Log path has no parent")]
+    NoParent,
+    #[error("Could not open the log directory")]
+    OpenDir(#[source] OsError),
+    #[error("Could not enumerate directory entry")]
+    ReadDir(#[source] OsError),
+    #[error("Could not open the log file")]
+    OpenFile(#[source] OsError),
+    #[error("Could not stat the log file")]
+    Stat(#[source] OsError),
+    #[error("Could not unlink the log file")]
+    Unlink(#[source] OsError),
+}
+
+fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<(), CleanLogsError> {
+    let current_log_path = current_log_path.to_path_lossy();
+    let parent = current_log_path.parent().ok_or(CleanLogsError::NoParent)?;
+    let mut dir = uapi::opendir(parent)
+        .map_err(Into::into)
+        .map_err(CleanLogsError::OpenDir)?;
+    let parent = uapi::open(parent, c::O_PATH | c::O_CLOEXEC | c::O_DIRECTORY, 0)
+        .map_err(Into::into)
+        .map_err(CleanLogsError::OpenDir)?;
+    let time = time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as c::time_t;
+    while let Some(entry) = uapi::readdir(&mut dir) {
+        let entry = entry.map_err(Into::into).map_err(CleanLogsError::ReadDir)?;
+        if let Err(err) = process_entry(parent.raw(), &entry, time) {
+            log::error!(
+                "Could not clean log file {}: {}",
+                entry.name().as_ustr().display(),
+                ErrorFmt(err),
+            );
+        }
+    }
+    fn process_entry(
+        parent: c::c_int,
+        entry: &Dirent,
+        time: c::time_t,
+    ) -> Result<(), CleanLogsError> {
+        if entry.d_type != c::DT_REG {
+            return Ok(());
+        }
+        let name = entry.name();
+        let file = uapi::openat(parent, name, c::O_RDONLY | c::O_CLOEXEC, 0)
+            .map_err(Into::into)
+            .map_err(CleanLogsError::OpenFile)?;
+        let stat = uapi::fstat(*file)
+            .map_err(Into::into)
+            .map_err(CleanLogsError::Stat)?;
+        if stat.st_mtime >= time {
+            return Ok(());
+        }
+        if uapi::flock(file.raw(), c::LOCK_EX | c::LOCK_NB).is_err() {
+            log::info!("Preserving file still in use: {}", name.as_ustr().display());
+            return Ok(());
+        }
+        uapi::unlinkat(parent, name, 0)
+            .map_err(Into::into)
+            .map_err(CleanLogsError::Unlink)?;
+        log::info!("Deleted {}", name.as_ustr().display());
+        Ok(())
+    }
+    Ok(())
 }
