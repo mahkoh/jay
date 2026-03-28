@@ -851,6 +851,44 @@ Action:
               description: The name of the output.
               required: true
               kind: string
+        resize:
+          description: |
+            Resizes the focused window.
+            
+            - Example (Growing the window by 2 pixels on the left):
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "resize", dx1 = -2 }
+              ```
+            
+            - Example (Moving the window 2 pixels to the left):
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "resize", dx1 = -2, dx2 = -2 }
+              ```
+          fields:
+            dx1:
+              description: The change at the left edge of the window.
+              required: false
+              kind: number
+              integer_only: true
+            dy1:
+              description: The change at the top edge of the window.
+              required: false
+              kind: number
+              integer_only: true
+            dx2:
+              description: The change at the right edge of the window.
+              required: false
+              kind: number
+              integer_only: true
+            dy2:
+              description: The change at the bottom edge of the window.
+              required: false
+              kind: number
+              integer_only: true
 
 
 Exec:

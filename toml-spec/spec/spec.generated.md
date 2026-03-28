@@ -889,6 +889,58 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
+- `resize`:
+
+  Resizes the focused window.
+  
+  - Example (Growing the window by 2 pixels on the left):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "resize", dx1 = -2 }
+    ```
+  
+  - Example (Moving the window 2 pixels to the left):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "resize", dx1 = -2, dx2 = -2 }
+    ```
+
+  The table has the following fields:
+
+  - `dx1` (optional):
+
+    The change at the left edge of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+  - `dy1` (optional):
+
+    The change at the top edge of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+  - `dx2` (optional):
+
+    The change at the right edge of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+  - `dy2` (optional):
+
+    The change at the bottom edge of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`

@@ -236,6 +236,11 @@ impl Window {
     pub fn toggle_float_pinned(self) {
         self.set_float_pinned(!self.float_pinned());
     }
+
+    /// Resizes the window.
+    pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
+        get!().resize_window(self, dx1, dy1, dx2, dy2);
+    }
 }
 
 /// A window matcher.

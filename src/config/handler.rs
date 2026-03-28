@@ -2623,6 +2623,18 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_window_resize(
+        &self,
+        window: Window,
+        dx1: i32,
+        dy1: i32,
+        dx2: i32,
+        dy2: i32,
+    ) -> Result<(), CphError> {
+        self.get_window(window)?.tl_resize(dx1, dy1, dx2, dy2);
+        Ok(())
+    }
+
     fn handle_window_exists(&self, window: Window) {
         self.respond(Response::WindowExists {
             exists: self.get_window(window).is_ok(),
@@ -3381,6 +3393,15 @@ impl ConfigProxyHandler {
             ClientMessage::CreateVirtualOutput { name } => self.handle_create_virtual_output(name),
             ClientMessage::RemoveVirtualOutput { name } => self.handle_remove_virtual_output(name),
             ClientMessage::CleanLogsOlderThan { time } => self.handle_clean_logs_older_than(time),
+            ClientMessage::WindowResize {
+                window,
+                dx1,
+                dy1,
+                dx2,
+                dy2,
+            } => self
+                .handle_window_resize(window, dx1, dy1, dx2, dy2)
+                .wrn("window_resize")?,
         }
         Ok(())
     }

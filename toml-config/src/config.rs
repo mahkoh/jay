@@ -190,6 +190,12 @@ pub enum Action {
     RemoveVirtualOutput {
         name: String,
     },
+    Resize {
+        dx1: i32,
+        dy1: i32,
+        dx2: i32,
+        dy2: i32,
+    },
 }
 
 #[derive(Debug, Clone, Default)]

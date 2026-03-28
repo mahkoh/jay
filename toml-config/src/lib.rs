@@ -482,6 +482,9 @@ impl Action {
             }
             Action::CreateVirtualOutput { name } => b.new(move || create_virtual_output(&name)),
             Action::RemoveVirtualOutput { name } => b.new(move || remove_virtual_output(&name)),
+            Action::Resize { dx1, dy1, dx2, dy2 } => {
+                window_or_seat!(s, s.resize(dx1, dy1, dx2, dy2))
+            }
         }
     }
 }
