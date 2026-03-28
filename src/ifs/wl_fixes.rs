@@ -43,7 +43,7 @@ simple_add_global!(WlFixesGlobal);
 
 impl Global for WlFixesGlobal {
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 
@@ -65,6 +65,10 @@ impl WlFixesRequestHandler for WlFixes {
     fn destroy_registry(&self, req: DestroyRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let registry = self.client.lookup(req.registry)?;
         self.client.remove_obj(&*registry)?;
+        Ok(())
+    }
+
+    fn ack_global_remove(&self, _req: AckGlobalRemove, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 }
