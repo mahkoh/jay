@@ -6,7 +6,7 @@ use {
         wire::parser::{Field, Lined, Message, Type, parse_messages, to_camel},
     },
     anyhow::{Context, Result},
-    std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
+    std::{fmt, fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
 };
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
@@ -110,26 +110,81 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
         parser
     )?;
-    writeln!(f, "            Ok(Self {{")?;
-    writeln!(f, "                self_id: {}Id::NONE,", obj)?;
-    for field in &message.fields {
-        let p = match &field.val.ty.val {
-            Type::Id(..) => "object",
-            Type::U32 => "uint",
-            Type::I32 => "int",
-            Type::U64 => "u64",
-            Type::U64Rev => "u64_rev",
-            Type::OptStr => "optstr",
-            Type::Str => "str",
-            Type::Fixed => "fixed",
-            Type::Fd => "fd",
-            Type::BStr => "bstr",
-            Type::Array(_) => "binary_array",
-            Type::Pod(_) => "binary",
-        };
-        writeln!(f, "                {}: parser.{}()?,", field.val.name, p)?;
+    if message.is_fixed_size {
+        writeln!(f, "            let [")?;
+        for (i, field) in message.fields.iter().enumerate() {
+            match &field.val.ty.val {
+                Type::U64 => {
+                    writeln!(f, "                arg{i}_hi,")?;
+                    writeln!(f, "                arg{i}_lo,")?;
+                }
+                Type::U64Rev => {
+                    writeln!(f, "                arg{i}_lo,")?;
+                    writeln!(f, "                arg{i}_hi,")?;
+                }
+                Type::Fd => {}
+                _ => {
+                    writeln!(f, "                arg{i},")?;
+                }
+            }
+        }
+        writeln!(f, "            ] = *{parser}.data() else {{")?;
+        writeln!(
+            f,
+            "                return Err(MsgParserError::UnexpectedMessageSize);"
+        )?;
+        writeln!(f, "            }};")?;
+        writeln!(f, "            Ok(Self {{")?;
+        writeln!(f, "                self_id: {}Id::NONE,", obj)?;
+        for (i, field) in message.fields.iter().enumerate() {
+            writeln!(
+                f,
+                "                {}: {},",
+                field.val.name,
+                fmt::from_fn(|f| {
+                    match &field.val.ty.val {
+                        Type::Id(_, name) => write!(f, "{name}Id(arg{i})"),
+                        Type::U32 => write!(f, "arg{i}"),
+                        Type::I32 => write!(f, "arg{i} as i32"),
+                        Type::U64 | Type::U64Rev => {
+                            write!(f, "((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64)")
+                        }
+                        Type::OptStr => unreachable!(),
+                        Type::Str => unreachable!(),
+                        Type::Fixed => write!(f, "Fixed(arg{i} as i32)"),
+                        Type::Fd => write!(f, "parser.fd()?"),
+                        Type::BStr => unreachable!(),
+                        Type::Array(_) => unreachable!(),
+                        Type::Pod(_) => unreachable!(),
+                    }
+                })
+            )?;
+        }
+        writeln!(f, "            }})")?;
+    } else {
+        writeln!(f, "            let res = Ok(Self {{")?;
+        writeln!(f, "                self_id: {}Id::NONE,", obj)?;
+        for field in &message.fields {
+            let p = match &field.val.ty.val {
+                Type::Id(..) => "object",
+                Type::U32 => "uint",
+                Type::I32 => "int",
+                Type::U64 => "u64",
+                Type::U64Rev => "u64_rev",
+                Type::OptStr => "optstr",
+                Type::Str => "str",
+                Type::Fixed => "fixed",
+                Type::Fd => "fd",
+                Type::BStr => "bstr",
+                Type::Array(_) => "binary_array",
+                Type::Pod(_) => "binary",
+            };
+            writeln!(f, "                {}: parser.{}()?,", field.val.name, p)?;
+        }
+        writeln!(f, "            }});")?;
+        writeln!(f, "            parser.eof()?;")?;
+        writeln!(f, "            res")?;
     }
-    writeln!(f, "            }})")?;
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
     writeln!(

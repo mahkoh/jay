@@ -146,9 +146,7 @@ pub trait ParseFull<'a>: Sized {
 
 impl<'a, T: RequestParser<'a>> ParseFull<'a> for T {
     fn parse_full(mut parser: MsgParser<'_, 'a>) -> Result<Self, TestError> {
-        let res = T::parse(&mut parser)?;
-        parser.eof()?;
-        Ok(res)
+        T::parse(&mut parser).map_err(Into::into)
     }
 }
 

@@ -22,6 +22,8 @@ pub enum MsgParserError {
     TrailingData,
     #[error("String is not UTF-8")]
     NonUtf8,
+    #[error("The message has an unexpected size")]
+    UnexpectedMessageSize,
 }
 
 pub struct MsgParser<'a, 'b> {
@@ -33,6 +35,11 @@ pub struct MsgParser<'a, 'b> {
 impl<'a, 'b> MsgParser<'a, 'b> {
     pub fn new(buf: &'a mut BufFdIn, data: &'b [u32]) -> Self {
         Self { buf, pos: 0, data }
+    }
+
+    #[inline(always)]
+    pub fn data(&self) -> &[u32] {
+        self.data
     }
 
     pub fn int(&mut self) -> Result<i32, MsgParserError> {
@@ -48,12 +55,14 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
+    #[expect(dead_code)]
     pub fn u64(&mut self) -> Result<u64, MsgParserError> {
         let hi = self.uint()?;
         let lo = self.uint()?;
         Ok(((hi as u64) << 32) | lo as u64)
     }
 
+    #[expect(dead_code)]
     pub fn u64_rev(&mut self) -> Result<u64, MsgParserError> {
         let lo = self.uint()?;
         let hi = self.uint()?;

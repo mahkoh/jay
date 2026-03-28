@@ -235,6 +235,7 @@ pub struct Message {
     pub fields: Vec<Lined<Field>>,
     pub attribs: MessageAttribs,
     pub has_reference_type: bool,
+    pub is_fixed_size: bool,
 }
 
 #[derive(Debug, Default)]
@@ -344,6 +345,11 @@ impl<'a> Parser<'a> {
                 Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
                 _ => false,
             });
+            let is_variable_size = fields.iter().any(|f| match &f.val.ty.val {
+                Type::OptStr | Type::Str | Type::BStr | Type::Array(..) | Type::Pod(..) => true,
+                _ => false,
+            });
+            let is_fixed_size = !is_variable_size;
             let safe_name = match name {
                 "move" => "move_",
                 "type" => "type_",
@@ -361,6 +367,7 @@ impl<'a> Parser<'a> {
                     fields,
                     attribs,
                     has_reference_type,
+                    is_fixed_size,
                 },
             })
         })();
