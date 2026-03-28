@@ -386,7 +386,7 @@ impl InputPane {
                         });
                     }
                     if let Some(old) = dev.device.accel_speed() {
-                        drag_value(ui, "Accel Speed", old, 0.0..=1.0, 0.01, |v| {
+                        drag_value(ui, "Accel Speed", old, -1.0..=1.0, 0.01, |v| {
                             dev.set_accel_speed(&self.state, v)
                         });
                     }
