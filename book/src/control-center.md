@@ -334,7 +334,7 @@ Accel Profile
 : Dropdown: Flat or Adaptive. Shown for devices with acceleration.
 
 Accel Speed
-: Numeric input (0.0 to 1.0). Shown for devices with acceleration.
+: Numeric input (-1.0 to 1.0). Shown for devices with acceleration.
 
 Click Method
 : Dropdown: none, button-areas, clickfinger. Shown for devices that support it.
