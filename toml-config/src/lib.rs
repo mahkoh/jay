@@ -1664,6 +1664,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     if let Some(f) = &config.egui.monospace_fonts {
         set_egui_monospace_fonts(f.iter().map(|s| &**s));
     }
+    if let Some(mouse_follows_focus) = config.mouse_follows_focus {
+        #[expect(deprecated)]
+        persistent
+            .seat
+            .unstable_set_mouse_follows_focus(mouse_follows_focus);
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {

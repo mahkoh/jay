@@ -974,6 +974,7 @@ impl State {
             }
         };
         self.show_workspace2(Some(seat), &ws.output.get(), &ws);
+        seat.maybe_schedule_warp_mouse_to_focus();
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
