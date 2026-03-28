@@ -33,6 +33,11 @@ impl<'a> MsgFormatter<'a> {
         self.meta.write_pos += bytes.len();
     }
 
+    #[inline(always)]
+    pub fn data(&mut self, data: &[u32]) {
+        self.write(uapi::as_bytes(data));
+    }
+
     pub fn int(&mut self, int: i32) -> &mut Self {
         self.write(uapi::as_bytes(&int));
         self
@@ -43,11 +48,13 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
+    #[expect(dead_code)]
     pub fn u64(&mut self, int: u64) -> &mut Self {
         self.uint((int >> 32) as u32);
         self.uint(int as u32)
     }
 
+    #[expect(dead_code)]
     pub fn u64_rev(&mut self, int: u64) -> &mut Self {
         self.uint(int as u32);
         self.uint((int >> 32) as u32)

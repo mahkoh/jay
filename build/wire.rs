@@ -193,35 +193,75 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         lifetime, message.camel_name, lifetime
     )?;
     writeln!(f, "        fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
-    writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
-    fn write_fmt_expr<W: Write>(f: &mut W, prefix: &str, ty: &Type, access: &str) -> Result<()> {
-        let p = match ty {
-            Type::Id(..) => "object",
-            Type::U32 => "uint",
-            Type::I32 => "int",
-            Type::U64 => "u64",
-            Type::U64Rev => "u64_rev",
-            Type::OptStr => "optstr",
-            Type::Str | Type::BStr => "string",
-            Type::Fixed => "fixed",
-            Type::Fd => "fd",
-            Type::Array(..) => "binary",
-            Type::Pod(..) => "binary",
-        };
-        let rf = match ty {
-            Type::Pod(..) => "&",
-            _ => "",
-        };
-        writeln!(f, "            {}fmt.{}({}{});", prefix, p, rf, access)?;
-        Ok(())
-    }
-    for field in &message.fields {
-        write_fmt_expr(
-            f,
-            "",
-            &field.val.ty.val,
-            &format!("self.{}", field.val.name),
-        )?;
+    if message.is_fixed_size {
+        writeln!(f, "            fmt.data(&[")?;
+        writeln!(f, "                self.self_id.0,")?;
+        writeln!(f, "                {uppercase},")?;
+        for field in &message.fields {
+            let prefix = format!("                self.{}", field.val.name);
+            match &field.val.ty.val {
+                Type::Id(_, _) => writeln!(f, "{prefix}.0,")?,
+                Type::U32 => writeln!(f, "{prefix},")?,
+                Type::I32 => writeln!(f, "{prefix} as u32,")?,
+                Type::U64 => {
+                    writeln!(f, "                (self.{} >> 32) as u32,", field.val.name)?;
+                    writeln!(f, "{prefix} as u32,")?;
+                }
+                Type::U64Rev => {
+                    writeln!(f, "{prefix} as u32,")?;
+                    writeln!(f, "                (self.{} >> 32) as u32,", field.val.name)?;
+                }
+                Type::Str => unreachable!(),
+                Type::OptStr => unreachable!(),
+                Type::BStr => unreachable!(),
+                Type::Fixed => writeln!(f, "{prefix}.0 as u32,")?,
+                Type::Fd => {}
+                Type::Array(_) => unreachable!(),
+                Type::Pod(_) => unreachable!(),
+            }
+        }
+        writeln!(f, "            ]);")?;
+        for field in &message.fields {
+            if let Type::Fd = &field.val.ty.val {
+                writeln!(f, "            fmt.fd(self.{});", field.val.name)?;
+            }
+        }
+    } else {
+        writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
+        fn write_fmt_expr<W: Write>(
+            f: &mut W,
+            prefix: &str,
+            ty: &Type,
+            access: &str,
+        ) -> Result<()> {
+            let p = match ty {
+                Type::Id(..) => "object",
+                Type::U32 => "uint",
+                Type::I32 => "int",
+                Type::U64 => "u64",
+                Type::U64Rev => "u64_rev",
+                Type::OptStr => "optstr",
+                Type::Str | Type::BStr => "string",
+                Type::Fixed => "fixed",
+                Type::Fd => "fd",
+                Type::Array(..) => "binary",
+                Type::Pod(..) => "binary",
+            };
+            let rf = match ty {
+                Type::Pod(..) => "&",
+                _ => "",
+            };
+            writeln!(f, "            {}fmt.{}({}{});", prefix, p, rf, access)?;
+            Ok(())
+        }
+        for field in &message.fields {
+            write_fmt_expr(
+                f,
+                "",
+                &field.val.ty.val,
+                &format!("self.{}", field.val.name),
+            )?;
+        }
     }
     writeln!(f, "        }}")?;
     writeln!(f, "        fn id(&self) -> ObjectId {{")?;
