@@ -4,3 +4,8 @@ request destroy (destructor) {
 request destroy_registry {
     registry: id(wl_registry),
 }
+
+request ack_global_remove (since = 2) {
+    registry: id(wl_registry),
+    name: u32,
+}

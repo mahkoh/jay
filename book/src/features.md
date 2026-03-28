@@ -242,7 +242,7 @@ granted access. See
 | wl_compositor                                        | 7       |            |
 | wl_data_device_manager                               | 4       |            |
 | wl_drm                                               | 2       |            |
-| wl_fixes                                             | 1       |            |
+| wl_fixes                                             | 2       |            |
 | wl_output                                            | 4       |            |
 | wl_seat                                              | 10      |            |
 | wl_shm                                               | 2       |            |
