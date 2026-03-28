@@ -35,7 +35,7 @@ use {
         io::Async,
         is_reload,
         keyboard::Keymap,
-        logging::set_log_level,
+        logging::{clean_logs_older_than, set_log_level},
         on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
         set_color_management_enabled, set_default_workspace_capture, set_explicit_sync_enabled,
         set_float_above_fullscreen, set_idle, set_idle_grace_period,
@@ -67,7 +67,7 @@ use {
         os::{fd::AsRawFd, unix::ffi::OsStrExt},
         path::{Path, PathBuf},
         rc::Rc,
-        time::Duration,
+        time::{Duration, SystemTime, UNIX_EPOCH},
     },
     uapi::{
         Errno,
@@ -1493,6 +1493,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         }
         if let Some(level) = config.log_level {
             set_log_level(level);
+        }
+        if let Some(duration) = config.clean_logs_older_than {
+            let now = SystemTime::now();
+            let in_the_past = now.checked_sub(duration).unwrap_or(UNIX_EPOCH);
+            clean_logs_older_than(in_the_past);
         }
         if let Some(idle) = config.idle {
             set_idle(Some(idle));

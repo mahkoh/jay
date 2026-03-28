@@ -645,6 +645,23 @@
         }
       ]
     },
+    "CleanLogsOlderThan": {
+      "description": "The definition of how old logfiles need to be for them to be automatically deleted.\n\nOmitted values are set to 0. At least one of `weeks` or `days` must be specified.\n\n- Example:\n\n  ```toml\n  clean-logs-older-than.weeks = 2\n  ```\n",
+      "type": "object",
+      "properties": {
+        "weeks": {
+          "type": "number",
+          "description": "The number of weeks.",
+          "minimum": 0.0
+        },
+        "days": {
+          "type": "number",
+          "description": "The number of days.",
+          "minimum": 0.0
+        }
+      },
+      "required": []
+    },
     "ClickMethod": {
       "type": "string",
       "description": "The click method to apply to an input device.\n\nSee the libinput documentation for more details.\n",
@@ -963,6 +980,10 @@
         "log-level": {
           "description": "Sets the log level of the compositor.\n\nThis setting cannot be changed by re-loading the configuration. Use\n`jay set-log-level` instead.\n\n- Example:\n\n  ```toml\n  log-level = \"debug\"\n  ```\n",
           "$ref": "#/$defs/LogLevel"
+        },
+        "clean-logs-older-than": {
+          "description": "If specified on startup, deletes Jay's log files older than the specified time period.\n\nPossible keys in the table are `days` and `weeks`.\n\n- Example:\n\n  ```toml\n  clean-logs-older-than.days = 7\n  ```\n",
+          "$ref": "#/$defs/CleanLogsOlderThan"
         },
         "theme": {
           "description": "Sets the theme of the compositor.\n",

@@ -8,6 +8,7 @@ use {
             parsers::{
                 action::ActionParser,
                 actions::ActionsParser,
+                clean_logs_older_than::CleanLogsOlderThanParser,
                 client_rule::ClientRulesParser,
                 color_management::ColorManagementParser,
                 connector::ConnectorsParser,
@@ -152,6 +153,7 @@ impl Parser for ConfigParser<'_> {
                 show_titles,
                 fallback_output_mode_val,
                 egui_val,
+                clean_logs_older_than_val,
             ),
         ) = ext.extract((
             (
@@ -211,6 +213,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("show-titles"))),
                 opt(val("fallback-output-mode")),
                 opt(val("egui")),
+                opt(val("clean-logs-older-than")),
             ),
         ))?;
         let mut keymap = None;
@@ -304,6 +307,17 @@ impl Parser for ConfigParser<'_> {
                 Ok(v) => log_level = Some(v),
                 Err(e) => {
                     log::warn!("Could not parse the log level: {}", self.0.error(e));
+                }
+            }
+        }
+        let mut clean_logs_older_than = None;
+        if let Some(value) = clean_logs_older_than_val {
+            match value.parse(&mut CleanLogsOlderThanParser(self.0)) {
+                Ok(v) => {
+                    clean_logs_older_than = Some(v);
+                }
+                Err(e) => {
+                    log::warn!("Could not parse clean-logs-older-than: {}", self.0.error(e));
                 }
             }
         }
@@ -567,6 +581,7 @@ impl Parser for ConfigParser<'_> {
             keymaps,
             auto_reload: auto_reload.despan(),
             log_level,
+            clean_logs_older_than,
             theme,
             egui,
             gfx_api,

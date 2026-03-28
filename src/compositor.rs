@@ -397,6 +397,7 @@ fn start_compositor2(
         egg_state: Default::default(),
         control_centers: Default::default(),
         virtual_outputs: Default::default(),
+        clean_logs_older_than: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -457,6 +458,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     if state.create_default_seat.get() && state.globals.seats.is_empty() {
         state.create_seat(DEFAULT_SEAT_NAME);
     }
+    state.perform_clean_logs_older_than();
     state.update_ei_acceptor();
 
     let _geh = start_global_event_handlers(&state);

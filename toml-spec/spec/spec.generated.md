@@ -960,6 +960,40 @@ The string should have one of the following values:
 The brightness in cd/m^2.
 
 
+<a name="types-CleanLogsOlderThan"></a>
+### `CleanLogsOlderThan`
+
+The definition of how old logfiles need to be for them to be automatically deleted.
+
+Omitted values are set to 0. At least one of `weeks` or `days` must be specified.
+
+- Example:
+
+  ```toml
+  clean-logs-older-than.weeks = 2
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `weeks` (optional):
+
+  The number of weeks.
+
+  The value of this field should be a number.
+
+  The numbers should be greater than or equal to 0.
+
+- `days` (optional):
+
+  The number of days.
+
+  The value of this field should be a number.
+
+  The numbers should be greater than or equal to 0.
+
+
 <a name="types-ClickMethod"></a>
 ### `ClickMethod`
 
@@ -1835,6 +1869,20 @@ The table has the following fields:
     ```
 
   The value of this field should be a [LogLevel](#types-LogLevel).
+
+- `clean-logs-older-than` (optional):
+
+  If specified on startup, deletes Jay's log files older than the specified time period.
+  
+  Possible keys in the table are `days` and `weeks`.
+  
+  - Example:
+  
+    ```toml
+    clean-logs-older-than.days = 7
+    ```
+
+  The value of this field should be a [CleanLogsOlderThan](#types-CleanLogsOlderThan).
 
 - `theme` (optional):
 

@@ -523,6 +523,7 @@ pub struct Config {
     pub keymaps: Vec<ConfigKeymap>,
     pub auto_reload: Option<bool>,
     pub log_level: Option<LogLevel>,
+    pub clean_logs_older_than: Option<Duration>,
     pub theme: Theme,
     pub egui: Egui,
     pub gfx_api: Option<GfxApi>,

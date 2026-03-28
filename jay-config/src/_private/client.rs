@@ -60,7 +60,7 @@ use {
             atomic::{AtomicBool, Ordering::Relaxed},
         },
         task::{Context, Poll, Waker},
-        time::Duration,
+        time::{Duration, SystemTime},
     },
 };
 
@@ -774,6 +774,10 @@ impl ConfigClient {
 
     pub fn set_log_level(&self, level: LogLevel) {
         self.send(&ClientMessage::SetLogLevel { level })
+    }
+
+    pub fn clean_logs_older_than(&self, time: SystemTime) {
+        self.send(&ClientMessage::CleanLogsOlderThan { time })
     }
 
     pub fn unset_env(&self, key: &str) {

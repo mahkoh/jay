@@ -266,6 +266,9 @@ log-level = "debug"
 > The `log-level` config setting is read at startup and cannot be changed by
 > reloading the configuration. Use `jay set-log-level` for runtime changes.
 
+To automatically clean up old log files, see
+[Log File Cleanup](configuration/misc.md#log-file-cleanup).
+
 ## Performance issues
 
 If you experience dropped frames, stuttering, or high latency, try the

@@ -86,7 +86,7 @@ use {
         hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
-        time::Duration,
+        time::{Duration, SystemTime},
     },
     thiserror::Error,
     uapi::{OwnedFd, c, fcntl_dupfd_cloexec},
@@ -1856,6 +1856,10 @@ impl ConfigProxyHandler {
         self.state.set_log_level(level.into());
     }
 
+    fn handle_clean_logs_older_than(&self, time: SystemTime) {
+        self.state.clean_logs_older_than.set(Some(time));
+    }
+
     fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), CphError> {
         let kb = self.get_kb(kb)?;
         kb.grab(grab);
@@ -3376,6 +3380,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetConnectorByName { name } => self.handle_get_connector_by_name(name),
             ClientMessage::CreateVirtualOutput { name } => self.handle_create_virtual_output(name),
             ClientMessage::RemoveVirtualOutput { name } => self.handle_remove_virtual_output(name),
+            ClientMessage::CleanLogsOlderThan { time } => self.handle_clean_logs_older_than(time),
         }
         Ok(())
     }

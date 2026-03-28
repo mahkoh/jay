@@ -150,7 +150,7 @@ use {
         ops::{Deref, DerefMut},
         rc::{Rc, Weak},
         sync::Arc,
-        time::Duration,
+        time::{Duration, SystemTime},
     },
     thiserror::Error,
     uapi::{OwnedFd, c},
@@ -305,6 +305,7 @@ pub struct State {
     pub egg_state: EggState,
     pub control_centers: ControlCenters,
     pub virtual_outputs: VirtualOutputs,
+    pub clean_logs_older_than: Cell<Option<SystemTime>>,
 }
 
 // impl Drop for State {
@@ -1757,6 +1758,14 @@ impl State {
         if let Some(logger) = &self.logger {
             logger.set_level(level);
             self.trigger_cci(CCI_COMPOSITOR);
+        }
+    }
+
+    pub fn perform_clean_logs_older_than(&self) {
+        if let Some(time) = self.clean_logs_older_than.get()
+            && let Some(logger) = &self.logger
+        {
+            logger.clean_logs_older_than(time);
         }
     }
 

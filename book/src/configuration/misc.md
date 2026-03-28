@@ -111,6 +111,32 @@ instead:
 ~$ jay set-log-level debug
 ```
 
+## Log File Cleanup
+
+Jay creates a new log file each time it starts. Over time, old log files can
+accumulate. To automatically delete old log files on startup, use the
+`clean-logs-older-than` option:
+
+```toml
+clean-logs-older-than.days = 7
+```
+
+The table accepts `weeks` and `days` fields. At least one must be specified.
+They can be combined and accept fractional values:
+
+```toml
+[clean-logs-older-than]
+weeks = 2
+days = 3
+```
+
+Log files belonging to other running Jay instances (e.g. on another VT) are
+never deleted, even if they are older than the specified age.
+
+> [!NOTE]
+> This setting only takes effect at compositor startup. It cannot be triggered
+> by reloading the configuration.
+
 ## Focus Follows Mouse
 
 When enabled, moving the pointer over a window automatically gives it keyboard

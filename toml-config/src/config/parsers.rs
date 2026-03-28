@@ -9,6 +9,7 @@ use {
 pub mod action;
 mod actions;
 mod capabilities;
+mod clean_logs_older_than;
 mod client_match;
 mod client_rule;
 mod color;
