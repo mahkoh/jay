@@ -27,24 +27,20 @@ pub enum MsgParserError {
 pub struct MsgParser<'a, 'b> {
     buf: &'a mut BufFdIn,
     pos: usize,
-    data: &'b [u8],
+    data: &'b [u32],
 }
 
 impl<'a, 'b> MsgParser<'a, 'b> {
     pub fn new(buf: &'a mut BufFdIn, data: &'b [u32]) -> Self {
-        Self {
-            buf,
-            pos: 0,
-            data: uapi::as_bytes(data),
-        }
+        Self { buf, pos: 0, data }
     }
 
     pub fn int(&mut self) -> Result<i32, MsgParserError> {
-        if self.data.len() - self.pos < 4 {
+        if self.pos >= self.data.len() {
             return Err(MsgParserError::UnexpectedEof);
         }
         let res = unsafe { *(self.data.as_ptr().add(self.pos) as *const i32) };
-        self.pos += 4;
+        self.pos += 1;
         Ok(res)
     }
 
@@ -123,13 +119,13 @@ impl<'a, 'b> MsgParser<'a, 'b> {
 
     pub fn array(&mut self) -> Result<&'b [u8], MsgParserError> {
         let len = self.uint()? as usize;
-        let cap = (len + 3) & !3;
+        let cap = (len + 3) >> 2;
         if cap > self.data.len() - self.pos {
             return Err(MsgParserError::UnexpectedEof);
         }
         let pos = self.pos;
         self.pos += cap;
-        Ok(&self.data[pos..pos + len])
+        Ok(&uapi::as_bytes(&self.data[pos..])[..len])
     }
 
     pub fn binary<T: Pod>(&mut self) -> Result<T, MsgParserError> {
