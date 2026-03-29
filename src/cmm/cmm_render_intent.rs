@@ -1,5 +1,7 @@
 use crate::{
-    ifs::color_management::{RENDER_INTENT_PERCEPTUAL, RENDER_INTENT_RELATIVE_BPC},
+    ifs::color_management::{
+        RENDER_INTENT_PERCEPTUAL, RENDER_INTENT_RELATIVE, RENDER_INTENT_RELATIVE_BPC,
+    },
     object::Version,
 };
 
@@ -7,6 +9,7 @@ use crate::{
 pub enum RenderIntent {
     #[default]
     Perceptual,
+    Relative,
     RelativeBpc,
 }
 
@@ -14,6 +17,7 @@ impl RenderIntent {
     pub fn from_wayland(intent: u32, _version: Version) -> Option<Self> {
         let res = match intent {
             RENDER_INTENT_PERCEPTUAL => Self::Perceptual,
+            RENDER_INTENT_RELATIVE => Self::Relative,
             RENDER_INTENT_RELATIVE_BPC => Self::RelativeBpc,
             _ => return None,
         };
@@ -24,6 +28,7 @@ impl RenderIntent {
         match self {
             RenderIntent::Perceptual => true,
             RenderIntent::RelativeBpc => true,
+            RenderIntent::Relative => false,
         }
     }
 
@@ -31,6 +36,7 @@ impl RenderIntent {
         match self {
             RenderIntent::Perceptual => true,
             RenderIntent::RelativeBpc => true,
+            RenderIntent::Relative => true,
         }
     }
 }

@@ -6,7 +6,7 @@ use {
             color_management::{
                 COMPOUND_POWER_2_4_SINCE, FEATURE_EXTENDED_TARGET_VOLUME,
                 FEATURE_SET_MASTERING_DISPLAY_PRIMARIES, FEATURE_SET_TF_POWER,
-                RENDER_INTENT_RELATIVE_BPC, SRGB_DEPRECATED_SINCE,
+                RENDER_INTENT_RELATIVE, RENDER_INTENT_RELATIVE_BPC, SRGB_DEPRECATED_SINCE,
                 TRANSFER_FUNCTION_COMPOUND_POWER_2_4,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
@@ -78,6 +78,7 @@ pub struct WpColorManagerV1 {
 impl WpColorManagerV1 {
     fn send_capabilities(&self) {
         self.send_supported_intent(RENDER_INTENT_PERCEPTUAL);
+        self.send_supported_intent(RENDER_INTENT_RELATIVE);
         self.send_supported_intent(RENDER_INTENT_RELATIVE_BPC);
         self.send_supported_feature(FEATURE_PARAMETRIC);
         self.send_supported_feature(FEATURE_SET_PRIMARIES);
