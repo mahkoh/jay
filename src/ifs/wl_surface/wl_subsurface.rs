@@ -272,7 +272,9 @@ impl WlSubsurface {
         if let Some(ps) = committed
             && let Some(mut state) = ps.pending.state.take()
         {
-            self.surface.apply_state(&mut state)?;
+            self.surface
+                .commit_timeline
+                .commit(&self.surface, &mut state)?;
         }
         Ok(())
     }
@@ -315,7 +317,9 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
         self.parent.consume_pending_child(self.unique_id, |oe| {
             let oe = oe.remove();
             if let Some(mut state) = oe.pending.state {
-                self.surface.apply_state(&mut state)?;
+                self.surface
+                    .commit_timeline
+                    .commit(&self.surface, &mut state)?;
             }
             Ok(())
         })?;
