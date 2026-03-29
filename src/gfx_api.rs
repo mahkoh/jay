@@ -1,7 +1,10 @@
 use {
     crate::{
         allocator::Allocator,
-        cmm::cmm_description::{ColorDescription, LinearColorDescription},
+        cmm::{
+            cmm_description::{ColorDescription, LinearColorDescription},
+            cmm_render_intent::RenderIntent,
+        },
         cpu_worker::CpuWorker,
         cursor::Cursor,
         damage::DamageVisualizer,
@@ -255,6 +258,7 @@ pub struct FillRect {
     pub rect: FramebufferRect,
     pub color: Color,
     pub alpha: Option<f32>,
+    pub render_intent: RenderIntent,
     pub cd: Rc<LinearColorDescription>,
 }
 
@@ -277,6 +281,7 @@ pub struct CopyTexture {
     pub release_sync: ReleaseSync,
     pub alpha: Option<f32>,
     pub opaque: bool,
+    pub render_intent: RenderIntent,
     pub cd: Rc<ColorDescription>,
     pub alpha_mode: AlphaMode,
 }
@@ -512,6 +517,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             false,
             texture_cd,
+            RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);

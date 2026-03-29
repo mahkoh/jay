@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::AsyncEngine,
+        cmm::cmm_render_intent::RenderIntent,
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{AcquireSync, AlphaMode, GfxContext, GfxError, GfxTexture, ReleaseSync},
@@ -398,6 +399,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             ReleaseSync::None,
             false,
             renderer.state.color_manager.srgb_gamma22(),
+            RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
         );
     }
@@ -424,6 +426,7 @@ impl Cursor for StaticCursor {
                 ReleaseSync::None,
                 false,
                 renderer.state.color_manager.srgb_gamma22(),
+                RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }
@@ -468,6 +471,7 @@ impl Cursor for AnimatedCursor {
                 ReleaseSync::None,
                 false,
                 renderer.state.color_manager.srgb_gamma22(),
+                RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }

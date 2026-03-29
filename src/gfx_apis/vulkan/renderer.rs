@@ -4,6 +4,7 @@ use {
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
             cmm_eotf::{Eotf, EotfPow, bt1886_eotf_args, bt1886_inv_eotf_args},
+            cmm_render_intent::RenderIntent,
             cmm_transform::ColorMatrix,
         },
         cpu_worker::PendingJob,
@@ -817,9 +818,12 @@ impl VulkanRenderer {
                             RenderPass::FrameBuffer => fb_cd,
                         };
                         let tf = target_cd.eotf;
-                        let color = memory
-                            .color_transforms
-                            .apply_to_color(&fr.cd, target_cd, fr.color);
+                        let color = memory.color_transforms.apply_to_color(
+                            &fr.cd,
+                            target_cd,
+                            fr.render_intent,
+                            fr.color,
+                        );
                         let color = color.to_array2(tf, fr.alpha);
                         let source_type = match color[3] < 1.0 {
                             false => TexSourceType::Opaque,
@@ -883,6 +887,7 @@ impl VulkanRenderer {
                         let color_management_data_address = memory.color_transforms.get_offset(
                             &ct.cd.linear,
                             target_cd,
+                            ct.render_intent,
                             self.device.uniform_buffer_offset_mask,
                             &mut memory.uniform_buffer_writer,
                         );
@@ -934,6 +939,7 @@ impl VulkanRenderer {
             memory.blend_buffer_color_management_data_address = memory.color_transforms.get_offset(
                 &bb_cd.linear,
                 fb_cd,
+                RenderIntent::Perceptual,
                 self.device.uniform_buffer_offset_mask,
                 &mut memory.uniform_buffer_writer,
             );
@@ -1192,9 +1198,12 @@ impl VulkanRenderer {
         if let Some(clear) = clear
             && clear_rects.is_not_empty()
         {
-            let color = memory
-                .color_transforms
-                .apply_to_color(clear_cd, target_cd, *clear);
+            let color = memory.color_transforms.apply_to_color(
+                clear_cd,
+                target_cd,
+                RenderIntent::Perceptual,
+                *clear,
+            );
             let clear_value = ClearValue {
                 color: ClearColorValue {
                     float32: color.to_array(target_cd.eotf),
@@ -2312,7 +2321,7 @@ where
 
 #[derive(Default)]
 struct ColorTransforms {
-    map: AHashMap<[LinearColorDescriptionId; 2], ColorTransform>,
+    map: AHashMap<([LinearColorDescriptionId; 2], RenderIntent), ColorTransform>,
 }
 
 struct ColorTransform {
@@ -2325,14 +2334,15 @@ impl ColorTransforms {
         &mut self,
         src: &LinearColorDescription,
         dst: &ColorDescription,
+        intent: RenderIntent,
     ) -> Option<&mut ColorTransform> {
         if src.embeds_into(&dst.linear) {
             return None;
         }
-        let ct = match self.map.entry([src.id, dst.linear.id]) {
+        let ct = match self.map.entry(([src.id, dst.linear.id], intent)) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(e) => {
-                let matrix = src.color_transform(&dst.linear);
+                let matrix = src.color_transform(&dst.linear, intent);
                 let ct = ColorTransform {
                     matrix,
                     offset: None,
@@ -2347,9 +2357,10 @@ impl ColorTransforms {
         &mut self,
         src: &LinearColorDescription,
         dst: &ColorDescription,
+        intent: RenderIntent,
         mut color: Color,
     ) -> Color {
-        if let Some(ct) = self.get_or_create(src, dst) {
+        if let Some(ct) = self.get_or_create(src, dst, intent) {
             color = ct.matrix * color;
         };
         color
@@ -2359,10 +2370,11 @@ impl ColorTransforms {
         &mut self,
         src: &LinearColorDescription,
         dst: &ColorDescription,
+        intent: RenderIntent,
         uniform_buffer_offset_mask: DeviceSize,
         writer: &mut GenericBufferWriter,
     ) -> Option<DeviceSize> {
-        let ct = self.get_or_create(src, dst)?;
+        let ct = self.get_or_create(src, dst, intent)?;
         if ct.offset.is_none() {
             let data = ColorManagementData {
                 matrix: ct.matrix.to_f32(),

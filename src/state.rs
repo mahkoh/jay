@@ -13,7 +13,10 @@ use {
         cli::RunArgs,
         client::{Client, ClientCaps, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
-        cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
+        cmm::{
+            cmm_description::ColorDescription, cmm_manager::ColorManager,
+            cmm_render_intent::RenderIntent,
+        },
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         control_center::{
@@ -1332,6 +1335,7 @@ impl State {
             release_sync,
             false,
             src_cd,
+            RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
         );
         if render_hardware_cursors

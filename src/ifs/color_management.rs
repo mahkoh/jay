@@ -27,6 +27,7 @@ mod consts {
     pub const RENDER_INTENT_SATURATION: u32 = 2;
     pub const RENDER_INTENT_ABSOLUTE: u32 = 3;
     pub const RENDER_INTENT_RELATIVE_BPC: u32 = 4;
+    pub const RENDER_INTENT_ABSOLUTE_NO_ADAPTATION: u32 = 5;
 
     pub const FEATURE_ICC_V2_V4: u32 = 0;
     pub const FEATURE_PARAMETRIC: u32 = 1;

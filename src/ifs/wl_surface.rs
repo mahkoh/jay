@@ -26,7 +26,7 @@ use {
     crate::{
         backend::{ButtonState, KeyState},
         client::{Client, ClientError},
-        cmm::cmm_description::ColorDescription,
+        cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         drm_feedback::DrmFeedback,
@@ -337,6 +337,7 @@ pub struct WlSurface {
     color_management_feedback:
         CopyHashMap<WpColorManagementSurfaceFeedbackV1Id, Rc<WpColorManagementSurfaceFeedbackV1>>,
     color_description: CloneCell<Option<Rc<ColorDescription>>>,
+    render_intent: Cell<RenderIntent>,
     color_representation_surface: CloneCell<Option<Rc<WpColorRepresentationSurfaceV1>>>,
     alpha_mode: Cell<AlphaMode>,
 }
@@ -476,7 +477,7 @@ struct PendingState {
     fifo_barrier_wait: bool,
     commit_time: Option<u64>,
     tray_item_ack_serial: Option<u32>,
-    color_description: Option<Option<Rc<ColorDescription>>>,
+    color_description: Option<Option<(RenderIntent, Rc<ColorDescription>)>>,
     serial: Option<u64>,
     alpha_mode: Option<AlphaMode>,
     surface_release: SmallVec<[SurfaceRelease; 1]>,
@@ -689,6 +690,7 @@ impl WlSurface {
             color_management_surface: Default::default(),
             color_management_feedback: Default::default(),
             color_description: Default::default(),
+            render_intent: Default::default(),
             color_representation_surface: Default::default(),
             alpha_mode: Default::default(),
         }
@@ -1210,7 +1212,9 @@ impl WlSurface {
         let mut color_description_changed = false;
         if let Some(desc) = pending.color_description.take() {
             color_description_changed = true;
+            let (intent, desc) = desc.unzip();
             self.color_description.set(desc);
+            self.render_intent.set(intent.unwrap_or_default());
         }
         let mut alpha_mode_changed = false;
         if let Some(alpha_mode) = pending.alpha_mode.take()
@@ -1754,6 +1758,10 @@ impl WlSurface {
             Some(cd) => cd,
             None => self.client.state.color_manager.srgb_gamma22().clone(),
         }
+    }
+
+    pub fn render_intent(&self) -> RenderIntent {
+        self.render_intent.get()
     }
 
     pub fn add_color_management_feedback(&self, fb: &Rc<WpColorManagementSurfaceFeedbackV1>) {
