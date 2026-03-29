@@ -2,7 +2,7 @@ use {
     crate::{
         allocator::{BO_USE_RENDERING, BufferObject, BufferUsage},
         async_engine::{Phase, SpawnedFuture},
-        cmm::cmm_manager::ColorManager,
+        cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
@@ -207,7 +207,12 @@ impl GuiElement for Button {
                 (x1, y1 + border, x1 + border, y2 - border),
                 (x2 - border, y1 + border, x2, y2 - border),
             ];
-            r.fill_boxes_f(&rects, &self.border_color.get(), srgb);
+            r.fill_boxes_f(
+                &rects,
+                &self.border_color.get(),
+                srgb,
+                RenderIntent::Perceptual,
+            );
         }
         {
             let rects = [(x1 + border, y1 + border, x2 - border, y2 - border)];
@@ -215,7 +220,7 @@ impl GuiElement for Button {
                 true => self.bg_color.get(),
                 false => self.bg_hover_color.get(),
             };
-            r.fill_boxes_f(&rects, &color, srgb);
+            r.fill_boxes_f(&rects, &color, srgb, RenderIntent::Perceptual);
         }
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
@@ -233,6 +238,7 @@ impl GuiElement for Button {
                 ReleaseSync::None,
                 false,
                 srgb_srgb,
+                RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }
@@ -336,6 +342,7 @@ impl GuiElement for Label {
                 ReleaseSync::None,
                 false,
                 color_manager.srgb_gamma22(),
+                RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }

@@ -1,7 +1,8 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::{color_management, wl_surface::WlSurface},
+        cmm::cmm_render_intent::RenderIntent,
+        ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
         wire::{
@@ -51,16 +52,16 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
         req: SetImageDescription,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        if req.render_intent != color_management::RENDER_INTENT_PERCEPTUAL {
+        let Some(intent) = RenderIntent::from_wayland(req.render_intent, self.version) else {
             return Err(WpColorManagementSurfaceV1Error::UnsupportedRenderIntent(
                 req.render_intent,
             ));
-        }
+        };
         let desc = self.client.lookup(req.image_description)?;
-        if desc.description.is_none() {
+        let Some(desc) = &desc.description else {
             return Err(WpColorManagementSurfaceV1Error::NotReady);
-        }
-        self.surface.pending.borrow_mut().color_description = Some(desc.description.clone());
+        };
+        self.surface.pending.borrow_mut().color_description = Some(Some((intent, desc.clone())));
         Ok(())
     }
 

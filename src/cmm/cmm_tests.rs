@@ -136,7 +136,7 @@ mod matrices {
 mod transforms {
     use crate::cmm::{
         cmm_eotf::Eotf, cmm_luminance::Luminance, cmm_manager::ColorManager,
-        cmm_primaries::Primaries,
+        cmm_primaries::Primaries, cmm_render_intent::RenderIntent,
     };
 
     fn check(p1: Primaries, p2: Primaries, expected: [[f64; 4]; 3]) {
@@ -155,7 +155,9 @@ mod transforms {
         };
         let d1 = d(p1);
         let d2 = d(p2);
-        let m = d1.linear.color_transform(&d2.linear);
+        let m = d1
+            .linear
+            .color_transform(&d2.linear, RenderIntent::Perceptual);
         println!("{:#?}", m);
         assert!((m.0[0][0].0 - expected[0][0]).abs() < 0.001);
         assert!((m.0[0][1].0 - expected[0][1]).abs() < 0.001);

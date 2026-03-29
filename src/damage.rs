@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::AsyncEngine,
-        cmm::cmm_manager::ColorManager,
+        cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
         fixed::Fixed,
         ifs::wl_output::WlOutputGlobal,
         rect::{Rect, Region},
@@ -169,7 +169,14 @@ impl DamageVisualizer {
             if region.is_not_empty() {
                 let age = (now - entry.time).as_millis() as u64 as f32 / decay_millis;
                 let color = base_color * (1.0 - age);
-                renderer.fill_boxes2(region.rects(), &color, srgb, dx, dy);
+                renderer.fill_boxes2(
+                    region.rects(),
+                    &color,
+                    srgb,
+                    RenderIntent::Perceptual,
+                    dx,
+                    dy,
+                );
                 used = used.union_cow(&region).into_owned();
             }
         }

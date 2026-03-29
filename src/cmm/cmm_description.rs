@@ -5,6 +5,7 @@ use {
             cmm_luminance::{Luminance, TargetLuminance, white_balance},
             cmm_manager::Shared,
             cmm_primaries::{NamedPrimaries, Primaries},
+            cmm_render_intent::RenderIntent,
             cmm_transform::{ColorMatrix, Local, Xyz, bradford_adjustment},
         },
         utils::ordered_float::F64,
@@ -39,12 +40,17 @@ pub struct ColorDescription {
 }
 
 impl LinearColorDescription {
-    pub fn color_transform(&self, target: &Self) -> ColorMatrix {
+    pub fn color_transform(&self, target: &Self, intent: RenderIntent) -> ColorMatrix {
         let mut mat = target.local_from_xyz;
         if self.luminance != target.luminance {
-            mat *= white_balance(&self.luminance, &target.luminance, target.primaries.wp);
+            mat *= white_balance(
+                &self.luminance,
+                &target.luminance,
+                target.primaries.wp,
+                intent,
+            );
         }
-        if self.primaries.wp != target.primaries.wp {
+        if self.primaries.wp != target.primaries.wp && intent.bradford_adjustment() {
             mat *= bradford_adjustment(self.primaries.wp, target.primaries.wp);
         }
         mat * self.xyz_from_local

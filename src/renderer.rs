@@ -1,5 +1,6 @@
 use {
     crate::{
+        cmm::cmm_render_intent::RenderIntent,
         gfx_api::{AcquireSync, AlphaMode, GfxApiOpt, ReleaseSync, SampleRect},
         icons::{IconState, SizedIcons},
         ifs::wl_surface::{
@@ -80,6 +81,7 @@ impl Renderer<'_> {
         let theme = &self.state.theme;
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
+        let perceptual = RenderIntent::Perceptual;
         if let Some(fs) = &fullscreen {
             fs.node_render(self, x, y, None);
         } else {
@@ -97,7 +99,7 @@ impl Renderer<'_> {
                 let bar_bg = self.base.scale_rect(bar_bg);
                 let c = theme.colors.bar_background.get();
                 self.base
-                    .fill_scaled_boxes(slice::from_ref(&bar_bg), &c, None, srgb);
+                    .fill_scaled_boxes(slice::from_ref(&bar_bg), &c, None, srgb, perceptual);
                 self.base.sync();
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
@@ -106,7 +108,7 @@ impl Renderer<'_> {
                         false => theme.colors.focused_title_background.get(),
                     };
                     self.base
-                        .fill_boxes2(slice::from_ref(&aw.rect), &c, srgb, x, y);
+                        .fill_boxes2(slice::from_ref(&aw.rect), &c, srgb, perceptual, x, y);
                 }
                 let mut c = theme.colors.separator.get();
                 if let Some(ws) = &ws
@@ -114,18 +116,30 @@ impl Renderer<'_> {
                 {
                     c = theme.colors.focused_title_background.get();
                 }
-                self.base
-                    .fill_boxes2(slice::from_ref(&rd.bar_separator), &c, srgb, x, y);
+                self.base.fill_boxes2(
+                    slice::from_ref(&rd.bar_separator),
+                    &c,
+                    srgb,
+                    perceptual,
+                    x,
+                    y,
+                );
                 let c = theme.colors.unfocused_title_background.get();
                 self.base
-                    .fill_boxes2(&rd.inactive_workspaces, &c, srgb, x, y);
+                    .fill_boxes2(&rd.inactive_workspaces, &c, srgb, perceptual, x, y);
                 let c = theme.colors.captured_unfocused_title_background.get();
                 self.base
-                    .fill_boxes2(&rd.captured_inactive_workspaces, &c, srgb, x, y);
+                    .fill_boxes2(&rd.captured_inactive_workspaces, &c, srgb, perceptual, x, y);
                 self.base.sync();
                 let c = theme.colors.attention_requested_background.get();
-                self.base
-                    .fill_boxes2(&rd.attention_requested_workspaces, &c, srgb, x, y);
+                self.base.fill_boxes2(
+                    &rd.attention_requested_workspaces,
+                    &c,
+                    srgb,
+                    perceptual,
+                    x,
+                    y,
+                );
                 let scale = output.global.persistent.scale.get();
                 for title in &rd.titles {
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -143,6 +157,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         self.state.color_manager.srgb_gamma22(),
+                        perceptual,
                         AlphaMode::PremultipliedElectrical,
                     );
                 }
@@ -166,6 +181,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         srgb_srgb,
+                        perceptual,
                         AlphaMode::PremultipliedElectrical,
                     );
                 }
@@ -210,7 +226,7 @@ impl Renderer<'_> {
             let color = self.state.theme.colors.highlight.get();
             let bounds = output.workspace_rect_rel.get().move_(x, y);
             self.base.sync();
-            self.base.fill_boxes(&[bounds], &color, srgb);
+            self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
         }
     }
 
@@ -232,6 +248,7 @@ impl Renderer<'_> {
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
             &self.state.color_manager.srgb_gamma22().linear,
+            RenderIntent::Perceptual,
         );
         if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale)
             && let Some(texture) = tex.texture()
@@ -253,6 +270,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
                 false,
                 self.state.color_manager.srgb_gamma22(),
+                RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }
@@ -263,19 +281,23 @@ impl Renderer<'_> {
         {
             let srgb_srgb = self.state.color_manager.srgb_gamma22();
             let srgb = &srgb_srgb.linear;
+            let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
             let c = self.state.theme.colors.unfocused_title_background.get();
-            self.base.fill_boxes2(&rd.title_rects, &c, srgb, x, y);
+            self.base
+                .fill_boxes2(&rd.title_rects, &c, srgb, perceptual, x, y);
             let c = self.state.theme.colors.focused_title_background.get();
             self.base
-                .fill_boxes2(&rd.active_title_rects, &c, srgb, x, y);
+                .fill_boxes2(&rd.active_title_rects, &c, srgb, perceptual, x, y);
             let c = self.state.theme.colors.attention_requested_background.get();
             self.base
-                .fill_boxes2(&rd.attention_title_rects, &c, srgb, x, y);
+                .fill_boxes2(&rd.attention_title_rects, &c, srgb, perceptual, x, y);
             let c = self.state.theme.colors.separator.get();
-            self.base.fill_boxes2(&rd.underline_rects, &c, srgb, x, y);
+            self.base
+                .fill_boxes2(&rd.underline_rects, &c, srgb, perceptual, x, y);
             let c = self.state.theme.colors.border.get();
-            self.base.fill_boxes2(&rd.border_rects, &c, srgb, x, y);
+            self.base
+                .fill_boxes2(&rd.border_rects, &c, srgb, perceptual, x, y);
             if let Some(lar) = &rd.last_active_rect {
                 let c = self
                     .state
@@ -284,7 +306,7 @@ impl Renderer<'_> {
                     .focused_inactive_title_background
                     .get();
                 self.base
-                    .fill_boxes2(std::slice::from_ref(lar), &c, srgb, x, y);
+                    .fill_boxes2(std::slice::from_ref(lar), &c, srgb, perceptual, x, y);
             }
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
@@ -305,6 +327,7 @@ impl Renderer<'_> {
                         ReleaseSync::None,
                         false,
                         srgb_srgb,
+                        perceptual,
                         AlphaMode::PremultipliedElectrical,
                     );
                 }
@@ -382,6 +405,7 @@ impl Renderer<'_> {
             &color,
             None,
             &self.state.color_manager.srgb_gamma22().linear,
+            RenderIntent::Perceptual,
         );
     }
 
@@ -392,6 +416,7 @@ impl Renderer<'_> {
             slice::from_ref(rect),
             &color,
             &self.state.color_manager.srgb_gamma22().linear,
+            RenderIntent::Perceptual,
         );
     }
 
@@ -469,6 +494,7 @@ impl Renderer<'_> {
         let buf = &buffer.buffer.buf;
         let alpha = surface.alpha();
         let cd = surface.color_description();
+        let intent = surface.render_intent();
         let alpha_mode = surface.alpha_mode();
         if let Some(tex) = buf.get_texture(surface) {
             let mut opaque = surface.opaque();
@@ -489,6 +515,7 @@ impl Renderer<'_> {
                 buffer.release_sync,
                 opaque,
                 &cd,
+                intent,
                 alpha_mode,
             );
         } else if let Some(color) = &buf.color {
@@ -503,7 +530,7 @@ impl Renderer<'_> {
                     );
                     self.base.sync();
                     self.base
-                        .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear);
+                        .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear, intent);
                 }
             }
         } else {
@@ -539,21 +566,23 @@ impl Renderer<'_> {
         ];
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
-        self.base.fill_boxes(&borders, &bc, srgb);
+        let perceptual = RenderIntent::Perceptual;
+        self.base.fill_boxes(&borders, &bc, srgb, perceptual);
         let title = [Rect::new_sized_saturating(
             x + bw,
             y + bw,
             pos.width() - 2 * bw,
             th,
         )];
-        self.base.fill_boxes(&title, &tc, srgb);
+        self.base.fill_boxes(&title, &tc, srgb, perceptual);
         let title_underline = [Rect::new_sized_saturating(
             x + bw,
             y + bw + th,
             pos.width() - 2 * bw,
             tuh,
         )];
-        self.base.fill_boxes(&title_underline, &uc, srgb);
+        self.base
+            .fill_boxes(&title_underline, &uc, srgb, perceptual);
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
         let (mut x1, y1) = rect.position();
@@ -586,6 +615,7 @@ impl Renderer<'_> {
                     ReleaseSync::None,
                     false,
                     srgb_srgb,
+                    perceptual,
                     AlphaMode::PremultipliedElectrical,
                 );
             }
@@ -609,6 +639,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
                 false,
                 srgb_srgb,
+                perceptual,
                 AlphaMode::PremultipliedElectrical,
             );
         }

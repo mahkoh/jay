@@ -1,6 +1,9 @@
 use {
     crate::{
-        cmm::cmm_description::{ColorDescription, LinearColorDescription},
+        cmm::{
+            cmm_description::{ColorDescription, LinearColorDescription},
+            cmm_render_intent::RenderIntent,
+        },
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt,
             GfxTexture, ReleaseSync, SampleRect,
@@ -70,12 +73,19 @@ impl RendererBase<'_> {
         color: &Color,
         alpha: Option<f32>,
         cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
     ) {
-        self.fill_boxes3(boxes, color, alpha, cd, 0, 0, true);
+        self.fill_boxes3(boxes, color, alpha, cd, render_intent, 0, 0, true);
     }
 
-    pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color, cd: &Rc<LinearColorDescription>) {
-        self.fill_boxes3(boxes, color, None, cd, 0, 0, false);
+    pub fn fill_boxes(
+        &mut self,
+        boxes: &[Rect],
+        color: &Color,
+        cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
+    ) {
+        self.fill_boxes3(boxes, color, None, cd, render_intent, 0, 0, false);
     }
 
     pub fn fill_boxes2(
@@ -83,10 +93,11 @@ impl RendererBase<'_> {
         boxes: &[Rect],
         color: &Color,
         cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
         dx: i32,
         dy: i32,
     ) {
-        self.fill_boxes3(boxes, color, None, cd, dx, dy, false);
+        self.fill_boxes3(boxes, color, None, cd, render_intent, dx, dy, false);
     }
 
     fn fill_boxes3(
@@ -95,6 +106,7 @@ impl RendererBase<'_> {
         color: &Color,
         alpha: Option<f32>,
         cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
         dx: i32,
         dy: i32,
         scaled: bool,
@@ -120,6 +132,7 @@ impl RendererBase<'_> {
                 ),
                 color: *color,
                 alpha,
+                render_intent,
                 cd: cd.clone(),
             }));
         }
@@ -130,8 +143,9 @@ impl RendererBase<'_> {
         boxes: &[(f32, f32, f32, f32)],
         color: &Color,
         cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
     ) {
-        self.fill_boxes2_f(boxes, color, cd, 0.0, 0.0);
+        self.fill_boxes2_f(boxes, color, cd, render_intent, 0.0, 0.0);
     }
 
     pub fn fill_boxes2_f(
@@ -139,6 +153,7 @@ impl RendererBase<'_> {
         boxes: &[(f32, f32, f32, f32)],
         color: &Color,
         cd: &Rc<LinearColorDescription>,
+        render_intent: RenderIntent,
         dx: f32,
         dy: f32,
     ) {
@@ -160,6 +175,7 @@ impl RendererBase<'_> {
                 ),
                 color: *color,
                 alpha: None,
+                render_intent,
                 cd: cd.clone(),
             }));
         }
@@ -180,6 +196,7 @@ impl RendererBase<'_> {
         release_sync: ReleaseSync,
         opaque: bool,
         cd: &Rc<ColorDescription>,
+        render_intent: RenderIntent,
         alpha_mode: AlphaMode,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
@@ -227,6 +244,7 @@ impl RendererBase<'_> {
             acquire_sync,
             release_sync,
             opaque,
+            render_intent,
             cd: cd.clone(),
             alpha_mode,
         }));
