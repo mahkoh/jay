@@ -19,10 +19,6 @@ pub enum ClientError {
     InvalidMethod,
     #[error("Client tried to access non-existent object {0}")]
     InvalidObject(ObjectId),
-    #[error("The message size is < 8")]
-    MessageSizeTooSmall,
-    #[error("The size of the message is not a multiple of 4")]
-    UnalignedMessage,
     #[error("The requested client {0} does not exist")]
     ClientDoesNotExist(ClientId),
     #[error("Server tried to allocate more than 0x1_00_00_00 ids")]

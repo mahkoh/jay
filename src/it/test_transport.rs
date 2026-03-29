@@ -13,7 +13,10 @@ use {
         utils::{
             asyncevent::AsyncEvent,
             bitfield::Bitfield,
-            buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser, OutBuffer, OutBufferSwapchain},
+            buffd::{
+                BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, OutBuffer,
+                OutBufferSwapchain, WlBufFdIn, WlMessage,
+            },
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             stack::Stack,
@@ -36,7 +39,6 @@ pub struct TestTransport {
     pub run: Rc<TestRun>,
     pub socket: Rc<OwnedFd>,
     pub client_id: Cell<ClientId>,
-    pub bufs: Stack<Vec<u32>>,
     pub swapchain: Rc<RefCell<OutBufferSwapchain>>,
     pub flush_request: AsyncEvent,
     pub incoming: Cell<Option<SpawnedFuture<()>>>,
@@ -153,7 +155,7 @@ impl TestTransport {
                 "",
                 Incoming {
                     tc: self.clone(),
-                    buf: BufFdIn::new(&self.socket, &self.run.state.ring),
+                    buf: WlBufFdIn::new(&self.socket, &self.run.state.ring),
                 }
                 .run(),
             ),
@@ -246,7 +248,7 @@ impl Outgoing {
 
 struct Incoming {
     tc: Rc<TestTransport>,
-    buf: BufFdIn,
+    buf: WlBufFdIn,
 }
 
 impl Incoming {
@@ -267,30 +269,15 @@ impl Incoming {
     }
 
     async fn handle_msg(&mut self) -> Result<(), TestError> {
-        let mut hdr = [0u32, 0];
-        if let Err(e) = self.buf.read_full(&mut hdr[..]).await {
-            return Err(e.with_context("Could not read from wayland socket"));
-        }
-        let obj_id = ObjectId::from_raw(hdr[0]);
-        let len = (hdr[1] >> 16) as usize;
-        let request = hdr[1] & 0xffff;
-        if len < 8 {
-            bail!("Message size is < 8");
-        }
-        if len % 4 != 0 {
-            bail!("Message size is not a multiple of 4");
-        }
-        let len = len / 4 - 2;
-        let mut data_buf = self.tc.bufs.pop().unwrap_or_default();
-        data_buf.clear();
-        data_buf.reserve(len);
-        let unused = data_buf.split_at_spare_mut_ext().1;
-        if let Err(e) = self.buf.read_full(&mut unused[..len]).await {
-            return Err(e.with_context("Could not read from wayland socket"));
-        }
-        unsafe {
-            data_buf.set_len(len);
-        }
+        let WlMessage {
+            obj_id,
+            message,
+            body,
+            fds,
+        } = match self.buf.read_message().await {
+            Ok(m) => m,
+            Err(e) => return Err(e.with_context("Could not read from wayland socket")),
+        };
         let object = match self.tc.objects.get(&obj_id) {
             Some(obj) => obj,
             _ => bail!(
@@ -298,11 +285,8 @@ impl Incoming {
                 obj_id
             ),
         };
-        let parser = MsgParser::new(&mut self.buf, &data_buf);
-        object.handle_request(request, parser)?;
-        if data_buf.capacity() > 0 {
-            self.tc.bufs.push(data_buf);
-        }
+        let parser = MsgParser::new(fds, body);
+        object.handle_request(message, parser)?;
         Ok(())
     }
 }

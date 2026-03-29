@@ -1,7 +1,7 @@
 use {
-    crate::{fixed::Fixed, globals::GlobalName, object::ObjectId, utils::buffd::BufFdIn},
+    crate::{fixed::Fixed, globals::GlobalName, object::ObjectId},
     bstr::{BStr, ByteSlice},
-    std::{ptr, rc::Rc},
+    std::{collections::VecDeque, ptr, rc::Rc},
     thiserror::Error,
     uapi::{OwnedFd, Pod},
 };
@@ -22,29 +22,32 @@ pub enum MsgParserError {
     TrailingData,
     #[error("String is not UTF-8")]
     NonUtf8,
+    #[error("The message has an unexpected size")]
+    UnexpectedMessageSize,
 }
 
 pub struct MsgParser<'a, 'b> {
-    buf: &'a mut BufFdIn,
+    fds: &'a mut VecDeque<Rc<OwnedFd>>,
     pos: usize,
-    data: &'b [u8],
+    data: &'b [u32],
 }
 
 impl<'a, 'b> MsgParser<'a, 'b> {
-    pub fn new(buf: &'a mut BufFdIn, data: &'b [u32]) -> Self {
-        Self {
-            buf,
-            pos: 0,
-            data: uapi::as_bytes(data),
-        }
+    pub fn new(fds: &'a mut VecDeque<Rc<OwnedFd>>, data: &'b [u32]) -> Self {
+        Self { fds, pos: 0, data }
+    }
+
+    #[inline(always)]
+    pub fn data(&self) -> &[u32] {
+        self.data
     }
 
     pub fn int(&mut self) -> Result<i32, MsgParserError> {
-        if self.data.len() - self.pos < 4 {
+        if self.pos >= self.data.len() {
             return Err(MsgParserError::UnexpectedEof);
         }
         let res = unsafe { *(self.data.as_ptr().add(self.pos) as *const i32) };
-        self.pos += 4;
+        self.pos += 1;
         Ok(res)
     }
 
@@ -52,12 +55,14 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
+    #[expect(dead_code)]
     pub fn u64(&mut self) -> Result<u64, MsgParserError> {
         let hi = self.uint()?;
         let lo = self.uint()?;
         Ok(((hi as u64) << 32) | lo as u64)
     }
 
+    #[expect(dead_code)]
     pub fn u64_rev(&mut self) -> Result<u64, MsgParserError> {
         let lo = self.uint()?;
         let hi = self.uint()?;
@@ -107,8 +112,8 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     }
 
     pub fn fd(&mut self) -> Result<Rc<OwnedFd>, MsgParserError> {
-        match self.buf.get_fd() {
-            Ok(fd) => Ok(fd),
+        match self.fds.pop_front() {
+            Some(fd) => Ok(fd),
             _ => Err(MsgParserError::MissingFd),
         }
     }
@@ -123,13 +128,13 @@ impl<'a, 'b> MsgParser<'a, 'b> {
 
     pub fn array(&mut self) -> Result<&'b [u8], MsgParserError> {
         let len = self.uint()? as usize;
-        let cap = (len + 3) & !3;
+        let cap = (len + 3) >> 2;
         if cap > self.data.len() - self.pos {
             return Err(MsgParserError::UnexpectedEof);
         }
         let pos = self.pos;
         self.pos += cap;
-        Ok(&self.data[pos..pos + len])
+        Ok(&uapi::as_bytes(&self.data[pos..])[..len])
     }
 
     pub fn binary<T: Pod>(&mut self) -> Result<T, MsgParserError> {

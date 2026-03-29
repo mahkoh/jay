@@ -10,15 +10,13 @@ use {
             asyncevent::AsyncEvent,
             bitfield::Bitfield,
             buffd::{
-                BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
-                OutBufferSwapchain,
+                BufFdError, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
+                OutBufferSwapchain, WlBufFdIn, WlMessage,
             },
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             oserror::OsError,
-            stack::Stack,
-            vec_ext::VecExt,
             xrd::xrd,
         },
         wheel::{Wheel, WheelError},
@@ -59,10 +57,6 @@ pub enum ToolClientError {
     SocketPathTooLong,
     #[error("Could not connect to the compositor")]
     Connect(#[source] IoUringError),
-    #[error("The message length is smaller than 8 bytes")]
-    MsgLenTooSmall,
-    #[error("The size of the message is not a multiple of 4")]
-    UnalignedMessage,
     #[error(transparent)]
     BufFdError(#[from] BufFdError),
     #[error("Could not parse a message of type {}", .0)]
@@ -85,7 +79,6 @@ pub struct ToolClient {
             AHashMap<u32, Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>>,
         >,
     >,
-    bufs: Stack<Vec<u32>>,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     pending_futures: RefCell<AHashMap<u32, SpawnedFuture<()>>>,
@@ -186,7 +179,6 @@ impl ToolClient {
             eng,
             obj_ids: RefCell::new(obj_ids),
             handlers: Default::default(),
-            bufs: Default::default(),
             swapchain: Default::default(),
             flush_request: Default::default(),
             pending_futures: Default::default(),
@@ -209,7 +201,7 @@ impl ToolClient {
                 "tool client incoming",
                 Incoming {
                     tc: slf.clone(),
-                    buf: BufFdIn::new(&socket, &slf.ring),
+                    buf: WlBufFdIn::new(&socket, &slf.ring),
                 }
                 .run(),
             ),
@@ -528,7 +520,7 @@ impl Outgoing {
 
 struct Incoming {
     tc: Rc<ToolClient>,
-    buf: BufFdIn,
+    buf: WlBufFdIn,
 }
 
 impl Incoming {
@@ -541,43 +533,26 @@ impl Incoming {
     }
 
     async fn handle_msg(&mut self) -> Result<(), ToolClientError> {
-        let mut hdr = [0u32, 0];
-        if let Err(e) = self.buf.read_full(&mut hdr[..]).await {
-            return Err(ToolClientError::Read(e));
-        }
-        let obj_id = ObjectId::from_raw(hdr[0]);
-        let len = (hdr[1] >> 16) as usize;
-        let request = hdr[1] & 0xffff;
-        if len < 8 {
-            return Err(ToolClientError::MsgLenTooSmall);
-        }
-        if len % 4 != 0 {
-            return Err(ToolClientError::UnalignedMessage);
-        }
-        let len = len / 4 - 2;
-        let mut data_buf = self.tc.bufs.pop().unwrap_or_default();
-        data_buf.clear();
-        data_buf.reserve(len);
-        let unused = data_buf.split_at_spare_mut_ext().1;
-        if let Err(e) = self.buf.read_full(&mut unused[..len]).await {
-            return Err(ToolClientError::Read(e));
-        }
-        unsafe {
-            data_buf.set_len(len);
-        }
+        let WlMessage {
+            obj_id,
+            message,
+            body,
+            fds,
+        } = self
+            .buf
+            .read_message()
+            .await
+            .map_err(ToolClientError::Read)?;
         let mut handler = None;
         {
             let handlers = self.tc.handlers.borrow_mut();
             if let Some(handlers) = handlers.get(&obj_id) {
-                handler = handlers.get(&request).cloned();
+                handler = handlers.get(&message).cloned();
             }
         }
         if let Some(handler) = handler {
-            let mut parser = MsgParser::new(&mut self.buf, &data_buf);
+            let mut parser = MsgParser::new(fds, body);
             handler(&mut parser)?;
-        }
-        if data_buf.capacity() > 0 {
-            self.tc.bufs.push(data_buf);
         }
         Ok(())
     }

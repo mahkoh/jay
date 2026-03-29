@@ -58,7 +58,6 @@ impl TestRun {
             run: self.clone(),
             socket,
             client_id: Cell::new(ClientId::from_raw(0)),
-            bufs: Default::default(),
             swapchain: Default::default(),
             flush_request: Default::default(),
             incoming: Default::default(),
@@ -146,9 +145,7 @@ pub trait ParseFull<'a>: Sized {
 
 impl<'a, T: RequestParser<'a>> ParseFull<'a> for T {
     fn parse_full(mut parser: MsgParser<'_, 'a>) -> Result<Self, TestError> {
-        let res = T::parse(&mut parser)?;
-        parser.eof()?;
-        Ok(res)
+        T::parse(&mut parser).map_err(Into::into)
     }
 }
 

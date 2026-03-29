@@ -6,6 +6,7 @@ pub use {
     ei_parser::{EiMsgParser, EiMsgParserError},
     formatter::MsgFormatter,
     parser::{MsgParser, MsgParserError},
+    wl_buf_in::{WlBufFdIn, WlMessage},
 };
 
 mod buf_in;
@@ -14,6 +15,7 @@ mod ei_formatter;
 mod ei_parser;
 mod formatter;
 mod parser;
+mod wl_buf_in;
 
 #[derive(Debug, Error)]
 pub enum BufFdError {
@@ -29,6 +31,12 @@ pub enum BufFdError {
     Closed,
     #[error("The connection timed out")]
     Timeout,
+    #[error("Message size is not a multiple of 4")]
+    UnalignedMessageSize,
+    #[error("Message size is larger than 4096")]
+    MessageTooLarge,
+    #[error("Message size is smaller than 8")]
+    MessageTooSmall,
 }
 
 const BUF_SIZE: usize = 4096;

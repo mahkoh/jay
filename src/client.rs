@@ -427,7 +427,6 @@ impl Client {
         mut parser: MsgParser<'_, 'a>,
     ) -> Result<R, MsgParserError> {
         let res = R::parse(&mut parser)?;
-        parser.eof()?;
         log::trace!(
             "Client {} -> {}@{}.{:?}",
             self.id,
