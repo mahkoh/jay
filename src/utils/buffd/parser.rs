@@ -1,7 +1,7 @@
 use {
-    crate::{fixed::Fixed, globals::GlobalName, object::ObjectId, utils::buffd::BufFdIn},
+    crate::{fixed::Fixed, globals::GlobalName, object::ObjectId},
     bstr::{BStr, ByteSlice},
-    std::{ptr, rc::Rc},
+    std::{collections::VecDeque, ptr, rc::Rc},
     thiserror::Error,
     uapi::{OwnedFd, Pod},
 };
@@ -27,14 +27,14 @@ pub enum MsgParserError {
 }
 
 pub struct MsgParser<'a, 'b> {
-    buf: &'a mut BufFdIn,
+    fds: &'a mut VecDeque<Rc<OwnedFd>>,
     pos: usize,
     data: &'b [u32],
 }
 
 impl<'a, 'b> MsgParser<'a, 'b> {
-    pub fn new(buf: &'a mut BufFdIn, data: &'b [u32]) -> Self {
-        Self { buf, pos: 0, data }
+    pub fn new(fds: &'a mut VecDeque<Rc<OwnedFd>>, data: &'b [u32]) -> Self {
+        Self { fds, pos: 0, data }
     }
 
     #[inline(always)]
@@ -112,8 +112,8 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     }
 
     pub fn fd(&mut self) -> Result<Rc<OwnedFd>, MsgParserError> {
-        match self.buf.get_fd() {
-            Ok(fd) => Ok(fd),
+        match self.fds.pop_front() {
+            Some(fd) => Ok(fd),
             _ => Err(MsgParserError::MissingFd),
         }
     }

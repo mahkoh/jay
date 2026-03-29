@@ -58,7 +58,6 @@ impl TestRun {
             run: self.clone(),
             socket,
             client_id: Cell::new(ClientId::from_raw(0)),
-            bufs: Default::default(),
             swapchain: Default::default(),
             flush_request: Default::default(),
             incoming: Default::default(),

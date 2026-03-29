@@ -11,15 +11,14 @@ use {
             asyncevent::AsyncEvent,
             bitfield::Bitfield,
             buffd::{
-                BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
-                OutBufferSwapchain,
+                BufFdError, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
+                OutBufferSwapchain, WlBufFdIn, WlMessage,
             },
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             oserror::OsError,
-            vec_ext::VecExt,
         },
         video::dmabuf::DmaBufIds,
         wheel::Wheel,
@@ -51,10 +50,6 @@ pub enum UsrConError {
     SocketPathTooLong,
     #[error("Could not connect to the compositor")]
     Connect(#[source] IoUringError),
-    #[error("The message length is smaller than 8 bytes")]
-    MsgLenTooSmall,
-    #[error("The size of the message is not a multiple of 4")]
-    UnalignedMessage,
     #[error(transparent)]
     BufFdError(#[from] BufFdError),
     #[error("Could not read from the compositor")]
@@ -168,8 +163,7 @@ impl UsrCon {
                 "wl_usr incoming",
                 Incoming {
                     con: slf.clone(),
-                    buf: BufFdIn::new(socket, &slf.ring),
-                    data: vec![],
+                    buf: WlBufFdIn::new(socket, &slf.ring),
                 }
                 .run(),
             ),
@@ -337,8 +331,7 @@ impl Outgoing {
 
 struct Incoming {
     con: Rc<UsrCon>,
-    buf: BufFdIn,
-    data: Vec<u32>,
+    buf: WlBufFdIn,
 }
 
 impl Incoming {
@@ -357,33 +350,16 @@ impl Incoming {
     }
 
     async fn handle_msg(&mut self) -> Result<(), UsrConError> {
-        let mut hdr = [0u32, 0];
-        if let Err(e) = self.buf.read_full(&mut hdr[..]).await {
-            return Err(UsrConError::Read(e));
-        }
-        let obj_id = ObjectId::from_raw(hdr[0]);
-        let len = (hdr[1] >> 16) as usize;
-        let event = hdr[1] & 0xffff;
-        if len < 8 {
-            return Err(UsrConError::MsgLenTooSmall);
-        }
-        if len % 4 != 0 {
-            return Err(UsrConError::UnalignedMessage);
-        }
-        let len = len / 4 - 2;
-        self.data.clear();
-        self.data.reserve(len);
-        let unused = self.data.split_at_spare_mut_ext().1;
-        if let Err(e) = self.buf.read_full(&mut unused[..len]).await {
-            return Err(UsrConError::Read(e));
-        }
-        unsafe {
-            self.data.set_len(len);
-        }
+        let WlMessage {
+            obj_id,
+            message,
+            body,
+            fds,
+        } = self.buf.read_message().await.map_err(UsrConError::Read)?;
         if let Some(obj) = self.con.objects.get(&obj_id) {
             if let Some(obj) = obj {
-                let parser = MsgParser::new(&mut self.buf, &self.data);
-                obj.handle_event(&self.con, event, parser)?;
+                let parser = MsgParser::new(fds, body);
+                obj.handle_event(&self.con, message, parser)?;
             }
         } else if obj_id.raw() < MIN_SERVER_ID {
             return Err(UsrConError::MissingObject(obj_id));

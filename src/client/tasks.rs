@@ -2,11 +2,9 @@ use {
     crate::{
         async_engine::Phase,
         client::{Client, ClientError},
-        object::ObjectId,
         utils::{
-            buffd::{BufFdIn, BufFdOut, MsgParser},
+            buffd::{BufFdOut, MsgParser, WlBufFdIn, WlMessage},
             errorfmt::ErrorFmt,
-            vec_ext::VecExt,
         },
     },
     futures_util::{FutureExt, select},
@@ -49,14 +47,14 @@ async fn receive(data: Rc<Client>) {
     });
     let display = data.display().unwrap();
     let recv = async {
-        let mut buf = BufFdIn::new(&data.socket, &data.state.ring);
-        let mut data_buf = Vec::<u32>::new();
+        let mut buf = WlBufFdIn::new(&data.socket, &data.state.ring);
         loop {
-            let mut hdr = [0u32, 0];
-            buf.read_full(&mut hdr[..]).await?;
-            let obj_id = ObjectId::from_raw(hdr[0]);
-            let len = (hdr[1] >> 16) as usize;
-            let request = hdr[1] & 0xffff;
+            let WlMessage {
+                obj_id,
+                message,
+                body,
+                fds,
+            } = buf.read_message().await?;
             let obj = match data.objects.get_obj(obj_id) {
                 Ok(obj) => obj,
                 _ => {
@@ -65,28 +63,12 @@ async fn receive(data: Rc<Client>) {
                     return Err(ClientError::InvalidObject(obj_id));
                 }
             };
-            // log::trace!("obj: {}, request: {}, len: {}", obj_id, request, len);
-            if len < 8 {
-                return Err(ClientError::MessageSizeTooSmall);
-            }
-            if len % 4 != 0 {
-                return Err(ClientError::UnalignedMessage);
-            }
-            let len = len / 4 - 2;
-            data_buf.clear();
-            data_buf.reserve(len);
-            let unused = data_buf.split_at_spare_mut_ext().1;
-            buf.read_full(&mut unused[..len]).await?;
-            unsafe {
-                data_buf.set_len(len);
-            }
-            // log::trace!("{:x?}", data_buf);
-            let parser = MsgParser::new(&mut buf, &data_buf[..]);
-            if let Err(e) = obj.handle_request(&data, request, parser) {
+            let parser = MsgParser::new(fds, body);
+            if let Err(e) = obj.handle_request(&data, message, parser) {
                 if let ClientError::InvalidMethod = e
                     && let Ok(obj) = data.objects.get_obj(obj_id)
                 {
-                    data.invalid_request(&*obj, request);
+                    data.invalid_request(&*obj, message);
                     return Err(e);
                 }
                 return Err(ClientError::RequestError(Box::new(e)));
