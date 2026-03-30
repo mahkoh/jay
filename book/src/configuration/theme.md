@@ -198,7 +198,7 @@ appear in the bar:
 : Workspaces can be reordered by dragging (default)
 
 `sorted`
-: Workspaces are displayed in alphabetical order
+: Workspaces are displayed using natural ordering.
 
 ```toml
 workspace-display-order = "sorted"
