@@ -5609,7 +5609,7 @@ The string should have one of the following values:
 
 - `sorted`:
 
-  Workspaces are sorted alphabetically and cannot be manually dragged.
+  Workspaces are sorted using natural ordering and cannot be manually dragged.
 
 
 

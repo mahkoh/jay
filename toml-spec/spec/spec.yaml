@@ -4533,7 +4533,7 @@ WorkspaceDisplayOrder:
     - value: manual
       description: Workspaces are not sorted and can be manually dragged.
     - value: sorted
-      description: Workspaces are sorted alphabetically and cannot be manually dragged.
+      description: Workspaces are sorted using natural ordering and cannot be manually dragged.
 
 
 BlendSpace:
