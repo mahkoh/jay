@@ -12,8 +12,7 @@ use {
     },
     bstr::ByteSlice,
     log::Level,
-    once_cell::sync::Lazy,
-    std::ffi::CStr,
+    std::{ffi::CStr, sync::LazyLock},
     sys::{
         EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
         EGL_BAD_CURRENT_SURFACE, EGL_BAD_DEVICE_EXT, EGL_BAD_DISPLAY, EGL_BAD_MATCH,
@@ -28,9 +27,9 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(crate) static PROCS: Lazy<Option<ExtProc>> = Lazy::new(ExtProc::load);
+pub(crate) static PROCS: LazyLock<Option<ExtProc>> = LazyLock::new(ExtProc::load);
 
-pub(crate) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
+pub(crate) static EXTS: LazyLock<ClientExt> = LazyLock::new(get_client_ext);
 
 pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     let Some(egl) = EGL.as_ref() else {

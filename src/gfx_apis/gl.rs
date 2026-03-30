@@ -35,7 +35,7 @@ macro_rules! dynload {
             )*
         }
 
-        pub static $item: once_cell::sync::Lazy<Option<$container>> = once_cell::sync::Lazy::new(|| unsafe {
+        pub static $item: std::sync::LazyLock<Option<$container>> = std::sync::LazyLock::new(|| unsafe {
             use crate::utils::errorfmt::ErrorFmt;
             let lib = match libloading::Library::new($name) {
                 Ok(l) => l,
@@ -94,8 +94,13 @@ use {
         },
     },
     isnt::std_1::vec::IsntVecExt,
-    once_cell::sync::Lazy,
-    std::{any::Any, cell::RefCell, error::Error, rc::Rc, sync::Arc},
+    std::{
+        any::Any,
+        cell::RefCell,
+        error::Error,
+        rc::Rc,
+        sync::{Arc, LazyLock},
+    },
     thiserror::Error,
 };
 
@@ -109,7 +114,8 @@ pub mod sys {
     pub use super::{egl::sys::*, gl::sys::*};
 }
 
-static INIT: Lazy<Result<(), Arc<RenderError>>> = Lazy::new(|| egl::init().map_err(Arc::new));
+static INIT: LazyLock<Result<(), Arc<RenderError>>> =
+    LazyLock::new(|| egl::init().map_err(Arc::new));
 
 pub(super) fn create_gfx_context(
     drm: &Drm,

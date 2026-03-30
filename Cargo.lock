@@ -766,7 +766,6 @@ dependencies = [
  "log",
  "num-derive",
  "num-traits",
- "once_cell",
  "opera",
  "parking_lot",
  "pin-project",

@@ -1,6 +1,6 @@
-use {ahash::AHashMap, once_cell::sync::Lazy};
+use {ahash::AHashMap, std::sync::LazyLock};
 
-static BUGS: Lazy<AHashMap<&'static str, Bugs>> = Lazy::new(|| {
+static BUGS: LazyLock<AHashMap<&'static str, Bugs>> = LazyLock::new(|| {
     let mut map = AHashMap::new();
     map.insert(
         "chromium",

@@ -1,8 +1,8 @@
 use {
-    once_cell::sync::Lazy,
     std::{
         error::Error,
         fmt::{Display, Formatter},
+        sync::LazyLock,
     },
     uapi::{
         Errno,
@@ -10,7 +10,7 @@ use {
     },
 };
 
-static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {
+static ERRORS: LazyLock<&'static [Option<&'static str>]> = LazyLock::new(|| {
     static MSGS: &[(c::c_int, &str)] = &[
         (c::EWOULDBLOCK, "Operation would block"),
         (c::ENOTSUP, "Not supported"),
