@@ -42,7 +42,7 @@ impl VirtualOutputsPane {
             ui.text_edit_singleline(&mut self.new);
             if ui.button("Add").clicked() {
                 s.virtual_outputs.get_or_create(s, &self.new);
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
         });
     }

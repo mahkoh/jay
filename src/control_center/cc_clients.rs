@@ -22,10 +22,7 @@ use {
         text::LayoutJob,
     },
     linearize::Linearize,
-    std::{
-        any::Any,
-        rc::{Rc, Weak},
-    },
+    std::rc::{Rc, Weak},
 };
 
 pub enum ClientCrit {
@@ -455,9 +452,5 @@ impl CacheTrait for ClientWindowMatchersCache {
 
     fn len(&self) -> usize {
         self.matchers.len()
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
