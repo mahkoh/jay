@@ -13,10 +13,9 @@ use {
     ahash::AHashMap,
     ash::vk,
     jay_config::video::Format as ConfigFormat,
-    once_cell::sync::Lazy,
     std::{
-        fmt,
-        fmt::{Debug, Write},
+        fmt::{self, Debug, Write},
+        sync::LazyLock,
     },
 };
 
@@ -66,7 +65,7 @@ impl PartialEq for Format {
 
 impl Eq for Format {}
 
-static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
+static FORMATS_MAP: LazyLock<AHashMap<u32, &'static Format>> = LazyLock::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
         assert!(map.insert(format.drm, format).is_none());
@@ -74,7 +73,7 @@ static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
     map
 });
 
-static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::new(|| {
+static PW_FORMATS_MAP: LazyLock<AHashMap<SpaVideoFormat, &'static Format>> = LazyLock::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
         if format.pipewire != SPA_VIDEO_FORMAT_UNKNOWN {
@@ -84,9 +83,9 @@ static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::n
     map
 });
 
-static FORMATS_REFS: Lazy<Vec<&'static Format>> = Lazy::new(|| FORMATS.iter().collect());
+static FORMATS_REFS: LazyLock<Vec<&'static Format>> = LazyLock::new(|| FORMATS.iter().collect());
 
-static FORMATS_NAMES: Lazy<AHashMap<&'static str, &'static Format>> = Lazy::new(|| {
+static FORMATS_NAMES: LazyLock<AHashMap<&'static str, &'static Format>> = LazyLock::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
         assert!(map.insert(format.name, format).is_none());
@@ -94,7 +93,7 @@ static FORMATS_NAMES: Lazy<AHashMap<&'static str, &'static Format>> = Lazy::new(
     map
 });
 
-static FORMATS_CONFIG: Lazy<AHashMap<ConfigFormat, &'static Format>> = Lazy::new(|| {
+static FORMATS_CONFIG: LazyLock<AHashMap<ConfigFormat, &'static Format>> = LazyLock::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
         assert!(map.insert(format.config, format).is_none());

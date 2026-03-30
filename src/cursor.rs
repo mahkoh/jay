@@ -18,7 +18,6 @@ use {
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
     num_derive::FromPrimitive,
-    once_cell::sync::Lazy,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -29,6 +28,7 @@ use {
         mem::MaybeUninit,
         rc::Rc,
         slice, str,
+        sync::LazyLock,
         time::Duration,
     },
     thiserror::Error,
@@ -46,7 +46,7 @@ const HOME: &str = "HOME";
 
 const HEADER_SIZE: u32 = 16;
 
-pub static DEFAULT_CURSOR_SIZE: Lazy<u32> = Lazy::new(|| {
+pub static DEFAULT_CURSOR_SIZE: LazyLock<u32> = LazyLock::new(|| {
     if let Ok(size) = env::var(XCURSOR_SIZE)
         && let Ok(val) = size.parse()
     {

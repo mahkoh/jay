@@ -18,13 +18,12 @@ use {
     },
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
-    once_cell::sync::Lazy,
     run_on_drop::on_drop,
     std::{
         ffi::{CStr, CString, c_void},
         fmt::{Display, Formatter},
         slice,
-        sync::Arc,
+        sync::{Arc, LazyLock},
     },
     thiserror::Error,
     uapi::{Ustr, ustr},
@@ -36,11 +35,11 @@ pub mod gpu_alloc_ash;
 pub mod sync;
 pub mod timeline_semaphore;
 
-static VULKAN_ENTRY: Lazy<Result<Entry, Arc<LoadingError>>> =
-    Lazy::new(|| unsafe { Entry::load() }.map_err(Arc::new));
+static VULKAN_ENTRY: LazyLock<Result<Entry, Arc<LoadingError>>> =
+    LazyLock::new(|| unsafe { Entry::load() }.map_err(Arc::new));
 
-static VULKAN_VALIDATION: Lazy<bool> =
-    Lazy::new(|| std::env::var("JAY_VULKAN_VALIDATION").ok().as_deref() == Some("1"));
+static VULKAN_VALIDATION: LazyLock<bool> =
+    LazyLock::new(|| std::env::var("JAY_VULKAN_VALIDATION").ok().as_deref() == Some("1"));
 
 #[derive(Debug, Error)]
 pub enum VulkanCoreError {
