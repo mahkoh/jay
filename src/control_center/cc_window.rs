@@ -25,7 +25,6 @@ use {
     },
     linearize::Linearize,
     std::{
-        any::Any,
         mem,
         rc::{Rc, Weak},
     },
@@ -452,10 +451,6 @@ impl CacheTrait for WindowPropertyListeners {
 
     fn len(&self) -> usize {
         self.listeners.len()
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }
 

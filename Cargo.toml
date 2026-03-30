@@ -68,8 +68,8 @@ opera = "1.0.1"
 with_builtin_macros = "0.1.0"
 blake3 = "1.8.2"
 run-on-drop = "1.0.0"
-egui = { version = "0.33.3", default-features = false }
-egui_tiles = { version = "0.14.1", default-features = false }
+egui = { version = "0.34.1", default-features = false }
+egui_tiles = { version = "0.15.0", default-features = false }
 
 [build-dependencies]
 repc = "0.1.1"
@@ -100,23 +100,35 @@ debug = "line-tables-only"
 opt-level = 3
 debug = "line-tables-only"
 
-[profile.dev.package."ab_glyph"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."ab_glyph_rasterizer"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."owned_ttf_parser"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."ttf-parser"]
-opt-level = 3
-debug = "line-tables-only"
-
 [profile.dev.package."ecolor"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."font-types"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."skrifa"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."read-fonts"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."vello_cpu"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."vello_common"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."peniko"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package."kurbo"]
 opt-level = 3
 debug = "line-tables-only"
 

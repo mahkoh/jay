@@ -262,33 +262,36 @@ impl OutputsPane {
 
 impl OutputsPaneInner {
     fn show_main_area(&mut self, ps: &mut PaneState, ui: &mut Ui) {
-        ui.scope_builder(UiBuilder::new().id(("main_area", self.seed)), |ui| {
-            self.show_settings_bar(ps, ui);
-            ScrollArea::vertical().show(ui, |ui| {
-                match self.ui.view {
-                    View::Connectors => self.show_connectors(ui),
-                    View::Settings => self.show_settings(ui),
-                }
-                ui.allocate_space(ui.available_size());
-            });
-        });
+        ui.scope_builder(
+            UiBuilder::new().id(Id::new(("main_area", self.seed))),
+            |ui| {
+                self.show_settings_bar(ps, ui);
+                ScrollArea::vertical().show(ui, |ui| {
+                    match self.ui.view {
+                        View::Connectors => self.show_connectors(ui),
+                        View::Settings => self.show_settings(ui),
+                    }
+                    ui.allocate_space(ui.available_size());
+                });
+            },
+        );
     }
 
     fn show_settings_bar(&mut self, ps: &mut PaneState, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             if ui.button("Connectors").clicked() {
                 self.ui.view = View::Connectors;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
             if ui.button("Settings").clicked() {
                 self.ui.view = View::Settings;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
             if ui
                 .checkbox(&mut self.ui.zoom_to_fit, "Zoom To Fit")
                 .changed()
             {
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
             {
                 let mut reset = !self.in_transaction.get();
@@ -405,7 +408,7 @@ impl OutputsPaneInner {
         }
 
         if changed {
-            ui.ctx().request_repaint();
+            ui.request_repaint();
         }
     }
 
@@ -492,7 +495,7 @@ impl OutputsPaneInner {
                 self.ui.scale = new_scale;
                 origin.x = new_ox;
                 origin.y = new_oy;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
         }
         heads.sort_by_key(|h| *h.z);
@@ -616,7 +619,7 @@ impl OutputsPaneInner {
         if response.has_focus() {
             let mut dx = 0;
             let mut dy = 0;
-            ui.ctx().input(|i| {
+            ui.input(|i| {
                 if i.key_pressed(Key::ArrowUp) {
                     dy -= 1;
                 }
@@ -639,14 +642,14 @@ impl OutputsPaneInner {
                         let pos = (x, y);
                         if effective!(&*head.m, head.changed_state).position != pos {
                             modify!(&*head.m, head.changed_state).position = pos;
-                            ui.ctx().request_repaint();
+                            ui.request_repaint();
                         }
                     }
                 }
             }
         }
         if let Some(pos) = response.hover_pos() {
-            let scroll = ui.ctx().input(|i| i.smooth_scroll_delta);
+            let scroll = ui.input(|i| i.smooth_scroll_delta);
             let mut new = scale;
             if scroll.y != 0.0 {
                 interacted!();
@@ -659,16 +662,13 @@ impl OutputsPaneInner {
             new = new.max(0.01);
             if new != scale {
                 self.ui.scale = new;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
                 let relative_pos = pos - clip_rect.min;
                 let real_pos = (relative_pos + *origin) / scale;
                 *origin = real_pos * new - relative_pos;
             }
         }
-        if ui
-            .ctx()
-            .input(|i| i.pointer.button_pressed(PointerButton::Primary))
-        {
+        if ui.input(|i| i.pointer.button_pressed(PointerButton::Primary)) {
             self.ui.focus += 1;
             if let Some(pos) = response.hover_pos() {
                 interacted!();
@@ -678,7 +678,7 @@ impl OutputsPaneInner {
                         *head.z = self.ui.next_z;
                         self.ui.next_z += 1;
                         *head.focus = self.ui.focus;
-                        ui.ctx().request_repaint();
+                        ui.request_repaint();
                         break;
                     }
                 }
@@ -708,9 +708,9 @@ impl OutputsPaneInner {
             if let Some(origin_drag) = &mut self.ui.origin_drag {
                 *origin_drag -= drag_delta;
                 self.ui.origin = *origin_drag;
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
-            let snap = self.settings.snap_to_neighbor ^ ui.ctx().input(|i| i.modifiers.shift);
+            let snap = self.settings.snap_to_neighbor ^ ui.input(|i| i.modifiers.shift);
             let mut head_positions = vec![];
             struct HeadPosition {
                 name: HeadName,
@@ -781,7 +781,7 @@ impl OutputsPaneInner {
                     let pos = (x_int, y_int);
                     if effective!(&*head.m, head.changed_state).position != pos {
                         modify!(&*head.m, head.changed_state).position = pos;
-                        ui.ctx().request_repaint();
+                        ui.request_repaint();
                     }
                     *head.drag_pos = Some((x, y));
                 }
@@ -793,7 +793,7 @@ impl OutputsPaneInner {
                 *head.drag_pos = None;
             }
         }
-        ui.ctx().memory_mut(|mem| {
+        ui.memory_mut(|mem| {
             mem.set_focus_lock_filter(
                 response.id,
                 EventFilter {

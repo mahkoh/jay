@@ -25,10 +25,9 @@ use {
         },
     },
     egui::{
-        Align, CentralPanel, Checkbox, Color32, ComboBox, Context, CursorIcon, DragValue, Frame,
-        Grid, InnerResponse, Label, Layout, Response, Rgba, RichText, ScrollArea, Sense, SidePanel,
-        Stroke, TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric,
-        vec2,
+        Align, CentralPanel, Checkbox, Color32, ComboBox, CursorIcon, DragValue, Frame, Grid, Id,
+        InnerResponse, Label, Layout, Panel, Response, Rgba, RichText, ScrollArea, Sense, Stroke,
+        TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric, vec2,
     },
     egui_tiles::{ResizeState, TabState, Tile, TileId, Tiles, Tree},
     linearize::{Linearize, LinearizeExt},
@@ -248,7 +247,7 @@ impl egui_tiles::Behavior<Pane> for CcBehavior<'_> {
             });
             ui.separator();
             show_errors(ui, &mut pane.ps);
-            ui.scope_builder(UiBuilder::new().id(("pane", pane.id)), |ui| {
+            ui.scope_builder(UiBuilder::new().id(Id::new(("pane", pane.id))), |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
                     ui.allocate_space(vec2(ui.available_width(), 0.0));
                     pane.show(self, ui);
@@ -297,7 +296,7 @@ impl egui_tiles::Behavior<Pane> for CcBehavior<'_> {
 
     fn on_tab_button(
         &mut self,
-        _tiles: &Tiles<Pane>,
+        _tiles: &mut Tiles<Pane>,
         tile_id: TileId,
         button_response: Response,
     ) -> Response {
@@ -338,16 +337,16 @@ impl EggWindowOwner for ControlCenterInner {
         self.close();
     }
 
-    fn render(self: Rc<Self>, ctx: &Context) {
+    fn render(self: Rc<Self>, ui: &mut Ui) {
         let settings = &mut *self.tree.borrow_mut();
-        SidePanel::left("sidebar").show(ctx, |ui| self.show_sidebar(&mut settings.tree, ui));
+        Panel::left("sidebar").show_inside(ui, |ui| self.show_sidebar(&mut settings.tree, ui));
         CentralPanel::default()
             .frame(
-                Frame::central_panel(&ctx.style())
+                Frame::central_panel(&ui.global_style())
                     .outer_margin(0.0)
                     .inner_margin(0.0),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 let tree = &mut settings.tree;
                 let mut behavior = CcBehavior {
                     cc: &self,
@@ -358,11 +357,11 @@ impl EggWindowOwner for ControlCenterInner {
                 if let Some(close) = behavior.close {
                     tree.set_visible(close, false);
                     tree.remove_recursively(close);
-                    ui.ctx().request_repaint();
+                    ui.request_repaint();
                 }
                 if let Some(ty) = behavior.open {
                     self.open(tree, ty);
-                    ui.ctx().request_repaint();
+                    ui.request_repaint();
                 }
             });
     }
@@ -515,7 +514,7 @@ fn show_errors(ui: &mut Ui, pane: &mut PaneState) {
     }
     if let Some(idx) = to_remove {
         pane.errors.remove(idx);
-        ui.ctx().request_repaint();
+        ui.request_repaint();
     }
     ui.separator();
 }

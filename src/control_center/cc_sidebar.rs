@@ -52,7 +52,7 @@ impl ControlCenterInner {
             |ui| {
                 ui.add_space(6.0);
                 if ui.button("Close").clicked() {
-                    ui.ctx().send_viewport_cmd(ViewportCommand::Close);
+                    ui.send_viewport_cmd(ViewportCommand::Close);
                 }
                 ui.separator();
                 ScrollArea::vertical().show(ui, |ui| {
@@ -86,7 +86,7 @@ impl ControlCenterInner {
                                 }
                             };
                             self.open(tree, ty);
-                            ui.ctx().request_repaint();
+                            ui.request_repaint();
                         }
                     }
                     ui.add_space(3.0);

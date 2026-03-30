@@ -70,8 +70,8 @@ use {
     },
     egui::{
         CursorIcon, Event, FontData, FontDefinitions, FontFamily, FullOutput, Key, Modifiers,
-        MouseWheelUnit, OutputCommand, PlatformOutput, PointerButton, Pos2, RawInput, Vec2,
-        ViewportCommand, ViewportEvent, ViewportId, ViewportInfo, pos2, vec2,
+        MouseWheelUnit, OutputCommand, PlatformOutput, PointerButton, Pos2, RawInput, TouchPhase,
+        Vec2, ViewportCommand, ViewportEvent, ViewportId, ViewportInfo, pos2, vec2,
     },
     futures_util::{FutureExt, select},
     isnt::std_1::primitive::{IsntCharExt, IsntSliceExt, IsntStrExt},
@@ -195,7 +195,7 @@ pub struct EggWindow {
 
 pub trait EggWindowOwner {
     fn close(&self);
-    fn render(self: Rc<Self>, ctx: &egui::Context);
+    fn render(self: Rc<Self>, ui: &mut egui::Ui);
 }
 
 struct EggWindowInner {
@@ -768,8 +768,8 @@ impl EggWindowInner {
             .raw_input
             .take()
             .unwrap_or_else(|| self.default_raw_input());
-        let full_output = self.egui.run(raw_input, |ctx| {
-            owner.clone().render(ctx);
+        let full_output = self.egui.run_ui(raw_input, |ui| {
+            owner.clone().render(ui);
         });
         let FullOutput {
             platform_output,
@@ -1098,6 +1098,7 @@ impl UsrWlPointerOwner for EggSeatInner {
         window.event(Event::MouseWheel {
             unit,
             delta,
+            phase: TouchPhase::Move,
             modifiers: self.kb_modifiers.get(),
         });
     }

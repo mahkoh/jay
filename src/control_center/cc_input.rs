@@ -526,118 +526,121 @@ fn show_keymap(
     map: Option<&Rc<KbvmMap>>,
     set_map: impl Fn(&Rc<KbvmMap>),
 ) {
-    ui.scope_builder(UiBuilder::new().id(("keymap-settings", ks.seed)), |ui| {
-        ui.add_enabled_ui(map.is_some(), |ui| {
-            if ui.button("Copy Keymap").clicked()
-                && let Some(map) = map
-            {
-                ui.ctx().copy_text(map.map_text.clone());
-            }
-        });
-        let backup = |ks: &mut KeymapState| {
-            ks.backup(map);
-        };
-        if ui.button("Load Default Keymap").clicked() {
-            backup(ks);
-            set_map(&state.default_keymap);
-        }
-        ui.horizontal(|ui| {
+    ui.scope_builder(
+        UiBuilder::new().id(Id::new(("keymap-settings", ks.seed))),
+        |ui| {
             ui.add_enabled_ui(map.is_some(), |ui| {
-                if ui.button("Backup Keymap").clicked() {
-                    ks.backup = None;
-                    backup(ks);
+                if ui.button("Copy Keymap").clicked()
+                    && let Some(map) = map
+                {
+                    ui.copy_text(map.map_text.clone());
                 }
             });
-            if let Some(backup) = &ks.backup
-                && ui.button("Restore Keymap").clicked()
-            {
-                set_map(backup);
-                ks.backup = None;
-            }
-        });
-        let mut label = "Load Keymap from Clipboard".to_string();
-        if *paste_requested == Some(ui.id()) {
-            label.push_str(" ");
-            label.push_str(ICON_PENDING);
-        }
-        let button = ui.button(label);
-        if button.clicked() {
-            *paste_requested = Some(ui.id());
-            button.request_focus();
-            ui.ctx().send_viewport_cmd(ViewportCommand::RequestPaste);
-        } else if *paste_requested == Some(ui.id()) && button.has_focus() {
-            ui.input(|e| {
-                let map = e
-                    .events
-                    .iter()
-                    .filter_map(|e| match e {
-                        Event::Paste(s) => Some(s),
-                        _ => None,
-                    })
-                    .next();
-                let Some(map) = map else {
-                    return;
-                };
-                *paste_requested = None;
-                let map = match state.kb_ctx.parse_keymap(map.as_bytes()) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        let error = format!("Could not parse keymap: {}", ErrorFmt(e));
-                        ps.errors.push(error);
-                        return;
-                    }
-                };
+            let backup = |ks: &mut KeymapState| {
+                ks.backup(map);
+            };
+            if ui.button("Load Default Keymap").clicked() {
                 backup(ks);
-                set_map(&map);
+                set_map(&state.default_keymap);
+            }
+            ui.horizontal(|ui| {
+                ui.add_enabled_ui(map.is_some(), |ui| {
+                    if ui.button("Backup Keymap").clicked() {
+                        ks.backup = None;
+                        backup(ks);
+                    }
+                });
+                if let Some(backup) = &ks.backup
+                    && ui.button("Restore Keymap").clicked()
+                {
+                    set_map(backup);
+                    ks.backup = None;
+                }
             });
-        } else if *paste_requested == Some(ui.id()) {
-            *paste_requested = None;
-        }
-        ui.collapsing("Create Keymap from Names", |ui| {
-            grid(ui, ("keymap-from-names", ui.id()), |ui| {
-                let defaulted =
-                    |ui: &mut Ui, name: &str, default: &mut bool, text: &mut dyn TextBuffer| {
-                        let ui = &mut *ui.row();
-                        grid_label(ui, name);
-                        ui.add_enabled_ui(!*default, |ui| {
-                            text_edit(ui, text);
-                        });
-                        ui.checkbox(default, "Default");
+            let mut label = "Load Keymap from Clipboard".to_string();
+            if *paste_requested == Some(ui.id()) {
+                label.push_str(" ");
+                label.push_str(ICON_PENDING);
+            }
+            let button = ui.button(label);
+            if button.clicked() {
+                *paste_requested = Some(ui.id());
+                button.request_focus();
+                ui.send_viewport_cmd(ViewportCommand::RequestPaste);
+            } else if *paste_requested == Some(ui.id()) && button.has_focus() {
+                ui.input(|e| {
+                    let map = e
+                        .events
+                        .iter()
+                        .filter_map(|e| match e {
+                            Event::Paste(s) => Some(s),
+                            _ => None,
+                        })
+                        .next();
+                    let Some(map) = map else {
+                        return;
                     };
-                let required = |ui: &mut Ui, name, text| {
-                    let ui = &mut *ui.row();
-                    grid_label(ui, name);
-                    text_edit(ui, text);
-                };
-                defaulted(ui, "Rules", &mut ks.rules_default, &mut ks.rules);
-                defaulted(ui, "Model", &mut ks.model_default, &mut ks.model);
-                required(ui, "Layouts", &mut ks.layouts);
-                required(ui, "Variants", &mut ks.variants);
-                required(ui, "Options", &mut ks.options);
-            });
-            if ui.button("Load").clicked() {
-                'set_map: {
-                    let map = state.kb_ctx.keymap_from_rmlvo(
-                        (!ks.rules_default).then_some(&ks.rules),
-                        (!ks.model_default).then_some(&ks.model),
-                        Some(&ks.layouts),
-                        Some(&ks.variants),
-                        Some(&ks.options),
-                    );
-                    let map = match map {
-                        Ok(map) => map,
+                    *paste_requested = None;
+                    let map = match state.kb_ctx.parse_keymap(map.as_bytes()) {
+                        Ok(m) => m,
                         Err(e) => {
                             let error = format!("Could not parse keymap: {}", ErrorFmt(e));
                             ps.errors.push(error);
-                            break 'set_map;
+                            return;
                         }
                     };
                     backup(ks);
                     set_map(&map);
-                }
+                });
+            } else if *paste_requested == Some(ui.id()) {
+                *paste_requested = None;
             }
-        });
-    });
+            ui.collapsing("Create Keymap from Names", |ui| {
+                grid(ui, ("keymap-from-names", ui.id()), |ui| {
+                    let defaulted =
+                        |ui: &mut Ui, name: &str, default: &mut bool, text: &mut dyn TextBuffer| {
+                            let ui = &mut *ui.row();
+                            grid_label(ui, name);
+                            ui.add_enabled_ui(!*default, |ui| {
+                                text_edit(ui, text);
+                            });
+                            ui.checkbox(default, "Default");
+                        };
+                    let required = |ui: &mut Ui, name, text| {
+                        let ui = &mut *ui.row();
+                        grid_label(ui, name);
+                        text_edit(ui, text);
+                    };
+                    defaulted(ui, "Rules", &mut ks.rules_default, &mut ks.rules);
+                    defaulted(ui, "Model", &mut ks.model_default, &mut ks.model);
+                    required(ui, "Layouts", &mut ks.layouts);
+                    required(ui, "Variants", &mut ks.variants);
+                    required(ui, "Options", &mut ks.options);
+                });
+                if ui.button("Load").clicked() {
+                    'set_map: {
+                        let map = state.kb_ctx.keymap_from_rmlvo(
+                            (!ks.rules_default).then_some(&ks.rules),
+                            (!ks.model_default).then_some(&ks.model),
+                            Some(&ks.layouts),
+                            Some(&ks.variants),
+                            Some(&ks.options),
+                        );
+                        let map = match map {
+                            Ok(map) => map,
+                            Err(e) => {
+                                let error = format!("Could not parse keymap: {}", ErrorFmt(e));
+                                ps.errors.push(error);
+                                break 'set_map;
+                            }
+                        };
+                        backup(ks);
+                        set_map(&map);
+                    }
+                }
+            });
+        },
+    );
 }
 
 fn matrix<T, const W: usize>(

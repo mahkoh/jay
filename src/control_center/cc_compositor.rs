@@ -34,7 +34,7 @@ impl CompositorPane {
             row(ui, "Repository", |ui| {
                 let url = "https://github.com/mahkoh/jay";
                 if ui.link(url).clicked() {
-                    ui.ctx().open_url(OpenUrl::new_tab(url));
+                    ui.open_url(OpenUrl::new_tab(url));
                 }
             });
             label(ui, "Version", VERSION);
@@ -66,7 +66,7 @@ impl CompositorPane {
                         .on_hover_text_at_pointer("Copy to clipboard")
                         .clicked()
                     {
-                        ui.ctx().copy_text(path);
+                        ui.copy_text(path);
                     }
                 });
             }
