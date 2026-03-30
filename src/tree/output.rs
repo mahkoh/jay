@@ -69,6 +69,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
+    numeric_sort::cmp,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -730,7 +731,7 @@ impl OutputNode {
     pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<Rc<WorkspaceNode>>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             for existing_ws in self.workspaces.iter() {
-                if name < existing_ws.name.as_str() {
+                if cmp(name, &existing_ws.name) == std::cmp::Ordering::Less {
                     return Some(existing_ws);
                 }
             }
@@ -1133,7 +1134,7 @@ impl OutputNode {
     pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             let mut workspaces: Vec<_> = self.workspaces.iter().collect();
-            workspaces.sort_by(|a, b| a.name.cmp(&b.name));
+            workspaces.sort_by(|a, b| cmp(&a.name, &b.name));
             for ws_ref in workspaces {
                 ws_ref.detach();
                 self.workspaces.add_last_existing(&ws_ref);

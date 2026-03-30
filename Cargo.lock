@@ -823,6 +823,7 @@ dependencies = [
  "log",
  "num-derive",
  "num-traits",
+ "numeric-sort",
  "opera",
  "parking_lot",
  "pin-project",
@@ -1079,6 +1080,12 @@ checksum = "5c7398b9c8b70908f6371f47ed36737907c87c52af34c268fed0bf0ceb92ead9"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "numeric-sort"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2dcb6053ab98da45585315f79932c5c9821fab8efa4301c0d7b637c91630eb7"
 
 [[package]]
 name = "object"

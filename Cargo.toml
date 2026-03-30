@@ -70,6 +70,7 @@ blake3 = "1.8.2"
 run-on-drop = "1.0.0"
 egui = { version = "0.34.1", default-features = false }
 egui_tiles = { version = "0.15.0", default-features = false }
+numeric-sort = "0.1.5"
 
 [build-dependencies]
 repc = "0.1.1"

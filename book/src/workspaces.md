@@ -99,8 +99,8 @@ modes:
 
 - **manual** (default) -- workspaces appear in the order they were created and
   can be reordered by dragging their titles in the bar.
-- **sorted** -- workspaces are sorted alphabetically. Dragging to reorder is
-  disabled.
+- **sorted** -- workspaces are sorted using natural ordering. Dragging to
+  reorder is disabled.
 
 Set the order in your configuration:
 
