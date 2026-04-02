@@ -31,15 +31,9 @@ use {
             NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode,
         },
         utils::{
-            array_to_tuple::ArrayToTuple,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            event_listener::LazyEventSource,
-            hash_map_ext::HashMapExt,
-            numcell::NumCell,
-            rc_eq::rc_eq,
-            threshold_counter::ThresholdCounter,
-            toplevel_identifier::{ToplevelIdentifier, toplevel_identifier},
+            array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            event_listener::LazyEventSource, hash_map_ext::HashMapExt, numcell::NumCell,
+            rc_eq::rc_eq, threshold_counter::ThresholdCounter,
         },
         wire::{
             ExtForeignToplevelHandleV1Id, ExtImageCopyCaptureSessionV1Id, JayScreencastId,
@@ -54,6 +48,8 @@ use {
         rc::{Rc, Weak},
     },
 };
+
+opaque!(ToplevelIdentifier, toplevel_identifier);
 
 tree_id!(ToplevelNodeId);
 

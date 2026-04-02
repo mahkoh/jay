@@ -28,8 +28,8 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelNode,
-            VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
+            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelIdentifier,
+            ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
@@ -40,7 +40,6 @@ use {
             oserror::{OsError, OsErrorExt},
             stack::Stack,
             timer::{TimerError, TimerFd},
-            toplevel_identifier::ToplevelIdentifier,
         },
     },
     bincode::Options,

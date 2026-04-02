@@ -30,7 +30,8 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         screenshoter::take_screenshot,
-        utils::{errorfmt::ErrorFmt, toplevel_identifier::ToplevelIdentifier},
+        tree::ToplevelIdentifier,
+        utils::errorfmt::ErrorFmt,
         wire::{
             JayCompositorId, JayScreenshotId,
             jay_compositor::{self, *},

@@ -900,3 +900,36 @@ macro_rules! dynload {
         });
     };
 }
+
+macro_rules! opaque {
+    ($ty:ident, $fun:ident) => {
+        #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
+        pub struct $ty(crate::utils::opaque::Opaque);
+
+        unsafe impl crate::utils::clonecell::UnsafeCellCloneSafe for $ty {}
+
+        pub fn $fun() -> $ty {
+            $ty(crate::utils::opaque::opaque())
+        }
+
+        impl $ty {
+            pub fn to_string(self) -> arrayvec::ArrayString<{ crate::utils::opaque::OPAQUE_LEN }> {
+                self.0.to_string()
+            }
+        }
+
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl std::str::FromStr for $ty {
+            type Err = crate::utils::opaque::OpaqueError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Ok(Self(s.parse()?))
+            }
+        }
+    };
+}

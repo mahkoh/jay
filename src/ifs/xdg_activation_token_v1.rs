@@ -3,12 +3,13 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        utils::activation_token::{ActivationToken, activation_token},
         wire::{XdgActivationTokenV1Id, xdg_activation_token_v1::*},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
+
+opaque!(ActivationToken, activation_token);
 
 const MAX_TOKENS_PER_CLIENT: usize = 8;
 

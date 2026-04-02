@@ -9,12 +9,11 @@ use {
         criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
         egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
         state::State,
-        tree::{NodeId, ToplevelData, ToplevelNode, ToplevelType},
+        tree::{NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode, ToplevelType},
         utils::{
             copyhashmap::CopyHashMap,
             event_listener::{EventListener, LazyEventSourceListener},
             static_text::StaticText,
-            toplevel_identifier::ToplevelIdentifier,
         },
     },
     ahash::AHashMap,
