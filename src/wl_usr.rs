@@ -18,7 +18,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
         },
         video::dmabuf::DmaBufIds,
         wheel::Wheel,
@@ -99,10 +99,9 @@ impl UsrCon {
         path: &str,
         server_id: u32,
     ) -> Result<Rc<Self>, UsrConError> {
-        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-            Ok(s) => Rc::new(s),
-            Err(e) => return Err(UsrConError::CreateSocket(e.into())),
-        };
+        let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_os_err(UsrConError::CreateSocket)?;
         let mut addr: c::sockaddr_un = uapi::pod_zeroed();
         addr.sun_family = c::AF_UNIX as _;
         if path.len() >= addr.sun_path.len() {

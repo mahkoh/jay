@@ -4,7 +4,7 @@ use {
             _LINUX_CAPABILITY_U32S_3, _LINUX_CAPABILITY_VERSION_3, CAP_SYS_NICE, cap_user_data_t,
             cap_user_header_t,
         },
-        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, oserror::OsErrorExt},
     },
     opera::PhantomNotSend,
     parking_lot::{Condvar, Mutex},
@@ -54,11 +54,8 @@ pub fn pr_caps() -> PrCaps {
     };
     let mut caps = [cap_user_data_t::default(); _LINUX_CAPABILITY_U32S_3];
     let ret = unsafe { syscall(SYS_capget, &mut hdr, &mut caps) };
-    if let Err(e) = map_err!(ret) {
-        eprintln!(
-            "Could not get process capabilities: {}",
-            ErrorFmt(OsError(e.0))
-        );
+    if let Err(e) = map_err!(ret).to_os_error() {
+        eprintln!("Could not get process capabilities: {}", ErrorFmt(e));
         return PrCaps {
             effective: 0,
             permitted: 0,
@@ -79,11 +76,8 @@ pub fn drop_all_pr_caps() {
     };
     let caps = [cap_user_data_t::default(); _LINUX_CAPABILITY_U32S_3];
     let ret = unsafe { syscall(SYS_capset, &mut hdr, &caps) };
-    if let Err(e) = map_err!(ret) {
-        eprintln!(
-            "Could not get drop capabilities: {}",
-            ErrorFmt(OsError(e.0))
-        );
+    if let Err(e) = map_err!(ret).to_os_error() {
+        eprintln!("Could not get drop capabilities: {}", ErrorFmt(e));
     }
 }
 
@@ -110,11 +104,8 @@ impl PrCaps {
         data[0].permitted = caps_lo;
         data[1].permitted = caps_hi;
         let ret = unsafe { syscall(SYS_capset, &mut hdr, &data) };
-        if let Err(e) = map_err!(ret) {
-            eprintln!(
-                "Could not get set compositor capabilities: {}",
-                ErrorFmt(OsError(e.0))
-            );
+        if let Err(e) = map_err!(ret).to_os_error() {
+            eprintln!("Could not get set compositor capabilities: {}", ErrorFmt(e));
             return PrCompCaps { caps: self };
         }
         self.effective = caps;

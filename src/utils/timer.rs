@@ -1,7 +1,10 @@
 use {
     crate::{
         io_uring::{IoUring, IoUringError},
-        utils::{buf::TypedBuf, oserror::OsError},
+        utils::{
+            buf::TypedBuf,
+            oserror::{OsError, OsErrorExt2},
+        },
     },
     std::{cell::RefCell, rc::Rc, time::Duration},
     thiserror::Error,
@@ -28,10 +31,9 @@ pub struct TimerFd {
 
 impl TimerFd {
     pub fn new(clock_id: c::c_int) -> Result<Self, TimerError> {
-        let fd = match uapi::timerfd_create(clock_id, c::TFD_CLOEXEC) {
-            Ok(fd) => Rc::new(fd),
-            Err(e) => return Err(TimerError::CreateTimer(e.into())),
-        };
+        let fd = uapi::timerfd_create(clock_id, c::TFD_CLOEXEC)
+            .map(Rc::new)
+            .map_os_err(TimerError::CreateTimer)?;
         Ok(Self {
             fd,
             buf: Rc::new(RefCell::new(TypedBuf::new())),
@@ -61,9 +63,7 @@ impl TimerFd {
                 timerspec.it_interval.tv_nsec = per.subsec_nanos() as _;
             }
         }
-        if let Err(e) = uapi::timerfd_settime(self.fd.raw(), 0, &timerspec) {
-            return Err(TimerError::SetTimer(e.into()));
-        }
+        uapi::timerfd_settime(self.fd.raw(), 0, &timerspec).map_os_err(TimerError::SetTimer)?;
         Ok(())
     }
 }

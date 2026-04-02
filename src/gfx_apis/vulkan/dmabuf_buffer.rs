@@ -3,6 +3,7 @@ use {
         format::Format,
         gfx_api::GfxBuffer,
         gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
+        utils::oserror::OsErrorExt2,
     },
     ash::{
         Device,
@@ -70,8 +71,7 @@ impl VulkanDevice {
         let Some(memory_type) = memory_type else {
             return Err(VulkanError::MemoryType);
         };
-        let fd =
-            uapi::fcntl_dupfd_cloexec(dmabuf.raw(), 0).map_err(|e| VulkanError::Dupfd(e.into()))?;
+        let fd = uapi::fcntl_dupfd_cloexec(dmabuf.raw(), 0).map_os_err(VulkanError::Dupfd)?;
         let memory = {
             let mut dedicated = MemoryDedicatedAllocateInfo::default().buffer(buffer);
             let mut import_info = ImportMemoryFdInfoKHR::default()

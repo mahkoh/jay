@@ -15,7 +15,7 @@ use {
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
             stack::Stack,
             vec_ext::VecExt,
@@ -408,18 +408,16 @@ impl Xcon {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
             let _ = write!(path, "/tmp/.X11-unix/X{}", display);
         }
-        let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-            Ok(fd) => Rc::new(fd),
-            Err(e) => return Err(XconError::CreateSocket(e.into())),
-        };
+        let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_os_err(XconError::CreateSocket)?;
         if let Err(e) = state.ring.connect(&fd, &addr).await {
             return Err(XconError::ConnectSocket(e));
         }
         let mut hnbuf = [MaybeUninit::<u8>::uninit(); 256];
-        let hn = match uapi::gethostname(&mut hnbuf[..]) {
-            Ok(hn) => hn.to_bytes(),
-            Err(e) => return Err(XconError::Hostname(e.into())),
-        };
+        let hn = uapi::gethostname(&mut hnbuf[..])
+            .map(|hn| hn.to_bytes())
+            .map_os_err(XconError::Hostname)?;
         let (auth_method, auth_value) = 'auth: {
             for auth in &authority {
                 if auth.display == display

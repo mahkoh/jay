@@ -37,7 +37,7 @@ use {
         theme::Color,
         utils::{
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, ordered_float::F32,
-            stack::Stack,
+            oserror::OsErrorExt2, stack::Stack,
         },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
         vulkan_core::{
@@ -1689,7 +1689,7 @@ impl VulkanRenderer {
                     AcquireSync::FdSync(sync) => {
                         if let Some(sync_file) = sync.get_sync_file() {
                             let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
-                                .map_err(|e| VulkanError::Dupfd(e.into()))?;
+                                .map_os_err(VulkanError::Dupfd)?;
                             import_sync_file(fd)?;
                         }
                     }

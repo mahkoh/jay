@@ -6,7 +6,7 @@ use {
         utils::{
             clone3::{Forked, fork_with_pidfd},
             errorfmt::ErrorFmt,
-            oserror::OsError,
+            oserror::OsErrorExt,
             pipe::{Pipe, pipe},
         },
         wire::{JayReexecId, jay_reexec::*},
@@ -118,8 +118,8 @@ impl JayReexecRequestHandler for JayReexec {
             args2.push(&**arg);
         }
         let _drop_after_exec = self.delay_close_input_fd();
-        if let Err(e) = uapi::execvp(req.path, &args2) {
-            self.send_failed(&OsError(e.0).to_string());
+        if let Err(e) = uapi::execvp(req.path, &args2).to_os_error() {
+            self.send_failed(&e.to_string());
         }
         Ok(())
     }

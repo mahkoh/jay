@@ -2,7 +2,11 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::IoUring,
-        utils::{buf::TypedBuf, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{
+            buf::TypedBuf,
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt2},
+        },
     },
     std::rc::Rc,
     thiserror::Error,
@@ -25,13 +29,10 @@ pub fn install(
     uapi::sigaddset(&mut set, c::SIGINT).unwrap();
     uapi::sigaddset(&mut set, c::SIGTERM).unwrap();
     uapi::sigaddset(&mut set, c::SIGPIPE).unwrap();
-    if let Err(e) = uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None) {
-        return Err(SighandError::BlockFailed(e.into()));
-    }
-    let fd = match uapi::signalfd_new(&set, c::SFD_CLOEXEC) {
-        Ok(fd) => Rc::new(fd),
-        Err(e) => return Err(SighandError::CreateFailed(e.into())),
-    };
+    uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None).map_os_err(SighandError::BlockFailed)?;
+    let fd = uapi::signalfd_new(&set, c::SFD_CLOEXEC)
+        .map(Rc::new)
+        .map_os_err(SighandError::CreateFailed)?;
     Ok(eng.spawn("signal handler", handle_signals(fd, ring.clone())))
 }
 

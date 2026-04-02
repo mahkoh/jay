@@ -18,7 +18,7 @@ use {
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             opaque::{Opaque, opaque},
-            oserror::OsError,
+            oserror::OsErrorExt,
         },
         video::drm::Drm,
         wire::{
@@ -514,12 +514,10 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: GlobalName, version: u32) {
 
 pub(super) async fn watch_displays(state: Rc<PortalState>) {
     let inotify = Rc::new(uapi::inotify_init1(c::IN_CLOEXEC).unwrap());
-    if let Err(e) = uapi::inotify_add_watch(inotify.raw(), state.xrd.as_str(), c::IN_CREATE) {
-        log::error!(
-            "Cannot watch directory `{}`: {}",
-            state.xrd,
-            ErrorFmt(OsError::from(e))
-        );
+    if let Err(e) =
+        uapi::inotify_add_watch(inotify.raw(), state.xrd.as_str(), c::IN_CREATE).to_os_error()
+    {
+        log::error!("Cannot watch directory `{}`: {}", state.xrd, ErrorFmt(e));
         return;
     }
     let rd = match std::fs::read_dir(&state.xrd) {

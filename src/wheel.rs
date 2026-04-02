@@ -4,8 +4,13 @@ use {
         io_uring::{IoUring, IoUringError},
         time::Time,
         utils::{
-            buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt,
-            numcell::NumCell, oserror::OsError, stack::Stack,
+            buf::TypedBuf,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
+            numcell::NumCell,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            stack::Stack,
         },
     },
     std::{
@@ -110,10 +115,9 @@ pub struct WheelData {
 
 impl Wheel {
     pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, WheelError> {
-        let fd = match uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC) {
-            Ok(fd) => Rc::new(fd),
-            Err(e) => return Err(WheelError::CreateFailed(e.into())),
-        };
+        let fd = uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC)
+            .map(Rc::new)
+            .map_os_err(WheelError::CreateFailed)?;
         let data = Rc::new(WheelData {
             destroyed: Cell::new(false),
             ring: ring.clone(),
@@ -173,11 +177,8 @@ impl Wheel {
                     it_value: expiration.0,
                 },
             );
-            if let Err(e) = res {
-                future
-                    .data
-                    .expired
-                    .set(Some(Err(WheelError::SetFailed(e.into()))));
+            if let Err(e) = res.to_os_error() {
+                future.data.expired.set(Some(Err(WheelError::SetFailed(e))));
                 return future;
             }
             self.data.current_expiration.set(Some(expiration));
@@ -234,17 +235,15 @@ impl WheelData {
             self.current_expiration.set(None);
             while let Some(Reverse(entry)) = expirations.peek() {
                 if self.dispatchers.get(&entry.id).is_some() {
-                    let res = uapi::timerfd_settime(
+                    uapi::timerfd_settime(
                         self.fd.raw(),
                         c::TFD_TIMER_ABSTIME,
                         &c::itimerspec {
                             it_interval: uapi::pod_zeroed(),
                             it_value: entry.expiration.0,
                         },
-                    );
-                    if let Err(e) = res {
-                        return Err(WheelError::SetFailed(e.into()));
-                    }
+                    )
+                    .map_os_err(WheelError::SetFailed)?;
                     self.current_expiration.set(Some(entry.expiration));
                     break;
                 }

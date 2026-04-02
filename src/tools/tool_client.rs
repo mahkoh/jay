@@ -16,7 +16,7 @@ use {
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             xrd::xrd,
         },
         wheel::{Wheel, WheelError},
@@ -154,10 +154,9 @@ impl ToolClient {
         if path.not_ends_with(suffix) {
             path.push(suffix.as_slice());
         }
-        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-            Ok(s) => Rc::new(s),
-            Err(e) => return Err(ToolClientError::CreateSocket(e.into())),
-        };
+        let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_os_err(ToolClientError::CreateSocket)?;
         let mut addr: c::sockaddr_un = uapi::pod_zeroed();
         addr.sun_family = c::AF_UNIX as _;
         if path.len() >= addr.sun_path.len() {

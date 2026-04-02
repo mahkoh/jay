@@ -3,7 +3,11 @@
 
 use {
     crate::{
-        utils::{bitflags::BitflagsExt, compat::IoctlNumber, oserror::OsError},
+        utils::{
+            bitflags::BitflagsExt,
+            compat::IoctlNumber,
+            oserror::{OsError, OsErrorExt},
+        },
         video::drm::{
             DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
             DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
@@ -124,10 +128,10 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
     let (_, maj, min) = drm_stat(fd)?;
 
     let dir = device_dir(maj, min);
-    let mut dir = uapi::opendir(dir)?;
+    let mut dir = uapi::opendir(dir).to_os_error()?;
 
     while let Some(entry) = uapi::readdir(&mut dir) {
-        let entry = entry?;
+        let entry = entry.to_os_error()?;
         if entry.name().to_bytes().starts_with_str(ty.name()) {
             return Ok(uapi::format_ustr!(
                 "{}/{}",
@@ -140,7 +144,7 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
 }
 
 fn drm_stat(fd: c::c_int) -> Result<(c::stat, u64, u64), OsError> {
-    let stat = uapi::fstat(fd)?;
+    let stat = uapi::fstat(fd).to_os_error()?;
 
     let maj = uapi::major(stat.st_rdev);
     let min = uapi::minor(stat.st_rdev);
@@ -160,7 +164,7 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
     let path = uapi::format_ustr!("/sys/dev/char/{maj}:{min}/uevent");
     let mut buf = vec![];
-    let mut br = BufReader::new(uapi::open(path, c::O_RDONLY, 0)?);
+    let mut br = BufReader::new(uapi::open(path, c::O_RDONLY, 0).to_os_error()?);
     loop {
         buf.clear();
         if br.read_until(b'\n', &mut buf)? == 0 {
@@ -180,12 +184,12 @@ pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
 
 pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, CString>, OsError> {
     let dir = device_dir(maj, min);
-    let mut dir = uapi::opendir(dir)?;
+    let mut dir = uapi::opendir(dir).to_os_error()?;
 
     let mut res = AHashMap::new();
 
     'outer: while let Some(entry) = uapi::readdir(&mut dir) {
-        let entry = entry?;
+        let entry = entry.to_os_error()?;
         let name = entry.name().to_bytes();
         let ty = 'ty: {
             for ty in [NodeType::Render, NodeType::Control, NodeType::Primary] {

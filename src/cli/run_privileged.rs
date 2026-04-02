@@ -3,7 +3,7 @@ use {
         cli::{GlobalArgs, RunPrivilegedArgs},
         compositor::WAYLAND_DISPLAY,
         logger::Logger,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, xrd::xrd},
     },
     std::path::PathBuf,
     uapi::UstrPtr,
@@ -30,10 +30,6 @@ pub fn main(global: GlobalArgs, args: RunPrivilegedArgs) {
         argv.push(arg.as_str());
     }
     let program = args.program[0].as_str();
-    let res = uapi::execvp(program, &argv).unwrap_err();
-    fatal!(
-        "Could not execute `{}`: {}",
-        program,
-        ErrorFmt(OsError::from(res))
-    );
+    let res = uapi::execvp(program, &argv).to_os_error().unwrap_err();
+    fatal!("Could not execute `{}`: {}", program, ErrorFmt(res));
 }

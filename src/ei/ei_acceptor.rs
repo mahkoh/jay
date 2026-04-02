@@ -2,11 +2,15 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         state::State,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            xrd::xrd,
+        },
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::{Errno, OwnedFd, Ustring, c, format_ustr},
+    uapi::{OwnedFd, Ustring, c, format_ustr},
 };
 
 #[derive(Debug, Error)]
@@ -66,27 +70,22 @@ fn bind_socket(
     if path.len() + 1 > addr.sun_path.len() {
         return Err(EiAcceptorError::XrdTooLong(xrd.to_string()));
     }
-    let lock_fd = match uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644) {
-        Ok(l) => l,
-        Err(e) => return Err(EiAcceptorError::OpenLockFile(e.into())),
-    };
-    if let Err(e) = uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB) {
-        return Err(EiAcceptorError::LockLockFile(e.into()));
-    }
-    match uapi::lstat(&path) {
+    let lock_fd = uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644)
+        .map_os_err(EiAcceptorError::OpenLockFile)?;
+    uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB)
+        .map_os_err(EiAcceptorError::LockLockFile)?;
+    match uapi::lstat(&path).to_os_error() {
         Ok(_) => {
             log::info!("Unlinking {}", path.display());
             let _ = uapi::unlink(&path);
         }
-        Err(Errno(c::ENOENT)) => {}
-        Err(e) => return Err(EiAcceptorError::SocketStat(e.into())),
+        Err(OsError(c::ENOENT)) => {}
+        Err(e) => return Err(EiAcceptorError::SocketStat(e)),
     }
     let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
     sun_path[..path.len()].copy_from_slice(path.as_bytes());
     sun_path[path.len()] = 0;
-    if let Err(e) = uapi::bind(insecure.raw(), &addr) {
-        return Err(EiAcceptorError::BindFailed(e.into()));
-    }
+    uapi::bind(insecure.raw(), &addr).map_os_err(EiAcceptorError::BindFailed)?;
     Ok(EiAllocatedSocket {
         name,
         path,
@@ -101,10 +100,9 @@ fn allocate_socket() -> Result<EiAllocatedSocket, EiAcceptorError> {
         Some(d) => d,
         _ => return Err(EiAcceptorError::XrdNotSet),
     };
-    let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-        Ok(f) => Rc::new(f),
-        Err(e) => return Err(EiAcceptorError::SocketFailed(e.into())),
-    };
+    let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(EiAcceptorError::SocketFailed)?;
     for i in 1..1000 {
         match bind_socket(&socket, &xrd, i) {
             Ok(s) => return Ok(s),
@@ -122,9 +120,7 @@ impl EiAcceptor {
     ) -> Result<(Rc<EiAcceptor>, SpawnedFuture<()>), EiAcceptorError> {
         let socket = allocate_socket()?;
         log::info!("bound to socket {}", socket.path.display());
-        if let Err(e) = uapi::listen(socket.insecure.raw(), 4096) {
-            return Err(EiAcceptorError::ListenFailed(e.into()));
-        }
+        uapi::listen(socket.insecure.raw(), 4096).map_os_err(EiAcceptorError::ListenFailed)?;
         let acc = Rc::new(EiAcceptor { socket });
         let future = state.eng.spawn(
             "ei accept",

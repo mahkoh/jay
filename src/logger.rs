@@ -1,7 +1,11 @@
 use {
     crate::{
         compositor::LogLevel,
-        utils::{atomic_enum::AtomicEnum, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{
+            atomic_enum::AtomicEnum,
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+        },
     },
     backtrace::Backtrace,
     bstr::{BStr, BString, ByteSlice},
@@ -21,7 +25,7 @@ use {
         time::SystemTime,
     },
     thiserror::Error,
-    uapi::{AsUstr, Dirent, Errno, Fd, OwnedFd, Ustring, c, format_ustr},
+    uapi::{AsUstr, Dirent, Fd, OwnedFd, Ustring, c, format_ustr},
 };
 
 thread_local! {
@@ -38,10 +42,9 @@ pub struct Logger {
 
 impl Logger {
     pub fn install_stderr(level: LogLevel) -> Arc<Self> {
-        let file = match uapi::fcntl_dupfd_cloexec(2, 0) {
+        let file = match uapi::fcntl_dupfd_cloexec(2, 0).to_os_error() {
             Ok(fd) => fd,
             Err(e) => {
-                let e = OsError::from(e);
                 fatal!("Error: Could not dup stderr: {}", ErrorFmt(e));
             }
         };
@@ -130,7 +133,9 @@ pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
             &file_name,
             c::O_CREAT | c::O_EXCL | c::O_CLOEXEC | c::O_WRONLY,
             0o644,
-        ) {
+        )
+        .to_os_error()
+        {
             Ok(f) => {
                 if let Err(e) = uapi::flock(f.raw(), c::LOCK_EX | c::LOCK_NB) {
                     log::warn!("Unable to flock just-opened logfile: {}", ErrorFmt(e));
@@ -147,9 +152,8 @@ pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
                 }
                 return (file_name, f);
             }
-            Err(Errno(c::EEXIST)) => {}
+            Err(OsError(c::EEXIST)) => {}
             Err(e) => {
-                let e: OsError = e.into();
                 fatal!("Error: Could not create log file: {}", ErrorFmt(e));
             }
         }
@@ -258,18 +262,15 @@ enum CleanLogsError {
 fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<(), CleanLogsError> {
     let current_log_path = current_log_path.to_path_lossy();
     let parent = current_log_path.parent().ok_or(CleanLogsError::NoParent)?;
-    let mut dir = uapi::opendir(parent)
-        .map_err(Into::into)
-        .map_err(CleanLogsError::OpenDir)?;
+    let mut dir = uapi::opendir(parent).map_os_err(CleanLogsError::OpenDir)?;
     let parent = uapi::open(parent, c::O_PATH | c::O_CLOEXEC | c::O_DIRECTORY, 0)
-        .map_err(Into::into)
-        .map_err(CleanLogsError::OpenDir)?;
+        .map_os_err(CleanLogsError::OpenDir)?;
     let time = time
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as c::time_t;
     while let Some(entry) = uapi::readdir(&mut dir) {
-        let entry = entry.map_err(Into::into).map_err(CleanLogsError::ReadDir)?;
+        let entry = entry.map_os_err(CleanLogsError::ReadDir)?;
         if let Err(err) = process_entry(parent.raw(), &entry, time) {
             log::error!(
                 "Could not clean log file {}: {}",
@@ -288,11 +289,8 @@ fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<()
         }
         let name = entry.name();
         let file = uapi::openat(parent, name, c::O_RDONLY | c::O_CLOEXEC, 0)
-            .map_err(Into::into)
-            .map_err(CleanLogsError::OpenFile)?;
-        let stat = uapi::fstat(*file)
-            .map_err(Into::into)
-            .map_err(CleanLogsError::Stat)?;
+            .map_os_err(CleanLogsError::OpenFile)?;
+        let stat = uapi::fstat(*file).map_os_err(CleanLogsError::Stat)?;
         if stat.st_mtime >= time {
             return Ok(());
         }
@@ -300,9 +298,7 @@ fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<()
             log::info!("Preserving file still in use: {}", name.as_ustr().display());
             return Ok(());
         }
-        uapi::unlinkat(parent, name, 0)
-            .map_err(Into::into)
-            .map_err(CleanLogsError::Unlink)?;
+        uapi::unlinkat(parent, name, 0).map_os_err(CleanLogsError::Unlink)?;
         log::info!("Deleted {}", name.as_ustr().display());
         Ok(())
     }

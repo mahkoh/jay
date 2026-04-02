@@ -6,7 +6,7 @@ use {
             combo_box_ui, grid, label, read_only_bool, tip,
         },
         state::State,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, static_text::StaticText},
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText},
     },
     egui::Ui,
     linearize::Linearize,
@@ -80,9 +80,9 @@ impl XwaylandPane {
         });
         if let Some(client) = self.state.xwayland.client.get()
             && ui.button("Kill").clicked()
-            && let Err(e) = uapi::kill(client.pid_info.pid, c::SIGTERM)
+            && let Err(e) = uapi::kill(client.pid_info.pid, c::SIGTERM).to_os_error()
         {
-            log::error!("Could not kill Xwayland: {}", ErrorFmt(OsError::from(e)));
+            log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
         }
         if let Some(client) = self.state.xwayland.client.get() {
             show_client_collapsible(behavior, ui, &client);

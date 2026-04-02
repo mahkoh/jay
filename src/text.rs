@@ -20,8 +20,12 @@ use {
         theme::Color,
         udmabuf::UdmabufHolder,
         utils::{
-            clonecell::CloneCell, double_buffered::DoubleBuffered, errorfmt::ErrorFmt,
-            on_drop_event::OnDropEvent, oserror::OsError, page_size::page_size,
+            clonecell::CloneCell,
+            double_buffered::DoubleBuffered,
+            errorfmt::ErrorFmt,
+            on_drop_event::OnDropEvent,
+            oserror::{OsError, OsErrorExt2},
+            page_size::page_size,
         },
     },
     std::{
@@ -691,9 +695,7 @@ impl Memfd {
         let Ok(isize) = off_t::try_from(size) else {
             return Err(TextError::SizeOverflow);
         };
-        if let Err(e) = ftruncate(self.fd.raw(), isize) {
-            return Err(TextError::ResizeMemfd(e.into()));
-        }
+        ftruncate(self.fd.raw(), isize).map_os_err(TextError::ResizeMemfd)?;
         let old_ptr = self.mapping.load(Relaxed);
         let new_ptr = if old_ptr.is_null() {
             unsafe {

@@ -3,7 +3,7 @@ use {
         cli::GlobalArgs,
         compositor::WAYLAND_DISPLAY,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt},
         wire::{jay_acceptor_request, jay_compositor},
     },
     clap::{Args, ValueHint},
@@ -59,12 +59,8 @@ impl RunTagged {
                     argv.push(arg.as_str());
                 }
                 let program = args.program[0].as_str();
-                let res = uapi::execvp(program, &argv).unwrap_err();
-                fatal!(
-                    "Could not execute `{}`: {}",
-                    program,
-                    ErrorFmt(OsError::from(res)),
-                );
+                let res = uapi::execvp(program, &argv).to_os_error().unwrap_err();
+                fatal!("Could not execute `{}`: {}", program, ErrorFmt(res));
             }
             Err(msg) => {
                 fatal!("Could not create acceptor: {}", msg);

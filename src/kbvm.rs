@@ -3,7 +3,11 @@ use {
         backend::KeyState,
         ifs::wl_seat::WlSeatGlobal,
         keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd},
-        utils::{oserror::OsError, syncqueue::SyncQueue, vecset::VecSet},
+        utils::{
+            oserror::{OsError, OsErrorExt},
+            syncqueue::SyncQueue,
+            vecset::VecSet,
+        },
     },
     kbvm::{
         Keycode,
@@ -181,14 +185,16 @@ fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<(String, KeymapFd
         format = format.lookup_only(true).rename_long_keys(true);
     }
     let str = format!("{}\n", format);
-    let mut memfd = uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING)?;
+    let mut memfd =
+        uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).to_os_error()?;
     memfd.write_all(str.as_bytes())?;
     memfd.write_all(&[0])?;
-    uapi::lseek(memfd.raw(), 0, c::SEEK_SET)?;
+    uapi::lseek(memfd.raw(), 0, c::SEEK_SET).to_os_error()?;
     uapi::fcntl_add_seals(
         memfd.raw(),
         c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
-    )?;
+    )
+    .to_os_error()?;
     let fd = KeymapFd {
         map: Rc::new(memfd),
         len: str.len() + 1,

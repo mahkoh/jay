@@ -4,11 +4,15 @@ use {
         client::ClientCaps,
         security_context_acceptor::AcceptorMetadata,
         state::State,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            xrd::xrd,
+        },
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::{Errno, OwnedFd, Ustr, Ustring, c, format_ustr},
+    uapi::{OwnedFd, Ustr, Ustring, c, format_ustr},
 };
 
 #[derive(Debug, Error)]
@@ -74,28 +78,22 @@ fn bind_socket(
     if jay_path.len() + 1 > addr.sun_path.len() {
         return Err(AcceptorError::XrdTooLong(xrd.to_string()));
     }
-    let lock_fd = match uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644) {
-        Ok(l) => l,
-        Err(e) => return Err(AcceptorError::OpenLockFile(e.into())),
-    };
-    if let Err(e) = uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB) {
-        return Err(AcceptorError::LockLockFile(e.into()));
-    }
+    let lock_fd = uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644)
+        .map_os_err(AcceptorError::OpenLockFile)?;
+    uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB).map_os_err(AcceptorError::LockLockFile)?;
     for (name, fd) in [(&path, insecure), (&jay_path, secure)] {
-        match uapi::lstat(name) {
+        match uapi::lstat(name).to_os_error() {
             Ok(_) => {
                 log::info!("Unlinking {}", name.display());
                 let _ = uapi::unlink(name);
             }
-            Err(Errno(c::ENOENT)) => {}
-            Err(e) => return Err(AcceptorError::SocketStat(e.into())),
+            Err(OsError(c::ENOENT)) => {}
+            Err(e) => return Err(AcceptorError::SocketStat(e)),
         }
         let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
         sun_path[..name.len()].copy_from_slice(name.as_bytes());
         sun_path[name.len()] = 0;
-        if let Err(e) = uapi::bind(fd.raw(), &addr) {
-            return Err(AcceptorError::BindFailed(e.into()));
-        }
+        uapi::bind(fd.raw(), &addr).map_os_err(AcceptorError::BindFailed)?;
     }
     Ok(AllocatedSocket {
         name,
@@ -115,10 +113,9 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
     };
     let mut fds = [None, None];
     for fd in &mut fds {
-        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-            Ok(f) => Rc::new(f),
-            Err(e) => return Err(AcceptorError::SocketFailed(e.into())),
-        };
+        let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_os_err(AcceptorError::SocketFailed)?;
         *fd = Some(socket);
     }
     let unsecure = fds[0].take().unwrap();
@@ -141,9 +138,7 @@ impl Acceptor {
         let socket = allocate_socket()?;
         log::info!("bound to socket {}", socket.path.display());
         for fd in [&socket.secure, &socket.insecure] {
-            if let Err(e) = uapi::listen(fd.raw(), 4096) {
-                return Err(AcceptorError::ListenFailed(e.into()));
-            }
+            uapi::listen(fd.raw(), 4096).map_os_err(AcceptorError::ListenFailed)?;
         }
         let acc = Rc::new(Acceptor { socket });
         let futures = vec![

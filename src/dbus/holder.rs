@@ -3,7 +3,10 @@ use {
         async_engine::AsyncEngine,
         dbus::{DbusError, DbusHolder, DbusSocket, auth::handle_auth},
         io_uring::IoUring,
-        utils::{bufio::BufIo, errorfmt::ErrorFmt, numcell::NumCell, run_toplevel::RunToplevel},
+        utils::{
+            bufio::BufIo, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsErrorExt2,
+            run_toplevel::RunToplevel,
+        },
         wire_dbus::org,
     },
     std::{cell::Cell, rc::Rc},
@@ -38,10 +41,9 @@ async fn connect(
     name: &'static str,
     run_toplevel: &Rc<RunToplevel>,
 ) -> Result<Rc<DbusSocket>, DbusError> {
-    let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-        Ok(s) => Rc::new(s),
-        Err(e) => return Err(DbusError::Socket(e.into())),
-    };
+    let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(DbusError::Socket)?;
     let mut sadr: c::sockaddr_un = uapi::pod_zeroed();
     sadr.sun_family = c::AF_UNIX as _;
     let sun_path = uapi::as_bytes_mut(&mut sadr.sun_path[..]);

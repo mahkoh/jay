@@ -25,7 +25,7 @@ use {
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             xrd::xrd,
         },
     },
@@ -300,10 +300,9 @@ impl Drop for PwConHolder {
 
 impl PwConHolder {
     pub async fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, PwConError> {
-        let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-            Ok(fd) => Rc::new(fd),
-            Err(e) => return Err(PwConError::CreateSocket(e.into())),
-        };
+        let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map(Rc::new)
+            .map_os_err(PwConError::CreateSocket)?;
         let mut addr = c::sockaddr_un {
             sun_family: c::AF_UNIX as _,
             ..uapi::pod_zeroed()

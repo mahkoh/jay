@@ -20,7 +20,7 @@ use {
             buf::Buf,
             errorfmt::ErrorFmt,
             line_logger::log_lines,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             pipe::{Pipe, pipe},
         },
         wire::WlSurfaceId,
@@ -167,16 +167,10 @@ async fn run(
         Ok(p) => p,
         Err(e) => return Err(XWaylandError::Pipe(e)),
     };
-    let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
-    let (wm1, wm2) = match wm {
-        Ok(w) => w,
-        Err(e) => return Err(XWaylandError::Socketpair(e.into())),
-    };
-    let client = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
-    let (client1, client2) = match client {
-        Ok(w) => w,
-        Err(e) => return Err(XWaylandError::Socketpair(e.into())),
-    };
+    let (wm1, wm2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+        .map_os_err(XWaylandError::Socketpair)?;
+    let (client1, client2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+        .map_os_err(XWaylandError::Socketpair)?;
     let stderr_read = state
         .eng
         .spawn("log Xwayland", log_xwayland(state.clone(), stderr_read));
