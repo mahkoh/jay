@@ -18,53 +18,6 @@ macro_rules! egl_transparent {
     };
 }
 
-macro_rules! dynload {
-    (
-        $item:ident: $container:ident from $name:literal {
-            $(
-                $fun:ident: $ty:ty,
-            )*
-        }
-    ) => {
-        #[expect(non_snake_case)]
-        #[derive(Debug)]
-        pub struct $container {
-            _lib: libloading::Library,
-            $(
-                pub $fun: $ty,
-            )*
-        }
-
-        pub static $item: std::sync::LazyLock<Option<$container>> = std::sync::LazyLock::new(|| unsafe {
-            use crate::utils::errorfmt::ErrorFmt;
-            let lib = match libloading::Library::new($name) {
-                Ok(l) => l,
-                Err(e) => {
-                    log::error!("Could not load lib{}: {}", $name, ErrorFmt(e));
-                    return None;
-                }
-            };
-            $(
-                #[expect(non_snake_case)]
-                let $fun: $ty =
-                    match lib.get(stringify!($fun).as_bytes()) {
-                        Ok(s) => *s,
-                        Err(e) => {
-                            log::error!("Could not load {} from {}: {}", stringify!($fun), $name, ErrorFmt(e));
-                            return None;
-                        }
-                    };
-            )*
-            Some($container {
-                _lib: lib,
-                $(
-                    $fun,
-                )*
-            })
-        });
-    };
-}
-
 use {
     crate::{
         cmm::cmm_eotf::Eotf,
