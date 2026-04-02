@@ -55,6 +55,7 @@ use {
         pr_caps::{PrCapsThread, pr_caps},
         scale::Scale,
         sighand::{self, SighandError},
+        sqlite::{Sqlite, handle_sqlite_optimize},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
@@ -226,6 +227,11 @@ fn start_compositor2(
     let color_manager = ColorManager::new();
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
+    let sqlite = Sqlite::open(&ring, &engine, test_future.is_some())
+        .inspect_err(|e| {
+            log::warn!("Could not open sqlite: {}", ErrorFmt(e));
+        })
+        .ok();
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -398,6 +404,7 @@ fn start_compositor2(
         control_centers: Default::default(),
         virtual_outputs: Default::default(),
         clean_logs_older_than: Default::default(),
+        sqlite,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -612,6 +619,7 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "warp mouse to focus",
             handle_warp_mouse_to_focus(state.clone()),
         ),
+        eng.spawn("optimize sqlite", handle_sqlite_optimize(state.clone())),
     ]
 }
 

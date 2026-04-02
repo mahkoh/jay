@@ -111,6 +111,7 @@ impl JayReexecRequestHandler for JayReexec {
     }
 
     fn exec(&self, req: Exec<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.state.flush_sqlite_blocking();
         let args = self.args.borrow();
         let mut args2 = UstrPtr::new();
         args2.push(req.path);

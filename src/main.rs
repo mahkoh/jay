@@ -100,6 +100,7 @@ mod scale;
 mod screenshoter;
 mod security_context_acceptor;
 mod sighand;
+mod sqlite;
 mod state;
 mod tagged_acceptor;
 mod tasks;

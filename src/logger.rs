@@ -3,6 +3,7 @@ use {
         compositor::LogLevel,
         utils::{
             atomic_enum::AtomicEnum,
+            data_dir::data_dir,
             errorfmt::ErrorFmt,
             oserror::{OsError, OsErrorExt, OsErrorExt2},
         },
@@ -162,11 +163,7 @@ pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
 }
 
 fn create_log_dir(ty: &str) -> BString {
-    let mut log_dir = match dirs::data_local_dir() {
-        Some(d) => d,
-        None => fatal!("Error: $HOME is not set"),
-    };
-    log_dir.push("jay");
+    let mut log_dir = data_dir().to_path_buf();
     log_dir.push("logs");
     log_dir.push(ty);
     let res = DirBuilder::new()
