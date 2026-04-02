@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::xdg_activation_token_v1::XdgActivationTokenV1,
+        ifs::xdg_activation_token_v1::{ActivationToken, XdgActivationTokenV1},
         leaks::Tracker,
         object::{Object, Version},
-        utils::{activation_token::ActivationToken, errorfmt::ErrorFmt, opaque::OpaqueError},
+        utils::{errorfmt::ErrorFmt, opaque::OpaqueError},
         wire::{XdgActivationV1Id, xdg_activation_v1::*},
     },
     std::rc::Rc,

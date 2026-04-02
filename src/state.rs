@@ -87,6 +87,7 @@ use {
             workspace_manager::WorkspaceManagerState,
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
+            xdg_activation_token_v1::ActivationToken,
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
@@ -107,13 +108,12 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
-            TearingMode, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, Transform,
-            VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WsMoveConfig, generic_node_visitor,
-            move_ws_to_output,
+            TearingMode, TileState, ToplevelData, ToplevelIdentifier, ToplevelNode,
+            ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder, WorkspaceNode,
+            WsMoveConfig, generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
-            activation_token::ActivationToken,
             asyncevent::AsyncEvent,
             bindings::Bindings,
             clonecell::CloneCell,
@@ -128,7 +128,6 @@ use {
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
-            toplevel_identifier::ToplevelIdentifier,
         },
         video::{
             dmabuf::DmaBufIds,

@@ -10,11 +10,8 @@ use {
         criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
         egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
         state::State,
-        tree::ToplevelData,
-        utils::{
-            copyhashmap::CopyHashMap, static_text::StaticText,
-            toplevel_identifier::ToplevelIdentifier,
-        },
+        tree::{ToplevelData, ToplevelIdentifier},
+        utils::{copyhashmap::CopyHashMap, static_text::StaticText},
     },
     ahash::AHashMap,
     egui::{

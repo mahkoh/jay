@@ -1,4 +1,5 @@
 use {
+    crate::utils::array,
     arrayvec::ArrayString,
     rand::{RngExt, rng},
     serde::{Deserialize, Deserializer, Serialize, Serializer, de},
@@ -10,17 +11,19 @@ use {
     thiserror::Error,
 };
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[repr(transparent)]
 pub struct Opaque {
-    lo: u64,
-    hi: u64,
+    v: [u64; 3],
 }
 
 pub fn opaque() -> Opaque {
     let mut rng = rng();
     Opaque {
-        lo: rng.random(),
-        hi: rng.random(),
+        v: array::from_fn(|_| rng.random()),
     }
 }
 
@@ -35,8 +38,9 @@ impl Opaque {
 
 impl Display for Opaque {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:016x}", self.hi)?;
-        write!(f, "{:016x}", self.lo)?;
+        write!(f, "{:016x}", self.v[2])?;
+        write!(f, "{:016x}", self.v[1])?;
+        write!(f, "{:016x}", self.v[0])?;
         Ok(())
     }
 }
@@ -72,24 +76,32 @@ impl FromStr for Opaque {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != OPAQUE_LEN {
-            return Err(OpaqueError::InvalidLength);
+            return Err(OpaqueError::InvalidStringLength);
         }
-        if !s.is_char_boundary(OPAQUE_LEN / 2) {
+        if !s.is_char_boundary(OPAQUE_SEGMENT) {
             return Err(OpaqueError::NotAscii);
         }
-        let (hi, lo) = s.split_at(OPAQUE_LEN / 2);
-        let hi = u64::from_str_radix(hi, 16).map_err(OpaqueError::Parse)?;
-        let lo = u64::from_str_radix(lo, 16).map_err(OpaqueError::Parse)?;
-        Ok(Self { lo, hi })
+        let (a, s) = s.split_at(OPAQUE_SEGMENT);
+        if !s.is_char_boundary(OPAQUE_SEGMENT) {
+            return Err(OpaqueError::NotAscii);
+        }
+        let (b, c) = s.split_at(OPAQUE_SEGMENT);
+        let v = [
+            u64::from_str_radix(c, 16).map_err(OpaqueError::Parse)?,
+            u64::from_str_radix(b, 16).map_err(OpaqueError::Parse)?,
+            u64::from_str_radix(a, 16).map_err(OpaqueError::Parse)?,
+        ];
+        Ok(Self { v })
     }
 }
 
-pub const OPAQUE_LEN: usize = 32;
+pub const OPAQUE_LEN: usize = 48;
+const OPAQUE_SEGMENT: usize = OPAQUE_LEN / 3;
 
 #[derive(Debug, Error)]
 pub enum OpaqueError {
-    #[error("The string is not exactly 32 bytes long")]
-    InvalidLength,
+    #[error("The string is not exactly {OPAQUE_LEN} bytes long")]
+    InvalidStringLength,
     #[error("The string is not ascii")]
     NotAscii,
     #[error("Could not parse the string as a hex number")]

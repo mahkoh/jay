@@ -29,11 +29,8 @@ use {
         },
         ifs::wl_seat::WlSeatGlobal,
         state::State,
-        tree::{NodeId, ToplevelData, ToplevelNode},
-        utils::{
-            copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, queue::AsyncQueue,
-            toplevel_identifier::ToplevelIdentifier,
-        },
+        tree::{NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode},
+        utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, queue::AsyncQueue},
     },
     jay_config::window::{ContentType, WindowType},
     linearize::static_map,

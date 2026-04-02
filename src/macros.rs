@@ -853,3 +853,83 @@ macro_rules! dbg {
         }
     };
 }
+
+macro_rules! dynload {
+    (
+        $item:ident: $container:ident from $name:literal {
+            $(
+                $fun:ident: $ty:ty,
+            )*
+        }
+    ) => {
+        #[expect(non_snake_case)]
+        #[derive(Debug)]
+        pub struct $container {
+            _lib: libloading::Library,
+            $(
+                pub $fun: $ty,
+            )*
+        }
+
+        pub static $item: std::sync::LazyLock<Option<$container>> = std::sync::LazyLock::new(|| unsafe {
+            use crate::utils::errorfmt::ErrorFmt;
+            let lib = match libloading::Library::new($name) {
+                Ok(l) => l,
+                Err(e) => {
+                    log::error!("Could not load {}: {}", $name, ErrorFmt(e));
+                    return None;
+                }
+            };
+            $(
+                #[allow(clippy::allow_attributes, non_snake_case)]
+                let $fun: $ty =
+                    match lib.get(stringify!($fun).as_bytes()) {
+                        Ok(s) => *s,
+                        Err(e) => {
+                            log::error!("Could not load {} from {}: {}", stringify!($fun), $name, ErrorFmt(e));
+                            return None;
+                        }
+                    };
+            )*
+            Some($container {
+                _lib: lib,
+                $(
+                    $fun,
+                )*
+            })
+        });
+    };
+}
+
+macro_rules! opaque {
+    ($ty:ident, $fun:ident) => {
+        #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
+        pub struct $ty(crate::utils::opaque::Opaque);
+
+        unsafe impl crate::utils::clonecell::UnsafeCellCloneSafe for $ty {}
+
+        pub fn $fun() -> $ty {
+            $ty(crate::utils::opaque::opaque())
+        }
+
+        impl $ty {
+            pub fn to_string(self) -> arrayvec::ArrayString<{ crate::utils::opaque::OPAQUE_LEN }> {
+                self.0.to_string()
+            }
+        }
+
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl std::str::FromStr for $ty {
+            type Err = crate::utils::opaque::OpaqueError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                Ok(Self(s.parse()?))
+            }
+        }
+    };
+}

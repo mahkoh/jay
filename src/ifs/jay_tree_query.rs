@@ -16,9 +16,10 @@ use {
         rect::Rect,
         tree::{
             self, ContainerNode, DisplayNode, FloatNode, Node, NodeVisitor, OutputNode,
-            PlaceholderNode, ToplevelData, ToplevelNodeBase, ToplevelType, WorkspaceNode,
+            PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
+            WorkspaceNode,
         },
-        utils::{opaque::OpaqueError, opt::Opt, toplevel_identifier::ToplevelIdentifier},
+        utils::{opaque::OpaqueError, opt::Opt},
         wire::{JayTreeQueryId, jay_tree_query::*},
     },
     isnt::std_1::primitive::IsntStrExt,
