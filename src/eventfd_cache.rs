@@ -2,7 +2,13 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::{IoUring, IoUringError},
-        utils::{buf::Buf, errorfmt::ErrorFmt, oserror::OsError, queue::AsyncQueue, stack::Stack},
+        utils::{
+            buf::Buf,
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            queue::AsyncQueue,
+            stack::Stack,
+        },
     },
     std::{cell::Cell, future::poll_fn, pin::Pin, rc::Rc, slice, task::Poll},
     thiserror::Error,
@@ -51,8 +57,7 @@ impl EventfdCache {
             Some(fd) => fd,
             _ => uapi::eventfd(0, c::EFD_CLOEXEC)
                 .map(Rc::new)
-                .map_err(Into::into)
-                .map_err(EventfdError::CreateEventfd)?,
+                .map_os_err(EventfdError::CreateEventfd)?,
         };
         Ok(Eventfd {
             cache: self.inner.clone(),
@@ -85,7 +90,7 @@ impl Eventfd {
             events: c::POLLIN,
             revents: 0,
         };
-        uapi::poll(slice::from_mut(&mut pollfd), -1)?;
+        uapi::poll(slice::from_mut(&mut pollfd), -1).to_os_error()?;
         self.signaled.set(true);
         Ok(())
     }

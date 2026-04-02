@@ -4,7 +4,7 @@ use {
         io_uring::IoUring,
         utils::{
             asyncevent::AsyncEvent, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsError, stack::Stack,
+            hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsErrorExt2, stack::Stack,
         },
         video::drm::{
             DrmError,
@@ -136,9 +136,7 @@ impl WaitForSyncobj {
         let waiter = match self.inner.idle.pop() {
             Some(w) => w,
             None => {
-                let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC)
-                    .map_err(OsError::from)
-                    .map_err(DrmError::EventFd)?;
+                let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(DrmError::EventFd)?;
                 let waiter = Rc::new(WaiterInner {
                     inner: self.inner.clone(),
                     eventfd: Rc::new(eventfd),

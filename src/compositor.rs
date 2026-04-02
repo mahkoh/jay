@@ -74,7 +74,7 @@ use {
             nice::{did_elevate_scheduler, elevate_scheduler},
             numcell::NumCell,
             object_drop_queue::ObjectDropQueue,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt},
             queue::AsyncQueue,
             rc_eq::RcEq,
             refcounted::RefCounted,
@@ -667,7 +667,7 @@ async fn create_backend(
 
 fn init_fd_limit() {
     let res = OsError::tri(|| {
-        let mut cur = uapi::getrlimit(c::RLIMIT_NOFILE as _)?;
+        let mut cur = uapi::getrlimit(c::RLIMIT_NOFILE as _).to_os_error()?;
         if cur.rlim_cur < cur.rlim_max {
             log::info!(
                 "Increasing file descriptor limit from {} to {}",
@@ -675,7 +675,7 @@ fn init_fd_limit() {
                 cur.rlim_max
             );
             cur.rlim_cur = cur.rlim_max;
-            uapi::setrlimit(c::RLIMIT_NOFILE as _, &cur)?;
+            uapi::setrlimit(c::RLIMIT_NOFILE as _, &cur).to_os_error()?;
         }
         Ok(())
     });

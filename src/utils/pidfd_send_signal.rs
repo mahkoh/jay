@@ -1,5 +1,5 @@
 use {
-    crate::utils::oserror::OsError,
+    crate::utils::oserror::{OsError, OsErrorExt},
     c::{c_int, syscall},
     std::{ptr, rc::Rc},
     uapi::{
@@ -19,5 +19,5 @@ pub fn pidfd_send_signal(pidfd: &Rc<OwnedFd>, signal: c_int) -> Result<(), OsErr
             0,
         )
     };
-    map_err!(res).map(drop).map_err(|e| e.into())
+    map_err!(res).map(drop).to_os_error()
 }

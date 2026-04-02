@@ -27,7 +27,7 @@ use {
             double_buffered::DoubleBuffered,
             errorfmt::ErrorFmt,
             object_drop_queue::ObjectDropQueue,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             pipe::{Pipe, pipe},
             rc_eq::rc_eq,
         },
@@ -362,8 +362,7 @@ impl State {
             return Err(EggError::NoRenderContext);
         };
         let (client1, client2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
-            .map_err(Into::into)
-            .map_err(EggError::CreateSocketPair)?;
+            .map_os_err(EggError::CreateSocketPair)?;
         let allocator = ctx.allocator();
         let dev = allocator.drm().map(|d| d.dev());
         let renderer = EgvRenderer::new(&self.eng, &self.ring, &self.eventfd_cache, dev)

@@ -10,7 +10,7 @@ use {
             buf::TypedBuf,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             pipe::{Pipe, pipe},
             ptr_ext::MutPtrExt,
             queue::AsyncQueue,
@@ -271,19 +271,18 @@ impl CpuWorker {
             read: stop_read,
             write: stop_write,
         } = pipe().map_err(CpuWorkerError::Pipe)?;
-        let have_new_jobs =
-            uapi::eventfd(0, c::EFD_CLOEXEC).map_err(|e| CpuWorkerError::EventFd(e.into()))?;
+        let have_new_jobs = uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(CpuWorkerError::EventFd)?;
         let have_completed_jobs =
-            uapi::eventfd(0, c::EFD_CLOEXEC).map_err(|e| CpuWorkerError::EventFd(e.into()))?;
+            uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(CpuWorkerError::EventFd)?;
         thread::Builder::new()
             .name("cpu worker".to_string())
             .spawn({
                 let new_jobs = new_jobs.clone();
                 let completed_jobs = completed_jobs.clone();
                 let have_new_jobs = uapi::fcntl_dupfd_cloexec(have_new_jobs.raw(), 0)
-                    .map_err(|e| CpuWorkerError::Dup(e.into()))?;
+                    .map_os_err(CpuWorkerError::Dup)?;
                 let have_completed_jobs = uapi::fcntl_dupfd_cloexec(have_completed_jobs.raw(), 0)
-                    .map_err(|e| CpuWorkerError::Dup(e.into()))?;
+                    .map_os_err(CpuWorkerError::Dup)?;
                 move || {
                     work(
                         new_jobs,

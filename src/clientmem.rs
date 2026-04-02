@@ -3,7 +3,11 @@ use {
         client::Client,
         cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
         gfx_api::{ShmMemory, ShmMemoryBacking},
-        utils::{page_size::page_size, vec_ext::VecExt},
+        utils::{
+            oserror::{OsError, OsErrorExt2},
+            page_size::page_size,
+            vec_ext::VecExt,
+        },
     },
     std::{
         cell::Cell,
@@ -113,7 +117,7 @@ impl ClientMem {
             unsafe {
                 let data = c::mmap64(ptr::null_mut(), len, prot, flags, fd.raw(), 0);
                 if data == c::MAP_FAILED {
-                    return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
+                    return Err(ClientMemError::MmapFailed(OsError::default()));
                 }
                 std::slice::from_raw_parts_mut(data as *mut Cell<u8>, len)
             }
@@ -273,10 +277,9 @@ pub fn init() -> Result<(), ClientMemError> {
             sigbus as unsafe extern "C" fn(i32, &c::siginfo_t, *mut c::c_void) as _;
         action.sa_flags = c::SA_NODEFER | c::SA_SIGINFO;
         let res = c::sigaction(c::SIGBUS, &action, ptr::null_mut());
-        match uapi::map_err!(res) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(ClientMemError::SigactionFailed(e.into())),
-        }
+        uapi::map_err!(res)
+            .map(drop)
+            .map_os_err(ClientMemError::SigactionFailed)
     }
 }
 

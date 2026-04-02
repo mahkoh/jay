@@ -3,8 +3,12 @@ use {
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
         format::Format,
         utils::{
-            clonecell::CloneCell, compat::IoctlNumber, errorfmt::ErrorFmt, once::Once,
-            oserror::OsError, page_size::page_size,
+            clonecell::CloneCell,
+            compat::IoctlNumber,
+            errorfmt::ErrorFmt,
+            once::Once,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            page_size::page_size,
         },
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
@@ -89,10 +93,7 @@ pub struct Udmabuf {
 
 impl Udmabuf {
     pub fn new() -> Result<Self, UdmabufError> {
-        let fd = match open("/dev/udmabuf", O_RDONLY, 0) {
-            Ok(b) => b,
-            Err(e) => return Err(UdmabufError::Open(e.into())),
-        };
+        let fd = open("/dev/udmabuf", O_RDONLY, 0).map_os_err(UdmabufError::Open)?;
         Ok(Self { fd })
     }
 
@@ -109,10 +110,9 @@ impl Udmabuf {
             size: size as u64,
         };
         let dmabuf = unsafe { ioctl(self.fd.raw(), UDMABUF_CREATE, &mut cmd) };
-        let dmabuf = match map_err!(dmabuf) {
-            Ok(d) => OwnedFd::new(d),
-            Err(e) => return Err(UdmabufError::CreateDmabuf(e.into())),
-        };
+        let dmabuf = map_err!(dmabuf)
+            .map(OwnedFd::new)
+            .map_os_err(UdmabufError::CreateDmabuf)?;
         Ok(dmabuf)
     }
 
@@ -141,16 +141,10 @@ impl Udmabuf {
         let stride = (width * format.bpp as u64).next_multiple_of(LINEAR_STRIDE_ALIGN);
         let size_mask = page_size() as u64 - 1;
         let size = (height * stride + size_mask) & !size_mask;
-        let memfd = match uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING) {
-            Ok(f) => f,
-            Err(e) => return Err(UdmabufError::Memfd(e.into())),
-        };
-        if let Err(e) = uapi::ftruncate(memfd.raw(), size as _) {
-            return Err(UdmabufError::Truncate(e.into()));
-        }
-        if let Err(e) = uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK) {
-            return Err(UdmabufError::Seal(e.into()));
-        }
+        let memfd =
+            uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING).map_os_err(UdmabufError::Memfd)?;
+        uapi::ftruncate(memfd.raw(), size as _).map_os_err(UdmabufError::Truncate)?;
+        uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK).map_os_err(UdmabufError::Seal)?;
         let dmabuf = self.create_dmabuf_from_memfd(&memfd, 0, size as _)?;
         let mut planes = PlaneVec::new();
         planes.push(DmaBufPlane {
@@ -225,10 +219,7 @@ impl Allocator for Udmabuf {
         if usize::try_from(size).is_err() {
             return Err(UdmabufError::Overflow.into());
         }
-        let stat = match uapi::fstat(plane.fd.raw()) {
-            Ok(s) => s,
-            Err(e) => return Err(UdmabufError::Stat(e.into()).into()),
-        };
+        let stat = uapi::fstat(plane.fd.raw()).map_os_err(UdmabufError::Stat)?;
         if (stat.st_size as u64) < size {
             return Err(UdmabufError::Size.into());
         }
@@ -293,8 +284,8 @@ impl Drop for UdmabufMap {
     fn drop(&mut self) {
         unsafe {
             let res = munmap(self.ptr, self.len);
-            if let Err(e) = map_err!(res) {
-                log::error!("Could not unmap udmabuf: {}", OsError::from(e));
+            if let Err(e) = map_err!(res).to_os_error() {
+                log::error!("Could not unmap udmabuf: {}", e);
             }
         }
     }

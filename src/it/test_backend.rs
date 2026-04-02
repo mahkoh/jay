@@ -27,8 +27,13 @@ use {
         state::State,
         udmabuf::Udmabuf,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            on_change::OnChange, oserror::OsError, syncqueue::SyncQueue,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            on_change::OnChange,
+            oserror::{OsError, OsErrorExt2},
+            syncqueue::SyncQueue,
         },
         video::{
             drm::{ConnectorType, Drm, DrmError},
@@ -296,15 +301,11 @@ where
         }
         return Err(TestBackendError::NoDrmNode);
     };
-    let file = match uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0) {
-        Ok(f) => Rc::new(f),
-        Err(e) => {
-            return Err(TestBackendError::OpenDrmNode(
-                node.as_os_str().as_bytes().as_bstr().to_string(),
-                e.into(),
-            ));
-        }
-    };
+    let file = uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(|e| {
+            TestBackendError::OpenDrmNode(node.as_os_str().as_bytes().as_bstr().to_string(), e)
+        })?;
     let drm = Drm::open_existing(file).map_err(TestBackendError::OpenDrmDevice)?;
     f(drm)
 }

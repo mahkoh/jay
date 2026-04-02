@@ -10,7 +10,11 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::OutputData,
-        utils::{bindings::Bindings, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{
+            bindings::Bindings,
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt2},
+        },
         video::drm::{Drm, DrmError},
         wire::{WpDrmLeaseDeviceV1Id, wp_drm_lease_device_v1::*},
     },
@@ -213,8 +217,7 @@ enum ReopenError {
 }
 
 fn reopen_card(devnode: &str) -> Result<Rc<OwnedFd>, ReopenError> {
-    let fd = uapi::open(devnode, c::O_RDWR | c::O_CLOEXEC, 0)
-        .map_err(|e| ReopenError::OpenNode(e.into()))?;
+    let fd = uapi::open(devnode, c::O_RDWR | c::O_CLOEXEC, 0).map_os_err(ReopenError::OpenNode)?;
     let fd = Rc::new(fd);
     let drm = Drm::open_existing(fd.clone()).map_err(ReopenError::CreateDrm)?;
     if drm.is_master() {

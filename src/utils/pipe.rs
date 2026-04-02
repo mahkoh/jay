@@ -1,5 +1,5 @@
 use {
-    crate::utils::oserror::OsError,
+    crate::utils::oserror::{OsError, OsErrorExt},
     uapi::{OwnedFd, c, pipe2},
 };
 
@@ -9,7 +9,7 @@ pub struct Pipe<L, R> {
 }
 
 pub fn pipe() -> Result<Pipe<OwnedFd, OwnedFd>, OsError> {
-    let (read, write) = pipe2(c::O_CLOEXEC)?;
+    let (read, write) = pipe2(c::O_CLOEXEC).to_os_error()?;
     Ok(Pipe { read, write })
 }
 

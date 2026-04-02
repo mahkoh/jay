@@ -2,7 +2,7 @@ use {
     crate::{
         forker::ForkerError,
         pr_caps::drop_all_pr_caps,
-        utils::{errorfmt::ErrorFmt, process_name::set_process_name},
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt2, process_name::set_process_name},
     },
     run_on_drop::on_drop,
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
@@ -22,9 +22,9 @@ pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
         child_pidfd = Some(uapi::pidfd_open(uapi::getpid(), 0).unwrap());
     }
     let (p, c) = uapi::socketpair(c::AF_UNIX, c::SOCK_DGRAM | c::SOCK_CLOEXEC, 0)
-        .map_err(|e| ForkerError::Socketpair(e.into()))?;
+        .map_os_err(ForkerError::Socketpair)?;
     unsafe {
-        let pid = uapi::fork().map_err(|e| ForkerError::Fork(e.into()))?;
+        let pid = uapi::fork().map_os_err(ForkerError::Fork)?;
         let res = if pid == 0 {
             drop(p);
             env::remove_var(REAPER_VAR);
@@ -44,7 +44,7 @@ pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
 
 pub fn double_fork() -> Result<Option<OwnedFd>, ForkerError> {
     let (p, c) = uapi::socketpair(c::AF_UNIX, c::SOCK_DGRAM | c::SOCK_CLOEXEC, 0)
-        .map_err(|e| ForkerError::Socketpair(e.into()))?;
+        .map_os_err(ForkerError::Socketpair)?;
     match fork_with_pidfd(false)? {
         Forked::Parent { pid, .. } => {
             drop(c);
@@ -150,8 +150,8 @@ fn recv_pidfd(socket: &OwnedFd) -> Result<OwnedFd, ForkerError> {
         flags: 0,
     };
     let (_, _, mut ctrl) = uapi::recvmsg(socket.raw(), &mut msghdr, c::MSG_CMSG_CLOEXEC)
-        .map_err(|e| ForkerError::RecvPidfd(e.into()))?;
-    let (_, hdr, data) = uapi::cmsg_read(&mut ctrl).map_err(|e| ForkerError::CmsgRead(e.into()))?;
+        .map_os_err(ForkerError::RecvPidfd)?;
+    let (_, hdr, data) = uapi::cmsg_read(&mut ctrl).map_os_err(ForkerError::CmsgRead)?;
     if hdr.cmsg_level != c::SOL_SOCKET || hdr.cmsg_type != c::SCM_RIGHTS {
         return Err(ForkerError::InvalidCmsg);
     }

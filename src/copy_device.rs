@@ -7,8 +7,13 @@ use {
         io_uring::IoUring,
         rect::{Rect, Region},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            queue::AsyncQueue, stack::Stack,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            oserror::{OsError, OsErrorExt2},
+            queue::AsyncQueue,
+            stack::Stack,
         },
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
@@ -72,7 +77,6 @@ use {
         cell::{Cell, RefCell},
         ffi::CStr,
         fmt::{Debug, Formatter},
-        io,
         ops::Deref,
         rc::Rc,
         slice,
@@ -89,9 +93,9 @@ pub enum CopyDeviceError {
     #[error("Could not create a semaphore")]
     CreateSemaphore(#[source] vk::Result),
     #[error("Could not dup a sync file")]
-    DupSyncFile(#[source] io::Error),
+    DupSyncFile(#[source] OsError),
     #[error("Could not dup a dma buf")]
-    DupDmaBuf(#[source] io::Error),
+    DupDmaBuf(#[source] OsError),
     #[error("Could not import a sync file")]
     ImportSyncFile(#[source] vk::Result),
     #[error("Could not submit the copy")]
@@ -895,8 +899,7 @@ impl CopyDevice {
                 return Err(CopyDeviceError::NoMemoryTypeForImport);
             }
             let fd = uapi::fcntl_dupfd_cloexec(plane.fd.raw(), 0)
-                .map_err(Into::into)
-                .map_err(CopyDeviceError::DupDmaBuf)?;
+                .map_os_err(CopyDeviceError::DupDmaBuf)?;
             let mut dedicated_allocation = MemoryDedicatedAllocateInfo::default().buffer(buffer);
             let mut external_memory = ImportMemoryFdInfoKHR::default()
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
@@ -1032,8 +1035,7 @@ impl CopyDevice {
                     return Err(CopyDeviceError::NoMemoryTypeForImport);
                 }
                 let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
-                    .map_err(Into::into)
-                    .map_err(CopyDeviceError::DupDmaBuf)?;
+                    .map_os_err(CopyDeviceError::DupDmaBuf)?;
                 let mut memory_dedicated_allocate_info =
                     MemoryDedicatedAllocateInfo::default().image(image);
                 let mut import_memory_fd_info = ImportMemoryFdInfoKHR::default()
@@ -1714,8 +1716,7 @@ impl CopyDeviceCopy {
 impl VulkanSemaphore {
     fn import(&self, sync_file: &OwnedFd) -> Result<(), CopyDeviceError> {
         let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
-            .map_err(Into::into)
-            .map_err(CopyDeviceError::DupSyncFile)?;
+            .map_os_err(CopyDeviceError::DupSyncFile)?;
         let info = ImportSemaphoreFdInfoKHR::default()
             .flags(SemaphoreImportFlags::TEMPORARY)
             .semaphore(self.semaphore)

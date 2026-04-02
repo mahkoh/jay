@@ -28,7 +28,7 @@ use {
     isnt::std_1::primitive::IsntConstPtrExt,
     std::{ffi::CStr, rc::Rc},
     thiserror::Error,
-    uapi::{Errno, IntoUstr, OwnedFd, c},
+    uapi::{IntoUstr, OwnedFd, c},
 };
 
 static INTERFACE: libinput_interface = libinput_interface {
@@ -141,7 +141,7 @@ impl LibInput {
     pub fn dispatch(&self) -> Result<(), LibInputError> {
         let res = unsafe { libinput_dispatch(self.li) };
         if res < 0 {
-            Err(LibInputError::Dispatch(Errno(-res).into()))
+            Err(LibInputError::Dispatch(OsError(-res)))
         } else {
             Ok(())
         }

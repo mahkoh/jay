@@ -13,6 +13,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
+            oserror::OsErrorExt2,
             pipe::{Pipe, pipe},
             process_name::set_process_name,
             queue::AsyncQueue,
@@ -87,11 +88,8 @@ impl ForkerProxy {
     }
 
     pub fn create(reaper_pid: c::pid_t) -> Result<Self, ForkerError> {
-        let (parent, child) =
-            match uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-                Ok(o) => o,
-                Err(e) => return Err(ForkerError::Socketpair(e.into())),
-            };
+        let (parent, child) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+            .map_os_err(ForkerError::Socketpair)?;
         match double_fork()? {
             Some(pidfd) => Ok(ForkerProxy {
                 pidfd: Rc::new(pidfd),
@@ -496,12 +494,10 @@ impl Forker {
                 self.pending_spawns.set(pid, spawn);
             }
             Forked::Child { .. } => {
-                let err = (|| {
+                let err: Result<(), SpawnError> = (|| {
                     if let Some(max_desired) = fds.iter().map(|v| v.0).max() {
-                        match uapi::fcntl_dupfd_cloexec(write.raw(), max_desired.wrapping_add(1)) {
-                            Ok(new) => write = new,
-                            Err(e) => return Err(SpawnError::Dupfd(e.into())),
-                        }
+                        write = uapi::fcntl_dupfd_cloexec(write.raw(), max_desired.wrapping_add(1))
+                            .map_os_err(SpawnError::Dupfd)?;
                     }
                     let fds = map_fds(fds)?;
                     for fd in fds {
@@ -510,9 +506,7 @@ impl Forker {
                             uapi::fcntl_setfd(fd, uapi::fcntl_getfd(fd)? & !c::FD_CLOEXEC)?;
                             Ok(())
                         })();
-                        if let Err(e) = res {
-                            return Err(SpawnError::Cloexec(e.into()));
-                        }
+                        res.map_os_err(SpawnError::Cloexec)?;
                     }
                     unsafe {
                         c::signal(c::SIGCHLD, c::SIG_DFL);
@@ -531,9 +525,7 @@ impl Forker {
                     for arg in args {
                         argsnt.push(arg);
                     }
-                    if let Err(e) = uapi::execvp(&prog, &argsnt) {
-                        return Err(SpawnError::Exec(e.into()));
-                    }
+                    uapi::execvp(&prog, &argsnt).map_os_err(SpawnError::Exec)?;
                     Ok(())
                 })();
                 if let Err(e) = err {
@@ -601,23 +593,15 @@ fn map_fds(fds: Vec<(i32, OwnedFd)>) -> Result<Vec<OwnedFd>, SpawnError> {
             continue;
         }
         if let Some(conflict_desired) = existing_to_desired.get(&desired).copied() {
-            match uapi::fcntl_dupfd_cloexec(desired, 0) {
-                Ok(new) => {
-                    existing_to_desired.remove(&desired);
-                    existing_to_desired.insert(new.raw(), conflict_desired);
-                    desired_to_existing.insert(conflict_desired, new);
-                }
-                Err(e) => return Err(SpawnError::Dupfd(e.into())),
-            }
+            let new = uapi::fcntl_dupfd_cloexec(desired, 0).map_os_err(SpawnError::Dupfd)?;
+            existing_to_desired.remove(&desired);
+            existing_to_desired.insert(new.raw(), conflict_desired);
+            desired_to_existing.insert(conflict_desired, new);
         }
-        match uapi::dup3(existing, desired, c::O_CLOEXEC) {
-            Ok(_) => {
-                existing_to_desired.remove(&existing);
-                existing_to_desired.insert(desired, desired);
-                desired_to_existing.insert(desired, OwnedFd::new(desired));
-            }
-            Err(e) => return Err(SpawnError::Dupfd(e.into())),
-        }
+        uapi::dup3(existing, desired, c::O_CLOEXEC).map_os_err(SpawnError::Dupfd)?;
+        existing_to_desired.remove(&existing);
+        existing_to_desired.insert(desired, desired);
+        desired_to_existing.insert(desired, OwnedFd::new(desired));
     }
     Ok(desired_to_existing.into_values().collect())
 }

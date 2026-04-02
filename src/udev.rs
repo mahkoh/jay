@@ -4,7 +4,7 @@ use {
     crate::utils::oserror::OsError,
     std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{Errno, IntoUstr, c},
+    uapi::{IntoUstr, c},
 };
 
 #[repr(transparent)]
@@ -132,7 +132,7 @@ impl Udev {
     pub fn new() -> Result<Self, UdevError> {
         let res = unsafe { udev_new() };
         if res.is_null() {
-            return Err(UdevError::New(Errno::default().into()));
+            return Err(UdevError::New(OsError::default()));
         }
         Ok(Self { udev: res })
     }
@@ -140,7 +140,7 @@ impl Udev {
     pub fn create_monitor(self: &Rc<Self>) -> Result<UdevMonitor, UdevError> {
         let res = unsafe { udev_monitor_new_from_netlink(self.udev, c"udev".as_ptr() as _) };
         if res.is_null() {
-            return Err(UdevError::NewMonitor(Errno::default().into()));
+            return Err(UdevError::NewMonitor(OsError::default()));
         }
         Ok(UdevMonitor {
             udev: self.clone(),
@@ -151,7 +151,7 @@ impl Udev {
     pub fn create_enumerate(self: &Rc<Self>) -> Result<UdevEnumerate, UdevError> {
         let res = unsafe { udev_enumerate_new(self.udev) };
         if res.is_null() {
-            return Err(UdevError::NewEnumerate(Errno::default().into()));
+            return Err(UdevError::NewEnumerate(OsError::default()));
         }
         Ok(UdevEnumerate {
             _udev: self.clone(),
@@ -166,7 +166,7 @@ impl Udev {
         let syspath = syspath.into_ustr();
         let res = unsafe { udev_device_new_from_syspath(self.udev, syspath.as_ptr()) };
         if res.is_null() {
-            return Err(UdevError::DeviceFromSyspath(Errno::default().into()));
+            return Err(UdevError::DeviceFromSyspath(OsError::default()));
         }
         Ok(UdevDevice {
             udev: self.clone(),
@@ -185,7 +185,7 @@ impl Udev {
         };
         let res = unsafe { udev_device_new_from_devnum(self.udev, ty as _, devnum) };
         if res.is_null() {
-            return Err(UdevError::DeviceFromDevnum(Errno::default().into()));
+            return Err(UdevError::DeviceFromDevnum(OsError::default()));
         }
         Ok(UdevDevice {
             udev: self.clone(),
@@ -210,7 +210,7 @@ impl UdevMonitor {
     pub fn enable_receiving(&self) -> Result<(), UdevError> {
         let res = unsafe { udev_monitor_enable_receiving(self.monitor) };
         if res < 0 {
-            Err(UdevError::EnableReceiving(Errno(-res).into()))
+            Err(UdevError::EnableReceiving(OsError(-res)))
         } else {
             Ok(())
         }
@@ -234,7 +234,7 @@ impl UdevMonitor {
             )
         };
         if res < 0 {
-            Err(UdevError::MonitorAddMatch(Errno(-res).into()))
+            Err(UdevError::MonitorAddMatch(OsError(-res)))
         } else {
             Ok(())
         }
@@ -266,7 +266,7 @@ impl UdevEnumerate {
         let subsystem = subsystem.into_ustr();
         let res = unsafe { udev_enumerate_add_match_subsystem(self.enumerate, subsystem.as_ptr()) };
         if res < 0 {
-            Err(UdevError::EnumerateAddMatch(Errno(-res).into()))
+            Err(UdevError::EnumerateAddMatch(OsError(-res)))
         } else {
             Ok(())
         }
@@ -275,7 +275,7 @@ impl UdevEnumerate {
     pub fn scan_devices(&self) -> Result<(), UdevError> {
         let res = unsafe { udev_enumerate_scan_devices(self.enumerate) };
         if res < 0 {
-            Err(UdevError::ScanDevices(Errno(-res).into()))
+            Err(UdevError::ScanDevices(OsError(-res)))
         } else {
             Ok(())
         }
@@ -284,11 +284,11 @@ impl UdevEnumerate {
     pub fn get_list_entry(&mut self) -> Result<Option<UdevListEntry<'_>>, UdevError> {
         let res = unsafe { udev_enumerate_get_list_entry(self.enumerate) };
         if res.is_null() {
-            let err = Errno::default();
+            let err = OsError::default();
             if err.0 == c::ENODATA {
                 Ok(None)
             } else {
-                Err(UdevError::EnumerateGetListEntry(err.into()))
+                Err(UdevError::EnumerateGetListEntry(err))
             }
         } else {
             Ok(Some(UdevListEntry {
@@ -358,7 +358,7 @@ impl UdevDevice {
     pub fn parent(&self) -> Result<UdevDevice, UdevError> {
         let res = unsafe { udev_device_get_parent(self.device) };
         if res.is_null() {
-            return Err(UdevError::DeviceParent(Errno::default().into()));
+            return Err(UdevError::DeviceParent(OsError::default()));
         }
         unsafe {
             udev_device_ref(res);

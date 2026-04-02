@@ -8,7 +8,7 @@ use {
             format::{VulkanBlendBufferLimits, VulkanFormat},
             instance::VulkanInstance,
         },
-        utils::bitflags::BitflagsExt,
+        utils::{bitflags::BitflagsExt, oserror::OsErrorExt2},
         video::{
             dmabuf::DmaBufIds,
             drm::{Drm, syncobj::SyncobjCtx},
@@ -484,8 +484,8 @@ impl VulkanInstance {
                     GBM_BO_USE_RENDERING,
                 )
                 .map_err(VulkanError::AllocGbm)?;
-            let fl = uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw())
-                .map_err(|e| VulkanError::GetFl(e.into()))?;
+            let fl =
+                uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw()).map_os_err(VulkanError::GetFl)?;
             if fl.not_contains(O_RDWR) {
                 return Err(VulkanError::SoftwareRendererNotUsable);
             }

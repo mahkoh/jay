@@ -1,5 +1,11 @@
 use {
-    crate::{utils::errorfmt::ErrorFmt, xwayland::XWaylandError},
+    crate::{
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+        },
+        xwayland::XWaylandError,
+    },
     std::{
         io::{Read, Write},
         rc::Rc,
@@ -37,10 +43,8 @@ fn bind_socket(fd: &Rc<OwnedFd>, id: u32) -> Result<(XSocket, Rc<OwnedFd>), XWay
             if i == 1 {
                 return Err(XWaylandError::AlreadyInUse);
             }
-            let mut fd = match uapi::open(&*lock_path, c::O_CLOEXEC | c::O_RDONLY, 0) {
-                Ok(f) => f,
-                Err(e) => return Err(XWaylandError::ReadLockFile(e.into())),
-            };
+            let mut fd = uapi::open(&*lock_path, c::O_CLOEXEC | c::O_RDONLY, 0)
+                .map_os_err(XWaylandError::ReadLockFile)?;
             let mut pid = String::new();
             if let Err(e) = fd.read_to_string(&mut pid) {
                 return Err(XWaylandError::ReadLockFile(e.into()));
@@ -64,9 +68,7 @@ fn bind_socket(fd: &Rc<OwnedFd>, id: u32) -> Result<(XSocket, Rc<OwnedFd>), XWay
     let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
     sun_path[..path.len()].copy_from_slice(path.as_bytes());
     sun_path[path.len()] = 0;
-    if let Err(e) = uapi::bind(fd.raw(), &addr) {
-        return Err(XWaylandError::BindFailed(e.into()));
-    }
+    uapi::bind(fd.raw(), &addr).map_os_err(XWaylandError::BindFailed)?;
     let s = format!("{:10}\n", uapi::getpid());
     if let Err(e) = lock_fd.write_all(s.as_bytes()) {
         return Err(XWaylandError::WriteLockFile(e.into()));
@@ -80,9 +82,9 @@ fn bind_socket(fd: &Rc<OwnedFd>, id: u32) -> Result<(XSocket, Rc<OwnedFd>), XWay
 }
 
 pub(super) fn allocate_socket() -> Result<(XSocket, Rc<OwnedFd>), XWaylandError> {
-    match uapi::stat(SOCK_DIR) {
-        Err(Errno(c::ENOENT)) => return Err(XWaylandError::MissingSocketDir),
-        Err(e) => return Err(XWaylandError::StatSocketDir(e.into())),
+    match uapi::stat(SOCK_DIR).to_os_error() {
+        Err(OsError(c::ENOENT)) => return Err(XWaylandError::MissingSocketDir),
+        Err(e) => return Err(XWaylandError::StatSocketDir(e)),
         Ok(s) if s.st_mode & c::S_IFMT != c::S_IFDIR => return Err(XWaylandError::NotASocketDir),
         _ => {
             if uapi::access(SOCK_DIR, c::W_OK).is_err() {
@@ -90,10 +92,9 @@ pub(super) fn allocate_socket() -> Result<(XSocket, Rc<OwnedFd>), XWaylandError>
             }
         }
     }
-    let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
-        Ok(f) => Rc::new(f),
-        Err(e) => return Err(XWaylandError::SocketFailed(e.into())),
-    };
+    let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(XWaylandError::SocketFailed)?;
     for i in 500..1500 {
         match bind_socket(&fd, i) {
             Ok(s) => return Ok(s),

@@ -1,5 +1,5 @@
 use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsError},
+    crate::utils::{errorfmt::ErrorFmt, oserror::OsErrorExt},
     bstr::ByteSlice,
     std::os::unix::ffi::OsStrExt,
     uapi::{OwnedFd, c},
@@ -46,12 +46,12 @@ pub fn get_socket_creds(socket: &OwnedFd) -> Option<(c::uid_t, c::pid_t)> {
         uid: 0,
         gid: 0,
     };
-    match uapi::getsockopt(socket.raw(), c::SOL_SOCKET, c::SO_PEERCRED, &mut cred) {
+    match uapi::getsockopt(socket.raw(), c::SOL_SOCKET, c::SO_PEERCRED, &mut cred).to_os_error() {
         Ok(_) => Some((cred.uid, cred.pid)),
         Err(e) => {
             log::error!(
-                "Cannot determine peer credentials of new connection: {:?}",
-                OsError::from(e)
+                "Cannot determine peer credentials of new connection: {}",
+                ErrorFmt(e),
             );
             None
         }

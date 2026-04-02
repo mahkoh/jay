@@ -10,7 +10,7 @@ use {
             device::VulkanDevice, format::VulkanFormat, renderer::image_barrier,
             staging::VulkanStagingBuffer,
         },
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt2},
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
@@ -379,7 +379,7 @@ impl VulkanBoAllocator {
                 .find_memory_type(MemoryPropertyFlags::empty(), memory_type_bits)
                 .ok_or(VulkanError::MemoryType)?;
             let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
-                .map_err(|e| VulkanError::Dupfd(e.into()))?;
+                .map_os_err(VulkanError::Dupfd)?;
             let mut memory_dedicated_allocate_info =
                 MemoryDedicatedAllocateInfo::default().image(image);
             let mut import_memory_fd_info = ImportMemoryFdInfoKHR::default()

@@ -15,6 +15,7 @@ use {
         },
         rect::Region,
         theme::Color,
+        utils::oserror::OsErrorExt2,
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
@@ -403,7 +404,7 @@ impl VulkanDmaBufImageTemplate {
                 .find_memory_type(MemoryPropertyFlags::empty(), memory_type_bits)
                 .ok_or(VulkanError::MemoryType)?;
             let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
-                .map_err(|e| VulkanError::Dupfd(e.into()))?;
+                .map_os_err(VulkanError::Dupfd)?;
             let mut memory_dedicated_allocate_info =
                 MemoryDedicatedAllocateInfo::default().image(image);
             let mut import_memory_fd_info = ImportMemoryFdInfoKHR::default()

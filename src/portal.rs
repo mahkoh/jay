@@ -34,7 +34,7 @@ use {
             errorfmt::ErrorFmt,
             line_logger::log_lines,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt},
             pipe::{Pipe, pipe},
             process_name::set_process_name,
             run_toplevel::RunToplevel,
@@ -94,13 +94,13 @@ impl PortalStartup {
                     );
                     return;
                 }
-                let (_, status) = match uapi::waitpid(self.pid, 0) {
+                let (_, status) = match uapi::waitpid(self.pid, 0).to_os_error() {
                     Ok(r) => r,
                     Err(e) => {
                         log::error!(
                             "Could not retrieve exit status of portal ({}): {}",
                             self.pid,
-                            ErrorFmt(OsError::from(e))
+                            ErrorFmt(e),
                         );
                         return;
                     }
@@ -175,12 +175,12 @@ fn run(logger: Arc<Logger>, freestanding: bool) -> ! {
     drop(write);
     let read = BufReader::new(read);
     let Ok(log_file) = bincode::deserialize_from::<_, Vec<u8>>(read) else {
-        let (_, status) = match uapi::waitpid(pid, 0) {
+        let (_, status) = match uapi::waitpid(pid, 0).to_os_error() {
             Ok(r) => r,
             Err(e) => {
                 fatal!(
                     "Could not retrieve exit status of portal ({pid}): {}",
-                    ErrorFmt(OsError::from(e)),
+                    ErrorFmt(e),
                 );
             }
         };
@@ -304,8 +304,8 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd)
             if let Err(e) = bincode::serialize_into(sink, log_file.as_bytes()) {
                 log::error!("Could not send log file to parent: {}", ErrorFmt(e));
             }
-            if let Err(e) = uapi::setsid() {
-                log::error!("setsid failed: {}", ErrorFmt(OsError::from(e)));
+            if let Err(e) = uapi::setsid().to_os_error() {
+                log::error!("setsid failed: {}", ErrorFmt(e));
             }
             log::info!("pid = {}", getpid());
             set_process_name("jay portal");

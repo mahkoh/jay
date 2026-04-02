@@ -5,7 +5,10 @@ use {
         ifs::jay_ei_session::JayEiSession,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt2},
+        },
         wire::{
             JayEiSessionBuilderId,
             jay_ei_session_builder::{Commit, JayEiSessionBuilderRequestHandler, SetAppId},
@@ -33,12 +36,10 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
         if app_id.is_none() {
             return Err(JayEiSessionBuilderError::NoAppId);
         }
-        let res = (move || {
-            let con = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
-            let (server, client) = match con {
-                Ok(w) => w,
-                Err(e) => return Err(JayEiSessionBuilderError::SocketPair(e.into())),
-            };
+        let res: Result<_, JayEiSessionBuilderError> = (move || {
+            let (server, client) =
+                uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
+                    .map_os_err(JayEiSessionBuilderError::SocketPair)?;
             let ei_client_id = self
                 .client
                 .state

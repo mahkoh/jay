@@ -2,7 +2,11 @@ use {
     crate::{
         backend::{LED_CAPS_LOCK, LED_COMPOSE, LED_KANA, LED_NUM_LOCK, LED_SCROLL_LOCK, Leds},
         kbvm::KbvmMap,
-        utils::{event_listener::EventSource, oserror::OsError, vecset::VecSet},
+        utils::{
+            event_listener::EventSource,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            vecset::VecSet,
+        },
     },
     kbvm::{Components, state_machine::Event},
     std::{
@@ -10,7 +14,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{Errno, OwnedFd, c},
+    uapi::{OwnedFd, c},
 };
 
 #[derive(Debug, Error)]
@@ -91,18 +95,17 @@ pub struct KeymapFd {
 
 impl KeymapFd {
     pub fn create_unprotected_fd(&self) -> Result<Self, KeyboardError> {
-        let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
-            Ok(fd) => fd,
-            Err(e) => return Err(KeyboardError::KeymapMemfd(e.into())),
-        };
+        let fd = uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC)
+            .map_os_err(KeyboardError::KeymapMemfd)?;
         let target = self.len as c::off_t;
         let mut pos = 0;
         while pos < target {
             let rem = target - pos;
-            let res = uapi::sendfile(fd.raw(), self.map.raw(), Some(&mut pos), rem as usize);
+            let res = uapi::sendfile(fd.raw(), self.map.raw(), Some(&mut pos), rem as usize)
+                .to_os_error();
             match res {
-                Ok(_) | Err(Errno(c::EINTR)) => {}
-                Err(e) => return Err(KeyboardError::KeymapCopy(e.into())),
+                Ok(_) | Err(OsError(c::EINTR)) => {}
+                Err(e) => return Err(KeyboardError::KeymapCopy(e)),
             }
         }
         Ok(Self {

@@ -7,7 +7,7 @@ use {
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
-            oserror::OsError,
+            oserror::OsErrorExt2,
         },
         video::drm::{
             DrmError, NodeType, get_drm_nodes_from_dev,
@@ -116,8 +116,7 @@ impl SyncobjCtx {
             .ok_or(DrmError::NoDeviceNodes)?;
         let device_fd = uapi::open(path.as_c_str(), c::O_RDWR | c::O_CLOEXEC, 0)
             .map(Rc::new)
-            .map_err(Into::into)
-            .map_err(DrmError::ReopenNode)?;
+            .map_os_err(DrmError::ReopenNode)?;
         Ok(Self::new(&device_fd))
     }
 
@@ -193,9 +192,7 @@ impl SyncobjCtx {
 
     fn supports_async_wait_(&self) -> Result<(), DrmError> {
         let syncobj = self.create_syncobj()?;
-        let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC)
-            .map_err(OsError::from)
-            .map_err(DrmError::EventFd)?;
+        let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(DrmError::EventFd)?;
         self.wait_for_point(&eventfd, &syncobj, SyncobjPoint(1), true)?;
         Ok(())
     }

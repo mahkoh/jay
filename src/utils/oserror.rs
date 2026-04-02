@@ -169,12 +169,6 @@ static ERRORS: LazyLock<&'static [Option<&'static str>]> = LazyLock::new(|| {
 #[derive(Debug, Eq, PartialEq)]
 pub struct OsError(pub c::c_int);
 
-impl From<Errno> for OsError {
-    fn from(e: Errno) -> Self {
-        Self(e.0)
-    }
-}
-
 impl From<c::c_int> for OsError {
     fn from(v: c_int) -> Self {
         Self(v)
@@ -192,7 +186,7 @@ impl From<std::io::Error> for OsError {
 
 impl Default for OsError {
     fn default() -> Self {
-        Errno::default().into()
+        OsError(Errno::default().0)
     }
 }
 
@@ -208,7 +202,6 @@ impl Display for OsError {
     }
 }
 
-#[cfg_attr(not(feature = "it"), expect(dead_code))]
 pub trait OsErrorExt {
     type Container;
 
@@ -219,6 +212,31 @@ impl<T> OsErrorExt for Result<T, Errno> {
     type Container = Result<T, OsError>;
 
     fn to_os_error(self) -> Self::Container {
-        self.map_err(|e| e.into())
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(OsError(e.0)),
+        }
+    }
+}
+
+pub trait OsErrorExt2 {
+    type T;
+
+    fn map_os_err<F, O>(self, op: O) -> Result<Self::T, F>
+    where
+        O: FnOnce(OsError) -> F;
+}
+
+impl<T> OsErrorExt2 for Result<T, Errno> {
+    type T = T;
+
+    fn map_os_err<F, O>(self, op: O) -> Result<T, F>
+    where
+        O: FnOnce(OsError) -> F,
+    {
+        match self {
+            Ok(t) => Ok(t),
+            Err(e) => Err(op(OsError(e.0))),
+        }
     }
 }

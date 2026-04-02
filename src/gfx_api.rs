@@ -18,7 +18,10 @@ use {
         state::State,
         theme::Color,
         tree::{Node, OutputNode, Transform},
-        utils::{clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, static_text::StaticText},
+        utils::{
+            clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, oserror::OsErrorExt,
+            static_text::StaticText,
+        },
         video::{
             Modifier,
             dmabuf::DmaBuf,
@@ -1169,7 +1172,7 @@ impl FdSync {
                 };
                 uapi::poll(slice::from_mut(&mut pollfd), -1)
                     .map(drop)
-                    .map_err(Into::into)
+                    .to_os_error()
             }
         };
         if let Err(e) = res {

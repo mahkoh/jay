@@ -10,8 +10,13 @@ use {
         state::State,
         udev::{Udev, UdevDevice, UdevError, UdevMonitor},
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, on_change::OnChange, oserror::OsError,
+            bitflags::BitflagsExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
+            on_change::OnChange,
+            oserror::{OsError, OsErrorExt2},
         },
         video::drm::{Drm, DrmError, DrmVersion, NodeType, get_drm_nodes_from_dev},
     },
@@ -90,8 +95,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<HeadlessBackend>, HeadlessBa
     monitor.enable_receiving().map_err(EnableUdevReceiving)?;
     let monitor_fd = uapi::fcntl_dupfd_cloexec(monitor.fd(), 0)
         .map(Rc::new)
-        .map_err(Into::into)
-        .map_err(DupUdevMonitorFd)?;
+        .map_os_err(DupUdevMonitorFd)?;
     Ok(Rc::new(HeadlessBackend {
         state: state.clone(),
         udev,
@@ -200,9 +204,7 @@ impl HeadlessBackend {
             .get(&NodeType::Render)
             .or_else(|| nodes.get(&NodeType::Primary))
             .ok_or(NoDrmNodes)?;
-        let fd = uapi::open(&**node, c::O_RDWR | c::O_CLOEXEC, 0)
-            .map_err(Into::into)
-            .map_err(OpenDrmNode)?;
+        let fd = uapi::open(&**node, c::O_RDWR | c::O_CLOEXEC, 0).map_os_err(OpenDrmNode)?;
         let drm = Drm::open_existing(Rc::new(fd)).map_err(CreateDrm)?;
         let dev = Rc::new(HeadlessDrmDevice {
             backend: self.clone(),

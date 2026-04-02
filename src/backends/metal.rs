@@ -48,7 +48,7 @@ use {
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt2},
             smallmap::SmallMap,
             syncqueue::SyncQueue,
         },
@@ -253,10 +253,9 @@ impl Backend for MetalBackend {
 }
 
 fn dup_fd(fd: c::c_int) -> Result<Rc<OwnedFd>, MetalError> {
-    match uapi::fcntl_dupfd_cloexec(fd, 0) {
-        Ok(m) => Ok(Rc::new(m)),
-        Err(e) => Err(MetalError::Dup(e.into())),
-    }
+    uapi::fcntl_dupfd_cloexec(fd, 0)
+        .map(Rc::new)
+        .map_os_err(MetalError::Dup)
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
@@ -384,15 +383,11 @@ struct DeviceHolder {
 
 impl LibInputAdapter for DeviceHolder {
     fn open(&self, path: &CStr) -> Result<OwnedFd, LibInputError> {
-        let stat = match uapi::stat(path) {
-            Ok(s) => s,
-            Err(e) => return Err(LibInputError::Stat(e.into())),
-        };
+        let stat = uapi::stat(path).map_os_err(LibInputError::Stat)?;
         if let Some(MetalDevice::Input(d)) = self.devices.get(&stat.st_rdev)
             && let Some(fd) = d.fd.get()
         {
-            return uapi::fcntl_dupfd_cloexec(fd.raw(), 0)
-                .map_err(|e| LibInputError::DupFd(e.into()));
+            return uapi::fcntl_dupfd_cloexec(fd.raw(), 0).map_os_err(LibInputError::DupFd);
         }
         Err(LibInputError::DeviceUnavailable)
     }

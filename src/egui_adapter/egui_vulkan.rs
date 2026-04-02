@@ -6,7 +6,11 @@ use {
         format::XRGB8888,
         gfx_api::{FdSync, SyncFile},
         io_uring::IoUring,
-        utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt2},
+            queue::AsyncQueue,
+        },
         video::{Modifier, dmabuf::PlaneVec, drm::syncobj::SyncobjCtx},
         vulkan_core::{
             VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, VulkanDeviceFeatures,
@@ -197,11 +201,11 @@ pub enum EgvError {
     #[error("Could not find a memory type for import")]
     NoMemoryTypeForImport,
     #[error("Could not dup a dma buf")]
-    DupDmaBuf(#[source] io::Error),
+    DupDmaBuf(#[source] OsError),
     #[error("Could not import memory")]
     ImportMemory(#[source] vk::Result),
     #[error("Could not dup a sync file")]
-    DupSyncFile(#[source] io::Error),
+    DupSyncFile(#[source] OsError),
     #[error("Could not import a sync file")]
     ImportSyncFile(#[source] vk::Result),
 }
@@ -1367,8 +1371,7 @@ impl EgvContext {
                     return Err(EgvError::NoMemoryTypeForImport);
                 }
                 let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
-                    .map_err(Into::into)
-                    .map_err(EgvError::DupDmaBuf)?;
+                    .map_os_err(EgvError::DupDmaBuf)?;
                 let mut memory_dedicated_allocate_info =
                     MemoryDedicatedAllocateInfo::default().image(image);
                 let mut import_memory_fd_info = ImportMemoryFdInfoKHR::default()
@@ -1887,9 +1890,7 @@ impl EgvBuffer {
 
 impl EgvSemaphore {
     fn import(&self, sync_file: &SyncFile) -> Result<(), EgvError> {
-        let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
-            .map_err(Into::into)
-            .map_err(EgvError::DupSyncFile)?;
+        let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0).map_os_err(EgvError::DupSyncFile)?;
         let info = ImportSemaphoreFdInfoKHR::default()
             .flags(SemaphoreImportFlags::TEMPORARY)
             .semaphore(self.semaphore)

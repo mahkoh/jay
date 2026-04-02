@@ -37,7 +37,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
-            oserror::OsError,
+            oserror::{OsError, OsErrorExt},
             stack::Stack,
             timer::{TimerError, TimerFd},
             toplevel_identifier::ToplevelIdentifier,
@@ -1922,13 +1922,10 @@ impl ConfigProxyHandler {
     }
 
     fn handle_add_pollable(self: &Rc<Self>, fd: i32) -> Result<(), CphError> {
-        let fd = match fcntl_dupfd_cloexec(fd, 0) {
+        let fd = match fcntl_dupfd_cloexec(fd, 0).to_os_error() {
             Ok(fd) => Rc::new(fd),
             Err(e) => {
-                let err = format!(
-                    "Could not invoke F_DUPFD_CLOEXEC: {}",
-                    ErrorFmt(OsError::from(e))
-                );
+                let err = format!("Could not invoke F_DUPFD_CLOEXEC: {}", ErrorFmt(e));
                 log::error!("{}", err);
                 self.respond(Response::AddPollable { id: Err(err) });
                 return Ok(());

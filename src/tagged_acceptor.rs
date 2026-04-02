@@ -4,7 +4,12 @@ use {
         client::ClientCaps,
         security_context_acceptor::AcceptorMetadata,
         state::State,
-        utils::{errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError, xrd::xrd},
+        utils::{
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            oserror::{OsError, OsErrorExt, OsErrorExt2},
+            xrd::xrd,
+        },
     },
     ahash::AHashMap,
     std::{
@@ -12,7 +17,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{Errno, OwnedFd, Ustring, c, format_ustr},
+    uapi::{OwnedFd, Ustring, c, format_ustr},
 };
 
 #[derive(Debug, Error)]
@@ -88,8 +93,7 @@ impl TaggedAcceptors {
         let xrd = xrd().ok_or(TaggedAcceptorError::XrdNotSet)?;
         let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .map(Rc::new)
-            .map_err(Into::into)
-            .map_err(TaggedAcceptorError::SocketFailed)?;
+            .map_os_err(TaggedAcceptorError::SocketFailed)?;
         loop {
             let i = self.next_name.fetch_add(1) + 1000;
             if let Some(s) = bind_socket(&socket, &xrd, i)? {
@@ -165,31 +169,26 @@ fn bind_socket(
         return Err(TaggedAcceptorError::XrdTooLong(xrd.to_string()));
     }
     let lock_fd = uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644)
-        .map_err(Into::into)
-        .map_err(TaggedAcceptorError::OpenLockFile)?;
-    if let Err(e) = uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB) {
+        .map_os_err(TaggedAcceptorError::OpenLockFile)?;
+    if let Err(e) = uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB).to_os_error() {
         if e.0 == c::EWOULDBLOCK {
             return Ok(None);
         }
-        return Err(TaggedAcceptorError::LockLockFile(e.into()));
+        return Err(TaggedAcceptorError::LockLockFile(e));
     }
-    match uapi::lstat(&path) {
+    match uapi::lstat(&path).to_os_error() {
         Ok(_) => {
             log::info!("Unlinking {}", path.display());
             let _ = uapi::unlink(&path);
         }
-        Err(Errno(c::ENOENT)) => {}
-        Err(e) => return Err(TaggedAcceptorError::SocketStat(e.into())),
+        Err(OsError(c::ENOENT)) => {}
+        Err(e) => return Err(TaggedAcceptorError::SocketStat(e)),
     }
     let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
     sun_path[..path.len()].copy_from_slice(path.as_bytes());
     sun_path[path.len()] = 0;
-    uapi::bind(fd.raw(), &addr)
-        .map_err(Into::into)
-        .map_err(TaggedAcceptorError::BindFailed)?;
-    if let Err(e) = uapi::listen(fd.raw(), 4096) {
-        return Err(TaggedAcceptorError::ListenFailed(e.into()));
-    }
+    uapi::bind(fd.raw(), &addr).map_os_err(TaggedAcceptorError::BindFailed)?;
+    uapi::listen(fd.raw(), 4096).map_os_err(TaggedAcceptorError::ListenFailed)?;
     Ok(Some(AllocatedSocket {
         name,
         path,

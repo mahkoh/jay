@@ -8,7 +8,11 @@ use {
         format::Format,
         io_uring::{IoUring, IoUringError},
         utils::{
-            buf::Buf, errorfmt::ErrorFmt, oserror::OsError, stack::Stack, syncqueue::SyncQueue,
+            buf::Buf,
+            errorfmt::ErrorFmt,
+            oserror::{OsError, OsErrorExt2},
+            stack::Stack,
+            syncqueue::SyncQueue,
             vec_ext::VecExt,
         },
         video::{
@@ -179,10 +183,9 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         }
         device_node_name(fd)?
     };
-    match uapi::open(path, c::O_RDWR | c::O_CLOEXEC, 0) {
-        Ok(f) => Ok(Rc::new(f)),
-        Err(e) => Err(DrmError::ReopenNode(e.into())),
-    }
+    uapi::open(path, c::O_RDWR | c::O_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(DrmError::ReopenNode)
 }
 
 pub struct Drm {
@@ -192,7 +195,7 @@ pub struct Drm {
 
 impl Drm {
     pub fn open_existing(fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
-        let stat = uapi::fstat(fd.raw()).map_err(|e| DrmError::Stat(e.into()))?;
+        let stat = uapi::fstat(fd.raw()).map_os_err(DrmError::Stat)?;
         Ok(Self {
             fd,
             dev: stat.st_rdev,
