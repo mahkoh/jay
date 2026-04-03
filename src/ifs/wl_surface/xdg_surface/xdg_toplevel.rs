@@ -1,5 +1,3 @@
-pub mod xdg_dialog_v1;
-
 use {
     crate::{
         bugs,
@@ -45,6 +43,9 @@ use {
     },
     thiserror::Error,
 };
+
+pub mod xdg_dialog_v1;
+pub mod xdg_toplevel_session_v1;
 
 const STATE_MAXIMIZED: u32 = 1;
 const STATE_FULLSCREEN: u32 = 2;
@@ -116,6 +117,7 @@ pub struct XdgToplevel {
     dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
     extents_set: Cell<bool>,
     pub data: Rc<XdgToplevelToplevelData>,
+    committed: Cell<bool>,
 }
 
 impl Debug for XdgToplevel {
@@ -179,6 +181,7 @@ impl XdgToplevel {
             dialog: Default::default(),
             extents_set: Cell::new(false),
             data,
+            committed: Default::default(),
         }
     }
 
@@ -259,6 +262,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
     type Error = XdgToplevelError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.toplevel_data.disown_session();
         self.tl_destroy();
         self.xdg.unset_ext();
         {
@@ -541,6 +545,7 @@ object_base! {
 
 impl Object for XdgToplevel {
     fn break_loops(&self) {
+        self.toplevel_data.disown_session();
         self.tl_destroy();
         self.parent.set(None);
         self.dialog.set(None);
@@ -784,6 +789,10 @@ impl XdgSurfaceExt for XdgToplevel {
         } else {
             self.send_configure_checked(rect.width(), rect.height());
         }
+    }
+
+    fn commit_requested(&self) {
+        self.committed.set(true);
     }
 
     fn post_commit(self: Rc<Self>) {

@@ -25,6 +25,7 @@ use {
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
         },
         rect::Rect,
+        sm::ToplevelSession,
         state::State,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
@@ -415,6 +416,7 @@ pub struct ToplevelData {
     pub seat_foci: CopyHashMap<SeatId, ()>,
     pub content_type: Cell<Option<ContentType>>,
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
+    pub session: CloneCell<Option<Rc<ToplevelSession>>>,
 }
 
 impl ToplevelData {
@@ -469,6 +471,7 @@ impl ToplevelData {
             seat_foci: Default::default(),
             content_type: Default::default(),
             property_changed_source: Default::default(),
+            session: Default::default(),
         }
     }
 
@@ -951,6 +954,19 @@ impl ToplevelData {
     pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {
         self.property_changed_source
             .get_or_init(|| self.state.lazy_event_sources.create_source())
+    }
+
+    pub fn set_session(&self, session: &Rc<ToplevelSession>, restore: bool) {
+        if !restore {
+            // nothing
+        }
+        self.session.set(Some(session.clone()));
+    }
+
+    pub fn disown_session(&self) {
+        if let Some(session) = self.session.take() {
+            session.disown_to_peer();
+        }
     }
 }
 

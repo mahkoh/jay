@@ -11,6 +11,7 @@ use {
             wl_registry::WlRegistry,
             wl_surface::{WlSurface, commit_timeline::CommitTimelines},
             xdg_activation_token_v1::ActivationToken,
+            xdg_session_v1::XdgSessionV1,
         },
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
@@ -22,6 +23,7 @@ use {
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
             copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
+            linkedlist::LinkedList,
             numcell::NumCell,
             pending_serial::PendingSerial,
             pid_info::{PidInfo, get_pid_info, get_socket_creds},
@@ -222,6 +224,8 @@ impl Clients {
             destroyed: Default::default(),
             acceptor: acceptor.clone(),
             sqlite_accounting: Rc::new(SqliteAccounting::new(256)),
+            live_sessions: Default::default(),
+            num_live_sessions: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -350,6 +354,8 @@ pub struct Client {
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
     pub acceptor: Rc<AcceptorMetadata>,
     pub sqlite_accounting: Rc<SqliteAccounting>,
+    pub live_sessions: LinkedList<Rc<XdgSessionV1>>,
+    pub num_live_sessions: NumCell<usize>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

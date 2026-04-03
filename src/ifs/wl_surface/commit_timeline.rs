@@ -66,6 +66,7 @@ pub struct CommitTimeline {
     fifo_barrier_set: Cell<bool>,
     fifo_waiter: Cell<Option<NodeRef<Entry>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
+    toplevel_restored_waiter: Cell<Option<NodeRef<Entry>>>,
 }
 
 struct Inner {
@@ -148,6 +149,7 @@ impl CommitTimelines {
             fifo_barrier_set: Cell::new(false),
             fifo_waiter: Default::default(),
             commit_time_waiter: Default::default(),
+            toplevel_restored_waiter: Default::default(),
         }
     }
 
@@ -181,6 +183,7 @@ impl CommitTimeline {
             ClearReason::BreakLoops => {
                 self.fifo_waiter.take();
                 self.commit_time_waiter.take();
+                self.toplevel_restored_waiter.take();
                 break_loops(&self.own_timeline.entries)
             }
             ClearReason::Destroy => {
@@ -205,17 +208,20 @@ impl CommitTimeline {
             shm_uploads: 0,
             acquire_files: Default::default(),
             commit_time: Default::default(),
+            toplevel_restored: Default::default(),
         };
         collector.collect(pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
         let acquire_files = collector.acquire_files;
         let commit_time = collector.commit_time;
+        let toplevel_restored = collector.toplevel_restored;
         let has_commit_time = commit_time > 0;
         let has_dependencies = points.is_not_empty()
             || pending_uploads > 0
             || acquire_files.is_not_empty()
-            || has_commit_time;
+            || has_commit_time
+            || toplevel_restored.is_some();
         let must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
@@ -246,6 +252,7 @@ impl CommitTimeline {
                 pending_polls: Cell::new(Default::default()),
                 fifo_state: Cell::new(commit_fifo_state),
                 commit_times: RefCell::new(CommitTimesState::Ready),
+                toplevel_restored,
             }),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
@@ -289,6 +296,9 @@ impl CommitTimeline {
                 };
                 needs_flush = true;
             }
+            if commit.toplevel_restored.is_some() {
+                needs_flush = true;
+            }
         }
         if needs_flush && noderef.prev().is_none() {
             flush_from(noderef.clone()).map_err(CommitTimelineError::DelayedCommit)?;
@@ -309,6 +319,12 @@ impl CommitTimeline {
 
     pub fn has_fifo_barrier(&self) -> bool {
         self.fifo_barrier_set.get()
+    }
+
+    pub fn toplevel_restored(&self) {
+        if let Some(waiter) = self.toplevel_restored_waiter.take() {
+            self.shared.flush_requests.flush_waiters.push(waiter);
+        }
     }
 
     pub fn before_latch(&self, surface: &WlSurface, present: u64) -> BeforeLatchResult {
@@ -448,6 +464,7 @@ struct Commit {
     pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
     fifo_state: Cell<CommitFifoState>,
     commit_times: RefCell<CommitTimesState>,
+    toplevel_restored: Option<Rc<Cell<bool>>>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -508,6 +525,12 @@ impl NodeRef<Entry> {
                     CommitTimesState::Registered { .. } => {
                         has_unmet_dependencies = true;
                     }
+                }
+                if let Some(restored) = &c.toplevel_restored
+                    && !restored.get()
+                {
+                    tl.toplevel_restored_waiter.set(Some(self.clone()));
+                    has_unmet_dependencies = true;
                 }
                 if has_unmet_dependencies {
                     return Ok(false);
@@ -694,6 +717,7 @@ struct CommitDataCollector {
     shm_uploads: usize,
     acquire_files: SmallVec<[Rc<OwnedFd>; 1]>,
     commit_time: u64,
+    toplevel_restored: Option<Rc<Cell<bool>>>,
 }
 
 impl CommitDataCollector {
@@ -720,6 +744,12 @@ impl CommitDataCollector {
         }
         if let Some(commit_time) = pending.commit_time.take() {
             self.commit_time = self.commit_time.max(commit_time);
+        }
+        if let Some(xdg) = &mut pending.xdg_surface
+            && let Some(restored) = xdg.restored.take()
+            && !restored.get()
+        {
+            self.toplevel_restored = Some(restored);
         }
         for ss in pending.subsurfaces.values_mut() {
             if let Some(state) = &mut ss.pending.state {

@@ -93,11 +93,8 @@ pub struct Session {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SessionReason {
-    #[expect(dead_code)]
     Launch,
-    #[expect(dead_code)]
     Recover,
-    #[expect(dead_code)]
     SessionRestore,
 }
 
@@ -244,7 +241,6 @@ impl SessionManager {
         }
     }
 
-    #[expect(dead_code)]
     pub fn get(
         self: &Rc<Self>,
         name: SessionName,
@@ -386,7 +382,6 @@ impl Session {
         self.disown_to_peer(false);
     }
 
-    #[expect(dead_code)]
     pub fn get(
         self: &Rc<Self>,
         name_text: &str,
@@ -431,7 +426,6 @@ impl Session {
         Ok((ts, status))
     }
 
-    #[expect(dead_code)]
     pub fn remove_toplevel(&self, name: &str) {
         let name = self.name.toplevel(name);
         let mut job = self
@@ -454,7 +448,6 @@ impl Session {
         ts.disown_to_peer();
     }
 
-    #[expect(dead_code)]
     pub fn remove(&self) {
         let mut job = self
             .manager
@@ -548,7 +541,6 @@ impl ToplevelSession {
         self.disown_(true);
     }
 
-    #[expect(dead_code)]
     pub fn disown_from_peer(self: &Rc<Self>) {
         self.disown_(false);
     }
@@ -557,7 +549,6 @@ impl ToplevelSession {
         self.session.fatal(msg);
     }
 
-    #[expect(dead_code)]
     pub fn rename(self: &Rc<Self>, new_text: &str) -> Result<(), SessionManagementError> {
         let old = self.name.get();
         let new = self.session.name.toplevel(new_text);

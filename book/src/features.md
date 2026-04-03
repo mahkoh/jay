@@ -264,6 +264,7 @@ granted access. See
 | wp_tearing_control_manager_v1                        | 1       |            |
 | wp_viewporter                                        | 1       |            |
 | xdg_activation_v1                                    | 1       |            |
+| xdg_session_manager_v1                               | 1       |            |
 | xdg_toplevel_drag_manager_v1                         | 1       |            |
 | xdg_toplevel_tag_manager_v1                          | 1       |            |
 | xdg_wm_base                                          | 7       |            |
