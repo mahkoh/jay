@@ -55,6 +55,7 @@ use {
         pr_caps::{PrCapsThread, pr_caps},
         scale::Scale,
         sighand::{self, SighandError},
+        sm::{SessionManager, flush_toplevel_sessions},
         sqlite::{Sqlite, handle_sqlite_optimize},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, handle_const_40hz_latch, idle},
@@ -232,6 +233,7 @@ fn start_compositor2(
             log::warn!("Could not open sqlite: {}", ErrorFmt(e));
         })
         .ok();
+    let sm = sqlite.as_ref().map(SessionManager::new).map(Rc::new);
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -405,6 +407,7 @@ fn start_compositor2(
         virtual_outputs: Default::default(),
         clean_logs_older_than: Default::default(),
         sqlite,
+        sm,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -620,6 +623,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             handle_warp_mouse_to_focus(state.clone()),
         ),
         eng.spawn("optimize sqlite", handle_sqlite_optimize(state.clone())),
+        eng.spawn(
+            "flush toplevel sessions",
+            flush_toplevel_sessions(state.clone()),
+        ),
     ]
 }
 

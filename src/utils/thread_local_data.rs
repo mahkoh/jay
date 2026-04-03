@@ -26,10 +26,9 @@ impl<T> ThreadLocalData<T>
 where
     T: 'static,
 {
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub fn new(thread_id: &ThreadId) -> Self {
+    pub fn new(thread_id: ThreadId) -> Self {
         Self {
-            thread_id: *thread_id,
+            thread_id,
             ptr: Default::default(),
         }
     }

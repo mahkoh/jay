@@ -114,7 +114,6 @@ pub struct Sqlite {
     pending: SyncQueue<Pending>,
     requests: AsyncQueue<Request>,
     _lock_file: LockFile,
-    #[expect(dead_code)]
     pub thread_id: ThreadId,
 }
 
@@ -163,9 +162,7 @@ pub struct SqliteWriteTransaction<'a> {
 
 pub struct SqliteCtx {
     pub db: Rc<SqliteDb>,
-    #[expect(dead_code)]
     pub tx: SqliteTransactionManager,
-    #[expect(dead_code)]
     pub user_id: SqliteUserId,
 }
 
@@ -202,7 +199,6 @@ pub struct SqliteUsage {
 }
 
 impl SqliteAccounting {
-    #[expect(dead_code)]
     pub fn new(max: usize) -> SqliteAccounting {
         Self {
             cur: Default::default(),
@@ -210,7 +206,6 @@ impl SqliteAccounting {
         }
     }
 
-    #[expect(dead_code)]
     pub fn reserve(self: &Rc<Self>) -> Result<SqliteUsage, SqliteError> {
         let cur = self.cur.get();
         if cur >= self.max {
@@ -446,13 +441,11 @@ unsafe extern "C" fn log(_ptr: *mut c_void, code: c_int, msg: *const c_char) {
 }
 
 impl SqliteTransactionManager {
-    #[expect(dead_code)]
     pub fn begin_read(&mut self) -> Result<SqliteReadTransaction<'_>, SqliteError> {
         self.begin.exec()?;
         Ok(SqliteReadTransaction { mgr: self })
     }
 
-    #[expect(dead_code)]
     pub fn begin_write(&mut self) -> Result<SqliteWriteTransaction<'_>, SqliteError> {
         self.begin_immediate.exec()?;
         Ok(SqliteWriteTransaction {
@@ -462,7 +455,6 @@ impl SqliteTransactionManager {
 }
 
 impl SqliteWriteTransaction<'_> {
-    #[expect(dead_code)]
     pub fn commit(self) -> Result<(), SqliteError> {
         self.tx.mgr.commit.exec()?;
         mem::forget(self);

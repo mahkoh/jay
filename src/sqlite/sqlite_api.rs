@@ -232,7 +232,6 @@ impl<'bind, 'stmt> SqliteActiveStmt<'bind, 'stmt> {
         Ok(res)
     }
 
-    #[expect(dead_code)]
     pub fn get_blob(&self, idx: c_int) -> Result<&[u8], SqliteError> {
         if self.state != StatementState::Row {
             return Err(SqliteError::NotRow);

@@ -913,6 +913,7 @@ macro_rules! opaque {
         }
 
         impl $ty {
+            #[allow(clippy::allow_attributes, dead_code)]
             pub fn to_string(self) -> arrayvec::ArrayString<{ crate::utils::opaque::OPAQUE_LEN }> {
                 self.0.to_string()
             }

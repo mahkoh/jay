@@ -20,7 +20,7 @@ fn test() {
     assert_eq!(RC.load(Relaxed), 0);
 
     thread::spawn(|| {
-        let data = ThreadLocalData::new(&ThreadId::current());
+        let data = ThreadLocalData::new(ThreadId::current());
         let get = || {
             data.get_or_create(|| {
                 RC.fetch_add(1, Relaxed);
@@ -43,7 +43,7 @@ fn test() {
 #[test]
 #[should_panic]
 fn wrong_thread() {
-    let data = thread::spawn(|| ThreadLocalData::new(&ThreadId::current()))
+    let data = thread::spawn(|| ThreadLocalData::new(ThreadId::current()))
         .join()
         .unwrap();
     data.get_or_create(|| Rc::new(()));

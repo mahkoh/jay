@@ -15,6 +15,7 @@ use {
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
         security_context_acceptor::AcceptorMetadata,
+        sqlite::SqliteAccounting,
         state::State,
         utils::{
             asyncevent::AsyncEvent,
@@ -220,6 +221,7 @@ impl Clients {
             changed_properties: Default::default(),
             destroyed: Default::default(),
             acceptor: acceptor.clone(),
+            sqlite_accounting: Rc::new(SqliteAccounting::new(256)),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -347,6 +349,7 @@ pub struct Client {
     pub changed_properties: Cell<ClMatcherChange>,
     pub destroyed: CopyHashMap<CritMatcherId, Weak<dyn CritDestroyListener<Rc<Self>>>>,
     pub acceptor: Rc<AcceptorMetadata>,
+    pub sqlite_accounting: Rc<SqliteAccounting>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

@@ -102,6 +102,7 @@ use {
         renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
+        sm::SessionManager,
         sqlite::Sqlite,
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
@@ -311,6 +312,7 @@ pub struct State {
     pub virtual_outputs: VirtualOutputs,
     pub clean_logs_older_than: Cell<Option<SystemTime>>,
     pub sqlite: Option<Rc<Sqlite>>,
+    pub sm: Option<Rc<SessionManager>>,
 }
 
 // impl Drop for State {
@@ -1194,6 +1196,10 @@ impl State {
         self.egg_state.clear();
         self.control_centers.clear();
         self.virtual_outputs.clear();
+        if let Some(sm) = &self.sm {
+            sm.flush_all();
+            sm.clear();
+        }
         if let Some(sqlite) = &self.sqlite {
             sqlite.clear();
         }
@@ -2022,6 +2028,9 @@ impl State {
     }
 
     pub fn flush_sqlite_blocking(&self) {
+        if let Some(sm) = &self.sm {
+            sm.flush_all();
+        }
         if let Some(sqlite) = &self.sqlite {
             sqlite.blocking_roundtrip();
         }
