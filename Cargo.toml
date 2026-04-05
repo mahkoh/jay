@@ -80,58 +80,38 @@ cc = "1.0.86"
 blake3 = "1.8.2"
 walkdir = "2.5.0"
 
-#[profile.dev.build-override]
-#opt-level = 3
+[profile.dev.package]
+jay-algorithms = { opt-level = 3 }
+smallvec = { opt-level = 3 }
+egui = { opt-level = 3, debug = "line-tables-only" }
+emath = { opt-level = 3, debug = "line-tables-only" }
+epaint = { opt-level = 3, debug = "line-tables-only" }
+ecolor = { opt-level = 3, debug = "line-tables-only" }
+font-types = { opt-level = 3, debug = "line-tables-only" }
+skrifa = { opt-level = 3, debug = "line-tables-only" }
+read-fonts = { opt-level = 3, debug = "line-tables-only" }
+vello_cpu = { opt-level = 3, debug = "line-tables-only" }
+vello_common = { opt-level = 3, debug = "line-tables-only" }
+peniko = { opt-level = 3, debug = "line-tables-only" }
+kurbo = { opt-level = 3, debug = "line-tables-only" }
 
-[profile.dev.package."jay-algorithms"]
-opt-level = 3
+[profile.ci]
+inherits = "dev"
 
-[profile.dev.package."smallvec"]
-opt-level = 3
-
-[profile.dev.package."egui"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."emath"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."epaint"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."ecolor"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."font-types"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."skrifa"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."read-fonts"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."vello_cpu"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."vello_common"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."peniko"]
-opt-level = 3
-debug = "line-tables-only"
-
-[profile.dev.package."kurbo"]
-opt-level = 3
-debug = "line-tables-only"
+[profile.ci.package]
+jay-algorithms = { opt-level = 3 }
+smallvec = { opt-level = 3 }
+egui = { opt-level = 1 }
+emath = { opt-level = 1 }
+epaint = { opt-level = 1 }
+ecolor = { opt-level = 1 }
+font-types = { opt-level = 1 }
+skrifa = { opt-level = 1 }
+read-fonts = { opt-level = 1 }
+vello_cpu = { opt-level = 1 }
+vello_common = { opt-level = 1 }
+peniko = { opt-level = 1 }
+kurbo = { opt-level = 1 }
 
 [features]
 rc_tracking = []
