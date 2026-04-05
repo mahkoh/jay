@@ -258,12 +258,7 @@ impl VirtualOutputs {
             state: state.clone(),
             id,
             kernel_id,
-            output_id: Rc::new(OutputId::new(
-                kernel_id.to_string(),
-                "Jay".to_string(),
-                "VirtualOutput".to_string(),
-                name.to_string(),
-            )),
+            output_id: OutputId::new(kernel_id.to_string(), "Jay", "VirtualOutput", name),
             name: format!("VO-{}", name),
             frontend_state: Default::default(),
             needs_format_update: Default::default(),

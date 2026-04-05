@@ -933,3 +933,35 @@ macro_rules! opaque {
         }
     };
 }
+
+macro_rules! hash_type {
+    ($name:ident) => {
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        pub struct $name(pub [u8; 32]);
+
+        impl $name {
+            #[allow(clippy::allow_attributes, dead_code)]
+            pub fn hash(t: impl AsRef<[u8]>) -> Self {
+                Self(*blake3::hash(t.as_ref()).as_bytes())
+            }
+        }
+
+        impl serde::Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                self.0.serialize(serializer)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                <[u8; 32]>::deserialize(deserializer).map(Self)
+            }
+        }
+    };
+}

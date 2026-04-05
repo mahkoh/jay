@@ -54,12 +54,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     });
     let new_monitor_info = MonitorInfo {
         modes: Some(vec![]),
-        output_id: Rc::new(OutputId {
-            connector: None,
-            manufacturer: "jay".to_string(),
-            model: "jay second connector".to_string(),
-            serial_number: "".to_string(),
-        }),
+        output_id: OutputId::new("", "jay", "jay second connector", ""),
         width_mm: 0,
         height_mm: 0,
         non_desktop: false,

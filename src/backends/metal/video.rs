@@ -1311,12 +1311,7 @@ fn create_connector_display_data(
             }
         }
     }
-    let output_id = Rc::new(OutputId::new(
-        connector_id.to_string(),
-        manufacturer,
-        name,
-        serial_number,
-    ));
+    let output_id = OutputId::new(connector_id.to_string(), manufacturer, name, serial_number);
     let first_mode = info
         .modes
         .first()
