@@ -1,0 +1,132 @@
+name: tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Restore target dir
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: target
+      - name: Build
+        run: |
+          cargo build --profile=ci
+      - name: Save target dir
+        uses: actions/cache/save@v5
+        if: github.event_name == 'push'
+        with:
+          path: target
+          key: target
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Restore target dir
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: target-test
+      - name: Test
+        run: |
+          cargo test --profile=ci
+          ls -lha target
+      - name: Test-tc
+        run: |
+          git submodule update --init
+          cd toml-config
+          cargo test --profile=ci
+      - name: Save target dir
+        uses: actions/cache/save@v5
+        if: github.event_name == 'push'
+        with:
+          path: target
+          key: target-test
+  check-musl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y musl-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup target install x86_64-unknown-linux-musl
+      - name: Restore target dir
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: target-musl
+      - name: Check
+        run: |
+          cargo check --profile=ci --target x86_64-unknown-linux-musl
+      - name: Save target dir
+        uses: actions/cache/save@v5
+        if: github.event_name == 'push'
+        with:
+          path: target
+          key: target-musl
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev \
+            libfontconfig-dev libvulkan1 mesa-vulkan-drivers xwayland adwaita-icon-theme
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Configure
+        run: |
+          ls -lha /dev/dri
+          sudo chmod o+rw /dev/dri/card*
+          sudo chmod o+r /dev/udmabuf
+      - name: Restore target dir
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: target
+      - name: Build
+        run: |
+          cargo build --profile=ci --features it
+      - name: Test
+        run: |
+          export RUST_BACKTRACE=1
+          ./target/ci/jay run-tests
