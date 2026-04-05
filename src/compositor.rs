@@ -685,12 +685,7 @@ fn init_fd_limit() {
 }
 
 fn create_dummy_output(state: &Rc<State>) {
-    let output_id = Rc::new(OutputId {
-        connector: Some("jay-dummy-connector".to_string()),
-        manufacturer: "jay".to_string(),
-        model: "jay-dummy-output".to_string(),
-        serial_number: "".to_string(),
-    });
+    let output_id = OutputId::new("jay-dummy-connector", "jay", "jay-dummy-output", "");
     let persistent_state = Rc::new(PersistentOutputState::default());
     let id = state.connector_ids.next();
     let connector = Rc::new(DummyOutput { id }) as Rc<dyn Connector>;

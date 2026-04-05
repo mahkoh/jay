@@ -33,6 +33,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
+        hash::{Hash, Hasher},
         rc::Rc,
     },
     thiserror::Error,
@@ -164,27 +165,67 @@ impl Default for PersistentOutputState {
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, Debug)]
 pub struct OutputId {
-    pub connector: Option<String>,
+    pub _connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
+    pub hash: OutputIdHash,
+}
+
+hash_type!(OutputIdHash);
+
+impl PartialEq for OutputId {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl Hash for OutputId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash.hash(state);
+    }
 }
 
 impl OutputId {
     pub fn new(
+        connector: impl Into<String>,
+        manufacturer: impl Into<String>,
+        model: impl Into<String>,
+        serial_number: impl Into<String>,
+    ) -> Rc<Self> {
+        let connector = connector.into();
+        let manufacturer = manufacturer.into();
+        let model = model.into();
+        let serial_number = serial_number.into();
+        Self::new_(connector, manufacturer, model, serial_number)
+    }
+
+    fn new_(
         connector: String,
         manufacturer: String,
         model: String,
         serial_number: String,
-    ) -> Self {
-        Self {
-            connector: serial_number.is_empty().then_some(connector),
+    ) -> Rc<Self> {
+        let connector = serial_number.is_empty().then_some(connector);
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&[connector.is_some() as u8]);
+        let mut hash = |s: &str| {
+            hasher.update(&(s.len() as u64).to_le_bytes());
+            hasher.update(s.as_bytes());
+        };
+        connector.as_deref().map(&mut hash);
+        hash(&manufacturer);
+        hash(&model);
+        hash(&serial_number);
+        Rc::new(Self {
+            _connector: connector,
             manufacturer,
             model,
             serial_number,
-        }
+            hash: OutputIdHash(*hasher.finalize().as_bytes()),
+        })
     }
 }
 

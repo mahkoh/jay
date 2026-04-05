@@ -154,12 +154,7 @@ impl TestBackend {
         });
         let default_monitor_info = MonitorInfo {
             modes: Some(vec![mode]),
-            output_id: Rc::new(OutputId {
-                connector: None,
-                manufacturer: "jay".to_string(),
-                model: "TestConnector".to_string(),
-                serial_number: default_connector.id.to_string(),
-            }),
+            output_id: OutputId::new("", "jay", "TestConnector", default_connector.id.to_string()),
             width_mm: 80,
             height_mm: 60,
             non_desktop: false,

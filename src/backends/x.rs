@@ -591,12 +591,12 @@ impl XBackend {
             .push(BackendEvent::NewConnector(output.clone()));
         output.events.push(ConnectorEvent::Connected(MonitorInfo {
             modes: Some(vec![]),
-            output_id: Rc::new(OutputId::new(
-                String::new(),
-                "X.Org Foundation".to_string(),
+            output_id: OutputId::new(
+                "",
+                "X.Org Foundation",
                 format!("X-Window-{}", output.window),
                 output.window.to_string(),
-            )),
+            ),
             width_mm: output.width.get(),
             height_mm: output.height.get(),
             non_desktop: false,
