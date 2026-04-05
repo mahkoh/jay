@@ -127,4 +127,5 @@ mod xwayland;
 
 fn main() {
     cli::main();
+
 }
