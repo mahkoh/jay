@@ -1,6 +1,8 @@
 use {
     crate::{
         client::Client,
+        ifs::wl_output::OutputIdHash,
+        rect::Rect,
         sm::{
             sm_jobs::{
                 SmDbStateHolder, SmPending, SmScheduled,
@@ -22,6 +24,7 @@ use {
         },
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
+        tree::{Node, OutputNode, ToplevelData, WorkspaceHash, WorkspaceNode},
         utils::{
             asyncevent::AsyncEvent,
             cell_ext::CellExt,
@@ -120,7 +123,6 @@ pub struct ToplevelSession {
     restore: Cell<bool>,
     id: Cell<Option<ToplevelSessionId>>,
     owner: CloneCell<Option<Rc<dyn ToplevelSessionOwner>>>,
-    #[expect(dead_code)]
     pub state: ToplevelSessionState,
     job: Cell<Option<ToplevelJob>>,
 }
@@ -170,7 +172,13 @@ pub struct SessionListScheduled {
 }
 
 #[derive(Default, Clone)]
-pub struct ToplevelSessionState {}
+pub struct ToplevelSessionState {
+    pub output: Cell<Option<OutputIdHash>>,
+    pub floating_pos: Cell<Option<Rect>>,
+    pub workspace: CloneCell<Option<Rc<String>>>,
+    workspace_hash: Cell<Option<WorkspaceHash>>,
+    pub fullscreen: Cell<bool>,
+}
 
 opaque!(SessionName, session_name);
 
@@ -294,7 +302,6 @@ impl SessionManager {
 }
 
 impl Session {
-    #[expect(dead_code)]
     pub fn reason(&self) -> SessionReason {
         self.reason.get()
     }
@@ -463,10 +470,60 @@ impl Session {
 }
 
 impl ToplevelSession {
-    #[expect(dead_code)]
     fn state_changed(self: &Rc<Self>) {
         self.changed.set(true);
         self.schedule_job(false);
+    }
+
+    pub fn set_workspace(self: &Rc<Self>, ws: &WorkspaceNode, data: &ToplevelData) {
+        let hash = (!ws.is_dummy).then_some(ws.hash);
+        if hash == self.state.workspace_hash.get() {
+            return;
+        }
+        self.state.workspace_hash.set(hash);
+        self.state
+            .workspace
+            .set((!ws.is_dummy).then_some(ws.name.clone()));
+        self.state_changed();
+        self.set_output(&ws.output.get(), data);
+    }
+
+    pub fn set_output(self: &Rc<Self>, on: &OutputNode, data: &ToplevelData) {
+        let hash = (!on.is_dummy).then_some(on.global.output_id.hash);
+        if hash == self.state.output.get() {
+            return;
+        }
+        self.state.output.set(hash);
+        self.state_changed();
+        self.set_float_pos(data);
+    }
+
+    pub fn set_float_pos(self: &Rc<Self>, data: &ToplevelData) {
+        let rect = if data.parent_is_float.get() {
+            let on = data.output();
+            if on.is_dummy {
+                None
+            } else {
+                let on = on.node_absolute_position();
+                let rect = data.desired_extents.get().move_(-on.x1(), -on.y1());
+                Some(rect)
+            }
+        } else {
+            None
+        };
+        if rect == self.state.floating_pos.get() {
+            return;
+        }
+        self.state.floating_pos.set(rect);
+        self.state_changed();
+    }
+
+    pub fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
+        if fullscreen == self.state.fullscreen.get() {
+            return;
+        }
+        self.state.fullscreen.set(fullscreen);
+        self.state_changed();
     }
 
     fn schedule_job(self: &Rc<Self>, allow_changed: bool) {
@@ -516,10 +573,17 @@ impl ToplevelSession {
                 return;
             }
             self.changed.take();
+            let s = &self.state;
+            let tid = self.session.manager.thread_id;
             let job = self.session.add_job(self, |job: &mut ToplevelUpdateJob| {
                 job.work.session_id = session_id;
                 job.work.id = id;
-                job.work.data = SmToplevelIn {};
+                job.work.data = SmToplevelIn {
+                    output: s.output.get(),
+                    workspace: s.workspace.get().map(|v| SendSyncRc::new(tid, &v)),
+                    floating_pos: s.floating_pos.get(),
+                    fullscreen: s.fullscreen.get(),
+                };
             });
             self.job.set(Some(ToplevelJob::Update(job)));
             return;

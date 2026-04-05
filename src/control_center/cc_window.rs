@@ -358,7 +358,7 @@ pub fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Topl
         label(ui, "ID", &*data.identifier.get().to_string());
         label(ui, "Title", &*data.title.borrow());
         if let Some(w) = data.workspace.get() {
-            label(ui, "Workspace", &w.name);
+            label(ui, "Workspace", &*w.name);
         }
         match &data.kind {
             ToplevelType::Container => {

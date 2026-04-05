@@ -95,7 +95,10 @@ impl SqliteJob for ToplevelAcquireJob {
                 cb.id.set(Some(o.id));
                 let restored = o.restored.is_some();
                 if let Some(v) = o.restored {
-                    let _ = v;
+                    cb.state.output.set(v.output);
+                    cb.state.workspace.set(v.workspace.map(Rc::new));
+                    cb.state.floating_pos.set(v.floating_pos);
+                    cb.state.fullscreen.set(v.fullscreen);
                 }
                 if let Some(owner) = cb.owner.get() {
                     owner.loaded(SessionGetStatus::from_restored(restored));

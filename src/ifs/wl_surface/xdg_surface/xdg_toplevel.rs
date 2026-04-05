@@ -407,6 +407,13 @@ impl XdgToplevel {
         parent: Option<&XdgToplevel>,
         pos: Option<(&Rc<OutputNode>, i32, i32)>,
     ) {
+        if let Some(session) = self.toplevel_data.session.get()
+            && self
+                .state
+                .map_restore(self.clone(), &session, parent.is_some())
+        {
+            return;
+        }
         if let Some(state) = self.state.initial_tile_state(&self.toplevel_data) {
             match state {
                 TileState::Floating => {

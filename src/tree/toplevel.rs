@@ -121,11 +121,14 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         }
         let was_floating = data.parent_is_float.get();
         let is_floating = parent.node_is_float();
-        if was_floating != is_floating {
-            data.property_changed(TL_CHANGED_FLOATING);
-        }
         data.parent_is_float.set(is_floating);
         self.tl_set_workspace(&parent.clone().cnode_workspace());
+        if was_floating != is_floating {
+            data.property_changed(TL_CHANGED_FLOATING);
+            if let Some(session) = data.session.get() {
+                session.set_float_pos(data);
+            }
+        }
         {
             let float = parent.cnode_get_float();
             let prev = data.float.set(float.clone());
@@ -154,6 +157,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let prev = data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
         self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
+        if let Some(session) = data.session.get() {
+            session.set_workspace(ws, data);
+        }
         let prev_output = match &prev {
             Some(n) => n.output.get(),
             _ => ws.state.dummy_output.get().unwrap(),
@@ -179,6 +185,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 handle.send_done();
             }
         }
+        if let Some(session) = data.session.get() {
+            session.set_output(new, data);
+        }
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
@@ -195,6 +204,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if data.parent_is_float.get() {
             data.float_width.set(rect.width());
             data.float_height.set(rect.height());
+            if let Some(session) = data.session.get() {
+                session.set_float_pos(data);
+            }
         }
         self.tl_change_extents_impl(rect)
     }
@@ -247,6 +259,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
         self.tl_mark_fullscreen_ext();
+        if let Some(session) = self.tl_data().session.get() {
+            session.set_fullscreen(fullscreen);
+        }
     }
 
     fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
@@ -958,7 +973,13 @@ impl ToplevelData {
 
     pub fn set_session(&self, session: &Rc<ToplevelSession>, restore: bool) {
         if !restore {
-            // nothing
+            if let Some(ws) = &self.workspace.get() {
+                session.set_workspace(&ws, self);
+            }
+            if self.parent_is_float.get() {
+                session.set_float_pos(self);
+            }
+            session.set_fullscreen(self.is_fullscreen.get());
         }
         self.session.set(Some(session.clone()));
     }

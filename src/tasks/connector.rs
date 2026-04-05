@@ -194,6 +194,7 @@ impl ConnectorHandler {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
             workspace: CloneCell::new(None),
+            workspace_id: Default::default(),
             seat_state: Default::default(),
             global: global.clone(),
             layers: Default::default(),
