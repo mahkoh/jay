@@ -710,6 +710,13 @@ impl ContainerNode {
         }
     }
 
+    fn last_active(&self) -> Option<NodeId> {
+        match self.mono_child.get() {
+            Some(c) => Some(c.node.node_id()),
+            None => self.focus_history.last().map(|v| v.node.node_id()),
+        }
+    }
+
     fn render_titles(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let Some(ctx) = self.state.render_ctx.get() else {
@@ -718,7 +725,7 @@ impl ContainerNode {
         let theme = &self.state.theme;
         let th = theme.title_height();
         let font = theme.title_font();
-        let last_active = self.focus_history.last().map(|v| v.node.node_id());
+        let last_active = self.last_active();
         let have_active = self.children.iter().any(|c| c.active.get());
         let scales = self.state.scales.lock();
         for child in self.children.iter() {
@@ -819,7 +826,7 @@ impl ContainerNode {
         rd.border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
-        let last_active = self.focus_history.last().map(|v| v.node.node_id());
+        let last_active = self.last_active();
         let mono = self.mono_child.is_some();
         let split = self.split.get();
         let have_active = self.children.iter().any(|c| c.active.get());
