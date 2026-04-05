@@ -1,0 +1,93 @@
+name: tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Build
+        run: |
+          cargo build --profile=ci
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Test
+        run: |
+          cargo test --profile=ci
+      - name: Test-tc
+        run: |
+          git submodule update --init
+          cd toml-config
+          cargo test --profile=ci
+  check-musl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y musl-dev
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup target install x86_64-unknown-linux-musl
+      - name: Check
+        run: |
+          cargo check --profile=ci --target x86_64-unknown-linux-musl
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev \
+            libfontconfig-dev libvulkan1 mesa-vulkan-drivers xwayland adwaita-icon-theme
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Configure
+        run: |
+          ls -lha /dev/dri
+          sudo chmod o+rw /dev/dri/card*
+          sudo chmod o+r /dev/udmabuf
+      - name: Build
+        run: |
+          cargo build --profile=ci --features it
+      - name: Test
+        run: |
+          export RUST_BACKTRACE=1
+          ./target/ci/jay run-tests
