@@ -166,3 +166,41 @@ jobs:
         with:
           path: target
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install
+        run: |
+          sudo apt-get install -y nix
+          sudo systemctl start nix-daemon.service
+          sudo chown -R $(whoami) /nix
+      - name: Restore cache
+        id: restore-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            /nix
+            target
+          key: cache-nix
+      - name: Build
+        run: |
+          nix \
+            --extra-experimental-features nix-command \
+            --extra-experimental-features flakes \
+            develop --command cargo build --profile ci
+      - name: Clear binaries
+        run: find target -executable -type f \( -name jay -or -name 'jay-*' \) -exec rm '{}' + -print
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: Save cache
+        uses: actions/cache/save@v5
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          path: |
+            /nix
+            target
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
