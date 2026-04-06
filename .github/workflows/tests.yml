@@ -34,7 +34,7 @@ jobs:
         run: |
           cargo build --profile=ci
       - name: Delete old cache
-        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit && steps.build.outcome == 'success'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
@@ -73,7 +73,7 @@ jobs:
           cd toml-config
           cargo test --profile=ci
       - name: Delete old cache
-        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit && steps.build.outcome == 'success'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
@@ -107,7 +107,7 @@ jobs:
         run: |
           cargo check --profile=ci --target x86_64-unknown-linux-musl
       - name: Delete old cache
-        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit && steps.build.outcome == 'success'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
@@ -146,7 +146,7 @@ jobs:
         run: |
           cargo build --profile=ci --features it
       - name: Delete old cache
-        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit && steps.build.outcome == 'success'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
