@@ -25,6 +25,7 @@ jobs:
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Restore target dir
+        id: restore-cache
         uses: actions/cache/restore@v5
         with:
           path: target
@@ -32,12 +33,17 @@ jobs:
       - name: Build
         run: |
           cargo build --profile=ci
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.ccache_restore.outputs.cache-hit && steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: Save target dir
         uses: actions/cache/save@v5
         if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target-build
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
   unit-test:
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +58,7 @@ jobs:
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Restore target dir
+        id: restore-cache
         uses: actions/cache/restore@v5
         with:
           path: target
@@ -65,12 +72,17 @@ jobs:
           git submodule update --init
           cd toml-config
           cargo test --profile=ci
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.ccache_restore.outputs.cache-hit && steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: Save target dir
         uses: actions/cache/save@v5
         if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target-unit-test
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
   check-musl:
     runs-on: ubuntu-latest
     steps:
@@ -86,6 +98,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           rustup target install x86_64-unknown-linux-musl
       - name: Restore target dir
+        id: restore-cache
         uses: actions/cache/restore@v5
         with:
           path: target
@@ -93,12 +106,17 @@ jobs:
       - name: Check
         run: |
           cargo check --profile=ci --target x86_64-unknown-linux-musl
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.ccache_restore.outputs.cache-hit && steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: Save target dir
         uses: actions/cache/save@v5
         if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target-musl
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -119,6 +137,7 @@ jobs:
           sudo chmod o+rw /dev/dri/card*
           sudo chmod o+r /dev/udmabuf
       - name: Restore target dir
+        id: restore-cache
         uses: actions/cache/restore@v5
         with:
           path: target
@@ -126,12 +145,17 @@ jobs:
       - name: Build
         run: |
           cargo build --profile=ci --features it
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.ccache_restore.outputs.cache-hit && steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: Save target dir
         uses: actions/cache/save@v5
         if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target-tests
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: Test
         run: |
           export RUST_BACKTRACE=1
