@@ -28,16 +28,16 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: target
-          key: target
+          key: target-build
       - name: Build
         run: |
           cargo build --profile=ci
       - name: Save target dir
         uses: actions/cache/save@v5
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target
+          key: target-build
   unit-test:
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +55,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: target
-          key: target-test
+          key: target-unit-test
       - name: Test
         run: |
           cargo test --profile=ci
@@ -67,10 +67,10 @@ jobs:
           cargo test --profile=ci
       - name: Save target dir
         uses: actions/cache/save@v5
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
-          key: target-test
+          key: target-unit-test
   check-musl:
     runs-on: ubuntu-latest
     steps:
@@ -95,7 +95,7 @@ jobs:
           cargo check --profile=ci --target x86_64-unknown-linux-musl
       - name: Save target dir
         uses: actions/cache/save@v5
-        if: github.event_name == 'push'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         with:
           path: target
           key: target-musl
@@ -122,10 +122,16 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: target
-          key: target
+          key: target-tests
       - name: Build
         run: |
           cargo build --profile=ci --features it
+      - name: Save target dir
+        uses: actions/cache/save@v5
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          path: target
+          key: target-tests
       - name: Test
         run: |
           export RUST_BACKTRACE=1
