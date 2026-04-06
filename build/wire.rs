@@ -6,7 +6,7 @@ use {
         wire::parser::{Field, Lined, Message, Type, parse_messages, to_camel},
     },
     anyhow::{Context, Result},
-    std::{fmt, fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
+    std::{env, fmt, fs::DirEntry, io::Write, os::unix::ffi::OsStrExt, path::Path},
 };
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
@@ -45,22 +45,22 @@ fn write_message_type<W: Write>(
     needs_lifetime: bool,
 ) -> Result<()> {
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
-    writeln!(f, "    pub struct {}{} {{", message.camel_name, lifetime)?;
-    writeln!(f, "        pub self_id: {}Id,", obj)?;
+    writeln!(f, "pub struct {}{} {{", message.camel_name, lifetime)?;
+    writeln!(f, "    pub self_id: {}Id,", obj)?;
     for field in &message.fields {
         write_field(f, &field.val)?;
     }
-    writeln!(f, "    }}")?;
+    writeln!(f, "}}")?;
     writeln!(
         f,
-        "    impl{} std::fmt::Debug for {}{} {{",
+        "impl{} std::fmt::Debug for {}{} {{",
         lifetime, message.camel_name, lifetime
     )?;
     writeln!(
         f,
-        "        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{"
+        "    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{"
     )?;
-    write!(f, r#"            write!(fmt, "{}("#, message.name)?;
+    write!(f, r#"        write!(fmt, "{}("#, message.name)?;
     for (i, field) in message.fields.iter().enumerate() {
         if i > 0 {
             write!(f, ", ")?;
@@ -76,8 +76,8 @@ fn write_message_type<W: Write>(
         write!(f, ", self.{}", field.val.name)?;
     }
     writeln!(f, r")")?;
-    writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
+    writeln!(f, "}}")?;
     Ok(())
 }
 
@@ -85,7 +85,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     let has_reference_type = message.has_reference_type;
     let uppercase = message.name.to_ascii_uppercase();
     writeln!(f)?;
-    writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id)?;
+    writeln!(f, "pub const {}: u32 = {};", uppercase, message.id)?;
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
@@ -96,50 +96,50 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     };
     writeln!(
         f,
-        "    impl<'a> RequestParser<'a> for {}{} {{",
+        "impl<'a> RequestParser<'a> for {}{} {{",
         message.camel_name, lifetime
     )?;
     writeln!(
         f,
-        "        type Generic<'b> = {}{};",
+        "    type Generic<'b> = {}{};",
         message.camel_name, lifetime_b,
     )?;
-    writeln!(f, "        const ID: u32 = {};", message.id)?;
+    writeln!(f, "    const ID: u32 = {};", message.id)?;
     writeln!(
         f,
-        "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
+        "    fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
         parser
     )?;
     if message.is_fixed_size {
-        writeln!(f, "            let [")?;
+        writeln!(f, "        let [")?;
         for (i, field) in message.fields.iter().enumerate() {
             match &field.val.ty.val {
                 Type::U64 => {
-                    writeln!(f, "                arg{i}_hi,")?;
-                    writeln!(f, "                arg{i}_lo,")?;
+                    writeln!(f, "            arg{i}_hi,")?;
+                    writeln!(f, "            arg{i}_lo,")?;
                 }
                 Type::U64Rev => {
-                    writeln!(f, "                arg{i}_lo,")?;
-                    writeln!(f, "                arg{i}_hi,")?;
+                    writeln!(f, "            arg{i}_lo,")?;
+                    writeln!(f, "            arg{i}_hi,")?;
                 }
                 Type::Fd => {}
                 _ => {
-                    writeln!(f, "                arg{i},")?;
+                    writeln!(f, "            arg{i},")?;
                 }
             }
         }
-        writeln!(f, "            ] = *{parser}.data() else {{")?;
+        writeln!(f, "        ] = *{parser}.data() else {{")?;
         writeln!(
             f,
-            "                return Err(MsgParserError::UnexpectedMessageSize);"
+            "            return Err(MsgParserError::UnexpectedMessageSize);"
         )?;
-        writeln!(f, "            }};")?;
-        writeln!(f, "            Ok(Self {{")?;
-        writeln!(f, "                self_id: {}Id::NONE,", obj)?;
+        writeln!(f, "        }};")?;
+        writeln!(f, "        Ok(Self {{")?;
+        writeln!(f, "            self_id: {}Id::NONE,", obj)?;
         for (i, field) in message.fields.iter().enumerate() {
             writeln!(
                 f,
-                "                {}: {},",
+                "            {}: {},",
                 field.val.name,
                 fmt::from_fn(|f| {
                     match &field.val.ty.val {
@@ -160,10 +160,10 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 })
             )?;
         }
-        writeln!(f, "            }})")?;
+        writeln!(f, "        }})")?;
     } else {
-        writeln!(f, "            let res = Ok(Self {{")?;
-        writeln!(f, "                self_id: {}Id::NONE,", obj)?;
+        writeln!(f, "        let res = Ok(Self {{")?;
+        writeln!(f, "            self_id: {}Id::NONE,", obj)?;
         for field in &message.fields {
             let p = match &field.val.ty.val {
                 Type::Id(..) => "object",
@@ -179,37 +179,37 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::Array(_) => "binary_array",
                 Type::Pod(_) => "binary",
             };
-            writeln!(f, "                {}: parser.{}()?,", field.val.name, p)?;
+            writeln!(f, "            {}: parser.{}()?,", field.val.name, p)?;
         }
-        writeln!(f, "            }});")?;
-        writeln!(f, "            parser.eof()?;")?;
-        writeln!(f, "            res")?;
+        writeln!(f, "        }});")?;
+        writeln!(f, "        parser.eof()?;")?;
+        writeln!(f, "        res")?;
     }
-    writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
+    writeln!(f, "}}")?;
     writeln!(
         f,
-        "    impl{} EventFormatter for {}{} {{",
+        "impl{} EventFormatter for {}{} {{",
         lifetime, message.camel_name, lifetime
     )?;
-    writeln!(f, "        fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
+    writeln!(f, "    fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
     if message.is_fixed_size {
-        writeln!(f, "            fmt.data(&[")?;
-        writeln!(f, "                self.self_id.0,")?;
-        writeln!(f, "                {uppercase},")?;
+        writeln!(f, "        fmt.data(&[")?;
+        writeln!(f, "            self.self_id.0,")?;
+        writeln!(f, "            {uppercase},")?;
         for field in &message.fields {
-            let prefix = format!("                self.{}", field.val.name);
+            let prefix = format!("            self.{}", field.val.name);
             match &field.val.ty.val {
                 Type::Id(_, _) => writeln!(f, "{prefix}.0,")?,
                 Type::U32 => writeln!(f, "{prefix},")?,
                 Type::I32 => writeln!(f, "{prefix} as u32,")?,
                 Type::U64 => {
-                    writeln!(f, "                (self.{} >> 32) as u32,", field.val.name)?;
+                    writeln!(f, "            (self.{} >> 32) as u32,", field.val.name)?;
                     writeln!(f, "{prefix} as u32,")?;
                 }
                 Type::U64Rev => {
                     writeln!(f, "{prefix} as u32,")?;
-                    writeln!(f, "                (self.{} >> 32) as u32,", field.val.name)?;
+                    writeln!(f, "            (self.{} >> 32) as u32,", field.val.name)?;
                 }
                 Type::Str => unreachable!(),
                 Type::OptStr => unreachable!(),
@@ -220,14 +220,14 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::Pod(_) => unreachable!(),
             }
         }
-        writeln!(f, "            ]);")?;
+        writeln!(f, "        ]);")?;
         for field in &message.fields {
             if let Type::Fd = &field.val.ty.val {
-                writeln!(f, "            fmt.fd(self.{});", field.val.name)?;
+                writeln!(f, "        fmt.fd(self.{});", field.val.name)?;
             }
         }
     } else {
-        writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
+        writeln!(f, "        fmt.header(self.self_id, {});", uppercase)?;
         fn write_fmt_expr<W: Write>(
             f: &mut W,
             prefix: &str,
@@ -251,7 +251,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::Pod(..) => "&",
                 _ => "",
             };
-            writeln!(f, "            {}fmt.{}({}{});", prefix, p, rf, access)?;
+            writeln!(f, "        {}fmt.{}({}{});", prefix, p, rf, access)?;
             Ok(())
         }
         for field in &message.fields {
@@ -263,14 +263,14 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
             )?;
         }
     }
-    writeln!(f, "        }}")?;
-    writeln!(f, "        fn id(&self) -> ObjectId {{")?;
-    writeln!(f, "            self.self_id.into()")?;
-    writeln!(f, "        }}")?;
-    writeln!(f, "        fn interface(&self) -> Interface {{")?;
-    writeln!(f, "            {}", obj)?;
-    writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
+    writeln!(f, "    fn id(&self) -> ObjectId {{")?;
+    writeln!(f, "        self.self_id.into()")?;
+    writeln!(f, "    }}")?;
+    writeln!(f, "    fn interface(&self) -> Interface {{")?;
+    writeln!(f, "        {}", obj)?;
+    writeln!(f, "    }}")?;
+    writeln!(f, "}}")?;
     Ok(())
 }
 
@@ -309,14 +309,14 @@ fn write_request_handler<W: Write>(
             parser = "crate::wl_usr::UsrCon";
             error = "crate::wl_usr::UsrConError";
             param = "ev";
-            writeln!(f, "    #[allow(clippy::allow_attributes, dead_code)]")?;
+            writeln!(f, "#[allow(clippy::allow_attributes, dead_code)]")?;
         }
     }
     writeln!(
         f,
-        "    pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{"
+        "pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{"
     )?;
-    writeln!(f, "        type Error: std::error::Error;")?;
+    writeln!(f, "    type Error: std::error::Error;")?;
     for message in messages {
         let msg = &message.val;
         let lt = match msg.has_reference_type {
@@ -326,71 +326,62 @@ fn write_request_handler<W: Write>(
         writeln!(f)?;
         writeln!(
             f,
-            "        fn {}(&self, {param}: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
+            "    fn {}(&self, {param}: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
             msg.safe_name, msg.camel_name
         )?;
     }
     writeln!(f)?;
-    writeln!(f, "        #[inline(always)]")?;
-    writeln!(f, "        fn handle_{snake_direction}_impl(")?;
-    writeln!(f, "            self: Rc<Self>,")?;
-    writeln!(f, "            client: &{parser},")?;
-    writeln!(f, "            req: u32,")?;
-    writeln!(
-        f,
-        "            parser: crate::utils::buffd::MsgParser<'_, '_>,"
-    )?;
-    writeln!(f, "        ) -> Result<(), {error}> {{")?;
+    writeln!(f, "    #[inline(always)]")?;
+    writeln!(f, "    fn handle_{snake_direction}_impl(")?;
+    writeln!(f, "        self: Rc<Self>,")?;
+    writeln!(f, "        client: &{parser},")?;
+    writeln!(f, "        req: u32,")?;
+    writeln!(f, "        parser: crate::utils::buffd::MsgParser<'_, '_>,")?;
+    writeln!(f, "    ) -> Result<(), {error}> {{")?;
     if messages.is_empty() {
-        writeln!(f, "            #![allow(unused_variables)]")?;
-        writeln!(f, "            Err({error}::InvalidMethod)")?;
+        writeln!(f, "        #![allow(unused_variables)]")?;
+        writeln!(f, "        Err({error}::InvalidMethod)")?;
     } else {
-        writeln!(f, "            let method;")?;
+        writeln!(f, "        let method;")?;
         writeln!(
             f,
-            "            let error: Box<dyn std::error::Error> = match req {{"
+            "        let error: Box<dyn std::error::Error> = match req {{"
         )?;
         for message in messages {
             let msg = &message.val;
-            write!(f, "                {} ", msg.id)?;
+            write!(f, "            {} ", msg.id)?;
             if let Some(since) = msg.attribs.since {
                 write!(f, "if self.version() >= {since} ")?;
             }
             writeln!(f, "=> {{")?;
-            writeln!(f, "                    method = \"{}\";", msg.name)?;
+            writeln!(f, "                method = \"{}\";", msg.name)?;
+            writeln!(f, "                match client.parse(&*self, parser) {{")?;
             writeln!(
                 f,
-                "                    match client.parse(&*self, parser) {{"
-            )?;
-            writeln!(
-                f,
-                "                        Ok(req) => match self.{}(req, &self) {{",
+                "                    Ok(req) => match self.{}(req, &self) {{",
                 msg.safe_name
             )?;
-            writeln!(f, "                            Ok(()) => return Ok(()),")?;
-            writeln!(f, "                            Err(e) => Box::new(e),")?;
-            writeln!(f, "                        }},")?;
+            writeln!(f, "                        Ok(()) => return Ok(()),")?;
+            writeln!(f, "                        Err(e) => Box::new(e),")?;
+            writeln!(f, "                    }},")?;
             writeln!(
                 f,
-                "                        Err(e) => Box::new(crate::client::ParserError(e)),"
+                "                    Err(e) => Box::new(crate::client::ParserError(e)),"
             )?;
-            writeln!(f, "                    }}")?;
-            writeln!(f, "                }},")?;
+            writeln!(f, "                }}")?;
+            writeln!(f, "            }},")?;
         }
-        writeln!(
-            f,
-            "                _ => return Err({error}::InvalidMethod),"
-        )?;
-        writeln!(f, "            }};")?;
-        writeln!(f, "            Err({error}::MethodError {{")?;
-        writeln!(f, "                interface: {camel_obj_name},")?;
-        writeln!(f, "                id: self.id(),")?;
-        writeln!(f, "                method,")?;
-        writeln!(f, "                error,")?;
-        writeln!(f, "            }})")?;
+        writeln!(f, "            _ => return Err({error}::InvalidMethod),")?;
+        writeln!(f, "        }};")?;
+        writeln!(f, "        Err({error}::MethodError {{")?;
+        writeln!(f, "            interface: {camel_obj_name},")?;
+        writeln!(f, "            id: self.id(),")?;
+        writeln!(f, "            method,")?;
+        writeln!(f, "            error,")?;
+        writeln!(f, "        }})")?;
     }
-    writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
+    writeln!(f, "}}")?;
     Ok(())
 }
 
@@ -416,29 +407,32 @@ fn write_file<W: Write>(
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
     writeln!(f)?;
-    writeln!(f, "pub mod {} {{", obj_name)?;
-    writeln!(f, "    use super::*;")?;
-    for message in messages.requests.iter().chain(messages.events.iter()) {
-        write_message(f, &camel_obj_name, &message.val)?;
+    writeln!(f, "pub mod {};", obj_name)?;
+    {
+        let f = &mut open(&format!("wire/{obj_name}.rs"))?;
+        writeln!(f, "use super::*;")?;
+        for message in messages.requests.iter().chain(messages.events.iter()) {
+            write_message(f, &camel_obj_name, &message.val)?;
+        }
+        write_request_handler(
+            f,
+            &camel_obj_name,
+            &messages.requests,
+            RequestHandlerDirection::Request,
+        )?;
+        write_request_handler(
+            f,
+            &camel_obj_name,
+            &messages.events,
+            RequestHandlerDirection::Event,
+        )?;
     }
-    write_request_handler(
-        f,
-        &camel_obj_name,
-        &messages.requests,
-        RequestHandlerDirection::Request,
-    )?;
-    write_request_handler(
-        f,
-        &camel_obj_name,
-        &messages.events,
-        RequestHandlerDirection::Event,
-    )?;
-    writeln!(f, "}}")?;
     Ok(())
 }
 
 pub fn main() -> Result<()> {
-    let mut f = open("wire.rs")?;
+    std::fs::create_dir_all(Path::new(&env::var("OUT_DIR").unwrap()).join("wire"))?;
+    let mut f = open("wire/mod.rs")?;
     writeln!(f, "use std::rc::Rc;")?;
     writeln!(f, "use uapi::OwnedFd;")?;
     writeln!(f, "use bstr::BStr;")?;
