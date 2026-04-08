@@ -38,9 +38,9 @@ impl Opaque {
 
 impl Display for Opaque {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:016x}", self.v[2])?;
-        write!(f, "{:016x}", self.v[1])?;
-        write!(f, "{:016x}", self.v[0])?;
+        write!(f, "{:016x}", self.v[2].to_le())?;
+        write!(f, "{:016x}", self.v[1].to_le())?;
+        write!(f, "{:016x}", self.v[0].to_le())?;
         Ok(())
     }
 }
@@ -86,11 +86,12 @@ impl FromStr for Opaque {
             return Err(OpaqueError::NotAscii);
         }
         let (b, c) = s.split_at(OPAQUE_SEGMENT);
-        let v = [
-            u64::from_str_radix(c, 16).map_err(OpaqueError::Parse)?,
-            u64::from_str_radix(b, 16).map_err(OpaqueError::Parse)?,
-            u64::from_str_radix(a, 16).map_err(OpaqueError::Parse)?,
-        ];
+        let parse = |s: &str| {
+            u64::from_str_radix(s, 16)
+                .map(u64::from_le)
+                .map_err(OpaqueError::Parse)
+        };
+        let v = [parse(c)?, parse(b)?, parse(a)?];
         Ok(Self { v })
     }
 }
