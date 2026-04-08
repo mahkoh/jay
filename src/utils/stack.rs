@@ -12,13 +12,17 @@ pub struct Stack<T> {
 
 impl<T> Default for Stack<T> {
     fn default() -> Self {
-        Self {
-            vec: Default::default(),
-        }
+        Self::new()
     }
 }
 
 impl<T> Stack<T> {
+    pub const fn new() -> Stack<T> {
+        Self {
+            vec: UnsafeCell::new(vec![]),
+        }
+    }
+
     pub fn push(&self, v: T) {
         unsafe {
             self.vec.get().deref_mut().push(v);

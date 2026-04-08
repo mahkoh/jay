@@ -59,6 +59,7 @@ pub mod static_text;
 pub mod string_ext;
 pub mod syncqueue;
 pub mod thread_id;
+pub mod thread_local_data;
 pub mod threshold_counter;
 pub mod timer;
 pub mod tri;
