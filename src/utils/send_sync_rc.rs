@@ -17,7 +17,7 @@ impl<T> SendSyncRc<T> {
     pub fn new(current: &ThreadId, v: &Rc<T>) -> Self {
         assert!(current.is_current());
         Self {
-            tid: current.clone(),
+            tid: *current,
             v: v.clone(),
         }
     }
