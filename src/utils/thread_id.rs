@@ -1,22 +1,26 @@
-use std::{cell::Cell, ptr, sync::Arc};
+use std::{
+    cell::Cell,
+    sync::atomic::{AtomicU64, Ordering::Relaxed},
+};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct ThreadId {
-    id: Arc<usize>,
+    id: u64,
 }
 
 thread_local! {
     static THREAD_ID: ThreadId = {
+        static NEXT: AtomicU64 = AtomicU64::new(1);
         let id = ThreadId {
-            id: Arc::new(0),
+            id: NEXT.fetch_add(1, Relaxed),
         };
-        THREAD_ID_ADDR.set(id.addr());
+        THREAD_ID_ID.set(id.id);
         id
     };
-    static THREAD_ID_ADDR: Cell<*const usize> = const { Cell::new(ptr::null()) };
+    static THREAD_ID_ID: Cell<u64> = const { Cell::new(0) };
 }
 
 impl Default for ThreadId {
@@ -27,18 +31,12 @@ impl Default for ThreadId {
 
 impl ThreadId {
     pub fn current() -> Self {
-        THREAD_ID.with(|tid| tid.clone())
-    }
-
-    #[inline]
-    fn addr(&self) -> *const usize {
-        let reference: &usize = &self.id;
-        reference as *const usize
+        THREAD_ID.with(|id| *id)
     }
 
     #[inline]
     pub fn is_current(&self) -> bool {
-        self.addr() == THREAD_ID_ADDR.get()
+        self.id == THREAD_ID_ID.get()
     }
 
     #[cfg_attr(not(test), expect(dead_code))]
