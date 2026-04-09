@@ -10,6 +10,7 @@ pub mod buf;
 pub mod buffd;
 pub mod bufio;
 pub mod cell_ext;
+pub mod clamp_ext;
 pub mod clone3;
 pub mod clonecell;
 pub mod compat;
