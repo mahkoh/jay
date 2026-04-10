@@ -83,6 +83,15 @@
             vulkan-loader
           ];
 
+          checkFlags = [
+            # the following tests require access to io_uring, which is disabled in the sandboxed build environment
+            "--skip=cpu_worker::tests::cancel"
+            "--skip=cpu_worker::tests::complete"
+            "--skip=eventfd_cache::tests::test"
+            "--skip=io_uring::ops::read_write_no_cancel::tests::cancel_in_kernel"
+            "--skip=io_uring::ops::read_write_no_cancel::tests::cancel_in_userspace"
+          ];
+
           postInstall = ''
             install -D etc/jay.portal $out/share/xdg-desktop-portal/portals/jay.portal
             install -D etc/jay-portals.conf $out/share/xdg-desktop-portal/jay-portals.conf
