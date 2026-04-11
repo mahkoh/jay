@@ -13,8 +13,8 @@ use {
     thiserror::Error,
 };
 
-const REASON_LAUNCH: u32 = 1;
-const REASON_RECOVER: u32 = 2;
+pub const REASON_LAUNCH: u32 = 1;
+pub const REASON_RECOVER: u32 = 2;
 const REASON_SESSION_RESTORE: u32 = 3;
 
 pub struct XdgSessionManagerV1Global {

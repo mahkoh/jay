@@ -14,7 +14,8 @@ use {
                 test_fifo_manager::TestFifoManager,
                 test_input_method_manager::TestInputMethodManager,
                 test_jay_compositor::TestJayCompositor, test_pointer_warp::TestPointerWarp,
-                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_session_manager::TestSessionManager, test_shm::TestShm,
+                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_syncobj_manager::TestSyncobjManager,
                 test_text_input_manager::TestTextInputManager,
                 test_toplevel_drag_manager::TestToplevelDragManager,
@@ -63,6 +64,7 @@ pub struct TestRegistrySingletons {
     pub wl_fixes: u32,
     pub wp_fifo_manager_v1: u32,
     pub wp_pointer_warp_v1: u32,
+    pub xdg_session_manager_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -93,6 +95,7 @@ pub struct TestRegistry {
     pub wl_fixes: CloneCell<Option<Rc<TestWlFixes>>>,
     pub fifo_manager: CloneCell<Option<Rc<TestFifoManager>>>,
     pub pointer_warp: CloneCell<Option<Rc<TestPointerWarp>>>,
+    pub session_manager: CloneCell<Option<Rc<TestSessionManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -167,6 +170,7 @@ impl TestRegistry {
             wl_fixes,
             wp_fifo_manager_v1,
             wp_pointer_warp_v1,
+            xdg_session_manager_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -296,6 +300,13 @@ impl TestRegistry {
         wp_pointer_warp_v1,
         1,
         TestPointerWarp
+    );
+    create_singleton!(
+        get_session_manager,
+        session_manager,
+        xdg_session_manager_v1,
+        1,
+        TestSessionManager
     );
 
     pub fn bind<O: TestObject>(

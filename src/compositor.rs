@@ -408,6 +408,7 @@ fn start_compositor2(
         clean_logs_older_than: Default::default(),
         sqlite,
         sm,
+        fallback_output: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

@@ -313,6 +313,7 @@ pub struct State {
     pub clean_logs_older_than: Cell<Option<SystemTime>>,
     pub sqlite: Option<Rc<Sqlite>>,
     pub sm: Option<Rc<SessionManager>>,
+    pub fallback_output: Cell<Option<ConnectorId>>,
 }
 
 // impl Drop for State {
@@ -837,6 +838,11 @@ impl State {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_fallback_output())
+            .or_else(|| {
+                self.fallback_output
+                    .get()
+                    .and_then(|o| self.root.outputs.get(&o))
+            })
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap()
