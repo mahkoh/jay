@@ -15,6 +15,7 @@ pub mod clone3;
 pub mod clonecell;
 pub mod compat;
 pub mod copyhashmap;
+pub mod data_dir;
 pub mod double_buffered;
 pub mod double_click_state;
 pub mod errorfmt;

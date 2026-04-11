@@ -6,7 +6,7 @@ use {
         client::ClientError,
         ifs::{
             wl_surface::{
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
                 tray::TrayItemId,
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
@@ -202,6 +202,7 @@ impl XdgPopupParent for Popup {
 #[derive(Default, Debug)]
 pub struct PendingXdgSurfaceData {
     geometry: Option<Rect>,
+    pub restored: Option<Rc<Cell<bool>>>,
 }
 
 impl PendingXdgSurfaceData {
@@ -214,11 +215,16 @@ impl PendingXdgSurfaceData {
             };
         }
         opt!(geometry);
+        opt!(restored);
     }
 }
 
 pub trait XdgSurfaceExt: Debug {
     fn initial_configure(self: Rc<Self>) {
+        // nothing
+    }
+
+    fn commit_requested(&self) {
         // nothing
     }
 
@@ -646,6 +652,13 @@ impl SurfaceExt for XdgSurface {
             return NodeLayerLink::Display;
         };
         ext.node_layer()
+    }
+
+    fn commit_requested(self: Rc<Self>, _pending: &mut Box<PendingState>) -> CommitAction {
+        if let Some(ext) = self.ext.get() {
+            ext.commit_requested();
+        }
+        CommitAction::ContinueCommit
     }
 
     fn before_apply_commit(

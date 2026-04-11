@@ -28,6 +28,7 @@ use {
                 log_level::LogLevelParser,
                 output::OutputsParser,
                 repeat_rate::RepeatRateParser,
+                session_management::SessionManagementParser,
                 shortcuts::{
                     ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError,
                     parse_modified_keysym_str,
@@ -156,6 +157,7 @@ impl Parser for ConfigParser<'_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
+            (session_management_val,),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -217,6 +219,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("clean-logs-older-than")),
                 recover(opt(bol("unstable-mouse-follows-focus"))),
             ),
+            (opt(val("session-management")),),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -462,6 +465,18 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut session_management = None;
+        if let Some(value) = session_management_val {
+            match value.parse(&mut SessionManagementParser(self.0)) {
+                Ok(v) => session_management = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the session-management settings: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         let mut float = None;
         if let Some(value) = float_val {
             match value.parse(&mut FloatParser(self.0)) {
@@ -602,6 +617,7 @@ impl Parser for ConfigParser<'_> {
             ui_drag,
             xwayland,
             color_management,
+            session_management,
             float,
             named_actions,
             max_action_depth,

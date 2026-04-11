@@ -1,0 +1,8 @@
+request destroy (destructor) {
+}
+
+request get_session {
+    id: id(xdg_session_v1) (new),
+    reason: u32,
+    session_id: optstr,
+}

@@ -1,0 +1,31 @@
+request destroy (destructor) {
+}
+
+request remove (destructor) {
+}
+
+request add_toplevel {
+    id: id(xdg_toplevel_session_v1) (new),
+    toplevel: id(xdg_toplevel),
+    name: str,
+}
+
+request restore_toplevel {
+    id: id(xdg_toplevel_session_v1) (new),
+    toplevel: id(xdg_toplevel),
+    name: str,
+}
+
+request remove_toplevel {
+    name: str,
+}
+
+event created {
+    session_id: str,
+}
+
+event restored {
+}
+
+event replaced {
+}

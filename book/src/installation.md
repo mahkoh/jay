@@ -65,6 +65,9 @@ For Vulkan, you also need the driver for your GPU:
 - **Xwayland** -- required for running X11 applications.
 - **PipeWire** -- required for screen sharing.
 - **logind** (part of systemd) -- required when running Jay from a virtual terminal or display manager.
+- **libsqlite3** (`libsqlite3.so`) -- required for session management. Loaded
+  from `sqlite` (Arch Linux), `sqlite-libs` (Fedora), or `libsqlite3-0` (Debian /
+  Ubuntu).
 
 ## Building
 

@@ -330,7 +330,7 @@ pub fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) 
         label(ui, "PID", client.pid_info.pid.to_string());
         label(ui, "UID", client.pid_info.uid.to_string());
         label(ui, "comm", &client.pid_info.comm);
-        label(ui, "exe", &client.pid_info.exe);
+        label(ui, "exe", &*client.pid_info.exe);
         if client.acceptor.sandboxed {
             read_only_bool(ui, "Sandboxed", true);
         }

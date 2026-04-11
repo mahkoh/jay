@@ -130,6 +130,12 @@ Jay supports the `zwlr_layer_shell_v1` protocol used by notification daemons
 such as [mako](https://github.com/emersion/mako), which is launched
 automatically by the default configuration.
 
+## Session Management
+
+Jay implements the `xdg_session_manager_v1` protocol, remembering each
+window's workspace, output, and position across restarts. See
+[Session Management](configuration/misc.md#session-management).
+
 ## Fractional Scaling
 
 Jay supports per-monitor fractional scaling. Scale factors can be set per
@@ -264,6 +270,7 @@ granted access. See
 | wp_tearing_control_manager_v1                        | 1       |            |
 | wp_viewporter                                        | 1       |            |
 | xdg_activation_v1                                    | 1       |            |
+| xdg_session_manager_v1                               | 1       |            |
 | xdg_toplevel_drag_manager_v1                         | 1       |            |
 | xdg_toplevel_tag_manager_v1                          | 1       |            |
 | xdg_wm_base                                          | 7       |            |

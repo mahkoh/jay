@@ -39,8 +39,8 @@ use {
         on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
         set_color_management_enabled, set_default_workspace_capture, set_explicit_sync_enabled,
         set_float_above_fullscreen, set_idle, set_idle_grace_period,
-        set_middle_click_paste_enabled, set_show_bar, set_show_float_pin_icon, set_show_titles,
-        set_ui_drag_enabled, set_ui_drag_threshold,
+        set_middle_click_paste_enabled, set_session_management_enabled, set_show_bar,
+        set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
@@ -1615,6 +1615,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         && let Some(enabled) = cm.enabled
     {
         set_color_management_enabled(enabled);
+    }
+    if let Some(cm) = config.session_management
+        && let Some(enabled) = cm.enabled
+    {
+        set_session_management_enabled(enabled);
     }
     if let Some(float) = config.float
         && let Some(show) = float.show_pin_icon

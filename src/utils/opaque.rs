@@ -5,6 +5,7 @@ use {
     serde::{Deserialize, Deserializer, Serialize, Serializer, de},
     std::{
         fmt::{Debug, Display, Formatter},
+        mem,
         num::ParseIntError,
         str::FromStr,
     },
@@ -33,6 +34,14 @@ impl Opaque {
         let mut s = ArrayString::new();
         write!(s, "{}", self).unwrap();
         s
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        uapi::as_bytes(&self.v)
+    }
+
+    pub fn from_bytes(bytes: [u8; size_of::<Opaque>()]) -> Self {
+        unsafe { mem::transmute(bytes) }
     }
 }
 

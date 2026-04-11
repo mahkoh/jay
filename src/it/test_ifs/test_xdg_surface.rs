@@ -40,6 +40,8 @@ impl TestXdgSurface {
             id,
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
+            configured: Cell::new(false),
+            configured_waiter: Cell::new(None),
             width: Cell::new(0),
             height: Cell::new(0),
             states: Default::default(),

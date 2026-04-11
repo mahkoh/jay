@@ -82,6 +82,8 @@ pub mod wp_viewporter;
 pub mod xdg_activation_token_v1;
 pub mod xdg_activation_v1;
 pub mod xdg_positioner;
+pub mod xdg_session_manager_v1;
+pub mod xdg_session_v1;
 pub mod xdg_toplevel_drag_manager_v1;
 pub mod xdg_toplevel_drag_v1;
 pub mod xdg_toplevel_tag_manager_v1;

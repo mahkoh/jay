@@ -102,6 +102,8 @@ use {
         renderer::Renderer,
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
+        sm::{SessionManager, SessionReason, ToplevelSession},
+        sqlite::Sqlite,
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
@@ -116,7 +118,6 @@ use {
         utils::{
             asyncevent::AsyncEvent,
             bindings::Bindings,
-            cell_ext::CellExt,
             clamp_ext::ClampExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -310,6 +311,10 @@ pub struct State {
     pub control_centers: ControlCenters,
     pub virtual_outputs: VirtualOutputs,
     pub clean_logs_older_than: Cell<Option<SystemTime>>,
+    pub sqlite: Option<Rc<Sqlite>>,
+    pub sm: Option<Rc<SessionManager>>,
+    pub session_management_enabled: Cell<bool>,
+    pub fallback_output: Cell<Option<ConnectorId>>,
 }
 
 // impl Drop for State {
@@ -830,14 +835,106 @@ impl State {
         }
     }
 
-    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+    pub fn get_map_output(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<OutputNode> {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_fallback_output())
+            .or_else(|| {
+                self.fallback_output
+                    .get()
+                    .and_then(|o| self.root.outputs.get(&o))
+            })
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap()
-            .ensure_workspace()
+    }
+
+    pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
+        self.get_map_output(seat).ensure_workspace()
+    }
+
+    pub fn map_restore(
+        self: &Rc<Self>,
+        node: Rc<dyn ToplevelNode>,
+        session: &Rc<ToplevelSession>,
+        has_parent: bool,
+    ) -> bool {
+        let s = &session.state;
+        let data = node.tl_data();
+        let on = || {
+            let o = s.output.get()?;
+            for on in self.root.outputs.lock().values() {
+                if on.global.output_id.hash == o {
+                    return Some(on.clone());
+                }
+            }
+            None
+        };
+        let ws = || {
+            let Some(name) = s.workspace.get() else {
+                return Some(on()?.ensure_workspace());
+            };
+            match self.workspaces.get(&*name) {
+                Some(ws) => {
+                    let Some(o) = session.state.output.get() else {
+                        return Some(ws);
+                    };
+                    let ws_on = ws.output.get();
+                    if ws_on.global.output_id.hash == o {
+                        if session.session.reason() == SessionReason::Recover {
+                            return Some(ws);
+                        }
+                        if ws_on.workspace_id.get() == Some(ws.id) {
+                            return Some(ws);
+                        }
+                    }
+                    Some(on()?.ensure_workspace())
+                }
+                None => {
+                    let on = on()?;
+                    if session.session.reason() == SessionReason::Recover {
+                        return Some(on.create_workspace(&name));
+                    }
+                    if let Some(ws) = on.workspace.get() {
+                        return Some(ws);
+                    }
+                    Some(on.create_workspace(&name))
+                }
+            }
+        };
+        let ws = if let Some(pos) = s.floating_pos.get() {
+            let Some(ws) = ws() else {
+                return false;
+            };
+            let op = ws.output.get().node_absolute_position();
+            self.map_floating(
+                node.clone(),
+                pos.width(),
+                pos.height(),
+                &ws,
+                Some((pos.x1() + op.x1(), pos.y1() + op.y1())),
+            );
+            ws
+        } else if s.fullscreen.get() {
+            let Some(ws) = ws() else {
+                return false;
+            };
+            self.map_tiled_on(node.clone(), &ws);
+            data.set_fullscreen2(self, node.clone(), &ws);
+            ws
+        } else if !has_parent {
+            let Some(ws) = ws() else {
+                return false;
+            };
+            self.map_tiled_on(node.clone(), &ws);
+            ws
+        } else {
+            return false;
+        };
+        if ws.output.get().workspace_id.get() != Some(ws.id) {
+            data.request_attention(&*node);
+        }
+        true
     }
 
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
@@ -1193,6 +1290,13 @@ impl State {
         self.egg_state.clear();
         self.control_centers.clear();
         self.virtual_outputs.clear();
+        if let Some(sm) = &self.sm {
+            sm.flush_all();
+            sm.clear();
+        }
+        if let Some(sqlite) = &self.sqlite {
+            sqlite.clear();
+        }
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1746,6 +1850,12 @@ impl State {
         self.trigger_cci(CCI_COLOR_MANAGEMENT);
     }
 
+    pub fn set_session_management_enabled(&self, enabled: bool) {
+        self.session_management_enabled.set(enabled);
+        self.expose_new_singletons();
+        self.trigger_cci(CCI_COMPOSITOR);
+    }
+
     pub fn set_primary_selection_enabled(&self, enabled: bool) {
         self.enable_primary_selection.set(enabled);
         self.expose_new_singletons();
@@ -2015,6 +2125,15 @@ impl State {
             blend_space: Cell::new(BlendSpace::Srgb),
             use_native_gamut: Cell::new(false),
         })
+    }
+
+    pub fn flush_sqlite_blocking(&self) {
+        if let Some(sm) = &self.sm {
+            sm.flush_all();
+        }
+        if let Some(sqlite) = &self.sqlite {
+            sqlite.blocking_roundtrip();
+        }
     }
 }
 

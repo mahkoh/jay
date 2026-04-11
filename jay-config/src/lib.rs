@@ -296,6 +296,15 @@ pub fn set_color_management_enabled(enabled: bool) {
     get!().set_color_management_enabled(enabled);
 }
 
+/// Enables or disables the session-management protocol.
+///
+/// The default is `true`.
+///
+/// Affected applications must be restarted for this to take effect.
+pub fn set_session_management_enabled(enabled: bool) {
+    get!().set_session_management_enabled(enabled);
+}
+
 /// Sets whether floating windows are shown above fullscreen windows.
 ///
 /// The default is `false`.

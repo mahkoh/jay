@@ -1,7 +1,7 @@
 use {
     crate::utils::{errorfmt::ErrorFmt, oserror::OsErrorExt},
     bstr::ByteSlice,
-    std::os::unix::ffi::OsStrExt,
+    std::{os::unix::ffi::OsStrExt, rc::Rc},
     uapi::{OwnedFd, c},
 };
 
@@ -9,7 +9,7 @@ pub struct PidInfo {
     pub uid: c::uid_t,
     pub pid: c::pid_t,
     pub comm: String,
-    pub exe: String,
+    pub exe: Rc<String>,
 }
 
 pub fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
@@ -36,7 +36,7 @@ pub fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
         uid,
         pid,
         comm,
-        exe,
+        exe: Rc::new(exe),
     }
 }
 

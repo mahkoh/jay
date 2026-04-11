@@ -30,3 +30,23 @@ macro_rules! tassert_eq {
         }
     }};
 }
+
+macro_rules! tassert_ne {
+    ($left:expr, $right:expr) => {{
+        match ($left, $right) {
+            (left, right) => {
+                if left == right {
+                    bail!(
+                        "Assert `{} = {:?} != {:?} = {}` failed ({}:{})",
+                        stringify!($left),
+                        left,
+                        right,
+                        stringify!($right),
+                        file!(),
+                        line!()
+                    );
+                }
+            }
+        }
+    }};
+}

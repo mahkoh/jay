@@ -86,6 +86,7 @@ pub struct OutputNode {
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<Rc<WorkspaceNode>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    pub workspace_id: Cell<Option<WorkspaceNodeId>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
     pub exclusive_zones: Cell<ExclusiveSize>,
@@ -455,6 +456,7 @@ impl OutputNode {
     pub fn clear(&self) {
         self.global.clear();
         self.workspace.set(None);
+        self.workspace_id.set(None);
         let workspaces: Vec<_> = self.workspaces.iter().collect();
         for workspace in workspaces {
             workspace.clear();
@@ -690,6 +692,7 @@ impl OutputNode {
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
+        self.workspace_id.set(Some(ws.id));
         if let Some(old) = self.workspace.set(Some(ws.clone())) {
             if old.id == ws.id {
                 return false;
@@ -707,7 +710,7 @@ impl OutputNode {
                     wh.handle_destroyed();
                 }
                 old.clear();
-                self.state.workspaces.remove(&old.name);
+                self.state.workspaces.remove(&*old.name);
             } else {
                 old.set_visible(false);
                 old.flush_jay_workspaces();

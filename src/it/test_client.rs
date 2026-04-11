@@ -11,10 +11,11 @@ use {
                 test_fifo_manager::TestFifoManager, test_jay_compositor::TestJayCompositor,
                 test_keyboard::TestKeyboard, test_pointer::TestPointer,
                 test_pointer_warp::TestPointerWarp, test_registry::TestRegistry,
-                test_seat::TestSeat, test_shm::TestShm,
+                test_seat::TestSeat, test_session::TestSession, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
-                test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
-                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
+                test_subcompositor::TestSubcompositor, test_toplevel_session::TestToplevelSession,
+                test_viewporter::TestViewporter, test_xdg_activation::TestXdgActivation,
+                test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
             test_utils::{test_surface_ext::TestSurfaceExt, test_window::TestWindow},
@@ -143,13 +144,30 @@ impl TestClient {
         })
     }
 
-    pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
+    pub async fn create_window_no_commit(&self) -> Result<Rc<TestWindow>, TestError> {
         let surface = self.create_surface_ext().await?;
         let xdg = self.xdg.create_xdg_surface(surface.surface.id).await?;
         let tl = xdg.create_toplevel().await?;
-        surface.surface.commit()?;
-        self.sync().await;
         Ok(Rc::new(TestWindow { surface, xdg, tl }))
+    }
+
+    pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
+        let win = self.create_window_no_commit().await?;
+        win.surface.surface.commit()?;
+        self.sync().await;
+        Ok(win)
+    }
+
+    pub async fn restore_window(
+        &self,
+        session: &TestSession,
+        name: &str,
+    ) -> Result<(Rc<TestWindow>, Rc<TestToplevelSession>), TestError> {
+        let win = self.create_window_no_commit().await?;
+        let session = session.restore_toplevel(&win, name)?;
+        win.surface.surface.commit()?;
+        win.tl.core.configured().await;
+        Ok((win, session))
     }
 }
 

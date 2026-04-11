@@ -60,6 +60,7 @@ use {
             wp_tearing_control_manager_v1::WpTearingControlManagerV1Global,
             wp_viewporter::WpViewporterGlobal,
             xdg_activation_v1::XdgActivationV1Global,
+            xdg_session_manager_v1::XdgSessionManagerV1Global,
             xdg_toplevel_drag_manager_v1::XdgToplevelDragManagerV1Global,
             xdg_toplevel_tag_manager_v1::XdgToplevelTagManagerV1Global,
             xdg_wm_base::XdgWmBaseGlobal,
@@ -250,6 +251,7 @@ singletons! {
     WpLinuxDrmSyncobjManagerV1,
     WpPresentation,
     ZwlrVirtualPointerManagerV1,
+    XdgSessionManagerV1,
 }
 
 pub struct Globals {

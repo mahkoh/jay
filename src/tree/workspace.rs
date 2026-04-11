@@ -45,6 +45,8 @@ use {
 
 tree_id!(WorkspaceNodeId);
 
+hash_type!(WorkspaceHash);
+
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
@@ -55,7 +57,8 @@ pub struct WorkspaceNode {
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
-    pub name: String,
+    pub name: Rc<String>,
+    pub hash: WorkspaceHash,
     pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
@@ -83,7 +86,8 @@ impl WorkspaceNode {
             container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
-            name: name.to_string(),
+            name: Rc::new(name.to_string()),
+            hash: WorkspaceHash::hash(name),
             output_link: Default::default(),
             visible: Default::default(),
             fullscreen: Default::default(),

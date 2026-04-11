@@ -13,13 +13,9 @@ pub struct SendSyncRc<T> {
 }
 
 impl<T> SendSyncRc<T> {
-    #[expect(dead_code)]
-    pub fn new(current: &ThreadId, v: &Rc<T>) -> Self {
-        assert!(current.is_current());
-        Self {
-            tid: *current,
-            v: v.clone(),
-        }
+    pub fn new(tid: ThreadId, v: &Rc<T>) -> Self {
+        assert!(tid.is_current());
+        Self { tid, v: v.clone() }
     }
 }
 

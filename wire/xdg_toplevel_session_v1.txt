@@ -1,0 +1,9 @@
+request destroy (destructor) {
+}
+
+request rename {
+    name: str,
+}
+
+event restored {
+}

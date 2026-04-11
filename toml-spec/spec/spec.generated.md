@@ -2194,6 +2194,19 @@ The table has the following fields:
 
   The value of this field should be a [ColorManagement](#types-ColorManagement).
 
+- `session-management` (optional):
+
+  Configures the session-management settings.
+  
+  - Example:
+  
+    ```toml
+    [session-management]
+    enabled = false
+    ```
+
+  The value of this field should be a [SessionManagement](#types-SessionManagement).
+
 - `float` (optional):
 
   Configures the settings of floating windows.
@@ -4383,6 +4396,33 @@ The table has the following fields:
   A comma-separated list of options.
 
   The value of this field should be a string.
+
+
+<a name="types-SessionManagement"></a>
+### `SessionManagement`
+
+Describes session-management settings.
+
+- Example:
+
+  ```toml
+  [session-management]
+  enabled = false
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `enabled` (optional):
+
+  Whether the session management protocol is enabled.
+  
+  This has no effect on running applications.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
 
 
 <a name="types-SimpleActionName"></a>

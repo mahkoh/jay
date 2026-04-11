@@ -1139,6 +1139,10 @@ impl ConfigProxyHandler {
         self.state.set_color_management_enabled(enabled);
     }
 
+    fn handle_set_session_management_enabled(&self, enabled: bool) {
+        self.state.set_session_management_enabled(enabled);
+    }
+
     fn handle_get_socket_path(&self) {
         match self.state.acceptor.get() {
             Some(a) => {
@@ -3412,6 +3416,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_window_resize(window, dx1, dy1, dx2, dy2)
                 .wrn("window_resize")?,
+            ClientMessage::SetSessionManagementEnabled { enabled } => {
+                self.handle_set_session_management_enabled(enabled)
+            }
         }
         Ok(())
     }

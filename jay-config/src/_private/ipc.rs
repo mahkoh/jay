@@ -875,6 +875,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         enabled: bool,
     },
+    SetSessionManagementEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

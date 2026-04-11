@@ -1,7 +1,9 @@
 use {
     crate::{
+        backend::{BackendConnectorState, Connector, Mode, transaction::ConnectorTransaction},
         client::{ClientId, RequestParser},
         fixed::Fixed,
+        format::XRGB8888,
         ifs::wl_seat::WlSeatGlobal,
         it::{
             test_backend::{TestBackend, TestBackendKb, TestBackendMouse, TestConnector},
@@ -13,9 +15,11 @@ use {
         },
         object::WL_DISPLAY_ID,
         state::State,
-        tree::OutputNode,
+        tree::{OutputNode, VrrMode},
         utils::{bitfield::Bitfield, buffd::MsgParser, oserror::OsErrorExt, stack::Stack},
+        virtual_output::VirtualOutput,
     },
+    arrayvec::ArrayVec,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -134,6 +138,53 @@ impl TestRun {
         })
     }
 
+    async fn create_virtual_output(
+        &self,
+        name: &str,
+    ) -> Result<(Rc<VirtualOutput>, Rc<OutputNode>), TestError> {
+        let vo = self.state.virtual_outputs.get_or_create(&self.state, name);
+        let mut ct = ConnectorTransaction::new(&self.state);
+        ct.add(
+            &(vo.clone() as _),
+            BackendConnectorState {
+                serial: self.state.backend_connector_state_serials.next(),
+                enabled: true,
+                active: true,
+                mode: Mode {
+                    width: 800,
+                    height: 600,
+                    refresh_rate_millihz: 0,
+                },
+                non_desktop_override: None,
+                vrr: true,
+                tearing: false,
+                format: XRGB8888,
+                color_space: Default::default(),
+                eotf: Default::default(),
+                gamma_lut: Default::default(),
+            },
+        )?;
+        ct.prepare()?.apply()?.commit();
+        self.sync().await;
+        let Some(node) = self.state.root.outputs.get(&vo.id()) else {
+            bail!("no output node");
+        };
+        Ok((vo, node))
+    }
+
+    pub async fn create_session_management_setup(&self) -> Result<SmSetup, TestError> {
+        self.backend.install_render_context(false)?;
+        let mut outputs = ArrayVec::new();
+        for i in 0..outputs.capacity() {
+            let (vo, node) = self.create_virtual_output(&format!("o{i}")).await?;
+            node.set_position(i as i32 * 800, 0);
+            node.set_vrr_mode(&VrrMode::Always);
+            outputs.push(SmOutput { vo, node });
+        }
+        self.state.fallback_output.set(Some(outputs[0].vo.id()));
+        Ok(SmSetup { outputs })
+    }
+
     pub async fn sync(&self) {
         self.state.eng.yield_now().await;
     }
@@ -164,4 +215,13 @@ impl DefaultSetup {
         let (dx, dy) = (nx - ox, ny - oy);
         self.mouse.rel(dx.to_f64(), dy.to_f64())
     }
+}
+
+pub struct SmSetup {
+    pub outputs: ArrayVec<SmOutput, 2>,
+}
+
+pub struct SmOutput {
+    pub vo: Rc<VirtualOutput>,
+    pub node: Rc<OutputNode>,
 }

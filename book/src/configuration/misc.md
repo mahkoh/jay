@@ -27,6 +27,32 @@ The CLI and control center (**Color Management** pane) can also toggle it:
 See [HDR & Color Management](../hdr.md) for a complete guide to HDR output and
 the color management protocol.
 
+## Session Management
+
+Jay implements the `xdg_session_manager_v1` protocol. Applications that
+support it can ask the compositor to remember their windows across restarts.
+Jay stores each toplevel's workspace, output, floating-window position, and
+fullscreen state, and restores them when the application re-creates the
+session after a compositor or application restart.
+
+Session data is stored in a local SQLite database under Jay's data directory
+(typically `~/.local/share/jay/db/`).
+
+The protocol is enabled by default. To disable it:
+
+```toml
+[session-management]
+enabled = false
+```
+
+> [!NOTE]
+> Changing this setting has no effect on applications that are already
+> running. Disabling session management only hides the global from newly
+> connecting clients -- previously stored session data is not deleted.
+
+The control center's **Compositor** pane has a **Session Management** toggle
+that flips this setting at runtime.
+
 ## Libei
 
 [libei](https://gitlab.freedesktop.org/libinput/libei) allows applications to

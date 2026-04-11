@@ -5,6 +5,7 @@ use {
             test_error::{TestError, TestResult},
             test_object::TestObject,
             test_transport::TestTransport,
+            test_utils::test_window::TestWindow,
             testrun::ParseFull,
         },
         tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
@@ -14,7 +15,9 @@ use {
     ahash::AHashSet,
     std::{
         cell::{Cell, RefCell},
+        future::poll_fn,
         rc::Rc,
+        task::{Poll, Waker},
     },
 };
 
@@ -22,6 +25,9 @@ pub struct TestXdgToplevelCore {
     pub id: XdgToplevelId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
+
+    pub configured: Cell<bool>,
+    pub configured_waiter: Cell<Option<Waker>>,
 
     pub width: Cell<i32>,
     pub height: Cell<i32>,
@@ -76,11 +82,34 @@ impl TestXdgToplevelCore {
         Ok(())
     }
 
+    pub fn set_parent(&self, parent: &TestWindow) -> Result<(), TestError> {
+        self.tran.send(SetParent {
+            self_id: self.id,
+            parent: parent.tl.server.id,
+        })?;
+        Ok(())
+    }
+
+    pub async fn configured(&self) {
+        poll_fn(|ctx| {
+            if self.configured.get() {
+                return Poll::Ready(());
+            }
+            self.configured_waiter.set(Some(ctx.waker().clone()));
+            Poll::Pending
+        })
+        .await;
+    }
+
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Configure::parse_full(parser)?;
         self.width.set(ev.width);
         self.height.set(ev.height);
         *self.states.borrow_mut() = ev.states.iter().copied().collect();
+        self.configured.set(true);
+        if let Some(waker) = self.configured_waiter.take() {
+            waker.wake();
+        }
         Ok(())
     }
 

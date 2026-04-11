@@ -85,6 +85,11 @@ mod t0051_pointer_warp;
 mod t0052_bar;
 mod t0053_theme;
 mod t0054_subsurface_already_attached;
+mod t0055_sm_basic;
+mod t0056_sm_fullscreen;
+mod t0057_sm_floating;
+mod t0058_sm_parent;
+mod t0059_sm_background_ws;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -158,5 +163,10 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0052_bar,
         t0053_theme,
         t0054_subsurface_already_attached,
+        t0055_sm_basic,
+        t0056_sm_fullscreen,
+        t0057_sm_floating,
+        t0058_sm_parent,
+        t0059_sm_background_ws,
     }
 }
