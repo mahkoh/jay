@@ -70,6 +70,10 @@ Log Level
 Log File
 : Click to copy the log file path to the clipboard (shown when the logger is available)
 
+Session Management
+: Toggle the `xdg_session_manager_v1` protocol (see
+  [Session Management](configuration/misc.md#session-management))
+
 Buttons at the bottom:
 
 - **Quit** -- stop the compositor.
