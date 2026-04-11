@@ -77,6 +77,17 @@ impl ExtWorkspaceManagerV1Global {
                 obj.announce_workspace(&dummy_output, &ws);
             }
         }
+        let hidden_workspaces: Vec<_> = client
+            .state
+            .workspaces
+            .lock()
+            .values()
+            .filter(|ws| ws.hidden.get() && ws.ext_workspaces.get(&obj.manager_id).is_none())
+            .cloned()
+            .collect();
+        for ws in hidden_workspaces {
+            obj.announce_workspace(&dummy_output, &ws);
+        }
         for output in client.state.root.outputs.lock().values() {
             obj.announce_output(output);
         }

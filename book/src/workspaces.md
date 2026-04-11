@@ -110,6 +110,50 @@ workspace-display-order = "sorted"
 
 You can also change this at runtime in the control center.
 
+## Empty Workspace Behavior
+
+Jay creates workspaces on demand. When a workspace becomes empty, Jay can
+optionally hide or destroy it automatically so your workspace list does not
+accumulate unused entries.
+
+Configure this with the `workspace-empty-behavior` top-level setting (or at
+runtime in the control center, in the Compositor pane):
+
+```toml
+workspace-empty-behavior = "hide-on-leave"
+```
+
+> [!NOTE]
+> This behavior is evaluated per output.
+>
+> - "leave" means the workspace stops being the active workspace on its output
+>   because you showed another workspace on that same output.
+> - "inactive" means the workspace is currently not the active workspace on its
+>   output.
+
+Supported values:
+
+`preserve`
+: Never destroy or hide empty workspaces automatically.
+
+`destroy-on-leave`
+: Destroy an empty workspace when you leave it (default).
+
+`hide-on-leave`
+: Hide an empty workspace when you leave it.
+
+`destroy`
+: Destroy an empty workspace whenever it is empty and inactive.
+
+`hide`
+: Hide an empty workspace whenever it is empty and inactive.
+
+> [!TIP]
+> Hidden workspaces are not listed in the bar or workspace lists, but you can
+> restore them by showing the workspace by name (for example via the
+> `show-workspace` action). When restoring a hidden workspace, Jay prefers the
+> output it was last shown on if that output is still connected.
+
 ## Hot-Plug and Hot-Unplug
 
 Jay handles monitor connections gracefully:

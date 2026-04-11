@@ -17,7 +17,7 @@ use {
             Transform, VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
-        workspace::WorkspaceDisplayOrder,
+        workspace::{WorkspaceDisplayOrder, WorkspaceEmptyBehavior},
         xwayland::XScalingMode,
     },
     serde::{Deserialize, Serialize},
@@ -874,6 +874,9 @@ pub enum ClientMessage<'a> {
     SeatSetMouseFollowsFocus {
         seat: Seat,
         enabled: bool,
+    },
+    SetWorkspaceEmptyBehavior {
+        behavior: WorkspaceEmptyBehavior,
     },
 }
 

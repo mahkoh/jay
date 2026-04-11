@@ -48,8 +48,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination, Transform,
-            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
-            walker::NodeVisitor,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceEmptyBehavior, WorkspaceNode,
+            WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -699,15 +699,19 @@ impl OutputNode {
                 pinned.deref().clone().set_workspace(ws, false);
             }
             if old.is_empty() {
-                for jw in old.jay_workspaces.lock().values() {
-                    jw.send_destroyed();
-                    jw.workspace.set(None);
+                match self.state.workspace_empty_behavior.get() {
+                    WorkspaceEmptyBehavior::Preserve => {
+                        old.set_visible(false);
+                        old.flush_jay_workspaces();
+                    }
+                    WorkspaceEmptyBehavior::DestroyOnLeave => {
+                        self.state.destroy_empty_workspace(&old)
+                    }
+                    WorkspaceEmptyBehavior::HideOnLeave => self.state.hide_empty_workspace(&old),
+                    WorkspaceEmptyBehavior::Destroy | WorkspaceEmptyBehavior::Hide => {
+                        self.state.enforce_workspace_empty_behavior(&old);
+                    }
                 }
-                for wh in old.ext_workspaces.lock().values() {
-                    wh.handle_destroyed();
-                }
-                old.clear();
-                self.state.workspaces.remove(&old.name);
             } else {
                 old.set_visible(false);
                 old.flush_jay_workspaces();
