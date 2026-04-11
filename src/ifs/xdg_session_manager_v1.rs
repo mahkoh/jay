@@ -60,7 +60,7 @@ impl Global for XdgSessionManagerV1Global {
     }
 
     fn exposed(&self, state: &State) -> bool {
-        state.sm.is_some()
+        state.sm.is_some() && state.session_management_enabled.get()
     }
 }
 

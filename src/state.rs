@@ -313,6 +313,7 @@ pub struct State {
     pub clean_logs_older_than: Cell<Option<SystemTime>>,
     pub sqlite: Option<Rc<Sqlite>>,
     pub sm: Option<Rc<SessionManager>>,
+    pub session_management_enabled: Cell<bool>,
     pub fallback_output: Cell<Option<ConnectorId>>,
 }
 
@@ -1847,6 +1848,12 @@ impl State {
         self.color_management_enabled.set(enabled);
         self.expose_new_singletons();
         self.trigger_cci(CCI_COLOR_MANAGEMENT);
+    }
+
+    pub fn set_session_management_enabled(&self, enabled: bool) {
+        self.session_management_enabled.set(enabled);
+        self.expose_new_singletons();
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 
     pub fn set_primary_selection_enabled(&self, enabled: bool) {

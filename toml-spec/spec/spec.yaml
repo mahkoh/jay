@@ -2975,6 +2975,18 @@ Config:
           [color-management]
           enabled = true
           ```
+    session-management:
+      ref: SessionManagement
+      required: false
+      description: |
+        Configures the session-management settings.
+
+        - Example:
+        
+          ```toml
+          [session-management]
+          enabled = false
+          ```
     float:
       ref: Float
       required: false
@@ -3741,6 +3753,29 @@ ColorManagement:
         This has no effect on running applications.
         
         The default is `false`.
+      kind: boolean
+      required: false
+
+
+SessionManagement:
+  kind: table
+  description: |
+    Describes session-management settings.
+    
+    - Example:
+    
+      ```toml
+      [session-management]
+      enabled = false
+      ```
+  fields:
+    enabled:
+      description: |
+        Whether the session management protocol is enabled.
+        
+        This has no effect on running applications.
+        
+        The default is `true`.
       kind: boolean
       required: false
 

@@ -70,6 +70,12 @@ impl CompositorPane {
                     }
                 });
             }
+            bool(
+                ui,
+                "Session Management",
+                s.session_management_enabled.get(),
+                |v| s.set_session_management_enabled(v),
+            );
         });
         if ui.button("Quit").clicked() {
             s.quit();

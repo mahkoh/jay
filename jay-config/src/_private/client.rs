@@ -1019,6 +1019,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetColorManagementEnabled { enabled });
     }
 
+    pub fn set_session_management_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetSessionManagementEnabled { enabled });
+    }
+
     pub fn set_float_above_fullscreen(&self, above: bool) {
         self.send(&ClientMessage::SetFloatAboveFullscreen { above });
     }
