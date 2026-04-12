@@ -71,7 +71,6 @@ pub struct VulkanDevice {
     pub(super) external_fence_fd: external_fence_fd::Device,
     pub(super) push_descriptor: push_descriptor::Device,
     pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
-    pub(super) descriptor_buffer: Option<descriptor_buffer::Device>,
     pub(super) formats: AHashMap<u32, VulkanFormat>,
     pub(super) blend_limits: VulkanBlendBufferLimits,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
@@ -80,15 +79,20 @@ pub struct VulkanDevice {
     pub(super) transfer_queue: Option<Queue>,
     pub(super) distinct_transfer_queue_family_idx: Option<u32>,
     pub(super) transfer_granularity_mask: (u32, u32),
-    pub(super) descriptor_buffer_offset_mask: DeviceSize,
-    pub(super) sampler_descriptor_size: usize,
-    pub(super) sampled_image_descriptor_size: usize,
     pub(super) is_anv: bool,
     pub(super) uniform_buffer_offset_mask: DeviceSize,
-    pub(super) uniform_buffer_descriptor_size: usize,
     pub(super) lost: Cell<bool>,
     pub(super) fast_ram_access: bool,
     pub(super) supports_timeline_opaque_export: bool,
+    pub(super) descriptor_buffer: Option<Rc<DescriptorBufferDevice>>,
+}
+
+pub(super) struct DescriptorBufferDevice {
+    pub(super) device: descriptor_buffer::Device,
+    pub(super) descriptor_buffer_offset_mask: DeviceSize,
+    pub(super) sampler_descriptor_size: usize,
+    pub(super) sampled_image_descriptor_size: usize,
+    pub(super) uniform_buffer_descriptor_size: usize,
 }
 
 impl Drop for VulkanDevice {
@@ -497,8 +501,6 @@ impl VulkanInstance {
         let push_descriptor = push_descriptor::Device::new(&self.instance, &device);
         let image_drm_format_modifier =
             image_drm_format_modifier::Device::new(&self.instance, &device);
-        let descriptor_buffer = supports_descriptor_buffer
-            .then(|| descriptor_buffer::Device::new(&self.instance, &device));
         let mut descriptor_buffer_props = PhysicalDeviceDescriptorBufferPropertiesEXT::default();
         let mut physical_device_vulkan12_properties = PhysicalDeviceVulkan12Properties::default();
         let mut physical_device_properties2 = PhysicalDeviceProperties2::default()
@@ -557,6 +559,16 @@ impl VulkanInstance {
             PhysicalDeviceType::INTEGRATED_GPU => true,
             _ => false,
         };
+        let mut descriptor_buffer = None;
+        if supports_descriptor_buffer {
+            descriptor_buffer = Some(DescriptorBufferDevice {
+                device: descriptor_buffer::Device::new(&self.instance, &device),
+                descriptor_buffer_offset_mask,
+                sampler_descriptor_size,
+                sampled_image_descriptor_size,
+                uniform_buffer_descriptor_size,
+            });
+        }
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
@@ -570,7 +582,6 @@ impl VulkanInstance {
             external_fence_fd,
             push_descriptor,
             image_drm_format_modifier,
-            descriptor_buffer,
             formats,
             memory_types,
             graphics_queue,
@@ -578,17 +589,14 @@ impl VulkanInstance {
             transfer_queue,
             distinct_transfer_queue_family_idx,
             transfer_granularity_mask,
-            descriptor_buffer_offset_mask,
-            sampler_descriptor_size,
-            sampled_image_descriptor_size,
             blend_limits,
             is_anv: physical_device_vulkan12_properties.driver_id
                 == DriverId::INTEL_OPEN_SOURCE_MESA,
             uniform_buffer_offset_mask,
-            uniform_buffer_descriptor_size,
             lost: Cell::new(false),
             fast_ram_access,
             supports_timeline_opaque_export,
+            descriptor_buffer: descriptor_buffer.map(Rc::new),
         }))
     }
 }

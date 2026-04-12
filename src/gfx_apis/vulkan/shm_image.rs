@@ -476,8 +476,8 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Internal(shm),
             bridge: None,
-            sampled_image_descriptor: self.sampled_image_descriptor(usage, view),
             execution_version: Cell::new(0),
+            descriptor_buffer: self.descriptor_buffer_image(usage, view),
         });
         let shm = match &img.ty {
             VulkanImageMemory::DmaBuf(_) => unreachable!(),
