@@ -149,23 +149,15 @@ impl Drop for VulkanDmaBufImage {
 
 impl Drop for VulkanImage {
     fn drop(&mut self) {
+        let d = &self.renderer.device.device;
         unsafe {
-            self.renderer
-                .device
-                .device
-                .destroy_image_view(self.texture_view, None);
+            d.destroy_image_view(self.texture_view, None);
             if let Some(render_view) = self.render_view {
-                self.renderer
-                    .device
-                    .device
-                    .destroy_image_view(render_view, None);
+                d.destroy_image_view(render_view, None);
             }
-            self.renderer.device.device.destroy_image(self.image, None);
+            d.destroy_image(self.image, None);
             if let Some(bridge) = &self.bridge {
-                self.renderer
-                    .device
-                    .device
-                    .destroy_image(bridge.dmabuf_image, None);
+                d.destroy_image(bridge.dmabuf_image, None);
             }
         }
     }

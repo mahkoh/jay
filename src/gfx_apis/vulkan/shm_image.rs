@@ -341,18 +341,19 @@ async fn await_upload(
     vulkan_sync: VulkanSync,
     _staging: VulkanStagingBuffer,
 ) {
+    let renderer = &img.renderer;
     if let Some(sync) = &sync
-        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
+        && let Err(e) = sync.try_signaled(&renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
         );
-        img.renderer.block();
+        renderer.block();
     }
     vulkan_sync.handle_validation();
-    img.renderer.gfx_command_buffers.buffers.push(buf);
-    img.renderer.pending_submits.remove(&id);
+    renderer.gfx_command_buffers.buffers.push(buf);
+    renderer.pending_submits.remove(&id);
 }
 
 impl VulkanRenderer {

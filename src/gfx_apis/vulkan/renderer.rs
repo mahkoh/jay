@@ -252,7 +252,7 @@ struct PaintRegion {
 
 pub(super) struct PendingFrame {
     point: u64,
-    renderer: Rc<VulkanRenderer>,
+    _renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
     _fb: Rc<VulkanImage>,
     _bb: Option<Rc<VulkanImage>>,
@@ -1832,7 +1832,7 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let frame = Rc::new(PendingFrame {
             point,
-            renderer: self.clone(),
+            _renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
             _fb: fb.clone(),
             _bb: bb,
@@ -2228,16 +2228,16 @@ async fn await_release(
             "Could not wait for release semaphore to be signaled: {}",
             ErrorFmt(e)
         );
-        frame.renderer.block();
+        renderer.block();
     }
     if let Some(vs) = &frame.vulkan_sync {
         vs.handle_validation();
     }
     if let Some(buf) = frame.cmd.take() {
-        frame.renderer.gfx_command_buffers.buffers.push(buf);
+        renderer.gfx_command_buffers.buffers.push(buf);
     }
     for wait_semaphore in frame.wait_semaphores.take() {
-        frame.renderer.wait_semaphores.push(wait_semaphore);
+        renderer.wait_semaphores.push(wait_semaphore);
     }
     renderer.pending_frames.remove(&frame.point);
 }
