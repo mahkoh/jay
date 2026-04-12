@@ -457,7 +457,9 @@ impl VulkanDmaBufImageTemplate {
                 _allocation: allocation,
             });
         }
-        let texture_view = device.create_image_view(primary_image, self.dmabuf.format, false)?;
+        let texture_view = (!for_rendering)
+            .then(|| device.create_image_view(primary_image, self.dmabuf.format, false))
+            .transpose()?;
         let render_view = for_rendering
             .then(|| device.create_image_view(primary_image, self.dmabuf.format, true))
             .transpose()?;
@@ -466,7 +468,7 @@ impl VulkanDmaBufImageTemplate {
         mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
             renderer: self.renderer.clone(),
-            texture_view: Some(texture_view),
+            texture_view,
             render_view,
             image: primary_image,
             width: self.width,
@@ -484,7 +486,8 @@ impl VulkanDmaBufImageTemplate {
             }),
             bridge,
             execution_version: Cell::new(0),
-            descriptor_buffer: self.renderer.descriptor_buffer_image(usage, texture_view),
+            descriptor_buffer: texture_view
+                .and_then(|v| self.renderer.descriptor_buffer_image(usage, v)),
         }))
     }
 
