@@ -81,7 +81,6 @@ impl VulkanAllocation {
         Ok(t)
     }
 
-    #[expect(dead_code)]
     pub unsafe fn upload_range<T, F>(
         &self,
         offset: usize,

@@ -11,7 +11,7 @@ use {
         gfx_apis::vulkan::{
             VulkanError,
             allocator::VulkanAllocation,
-            device::{DescriptorBufferDevice, VulkanDevice},
+            device::{DescriptorBufferDevice, DescriptorHeapDevice, VulkanDevice},
             format::VulkanModifierLimits,
             renderer::VulkanRenderer,
             shm_image::VulkanShmImage,
@@ -19,21 +19,22 @@ use {
         },
         rect::Region,
         theme::Color,
-        utils::oserror::OsErrorExt2,
+        utils::{clonecell::CloneCell, oserror::OsErrorExt2, page_alloc::PageAllocEntry},
         video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
         BindImageMemoryInfo, BindImagePlaneMemoryInfo, ComponentMapping, ComponentSwizzle,
         DescriptorDataEXT, DescriptorGetInfoEXT, DescriptorImageInfo, DescriptorType, DeviceMemory,
         Extent3D, ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo, FormatFeatureFlags,
-        Image, ImageAspectFlags, ImageCreateFlags, ImageCreateInfo,
-        ImageDrmFormatModifierExplicitCreateInfoEXT, ImageLayout, ImageMemoryRequirementsInfo2,
-        ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange, ImageTiling, ImageType,
-        ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR,
-        MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR,
-        MemoryPropertyFlags, MemoryRequirements2, SampleCountFlags, Sampler, SharingMode,
-        SubresourceLayout,
+        HostAddressRangeEXT, Image, ImageAspectFlags, ImageCreateFlags, ImageCreateInfo,
+        ImageDescriptorInfoEXT, ImageDrmFormatModifierExplicitCreateInfoEXT, ImageLayout,
+        ImageMemoryRequirementsInfo2, ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange,
+        ImageTiling, ImageType, ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType,
+        ImportMemoryFdInfoKHR, MemoryAllocateInfo, MemoryDedicatedAllocateInfo,
+        MemoryFdPropertiesKHR, MemoryPropertyFlags, MemoryRequirements2, ResourceDescriptorDataEXT,
+        ResourceDescriptorInfoEXT, SampleCountFlags, Sampler, SharingMode, SubresourceLayout,
     },
+    core::slice,
     gpu_alloc::UsageFlags,
     run_on_drop::{OnDrop, on_drop},
     std::{
@@ -71,10 +72,16 @@ pub struct VulkanImage {
     pub(super) bridge: Option<VulkanFramebufferBridge>,
     pub(super) execution_version: Cell<u64>,
     pub(super) descriptor_buffer: Option<DescriptorBufferImage>,
+    pub(super) descriptor_heap: Option<DescriptorHeapImage>,
 }
 
 pub struct DescriptorBufferImage {
     pub(super) sampled_image_descriptor: Option<Box<[u8]>>,
+}
+
+pub struct DescriptorHeapImage {
+    pub(super) sampled_image_descriptor: Option<Box<[u8]>>,
+    pub(super) sampled_image_descriptor_entry: CloneCell<Option<Rc<PageAllocEntry>>>,
 }
 
 impl VulkanRenderer {
@@ -88,6 +95,20 @@ impl VulkanRenderer {
             .map(|db| DescriptorBufferImage {
                 sampled_image_descriptor: db.device.sampled_image_descriptor(usage, view),
             })
+    }
+
+    pub(super) fn descriptor_heap_image(
+        &self,
+        usage: ImageUsageFlags,
+        view: &ImageViewCreateInfo<'_>,
+    ) -> Result<Option<DescriptorHeapImage>, VulkanError> {
+        let Some(dh) = &self.descriptor_heap else {
+            return Ok(None);
+        };
+        Ok(Some(DescriptorHeapImage {
+            sampled_image_descriptor: dh.device.sampled_image_descriptor(usage, view)?,
+            sampled_image_descriptor_entry: Default::default(),
+        }))
     }
 }
 
@@ -218,6 +239,33 @@ impl VulkanRenderer {
     }
 }
 
+fn image_view_create_info(
+    image: Image,
+    format: &'static Format,
+    for_rendering: bool,
+) -> ImageViewCreateInfo<'static> {
+    ImageViewCreateInfo::default()
+        .image(image)
+        .view_type(ImageViewType::TYPE_2D)
+        .format(format.vk_format)
+        .components(ComponentMapping {
+            r: ComponentSwizzle::IDENTITY,
+            g: ComponentSwizzle::IDENTITY,
+            b: ComponentSwizzle::IDENTITY,
+            a: match format.has_alpha || for_rendering {
+                true => ComponentSwizzle::IDENTITY,
+                false => ComponentSwizzle::ONE,
+            },
+        })
+        .subresource_range(ImageSubresourceRange {
+            aspect_mask: ImageAspectFlags::COLOR,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+        })
+}
+
 impl VulkanDevice {
     pub fn create_image_view(
         &self,
@@ -225,26 +273,7 @@ impl VulkanDevice {
         format: &'static Format,
         for_rendering: bool,
     ) -> Result<ImageView, VulkanError> {
-        let create_info = ImageViewCreateInfo::default()
-            .image(image)
-            .view_type(ImageViewType::TYPE_2D)
-            .format(format.vk_format)
-            .components(ComponentMapping {
-                r: ComponentSwizzle::IDENTITY,
-                g: ComponentSwizzle::IDENTITY,
-                b: ComponentSwizzle::IDENTITY,
-                a: match format.has_alpha || for_rendering {
-                    true => ComponentSwizzle::IDENTITY,
-                    false => ComponentSwizzle::ONE,
-                },
-            })
-            .subresource_range(ImageSubresourceRange {
-                aspect_mask: ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            });
+        let create_info = image_view_create_info(image, format, for_rendering);
         let view = unsafe { self.device.create_image_view(&create_info, None) };
         view.map_err(VulkanError::CreateImageView)
     }
@@ -285,6 +314,35 @@ impl DescriptorBufferDevice {
             self.device.get_descriptor(&info, &mut buf);
         }
         Some(buf)
+    }
+}
+
+impl DescriptorHeapDevice {
+    pub(super) fn sampled_image_descriptor(
+        &self,
+        usage: ImageUsageFlags,
+        view: &ImageViewCreateInfo<'_>,
+    ) -> Result<Option<Box<[u8]>>, VulkanError> {
+        if !usage.contains(ImageUsageFlags::SAMPLED) {
+            return Ok(None);
+        }
+        let mut buf = vec![0; self.image_descriptor_size].into_boxed_slice();
+        let image = ImageDescriptorInfoEXT::default()
+            .view(view)
+            .layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        let resources = ResourceDescriptorInfoEXT::default()
+            .ty(DescriptorType::SAMPLED_IMAGE)
+            .data(ResourceDescriptorDataEXT { p_image: &image });
+        let descriptor = HostAddressRangeEXT::default().address(&mut buf);
+        unsafe {
+            self.device
+                .write_resource_descriptors(
+                    slice::from_ref(&resources),
+                    slice::from_ref(&descriptor),
+                )
+                .map_err(VulkanError::WriteDescriptor)?;
+        }
+        Ok(Some(buf))
     }
 }
 
@@ -457,7 +515,7 @@ impl VulkanDmaBufImageTemplate {
                 _allocation: allocation,
             });
         }
-        let texture_view = (!for_rendering)
+        let texture_view = (!for_rendering && self.renderer.descriptor_heap.is_none())
             .then(|| device.create_image_view(primary_image, self.dmabuf.format, false))
             .transpose()?;
         let destroy_texture_view = texture_view
@@ -467,6 +525,10 @@ impl VulkanDmaBufImageTemplate {
             .transpose()?;
         let destroy_render_view = render_view
             .map(|v| on_drop(move || unsafe { device.device.destroy_image_view(v, None) }));
+        let descriptor_heap = self.renderer.descriptor_heap_image(
+            usage,
+            &image_view_create_info(image, self.dmabuf.format, false),
+        )?;
         destroy_render_view.map(OnDrop::forget);
         destroy_texture_view.map(OnDrop::forget);
         free_device_memories.drain(..).for_each(mem::forget);
@@ -494,6 +556,7 @@ impl VulkanDmaBufImageTemplate {
             execution_version: Cell::new(0),
             descriptor_buffer: texture_view
                 .and_then(|v| self.renderer.descriptor_buffer_image(usage, v)),
+            descriptor_heap,
         }))
     }
 

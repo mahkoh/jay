@@ -6,6 +6,7 @@ mod buffer_cache;
 mod command;
 mod descriptor;
 mod descriptor_buffer;
+mod descriptor_heap;
 mod device;
 mod dmabuf_buffer;
 mod eotfs;
@@ -195,8 +196,8 @@ pub enum VulkanError {
     UndefinedContents,
     #[error("The framebuffer is being used by the transfer queue")]
     BusyInTransfer,
-    #[error("Driver does not support descriptor buffers")]
-    NoDescriptorBuffer,
+    #[error("Driver does not support descriptor buffers/heaps")]
+    NoBlendBuffers,
     #[error("A non-vulkan buffer was passed into the vulkan renderer")]
     NonVulkanBuffer,
     #[error("Mixed vulkan device use")]
@@ -213,6 +214,10 @@ pub enum VulkanError {
     FbNoImageView,
     #[error("Blend buffer has no image view")]
     BbNoImageView,
+    #[error("Could not write descriptor")]
+    WriteDescriptor(#[source] vk::Result),
+    #[error("Requested heap size exceeds maximum size")]
+    MaximumHeapSize,
 }
 
 type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;

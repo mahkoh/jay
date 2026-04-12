@@ -10,15 +10,18 @@ use {
     ash::{
         vk,
         vk::{
-            BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, DynamicState, FrontFace,
-            GraphicsPipelineCreateInfo, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
-            PipelineColorBlendStateCreateInfo, PipelineCreateFlags, PipelineDynamicStateCreateInfo,
+            BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags,
+            DescriptorSetAndBindingMappingEXT, DynamicState, FrontFace, GraphicsPipelineCreateInfo,
+            Handle, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
+            PipelineColorBlendStateCreateInfo, PipelineCreateFlags, PipelineCreateFlags2,
+            PipelineCreateFlags2CreateInfo, PipelineDynamicStateCreateInfo,
             PipelineInputAssemblyStateCreateInfo, PipelineLayout, PipelineLayoutCreateInfo,
             PipelineMultisampleStateCreateInfo, PipelineRasterizationStateCreateInfo,
             PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
             PipelineVertexInputStateCreateInfo, PipelineViewportStateCreateInfo, PolygonMode,
-            PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
-            SpecializationInfo, SpecializationMapEntry,
+            PrimitiveTopology, PushConstantRange, SampleCountFlags,
+            ShaderDescriptorSetAndBindingMappingInfoEXT, ShaderStageFlags, SpecializationInfo,
+            SpecializationMapEntry,
         },
     },
     run_on_drop::on_drop,
@@ -33,7 +36,7 @@ pub(super) struct VulkanPipeline {
     pub(super) _descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
 }
 
-pub(super) struct PipelineCreateInfo {
+pub(super) struct PipelineCreateInfo<'a> {
     pub(super) format: vk::Format,
     pub(super) vert: Rc<VulkanShader>,
     pub(super) frag: Rc<VulkanShader>,
@@ -45,6 +48,7 @@ pub(super) struct PipelineCreateInfo {
     pub(super) inv_eotf: u32,
     pub(super) descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
     pub(super) has_color_management_data: bool,
+    pub(super) frag_descriptor_mappings: &'a [DescriptorSetAndBindingMappingEXT<'static>],
 }
 
 impl VulkanDevice {
@@ -60,7 +64,8 @@ impl VulkanDevice {
         info: PipelineCreateInfo,
         push_size: usize,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
-        let pipeline_layout = {
+        let mut pipeline_layout = PipelineLayout::null();
+        if self.descriptor_heap.is_none() {
             let mut push_constant_ranges = ArrayVec::<_, 1>::new();
             if push_size > 0 {
                 push_constant_ranges.push(
@@ -76,10 +81,13 @@ impl VulkanDevice {
                 .push_constant_ranges(&push_constant_ranges)
                 .set_layouts(&descriptor_set_layouts);
             let layout = unsafe { self.device.create_pipeline_layout(&create_info, None) };
-            layout.map_err(VulkanError::CreatePipelineLayout)?
-        };
-        let destroy_layout =
-            on_drop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
+            pipeline_layout = layout.map_err(VulkanError::CreatePipelineLayout)?;
+        }
+        let destroy_layout = on_drop(|| {
+            if !pipeline_layout.is_null() {
+                unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) }
+            }
+        });
         let mut frag_spec_data = ArrayVec::<_, { 6 * 4 }>::new();
         let mut frag_spec_entries = ArrayVec::<_, 6>::new();
         let mut frag_spec_entry = |data: &[u8]| {
@@ -100,7 +108,7 @@ impl VulkanDevice {
             .map_entries(&frag_spec_entries)
             .data(&frag_spec_data);
         let pipeline = {
-            let stages = [
+            let mut stages = [
                 PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::VERTEX)
                     .module(info.vert.module)
@@ -111,6 +119,11 @@ impl VulkanDevice {
                     .specialization_info(&frag_spec)
                     .name(c"main"),
             ];
+            let mut frag_mapping_info = ShaderDescriptorSetAndBindingMappingInfoEXT::default()
+                .mappings(info.frag_descriptor_mappings);
+            if self.descriptor_heap.is_some() {
+                stages[1] = stages[1].push_next(&mut frag_mapping_info);
+            }
             let input_assembly_state = PipelineInputAssemblyStateCreateInfo::default()
                 .topology(PrimitiveTopology::TRIANGLE_STRIP);
             let vertex_input_state = PipelineVertexInputStateCreateInfo::default();
@@ -145,10 +158,16 @@ impl VulkanDevice {
             let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::default()
                 .color_attachment_formats(slice::from_ref(&info.format));
             let mut flags = PipelineCreateFlags::empty();
+            let mut flags2 = PipelineCreateFlags2::empty();
             if self.descriptor_buffer.is_some() {
                 flags |= PipelineCreateFlags::DESCRIPTOR_BUFFER_EXT;
+                flags2 |= PipelineCreateFlags2::DESCRIPTOR_BUFFER_EXT;
             }
-            let create_info = GraphicsPipelineCreateInfo::default()
+            if self.descriptor_heap.is_some() {
+                flags2 |= PipelineCreateFlags2::DESCRIPTOR_HEAP_EXT;
+            }
+            let mut flags_create_info = PipelineCreateFlags2CreateInfo::default().flags(flags2);
+            let mut create_info = GraphicsPipelineCreateInfo::default()
                 .push_next(&mut pipeline_rendering_create_info)
                 .flags(flags)
                 .stages(&stages)
@@ -160,6 +179,9 @@ impl VulkanDevice {
                 .dynamic_state(&dynamic_state)
                 .viewport_state(&viewport_state)
                 .layout(pipeline_layout);
+            if self.descriptor_heap.is_some() {
+                create_info = create_info.push_next(&mut flags_create_info);
+            }
             let pipelines = unsafe {
                 self.device.create_graphics_pipelines(
                     PipelineCache::null(),
@@ -189,7 +211,9 @@ impl Drop for VulkanPipeline {
         unsafe {
             let device = &self.vert.device.device;
             device.destroy_pipeline(self.pipeline, None);
-            device.destroy_pipeline_layout(self.pipeline_layout, None);
+            if !self.pipeline_layout.is_null() {
+                device.destroy_pipeline_layout(self.pipeline_layout, None);
+            }
         }
     }
 }

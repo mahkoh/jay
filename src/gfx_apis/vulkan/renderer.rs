@@ -19,7 +19,8 @@ use {
             command::{CachedCommandBuffers, VulkanCommandBuffer},
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
-            device::{DescriptorBufferDevice, VulkanDevice},
+            descriptor_heap::{DescriptorHeap, DescriptorHeapType},
+            device::{DescriptorBufferDevice, DescriptorHeapDevice, VulkanDevice},
             eotfs::{EOTF_LINEAR, EotfExt, VulkanEotf},
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
@@ -27,7 +28,8 @@ use {
             semaphore::VulkanSemaphore,
             shaders::{
                 ColorManagementData, EotfArgs, FILL_FRAG, FILL_VERT, FillPushConstants,
-                InvEotfArgs, LEGACY_FILL_FRAG, LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT,
+                HeapOutPushConstants, HeapTexPushConstants, HeapTexSet, InvEotfArgs,
+                LEGACY_FILL_FRAG, LEGACY_FILL_VERT, LEGACY_TEX_FRAG, LEGACY_TEX_VERT,
                 LegacyFillPushConstants, LegacyTexPushConstants, OUT_FRAG, OUT_VERT,
                 OutPushConstants, TEX_FRAG, TEX_VERT, TexPushConstants, TexVertex, VulkanShader,
             },
@@ -36,8 +38,8 @@ use {
         rect::{Rect, Region},
         theme::Color,
         utils::{
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, ordered_float::F32,
-            oserror::OsErrorExt2, stack::Stack,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            ordered_float::F32, oserror::OsErrorExt2, page_alloc::PageAllocEntry, stack::Stack,
         },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
         vulkan_core::{
@@ -54,12 +56,15 @@ use {
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
             CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
             DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
-            DescriptorImageInfo, DescriptorType, DeviceAddress, DeviceSize, Extent2D, Extent3D,
-            ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers,
-            ImageSubresourceRange, Offset2D, Offset3D, PipelineBindPoint, PipelineStageFlags2,
-            QUEUE_FAMILY_FOREIGN_EXT, Rect2D, RenderingAttachmentInfo, RenderingInfo,
-            SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
-            WriteDescriptorSet,
+            DescriptorImageInfo, DescriptorMappingSourceConstantOffsetEXT,
+            DescriptorMappingSourceDataEXT, DescriptorMappingSourceEXT,
+            DescriptorMappingSourcePushIndexEXT, DescriptorSetAndBindingMappingEXT, DescriptorType,
+            DeviceAddress, DeviceSize, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2,
+            ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange,
+            Offset2D, Offset3D, PipelineBindPoint, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
+            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
+            SemaphoreSubmitInfoKHR, ShaderStageFlags, SpirvResourceTypeFlagsEXT, SubmitInfo2,
+            Viewport, WriteDescriptorSet,
         },
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
@@ -71,7 +76,7 @@ use {
         cell::{Cell, LazyCell, RefCell},
         collections::hash_map::Entry,
         fmt::{Debug, Formatter},
-        mem,
+        mem::{self, offset_of},
         ops::Range,
         ptr,
         rc::{Rc, Weak},
@@ -85,8 +90,10 @@ pub struct VulkanRenderer {
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipelines: CopyHashMap<vk::Format, FillPipelines>,
     pub(super) tex_pipelines: StaticMap<VulkanEotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
+    pub(super) tex_frag_bindings: FragBindings,
     pub(super) out_pipelines:
         StaticMap<VulkanEotf, CopyHashMap<OutPipelineKey, Rc<VulkanPipeline>>>,
+    pub(super) out_frag_bindings: FragBindings,
     pub(super) gfx_command_buffers: CachedCommandBuffers,
     pub(super) transfer_command_buffers: Option<CachedCommandBuffers>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -116,6 +123,7 @@ pub struct VulkanRenderer {
     pub(super) render_tls: Option<Rc<VulkanTimelineSemaphore>>,
     pub(super) transfer_tls: Option<Rc<VulkanTimelineSemaphore>>,
     pub(super) descriptor_buffer: Option<DescriptorBufferRenderer>,
+    pub(super) descriptor_heap: Option<DescriptorHeapRenderer>,
 }
 
 pub(super) struct DescriptorBufferRenderer {
@@ -123,6 +131,13 @@ pub(super) struct DescriptorBufferRenderer {
     pub(super) sampler_descriptor: Box<[u8]>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
+}
+
+pub(super) struct DescriptorHeapRenderer {
+    pub(super) device: Rc<DescriptorHeapDevice>,
+    pub(super) sampler_heap: Rc<DescriptorHeap>,
+    pub(super) _sampler_heap_entry: Rc<PageAllocEntry>,
+    pub(super) resource_heap: CloneCell<Option<Rc<DescriptorHeap>>>,
 }
 
 pub(super) struct UsedTexture {
@@ -149,6 +164,8 @@ pub(super) struct Memory {
     dmabuf_sample: Vec<Rc<VulkanImage>>,
     queue_transfer: Vec<Rc<VulkanImage>>,
     textures: Vec<UsedTexture>,
+    used_resource_heap: Option<Rc<DescriptorHeap>>,
+    used_heap_entries: Vec<Rc<PageAllocEntry>>,
     image_barriers: Vec<ImageMemoryBarrier2<'static>>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
@@ -180,6 +197,7 @@ pub(super) struct Memory {
     blend_buffer_eotf_args_address: Option<DeviceSize>,
     blend_buffer_inv_eotf_args_address: Option<DeviceSize>,
     fb_inv_eotf_args_address: Option<DeviceSize>,
+    blend_buffer_descriptor_heap_offset: u32,
 }
 
 type Point = [[f32; 2]; 4];
@@ -206,6 +224,7 @@ struct VulkanTexOp {
     color_management_data_address: Option<DeviceAddress>,
     eotf_args_address: Option<DeviceAddress>,
     resource_descriptor_buffer_offset: DeviceAddress,
+    resource_descriptor_heap_offset: u32,
 }
 
 struct VulkanFillOp {
@@ -241,6 +260,8 @@ pub(super) struct PendingFrame {
     waiter: Cell<Option<SpawnedFuture<()>>>,
     vulkan_sync: Option<VulkanSync>,
     _used_buffers: ArrayVec<VulkanBuffer, 4>,
+    _used_resource_heap: Option<Rc<DescriptorHeap>>,
+    _used_heap_entries: Vec<Rc<PageAllocEntry>>,
 }
 
 type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
@@ -288,9 +309,11 @@ impl VulkanDevice {
             fill_frag_shader = self.create_shader(FILL_FRAG)?;
             out_vert_shader = Some(self.create_shader(OUT_VERT)?);
             out_frag_shader = Some(self.create_shader(OUT_FRAG)?);
-            tex_descriptor_set_layouts
-                .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
-            tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
+            if self.descriptor_buffer.is_some() {
+                tex_descriptor_set_layouts
+                    .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
+                tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
+            }
         } else {
             tex_vert_shader = self.create_shader(LEGACY_TEX_VERT)?;
             tex_frag_shader = self.create_shader(LEGACY_TEX_FRAG)?;
@@ -370,7 +393,31 @@ impl VulkanDevice {
                 resource_descriptor_buffer_cache,
             }
         });
-        if descriptor_buffer.is_some() {
+        let mut descriptor_heap = None;
+        if let Some(dh) = &self.descriptor_heap {
+            let desc = dh.create_sampler_descriptor(&sampler.create_info)?;
+            let heap = self.allocate_descriptor_heap(
+                dh,
+                &allocator,
+                dh.sampler_descriptor_size,
+                DescriptorHeapType::Sampler,
+            )?;
+            let entry = heap.allocate(&desc)?.unwrap();
+            assert_eq!(entry.offset(), 0);
+            descriptor_heap = Some(DescriptorHeapRenderer {
+                device: dh.clone(),
+                sampler_heap: heap,
+                _sampler_heap_entry: entry,
+                resource_heap: Default::default(),
+            });
+        }
+        let tex_frag_bindings =
+            create_tex_frag_bindings(Some(0), 1, offset_of!(HeapTexPushConstants, heap_tex_set));
+        let out_frag_bindings =
+            create_tex_frag_bindings(None, 0, offset_of!(HeapOutPushConstants, heap_tex_set));
+        if descriptor_heap.is_some() {
+            log::info!("Using descriptor heaps");
+        } else if descriptor_buffer.is_some() {
             log::info!("Using descriptor buffers");
         } else {
             log::info!("Using legacy descriptors");
@@ -380,7 +427,9 @@ impl VulkanDevice {
             device: self.clone(),
             fill_pipelines: Default::default(),
             tex_pipelines: Default::default(),
+            tex_frag_bindings,
             out_pipelines: Default::default(),
+            out_frag_bindings,
             gfx_command_buffers,
             transfer_command_buffers,
             wait_semaphores: Default::default(),
@@ -410,6 +459,7 @@ impl VulkanDevice {
             render_tls: self.create_timeline_semaphore_or_log(),
             transfer_tls: self.create_timeline_semaphore_or_log(),
             descriptor_buffer,
+            descriptor_heap,
         });
         Ok(render)
     }
@@ -442,6 +492,7 @@ impl VulkanRenderer {
                 inv_eotf: EOTF_LINEAR,
                 descriptor_set_layouts: Default::default(),
                 has_color_management_data: false,
+                frag_descriptor_mappings: &[],
             };
             self.device.create_pipeline2(info, push_size)
         };
@@ -521,6 +572,7 @@ impl VulkanRenderer {
             inv_eotf: pipelines.eotf.to_vulkan(),
             descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
             has_color_management_data,
+            frag_descriptor_mappings: &self.tex_frag_bindings,
         };
         let pl = self.device.create_pipeline2(info, push_size)?;
         pipelines.pipelines.set(key, pl.clone());
@@ -545,7 +597,7 @@ impl VulkanRenderer {
             return Ok(pl);
         }
         let mut descriptor_set_layouts = ArrayVec::new();
-        descriptor_set_layouts.push(self.out_descriptor_set_layout.clone().unwrap());
+        descriptor_set_layouts.extend(self.out_descriptor_set_layout.clone());
         let out = self
             .device
             .create_pipeline::<OutPushConstants>(PipelineCreateInfo {
@@ -560,6 +612,7 @@ impl VulkanRenderer {
                 inv_eotf: fb_eotf.to_vulkan(),
                 descriptor_set_layouts,
                 has_color_management_data,
+                frag_descriptor_mappings: &self.out_frag_bindings,
             })?;
         pipelines.set(key, out.clone());
         Ok(out)
@@ -842,7 +895,14 @@ impl VulkanRenderer {
                         log::warn!("Ignoring texture owned by different queue");
                         continue;
                     }
-                    if self.descriptor_buffer.is_some() {
+                    if self.descriptor_heap.is_some() {
+                        if tex.dh_sampled_image_descriptor().is_none() {
+                            log::warn!(
+                                "Ignoring texture without descriptor data in descriptor heap renderer"
+                            );
+                            continue;
+                        }
+                    } else if self.descriptor_buffer.is_some() {
                         if tex.db_sampled_image_descriptor().is_none() {
                             log::warn!(
                                 "Ignoring texture without descriptor data in descriptor buffer renderer"
@@ -920,6 +980,7 @@ impl VulkanRenderer {
                             color_management_data_address,
                             eotf_args_address,
                             resource_descriptor_buffer_offset: 0,
+                            resource_descriptor_heap_offset: 0,
                         }));
                     }
                 }
@@ -1054,6 +1115,9 @@ impl VulkanRenderer {
         let memory = &mut *self.memory.borrow_mut();
         memory.dmabuf_sample.clear();
         memory.queue_transfer.clear();
+        if let Some(dh) = &self.descriptor_heap {
+            memory.used_resource_heap = dh.resource_heap.get();
+        }
         let execution = self.allocate_point();
         for pass in RenderPass::variants() {
             for cmd in &mut memory.ops[pass] {
@@ -1061,6 +1125,11 @@ impl VulkanRenderer {
                     let tex = &c.tex;
                     if tex.execution_version.replace(execution) == execution {
                         continue;
+                    }
+                    if let Some(dh) = &tex.descriptor_heap
+                        && let Some(entry) = dh.sampled_image_descriptor_entry.get()
+                    {
+                        memory.used_heap_entries.push(entry);
                     }
                     match tex.queue_state.get().acquire(QueueFamily::Gfx) {
                         QueueTransfer::Unnecessary => {}
@@ -1089,8 +1158,15 @@ impl VulkanRenderer {
             self.device
                 .device
                 .begin_command_buffer(buf, &begin_info)
-                .map_err(VulkanError::BeginCommandBuffer)
+                .map_err(VulkanError::BeginCommandBuffer)?;
         }
+        if let Some(dh) = &self.descriptor_heap {
+            dh.sampler_heap.bind(&dh.device, buf);
+            if let Some(heap) = dh.resource_heap.get() {
+                heap.bind(&dh.device, buf);
+            }
+        }
+        Ok(())
     }
 
     fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) -> Result<(), VulkanError> {
@@ -1317,12 +1393,29 @@ impl VulkanRenderer {
                 }
             }
         };
+        let inv_eotf_args_addr = match pass {
+            RenderPass::BlendBuffer => memory
+                .blend_buffer_inv_eotf_args_address
+                .unwrap_or_default(),
+            RenderPass::FrameBuffer => memory.fb_inv_eotf_args_address.unwrap_or_default(),
+        };
         for opt in &memory.ops[pass] {
             match opt {
                 VulkanOp::Fill(r) => {
                     let pipeline = &fill_pl[r.source_type];
                     bind(pipeline);
-                    if self.device.descriptor_buffer.is_some() {
+                    if let Some(dh) = &self.device.descriptor_heap {
+                        let push = FillPushConstants {
+                            color: r.color,
+                            vertices: r.range_address,
+                            _padding1: 0,
+                            _padding2: 0,
+                        };
+                        unsafe {
+                            dh.push_data(buf, &push);
+                            dev.cmd_draw(buf, 4, r.instances, 0, 0);
+                        }
+                    } else if self.device.descriptor_buffer.is_some() {
                         let push = FillPushConstants {
                             color: r.color,
                             vertices: r.range_address,
@@ -1369,7 +1462,28 @@ impl VulkanRenderer {
                         c.color_management_data_address.is_some(),
                     )?;
                     bind(&pipeline);
-                    if let Some(db) = &self.device.descriptor_buffer {
+                    if let Some(dh) = &self.device.descriptor_heap {
+                        let push = HeapTexPushConstants {
+                            push: TexPushConstants {
+                                vertices: c.range_address,
+                                alpha: c.alpha,
+                                _pad: Default::default(),
+                            },
+                            heap_tex_set: HeapTexSet {
+                                tex_descriptor_offset: c.resource_descriptor_heap_offset,
+                                _pad: 0,
+                                color_management_data_addr: c
+                                    .color_management_data_address
+                                    .unwrap_or_default(),
+                                eotf_args_addr: c.eotf_args_address.unwrap_or_default(),
+                                inv_eotf_args_addr,
+                            },
+                        };
+                        unsafe {
+                            dh.push_data(buf, &push);
+                            dev.cmd_draw(buf, 4, c.instances, 0, 0);
+                        }
+                    } else if let Some(db) = &self.device.descriptor_buffer {
                         let push = TexPushConstants {
                             vertices: c.range_address,
                             alpha: c.alpha,
@@ -1465,7 +1579,6 @@ impl VulkanRenderer {
     ) -> Result<(), VulkanError> {
         zone!("blend_buffer_copy");
         let memory = &*self.memory.borrow();
-        let db = self.device.descriptor_buffer.as_ref().unwrap();
         let pipeline = self.get_or_create_out_pipeline(
             fb.format.vk_format,
             bb_cd,
@@ -1479,21 +1592,39 @@ impl VulkanRenderer {
         let dev = &self.device.device;
         unsafe {
             dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
-            db.device.cmd_set_descriptor_buffer_offsets(
-                buf,
-                PipelineBindPoint::GRAPHICS,
-                pipeline.pipeline_layout,
-                0,
-                &[1],
-                &[memory.blend_buffer_descriptor_buffer_offset],
-            );
-            dev.cmd_push_constants(
-                buf,
-                pipeline.pipeline_layout,
-                ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
-                0,
-                uapi::as_bytes(&push),
-            );
+            if let Some(dh) = &self.device.descriptor_heap {
+                let push = HeapOutPushConstants {
+                    push,
+                    heap_tex_set: HeapTexSet {
+                        tex_descriptor_offset: memory.blend_buffer_descriptor_heap_offset,
+                        _pad: 0,
+                        color_management_data_addr: memory
+                            .blend_buffer_color_management_data_address
+                            .unwrap_or_default(),
+                        eotf_args_addr: memory.blend_buffer_eotf_args_address.unwrap_or_default(),
+                        inv_eotf_args_addr: memory.fb_inv_eotf_args_address.unwrap_or_default(),
+                    },
+                };
+                dh.push_data(buf, &push);
+            } else if let Some(db) = &self.device.descriptor_buffer {
+                db.device.cmd_set_descriptor_buffer_offsets(
+                    buf,
+                    PipelineBindPoint::GRAPHICS,
+                    pipeline.pipeline_layout,
+                    0,
+                    &[1],
+                    &[memory.blend_buffer_descriptor_buffer_offset],
+                );
+                dev.cmd_push_constants(
+                    buf,
+                    pipeline.pipeline_layout,
+                    ShaderStageFlags::VERTEX | ShaderStageFlags::FRAGMENT,
+                    0,
+                    uapi::as_bytes(&push),
+                );
+            } else {
+                unreachable!();
+            }
             dev.cmd_draw(buf, 4, instances, 0, 0);
         }
         Ok(())
@@ -1840,6 +1971,8 @@ impl VulkanRenderer {
             waiter: Cell::new(None),
             vulkan_sync: memory.release_vulkan_sync.take(),
             _used_buffers: mem::take(&mut memory.used_buffers),
+            _used_resource_heap: memory.used_resource_heap.take(),
+            _used_heap_entries: mem::take(&mut memory.used_heap_entries),
         });
         self.pending_frames.set(frame.point, frame.clone());
         let future = self.eng.spawn(
@@ -1890,6 +2023,8 @@ impl VulkanRenderer {
             memory.used_buffers.clear();
             memory.ops.clear();
             memory.ops_tmp.clear();
+            memory.used_resource_heap.take();
+            memory.used_heap_entries.clear();
             memory.release_sync.take()
         };
         res.map(|_| sync)
@@ -2069,6 +2204,71 @@ impl VulkanRenderer {
         Ok(())
     }
 
+    fn ensure_descriptor_heap_entries(&self, bb: Option<&VulkanImage>) -> Result<(), VulkanError> {
+        let Some(dh) = &self.descriptor_heap else {
+            return Ok(());
+        };
+        let allocate_heap = |size| {
+            self.device.allocate_descriptor_heap(
+                &dh.device,
+                &self.allocator,
+                size,
+                DescriptorHeapType::Resource,
+            )
+        };
+        let memory = &mut *self.memory.borrow_mut();
+        'retry: loop {
+            let heap = match dh.resource_heap.get() {
+                Some(h) => h,
+                None => {
+                    let heap = allocate_heap(100 * dh.device.image_descriptor_size)?;
+                    dh.resource_heap.set(Some(heap.clone()));
+                    heap
+                }
+            };
+            let handle_tex = |tex: &VulkanImage| {
+                let image = tex.descriptor_heap.as_ref().unwrap();
+                let mut entry = image.sampled_image_descriptor_entry.get();
+                if let Some(e) = &entry
+                    && heap.not_contains(e)
+                {
+                    entry = None;
+                }
+                let entry = match entry {
+                    Some(e) => e,
+                    None => {
+                        let e = heap.allocate(image.sampled_image_descriptor.as_ref().unwrap())?;
+                        let Some(e) = e else {
+                            let heap = allocate_heap(2 * heap.size())?;
+                            dh.resource_heap.set(Some(heap));
+                            return Ok::<_, VulkanError>(None);
+                        };
+                        image.sampled_image_descriptor_entry.set(Some(e.clone()));
+                        e
+                    }
+                };
+                Ok(Some(entry.offset()))
+            };
+            if let Some(bb) = bb {
+                let Some(offset) = handle_tex(bb)? else {
+                    continue 'retry;
+                };
+                memory.blend_buffer_descriptor_heap_offset = offset;
+            }
+            for op in memory.ops.values_mut().flatten() {
+                let VulkanOp::Tex(c) = op else {
+                    continue;
+                };
+                let Some(offset) = handle_tex(&c.tex)? else {
+                    continue 'retry;
+                };
+                c.resource_descriptor_heap_offset = offset;
+            }
+            break;
+        }
+        Ok(())
+    }
+
     fn try_execute(
         self: &Rc<Self>,
         fb: &Rc<VulkanImage>,
@@ -2090,6 +2290,7 @@ impl VulkanRenderer {
         self.verify_render_targets(fb, bb)?;
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
+        self.ensure_descriptor_heap_entries(bb)?;
         self.create_fixed_cm_data(bb, bb_cd, fb_cd);
         self.create_data_buffer()?;
         self.create_uniform_buffer()?;
@@ -2191,6 +2392,12 @@ impl VulkanImage {
         self.descriptor_buffer
             .as_ref()
             .and_then(|db| db.sampled_image_descriptor.as_deref())
+    }
+
+    pub(super) fn dh_sampled_image_descriptor(&self) -> Option<&[u8]> {
+        self.descriptor_heap
+            .as_ref()
+            .and_then(|dh| dh.sampled_image_descriptor.as_deref())
     }
 }
 
@@ -2486,4 +2693,56 @@ impl EotfArgsCache {
         };
         Some(ct.offset)
     }
+}
+
+type FragBindings = ArrayVec<DescriptorSetAndBindingMappingEXT<'static>, 5>;
+
+fn create_tex_frag_bindings(sampler_set: Option<u32>, tex_set: u32, offset: usize) -> FragBindings {
+    let offset = offset as u32;
+    let mut mappings = ArrayVec::new();
+    if let Some(ss) = sampler_set {
+        mappings.push(
+            DescriptorSetAndBindingMappingEXT::default()
+                .descriptor_set(ss)
+                .first_binding(0)
+                .binding_count(1)
+                .resource_mask(SpirvResourceTypeFlagsEXT::SAMPLER)
+                .source(DescriptorMappingSourceEXT::HEAP_WITH_CONSTANT_OFFSET)
+                .source_data(DescriptorMappingSourceDataEXT {
+                    constant_offset: DescriptorMappingSourceConstantOffsetEXT::default()
+                        .heap_offset(0),
+                }),
+        );
+    }
+    mappings.push(
+        DescriptorSetAndBindingMappingEXT::default()
+            .descriptor_set(tex_set)
+            .first_binding(0)
+            .binding_count(1)
+            .resource_mask(SpirvResourceTypeFlagsEXT::SAMPLED_IMAGE)
+            .source(DescriptorMappingSourceEXT::HEAP_WITH_PUSH_INDEX)
+            .source_data(DescriptorMappingSourceDataEXT {
+                push_index: DescriptorMappingSourcePushIndexEXT::default()
+                    .heap_offset(0)
+                    .push_offset(offset + offset_of!(HeapTexSet, tex_descriptor_offset) as u32)
+                    .heap_index_stride(1),
+            }),
+    );
+    let mut push_buffer = |first: u32, field_offset: usize| {
+        mappings.push(
+            DescriptorSetAndBindingMappingEXT::default()
+                .descriptor_set(tex_set)
+                .first_binding(first)
+                .binding_count(1)
+                .resource_mask(SpirvResourceTypeFlagsEXT::UNIFORM_BUFFER)
+                .source(DescriptorMappingSourceEXT::PUSH_ADDRESS)
+                .source_data(DescriptorMappingSourceDataEXT {
+                    push_address_offset: offset + field_offset as u32,
+                }),
+        );
+    };
+    push_buffer(1, offset_of!(HeapTexSet, color_management_data_addr));
+    push_buffer(2, offset_of!(HeapTexSet, eotf_args_addr));
+    push_buffer(3, offset_of!(HeapTexSet, inv_eotf_args_addr));
+    mappings
 }
