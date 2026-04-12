@@ -458,14 +458,16 @@ impl VulkanDmaBufImageTemplate {
             });
         }
         let texture_view = device.create_image_view(primary_image, self.dmabuf.format, false)?;
-        let render_view = device.create_image_view(primary_image, self.dmabuf.format, true)?;
+        let render_view = for_rendering
+            .then(|| device.create_image_view(primary_image, self.dmabuf.format, true))
+            .transpose()?;
         free_device_memories.drain(..).for_each(mem::forget);
         mem::forget(destroy_image);
         mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
             renderer: self.renderer.clone(),
             texture_view: Some(texture_view),
-            render_view: Some(render_view),
+            render_view,
             image: primary_image,
             width: self.width,
             height: self.height,
