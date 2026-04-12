@@ -35,7 +35,7 @@ use {
         SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
-    run_on_drop::on_drop,
+    run_on_drop::{OnDrop, on_drop},
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
@@ -460,9 +460,15 @@ impl VulkanDmaBufImageTemplate {
         let texture_view = (!for_rendering)
             .then(|| device.create_image_view(primary_image, self.dmabuf.format, false))
             .transpose()?;
+        let destroy_texture_view = texture_view
+            .map(|v| on_drop(move || unsafe { device.device.destroy_image_view(v, None) }));
         let render_view = for_rendering
             .then(|| device.create_image_view(primary_image, self.dmabuf.format, true))
             .transpose()?;
+        let destroy_render_view = render_view
+            .map(|v| on_drop(move || unsafe { device.device.destroy_image_view(v, None) }));
+        destroy_render_view.map(OnDrop::forget);
+        destroy_texture_view.map(OnDrop::forget);
         free_device_memories.drain(..).for_each(mem::forget);
         mem::forget(destroy_image);
         mem::forget(destroy_bridge_image);
