@@ -467,7 +467,7 @@ impl VulkanRenderer {
             width,
             height,
             stride,
-            texture_view: view,
+            texture_view: Some(view),
             render_view: None,
             image,
             is_undefined: Cell::new(true),

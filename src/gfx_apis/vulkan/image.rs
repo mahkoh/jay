@@ -61,7 +61,7 @@ pub struct VulkanImage {
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) stride: u32,
-    pub(super) texture_view: ImageView,
+    pub(super) texture_view: Option<ImageView>,
     pub(super) render_view: Option<ImageView>,
     pub(super) image: Image,
     pub(super) is_undefined: Cell<bool>,
@@ -151,7 +151,9 @@ impl Drop for VulkanImage {
     fn drop(&mut self) {
         let d = &self.renderer.device.device;
         unsafe {
-            d.destroy_image_view(self.texture_view, None);
+            if let Some(texture_view) = self.texture_view {
+                d.destroy_image_view(texture_view, None);
+            }
             if let Some(render_view) = self.render_view {
                 d.destroy_image_view(render_view, None);
             }
@@ -462,7 +464,7 @@ impl VulkanDmaBufImageTemplate {
         mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
             renderer: self.renderer.clone(),
-            texture_view,
+            texture_view: Some(texture_view),
             render_view: Some(render_view),
             image: primary_image,
             width: self.width,

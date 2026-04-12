@@ -857,6 +857,12 @@ impl VulkanRenderer {
                         log::warn!("Ignoring texture owned by different queue");
                         continue;
                     }
+                    if self.descriptor_buffer.is_none() {
+                        if tex.texture_view.is_none() {
+                            log::warn!("Ignoring texture without texture view in legacy renderer");
+                            continue;
+                        }
+                    }
                     let target = ct.target.to_points();
                     let source = ct.source.to_points();
                     for pass in RenderPass::variants() {
@@ -1232,7 +1238,7 @@ impl VulkanRenderer {
         }
         let mut rendering_attachment_info = RenderingAttachmentInfo::default()
             .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image_view(target.render_view.unwrap_or(target.texture_view))
+            .image_view(target.render_view.or(target.texture_view).unwrap())
             .store_op(AttachmentStoreOp::STORE);
         let load_op = if let Some(clear) = load_clear {
             rendering_attachment_info = rendering_attachment_info.clear_value(clear);
@@ -1396,7 +1402,7 @@ impl VulkanRenderer {
                         }
                     } else {
                         let image_info = DescriptorImageInfo::default()
-                            .image_view(tex.texture_view)
+                            .image_view(tex.texture_view.unwrap())
                             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                         let write_descriptor_set = WriteDescriptorSet::default()
                             .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -2052,6 +2058,24 @@ impl VulkanRenderer {
         }
     }
 
+    fn verify_render_targets(
+        &self,
+        fb: &VulkanImage,
+        bb: Option<&VulkanImage>,
+    ) -> Result<(), VulkanError> {
+        let cannot_render =
+            |img: &VulkanImage| img.texture_view.is_none() && img.render_view.is_none();
+        if cannot_render(fb) {
+            return Err(VulkanError::FbNoImageView);
+        }
+        if let Some(bb) = bb
+            && cannot_render(bb)
+        {
+            return Err(VulkanError::BbNoImageView);
+        }
+        Ok(())
+    }
+
     fn try_execute(
         self: &Rc<Self>,
         fb: &Rc<VulkanImage>,
@@ -2070,6 +2094,7 @@ impl VulkanRenderer {
         self.create_regions(fb, opts, clear, region, blend_buffer.as_deref())?;
         self.elide_blend_buffer2(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
+        self.verify_render_targets(fb, bb)?;
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
         self.create_fixed_cm_data(bb, bb_cd, fb_cd);

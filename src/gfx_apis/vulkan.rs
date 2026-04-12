@@ -209,6 +209,10 @@ pub enum VulkanError {
     SoftwareRendererNotUsable,
     #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
     DmaBufBufferOffsetAlignment,
+    #[error("Framebuffer has no image view")]
+    FbNoImageView,
+    #[error("Blend buffer has no image view")]
+    BbNoImageView,
 }
 
 type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;
