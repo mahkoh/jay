@@ -70,6 +70,16 @@ impl<T> NumCell<T> {
     }
 
     #[inline(always)]
+    pub fn sub_fetch(&self, n: T) -> T
+    where
+        T: Copy + Sub<T, Output = T>,
+    {
+        let res = self.t.get() - n;
+        self.t.set(res);
+        res
+    }
+
+    #[inline(always)]
     pub fn or_assign(&self, n: T)
     where
         T: Copy + BitOr<Output = T>,
