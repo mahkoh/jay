@@ -1371,9 +1371,6 @@ impl VulkanRenderer {
                         c.color_management_data_address.is_some(),
                     )?;
                     bind(&pipeline);
-                    let image_info = DescriptorImageInfo::default()
-                        .image_view(tex.texture_view)
-                        .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                     if let Some(db) = &self.device.descriptor_buffer {
                         let push = TexPushConstants {
                             vertices: c.range_address,
@@ -1398,6 +1395,9 @@ impl VulkanRenderer {
                             dev.cmd_draw(buf, 4, c.instances, 0, 0);
                         }
                     } else {
+                        let image_info = DescriptorImageInfo::default()
+                            .image_view(tex.texture_view)
+                            .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                         let write_descriptor_set = WriteDescriptorSet::default()
                             .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
                             .image_info(slice::from_ref(&image_info));
