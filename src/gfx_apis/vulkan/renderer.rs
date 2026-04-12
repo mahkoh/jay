@@ -857,7 +857,14 @@ impl VulkanRenderer {
                         log::warn!("Ignoring texture owned by different queue");
                         continue;
                     }
-                    if self.descriptor_buffer.is_none() {
+                    if self.descriptor_buffer.is_some() {
+                        if tex.db_sampled_image_descriptor().is_none() {
+                            log::warn!(
+                                "Ignoring texture without descriptor data in descriptor buffer renderer"
+                            );
+                            continue;
+                        }
+                    } else {
                         if tex.texture_view.is_none() {
                             log::warn!("Ignoring texture without texture view in legacy renderer");
                             continue;
