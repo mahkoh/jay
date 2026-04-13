@@ -16,7 +16,7 @@ use {
             VulkanError, VulkanSync, VulkanTimelineSemaphore,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
             buffer_cache::{GenericBufferWriter, VulkanBuffer, VulkanBufferCache},
-            command::{VulkanCommandBuffer, VulkanCommandPool},
+            command::{CachedCommandBuffers, VulkanCommandBuffer},
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
             device::{DescriptorBufferDevice, VulkanDevice},
@@ -51,8 +51,8 @@ use {
         vk::{
             self, AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferUsageFlags,
             ClearAttachment, ClearColorValue, ClearRect, ClearValue, CommandBuffer,
-            CommandBufferBeginInfo, CommandBufferResetFlags, CommandBufferSubmitInfo,
-            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
+            CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
+            CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
             DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
             DescriptorImageInfo, DescriptorType, DeviceAddress, DeviceSize, Extent2D, Extent3D,
             ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers,
@@ -123,41 +123,6 @@ pub(super) struct DescriptorBufferRenderer {
     pub(super) sampler_descriptor: Box<[u8]>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
-}
-
-pub(super) struct CachedCommandBuffers {
-    pub(super) pool: Rc<VulkanCommandPool>,
-    pub(super) buffers: Stack<Rc<VulkanCommandBuffer>>,
-    pub(super) total_buffers: NumCell<usize>,
-}
-
-impl CachedCommandBuffers {
-    pub(super) fn allocate(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
-        zone!("allocate_command_buffer");
-        let buf = match self.buffers.pop() {
-            Some(b) => b,
-            _ => {
-                self.total_buffers.fetch_add(1);
-                self.pool.allocate_buffer()?
-            }
-        };
-        Ok(buf)
-    }
-
-    pub(super) fn release(&self, buffer: Rc<VulkanCommandBuffer>) {
-        let res = unsafe {
-            buffer
-                .pool
-                .device
-                .device
-                .reset_command_buffer(buffer.buffer, CommandBufferResetFlags::empty())
-        };
-        if let Err(e) = res {
-            log::error!("Could not reset command buffer: {}", ErrorFmt(e));
-            return;
-        }
-        self.buffers.push(buffer);
-    }
 }
 
 pub(super) struct UsedTexture {
