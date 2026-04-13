@@ -17,17 +17,17 @@ use {
 pub struct VulkanBufferCache {
     device: Rc<VulkanDevice>,
     allocator: Rc<VulkanAllocator>,
-    buffers: RefCell<Vec<VulkanBufferUnused>>,
+    buffers: RefCell<Vec<VulkanBufferUncached>>,
     usage: BufferUsageFlags,
     min_alignment: DeviceSize,
 }
 
 pub struct VulkanBuffer {
     cache: Rc<VulkanBufferCache>,
-    pub buffer: ManuallyDrop<VulkanBufferUnused>,
+    pub buffer: ManuallyDrop<VulkanBufferUncached>,
 }
 
-pub struct VulkanBufferUnused {
+pub struct VulkanBufferUncached {
     device: Rc<VulkanDevice>,
     pub size: DeviceSize,
     pub buffer: Buffer,
@@ -141,7 +141,7 @@ impl VulkanBufferCache {
         };
         Ok(VulkanBuffer {
             cache: self.clone(),
-            buffer: ManuallyDrop::new(VulkanBufferUnused {
+            buffer: ManuallyDrop::new(VulkanBufferUncached {
                 device: self.device.clone(),
                 size,
                 buffer,
@@ -159,7 +159,7 @@ impl Drop for VulkanBuffer {
     }
 }
 
-impl Drop for VulkanBufferUnused {
+impl Drop for VulkanBufferUncached {
     fn drop(&mut self) {
         unsafe {
             self.device.device.destroy_buffer(self.buffer, None);
