@@ -55,6 +55,7 @@ unsafe impl Packed for TexVertex {}
 pub struct TexPushConstants {
     pub vertices: DeviceAddress,
     pub alpha: f32,
+    pub _pad: f32,
 }
 
 unsafe impl Packed for TexPushConstants {}

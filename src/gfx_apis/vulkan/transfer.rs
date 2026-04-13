@@ -701,22 +701,23 @@ async fn await_gfx_queue_release(
     sync: Option<FdSync>,
     tt: TransferType,
 ) {
+    let renderer = &img.renderer;
     if let Some(sync) = &sync
-        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
+        && let Err(e) = sync.try_signaled(&renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
         );
-        img.renderer.block();
+        renderer.block();
     }
     if let Some(vs) = vulkan_sync {
         vs.handle_validation();
     }
     if let Some(buf) = buf {
-        img.renderer.gfx_command_buffers.buffers.push(buf);
+        renderer.gfx_command_buffers.release(buf);
     }
-    img.renderer.pending_submits.remove(&id);
+    renderer.pending_submits.remove(&id);
     img.queue_state.set(QueueState::Released {
         to: QueueFamily::Transfer,
     });
@@ -747,24 +748,25 @@ pub async fn await_async_transfer_release_to_gfx(
     sync: Option<FdSync>,
     tt: TransferType,
 ) {
+    let renderer = &img.renderer;
     if let Some(sync) = &sync
-        && let Err(e) = sync.try_signaled(&img.renderer.ring).await
+        && let Err(e) = sync.try_signaled(&renderer.ring).await
     {
         log::error!(
             "Could not wait for sync file to become readable: {}",
             ErrorFmt(e)
         );
-        img.renderer.block();
+        renderer.block();
     }
     vulkan_sync.handle_validation();
-    match &img.renderer.transfer_command_buffers {
-        Some(b) => b.buffers.push(buf),
-        None => img.renderer.gfx_command_buffers.buffers.push(buf),
+    match &renderer.transfer_command_buffers {
+        Some(b) => b.release(buf),
+        None => renderer.gfx_command_buffers.release(buf),
     }
     img.queue_state.set(QueueState::Released {
         to: QueueFamily::Gfx,
     });
-    img.renderer.pending_submits.remove(&id);
+    renderer.pending_submits.remove(&id);
     let VulkanImageMemory::Internal(shm) = &img.ty else {
         unreachable!();
     };

@@ -9,8 +9,12 @@ use {
             GfxTexture, PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::vulkan::{
-            VulkanError, allocator::VulkanAllocation, device::VulkanDevice,
-            format::VulkanModifierLimits, renderer::VulkanRenderer, shm_image::VulkanShmImage,
+            VulkanError,
+            allocator::VulkanAllocation,
+            device::{DescriptorBufferDevice, VulkanDevice},
+            format::VulkanModifierLimits,
+            renderer::VulkanRenderer,
+            shm_image::VulkanShmImage,
             transfer::TransferType,
         },
         rect::Region,
@@ -31,7 +35,7 @@ use {
         SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
-    run_on_drop::on_drop,
+    run_on_drop::{OnDrop, on_drop},
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
@@ -57,7 +61,7 @@ pub struct VulkanImage {
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) stride: u32,
-    pub(super) texture_view: ImageView,
+    pub(super) texture_view: Option<ImageView>,
     pub(super) render_view: Option<ImageView>,
     pub(super) image: Image,
     pub(super) is_undefined: Cell<bool>,
@@ -65,8 +69,26 @@ pub struct VulkanImage {
     pub(super) queue_state: Cell<QueueState>,
     pub(super) ty: VulkanImageMemory,
     pub(super) bridge: Option<VulkanFramebufferBridge>,
-    pub(super) sampled_image_descriptor: Option<Box<[u8]>>,
     pub(super) execution_version: Cell<u64>,
+    pub(super) descriptor_buffer: Option<DescriptorBufferImage>,
+}
+
+pub struct DescriptorBufferImage {
+    pub(super) sampled_image_descriptor: Option<Box<[u8]>>,
+}
+
+impl VulkanRenderer {
+    pub(super) fn descriptor_buffer_image(
+        &self,
+        usage: ImageUsageFlags,
+        view: ImageView,
+    ) -> Option<DescriptorBufferImage> {
+        self.descriptor_buffer
+            .as_ref()
+            .map(|db| DescriptorBufferImage {
+                sampled_image_descriptor: db.device.sampled_image_descriptor(usage, view),
+            })
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -127,23 +149,17 @@ impl Drop for VulkanDmaBufImage {
 
 impl Drop for VulkanImage {
     fn drop(&mut self) {
+        let d = &self.renderer.device.device;
         unsafe {
-            self.renderer
-                .device
-                .device
-                .destroy_image_view(self.texture_view, None);
-            if let Some(render_view) = self.render_view {
-                self.renderer
-                    .device
-                    .device
-                    .destroy_image_view(render_view, None);
+            if let Some(texture_view) = self.texture_view {
+                d.destroy_image_view(texture_view, None);
             }
-            self.renderer.device.device.destroy_image(self.image, None);
+            if let Some(render_view) = self.render_view {
+                d.destroy_image_view(render_view, None);
+            }
+            d.destroy_image(self.image, None);
             if let Some(bridge) = &self.bridge {
-                self.renderer
-                    .device
-                    .device
-                    .destroy_image(bridge.dmabuf_image, None);
+                d.destroy_image(bridge.dmabuf_image, None);
             }
         }
     }
@@ -234,11 +250,8 @@ impl VulkanDevice {
     }
 }
 
-impl VulkanDevice {
+impl DescriptorBufferDevice {
     pub(super) fn create_sampler_descriptor(&self, sampler: Sampler) -> Box<[u8]> {
-        let Some(db) = &self.descriptor_buffer else {
-            return Box::new([]);
-        };
         let mut buf = vec![0; self.sampler_descriptor_size].into_boxed_slice();
         let info = DescriptorGetInfoEXT::default()
             .ty(DescriptorType::SAMPLER)
@@ -246,13 +259,11 @@ impl VulkanDevice {
                 p_sampler: &sampler,
             });
         unsafe {
-            db.get_descriptor(&info, &mut buf);
+            self.device.get_descriptor(&info, &mut buf);
         }
         buf
     }
-}
 
-impl VulkanRenderer {
     pub(super) fn sampled_image_descriptor(
         &self,
         usage: ImageUsageFlags,
@@ -261,10 +272,7 @@ impl VulkanRenderer {
         if !usage.contains(ImageUsageFlags::SAMPLED) {
             return None;
         }
-        let Some(db) = &self.device.descriptor_buffer else {
-            return None;
-        };
-        let mut buf = vec![0; self.device.sampled_image_descriptor_size].into_boxed_slice();
+        let mut buf = vec![0; self.sampled_image_descriptor_size].into_boxed_slice();
         let image_info = DescriptorImageInfo::default()
             .image_view(view)
             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
@@ -274,7 +282,7 @@ impl VulkanRenderer {
                 p_sampled_image: &image_info,
             });
         unsafe {
-            db.get_descriptor(&info, &mut buf);
+            self.device.get_descriptor(&info, &mut buf);
         }
         Some(buf)
     }
@@ -449,15 +457,25 @@ impl VulkanDmaBufImageTemplate {
                 _allocation: allocation,
             });
         }
-        let texture_view = device.create_image_view(primary_image, self.dmabuf.format, false)?;
-        let render_view = device.create_image_view(primary_image, self.dmabuf.format, true)?;
+        let texture_view = (!for_rendering)
+            .then(|| device.create_image_view(primary_image, self.dmabuf.format, false))
+            .transpose()?;
+        let destroy_texture_view = texture_view
+            .map(|v| on_drop(move || unsafe { device.device.destroy_image_view(v, None) }));
+        let render_view = for_rendering
+            .then(|| device.create_image_view(primary_image, self.dmabuf.format, true))
+            .transpose()?;
+        let destroy_render_view = render_view
+            .map(|v| on_drop(move || unsafe { device.device.destroy_image_view(v, None) }));
+        destroy_render_view.map(OnDrop::forget);
+        destroy_texture_view.map(OnDrop::forget);
         free_device_memories.drain(..).for_each(mem::forget);
         mem::forget(destroy_image);
         mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
             renderer: self.renderer.clone(),
             texture_view,
-            render_view: Some(render_view),
+            render_view,
             image: primary_image,
             width: self.width,
             height: self.height,
@@ -473,8 +491,9 @@ impl VulkanDmaBufImageTemplate {
                 family: QueueFamily::Gfx,
             }),
             bridge,
-            sampled_image_descriptor: self.renderer.sampled_image_descriptor(usage, texture_view),
             execution_version: Cell::new(0),
+            descriptor_buffer: texture_view
+                .and_then(|v| self.renderer.descriptor_buffer_image(usage, v)),
         }))
     }
 

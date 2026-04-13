@@ -1,12 +1,13 @@
 use {
-    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice, sampler::VulkanSampler},
+    crate::gfx_apis::vulkan::{
+        VulkanError,
+        device::{DescriptorBufferDevice, VulkanDevice},
+        sampler::VulkanSampler,
+    },
     arrayvec::ArrayVec,
-    ash::{
-        ext::descriptor_buffer,
-        vk::{
-            DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
-            DescriptorSetLayoutCreateInfo, DescriptorType, DeviceSize, ShaderStageFlags,
-        },
+    ash::vk::{
+        DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
+        DescriptorSetLayoutCreateInfo, DescriptorType, DeviceSize, ShaderStageFlags,
     },
     std::{rc::Rc, slice},
 };
@@ -70,10 +71,13 @@ impl VulkanDevice {
         let layout = unsafe { self.device.create_descriptor_set_layout(&create_info, None) };
         let layout = layout.map_err(VulkanError::CreateDescriptorSetLayout)?;
         let db = self.descriptor_buffer.as_ref().unwrap();
-        let size = self.get_descriptor_set_size(db, layout);
+        let size = db.get_descriptor_set_size(layout);
         let mut offsets = ArrayVec::new();
         unsafe {
-            offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 0));
+            offsets.push(
+                db.device
+                    .get_descriptor_set_layout_binding_offset(layout, 0),
+            );
         }
         Ok(Rc::new(VulkanDescriptorSetLayout {
             device: self.clone(),
@@ -115,9 +119,10 @@ impl VulkanDevice {
         let layout = unsafe { self.device.create_descriptor_set_layout(&create_info, None) };
         let layout = layout.map_err(VulkanError::CreateDescriptorSetLayout)?;
         let db = self.descriptor_buffer.as_ref().unwrap();
-        let size = self.get_descriptor_set_size(db, layout);
+        let size = db.get_descriptor_set_size(layout);
         let mut offsets = ArrayVec::new();
         unsafe {
+            let db = &db.device;
             offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 0));
             offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 1));
             offsets.push(db.get_descriptor_set_layout_binding_offset(layout, 2));
@@ -131,13 +136,11 @@ impl VulkanDevice {
             _sampler: None,
         }))
     }
+}
 
-    fn get_descriptor_set_size(
-        &self,
-        db: &descriptor_buffer::Device,
-        layout: DescriptorSetLayout,
-    ) -> DeviceSize {
-        let mut size = unsafe { db.get_descriptor_set_layout_size(layout) };
+impl DescriptorBufferDevice {
+    fn get_descriptor_set_size(&self, layout: DescriptorSetLayout) -> DeviceSize {
+        let mut size = unsafe { self.device.get_descriptor_set_layout_size(layout) };
         size = (size + self.descriptor_buffer_offset_mask) & !self.descriptor_buffer_offset_mask;
         size
     }

@@ -16,10 +16,10 @@ use {
             VulkanError, VulkanSync, VulkanTimelineSemaphore,
             allocator::{VulkanAllocator, VulkanThreadedAllocator},
             buffer_cache::{GenericBufferWriter, VulkanBuffer, VulkanBufferCache},
-            command::{VulkanCommandBuffer, VulkanCommandPool},
+            command::{CachedCommandBuffers, VulkanCommandBuffer},
             descriptor::VulkanDescriptorSetLayout,
             descriptor_buffer::VulkanDescriptorBufferWriter,
-            device::VulkanDevice,
+            device::{DescriptorBufferDevice, VulkanDevice},
             eotfs::{EOTF_LINEAR, EotfExt, VulkanEotf},
             image::{QueueFamily, QueueState, QueueTransfer, VulkanImage, VulkanImageMemory},
             pipeline::{PipelineCreateInfo, VulkanPipeline},
@@ -110,34 +110,19 @@ pub struct VulkanRenderer {
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
     pub(super) _sampler: Rc<VulkanSampler>,
-    pub(super) sampler_descriptor: Box<[u8]>,
-    pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
-    pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) render_tls: Option<Rc<VulkanTimelineSemaphore>>,
     pub(super) transfer_tls: Option<Rc<VulkanTimelineSemaphore>>,
+    pub(super) descriptor_buffer: Option<DescriptorBufferRenderer>,
 }
 
-pub(super) struct CachedCommandBuffers {
-    pub(super) pool: Rc<VulkanCommandPool>,
-    pub(super) buffers: Stack<Rc<VulkanCommandBuffer>>,
-    pub(super) total_buffers: NumCell<usize>,
-}
-
-impl CachedCommandBuffers {
-    pub(super) fn allocate(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
-        zone!("allocate_command_buffer");
-        let buf = match self.buffers.pop() {
-            Some(b) => b,
-            _ => {
-                self.total_buffers.fetch_add(1);
-                self.pool.allocate_buffer()?
-            }
-        };
-        Ok(buf)
-    }
+pub(super) struct DescriptorBufferRenderer {
+    pub(super) device: Rc<DescriptorBufferDevice>,
+    pub(super) sampler_descriptor: Box<[u8]>,
+    pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
+    pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
 }
 
 pub(super) struct UsedTexture {
@@ -247,7 +232,7 @@ struct PaintRegion {
 
 pub(super) struct PendingFrame {
     point: u64,
-    renderer: Rc<VulkanRenderer>,
+    _renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
     _fb: Rc<VulkanImage>,
     _bb: Option<Rc<VulkanImage>>,
@@ -296,7 +281,7 @@ impl VulkanDevice {
         let out_vert_shader;
         let out_frag_shader;
         let mut tex_descriptor_set_layouts = ArrayVec::new();
-        if self.descriptor_buffer.is_some() {
+        if self.uses_descriptor_memory() {
             tex_vert_shader = self.create_shader(TEX_VERT)?;
             tex_frag_shader = self.create_shader(TEX_FRAG)?;
             fill_vert_shader = self.create_shader(FILL_VERT)?;
@@ -360,10 +345,6 @@ impl VulkanDevice {
             .collect();
         let allocator = self.create_allocator()?;
         let shm_allocator = self.create_threaded_allocator()?;
-        let sampler_descriptor_buffer_cache =
-            VulkanBufferCache::for_descriptor_buffer(self, &allocator, true);
-        let resource_descriptor_buffer_cache =
-            VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
         let shader_buffer_cache = {
             // TODO: https://github.com/KhronosGroup/Vulkan-Samples/issues/1286
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::STORAGE_BUFFER;
@@ -377,6 +358,23 @@ impl VulkanDevice {
                 .max(align_of::<InvEotfArgs>()) as DeviceSize;
             VulkanBufferCache::new(self, &allocator, usage, align)
         };
+        let descriptor_buffer = self.descriptor_buffer.as_ref().map(|db| {
+            let sampler_descriptor_buffer_cache =
+                VulkanBufferCache::for_descriptor_buffer(self, &allocator, true);
+            let resource_descriptor_buffer_cache =
+                VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
+            DescriptorBufferRenderer {
+                device: db.clone(),
+                sampler_descriptor: db.create_sampler_descriptor(sampler.sampler),
+                sampler_descriptor_buffer_cache,
+                resource_descriptor_buffer_cache,
+            }
+        });
+        if descriptor_buffer.is_some() {
+            log::info!("Using descriptor buffers");
+        } else {
+            log::info!("Using legacy descriptors");
+        }
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
@@ -405,15 +403,13 @@ impl VulkanDevice {
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
-            sampler_descriptor: self.create_sampler_descriptor(sampler.sampler),
             _sampler: sampler,
-            sampler_descriptor_buffer_cache,
-            resource_descriptor_buffer_cache,
             blend_buffers: Default::default(),
             shader_buffer_cache,
             uniform_buffer_cache,
             render_tls: self.create_timeline_semaphore_or_log(),
             transfer_tls: self.create_timeline_semaphore_or_log(),
+            descriptor_buffer,
         });
         Ok(render)
     }
@@ -578,7 +574,7 @@ impl VulkanRenderer {
         buf: CommandBuffer,
         bb: Option<&VulkanImage>,
     ) -> Result<(), VulkanError> {
-        let Some(db) = &self.device.descriptor_buffer else {
+        let Some(db) = &self.descriptor_buffer else {
             return Ok(());
         };
         zone!("create_descriptor_buffers");
@@ -589,7 +585,7 @@ impl VulkanRenderer {
             let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
             writer.write(
                 self.tex_descriptor_set_layouts[0].offsets[0],
-                &self.sampler_descriptor,
+                &db.sampler_descriptor,
             );
         }
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
@@ -597,7 +593,7 @@ impl VulkanRenderer {
         macro_rules! ub_descriptor_cache {
             ($field:ident) => {
                 memory.$field.get_or_insert_with(|| {
-                    vec![0u8; self.device.uniform_buffer_descriptor_size].into_boxed_slice()
+                    vec![0u8; db.device.uniform_buffer_descriptor_size].into_boxed_slice()
                 })
             };
         }
@@ -613,7 +609,7 @@ impl VulkanRenderer {
                         p_uniform_buffer: &uniform_buffer,
                     });
                 unsafe {
-                    db.get_descriptor(&info, $descriptor);
+                    db.device.device.get_descriptor(&info, $descriptor);
                 }
                 &*$descriptor
             }};
@@ -641,10 +637,7 @@ impl VulkanRenderer {
             let layout = self.out_descriptor_set_layout.as_ref().unwrap();
             memory.blend_buffer_descriptor_buffer_offset = resource_writer.next_offset();
             let mut writer = resource_writer.add_set(layout);
-            writer.write(
-                layout.offsets[0],
-                bb.sampled_image_descriptor.as_ref().unwrap(),
-            );
+            writer.write(layout.offsets[0], bb.db_sampled_image_descriptor().unwrap());
             if let Some(addr) = memory.blend_buffer_color_management_data_address {
                 writer.write(
                     layout.offsets[1],
@@ -673,7 +666,7 @@ impl VulkanRenderer {
                 let mut writer = resource_writer.add_set(tex_descriptor_set_layout);
                 writer.write(
                     tex_descriptor_set_layout.offsets[0],
-                    tex.sampled_image_descriptor.as_ref().unwrap(),
+                    tex.db_sampled_image_descriptor().unwrap(),
                 );
                 if let Some(addr) = c.color_management_data_address {
                     writer.write(
@@ -694,8 +687,8 @@ impl VulkanRenderer {
         }
         let mut infos = ArrayVec::<_, 2>::new();
         for (writer, cache) in [
-            (&sampler_writer, &self.sampler_descriptor_buffer_cache),
-            (&resource_writer, &self.resource_descriptor_buffer_cache),
+            (&sampler_writer, &db.sampler_descriptor_buffer_cache),
+            (&resource_writer, &db.resource_descriptor_buffer_cache),
         ] {
             let buffer = cache.allocate(writer.len() as DeviceSize)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
@@ -708,7 +701,7 @@ impl VulkanRenderer {
             memory.used_buffers.push(buffer);
         }
         unsafe {
-            db.cmd_bind_descriptor_buffers(buf, &infos);
+            db.device.device.cmd_bind_descriptor_buffers(buf, &infos);
         }
         Ok(())
     }
@@ -750,7 +743,7 @@ impl VulkanRenderer {
                     }
                 });
                 let mops = &mut memory.ops[pass];
-                if self.device.descriptor_buffer.is_none() {
+                if self.device.uses_legacy_descriptors() {
                     mops.append(ops);
                     continue;
                 }
@@ -848,6 +841,19 @@ impl VulkanRenderer {
                     {
                         log::warn!("Ignoring texture owned by different queue");
                         continue;
+                    }
+                    if self.descriptor_buffer.is_some() {
+                        if tex.db_sampled_image_descriptor().is_none() {
+                            log::warn!(
+                                "Ignoring texture without descriptor data in descriptor buffer renderer"
+                            );
+                            continue;
+                        }
+                    } else {
+                        if tex.texture_view.is_none() {
+                            log::warn!("Ignoring texture without texture view in legacy renderer");
+                            continue;
+                        }
                     }
                     let target = ct.target.to_points();
                     let source = ct.source.to_points();
@@ -965,7 +971,7 @@ impl VulkanRenderer {
     }
 
     fn create_data_buffer(&self) -> Result<(), VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Ok(());
         }
         zone!("create_data_buffer");
@@ -1007,7 +1013,7 @@ impl VulkanRenderer {
     }
 
     fn create_uniform_buffer(&self) -> Result<(), VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Ok(());
         }
         zone!("create_uniform_buffer");
@@ -1224,7 +1230,7 @@ impl VulkanRenderer {
         }
         let mut rendering_attachment_info = RenderingAttachmentInfo::default()
             .image_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image_view(target.render_view.unwrap_or(target.texture_view))
+            .image_view(target.render_view.or(target.texture_view).unwrap())
             .store_op(AttachmentStoreOp::STORE);
         let load_op = if let Some(clear) = load_clear {
             rendering_attachment_info = rendering_attachment_info.clear_value(clear);
@@ -1363,16 +1369,14 @@ impl VulkanRenderer {
                         c.color_management_data_address.is_some(),
                     )?;
                     bind(&pipeline);
-                    let image_info = DescriptorImageInfo::default()
-                        .image_view(tex.texture_view)
-                        .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                     if let Some(db) = &self.device.descriptor_buffer {
                         let push = TexPushConstants {
                             vertices: c.range_address,
                             alpha: c.alpha,
+                            _pad: Default::default(),
                         };
                         unsafe {
-                            db.cmd_set_descriptor_buffer_offsets(
+                            db.device.cmd_set_descriptor_buffer_offsets(
                                 buf,
                                 PipelineBindPoint::GRAPHICS,
                                 pipeline.pipeline_layout,
@@ -1390,6 +1394,9 @@ impl VulkanRenderer {
                             dev.cmd_draw(buf, 4, c.instances, 0, 0);
                         }
                     } else {
+                        let image_info = DescriptorImageInfo::default()
+                            .image_view(tex.texture_view.unwrap())
+                            .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                         let write_descriptor_set = WriteDescriptorSet::default()
                             .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
                             .image_info(slice::from_ref(&image_info));
@@ -1472,7 +1479,7 @@ impl VulkanRenderer {
         let dev = &self.device.device;
         unsafe {
             dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
-            db.cmd_set_descriptor_buffer_offsets(
+            db.device.cmd_set_descriptor_buffer_offsets(
                 buf,
                 PipelineBindPoint::GRAPHICS,
                 pipeline.pipeline_layout,
@@ -1824,7 +1831,7 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let frame = Rc::new(PendingFrame {
             point,
-            renderer: self.clone(),
+            _renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
             _fb: fb.clone(),
             _bb: bb,
@@ -2044,6 +2051,24 @@ impl VulkanRenderer {
         }
     }
 
+    fn verify_render_targets(
+        &self,
+        fb: &VulkanImage,
+        bb: Option<&VulkanImage>,
+    ) -> Result<(), VulkanError> {
+        let cannot_render =
+            |img: &VulkanImage| img.texture_view.is_none() && img.render_view.is_none();
+        if cannot_render(fb) {
+            return Err(VulkanError::FbNoImageView);
+        }
+        if let Some(bb) = bb
+            && cannot_render(bb)
+        {
+            return Err(VulkanError::BbNoImageView);
+        }
+        Ok(())
+    }
+
     fn try_execute(
         self: &Rc<Self>,
         fb: &Rc<VulkanImage>,
@@ -2062,6 +2087,7 @@ impl VulkanRenderer {
         self.create_regions(fb, opts, clear, region, blend_buffer.as_deref())?;
         self.elide_blend_buffer2(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
+        self.verify_render_targets(fb, bb)?;
         let buf = self.gfx_command_buffers.allocate()?;
         self.convert_ops(opts, bb_cd, fb_cd)?;
         self.create_fixed_cm_data(bb, bb_cd, fb_cd);
@@ -2160,6 +2186,12 @@ impl VulkanImage {
         }
         Ok(())
     }
+
+    pub(super) fn db_sampled_image_descriptor(&self) -> Option<&[u8]> {
+        self.descriptor_buffer
+            .as_ref()
+            .and_then(|db| db.sampled_image_descriptor.as_deref())
+    }
 }
 
 impl dyn GfxTexture {
@@ -2214,16 +2246,16 @@ async fn await_release(
             "Could not wait for release semaphore to be signaled: {}",
             ErrorFmt(e)
         );
-        frame.renderer.block();
+        renderer.block();
     }
     if let Some(vs) = &frame.vulkan_sync {
         vs.handle_validation();
     }
     if let Some(buf) = frame.cmd.take() {
-        frame.renderer.gfx_command_buffers.buffers.push(buf);
+        renderer.gfx_command_buffers.release(buf);
     }
     for wait_semaphore in frame.wait_semaphores.take() {
-        frame.renderer.wait_semaphores.push(wait_semaphore);
+        renderer.wait_semaphores.push(wait_semaphore);
     }
     renderer.pending_frames.remove(&frame.point);
 }

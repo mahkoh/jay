@@ -23,7 +23,7 @@ impl VulkanRenderer {
         width: i32,
         height: i32,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Err(VulkanError::NoDescriptorBuffer);
         }
         if width <= 0 || height <= 0 {
@@ -96,7 +96,7 @@ impl VulkanRenderer {
             width,
             height,
             stride: 0,
-            texture_view: view,
+            texture_view: Some(view),
             render_view: None,
             image,
             is_undefined: Cell::new(true),
@@ -106,8 +106,8 @@ impl VulkanRenderer {
             }),
             ty: VulkanImageMemory::Blend(allocation),
             bridge: None,
-            sampled_image_descriptor: self.sampled_image_descriptor(usage, view),
             execution_version: Default::default(),
+            descriptor_buffer: self.descriptor_buffer_image(usage, view),
         });
         cached.insert_entry(Rc::downgrade(&img));
         Ok(img)

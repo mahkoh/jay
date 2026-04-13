@@ -209,6 +209,10 @@ pub enum VulkanError {
     SoftwareRendererNotUsable,
     #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
     DmaBufBufferOffsetAlignment,
+    #[error("Framebuffer has no image view")]
+    FbNoImageView,
+    #[error("Blend buffer has no image view")]
+    BbNoImageView,
 }
 
 type VulkanSync = vulkan_core::sync::VulkanSync<VulkanDevice>;
@@ -388,11 +392,11 @@ impl GfxContext for Context {
     }
 
     fn supports_color_management(&self) -> bool {
-        self.0.device.descriptor_buffer.is_some()
+        self.0.device.uses_descriptor_memory()
     }
 
     fn supports_alpha_modes(&self) -> bool {
-        self.0.device.descriptor_buffer.is_some()
+        self.0.device.uses_descriptor_memory()
     }
 
     fn create_dmabuf_buffer(

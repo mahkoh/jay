@@ -1,8 +1,11 @@
 use {
-    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice, renderer::CachedCommandBuffers},
+    crate::{
+        gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
+        utils::{errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
+    },
     ash::vk::{
-        CommandBuffer, CommandBufferAllocateInfo, CommandBufferLevel, CommandPool,
-        CommandPoolCreateFlags, CommandPoolCreateInfo,
+        CommandBuffer, CommandBufferAllocateInfo, CommandBufferLevel, CommandBufferResetFlags,
+        CommandPool, CommandPoolCreateFlags, CommandPoolCreateInfo,
     },
     std::rc::Rc,
 };
@@ -15,6 +18,12 @@ pub struct VulkanCommandPool {
 pub struct VulkanCommandBuffer {
     pub(super) pool: Rc<VulkanCommandPool>,
     pub(super) buffer: CommandBuffer,
+}
+
+pub(super) struct CachedCommandBuffers {
+    pool: Rc<VulkanCommandPool>,
+    buffers: Stack<Rc<VulkanCommandBuffer>>,
+    total_buffers: NumCell<usize>,
 }
 
 impl Drop for VulkanCommandPool {
@@ -72,5 +81,34 @@ impl VulkanDevice {
             buffers: Default::default(),
             total_buffers: Default::default(),
         })
+    }
+}
+
+impl CachedCommandBuffers {
+    pub(super) fn allocate(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
+        zone!("allocate_command_buffer");
+        let buf = match self.buffers.pop() {
+            Some(b) => b,
+            _ => {
+                self.total_buffers.fetch_add(1);
+                self.pool.allocate_buffer()?
+            }
+        };
+        Ok(buf)
+    }
+
+    pub(super) fn release(&self, buffer: Rc<VulkanCommandBuffer>) {
+        let res = unsafe {
+            buffer
+                .pool
+                .device
+                .device
+                .reset_command_buffer(buffer.buffer, CommandBufferResetFlags::empty())
+        };
+        if let Err(e) = res {
+            log::error!("Could not reset command buffer: {}", ErrorFmt(e));
+            return;
+        }
+        self.buffers.push(buffer);
     }
 }

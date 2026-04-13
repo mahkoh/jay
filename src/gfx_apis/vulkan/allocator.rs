@@ -167,7 +167,7 @@ impl VulkanDevice {
             gpu_alloc_ash::device_properties(&self.instance.instance, self.physical_device)
         };
         let mut props = props.map_err(VulkanError::GetDeviceProperties)?;
-        props.buffer_device_address = self.descriptor_buffer.is_some();
+        props.buffer_device_address = self.uses_descriptor_memory();
         let non_coherent_atom_size = props.non_coherent_atom_size;
         let allocator = GpuAllocator::new(config, props);
         Ok(Rc::new(VulkanAllocatorType {

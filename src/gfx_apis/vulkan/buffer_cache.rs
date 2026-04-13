@@ -17,17 +17,17 @@ use {
 pub struct VulkanBufferCache {
     device: Rc<VulkanDevice>,
     allocator: Rc<VulkanAllocator>,
-    buffers: RefCell<Vec<VulkanBufferUnused>>,
+    buffers: RefCell<Vec<VulkanBufferUncached>>,
     usage: BufferUsageFlags,
     min_alignment: DeviceSize,
 }
 
 pub struct VulkanBuffer {
     cache: Rc<VulkanBufferCache>,
-    pub buffer: ManuallyDrop<VulkanBufferUnused>,
+    pub buffer: ManuallyDrop<VulkanBufferUncached>,
 }
 
-pub struct VulkanBufferUnused {
+pub struct VulkanBufferUncached {
     device: Rc<VulkanDevice>,
     pub size: DeviceSize,
     pub buffer: Buffer,
@@ -108,46 +108,61 @@ impl VulkanBufferCache {
         }
         let size = capacity.checked_next_power_of_two().unwrap();
         log::debug!("allocating size {}", size);
+        let buffer = self.device.allocate_uncached_buffer(
+            size,
+            self.min_alignment,
+            &self.allocator,
+            self.usage,
+        )?;
+        Ok(VulkanBuffer {
+            cache: self.clone(),
+            buffer: ManuallyDrop::new(buffer),
+        })
+    }
+}
+
+impl VulkanDevice {
+    pub fn allocate_uncached_buffer(
+        self: &Rc<Self>,
+        size: DeviceSize,
+        min_alignment: DeviceSize,
+        allocator: &Rc<VulkanAllocator>,
+        usage: BufferUsageFlags,
+    ) -> Result<VulkanBufferUncached, VulkanError> {
         let buffer = {
-            let info = BufferCreateInfo::default().size(size).usage(self.usage);
+            let info = BufferCreateInfo::default().size(size).usage(usage);
             unsafe {
                 self.device
-                    .device
                     .create_buffer(&info, None)
                     .map_err(VulkanError::CreateBuffer)?
             }
         };
-        let destroy_buffer = on_drop(|| unsafe { self.device.device.destroy_buffer(buffer, None) });
-        let mut memory_requirements =
-            unsafe { self.device.device.get_buffer_memory_requirements(buffer) };
-        memory_requirements.alignment = memory_requirements.alignment.max(self.min_alignment);
+        let destroy_buffer = on_drop(|| unsafe { self.device.destroy_buffer(buffer, None) });
+        let mut memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
+        memory_requirements.alignment = memory_requirements.alignment.max(min_alignment);
         let allocation = {
             let flags = UsageFlags::UPLOAD
                 | UsageFlags::FAST_DEVICE_ACCESS
                 | UsageFlags::HOST_ACCESS
                 | UsageFlags::DEVICE_ADDRESS;
-            self.allocator.alloc(&memory_requirements, flags, true)?
+            allocator.alloc(&memory_requirements, flags, true)?
         };
         unsafe {
             self.device
-                .device
                 .bind_buffer_memory(buffer, allocation.memory, allocation.offset)
                 .map_err(VulkanError::BindBufferMemory)?;
         }
         destroy_buffer.forget();
         let address = {
             let info = BufferDeviceAddressInfo::default().buffer(buffer);
-            unsafe { self.device.device.get_buffer_device_address(&info) }
+            unsafe { self.device.get_buffer_device_address(&info) }
         };
-        Ok(VulkanBuffer {
-            cache: self.clone(),
-            buffer: ManuallyDrop::new(VulkanBufferUnused {
-                device: self.device.clone(),
-                size,
-                buffer,
-                allocation,
-                address,
-            }),
+        Ok(VulkanBufferUncached {
+            device: self.clone(),
+            size,
+            buffer,
+            allocation,
+            address,
         })
     }
 }
@@ -159,7 +174,7 @@ impl Drop for VulkanBuffer {
     }
 }
 
-impl Drop for VulkanBufferUnused {
+impl Drop for VulkanBufferUncached {
     fn drop(&mut self) {
         unsafe {
             self.device.device.destroy_buffer(self.buffer, None);
