@@ -127,6 +127,14 @@ impl VulkanDevice {
             }
         }
     }
+
+    pub(super) fn uses_legacy_descriptors(&self) -> bool {
+        self.descriptor_buffer.is_none()
+    }
+
+    pub(super) fn uses_descriptor_memory(&self) -> bool {
+        !self.uses_legacy_descriptors()
+    }
 }
 
 impl VulkanInstance {

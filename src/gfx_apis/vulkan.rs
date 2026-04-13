@@ -392,11 +392,11 @@ impl GfxContext for Context {
     }
 
     fn supports_color_management(&self) -> bool {
-        self.0.device.descriptor_buffer.is_some()
+        self.0.device.uses_descriptor_memory()
     }
 
     fn supports_alpha_modes(&self) -> bool {
-        self.0.device.descriptor_buffer.is_some()
+        self.0.device.uses_descriptor_memory()
     }
 
     fn create_dmabuf_buffer(

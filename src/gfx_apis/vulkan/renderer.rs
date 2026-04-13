@@ -301,7 +301,7 @@ impl VulkanDevice {
         let out_vert_shader;
         let out_frag_shader;
         let mut tex_descriptor_set_layouts = ArrayVec::new();
-        if self.descriptor_buffer.is_some() {
+        if self.uses_descriptor_memory() {
             tex_vert_shader = self.create_shader(TEX_VERT)?;
             tex_frag_shader = self.create_shader(TEX_FRAG)?;
             fill_vert_shader = self.create_shader(FILL_VERT)?;
@@ -758,7 +758,7 @@ impl VulkanRenderer {
                     }
                 });
                 let mops = &mut memory.ops[pass];
-                if self.device.descriptor_buffer.is_none() {
+                if self.device.uses_legacy_descriptors() {
                     mops.append(ops);
                     continue;
                 }
@@ -986,7 +986,7 @@ impl VulkanRenderer {
     }
 
     fn create_data_buffer(&self) -> Result<(), VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Ok(());
         }
         zone!("create_data_buffer");
@@ -1028,7 +1028,7 @@ impl VulkanRenderer {
     }
 
     fn create_uniform_buffer(&self) -> Result<(), VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Ok(());
         }
         zone!("create_uniform_buffer");

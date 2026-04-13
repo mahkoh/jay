@@ -23,7 +23,7 @@ impl VulkanRenderer {
         width: i32,
         height: i32,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
-        if self.device.descriptor_buffer.is_none() {
+        if self.device.uses_legacy_descriptors() {
             return Err(VulkanError::NoDescriptorBuffer);
         }
         if width <= 0 || height <= 0 {
