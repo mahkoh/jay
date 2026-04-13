@@ -8,6 +8,8 @@ use {
 
 pub struct VulkanSampler {
     pub(super) device: Rc<VulkanDevice>,
+    #[expect(dead_code)]
+    pub(super) create_info: SamplerCreateInfo<'static>,
     pub(super) sampler: Sampler,
 }
 
@@ -28,6 +30,7 @@ impl VulkanDevice {
         let sampler = sampler.map_err(VulkanError::CreateSampler)?;
         Ok(Rc::new(VulkanSampler {
             device: self.clone(),
+            create_info,
             sampler,
         }))
     }
