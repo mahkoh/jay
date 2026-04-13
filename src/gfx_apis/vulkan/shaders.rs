@@ -61,6 +61,25 @@ pub struct TexPushConstants {
 unsafe impl Packed for TexPushConstants {}
 
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct HeapTexPushConstants {
+    pub push: TexPushConstants,
+    pub heap_tex_set: HeapTexSet,
+}
+
+unsafe impl Packed for HeapTexPushConstants {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct HeapTexSet {
+    pub tex_descriptor_offset: u32,
+    pub _pad: u32,
+    pub color_management_data_addr: DeviceAddress,
+    pub eotf_args_addr: DeviceAddress,
+    pub inv_eotf_args_addr: DeviceAddress,
+}
+
+#[derive(Copy, Clone, Debug)]
 #[repr(C, align(16))]
 pub struct ColorManagementData {
     pub matrix: [[f32; 4]; 4],
@@ -107,6 +126,15 @@ pub struct OutPushConstants {
 }
 
 unsafe impl Packed for OutPushConstants {}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct HeapOutPushConstants {
+    pub push: OutPushConstants,
+    pub heap_tex_set: HeapTexSet,
+}
+
+unsafe impl Packed for HeapOutPushConstants {}
 
 impl VulkanDevice {
     pub(super) fn create_shader(

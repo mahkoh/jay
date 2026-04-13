@@ -52,7 +52,6 @@ pub struct PageAllocEntry {
 }
 
 impl PageAllocCtx {
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn create_alloc(&self, pages: usize) -> Rc<PageAlloc> {
         Rc::new(PageAlloc {
             id: self.ids.next(),
@@ -69,7 +68,6 @@ impl PageAlloc {
         self.pages.len() * PAGE_ALLOC_PAGE_SIZE as usize
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn allocate(self: &Rc<Self>, size: usize) -> Option<Rc<PageAllocEntry>> {
         let size_class_idx = size.next_power_of_two().trailing_zeros() as usize;
         let size_class = &self.size_classes[size_class_idx];
@@ -110,12 +108,10 @@ impl PageAllocEntry {
         self.alloc_id == alloc.id
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn is_not_in_alloc(&self, alloc: &PageAlloc) -> bool {
         !self.is_in_alloc(alloc)
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn offset(&self) -> u32 {
         self.offset
     }

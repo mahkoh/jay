@@ -24,7 +24,7 @@ impl VulkanRenderer {
         height: i32,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
         if self.device.uses_legacy_descriptors() {
-            return Err(VulkanError::NoDescriptorBuffer);
+            return Err(VulkanError::NoBlendBuffers);
         }
         if width <= 0 || height <= 0 {
             return Err(VulkanError::NonPositiveImageSize);
@@ -89,6 +89,9 @@ impl VulkanRenderer {
                 .create_image_view(&image_view_create_info, None)
         };
         let view = view.map_err(VulkanError::CreateImageView)?;
+        let destroy_view = on_drop(|| unsafe { self.device.device.destroy_image_view(view, None) });
+        let descriptor_heap = self.descriptor_heap_image(usage, &image_view_create_info)?;
+        destroy_view.forget();
         destroy_image.forget();
         let img = Rc::new(VulkanImage {
             renderer: self.clone(),
@@ -108,6 +111,7 @@ impl VulkanRenderer {
             bridge: None,
             execution_version: Default::default(),
             descriptor_buffer: self.descriptor_buffer_image(usage, view),
+            descriptor_heap,
         });
         cached.insert_entry(Rc::downgrade(&img));
         Ok(img)

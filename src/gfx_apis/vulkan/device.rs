@@ -5,10 +5,11 @@ use {
         format::XRGB8888,
         gfx_apis::vulkan::{
             VulkanError,
+            descriptor_heap::DescriptorHeapType,
             format::{VulkanBlendBufferLimits, VulkanFormat},
             instance::VulkanInstance,
         },
-        utils::{bitflags::BitflagsExt, oserror::OsErrorExt2},
+        utils::{bitflags::BitflagsExt, oserror::OsErrorExt2, page_alloc::PageAllocCtx},
         video::{
             dmabuf::DmaBufIds,
             drm::{Drm, syncobj::SyncobjCtx},
@@ -24,37 +25,41 @@ use {
     ash::{
         Device,
         ext::{
-            descriptor_buffer, external_memory_dma_buf, image_drm_format_modifier,
+            descriptor_buffer, descriptor_heap, external_memory_dma_buf, image_drm_format_modifier,
             physical_device_drm, queue_family_foreign,
         },
         khr::{
             self, driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
-            push_descriptor,
+            maintenance5, push_descriptor,
         },
         vk::{
-            self, DeviceCreateInfo, DeviceQueueCreateInfo, DeviceQueueGlobalPriorityCreateInfoKHR,
-            DeviceSize, DriverId, ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
-            ExternalSemaphoreProperties, MAX_MEMORY_TYPES, MemoryPropertyFlags, MemoryType,
-            PhysicalDevice, PhysicalDeviceBufferDeviceAddressFeatures,
-            PhysicalDeviceDescriptorBufferFeaturesEXT, PhysicalDeviceDescriptorBufferPropertiesEXT,
-            PhysicalDeviceDriverProperties, PhysicalDeviceDriverPropertiesKHR,
-            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
-            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceProperties,
+            self, CommandBuffer, DeviceCreateInfo, DeviceQueueCreateInfo,
+            DeviceQueueGlobalPriorityCreateInfoKHR, DeviceSize, DriverId,
+            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
+            ExternalSemaphoreProperties, HostAddressRangeConstEXT, MAX_MEMORY_TYPES,
+            MemoryPropertyFlags, MemoryType, PhysicalDevice,
+            PhysicalDeviceBufferDeviceAddressFeatures, PhysicalDeviceDescriptorBufferFeaturesEXT,
+            PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDescriptorHeapFeaturesEXT,
+            PhysicalDeviceDescriptorHeapPropertiesEXT, PhysicalDeviceDriverProperties,
+            PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
+            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
+            PhysicalDeviceMaintenance5Features, PhysicalDeviceProperties,
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
             PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
             PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
-            Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
+            PushDataInfoEXT, Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
         },
     },
     isnt::std_1::collections::IsntHashMapExt,
+    linearize::{StaticMap, static_map},
     run_on_drop::on_drop,
     std::{
         cell::Cell,
         ffi::{CStr, CString},
         rc::Rc,
-        sync::Arc,
+        sync::{Arc, LazyLock},
     },
-    uapi::{Ustr, c::O_RDWR},
+    uapi::{Packed, Ustr, c::O_RDWR},
     vk::QueueFamilyGlobalPriorityPropertiesKHR,
 };
 
@@ -85,6 +90,7 @@ pub struct VulkanDevice {
     pub(super) fast_ram_access: bool,
     pub(super) supports_timeline_opaque_export: bool,
     pub(super) descriptor_buffer: Option<Rc<DescriptorBufferDevice>>,
+    pub(super) descriptor_heap: Option<Rc<DescriptorHeapDevice>>,
 }
 
 pub(super) struct DescriptorBufferDevice {
@@ -93,6 +99,27 @@ pub(super) struct DescriptorBufferDevice {
     pub(super) sampler_descriptor_size: usize,
     pub(super) sampled_image_descriptor_size: usize,
     pub(super) uniform_buffer_descriptor_size: usize,
+}
+
+pub(super) struct DescriptorHeapDevice {
+    pub(super) device: descriptor_heap::Device,
+    pub(super) alloc: PageAllocCtx,
+    pub(super) alignment: StaticMap<DescriptorHeapType, DeviceSize>,
+    pub(super) max_size: StaticMap<DescriptorHeapType, DeviceSize>,
+    pub(super) min_reserved_range: StaticMap<DescriptorHeapType, DeviceSize>,
+    pub(super) sampler_descriptor_size: usize,
+    pub(super) image_descriptor_size: usize,
+}
+
+impl DescriptorHeapDevice {
+    pub(super) unsafe fn push_data(&self, buf: CommandBuffer, data: &impl Packed) {
+        let info: PushDataInfoEXT = PushDataInfoEXT::default()
+            .offset(0)
+            .data(HostAddressRangeConstEXT::default().address(uapi::as_bytes(data)));
+        unsafe {
+            self.device.cmd_push_data(buf, &info);
+        }
+    }
 }
 
 impl Drop for VulkanDevice {
@@ -129,7 +156,7 @@ impl VulkanDevice {
     }
 
     pub(super) fn uses_legacy_descriptors(&self) -> bool {
-        self.descriptor_buffer.is_none()
+        self.descriptor_heap.is_none() && self.descriptor_buffer.is_none()
     }
 
     pub(super) fn uses_descriptor_memory(&self) -> bool {
@@ -372,9 +399,22 @@ impl VulkanInstance {
                 return Err(VulkanError::MissingDeviceExtension(ext));
             }
         }
-        let supports_descriptor_buffer = extensions.contains_key(descriptor_buffer::NAME);
-        if !supports_descriptor_buffer {
-            log::warn!("Vulkan device does not support descriptor buffers");
+        static NO_DESCRIPTOR_HEAP: LazyLock<bool> =
+            LazyLock::new(|| matches!(std::env::var("JAY_NO_DESCRIPTOR_HEAP").as_deref(), Ok("1")));
+        let mut supports_descriptor_heap = extensions.contains_key(descriptor_heap::NAME)
+            && extensions.contains_key(maintenance5::NAME);
+        if !supports_descriptor_heap {
+            log::warn!("Vulkan device does not support descriptor heaps");
+        }
+        if *NO_DESCRIPTOR_HEAP {
+            supports_descriptor_heap = false;
+        }
+        let mut supports_descriptor_buffer = false;
+        if !supports_descriptor_heap {
+            supports_descriptor_buffer = extensions.contains_key(descriptor_buffer::NAME);
+            if !supports_descriptor_buffer {
+                log::warn!("Vulkan device does not support descriptor buffers");
+            }
         }
         let supports_queue_priority = extensions.contains_key(khr::global_priority::NAME);
         if !supports_queue_priority && high_priority {
@@ -405,6 +445,10 @@ impl VulkanInstance {
             .iter()
             .map(|n| n.as_ptr())
             .collect();
+        if supports_descriptor_heap {
+            enabled_extensions.push(descriptor_heap::NAME.as_ptr());
+            enabled_extensions.push(maintenance5::NAME.as_ptr());
+        }
         if supports_descriptor_buffer {
             enabled_extensions.push(descriptor_buffer::NAME.as_ptr());
         }
@@ -414,6 +458,10 @@ impl VulkanInstance {
             PhysicalDeviceSynchronization2Features::default().synchronization2(true);
         let mut dynamic_rendering_features =
             PhysicalDeviceDynamicRenderingFeatures::default().dynamic_rendering(true);
+        let mut maintenance5_features =
+            PhysicalDeviceMaintenance5Features::default().maintenance5(true);
+        let mut descriptor_heap_features =
+            PhysicalDeviceDescriptorHeapFeaturesEXT::default().descriptor_heap(true);
         let mut descriptor_buffer_features =
             PhysicalDeviceDescriptorBufferFeaturesEXT::default().descriptor_buffer(true);
         let mut buffer_device_address_features =
@@ -454,10 +502,16 @@ impl VulkanInstance {
             .push_next(&mut uniform_buffer_standard_layout_features)
             .queue_create_infos(&queue_create_infos)
             .enabled_extension_names(&enabled_extensions);
-        if supports_descriptor_buffer {
+        if supports_descriptor_heap || supports_descriptor_buffer {
+            device_create_info = device_create_info.push_next(&mut buffer_device_address_features);
+        }
+        if supports_descriptor_heap {
             device_create_info = device_create_info
-                .push_next(&mut descriptor_buffer_features)
-                .push_next(&mut buffer_device_address_features);
+                .push_next(&mut maintenance5_features)
+                .push_next(&mut descriptor_heap_features);
+        }
+        if supports_descriptor_buffer {
+            device_create_info = device_create_info.push_next(&mut descriptor_buffer_features);
         }
         let device = unsafe {
             self.instance
@@ -509,10 +563,15 @@ impl VulkanInstance {
         let push_descriptor = push_descriptor::Device::new(&self.instance, &device);
         let image_drm_format_modifier =
             image_drm_format_modifier::Device::new(&self.instance, &device);
+        let mut descriptor_heap_props = PhysicalDeviceDescriptorHeapPropertiesEXT::default();
         let mut descriptor_buffer_props = PhysicalDeviceDescriptorBufferPropertiesEXT::default();
         let mut physical_device_vulkan12_properties = PhysicalDeviceVulkan12Properties::default();
         let mut physical_device_properties2 = PhysicalDeviceProperties2::default()
             .push_next(&mut physical_device_vulkan12_properties);
+        if supports_descriptor_heap {
+            physical_device_properties2 =
+                physical_device_properties2.push_next(&mut descriptor_heap_props);
+        }
         if supports_descriptor_buffer {
             physical_device_properties2 =
                 physical_device_properties2.push_next(&mut descriptor_buffer_props);
@@ -577,6 +636,28 @@ impl VulkanInstance {
                 uniform_buffer_descriptor_size,
             });
         }
+        let mut descriptor_heap = None;
+        if supports_descriptor_heap {
+            let p = &descriptor_heap_props;
+            descriptor_heap = Some(DescriptorHeapDevice {
+                device: descriptor_heap::Device::new(&self.instance, &device),
+                alloc: Default::default(),
+                alignment: static_map! {
+                    DescriptorHeapType::Sampler => p.sampler_heap_alignment,
+                    DescriptorHeapType::Resource => p.resource_heap_alignment,
+                },
+                max_size: static_map! {
+                    DescriptorHeapType::Sampler => p.max_sampler_heap_size,
+                    DescriptorHeapType::Resource => p.max_resource_heap_size,
+                },
+                min_reserved_range: static_map! {
+                    DescriptorHeapType::Sampler => p.min_sampler_heap_reserved_range,
+                    DescriptorHeapType::Resource => p.min_resource_heap_reserved_range,
+                },
+                sampler_descriptor_size: p.sampler_descriptor_size as usize,
+                image_descriptor_size: p.image_descriptor_size as usize,
+            });
+        }
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
@@ -605,6 +686,7 @@ impl VulkanInstance {
             fast_ram_access,
             supports_timeline_opaque_export,
             descriptor_buffer: descriptor_buffer.map(Rc::new),
+            descriptor_heap: descriptor_heap.map(Rc::new),
         }))
     }
 }

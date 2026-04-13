@@ -1,14 +1,17 @@
 use {
-    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
-    ash::vk::{
-        BorderColor, Filter, Sampler, SamplerAddressMode, SamplerCreateInfo, SamplerMipmapMode,
+    crate::gfx_apis::vulkan::{
+        VulkanError,
+        device::{DescriptorHeapDevice, VulkanDevice},
     },
-    std::rc::Rc,
+    ash::vk::{
+        BorderColor, Filter, HostAddressRangeEXT, Sampler, SamplerAddressMode, SamplerCreateInfo,
+        SamplerMipmapMode,
+    },
+    std::{rc::Rc, slice},
 };
 
 pub struct VulkanSampler {
     pub(super) device: Rc<VulkanDevice>,
-    #[expect(dead_code)]
     pub(super) create_info: SamplerCreateInfo<'static>,
     pub(super) sampler: Sampler,
 }
@@ -41,5 +44,21 @@ impl Drop for VulkanSampler {
         unsafe {
             self.device.device.destroy_sampler(self.sampler, None);
         }
+    }
+}
+
+impl DescriptorHeapDevice {
+    pub(super) fn create_sampler_descriptor(
+        &self,
+        sampler: &SamplerCreateInfo,
+    ) -> Result<Box<[u8]>, VulkanError> {
+        let mut buf = vec![0; self.sampler_descriptor_size].into_boxed_slice();
+        let descriptor = HostAddressRangeEXT::default().address(&mut buf);
+        unsafe {
+            self.device
+                .write_sampler_descriptors(slice::from_ref(sampler), slice::from_ref(&descriptor))
+                .map_err(VulkanError::WriteDescriptor)?;
+        }
+        Ok(buf)
     }
 }

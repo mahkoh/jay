@@ -75,12 +75,36 @@ impl VulkanAllocation {
         F: FnOnce(*mut u8, usize) -> T,
     {
         let t = f(self.mem.unwrap(), self.size as usize);
-        if let Some(mask) = self.coherency_mask {
-            let range = self.incoherent_range(mask);
-            let res = unsafe { self.device().device.flush_mapped_memory_ranges(&[range]) };
-            res.map_err(VulkanError::FlushMemory)?;
+        unsafe {
+            self.flush_range(0, self.size)?;
         }
         Ok(t)
+    }
+
+    pub unsafe fn upload_range<T, F>(
+        &self,
+        offset: usize,
+        size: usize,
+        f: F,
+    ) -> Result<T, VulkanError>
+    where
+        F: FnOnce(*mut u8) -> T,
+    {
+        let t = f(unsafe { self.mem.unwrap().add(offset) });
+        unsafe {
+            self.flush_range(offset as DeviceSize, size as DeviceSize)?;
+        }
+        Ok(t)
+    }
+
+    unsafe fn flush_range(&self, offset: DeviceSize, size: DeviceSize) -> Result<(), VulkanError> {
+        let Some(mask) = self.coherency_mask else {
+            return Ok(());
+        };
+        let range = self.incoherent_range(offset, size, mask);
+        let res = unsafe { self.device().device.flush_mapped_memory_ranges(&[range]) };
+        res.map_err(VulkanError::FlushMemory)?;
+        Ok(())
     }
 
     pub fn download<T, F>(&self, f: F) -> Result<T, VulkanError>
@@ -88,7 +112,7 @@ impl VulkanAllocation {
         F: FnOnce(*const u8, usize) -> T,
     {
         if let Some(mask) = self.coherency_mask {
-            let range = self.incoherent_range(mask);
+            let range = self.incoherent_range(0, self.size, mask);
             let res = unsafe {
                 self.device()
                     .device
@@ -99,9 +123,10 @@ impl VulkanAllocation {
         Ok(f(self.mem.unwrap(), self.size as usize))
     }
 
-    fn incoherent_range(&self, mask: u64) -> MappedMemoryRange<'static> {
-        let lo = self.offset & !mask;
-        let hi = (self.offset + self.size + mask) & !mask;
+    fn incoherent_range(&self, offset: u64, size: u64, mask: u64) -> MappedMemoryRange<'static> {
+        let offset = self.offset + offset;
+        let lo = offset & !mask;
+        let hi = (offset + size + mask) & !mask;
         MappedMemoryRange::default()
             .memory(self.memory)
             .offset(lo)

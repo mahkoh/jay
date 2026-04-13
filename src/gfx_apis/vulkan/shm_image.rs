@@ -437,6 +437,8 @@ impl VulkanRenderer {
                 .create_image_view(&image_view_create_info, None)
         };
         let view = view.map_err(VulkanError::CreateImageView)?;
+        let destroy_image_view =
+            on_drop(|| unsafe { self.device.device.destroy_image_view(view, None) });
         let mut async_data = None;
         if let Some(cpu) = cpu_worker {
             async_data = Some(VulkanShmImageAsyncData {
@@ -460,6 +462,8 @@ impl VulkanRenderer {
             _allocation: allocation,
             async_data,
         };
+        let descriptor_heap = self.descriptor_heap_image(usage, &image_view_create_info)?;
+        destroy_image_view.forget();
         destroy_image.forget();
         let img = Rc::new(VulkanImage {
             renderer: self.clone(),
@@ -479,6 +483,7 @@ impl VulkanRenderer {
             bridge: None,
             execution_version: Cell::new(0),
             descriptor_buffer: self.descriptor_buffer_image(usage, view),
+            descriptor_heap,
         });
         let shm = match &img.ty {
             VulkanImageMemory::DmaBuf(_) => unreachable!(),
