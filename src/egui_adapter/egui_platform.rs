@@ -499,6 +499,9 @@ impl EggContext {
         });
         window.egui.all_styles_mut(|s| {
             s.spacing.item_spacing.y = 5.0;
+        });
+        #[cfg(debug_assertions)]
+        window.egui.all_styles_mut(|s| {
             s.debug.warn_if_rect_changes_id = false;
         });
         window.xdg_surface.owner.set(Some(window.clone()));
