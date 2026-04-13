@@ -260,7 +260,6 @@ pub struct WlSeatGlobal {
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
     warp_mouse_to_focus_scheduled: Cell<bool>,
-    warp_mouse_to_focus_skip_target_check: Cell<bool>,
     mouse_follows_focus: Cell<bool>,
 }
 
@@ -405,7 +404,6 @@ impl WlSeatGlobal {
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
             warp_mouse_to_focus_scheduled: Cell::new(false),
-            warp_mouse_to_focus_skip_target_check: Cell::new(false),
             mouse_follows_focus: Cell::new(false),
         });
         slf.pointer_cursor.set_owner(slf.clone());
@@ -833,7 +831,6 @@ impl WlSeatGlobal {
 
     pub fn maybe_schedule_warp_mouse_to_focus(self: &Rc<Self>) {
         if self.mouse_follows_focus() {
-            self.warp_mouse_to_focus_skip_target_check.set(true);
             self.schedule_warp_mouse_to_focus();
         }
     }
@@ -2055,19 +2052,10 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
         state.eng.yield_now().await;
         while let Some(seat) = state.pending_warp_mouse_to_focus.try_pop() {
             seat.warp_mouse_to_focus_scheduled.set(false);
-            let skip_target_check = seat.warp_mouse_to_focus_skip_target_check.take();
             let Some(tl) = seat.keyboard_node.get().node_toplevel() else {
                 continue;
             };
             let (x, y) = tl.node_absolute_position().center();
-            if !skip_target_check {
-                let Some(target) = state.node_at(x, y).node.node_toplevel() else {
-                    continue;
-                };
-                if target.node_id() != tl.node_id() {
-                    continue;
-                }
-            }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);
         }
