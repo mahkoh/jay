@@ -497,9 +497,10 @@ impl EggContext {
             physical_size: Cell::new([800, 600]),
             scale: Default::default(),
         });
-        window
-            .egui
-            .all_styles_mut(|s| s.spacing.item_spacing.y = 5.0);
+        window.egui.all_styles_mut(|s| {
+            s.spacing.item_spacing.y = 5.0;
+            s.debug.warn_if_rect_changes_id = false;
+        });
         window.xdg_surface.owner.set(Some(window.clone()));
         window.xdg_toplevel.owner.set(Some(window.clone()));
         window.wp_fractional_scale.owner.set(Some(window.clone()));
