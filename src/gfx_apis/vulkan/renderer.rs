@@ -1368,6 +1368,7 @@ impl VulkanRenderer {
                         let push = TexPushConstants {
                             vertices: c.range_address,
                             alpha: c.alpha,
+                            _pad: Default::default(),
                         };
                         unsafe {
                             db.device.cmd_set_descriptor_buffer_offsets(
