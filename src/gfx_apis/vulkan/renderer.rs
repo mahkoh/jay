@@ -370,6 +370,11 @@ impl VulkanDevice {
                 resource_descriptor_buffer_cache,
             }
         });
+        if descriptor_buffer.is_some() {
+            log::info!("Using descriptor buffers");
+        } else {
+            log::info!("Using legacy descriptors");
+        }
         let render = Rc::new(VulkanRenderer {
             formats: Rc::new(formats),
             device: self.clone(),
