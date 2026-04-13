@@ -715,7 +715,7 @@ async fn await_gfx_queue_release(
         vs.handle_validation();
     }
     if let Some(buf) = buf {
-        renderer.gfx_command_buffers.buffers.push(buf);
+        renderer.gfx_command_buffers.release(buf);
     }
     renderer.pending_submits.remove(&id);
     img.queue_state.set(QueueState::Released {
@@ -760,8 +760,8 @@ pub async fn await_async_transfer_release_to_gfx(
     }
     vulkan_sync.handle_validation();
     match &renderer.transfer_command_buffers {
-        Some(b) => b.buffers.push(buf),
-        None => renderer.gfx_command_buffers.buffers.push(buf),
+        Some(b) => b.release(buf),
+        None => renderer.gfx_command_buffers.release(buf),
     }
     img.queue_state.set(QueueState::Released {
         to: QueueFamily::Gfx,

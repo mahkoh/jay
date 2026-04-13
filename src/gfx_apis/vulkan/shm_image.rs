@@ -352,7 +352,7 @@ async fn await_upload(
         renderer.block();
     }
     vulkan_sync.handle_validation();
-    renderer.gfx_command_buffers.buffers.push(buf);
+    renderer.gfx_command_buffers.release(buf);
     renderer.pending_submits.remove(&id);
 }
 

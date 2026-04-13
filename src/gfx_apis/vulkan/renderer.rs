@@ -51,8 +51,8 @@ use {
         vk::{
             self, AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferUsageFlags,
             ClearAttachment, ClearColorValue, ClearRect, ClearValue, CommandBuffer,
-            CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
-            CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
+            CommandBufferBeginInfo, CommandBufferResetFlags, CommandBufferSubmitInfo,
+            CommandBufferUsageFlags, CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
             DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
             DescriptorImageInfo, DescriptorType, DeviceAddress, DeviceSize, Extent2D, Extent3D,
             ImageAspectFlags, ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers,
@@ -142,6 +142,21 @@ impl CachedCommandBuffers {
             }
         };
         Ok(buf)
+    }
+
+    pub(super) fn release(&self, buffer: Rc<VulkanCommandBuffer>) {
+        let res = unsafe {
+            buffer
+                .pool
+                .device
+                .device
+                .reset_command_buffer(buffer.buffer, CommandBufferResetFlags::empty())
+        };
+        if let Err(e) = res {
+            log::error!("Could not reset command buffer: {}", ErrorFmt(e));
+            return;
+        }
+        self.buffers.push(buffer);
     }
 }
 
@@ -2266,7 +2281,7 @@ async fn await_release(
         vs.handle_validation();
     }
     if let Some(buf) = frame.cmd.take() {
-        renderer.gfx_command_buffers.buffers.push(buf);
+        renderer.gfx_command_buffers.release(buf);
     }
     for wait_semaphore in frame.wait_semaphores.take() {
         renderer.wait_semaphores.push(wait_semaphore);
