@@ -2767,7 +2767,7 @@ The table has the following fields:
     ```toml
     [[drm-devices]]
     name = "integrated"
-    match.vendor = "Raphael"
+    match.model = "Raphael"
     ```
 
   The value of this field should be a string.
