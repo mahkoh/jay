@@ -2052,10 +2052,14 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
         state.eng.yield_now().await;
         while let Some(seat) = state.pending_warp_mouse_to_focus.try_pop() {
             seat.warp_mouse_to_focus_scheduled.set(false);
-            let Some(tl) = seat.keyboard_node.get().node_toplevel() else {
+            let node = seat.keyboard_node.get();
+            if node.node_is_display() {
                 continue;
-            };
-            let (x, y) = tl.node_absolute_position().center();
+            }
+            let (mut x, mut y) = node.node_absolute_position().center();
+            if let Some(tl) = node.node_toplevel() {
+                (x, y) = tl.node_absolute_position().center();
+            }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);
         }

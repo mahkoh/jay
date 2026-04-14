@@ -203,4 +203,8 @@ impl Node for DisplayNode {
     ) {
         tool.cursor().set_known(KnownCursor::Default)
     }
+
+    fn node_is_display(&self) -> bool {
+        true
+    }
 }
