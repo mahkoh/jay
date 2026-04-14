@@ -7,7 +7,10 @@ description = "Internal dependency of the Jay compositor"
 repository = "https://github.com/mahkoh/jay"
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = [
+    "lib",
+    # "cdylib", enable this and remove "lib" if you want to use this crate as a config.so
+]
 
 [dependencies]
 jay-config = { version = "1.10.0", path = "../jay-config" }
