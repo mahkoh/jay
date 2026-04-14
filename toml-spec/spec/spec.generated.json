@@ -1322,7 +1322,7 @@
             },
             "model": {
               "type": "string",
-              "description": "The name of the model.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.vendor = \"Raphael\"\n  ```\n"
+              "description": "The name of the model.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.model = \"Raphael\"\n  ```\n"
             },
             "pci-vendor": {
               "type": "integer",

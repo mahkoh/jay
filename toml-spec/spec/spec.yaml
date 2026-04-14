@@ -1410,7 +1410,7 @@ DrmDeviceMatch:
               ```toml
               [[drm-devices]]
               name = "integrated"
-              match.vendor = "Raphael"
+              match.model = "Raphael"
               ```
         pci-vendor:
           kind: number
