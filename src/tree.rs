@@ -844,6 +844,10 @@ pub trait Node: 'static {
 
     // TYPE CHECKERS
 
+    fn node_is_display(&self) -> bool {
+        false
+    }
+
     fn node_is_container(&self) -> bool {
         false
     }
