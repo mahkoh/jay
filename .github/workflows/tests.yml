@@ -206,3 +206,37 @@ jobs:
             /nix
             target
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+  check-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Show env
+        run: |
+          uname -a
+          ldd --version
+      - name: Install
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Restore target dir
+        id: restore-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: target-check-release
+      - name: Check
+        run: |
+          cargo check --release
+      - name: Clear workspace
+        run: cargo clean --workspace
+      - name: Delete old cache
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.restore-cache.outputs.cache-hit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete --repo ${{ github.repository }} ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: Save target dir
+        uses: actions/cache/save@v5
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        with:
+          path: target
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
