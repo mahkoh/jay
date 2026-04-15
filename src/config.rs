@@ -313,10 +313,10 @@ impl ConfigProxy {
             }
             return Err(ConfigError::NotPermitted);
         }
-        let dir = match state.config_dir.as_deref() {
-            Some(d) => d,
-            _ => return Err(ConfigError::ConfigDirNotSet),
-        };
+        let dir = state
+            .config_dir
+            .as_deref()
+            .ok_or(ConfigError::ConfigDirNotSet)?;
         let file = format!("{}/{CONFIG_SO}", dir);
         unsafe { Self::from_file(&file, state) }
     }
@@ -334,10 +334,7 @@ impl ConfigProxy {
         // a library with that path loaded. To work around this, create a
         // temporary copy with an incrementing number and load the library
         // from there.
-        let xrd = match xrd() {
-            Some(x) => x,
-            _ => return Err(ConfigError::XrdNotSet),
-        };
+        let xrd = xrd().ok_or(ConfigError::XrdNotSet)?;
         let copy = format!(
             "{}/.jay_config.so.{}.{}",
             xrd,
@@ -345,21 +342,15 @@ impl ConfigProxy {
             state.config_file_id.fetch_add(1)
         );
         let _ = uapi::unlink(copy.as_str());
-        if let Err(e) = std::fs::copy(path, &copy) {
-            return Err(ConfigError::CopyConfigFile(e));
-        }
+        std::fs::copy(path, &copy).map_err(ConfigError::CopyConfigFile)?;
         let unlink = UnlinkOnDrop(&copy);
-        let lib = match unsafe { Library::new(&copy) } {
-            Ok(l) => l,
-            Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
-        };
-        let entry = unsafe { lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0") };
-        let entry = match entry {
-            Ok(e) => *e,
-            Err(e) => return Err(ConfigError::LibraryDoesNotContainEntry(e)),
+        let lib = unsafe { Library::new(&copy).map_err(ConfigError::CouldNotLoadLibrary)? };
+        let entry = unsafe {
+            lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0")
+                .map_err(ConfigError::LibraryDoesNotContainEntry)?
         };
         mem::forget(unlink);
-        Ok(Self::new(Some(lib), entry, state, Some(copy)))
+        Ok(Self::new(Some(lib), *entry, state, Some(copy)))
     }
 }
 
