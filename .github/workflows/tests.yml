@@ -21,6 +21,7 @@ jobs:
           ldd --version
       - name: Install
         run: |
+          sudo apt-get update
           sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -56,6 +57,7 @@ jobs:
           ldd --version
       - name: Install
         run: |
+          sudo apt-get update
           sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -97,6 +99,7 @@ jobs:
           ldd --version
       - name: Install
         run: |
+          sudo apt-get update
           sudo apt-get install -y musl-dev
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -133,6 +136,7 @@ jobs:
           ldd --version
       - name: Install
         run: |
+          sudo apt-get update
           sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev \
             libfontconfig-dev libvulkan1 mesa-vulkan-drivers xwayland adwaita-icon-theme
           curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -174,6 +178,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install
         run: |
+          sudo apt-get update
           sudo apt-get install -y nix
           sudo systemctl start nix-daemon.service
           sudo chown -R $(whoami) /nix

@@ -1,5 +1,8 @@
 use {
-    crate::{compositor::config_dir, config::have_config_so},
+    crate::{
+        compositor::config_dir,
+        config::{is_unprivileged_config_so, open_config_so},
+    },
     c::sched_setscheduler,
     std::{
         env, mem,
@@ -16,7 +19,11 @@ pub fn elevate_scheduler() {
     if env::var(JAY_NO_REALTIME).as_deref().unwrap_or_default() == "1" {
         return;
     }
-    if have_config_so(config_dir().as_deref()) && dont_allow_realtime_config_so() {
+    if dont_allow_realtime_config_so()
+        && let Ok(fd) = open_config_so(config_dir().as_deref())
+        && let Ok(stat) = uapi::fstat(fd.raw())
+        && is_unprivileged_config_so(&stat)
+    {
         return;
     }
     let mut param = unsafe { mem::zeroed::<sched_param>() };
@@ -35,6 +42,6 @@ fn dont_allow_realtime_config_so() -> bool {
     option_env!(jay_allow_realtime_config_so!()).unwrap_or_default() != "1"
 }
 
-pub fn dont_allow_config_so() -> bool {
+pub fn dont_allow_unprivileged_config_so() -> bool {
     did_elevate_scheduler() && dont_allow_realtime_config_so()
 }

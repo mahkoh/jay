@@ -220,7 +220,6 @@ pub struct State {
     pub serial: NumCell<u64>,
     pub run_toplevel: Rc<RunToplevel>,
     pub config_dir: Option<String>,
-    pub config_file_id: NumCell<u64>,
     pub tracker: Tracker<Self>,
     pub data_offer_ids: DataOfferIds,
     pub data_source_ids: DataSourceIds,
