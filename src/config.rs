@@ -14,9 +14,8 @@ use {
             clonecell::CloneCell,
             nice::{JAY_NO_REALTIME, dont_allow_config_so},
             numcell::NumCell,
+            oserror::{OsError, OsErrorExt2},
             ptr_ext::PtrExt,
-            unlink_on_drop::UnlinkOnDrop,
-            xrd::xrd,
         },
     },
     bincode::Options,
@@ -31,8 +30,20 @@ use {
         window::{self},
     },
     libloading::Library,
-    std::{cell::Cell, io, mem, path::Path, ptr, rc::Rc},
+    std::{
+        cell::Cell,
+        mem,
+        path::Path,
+        ptr,
+        rc::Rc,
+        sync::atomic::{AtomicI32, Ordering::Relaxed},
+    },
     thiserror::Error,
+    uapi::{
+        OwnedFd,
+        c::{self, O_CLOEXEC, O_RDONLY},
+        format_ustr,
+    },
 };
 
 #[derive(Debug, Error)]
@@ -43,16 +54,23 @@ pub enum ConfigError {
     LibraryDoesNotContainEntry(#[source] libloading::Error),
     #[error("Could not determine the config directory")]
     ConfigDirNotSet,
-    #[error("Could not copy the config file")]
-    CopyConfigFile(#[source] io::Error),
-    #[error("XDG_RUNTIME_DIR is not set")]
-    XrdNotSet,
     #[error("Custom config.so is not permitted")]
     NotPermitted,
+    #[error("Could not open config.so")]
+    OpenConfigSo(#[source] OsError),
+    #[error("Could not stat config.so")]
+    StatConfigSo(#[source] OsError),
+    #[error("The config.so file is unchanged")]
+    Unchanged,
+    #[error("Could not dup config.so file descriptor")]
+    DupConfigFd(#[source] OsError),
 }
+
+type FileId = (c::dev_t, c::ino_t);
 
 pub struct ConfigProxy {
     handler: CloneCell<Option<Rc<ConfigProxyHandler>>>,
+    file_id: Option<FileId>,
 }
 
 impl ConfigProxy {
@@ -217,13 +235,12 @@ unsafe extern "C" fn default_client_init(
 impl ConfigProxy {
     fn new(
         lib: Option<Library>,
+        file_id: Option<FileId>,
         entry: &ConfigEntry,
         state: &Rc<State>,
-        path: Option<String>,
     ) -> Self {
         let version = entry.version.min(VERSION);
         let data = Rc::new(ConfigProxyHandler {
-            path,
             client_data: Cell::new(ptr::null()),
             dropped: Cell::new(false),
             _lib: lib,
@@ -274,6 +291,7 @@ impl ConfigProxy {
         }
         Self {
             handler: CloneCell::new(Some(data)),
+            file_id,
         }
     }
 
@@ -291,12 +309,12 @@ impl ConfigProxy {
             unref: jay_config::_private::client::unref,
             handle_msg: jay_config::_private::client::handle_msg,
         };
-        Self::new(None, &entry, state, None)
+        Self::new(None, None, &entry, state)
     }
 
     #[cfg(feature = "it")]
     pub fn for_test(state: &Rc<State>) -> Self {
-        Self::new(None, &TEST_CONFIG_ENTRY, state, None)
+        Self::new(None, None, &TEST_CONFIG_ENTRY, state)
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
@@ -313,15 +331,22 @@ impl ConfigProxy {
             }
             return Err(ConfigError::NotPermitted);
         }
-        let dir = state
-            .config_dir
-            .as_deref()
-            .ok_or(ConfigError::ConfigDirNotSet)?;
-        let file = format!("{}/{CONFIG_SO}", dir);
-        unsafe { Self::from_file(&file, state) }
+        let file = open_config_so(state.config_dir.as_deref())?;
+        let stat = uapi::fstat(file.raw()).map_os_err(ConfigError::StatConfigSo)?;
+        let file_id = Some((stat.st_dev, stat.st_ino));
+        if let Some(old) = state.config.get()
+            && old.file_id == file_id
+        {
+            return Err(ConfigError::Unchanged);
+        }
+        unsafe { Self::from_file(file, file_id, state) }
     }
 
-    pub unsafe fn from_file(path: &str, state: &Rc<State>) -> Result<Self, ConfigError> {
+    pub unsafe fn from_file(
+        fd: OwnedFd,
+        file_id: Option<FileId>,
+        state: &Rc<State>,
+    ) -> Result<Self, ConfigError> {
         // Here we have to do a bit of a dance to support reloading. glibc will
         // never load a library twice unless it has been unloaded in between.
         // glibc identifies libraries by their file path and by their inode
@@ -331,26 +356,22 @@ impl ConfigProxy {
         // However, if the user has created a new config with a new inode, then
         // glibc will still not reload the library if we try to load it from
         // the canonical location ~/.config/jay/config.so since it already has
-        // a library with that path loaded. To work around this, create a
-        // temporary copy with an incrementing number and load the library
-        // from there.
-        let xrd = xrd().ok_or(ConfigError::XrdNotSet)?;
-        let copy = format!(
-            "{}/.jay_config.so.{}.{}",
-            xrd,
-            uapi::getpid(),
-            state.config_file_id.fetch_add(1)
-        );
-        let _ = uapi::unlink(copy.as_str());
-        std::fs::copy(path, &copy).map_err(ConfigError::CopyConfigFile)?;
-        let unlink = UnlinkOnDrop(&copy);
+        // a library with that path loaded. To work around this, we open the
+        // config.so and dlopen via /proc/self/fd/N. We use dup to ensure that N
+        // increases by at least 1 every time we try to reload. Since we increase
+        // the file descriptor limit to the maximum, N should stay below the limit.
+        static LAST_FD: AtomicI32 = AtomicI32::new(0);
+        let dup_fd = uapi::fcntl_dupfd_cloexec(fd.raw(), LAST_FD.load(Relaxed) + 1)
+            .map_os_err(ConfigError::DupConfigFd)?;
+        LAST_FD.store(dup_fd.raw(), Relaxed);
+        let copy = format!("/proc/self/fd/{}", dup_fd.raw());
         let lib = unsafe { Library::new(&copy).map_err(ConfigError::CouldNotLoadLibrary)? };
         let entry = unsafe {
             lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0")
                 .map_err(ConfigError::LibraryDoesNotContainEntry)?
         };
-        mem::forget(unlink);
-        Ok(Self::new(Some(lib), *entry, state, Some(copy)))
+        let entry = *entry;
+        Ok(Self::new(Some(lib), file_id, entry, state))
     }
 }
 
@@ -390,4 +411,10 @@ pub fn have_config_so(config_dir: Option<&str>) -> bool {
     dir.push_str("/");
     dir.push_str(CONFIG_SO);
     Path::new(&dir).exists()
+}
+
+pub fn open_config_so(config_dir: Option<&str>) -> Result<OwnedFd, ConfigError> {
+    let dir = config_dir.ok_or(ConfigError::ConfigDirNotSet)?;
+    let file = format_ustr!("{}/{CONFIG_SO}", dir);
+    uapi::open(&file, O_RDONLY | O_CLOEXEC, 0).map_os_err(ConfigError::OpenConfigSo)
 }

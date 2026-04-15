@@ -314,7 +314,6 @@ fn start_compositor2(
         idle_inhibitor_ids: Default::default(),
         run_toplevel,
         config_dir: config_dir(),
-        config_file_id: NumCell::new(1),
         tracker: Default::default(),
         data_offer_ids: Default::default(),
         data_source_ids: Default::default(),
