@@ -134,12 +134,21 @@ retains `CAP_SYS_NICE` solely for creating elevated Vulkan queues later.
 
 ### SCHED_RR and config.so
 
-`SCHED_RR` and `config.so` are mutually exclusive: running untrusted code at
-real-time priority would be a security risk. Jay enforces this as follows:
+Running untrusted code at real-time priority would be a security risk. To
+prevent this, Jay restricts which `config.so` files can be loaded when the
+scheduler has been elevated to `SCHED_RR`.
 
-- If `config.so` exists in the config directory, Jay skips the `SCHED_RR`
-  elevation (elevated Vulkan queues are still created).
-- If Jay has already elevated to `SCHED_RR`, it refuses to load `config.so`.
+A `config.so` is considered **privileged** if it is owned by `root:root` and is
+not group-writable or world-writable. Privileged config files are assumed to
+come from a trusted source (e.g. a package manager) and are always allowed.
+
+For unprivileged `config.so` files (any other ownership or with loose
+permissions), Jay enforces mutual exclusion with `SCHED_RR`:
+
+- If an unprivileged `config.so` exists in the config directory, Jay skips the
+  `SCHED_RR` elevation (elevated Vulkan queues are still created).
+- If Jay has already elevated to `SCHED_RR`, it refuses to load an unprivileged
+  `config.so`.
 
 You can also skip `SCHED_RR` explicitly by setting `JAY_NO_REALTIME=1`:
 

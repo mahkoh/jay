@@ -12,7 +12,7 @@ use {
         tree::{TileState, ToplevelData, ToplevelIdentifier},
         utils::{
             clonecell::CloneCell,
-            nice::{JAY_NO_REALTIME, dont_allow_config_so},
+            nice::{JAY_NO_REALTIME, dont_allow_unprivileged_config_so},
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
             ptr_ext::PtrExt,
@@ -32,9 +32,7 @@ use {
     libloading::Library,
     std::{
         cell::Cell,
-        mem,
-        path::Path,
-        ptr,
+        mem, ptr,
         rc::Rc,
         sync::atomic::{AtomicI32, Ordering::Relaxed},
     },
@@ -318,19 +316,6 @@ impl ConfigProxy {
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
-        if dont_allow_config_so() {
-            if have_config_so(state.config_dir.as_deref()) {
-                log::warn!("Not loading config.so because");
-                log::warn!("  1. Jay was started with CAP_SYS_NICE");
-                log::warn!("  2. Jay was not started with {}=1", JAY_NO_REALTIME);
-                log::warn!("  3. The scheduler was elevated to SCHED_RR");
-                log::warn!(
-                    "  4. Jay was not compiled with {}=1",
-                    jay_allow_realtime_config_so!(),
-                );
-            }
-            return Err(ConfigError::NotPermitted);
-        }
         let file = open_config_so(state.config_dir.as_deref())?;
         let stat = uapi::fstat(file.raw()).map_os_err(ConfigError::StatConfigSo)?;
         let file_id = Some((stat.st_dev, stat.st_ino));
@@ -338,6 +323,18 @@ impl ConfigProxy {
             && old.file_id == file_id
         {
             return Err(ConfigError::Unchanged);
+        }
+        if dont_allow_unprivileged_config_so() && is_unprivileged_config_so(&stat) {
+            log::warn!("Not loading config.so because");
+            log::warn!("  1. Jay was started with CAP_SYS_NICE");
+            log::warn!("  2. Jay was not started with {}=1", JAY_NO_REALTIME);
+            log::warn!("  3. The scheduler was elevated to SCHED_RR");
+            log::warn!("  4. config.so is not owned by root:root or world-writable");
+            log::warn!(
+                "  5. Jay was not compiled with {}=1",
+                jay_allow_realtime_config_so!(),
+            );
+            return Err(ConfigError::NotPermitted);
         }
         unsafe { Self::from_file(file, file_id, state) }
     }
@@ -403,18 +400,12 @@ pub struct InvokedShortcut {
 
 const CONFIG_SO: &str = "config.so";
 
-pub fn have_config_so(config_dir: Option<&str>) -> bool {
-    let Some(dir) = config_dir else {
-        return false;
-    };
-    let mut dir = dir.to_owned();
-    dir.push_str("/");
-    dir.push_str(CONFIG_SO);
-    Path::new(&dir).exists()
-}
-
 pub fn open_config_so(config_dir: Option<&str>) -> Result<OwnedFd, ConfigError> {
     let dir = config_dir.ok_or(ConfigError::ConfigDirNotSet)?;
     let file = format_ustr!("{}/{CONFIG_SO}", dir);
     uapi::open(&file, O_RDONLY | O_CLOEXEC, 0).map_os_err(ConfigError::OpenConfigSo)
+}
+
+pub fn is_unprivileged_config_so(stat: &c::stat) -> bool {
+    (stat.st_uid, stat.st_gid) != (0, 0) || stat.st_mode & 0o022 != 0
 }
