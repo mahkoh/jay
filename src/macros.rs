@@ -966,3 +966,18 @@ macro_rules! hash_type {
         }
     };
 }
+
+#[allow(clippy::allow_attributes, unused_macros)]
+macro_rules! measure {
+    ($val:expr) => {{
+        let start = std::time::Instant::now();
+        let res = $val;
+        log::info!(
+            "{}: {} took {:?}",
+            line!(),
+            stringify!($val),
+            start.elapsed(),
+        );
+        res
+    }};
+}
