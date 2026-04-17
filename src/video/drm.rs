@@ -933,6 +933,9 @@ mod consts {
     pub const DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED: u64 = 13;
     pub const DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT: u64 = 14;
     pub const DRM_MODE_COLORIMETRY_BT601_YCC: u64 = 15;
+
+    pub const DRM_LINK_STATUS_GOOD: u64 = 0;
+    pub const DRM_LINK_STATUS_BAD: u64 = 1;
 }
 
 #[repr(C)]

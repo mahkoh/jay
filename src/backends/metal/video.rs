@@ -354,6 +354,7 @@ pub struct DefaultProperty {
 
 #[derive(Debug)]
 pub struct ConnectorDisplayData {
+    pub link_status: DrmProperty,
     pub crtc_id: DrmProperty,
     pub crtcs: BinarySearchMap<DrmCrtc, Rc<MetalCrtc>, 8>,
     pub first_mode: Mode,
@@ -1422,8 +1423,10 @@ fn create_connector_display_data(
         }
     }
     let colorspace_prop = props.get("Colorspace").ok();
+    let link_status = props.get("link-status")?;
     let crtc_id = props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _));
     let drm_state = DrmConnectorState {
+        link_status: link_status.value,
         crtc_id: crtc_id.value,
         color_space: colorspace_prop.map(|p| p.value),
         hdr_metadata,
@@ -1445,6 +1448,7 @@ fn create_connector_display_data(
         crtc_h: 0,
     };
     Ok(ConnectorDisplayData {
+        link_status: link_status.id,
         crtc_id: props.get("CRTC_ID")?.id,
         crtcs,
         first_mode,
@@ -2155,6 +2159,7 @@ impl MetalConnector {
         collect_untyped_properties(master, self.id, &mut dd.untyped_properties)?;
         let props = &dd.untyped_properties;
         let state = &mut dd.drm_state;
+        state.link_status = get(props, dd.link_status)?;
         state.crtc_id = DrmCrtc(get(props, dd.crtc_id)? as _);
         if let Some(cs) = dd.colorspace {
             state.color_space = Some(get(props, cs)?);

@@ -21,8 +21,9 @@ use {
             binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
         video::drm::{
-            Change, ConnectorStatus, DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob, DrmConnector, DrmCrtc,
-            DrmFb, DrmModeInfo, DrmObject, DrmPlane, PropBlob, hdr_output_metadata,
+            Change, ConnectorStatus, DRM_LINK_STATUS_GOOD, DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob,
+            DrmConnector, DrmCrtc, DrmFb, DrmModeInfo, DrmObject, DrmPlane, PropBlob,
+            hdr_output_metadata,
         },
     },
     arrayvec::ArrayVec,
@@ -65,6 +66,7 @@ pub struct DrmCrtcState {
 
 #[derive(Default, Clone, Debug)]
 pub struct DrmConnectorState {
+    pub link_status: u64,
     pub crtc_id: DrmCrtc,
     pub color_space: Option<u64>,
     pub hdr_metadata: Option<hdr_output_metadata>,
@@ -324,6 +326,7 @@ impl MetalDeviceTransaction {
                 connector.new = DrmConnectorState::default();
                 continue;
             }
+            connector.new.link_status = DRM_LINK_STATUS_GOOD;
             if connector.new.crtc_id.is_none() {
                 let crtc_id = 'crtc_id: {
                     for (crtc, _) in &dd.crtcs {
@@ -803,6 +806,10 @@ impl MetalDeviceTransactionWithDrmState {
             let n = &mut connector.new;
             let o = &dd.drm_state;
             let changed = c.change_object(connector.obj.id, |c| {
+                if n.link_status != o.link_status {
+                    log_change!(o, n, link_status);
+                    c.change(dd.link_status, n.link_status);
+                }
                 if n.crtc_id != o.crtc_id {
                     log_change!(o, n, crtc_id);
                     c.change(dd.crtc_id, n.crtc_id);
