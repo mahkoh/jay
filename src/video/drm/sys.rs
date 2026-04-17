@@ -399,7 +399,7 @@ pub fn mode_obj_getproperties(
     }
 
     let mut props = Vec::with_capacity(num_props as _);
-    for (id, value) in ids.into_iter().zip(values.into_iter()) {
+    for (id, value) in ids.into_iter().zip(values) {
         props.push(DrmPropertyValue {
             id: DrmProperty(id),
             value,
