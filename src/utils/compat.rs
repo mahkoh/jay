@@ -1,10 +1,11 @@
-use {cfg_if::cfg_if, uapi::c};
+use uapi::c;
 
-cfg_if! {
-    if #[cfg(target_env = "musl")] {
+cfg_select! {
+    target_env = "musl" => {
         pub type IoctlNumber = c::c_int;
         pub type IovLength = c::c_int;
-    } else {
+    }
+    _ => {
         pub type IoctlNumber = c::c_ulong;
         pub type IovLength = usize;
     }
