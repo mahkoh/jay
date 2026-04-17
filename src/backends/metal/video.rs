@@ -1050,11 +1050,7 @@ fn create_default_properties(
     defaults: &[(&'static str, DefaultValue)],
 ) -> Vec<DefaultProperty> {
     let mut res = vec![];
-    let mut defaults = defaults.iter();
-    'outer: loop {
-        let Some(&(name, def)) = defaults.next() else {
-            break;
-        };
+    'outer: for &(name, def) in defaults {
         if let Some((definition, _)) = props.props.get(name.as_bytes().as_bstr()) {
             let value = match def {
                 DefaultValue::Fixed(v) => v,
@@ -1274,8 +1270,8 @@ fn create_connector_display_data(
             }
             0
         };
-        if min_vrr_hz > 0 {
-            vrr_refresh_max_nsec = 1_000_000_000 / min_vrr_hz;
+        if let Some(nsec) = 1_000_000_000_u64.checked_div(min_vrr_hz) {
+            vrr_refresh_max_nsec = nsec;
         }
         let cc = &edid.base_block.chromaticity_coordinates;
         let map = |c: u16| F64(c as f64 / 1024.0);
