@@ -797,7 +797,6 @@ dependencies = [
  "bstr",
  "byteorder",
  "cc",
- "cfg-if",
  "chrono",
  "clap",
  "clap_complete",
