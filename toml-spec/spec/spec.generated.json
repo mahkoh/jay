@@ -1195,7 +1195,7 @@
         },
         "enabled": {
           "type": "boolean",
-          "description": "If specified, enables or disables the connector.\n"
+          "description": "If specified, enables or disables the connector.\n\nIf the same connector is also matched by an `[[outputs]]` entry with an\n`enabled` field, the `[[outputs]]` setting takes precedence.\n"
         }
       },
       "required": [
@@ -1904,6 +1904,10 @@
         "use-native-gamut": {
           "type": "boolean",
           "description": "Configures whether the display primaries are used.\n\nBy default, Jay pretends that the display uses sRGB primaries. This is also how\nmost other systems behave. In reality, most displays use a much larger gamut. For\nexample, they advertise that they support 95% of the DCI-P3 gamut. If the display\nis interpreting colors in their native gamut, then colors will appear more\nsaturated than their specification.\n\nIf this is set to `true`, Jay assumes that the display uses the primaries\nadvertised in its EDID. This might produce more accurate colors while also\nallowing color-managed applications to use the full gamut of the display.\n\nThis setting has no effect when the display is explicitly operating in a wide\ncolor space.\n\nThe default is `false`.\n"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "If specified, enables or disables the output.\n\nIf the same connector is also matched by a `[[connectors]]` entry with an\n`enabled` field, the `[[outputs]]` setting takes precedence.\n"
         }
       },
       "required": [

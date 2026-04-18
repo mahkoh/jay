@@ -389,6 +389,7 @@ pub struct Output {
     pub brightness: Option<Option<f64>>,
     pub blend_space: Option<BlendSpace>,
     pub use_native_gamut: Option<bool>,
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

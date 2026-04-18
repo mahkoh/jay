@@ -1306,6 +1306,9 @@ Connector:
       description: |
         If specified, enables or disables the connector.
 
+        If the same connector is also matched by an `[[outputs]]` entry with an
+        `enabled` field, the `[[outputs]]` setting takes precedence.
+
 
 DrmDeviceMatch:
   kind: variable
@@ -2251,6 +2254,14 @@ Output:
         color space.
         
         The default is `false`.
+    enabled:
+      kind: boolean
+      required: false
+      description: |
+        If specified, enables or disables the output.
+
+        If the same connector is also matched by a `[[connectors]]` entry with an
+        `enabled` field, the `[[outputs]]` setting takes precedence.
 
 
 Transform:

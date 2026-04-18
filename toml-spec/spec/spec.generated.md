@@ -2492,6 +2492,9 @@ The table has the following fields:
 - `enabled` (optional):
 
   If specified, enables or disables the connector.
+  
+  If the same connector is also matched by an `[[outputs]]` entry with an
+  `enabled` field, the `[[outputs]]` setting takes precedence.
 
   The value of this field should be a boolean.
 
@@ -4187,6 +4190,15 @@ The table has the following fields:
   color space.
   
   The default is `false`.
+
+  The value of this field should be a boolean.
+
+- `enabled` (optional):
+
+  If specified, enables or disables the output.
+  
+  If the same connector is also matched by a `[[connectors]]` entry with an
+  `enabled` field, the `[[outputs]]` setting takes precedence.
 
   The value of this field should be a boolean.
 
