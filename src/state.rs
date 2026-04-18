@@ -52,10 +52,7 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
-            head_management::{
-                HeadManagers, HeadNames,
-                jay_head_manager_session_v1::{HeadManagerEvent, JayHeadManagerSessionV1},
-            },
+            head_management::{HeadManagers, HeadNames},
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
                 x_data_device::XIpcDeviceIds,
@@ -139,9 +136,8 @@ use {
         virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerSessionV1Id,
-            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
-            ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
+            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -291,9 +287,6 @@ pub struct State {
     pub pending_warp_mouse_to_focus: AsyncQueue<Rc<WlSeatGlobal>>,
     pub backend_connector_state_serials: BackendConnectorStateSerials,
     pub head_names: HeadNames,
-    pub head_managers:
-        CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
-    pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
@@ -1276,8 +1269,6 @@ impl State {
         self.node_at_tree.borrow_mut().clear();
         self.position_hint_requests.clear();
         self.pending_warp_mouse_to_focus.clear();
-        self.head_managers.clear();
-        self.head_managers_async.clear();
         self.const_40hz_latch.clear();
         self.cursor_user_groups.clear();
         self.cursor_user_group_hardware_cursor.take();

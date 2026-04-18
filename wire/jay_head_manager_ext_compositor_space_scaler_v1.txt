@@ -1,7 +1,0 @@
-request destroy (destructor) {
-
-}
-
-event head {
-    head: id(jay_head_ext_compositor_space_scaler_v1) (new),
-}

@@ -9,7 +9,6 @@ use {
             ext_image_copy::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global,
             ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
-            head_management::jay_head_manager_v1::JayHeadManagerV1Global,
             ipc::{
                 data_control::{
                     ext_data_control_manager_v1::ExtDataControlManagerV1Global,
@@ -241,7 +240,6 @@ singletons! {
     ExtWorkspaceManagerV1,
     WpColorManagerV1,
     XdgToplevelTagManagerV1,
-    JayHeadManagerV1,
     WpPointerWarpV1,
     JayPopupExtManagerV1,
     ZwlrGammaControlManagerV1,

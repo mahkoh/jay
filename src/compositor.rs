@@ -33,9 +33,7 @@ use {
         gfx_api::GfxApi,
         globals::Globals,
         ifs::{
-            head_management::{
-                HeadManagers, HeadState, jay_head_manager_session_v1::handle_jay_head_manager_done,
-            },
+            head_management::{HeadManagers, HeadState},
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
@@ -387,8 +385,6 @@ fn start_compositor2(
         pending_warp_mouse_to_focus: Default::default(),
         backend_connector_state_serials: Default::default(),
         head_names: Default::default(),
-        head_managers: Default::default(),
-        head_managers_async: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
         xdg_surface_configure_events: Default::default(),
@@ -600,11 +596,6 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "position hint requests",
             handle_position_hint_requests(state.clone()),
-        ),
-        eng.spawn2(
-            "jay head manager send done",
-            Phase::Layout,
-            handle_jay_head_manager_done(state.clone()),
         ),
         eng.spawn2(
             "xdg_surface configure events",

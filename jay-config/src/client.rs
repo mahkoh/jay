@@ -226,8 +226,7 @@ bitflags! {
         pub const CC_WORKSPACE_MANAGER        = 1 << 11,
         /// Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
         pub const CC_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
-        /// Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
-        /// globals.
+        /// Grants access to the `zwlr_output_manager_v1` global.
         pub const CC_HEAD_MANAGER             = 1 << 13,
         /// Grants access to the `zwlr_gamma_control_manager_v1` global.
         pub const CC_GAMMA_CONTROL_MANAGER    = 1 << 14,

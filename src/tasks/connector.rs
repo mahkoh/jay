@@ -92,9 +92,6 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
-    for mgr in state.head_managers.lock().values() {
-        mgr.announce(&data);
-    }
     state.trigger_cci(CCI_OUTPUTS);
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
@@ -134,7 +131,6 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
-        self.data.head_managers.handle_removed();
         self.state.trigger_cci(CCI_OUTPUTS);
     }
 
