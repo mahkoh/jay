@@ -4,7 +4,7 @@ use {
         backend::{
             self, BackendColorSpace, BackendEotfs, ConnectorId, DrmDeviceId,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            transaction::BackendConnectorTransactionError,
+            MonitorInfo, transaction::BackendConnectorTransactionError,
         },
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
@@ -16,7 +16,7 @@ use {
         },
         format::config_formats,
         ifs::{
-            wl_output::BlendSpace,
+            wl_output::{BlendSpace, PersistentOutputState},
             wl_seat::{SeatId, WlSeatGlobal},
             wp_content_type_v1::ContentTypeExt,
         },
@@ -742,6 +742,22 @@ impl ConfigProxyHandler {
         }
     }
 
+    fn get_monitor_info(&self, connector: Connector) -> Result<Rc<MonitorInfo>, CphError> {
+        let data = self.get_output(connector)?;
+        Ok(data.monitor_info.clone())
+    }
+
+    fn get_monitor_persistent(
+        &self,
+        connector: Connector,
+    ) -> Result<Rc<PersistentOutputState>, CphError> {
+        let data = self.get_output(connector)?;
+        let pos = self
+            .state
+            .ensure_persistent_output_state(&data.monitor_info.output_id);
+        Ok(pos)
+    }
+
     fn get_output_node_or_persistent(
         &self,
         connector: Connector,
@@ -1210,10 +1226,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_modes(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let info = self.get_monitor_info(connector)?;
         self.respond(Response::ConnectorModes {
-            modes: connector
-                .global
+            modes: info
                 .modes
                 .iter()
                 .flatten()
@@ -1231,9 +1246,9 @@ impl ConfigProxyHandler {
         &self,
         connector: Connector,
     ) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let info = self.get_monitor_info(connector)?;
         self.respond(Response::ConnectorSupportsArbitraryModes {
-            supports_arbitrary_modes: connector.global.modes.is_none(),
+            supports_arbitrary_modes: info.modes.is_none(),
         });
         Ok(())
     }
@@ -1307,9 +1322,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_get_scale(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let pos = self.get_monitor_persistent(connector)?;
         self.respond(Response::ConnectorGetScale {
-            scale: connector.global.persistent.scale.get().to_f64(),
+            scale: pos.scale.get().to_f64(),
         });
         Ok(())
     }
@@ -1562,8 +1577,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_get_position(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
-        let (x, y) = connector.global.pos.get().position();
+        let pos = self.get_monitor_persistent(connector)?;
+        let (x, y) = pos.pos.get();
         self.respond(Response::ConnectorGetPosition { x, y });
         Ok(())
     }
