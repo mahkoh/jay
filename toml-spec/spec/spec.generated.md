@@ -858,12 +858,9 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     [shortcuts]
     alt-x = { type = "create-virtual-output", name = "abcd" }
   
-    [[connectors]]
-    match.name = "VO-abcd"
-    enabled = true
-  
     [[outputs]]
     match.connector = "VO-abcd"
+    enabled = true
     mode = { width = 1920, height = 1080, refresh-rate = 120.0 }
     ```
 
