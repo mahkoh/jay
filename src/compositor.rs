@@ -33,7 +33,7 @@ use {
         gfx_api::GfxApi,
         globals::Globals,
         ifs::{
-            head_management::{HeadManagers, HeadState},
+            head_management::{HeadManager, HeadState},
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
@@ -744,7 +744,7 @@ fn create_dummy_output(state: &Rc<State>) {
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
-        head_managers: HeadManagers::new(head_name, head_state),
+        head_manager: HeadManager::new(head_name, head_state),
         wlr_output_heads: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(

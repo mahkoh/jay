@@ -120,12 +120,12 @@ impl HeadState {
     }
 }
 
-pub struct HeadManagers {
+pub struct HeadManager {
     pub name: HeadName,
     state: Rc<RefCell<HeadState>>,
 }
 
-impl HeadManagers {
+impl HeadManager {
     pub fn new(name: HeadName, state: HeadState) -> Self {
         Self {
             name,

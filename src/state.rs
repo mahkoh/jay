@@ -52,7 +52,7 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
-            head_management::{HeadManagers, HeadNames},
+            head_management::{HeadManager, HeadNames},
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
                 x_data_device::XIpcDeviceIds,
@@ -444,7 +444,7 @@ pub struct ConnectorData {
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
     pub state: RefCell<BackendConnectorState>,
-    pub head_managers: HeadManagers,
+    pub head_manager: HeadManager,
     pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
 }
 
@@ -509,30 +509,30 @@ impl ConnectorData {
             }};
         }
         if b!(old.enabled != s.enabled) {
-            self.head_managers.handle_enabled_change(state, s.enabled);
+            self.head_manager.handle_enabled_change(state, s.enabled);
         }
         if b!(old.active != s.active) {
-            self.head_managers.handle_active_change(s.active);
+            self.head_manager.handle_active_change(s.active);
         }
         if b!(old.non_desktop_override != s.non_desktop_override) {
-            self.head_managers
+            self.head_manager
                 .handle_non_desktop_override_changed(s.non_desktop_override);
         }
         if b!(old.vrr != s.vrr) {
-            self.head_managers.handle_vrr_change(s.vrr);
+            self.head_manager.handle_vrr_change(s.vrr);
         }
         if b!(old.tearing != s.tearing) {
-            self.head_managers.handle_tearing_enabled_change(s.tearing);
+            self.head_manager.handle_tearing_enabled_change(s.tearing);
         }
         if b!(old.format != s.format) {
-            self.head_managers.handle_format_change(s.format);
+            self.head_manager.handle_format_change(s.format);
         }
         if b!((old.color_space, old.eotf) != (s.color_space, s.eotf)) {
-            self.head_managers
+            self.head_manager
                 .handle_colors_change(s.color_space, s.eotf);
         }
         if b!(old.mode != s.mode) {
-            self.head_managers.handle_mode_change(s.mode);
+            self.head_manager.handle_mode_change(s.mode);
             for head in self.wlr_output_heads.lock().values() {
                 head.handle_mode_change(s.mode);
             }
