@@ -1145,8 +1145,7 @@ The string should have one of the following values:
 
 - `head-manager`:
 
-  Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
-  globals.
+  Grants access to the `zwlr_output_manager_v1` global.
 
 - `gamma-control-manager`:
 

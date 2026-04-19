@@ -4,9 +4,8 @@ use {
         backend::{
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
             BackendDrmLessee, BackendEotfs, BackendEvent, BackendGammaLut, BackendGammaLutElement,
-            BackendLuminance, CONCAP_CONNECTOR, CONCAP_MODE_SETTING, CONCAP_PHYSICAL_DISPLAY,
-            Connector, ConnectorCaps, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
-            HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
+            BackendLuminance, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
+            DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
             transaction::{
                 BackendConnectorTransaction, BackendConnectorTransactionError,
                 BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
@@ -870,10 +869,6 @@ impl Connector for MetalConnector {
 
     fn state(&self) -> BackendConnectorState {
         self.display.borrow().persistent.state.borrow().clone()
-    }
-
-    fn caps(&self) -> ConnectorCaps {
-        CONCAP_CONNECTOR | CONCAP_MODE_SETTING | CONCAP_PHYSICAL_DISPLAY
     }
 
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {

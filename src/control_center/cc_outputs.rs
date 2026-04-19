@@ -895,12 +895,12 @@ impl OutputsPaneInner {
 
     fn add_new_heads(&mut self) {
         for connector in self.state.connectors.lock().values() {
-            let mgrs = &connector.head_managers;
-            self.heads.entry(mgrs.name).or_insert_with(|| CompleteHead {
+            let mgr = &connector.head_manager;
+            self.heads.entry(mgr.name).or_insert_with(|| CompleteHead {
                 id: connector.id,
-                name: mgrs.name,
+                name: mgr.name,
                 pretty_name: connector.name.clone(),
-                live_state: mgrs.state(),
+                live_state: mgr.state(),
                 changed_state: None,
                 z: 0,
                 focus: 0,

@@ -130,13 +130,6 @@ impl Display for ConnectorKernelId {
     }
 }
 
-bitflags! {
-    ConnectorCaps: u32;
-        CONCAP_CONNECTOR,
-        CONCAP_MODE_SETTING,
-        CONCAP_PHYSICAL_DISPLAY,
-}
-
 pub trait Connector: Any {
     fn id(&self) -> ConnectorId;
     fn kernel_id(&self) -> ConnectorKernelId;
@@ -146,9 +139,6 @@ pub trait Connector: Any {
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn effectively_locked(&self) -> bool;
     fn state(&self) -> BackendConnectorState;
-    fn caps(&self) -> ConnectorCaps {
-        ConnectorCaps::none()
-    }
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         None
     }

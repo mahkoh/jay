@@ -4,7 +4,7 @@ use {
         control_center::CCI_OUTPUTS,
         globals::GlobalName,
         ifs::{
-            head_management::{HeadManagers, HeadState},
+            head_management::{HeadManager, HeadState},
             jay_tray_v1::JayTrayV1Global,
             wl_output::{BlendSpace, WlOutputGlobal},
         },
@@ -79,7 +79,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         needs_vblank_emulation: Cell::new(false),
         damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
-        head_managers: HeadManagers::new(state.head_names.next(), head_state),
+        head_manager: HeadManager::new(state.head_names.next(), head_state),
         wlr_output_heads: Default::default(),
     });
     if let Some(dev) = drm_dev {
@@ -92,9 +92,6 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
-    for mgr in state.head_managers.lock().values() {
-        mgr.announce(&data);
-    }
     state.trigger_cci(CCI_OUTPUTS);
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
@@ -134,7 +131,6 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
-        self.data.head_managers.handle_removed();
         self.state.trigger_cci(CCI_OUTPUTS);
     }
 
@@ -155,7 +151,7 @@ impl ConnectorHandler {
         }
         self.data.connected.set(false);
         self.data
-            .head_managers
+            .head_manager
             .handle_output_disconnected(&self.state);
         self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.data.wlr_output_heads.lock().drain_values() {
@@ -303,7 +299,7 @@ impl ConnectorHandler {
         on.update_presentation_type();
         self.state.workspace_managers.announce_output(&on);
         self.data
-            .head_managers
+            .head_manager
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
@@ -319,7 +315,7 @@ impl ConnectorHandler {
                         self.state.refresh_hardware_cursors();
                     }
                     ConnectorEvent::FormatsChanged(formats) => {
-                        self.data.head_managers.handle_formats_change(&formats);
+                        self.data.head_manager.handle_formats_change(&formats);
                         self.state.trigger_cci(CCI_OUTPUTS);
                         on.global.formats.set(formats);
                     }
@@ -432,7 +428,7 @@ impl ConnectorHandler {
             config.connector_connected(self.id);
         }
         self.data
-            .head_managers
+            .head_manager
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);

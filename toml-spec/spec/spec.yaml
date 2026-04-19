@@ -4660,8 +4660,7 @@ ClientCapabilities:
             Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
         - value: head-manager
           description: |
-            Grants access to the `jay_head_manager_v1` and `zwlr_output_manager_v1`
-            globals.
+            Grants access to the `zwlr_output_manager_v1` global.
         - value: gamma-control-manager
           description: |
             Grants access to the `zwlr_gamma_control_manager_v1` global.

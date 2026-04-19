@@ -9,7 +9,6 @@ use {
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_image_capture_source_v1::ExtImageCaptureSourceV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            head_management::jay_head_error_v1::JayHeadErrorV1,
             ipc::{
                 data_control::{
                     ext_data_control_source_v1::ExtDataControlSourceV1,
@@ -48,14 +47,13 @@ use {
         },
         wire::{
             ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
-            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayHeadErrorV1Id,
-            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
-            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionReferenceV1Id,
-            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id,
-            ZwpTabletToolV2Id,
+            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
+            JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
+            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
+            WpImageDescriptionReferenceV1Id, WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id,
+            XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
+            ZwlrDataControlSourceV1Id, ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id,
+            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -100,7 +98,6 @@ pub struct Objects {
     pub wp_image_description: CopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
     pub wp_image_description_reference:
         CopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
-    pub jay_head_errors: CopyHashMap<JayHeadErrorV1Id, Rc<JayHeadErrorV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -143,7 +140,6 @@ impl Objects {
             ext_workspace_groups: Default::default(),
             wp_image_description: Default::default(),
             wp_image_description_reference: Default::default(),
-            jay_head_errors: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -188,7 +184,6 @@ impl Objects {
         self.ext_copy_sessions.clear();
         self.ext_data_sources.clear();
         self.ext_workspace_groups.clear();
-        self.jay_head_errors.clear();
         self.wp_image_description.clear();
         self.wp_image_description_reference.clear();
     }

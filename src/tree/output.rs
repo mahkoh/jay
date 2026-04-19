@@ -244,7 +244,7 @@ impl OutputNode {
         if self.tearing.replace(tearing) != tearing {
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_tearing_active_change(tearing);
             self.state.trigger_cci(CCI_OUTPUTS);
         }
@@ -504,7 +504,7 @@ impl OutputNode {
         self.schedule_update_render_data();
         self.global
             .connector
-            .head_managers
+            .head_manager
             .handle_scale_change(scale);
         self.state.trigger_cci(CCI_OUTPUTS);
         for head in self.global.connector.wlr_output_heads.lock().values() {
@@ -878,7 +878,7 @@ impl OutputNode {
             self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_transform_change(transform);
             self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
@@ -941,7 +941,7 @@ impl OutputNode {
         self.state.tree_changed();
         self.global
             .connector
-            .head_managers
+            .head_manager
             .handle_position_size_change(self);
         self.state.trigger_cci(CCI_OUTPUTS);
     }
@@ -996,7 +996,7 @@ impl OutputNode {
             self.update_color_description();
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_brightness_change(brightness);
             self.state.trigger_cci(CCI_OUTPUTS);
         }
@@ -1012,7 +1012,7 @@ impl OutputNode {
             self.update_color_description();
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_use_native_gamut_change(use_native_gamut);
             self.state.trigger_cci(CCI_OUTPUTS);
         }
@@ -1024,7 +1024,7 @@ impl OutputNode {
             self.state.damage(self.global.position());
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_blend_space_change(blend_space);
             self.state.trigger_cci(CCI_OUTPUTS);
         }
@@ -1490,7 +1490,7 @@ impl OutputNode {
             self.update_presentation_type();
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_vrr_mode_change(mode);
             self.state.trigger_cci(CCI_OUTPUTS);
             for head in self.global.connector.wlr_output_heads.lock().values() {
@@ -1505,7 +1505,7 @@ impl OutputNode {
             self.update_presentation_type();
             self.global
                 .connector
-                .head_managers
+                .head_manager
                 .handle_tearing_mode_change(mode);
             self.state.trigger_cci(CCI_OUTPUTS);
         }

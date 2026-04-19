@@ -52,10 +52,7 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_idle_notification_v1::ExtIdleNotificationV1,
             ext_session_lock_v1::ExtSessionLockV1,
-            head_management::{
-                HeadManagers, HeadNames,
-                jay_head_manager_session_v1::{HeadManagerEvent, JayHeadManagerSessionV1},
-            },
+            head_management::{HeadManager, HeadNames},
             ipc::{
                 DataOfferIds, DataSourceIds, data_control::DataControlDeviceIds,
                 x_data_device::XIpcDeviceIds,
@@ -139,9 +136,8 @@ use {
         virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{
-            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayHeadManagerSessionV1Id,
-            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
-            ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
+            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -291,9 +287,6 @@ pub struct State {
     pub pending_warp_mouse_to_focus: AsyncQueue<Rc<WlSeatGlobal>>,
     pub backend_connector_state_serials: BackendConnectorStateSerials,
     pub head_names: HeadNames,
-    pub head_managers:
-        CopyHashMap<(ClientId, JayHeadManagerSessionV1Id), Rc<JayHeadManagerSessionV1>>,
-    pub head_managers_async: AsyncQueue<HeadManagerEvent>,
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub xdg_surface_configure_events: AsyncQueue<XdgSurfaceConfigureEvent>,
@@ -451,7 +444,7 @@ pub struct ConnectorData {
     pub needs_vblank_emulation: Cell<bool>,
     pub damage_intersect: Cell<Rect>,
     pub state: RefCell<BackendConnectorState>,
-    pub head_managers: HeadManagers,
+    pub head_manager: HeadManager,
     pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
 }
 
@@ -516,30 +509,30 @@ impl ConnectorData {
             }};
         }
         if b!(old.enabled != s.enabled) {
-            self.head_managers.handle_enabled_change(state, s.enabled);
+            self.head_manager.handle_enabled_change(state, s.enabled);
         }
         if b!(old.active != s.active) {
-            self.head_managers.handle_active_change(s.active);
+            self.head_manager.handle_active_change(s.active);
         }
         if b!(old.non_desktop_override != s.non_desktop_override) {
-            self.head_managers
+            self.head_manager
                 .handle_non_desktop_override_changed(s.non_desktop_override);
         }
         if b!(old.vrr != s.vrr) {
-            self.head_managers.handle_vrr_change(s.vrr);
+            self.head_manager.handle_vrr_change(s.vrr);
         }
         if b!(old.tearing != s.tearing) {
-            self.head_managers.handle_tearing_enabled_change(s.tearing);
+            self.head_manager.handle_tearing_enabled_change(s.tearing);
         }
         if b!(old.format != s.format) {
-            self.head_managers.handle_format_change(s.format);
+            self.head_manager.handle_format_change(s.format);
         }
         if b!((old.color_space, old.eotf) != (s.color_space, s.eotf)) {
-            self.head_managers
+            self.head_manager
                 .handle_colors_change(s.color_space, s.eotf);
         }
         if b!(old.mode != s.mode) {
-            self.head_managers.handle_mode_change(s.mode);
+            self.head_manager.handle_mode_change(s.mode);
             for head in self.wlr_output_heads.lock().values() {
                 head.handle_mode_change(s.mode);
             }
@@ -1276,8 +1269,6 @@ impl State {
         self.node_at_tree.borrow_mut().clear();
         self.position_hint_requests.clear();
         self.pending_warp_mouse_to_focus.clear();
-        self.head_managers.clear();
-        self.head_managers_async.clear();
         self.const_40hz_latch.clear();
         self.cursor_user_groups.clear();
         self.cursor_user_group_hardware_cursor.take();
