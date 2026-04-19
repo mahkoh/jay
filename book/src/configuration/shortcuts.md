@@ -518,12 +518,9 @@ You can pre-configure the virtual output using connector and output match
 rules:
 
 ```toml
-[[connectors]]
-match.name = "VO-screen-share"
-enabled = true
-
 [[outputs]]
 match.connector = "VO-screen-share"
+enabled = true
 mode = {
     width = 1920,
     height = 1080,
