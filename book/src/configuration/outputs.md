@@ -376,6 +376,19 @@ use-native-gamut = true
 This has no effect when the display is explicitly operating in a wide color
 space (e.g. BT.2020).
 
+## Disabling outputs
+
+Setting `enabled = false` disables an output by default:
+
+```toml
+[[outputs]]
+match.serial-number = "123456789"
+enabled = false
+```
+
+This is useful for disabling a specific display regardless of which port it is
+connected to. Disabled outputs can be re-enabled at runtime using the CLI.
+
 ## Connector configuration
 
 The `[[connectors]]` array lets you enable or disable physical display
@@ -389,6 +402,16 @@ enabled = false
 
 Connector configuration is applied when the connector is first discovered by
 the compositor, which typically happens only at startup.
+
+### Precedence
+
+Both `[[outputs]]` and `[[connectors]]` can enable or disable a display. If
+both match the same connector, the `[[outputs]]` setting takes precedence.
+
+`[[connectors]]` matches by physical port name (e.g. `eDP-1`, `HDMI-A-1`) and
+is applied when the port is first discovered. `[[outputs]]` matches by display
+identity (serial number, manufacturer, model) and is applied when the display is
+first connected, overriding any earlier connector setting.
 
 ## Lid switch (auto-disable laptop screen)
 

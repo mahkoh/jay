@@ -818,6 +818,9 @@ impl ConfigConnector {
 
 impl Output {
     fn apply(&self, c: Connector) {
+        if let Some(enabled) = self.enabled {
+            c.set_enabled(enabled);
+        }
         if self.x.is_some() || self.y.is_some() {
             let (old_x, old_y) = c.position();
             c.set_position(self.x.unwrap_or(old_x), self.y.unwrap_or(old_y));

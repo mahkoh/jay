@@ -51,7 +51,7 @@ impl Parser for OutputParser<'_> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
             (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
-            (color_space, eotf, brightness_val, blend_space, use_native_gamut),
+            (color_space, eotf, brightness_val, blend_space, use_native_gamut, enabled),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -71,6 +71,7 @@ impl Parser for OutputParser<'_> {
                 opt(val("brightness")),
                 recover(opt(str("blend-space"))),
                 recover(opt(bol("use-native-gamut"))),
+                recover(opt(bol("enabled"))),
             ),
         ))?;
         let transform = match transform {
@@ -210,6 +211,7 @@ impl Parser for OutputParser<'_> {
             brightness,
             blend_space,
             use_native_gamut: use_native_gamut.despan(),
+            enabled: enabled.despan(),
         })
     }
 }
