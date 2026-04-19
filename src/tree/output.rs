@@ -15,7 +15,7 @@ use {
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
             wl_buffer::WlBufferStorage,
-            wl_output::{BlendSpace, WlOutputGlobal},
+            wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
             wl_seat::{
                 BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci2,
                 tablet::{TabletTool, TabletToolChanges, TabletToolId},
@@ -2056,6 +2056,78 @@ impl TearingMode {
             Self::VARIANT_1 => ConfigTearingMode::VARIANT_1,
             Self::VARIANT_2 => ConfigTearingMode::VARIANT_2,
             Self::VARIANT_3 => ConfigTearingMode::VARIANT_3,
+        }
+    }
+}
+
+pub enum OutputNodeOrPersistent {
+    Node(Rc<OutputNode>),
+    Persistent(Rc<PersistentOutputState>),
+}
+
+impl OutputNodeOrPersistent {
+    pub fn set_position(&self, x: i32, y: i32) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_position(x, y),
+            OutputNodeOrPersistent::Persistent(p) => p.pos.set((x, y)),
+        }
+    }
+
+    pub fn set_preferred_scale(&self, scale: Scale) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_preferred_scale(scale),
+            OutputNodeOrPersistent::Persistent(p) => p.scale.set(scale),
+        }
+    }
+
+    pub fn update_transform(&self, transform: Transform) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.update_transform(transform),
+            OutputNodeOrPersistent::Persistent(p) => p.transform.set(transform),
+        }
+    }
+
+    pub fn set_vrr_mode(&self, mode: &VrrMode) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_vrr_mode(mode),
+            OutputNodeOrPersistent::Persistent(p) => p.vrr_mode.set(*mode),
+        }
+    }
+
+    pub fn set_tearing_mode(&self, mode: &TearingMode) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_tearing_mode(mode),
+            OutputNodeOrPersistent::Persistent(p) => p.tearing_mode.set(*mode),
+        }
+    }
+
+    pub fn set_brightness(&self, brightness: Option<f64>) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_brightness(brightness),
+            OutputNodeOrPersistent::Persistent(p) => p.brightness.set(brightness),
+        }
+    }
+
+    pub fn set_blend_space(&self, blend_space: BlendSpace) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_blend_space(blend_space),
+            OutputNodeOrPersistent::Persistent(p) => p.blend_space.set(blend_space),
+        }
+    }
+
+    pub fn set_use_native_gamut(&self, use_native_gamut: bool) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_use_native_gamut(use_native_gamut),
+            OutputNodeOrPersistent::Persistent(p) => p.use_native_gamut.set(use_native_gamut),
+        }
+    }
+
+    pub fn set_cursor_hz(&self, state: &State, hz: Option<f64>) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => {
+                n.schedule.set_cursor_hz(state, hz.unwrap_or(f64::INFINITY))
+            }
+            OutputNodeOrPersistent::Persistent(p) => p.vrr_cursor_hz.set(hz),
         }
     }
 }

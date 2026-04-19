@@ -28,9 +28,10 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerSplit, OutputNode, TearingMode, TileState, ToplevelData, ToplevelIdentifier,
-            ToplevelNode, VrrMode, WorkspaceNode, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -741,6 +742,20 @@ impl ConfigProxyHandler {
         }
     }
 
+    fn get_output_node_or_persistent(
+        &self,
+        connector: Connector,
+    ) -> Result<OutputNodeOrPersistent, CphError> {
+        let data = self.get_output(connector)?;
+        if let Some(node) = &data.node {
+            return Ok(OutputNodeOrPersistent::Node(node.clone()));
+        }
+        let pos = self
+            .state
+            .ensure_persistent_output_state(&data.monitor_info.output_id);
+        Ok(OutputNodeOrPersistent::Persistent(pos))
+    }
+
     fn get_drm_device(&self, dev: DrmDevice) -> Result<Rc<DrmDevData>, CphError> {
         match self.state.drm_devs.get(&DrmDeviceId::from_raw(dev.0 as _)) {
             Some(dev) => Ok(dev),
@@ -1307,7 +1322,7 @@ impl ConfigProxyHandler {
             return Err(CphError::ScaleTooLarge(scale));
         }
         let scale = Scale::from_f64(scale);
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         connector.set_preferred_scale(scale);
         Ok(())
     }
@@ -1363,7 +1378,7 @@ impl ConfigProxyHandler {
             ConfigBlendSpace::LINEAR => BlendSpace::Linear,
             _ => return Err(CphError::UnknownBlendSpace(blend_space)),
         };
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         connector.set_blend_space(blend_space);
         Ok(())
     }
@@ -1373,7 +1388,7 @@ impl ConfigProxyHandler {
         connector: Connector,
         brightness: Option<f64>,
     ) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         connector.set_brightness(brightness);
         Ok(())
     }
@@ -1383,7 +1398,7 @@ impl ConfigProxyHandler {
         connector: Connector,
         use_native_gamut: bool,
     ) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         connector.set_use_native_gamut(use_native_gamut);
         Ok(())
     }
@@ -1478,7 +1493,7 @@ impl ConfigProxyHandler {
         };
         match connector {
             Some(c) => {
-                let connector = self.get_output_node(c)?;
+                let connector = self.get_output_node_or_persistent(c)?;
                 connector.set_vrr_mode(mode);
             }
             _ => self.state.default_vrr_mode.set(*mode),
@@ -1491,17 +1506,15 @@ impl ConfigProxyHandler {
         connector: Option<Connector>,
         hz: f64,
     ) -> Result<(), CphError> {
+        let Some((hz, _)) = map_cursor_hz(hz) else {
+            return Err(CphError::InvalidCursorHz(hz));
+        };
         match connector {
             Some(c) => {
-                let connector = self.get_output_node(c)?;
-                connector.schedule.set_cursor_hz(&self.state, hz);
+                let connector = self.get_output_node_or_persistent(c)?;
+                connector.set_cursor_hz(&self.state, hz);
             }
-            _ => {
-                let Some((hz, _)) = map_cursor_hz(hz) else {
-                    return Err(CphError::InvalidCursorHz(hz));
-                };
-                self.state.default_vrr_cursor_hz.set(hz)
-            }
+            _ => self.state.default_vrr_cursor_hz.set(hz),
         }
         Ok(())
     }
@@ -1516,7 +1529,7 @@ impl ConfigProxyHandler {
         };
         match connector {
             Some(c) => {
-                let connector = self.get_output_node(c)?;
+                let connector = self.get_output_node_or_persistent(c)?;
                 connector.set_tearing_mode(mode);
             }
             _ => self.state.default_tearing_mode.set(*mode),
@@ -1529,7 +1542,7 @@ impl ConfigProxyHandler {
         connector: Connector,
         transform: Transform,
     ) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         connector.update_transform(transform.into());
         Ok(())
     }
@@ -1540,7 +1553,7 @@ impl ConfigProxyHandler {
         x: i32,
         y: i32,
     ) -> Result<(), CphError> {
-        let connector = self.get_output_node(connector)?;
+        let connector = self.get_output_node_or_persistent(connector)?;
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
