@@ -692,11 +692,12 @@ impl OutputNode {
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
-        self.workspace_id.set(Some(ws.id));
-        if let Some(old) = self.workspace.set(Some(ws.clone())) {
-            if old.id == ws.id {
-                return false;
-            }
+        let id = Some(ws.id);
+        if self.workspace_id.replace(id) == id {
+            return false;
+        }
+        let old = self.workspace.set(Some(ws.clone()));
+        if let Some(old) = old {
             collect_kb_foci2(old.clone(), &mut seats);
             for pinned in self.pinned.iter() {
                 pinned.deref().clone().set_workspace(ws, false);
