@@ -240,10 +240,10 @@ impl NodeSeatState {
             }
             marks.marks.clear();
         }
-        self.destroy_node2(node, true);
+        self.destroy_node2(node, true, true);
     }
 
-    fn destroy_node2(&self, node: &dyn Node, focus_last: bool) {
+    fn destroy_node2(&self, node: &dyn Node, focus_last: bool, cancel_ui_drags: bool) {
         // NOTE: Also called by set_visible(false)
 
         while let Some((_, seat)) = self.gesture_foci.pop() {
@@ -252,8 +252,10 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.pointer_grabs.pop() {
             seat.pointer_owner.grab_node_removed(&seat);
         }
-        while let Some((_, seat)) = self.ui_drags.pop() {
-            seat.pointer_owner.revert_to_default(&seat);
+        if cancel_ui_drags {
+            while let Some((_, seat)) = self.ui_drags.pop() {
+                seat.pointer_owner.revert_to_default(&seat);
+            }
         }
         let node_id = node.node_id();
         while let Some((_, seat)) = self.dnd_targets.pop() {
@@ -288,7 +290,7 @@ impl NodeSeatState {
             entry.visible.set(visible);
         }
         if !visible {
-            self.destroy_node2(node, false);
+            self.destroy_node2(node, false, false);
         }
     }
 
