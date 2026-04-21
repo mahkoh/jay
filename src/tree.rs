@@ -471,6 +471,17 @@ pub trait Node: 'static {
         // nothing
     }
 
+    fn node_grab_workspace_changed(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        on: &Rc<OutputNode>,
+        ws: Option<&Rc<WorkspaceNode>>,
+    ) {
+        let _ = seat;
+        let _ = on;
+        let _ = ws;
+    }
+
     // EVENT HANDLERS
 
     fn node_on_key(

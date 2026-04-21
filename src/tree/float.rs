@@ -770,6 +770,19 @@ impl Node for FloatNode {
         self.workspace.get().cnode_make_visible(&*self);
     }
 
+    fn node_grab_workspace_changed(
+        self: Rc<Self>,
+        _seat: &Rc<WlSeatGlobal>,
+        output: &Rc<OutputNode>,
+        ws: Option<&Rc<WorkspaceNode>>,
+    ) {
+        if ws.map(|ws| ws.id) == Some(self.workspace.get().id) {
+            return;
+        }
+        let ws = ws.cloned().unwrap_or_else(|| output.ensure_workspace());
+        self.set_workspace_(&ws, true, false);
+    }
+
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,

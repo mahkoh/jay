@@ -1680,6 +1680,10 @@ impl CursorUserOwner for WlSeatGlobal {
             tl.xdg.set_output(output);
         }
     }
+
+    fn workspace_changed(self: Rc<Self>, on: &Rc<OutputNode>, ws: Option<&Rc<WorkspaceNode>>) {
+        self.pointer_owner.workspace_changed(&self, on, ws);
+    }
 }
 
 global_base!(WlSeatGlobal, WlSeat, WlSeatError);

@@ -8,7 +8,7 @@ use {
         rect::Rect,
         scale::Scale,
         state::State,
-        tree::OutputNode,
+        tree::{OutputNode, WorkspaceNode},
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt, rc_eq::rc_eq,
@@ -22,6 +22,7 @@ linear_ids!(CursorUserIds, CursorUserId, u64);
 
 pub trait CursorUserOwner {
     fn output_changed(&self, output: &Rc<OutputNode>);
+    fn workspace_changed(self: Rc<Self>, on: &Rc<OutputNode>, ws: Option<&Rc<WorkspaceNode>>);
 }
 
 pub struct CursorUserGroup {
@@ -129,9 +130,10 @@ impl CursorUserGroup {
             cursor: Default::default(),
             pos: Cell::new(self.output_center(&output)),
             output_pos: Cell::new(output.global.pos.get()),
-            output: CloneCell::new(output),
+            output: CloneCell::new(output.clone()),
             owner: Default::default(),
         });
+        output.cursor_users.set(user.id, user.clone());
         self.users.set(user.id, user.clone());
         user
     }
@@ -267,6 +269,7 @@ impl CursorUser {
     }
 
     pub fn detach(&self) {
+        self.output.get().cursor_users.remove(&self.id);
         self.set(None);
         self.owner.take();
         self.group.users.remove(&self.id);
@@ -347,9 +350,17 @@ impl CursorUser {
         ));
     }
 
-    fn set_output(&self, output: &Rc<OutputNode>) {
-        self.output.set(output.clone());
+    pub fn workspace_changed(&self, on: &Rc<OutputNode>, ws: Option<&Rc<WorkspaceNode>>) {
+        if let Some(owner) = self.owner.get() {
+            owner.workspace_changed(on, ws);
+        }
+    }
+
+    fn set_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        let old = self.output.set(output.clone());
         self.output_pos.set(output.global.pos.get());
+        old.cursor_users.remove(&self.id);
+        output.cursor_users.set(self.id, self.clone());
         if self.is_active() {
             self.group.latest_output.set(output.clone());
         }
@@ -359,6 +370,7 @@ impl CursorUser {
         if let Some(owner) = self.owner.get() {
             owner.output_changed(output);
         }
+        self.workspace_changed(output, output.workspace.get().as_ref());
     }
 
     pub fn output(&self) -> Rc<OutputNode> {
@@ -411,7 +423,7 @@ impl CursorUser {
         (x.round_down(), y.round_down())
     }
 
-    pub fn set_position(&self, mut x: Fixed, mut y: Fixed) -> (Fixed, Fixed) {
+    pub fn set_position(self: &Rc<Self>, mut x: Fixed, mut y: Fixed) -> (Fixed, Fixed) {
         let x_int = x.round_down();
         let y_int = y.round_down();
         if !self.output_pos.get().contains(x_int, y_int) {

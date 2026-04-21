@@ -8,6 +8,7 @@ use {
         cmm::cmm_description::ColorDescription,
         control_center::CCI_OUTPUTS,
         cursor::KnownCursor,
+        cursor_user::{CursorUser, CursorUserId},
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
         ifs::{
@@ -129,6 +130,7 @@ pub struct OutputNode {
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
     pub tearing: Cell<bool>,
     pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
+    pub cursor_users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -457,6 +459,7 @@ impl OutputNode {
         self.global.clear();
         self.workspace.set(None);
         self.workspace_id.set(None);
+        self.cursor_users.clear();
         let workspaces: Vec<_> = self.workspaces.iter().collect();
         for workspace in workspaces {
             workspace.clear();
@@ -690,13 +693,16 @@ impl OutputNode {
         self.create_workspace(&name)
     }
 
-    pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
+    pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
         let id = Some(ws.id);
         if self.workspace_id.replace(id) == id {
             return false;
         }
         let old = self.workspace.set(Some(ws.clone()));
+        for user in self.cursor_users.lock().values() {
+            user.workspace_changed(self, Some(ws));
+        }
         if let Some(old) = old {
             collect_kb_foci2(old.clone(), &mut seats);
             for pinned in self.pinned.iter() {
