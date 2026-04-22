@@ -234,6 +234,7 @@ impl ConnectorHandler {
             pinned: Default::default(),
             tearing: Default::default(),
             active_zwlr_gamma_control: Default::default(),
+            cursor_users: Default::default(),
         });
         on.update_visible();
         on.update_rects();

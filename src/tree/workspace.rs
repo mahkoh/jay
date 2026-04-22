@@ -525,6 +525,10 @@ pub fn move_ws_to_output(
             new_source_ws = Some(source.generate_workspace());
         }
     }
+    for user in source.cursor_users.lock().values() {
+        user.workspace_changed(&source, new_source_ws.as_ref());
+        new_source_ws = source.workspace.get();
+    }
     if let Some(new_source_ws) = &new_source_ws {
         for pinned in source.pinned.iter() {
             pinned.deref().clone().set_workspace(new_source_ws, false);
