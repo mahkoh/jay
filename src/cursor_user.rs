@@ -6,7 +6,6 @@ use {
         fixed::Fixed,
         gfx_api::{AcquireSync, ReleaseSync},
         rect::Rect,
-        scale::Scale,
         state::State,
         tree::{OutputNode, WorkspaceNode},
         utils::{
@@ -86,7 +85,7 @@ impl CursorUserGroup {
             let (x, y) = active.pos.get();
             let x_int = x.round_down();
             let y_int = y.round_down();
-            let extents = cursor.extents_at_scale(Scale::default());
+            let extents = cursor.damage_extents();
             self.damage(extents.move_(x_int, y_int));
         }
     }
@@ -438,7 +437,7 @@ impl CursorUser {
             let (old_x, old_y) = self.pos.get();
             let old_x_int = old_x.round_down();
             let old_y_int = old_y.round_down();
-            let extents = cursor.extents_at_scale(Scale::default());
+            let extents = cursor.damage_extents();
             self.group.damage(extents.move_(old_x_int, old_y_int));
             self.group.damage(extents.move_(x_int, y_int));
         }

@@ -75,6 +75,10 @@ pub trait Cursor {
     fn set_visible(&self, visible: bool) {
         let _ = visible;
     }
+
+    fn damage_extents(&self) -> Rect {
+        self.extents_at_scale(Scale::default())
+    }
 }
 
 pub struct ServerCursors {
@@ -297,13 +301,25 @@ impl ServerCursorTemplate {
             ServerCursorTemplateVariant::Static(s) => Rc::new(StaticCursor {
                 image: s.for_size(size),
             }),
-            ServerCursorTemplateVariant::Animated(a) => Rc::new(AnimatedCursor {
-                start: state.now(),
-                eng: state.eng.clone(),
-                next: NumCell::new(a[0].delay_ns),
-                idx: Cell::new(0),
-                images: a.iter().map(|c| c.for_size(size)).collect(),
-            }),
+            ServerCursorTemplateVariant::Animated(a) => {
+                let images: Vec<_> = a.iter().map(|c| c.for_size(size)).collect();
+                let mut damage_extents = Rect::default();
+                for image in &images {
+                    if damage_extents.is_empty() {
+                        damage_extents = image.damage_extents;
+                    } else {
+                        damage_extents = damage_extents.union(image.damage_extents);
+                    }
+                }
+                Rc::new(AnimatedCursor {
+                    start: state.now(),
+                    eng: state.eng.clone(),
+                    next: NumCell::new(a[0].delay_ns),
+                    idx: Cell::new(0),
+                    images,
+                    damage_extents,
+                })
+            }
         }
     }
 }
@@ -321,6 +337,7 @@ struct CursorImage {
 struct InstantiatedCursorImage {
     delay_ns: u64,
     scales: SmallMapMut<Scale, Rc<CursorImageScaled>, 2>,
+    damage_extents: Rect,
 }
 
 impl CursorImageScaled {
@@ -354,14 +371,32 @@ impl CursorImage {
 
     fn for_size(&self, size: u32) -> InstantiatedCursorImage {
         let mut sizes = SmallMapMut::new();
+        let mut damage_extents = Rect::default();
         for ((scale, isize), v) in &self.sizes {
             if *isize == size {
                 sizes.insert(*scale, v.clone());
+                let normal_extents = if *scale == 1 {
+                    v.extents
+                } else {
+                    let scalef = scale.to_f64();
+                    Rect::new_saturating(
+                        (v.extents.x1() as f64 / scalef).floor() as i32,
+                        (v.extents.y1() as f64 / scalef).floor() as i32,
+                        (v.extents.x2() as f64 / scalef).ceil() as i32,
+                        (v.extents.y2() as f64 / scalef).ceil() as i32,
+                    )
+                };
+                if damage_extents.is_empty() {
+                    damage_extents = normal_extents;
+                } else {
+                    damage_extents = damage_extents.union(normal_extents);
+                }
             }
         }
         InstantiatedCursorImage {
             delay_ns: self.delay_ns,
             scales: sizes,
+            damage_extents,
         }
     }
 }
@@ -438,6 +473,10 @@ impl Cursor for StaticCursor {
             Some(i) => i.extents,
         }
     }
+
+    fn damage_extents(&self) -> Rect {
+        self.image.damage_extents
+    }
 }
 
 struct AnimatedCursor {
@@ -446,6 +485,7 @@ struct AnimatedCursor {
     next: NumCell<u64>,
     idx: Cell<usize>,
     images: Vec<InstantiatedCursorImage>,
+    damage_extents: Rect,
 }
 
 impl Cursor for AnimatedCursor {
@@ -505,6 +545,10 @@ impl Cursor for AnimatedCursor {
         let dist = dist.as_nanos() as u64;
         let nanos = self.next.get().saturating_sub(dist);
         Duration::from_nanos(nanos)
+    }
+
+    fn damage_extents(&self) -> Rect {
+        self.damage_extents
     }
 }
 
