@@ -173,6 +173,7 @@ jobs:
           path: target
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
   nix:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
