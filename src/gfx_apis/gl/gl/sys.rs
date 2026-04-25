@@ -47,7 +47,7 @@ pub const GL_ONE: GLenum = 1;
 pub const GL_ONE_MINUS_SRC_ALPHA: GLenum = 0x0303;
 
 dynload! {
-    GLESV2: GlesV2 from "libGLESv2.so" {
+    GLESV2: GlesV2 from "libGLESv2.so.2" {
         glGetString: unsafe fn(name: GLenum) -> *const u8,
         glGenRenderbuffers: unsafe fn(n: GLsizei, renderbuffers: *mut GLuint),
         glRenderbufferStorage: unsafe fn(target: GLenum, format: GLenum, width: GLsizei, height: GLsizei),
