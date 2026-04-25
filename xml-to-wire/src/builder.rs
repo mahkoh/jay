@@ -34,6 +34,9 @@ fn handle_file_(path: &str) -> Result<(), BuilderError> {
     let protocols = parse(&data).map_err(BuilderError::ParseFile)?;
     for protocol in protocols {
         for i in protocol.interfaces {
+            if matches!(&*i.name, "wl_shell" | "wl_shell_surface") {
+                continue;
+            }
             let path = format!("wire/{}.txt", i.name);
             let mut file =
                 BufWriter::new(File::create(&path).map_err(|e| BuilderError::OpenFile(path, e))?);
@@ -90,6 +93,18 @@ fn handle_file_(path: &str) -> Result<(), BuilderError> {
                         args.next();
                         continue;
                     }
+                    if arg.ty == ArgType::Uint
+                        && arg.enum_.is_none()
+                        && let Some(prefix) = arg.name.strip_suffix("_lo")
+                        && let Some(next) = args.peek()
+                        && next.ty == ArgType::Uint
+                        && next.enum_.is_none()
+                        && next.name.strip_prefix(prefix) == Some("_hi")
+                    {
+                        writeln!(file, "    {prefix}: u64_rev,")?;
+                        args.next();
+                        continue;
+                    }
                     if arg.ty == ArgType::NewId && arg.interface.is_none() {
                         writeln!(file, "    interface: str,")?;
                         writeln!(file, "    version: u32,")?;
@@ -115,7 +130,32 @@ fn handle_file_(path: &str) -> Result<(), BuilderError> {
                                 true => "optstr",
                                 false => "str",
                             },
-                            ArgType::Array => "array(pod(u8))",
+                            ArgType::Array => match (&*i.name, &*msg.name, &*arg.name) {
+                                ("wl_keyboard", "enter", "keys") => "array(u32)",
+                                (
+                                    "ext_image_copy_capture_session_v1",
+                                    "dmabuf_device",
+                                    "device",
+                                ) => "pod(uapi::c::dev_t)",
+                                ("ext_workspace_handle_v1", "coordinates", "coordinates") => {
+                                    "array(u32)"
+                                }
+                                ("xdg_toplevel", "configure", "states") => "array(u32)",
+                                ("xdg_toplevel", "wm_capabilities", "capabilities") => "array(u32)",
+                                ("zwp_linux_dmabuf_feedback_v1", "main_device", "device") => {
+                                    "pod(uapi::c::dev_t)"
+                                }
+                                (
+                                    "zwp_linux_dmabuf_feedback_v1",
+                                    "tranche_target_device",
+                                    "device",
+                                ) => "pod(uapi::c::dev_t)",
+                                ("zwp_linux_dmabuf_feedback_v1", "tranche_formats", "indices") => {
+                                    "array(pod(u16))"
+                                }
+                                ("zwp_tablet_pad_group_v2", "buttons", "buttons") => "array(u32)",
+                                _ => "array(pod(u8))",
+                            },
                             ArgType::Fd => "fd",
                         };
                         write!(file, "{}", ty)?;
