@@ -89,7 +89,7 @@ pub const EGL_SYNC_NATIVE_FENCE_ANDROID: EGLenum = 0x3144;
 pub const EGL_SYNC_NATIVE_FENCE_FD_ANDROID: EGLint = 0x3145;
 
 dynload! {
-    EGL: Egl from "libEGL.so" {
+    EGL: Egl from "libEGL.so.1" {
         eglQueryString: unsafe fn(dpy: EGLDisplay, name: EGLint) -> *const c::c_char,
         eglGetProcAddress: unsafe fn(procname: *const c::c_char) -> *mut u8,
         eglBindAPI: unsafe fn(api: EGLenum) -> EGLBoolean,
