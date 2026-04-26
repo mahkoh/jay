@@ -67,7 +67,11 @@ vec3 inv_eotf_st240(vec3 c) {
 }
 
 vec3 eotf_log100(vec3 c) {
-    return pow(vec3(10), vec3(2.0) * (c - vec3(1.0)));
+    return mix(
+        vec3(0.0),
+        pow(vec3(10), vec3(2.0) * (c - vec3(1.0))),
+        greaterThan(c, vec3(0.0))
+    );
 }
 
 vec3 inv_eotf_log100(vec3 c) {
@@ -80,7 +84,11 @@ vec3 inv_eotf_log100(vec3 c) {
 }
 
 vec3 eotf_log316(vec3 c) {
-    return pow(vec3(10), vec3(2.5) * (c - vec3(1.0)));
+    return mix(
+        vec3(0.0),
+        pow(vec3(10), vec3(2.5) * (c - vec3(1.0))),
+        greaterThan(c, vec3(0.0))
+    );
 }
 
 vec3 inv_eotf_log316(vec3 c) {
