@@ -578,7 +578,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             .find(|c| c.id != ws.id)
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
-            new_source_ws = Some(source.generate_workspace());
+            new_source_ws = Some(source.generate_normal_workspace());
         }
     }
     for user in source.cursor_users.lock().values() {

@@ -844,7 +844,7 @@ impl State {
     }
 
     pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
-        self.get_map_output(seat).ensure_workspace()
+        self.get_map_output(seat).ensure_normal_workspace()
     }
 
     pub fn map_restore(
@@ -866,7 +866,7 @@ impl State {
         };
         let ws = || {
             let Some(name) = s.workspace.get() else {
-                return Some(on()?.ensure_workspace());
+                return Some(on()?.ensure_normal_workspace());
             };
             let ty = s.workspace_ty.get().unwrap_or(WorkspaceType::Normal);
             match self.workspaces.get(&*name) {
@@ -887,7 +887,7 @@ impl State {
                                     }
                                 }
                             }
-                            Some(on()?.ensure_workspace())
+                            Some(on()?.ensure_normal_workspace())
                         }
                     }
                 }
@@ -895,12 +895,12 @@ impl State {
                     WorkspaceType::Normal => {
                         let on = on()?;
                         if session.session.reason() == SessionReason::Recover {
-                            return Some(on.create_workspace(&name));
+                            return Some(on.create_normal_workspace(&name));
                         }
                         if let Some(ws) = on.workspace.get() {
                             return Some(ws);
                         }
-                        Some(on.create_workspace(&name))
+                        Some(on.create_normal_workspace(&name))
                     }
                 },
             }
@@ -1078,7 +1078,7 @@ impl State {
                         log::warn!("Not showing workspace because seat is on dummy output");
                         return;
                     }
-                    output.create_workspace(name)
+                    output.create_normal_workspace(name)
                 }
             },
         };
@@ -1093,13 +1093,13 @@ impl State {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_fallback_output();
             if !output.is_dummy {
-                return output.ensure_workspace();
+                return output.ensure_normal_workspace();
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_workspace();
+            return output.ensure_normal_workspace();
         }
-        self.dummy_output.get().unwrap().ensure_workspace()
+        self.dummy_output.get().unwrap().ensure_normal_workspace()
     }
 
     pub fn set_status(&self, status: &str) {

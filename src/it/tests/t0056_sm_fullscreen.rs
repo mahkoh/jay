@@ -13,8 +13,8 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let setup = run.create_session_management_setup().await?;
 
-    let ws1 = setup.outputs[0].node.create_workspace("1");
-    let ws2 = setup.outputs[1].node.create_workspace("2");
+    let ws1 = setup.outputs[0].node.create_normal_workspace("1");
+    let ws2 = setup.outputs[1].node.create_normal_workspace("2");
 
     let client = run.create_client().await?;
     let sm = client.registry.get_session_manager().await?;

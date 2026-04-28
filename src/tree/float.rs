@@ -671,7 +671,7 @@ impl FloatNode {
             }
         } else if !pressed {
             cursor_data.op_active = false;
-            let ws = cursor.output().ensure_workspace();
+            let ws = cursor.output().ensure_normal_workspace();
             self.set_workspace_(&ws, true, true);
         }
     }
@@ -824,7 +824,9 @@ impl Node for FloatNode {
         if ws.map(|ws| ws.id) == Some(self.workspace.get().id) {
             return;
         }
-        let ws = ws.cloned().unwrap_or_else(|| output.ensure_workspace());
+        let ws = ws
+            .cloned()
+            .unwrap_or_else(|| output.ensure_normal_workspace());
         self.set_workspace_(&ws, true, false);
     }
 

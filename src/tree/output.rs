@@ -685,7 +685,7 @@ impl OutputNode {
         }
     }
 
-    pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn ensure_normal_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
             return ws;
         }
@@ -694,10 +694,10 @@ impl OutputNode {
         {
             return ws.deref().clone();
         }
-        self.generate_workspace()
+        self.generate_normal_workspace()
     }
 
-    pub fn generate_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+    pub fn generate_normal_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         let name = 'name: {
             for i in 1.. {
                 let name = i.to_string();
@@ -707,7 +707,7 @@ impl OutputNode {
             }
             unreachable!();
         };
-        self.create_workspace(&name)
+        self.create_normal_workspace(&name)
     }
 
     pub fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -779,7 +779,7 @@ impl OutputNode {
         None
     }
 
-    pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
+    pub fn create_normal_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
@@ -1256,7 +1256,7 @@ impl OutputNode {
         if bar_rect_with_separator_rel.contains(x, y) {
             return;
         }
-        let ws = self.ensure_workspace();
+        let ws = self.ensure_normal_workspace();
         seat.focus_node(ws);
     }
 

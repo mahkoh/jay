@@ -384,7 +384,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             self.toplevel_data.set_fullscreen(
                 &client.state,
                 slf.clone(),
-                &output.ensure_workspace(),
+                &output.ensure_normal_workspace(),
             );
         }
         self.send_current_configure();
@@ -445,7 +445,7 @@ impl XdgToplevel {
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
         if let Some((output, x, y)) = pos {
-            let w = output.ensure_workspace();
+            let w = output.ensure_normal_workspace();
             self.map_floating(&w, Some((x, y)));
             return;
         }

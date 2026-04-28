@@ -1486,7 +1486,7 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
             }
             return;
         };
-        let ws = output.ensure_workspace();
+        let ws = output.ensure_normal_workspace();
         toplevel_set_workspace(&seat.state, tl.clone(), &ws);
     }
 }
@@ -1632,7 +1632,7 @@ impl UiDragUsecase for TileDragUsecase {
                 src_parent.cnode_remove_child(&*placeholder);
             }
             TddType::NewWorkspace { output } => {
-                new_container(&output.ensure_workspace());
+                new_container(&output.ensure_normal_workspace());
             }
             TddType::NewContainer { workspace } => {
                 new_container(&workspace);
@@ -1642,7 +1642,7 @@ impl UiDragUsecase for TileDragUsecase {
                 seat.state.map_tiled_on(src, &workspace);
             }
             TddType::MoveToNewWorkspace { output } => {
-                let ws = output.generate_workspace();
+                let ws = output.generate_normal_workspace();
                 src_parent.cnode_remove_child(&*src);
                 seat.state.map_tiled_on(src, &ws);
             }

@@ -1153,7 +1153,7 @@ impl ConfigProxyHandler {
             Params {
                 move_: false,
                 ws: match ws.ty.get() {
-                    WorkspaceType::Normal => output.create_workspace(&ws.name),
+                    WorkspaceType::Normal => output.create_normal_workspace(&ws.name),
                 },
                 output,
                 seat,
@@ -1188,7 +1188,9 @@ impl ConfigProxyHandler {
         let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
             _ => match ws.ty.get() {
-                WorkspaceType::Normal => seat.get_fallback_output().create_workspace(&ws.name),
+                WorkspaceType::Normal => {
+                    seat.get_fallback_output().create_normal_workspace(&ws.name)
+                }
             },
         };
         seat.set_workspace(&workspace);
@@ -1202,7 +1204,7 @@ impl ConfigProxyHandler {
             Some(ws) => ws,
             _ => match ws.ty.get() {
                 WorkspaceType::Normal => match window.node_output() {
-                    Some(o) => o.create_workspace(&ws.name),
+                    Some(o) => o.create_normal_workspace(&ws.name),
                     _ => return Ok(()),
                 },
             },

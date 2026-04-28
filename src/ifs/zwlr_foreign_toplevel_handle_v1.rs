@@ -92,7 +92,7 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
                     .lookup(req.output)?
                     .global
                     .node()
-                    .map(|node| node.ensure_workspace())
+                    .map(|node| node.ensure_normal_workspace())
             } else {
                 None
             };

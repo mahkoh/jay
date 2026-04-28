@@ -883,7 +883,7 @@ impl WlSeatGlobal {
             && let Some(output) = data.output_opt()
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
-            let ws = target.ensure_workspace();
+            let ws = target.ensure_normal_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
         } else if let Some(parent) = data.parent.get()
