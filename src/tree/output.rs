@@ -612,7 +612,7 @@ impl OutputNode {
             .bar_separator_rect_rel
             .get()
             .move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
-        for ws in self.workspaces.iter() {
+        let mut handle_workspace = |ws: &Rc<WorkspaceNode>| {
             let mut title_width = bar_rect_rel.height();
             let title = &*ws.title_texture.borrow();
             if let Some(title) = title {
@@ -636,7 +636,7 @@ impl OutputNode {
                         tex_x: x,
                         tex_y: y1,
                         tex: texture,
-                        ws: ws.deref().clone(),
+                        ws: ws.clone(),
                     });
                 }
             }
@@ -657,6 +657,9 @@ impl OutputNode {
                 }
             }
             pos += title_width;
+        };
+        for ws in self.workspaces.iter() {
+            handle_workspace(&ws);
         }
         if let Some(status) = &mut rd.status {
             if let Err(e) = status.tex.flip() {
