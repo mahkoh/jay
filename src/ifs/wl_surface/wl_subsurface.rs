@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Node, NodeLayerLink},
+        tree::{Node, NodeLayerLink, WorkspaceNode},
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
@@ -447,6 +447,10 @@ impl SurfaceExt for WlSubsurface {
 
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
         self.parent.node_tray_item()
+    }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.parent.node_workspace()
     }
 }
 

@@ -397,6 +397,7 @@ pub trait Node: 'static {
     fn node_visible(&self) -> bool;
     fn node_absolute_position(&self) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>>;
     fn node_location(&self) -> Option<NodeLocation>;
     fn node_layer(&self) -> NodeLayerLink;
 

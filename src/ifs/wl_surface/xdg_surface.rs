@@ -704,6 +704,10 @@ impl SurfaceExt for XdgSurface {
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
         self.ext.get()?.tray_item()
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.workspace.get()
+    }
 }
 
 #[derive(Debug, Error)]

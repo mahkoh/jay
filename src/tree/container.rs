@@ -1643,6 +1643,10 @@ impl Node for ContainerNode {
         self.toplevel_data.output_opt()
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.toplevel_data.workspace.get()
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location.get())
     }

@@ -16,7 +16,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, WorkspaceNode,
         },
         utils::{
             bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -646,6 +646,10 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             None
         }
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
 }
 
 impl Node for ZwlrLayerSurfaceV1 {
@@ -675,6 +679,10 @@ impl Node for ZwlrLayerSurfaceV1 {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.output.node()
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

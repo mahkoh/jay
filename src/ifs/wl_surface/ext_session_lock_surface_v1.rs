@@ -12,7 +12,7 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode,
+            NodeVisitor, OutputNode, WorkspaceNode,
         },
         utils::numcell::NumCell,
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
@@ -106,6 +106,10 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
         Some(self.surface.clone())
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
 }
 
 tree_id!(ExtSessionLockSurfaceV1NodeId);
@@ -136,6 +140,10 @@ impl Node for ExtSessionLockSurfaceV1 {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.output.node()
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

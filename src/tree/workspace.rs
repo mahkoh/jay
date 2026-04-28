@@ -366,6 +366,10 @@ impl Node for WorkspaceNode {
         Some(self.output.get())
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.opt.get()
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location())
     }

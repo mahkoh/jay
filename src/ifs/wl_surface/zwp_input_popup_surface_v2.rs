@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
-        tree::NodeLayerLink,
+        tree::{NodeLayerLink, WorkspaceNode},
         wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -37,6 +37,10 @@ impl SurfaceExt for ZwpInputPopupSurfaceV2 {
         if self.surface.visible.get() {
             self.schedule_positioning();
         }
+    }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 }
 

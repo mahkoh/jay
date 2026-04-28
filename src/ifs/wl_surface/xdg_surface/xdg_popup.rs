@@ -24,7 +24,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::{XdgPopupId, xdg_popup::*},
@@ -375,6 +375,10 @@ impl Node for XdgPopup {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         Some(self.xdg.surface.output.get())
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.xdg.workspace.get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

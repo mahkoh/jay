@@ -915,6 +915,11 @@ impl WlSeatGlobal {
             }
         }
         if workspace.is_none()
+            && let Some(ws) = original.node_workspace()
+        {
+            workspace = Some(ws.id);
+        }
+        if workspace.is_none()
             && let Some(output) = original.node_output()
             && let Some(ws) = output.workspace.get()
         {

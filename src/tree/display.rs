@@ -9,7 +9,7 @@ use {
         state::State,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
+            OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination, WorkspaceNode,
             WorkspaceNodeId, walker::NodeVisitor,
         },
         utils::{
@@ -174,6 +174,10 @@ impl Node for DisplayNode {
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
+        None
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
     }
 

@@ -177,6 +177,10 @@ impl Node for PlaceholderNode {
         self.toplevel.output_opt()
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.toplevel.workspace.get()
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         self.location.get()
     }

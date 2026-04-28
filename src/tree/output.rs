@@ -1652,6 +1652,10 @@ impl Node for OutputNode {
         self.global.opt.node()
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         Some(NodeLocation::Output(self.id))
     }

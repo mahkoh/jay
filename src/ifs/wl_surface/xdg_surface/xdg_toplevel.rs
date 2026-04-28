@@ -591,6 +591,10 @@ impl Node for XdgToplevel {
         self.toplevel_data.output_opt()
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.toplevel_data.workspace.get()
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         self.xdg.surface.node_location()
     }
