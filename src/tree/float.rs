@@ -15,9 +15,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodesStackElement, OutputNode, PinnedNode, StackedNode,
-            TileDragDestination, ToplevelNode, WorkspaceChangeReason, WorkspaceNode,
-            toplevel_set_floating, walker::NodeVisitor,
+            NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode, PinnedNode,
+            StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason, WorkspaceNode,
+            WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -46,6 +46,7 @@ pub struct FloatNode {
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
+    pub workspace_ty: Cell<WorkspaceType>,
     pub location: Cell<NodeLocation>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
@@ -110,6 +111,14 @@ pub async fn float_titles(state: Rc<State>) {
     }
 }
 
+impl State {
+    fn float_stack(&self, ty: WorkspaceType) -> &Rc<NodesStack> {
+        match ty {
+            WorkspaceType::Normal => &self.root.stacked,
+        }
+    }
+}
+
 impl FloatNode {
     pub fn new(
         state: &Rc<State>,
@@ -122,10 +131,11 @@ impl FloatNode {
             state: state.clone(),
             visible: Cell::new(ws.float_visible()),
             position: Cell::new(position),
-            display_link: state.root.stacked.element(),
+            display_link: state.float_stack(ws.ty).element(),
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
+            workspace_ty: Cell::new(ws.ty),
             location: Cell::new(ws.location()),
             child: CloneCell::new(Some(child.clone())),
             active: Cell::new(false),
@@ -421,6 +431,14 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
+        if self.workspace_ty.replace(ws.ty) != ws.ty {
+            self.display_link
+                .borrow_mut()
+                .restack_on(self.state.float_stack(ws.ty));
+            if self.visible.get() {
+                self.state.damage(self.position.get());
+            }
+        }
         self.location.set(ws.location());
         if update_visible {
             self.stacked_set_visible(ws.float_visible());
@@ -728,7 +746,9 @@ impl Node for FloatNode {
         let Some(l) = self.display_link.borrow().link.as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;
         };
-        NodeLayerLink::Stacked(l)
+        match self.workspace_ty.get() {
+            WorkspaceType::Normal => NodeLayerLink::Stacked(l),
+        }
     }
 
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
