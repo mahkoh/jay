@@ -114,6 +114,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if !data.is_fullscreen.get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
+        data.is_root_container.set(false);
+        if let ToplevelType::Container = data.kind
+            && parent.node_is_workspace()
+        {
+            data.is_root_container.set(true);
+        }
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
             data.mapped_during_iteration.set(data.state.eng.iteration());
@@ -432,6 +438,7 @@ pub struct ToplevelData {
     pub content_type: Cell<Option<ContentType>>,
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
+    pub is_root_container: Cell<bool>,
 }
 
 impl ToplevelData {
@@ -487,6 +494,7 @@ impl ToplevelData {
             content_type: Default::default(),
             property_changed_source: Default::default(),
             session: Default::default(),
+            is_root_container: Default::default(),
         }
     }
 
@@ -591,6 +599,7 @@ impl ToplevelData {
         self.float.take();
         self.workspace.take();
         self.seat_state.destroy_node(node);
+        self.is_root_container.set(false);
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -954,16 +963,6 @@ impl ToplevelData {
             return float.node_layer();
         }
         NodeLayerLink::Tiled
-    }
-
-    pub fn is_root_container(&self) -> bool {
-        if not_matches!(self.kind, ToplevelType::Container) {
-            return false;
-        }
-        let Some(parent) = self.parent.get() else {
-            return false;
-        };
-        parent.node_is_workspace()
     }
 
     pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {
