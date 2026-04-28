@@ -1117,6 +1117,32 @@ impl WlSeatGlobal {
             }
             None
         };
+        let handle_workspace = |ws: Option<&Rc<WorkspaceNode>>| {
+            if let Some(ws) = ws
+                && ws.container_visible()
+            {
+                self.focus_node(ws.clone());
+                self.maybe_schedule_warp_mouse_to_focus();
+                return true;
+            }
+            false
+        };
+        macro_rules! handle_workspace {
+            ($ws:expr) => {{
+                if handle_workspace($ws.as_ref()) {
+                    return;
+                }
+                None
+            }};
+        }
+        let handle_tiled = |ws: Option<&Rc<WorkspaceNode>>| {
+            ws.and_then(|w| w.container.get())
+                .map(|n| n as Rc<dyn Node>)
+        };
+        let handle_fullscreen = |ws: Option<&Rc<WorkspaceNode>>| {
+            ws.and_then(|w| w.fullscreen.get())
+                .map(|n| n as Rc<dyn Node>)
+        };
         let ws = output.workspace.get();
         let first = next_layer(current_layer.layer());
         let mut layer = first;
@@ -1126,24 +1152,9 @@ impl WlSeatGlobal {
                 NodeLayer::Layer0 => handle_layer_shell(&output.layers[0]),
                 NodeLayer::Layer1 => handle_layer_shell(&output.layers[1]),
                 NodeLayer::Output => None,
-                NodeLayer::Workspace => {
-                    if let Some(ws) = &ws
-                        && ws.container_visible()
-                    {
-                        self.focus_node(ws.clone());
-                        self.maybe_schedule_warp_mouse_to_focus();
-                        return;
-                    }
-                    None
-                }
-                NodeLayer::Tiled => ws
-                    .as_ref()
-                    .and_then(|w| w.container.get())
-                    .map(|n| n as Rc<dyn Node>),
-                NodeLayer::Fullscreen => ws
-                    .as_ref()
-                    .and_then(|w| w.fullscreen.get())
-                    .map(|n| n as Rc<dyn Node>),
+                NodeLayer::Workspace => handle_workspace!(ws),
+                NodeLayer::Tiled => handle_tiled(ws.as_ref()),
+                NodeLayer::Fullscreen => handle_fullscreen(ws.as_ref()),
                 NodeLayer::Stacked => handle_stacked(&self.state.root.stacked),
                 NodeLayer::Layer2 => handle_layer_shell(&output.layers[2]),
                 NodeLayer::Layer3 => handle_layer_shell(&output.layers[3]),
