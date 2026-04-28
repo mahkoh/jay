@@ -24,7 +24,7 @@ use {
         },
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
-        tree::{Node, OutputNode, ToplevelData, WorkspaceHash, WorkspaceNode},
+        tree::{Node, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode},
         utils::{
             asyncevent::AsyncEvent,
             cell_ext::CellExt,
@@ -176,7 +176,7 @@ pub struct ToplevelSessionState {
     pub output: Cell<Option<OutputIdHash>>,
     pub floating_pos: Cell<Option<Rect>>,
     pub workspace: CloneCell<Option<Rc<String>>>,
-    workspace_hash: Cell<Option<WorkspaceHash>>,
+    workspace_name_hash: Cell<Option<WorkspaceNameHash>>,
     pub fullscreen: Cell<bool>,
 }
 
@@ -476,11 +476,11 @@ impl ToplevelSession {
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &WorkspaceNode, data: &ToplevelData) {
-        let hash = (!ws.is_dummy).then_some(ws.hash);
-        if hash == self.state.workspace_hash.get() {
+        let hash = (!ws.is_dummy).then_some(ws.name_hash);
+        if hash == self.state.workspace_name_hash.get() {
             return;
         }
-        self.state.workspace_hash.set(hash);
+        self.state.workspace_name_hash.set(hash);
         self.state
             .workspace
             .set((!ws.is_dummy).then_some(ws.name.clone()));
