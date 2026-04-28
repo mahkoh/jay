@@ -106,8 +106,8 @@ pub(super) struct ConfigProxyHandler {
     pub bufs: Stack<Vec<u8>>,
 
     pub workspace_ids: NumCell<u64>,
-    pub workspaces_by_name: CopyHashMap<Rc<String>, u64>,
-    pub workspaces_by_id: CopyHashMap<u64, Rc<String>>,
+    pub workspaces_by_name: CopyHashMap<String, Rc<ConfigWorkspace>>,
+    pub workspaces_by_id: CopyHashMap<u64, Rc<ConfigWorkspace>>,
 
     pub timer_ids: NumCell<u64>,
     pub timers_by_name: CopyHashMap<Rc<String>, Rc<TimerData>>,
@@ -155,6 +155,12 @@ pub(super) struct ConfigProxyHandler {
             TileState,
         ),
     >,
+}
+
+pub struct ConfigWorkspace {
+    id: u64,
+    name: String,
+    ty: Cell<WorkspaceType>,
 }
 
 pub struct Pollable {
@@ -238,16 +244,23 @@ impl ConfigProxyHandler {
         self.next_id.fetch_add(1)
     }
 
-    fn get_workspace_by_name(&self, name: &String) -> Workspace {
+    fn get_workspace_by_name(&self, name: &String, ty: WorkspaceType) -> Workspace {
         let id = match self.workspaces_by_name.get(name) {
             None => {
                 let id = self.workspace_ids.fetch_add(1);
-                let name = Rc::new(name.clone());
-                self.workspaces_by_name.set(name.clone(), id);
-                self.workspaces_by_id.set(id, name);
+                let ws = Rc::new(ConfigWorkspace {
+                    id,
+                    name: name.to_string(),
+                    ty: Cell::new(ty),
+                });
+                self.workspaces_by_name.set(name.clone(), ws.clone());
+                self.workspaces_by_id.set(id, ws);
                 id
             }
-            Some(id) => id,
+            Some(ws) => {
+                ws.ty.set(ty);
+                ws.id
+            }
         };
         Workspace(id)
     }
@@ -572,7 +585,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspaces(&self) {
         let mut workspaces = vec![];
         for ws in self.state.workspaces.lock().values() {
-            workspaces.push(self.get_workspace_by_name(&ws.name));
+            workspaces.push(self.get_workspace_by_name(&ws.name, ws.ty));
         }
         self.respond(Response::GetWorkspaces { workspaces });
     }
@@ -683,7 +696,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn get_workspace(&self, ws: Workspace) -> Result<Rc<String>, CphError> {
+    fn get_workspace(&self, ws: Workspace) -> Result<Rc<ConfigWorkspace>, CphError> {
         match self.workspaces_by_id.get(&ws.0) {
             Some(ws) => Ok(ws),
             _ => Err(CphError::WorkspaceDoesNotExist(ws)),
@@ -692,7 +705,7 @@ impl ConfigProxyHandler {
 
     fn get_existing_workspace(&self, ws: Workspace) -> Result<Option<Rc<WorkspaceNode>>, CphError> {
         self.get_workspace(ws)
-            .map(|ws| self.state.workspaces.get(&*ws))
+            .map(|ws| self.state.workspaces.get(&ws.name))
     }
 
     fn get_device_handler_data(
@@ -935,7 +948,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_workspace(&self, name: &str) {
         self.respond(Response::GetWorkspace {
-            workspace: self.get_workspace_by_name(&name.to_owned()),
+            workspace: self.get_workspace_by_name(&name.to_owned(), WorkspaceType::Normal),
         });
     }
 
@@ -1042,7 +1055,7 @@ impl ConfigProxyHandler {
         if !output.is_dummy
             && let Some(ws) = output.workspace()
         {
-            workspace = self.get_workspace_by_name(&ws.name);
+            workspace = self.get_workspace_by_name(&ws.name, ws.ty);
         }
         self.respond(Response::GetSeatCursorWorkspace { workspace });
         Ok(())
@@ -1052,7 +1065,7 @@ impl ConfigProxyHandler {
         let seat = self.get_seat(seat)?;
         let mut workspace = Workspace(0);
         if let Some(ws) = seat.get_keyboard_workspace() {
-            workspace = self.get_workspace_by_name(&ws.name);
+            workspace = self.get_workspace_by_name(&ws.name, ws.ty);
         }
         self.respond(Response::GetSeatKeyboardWorkspace { workspace });
         Ok(())
@@ -1065,10 +1078,10 @@ impl ConfigProxyHandler {
         output: Option<Connector>,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        let name = self.get_workspace(ws)?;
+        let ws = self.get_workspace(ws)?;
         let output = output.map(|o| self.get_output_node(o)).transpose()?;
         self.state
-            .show_workspace(&seat, &name, WorkspaceType::Normal, output);
+            .show_workspace(&seat, &ws.name, ws.ty.get(), output);
         Ok(())
     }
 
@@ -1116,12 +1129,12 @@ impl ConfigProxyHandler {
                 };
                 Ok(Some(o))
             };
-            let name = self.get_workspace(workspace)?;
+            let ws = self.get_workspace(workspace)?;
             let mut seat = None;
             if focus {
                 seat = get_seat(&mut seat_opt)?;
             }
-            if let Some(ws) = self.state.workspaces.get(&*name) {
+            if let Some(ws) = self.state.workspaces.get(&ws.name) {
                 let mut output = ws.output.get();
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
@@ -1139,7 +1152,9 @@ impl ConfigProxyHandler {
             };
             Params {
                 move_: false,
-                ws: output.create_workspace(&name),
+                ws: match ws.ty.get() {
+                    WorkspaceType::Normal => output.create_workspace(&ws.name),
+                },
                 output,
                 seat,
             }
@@ -1169,10 +1184,12 @@ impl ConfigProxyHandler {
 
     fn handle_set_seat_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        let name = self.get_workspace(ws)?;
-        let workspace = match self.state.workspaces.get(name.deref()) {
+        let ws = self.get_workspace(ws)?;
+        let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
-            _ => seat.get_fallback_output().create_workspace(name.deref()),
+            _ => match ws.ty.get() {
+                WorkspaceType::Normal => seat.get_fallback_output().create_workspace(&ws.name),
+            },
         };
         seat.set_workspace(&workspace);
         Ok(())
@@ -1180,12 +1197,14 @@ impl ConfigProxyHandler {
 
     fn handle_set_window_workspace(&self, window: Window, ws: Workspace) -> Result<(), CphError> {
         let window = self.get_window(window)?;
-        let name = self.get_workspace(ws)?;
-        let workspace = match self.state.workspaces.get(name.deref()) {
+        let ws = self.get_workspace(ws)?;
+        let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
-            _ => match window.node_output() {
-                Some(o) => o.create_workspace(name.deref()),
-                _ => return Ok(()),
+            _ => match ws.ty.get() {
+                WorkspaceType::Normal => match window.node_output() {
+                    Some(o) => o.create_workspace(&ws.name),
+                    _ => return Ok(()),
+                },
             },
         };
         toplevel_set_workspace(&self.state, window, &workspace);
@@ -1732,7 +1751,8 @@ impl ConfigProxyHandler {
         let workspace = output
             .workspace
             .get()
-            .map_or(Workspace(0), |ws| self.get_workspace_by_name(&ws.name));
+            .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
+            .unwrap_or(Workspace(0));
         self.respond(Response::GetConnectorActiveWorkspace { workspace });
         Ok(())
     }
@@ -1742,7 +1762,7 @@ impl ConfigProxyHandler {
         let workspaces = output
             .workspaces
             .iter()
-            .map(|ws| self.get_workspace_by_name(&ws.name))
+            .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });
         Ok(())
@@ -2343,7 +2363,7 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::Fullscreen => mgr.fullscreen(),
             WindowCriterionIpc::JustMapped => mgr.just_mapped(),
             WindowCriterionIpc::Workspace(w) => mgr.workspace(CritLiteralOrRegex::Literal(
-                self.get_workspace(*w)?.to_string(),
+                self.get_workspace(*w)?.name.clone(),
             )),
             WindowCriterionIpc::ContentTypes(t) => mgr.content_type(*t),
         };
@@ -2814,7 +2834,7 @@ impl ConfigProxyHandler {
             .tl_data()
             .workspace
             .get()
-            .map(|ws| self.get_workspace_by_name(&ws.name))
+            .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .unwrap_or(Workspace(0));
         self.respond(Response::GetWindowWorkspace { workspace });
         Ok(())
