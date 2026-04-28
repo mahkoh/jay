@@ -868,32 +868,41 @@ impl State {
             let Some(name) = s.workspace.get() else {
                 return Some(on()?.ensure_workspace());
             };
+            let ty = s.workspace_ty.get().unwrap_or(WorkspaceType::Normal);
             match self.workspaces.get(&*name) {
                 Some(ws) => {
                     let Some(o) = session.state.output.get() else {
                         return Some(ws);
                     };
-                    let ws_on = ws.output.get();
-                    if ws_on.global.output_id.hash == o {
+                    match ty {
+                        WorkspaceType::Normal => {
+                            if ws.ty == ty {
+                                let ws_on = ws.output.get();
+                                if ws_on.global.output_id.hash == o {
+                                    if session.session.reason() == SessionReason::Recover {
+                                        return Some(ws);
+                                    }
+                                    if ws_on.workspace.id() == Some(ws.id) {
+                                        return Some(ws);
+                                    }
+                                }
+                            }
+                            Some(on()?.ensure_workspace())
+                        }
+                    }
+                }
+                None => match ty {
+                    WorkspaceType::Normal => {
+                        let on = on()?;
                         if session.session.reason() == SessionReason::Recover {
+                            return Some(on.create_workspace(&name));
+                        }
+                        if let Some(ws) = on.workspace.get() {
                             return Some(ws);
                         }
-                        if ws_on.workspace.id() == Some(ws.id) {
-                            return Some(ws);
-                        }
+                        Some(on.create_workspace(&name))
                     }
-                    Some(on()?.ensure_workspace())
-                }
-                None => {
-                    let on = on()?;
-                    if session.session.reason() == SessionReason::Recover {
-                        return Some(on.create_workspace(&name));
-                    }
-                    if let Some(ws) = on.workspace.get() {
-                        return Some(ws);
-                    }
-                    Some(on.create_workspace(&name))
-                }
+                },
             }
         };
         let ws = if let Some(pos) = s.floating_pos.get() {

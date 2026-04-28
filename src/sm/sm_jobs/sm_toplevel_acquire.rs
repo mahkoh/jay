@@ -97,6 +97,7 @@ impl SqliteJob for ToplevelAcquireJob {
                 if let Some(v) = o.restored {
                     cb.state.output.set(v.output);
                     cb.state.workspace.set(v.workspace.map(Rc::new));
+                    cb.state.workspace_ty.set(v.workspace_ty);
                     cb.state.floating_pos.set(v.floating_pos);
                     cb.state.fullscreen.set(v.fullscreen);
                 }

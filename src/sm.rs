@@ -24,7 +24,7 @@ use {
         },
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
-        tree::{Node, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode},
+        tree::{Node, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode, WorkspaceType},
         utils::{
             asyncevent::AsyncEvent,
             cell_ext::CellExt,
@@ -177,6 +177,7 @@ pub struct ToplevelSessionState {
     pub floating_pos: Cell<Option<Rect>>,
     pub workspace: CloneCell<Option<Rc<String>>>,
     workspace_name_hash: Cell<Option<WorkspaceNameHash>>,
+    pub workspace_ty: Cell<Option<WorkspaceType>>,
     pub fullscreen: Cell<bool>,
 }
 
@@ -477,11 +478,18 @@ impl ToplevelSession {
 
     pub fn set_workspace(self: &Rc<Self>, ws: &WorkspaceNode, data: &ToplevelData) {
         let hash = Some(ws.name_hash);
-        if hash == self.state.workspace_name_hash.get() {
+        let ty = Some(ws.ty);
+        if (hash, ty)
+            == (
+                self.state.workspace_name_hash.get(),
+                self.state.workspace_ty.get(),
+            )
+        {
             return;
         }
         self.state.workspace_name_hash.set(hash);
         self.state.workspace.set(Some(ws.name.clone()));
+        self.state.workspace_ty.set(ty);
         self.state_changed();
         self.set_output(&ws.output.get(), data);
     }
@@ -579,6 +587,7 @@ impl ToplevelSession {
                 job.work.data = SmToplevelIn {
                     output: s.output.get(),
                     workspace: s.workspace.get().map(|v| SendSyncRc::new(tid, &v)),
+                    workspace_ty: s.workspace_ty.get(),
                     floating_pos: s.floating_pos.get(),
                     fullscreen: s.fullscreen.get(),
                 };
