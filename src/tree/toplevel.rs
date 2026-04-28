@@ -85,7 +85,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         if fullscreen {
             if let Some(ws) = ws.or_else(|| data.workspace.get()) {
-                data.set_fullscreen2(&data.state, self.clone(), &ws);
+                data.set_fullscreen(&data.state, self.clone(), &ws);
             }
         } else {
             data.unset_fullscreen(&data.state, self.clone());
@@ -752,15 +752,6 @@ impl ToplevelData {
     }
 
     pub fn set_fullscreen(
-        &self,
-        state: &Rc<State>,
-        node: Rc<dyn ToplevelNode>,
-        output: &Rc<OutputNode>,
-    ) {
-        self.set_fullscreen2(state, node, &output.ensure_workspace());
-    }
-
-    pub fn set_fullscreen2(
         &self,
         state: &Rc<State>,
         node: Rc<dyn ToplevelNode>,

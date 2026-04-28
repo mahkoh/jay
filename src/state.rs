@@ -912,7 +912,7 @@ impl State {
                 return false;
             };
             self.map_tiled_on(node.clone(), &ws);
-            data.set_fullscreen2(self, node.clone(), &ws);
+            data.set_fullscreen(self, node.clone(), &ws);
             ws
         } else if !has_parent {
             let Some(ws) = ws() else {
