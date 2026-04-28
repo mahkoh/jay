@@ -15,7 +15,7 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
+            wl_seat::{NodeSeatState, SeatId, collect_kb_foci},
             wl_surface::{
                 WlSurface, x_surface::xwindow::XwindowData,
                 xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
@@ -797,12 +797,7 @@ impl ToplevelData {
         parent.cnode_replace_child(&*node, placeholder.clone());
         let mut kb_foci = Default::default();
         if ws.visible.get() {
-            if let Some(container) = ws.container.get() {
-                kb_foci = collect_kb_foci(container);
-            }
-            for stacked in ws.stacked.iter() {
-                collect_kb_foci2(stacked.deref().clone(), &mut kb_foci);
-            }
+            kb_foci = ws.collect_kb_foci();
         }
         *data = Some(FullscreenedData {
             placeholder,

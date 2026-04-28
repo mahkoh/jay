@@ -18,7 +18,7 @@ use {
             wl_buffer::WlBufferStorage,
             wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
             wl_seat::{
-                BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci2,
+                BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal,
                 tablet::{TabletTool, TabletToolChanges, TabletToolId},
                 wl_pointer::PendingScroll,
             },
@@ -704,7 +704,7 @@ impl OutputNode {
             user.workspace_changed(self, Some(ws));
         }
         if let Some(old) = old {
-            collect_kb_foci2(old.clone(), &mut seats);
+            seats = old.collect_kb_foci();
             for pinned in self.pinned.iter() {
                 pinned.deref().clone().set_workspace(ws, false);
             }

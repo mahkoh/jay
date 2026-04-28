@@ -6,7 +6,7 @@ use {
         ifs::{
             jay_workspace::JayWorkspace,
             wl_output::OutputId,
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
+            wl_seat::{NodeSeatState, WlSeatGlobal, collect_kb_foci2, tablet::TabletTool},
             wl_surface::{
                 WlSurface, x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel,
             },
@@ -35,6 +35,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         fmt::Debug,
@@ -315,6 +316,19 @@ impl WorkspaceNode {
 
     pub fn location(&self) -> NodeLocation {
         NodeLocation::Workspace(self.output_id.get(), self.id)
+    }
+
+    pub fn collect_kb_foci(self: &Rc<Self>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
+        let mut seats = SmallVec::new();
+        self.collect_kb_foci2(&mut seats);
+        seats
+    }
+
+    pub fn collect_kb_foci2(self: &Rc<Self>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
+        collect_kb_foci2(self.clone(), seats);
+        for node in self.stacked.iter() {
+            collect_kb_foci2(node.deref().clone(), seats);
+        }
     }
 }
 
