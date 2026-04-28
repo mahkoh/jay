@@ -274,8 +274,10 @@ impl OutputNode {
                     surface.exclusive_zones_changed();
                 }
             }
-            if let Some(c) = self.workspace.get() {
-                c.change_extents(&self.workspace_rect.get(), self);
+            for layer in [&self.workspace] {
+                if let Some(c) = layer.get() {
+                    c.change_extents(&self.workspace_rect.get(), self);
+                }
             }
             if self.node_visible() {
                 self.state.damage(self.global.pos.get());
@@ -485,8 +487,10 @@ impl OutputNode {
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
         self.update_rects();
-        if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect.get(), self);
+        for layer in [&self.workspace] {
+            if let Some(c) = layer.get() {
+                c.change_extents(&self.workspace_rect.get(), self);
+            }
         }
         for item in self.tray_items.iter() {
             item.send_current_configure();
@@ -957,11 +961,13 @@ impl OutputNode {
         if let Some(ls) = self.lock_surface.get() {
             ls.change_extents(*rect);
         }
-        if let Some(c) = self.workspace.get() {
-            if let Some(fs) = c.fullscreen.get() {
-                fs.tl_change_extents(rect);
+        for layer in [&self.workspace] {
+            if let Some(c) = layer.get() {
+                if let Some(fs) = c.fullscreen.get() {
+                    fs.tl_change_extents(rect);
+                }
+                c.change_extents(&self.workspace_rect.get(), self);
             }
-            c.change_extents(&self.workspace_rect.get(), self);
         }
         for layer in &self.layers {
             for surface in layer.iter() {
@@ -1264,29 +1270,32 @@ impl OutputNode {
             VrrMode::Never => false,
             VrrMode::Always => true,
             VrrMode::Fullscreen { surface } => 'get: {
-                let Some(ws) = self.workspace.get() else {
-                    break 'get false;
-                };
-                let Some(tl) = ws.fullscreen.get() else {
-                    break 'get false;
-                };
-                if let Some(req) = surface {
-                    let Some(surface) = tl.tl_scanout_surface() else {
-                        break 'get false;
+                for layer in [&self.workspace] {
+                    let Some(ws) = layer.get() else {
+                        continue;
                     };
-                    if let Some(req) = req.content_type {
-                        let Some(content_type) = surface.content_type.get() else {
+                    let Some(tl) = ws.fullscreen.get() else {
+                        continue;
+                    };
+                    if let Some(req) = surface {
+                        let Some(surface) = tl.tl_scanout_surface() else {
                             break 'get false;
                         };
-                        match content_type {
-                            ContentType::Photo if !req.photo => break 'get false,
-                            ContentType::Video if !req.video => break 'get false,
-                            ContentType::Game if !req.game => break 'get false,
-                            _ => {}
+                        if let Some(req) = req.content_type {
+                            let Some(content_type) = surface.content_type.get() else {
+                                break 'get false;
+                            };
+                            match content_type {
+                                ContentType::Photo if !req.photo => break 'get false,
+                                ContentType::Video if !req.video => break 'get false,
+                                ContentType::Game if !req.game => break 'get false,
+                                _ => {}
+                            }
                         }
                     }
+                    break 'get true;
                 }
-                true
+                false
             }
         };
         let res = self
@@ -1303,23 +1312,26 @@ impl OutputNode {
             TearingMode::Never => false,
             TearingMode::Always => true,
             TearingMode::Fullscreen { surface } => 'get: {
-                let Some(ws) = self.workspace.get() else {
-                    break 'get false;
-                };
-                let Some(tl) = ws.fullscreen.get() else {
-                    break 'get false;
-                };
-                if let Some(req) = surface {
-                    let Some(surface) = tl.tl_scanout_surface() else {
-                        break 'get false;
+                for layer in [&self.workspace] {
+                    let Some(ws) = layer.get() else {
+                        continue;
                     };
-                    if req.tearing_requested {
-                        if !surface.tearing.get() {
+                    let Some(tl) = ws.fullscreen.get() else {
+                        continue;
+                    };
+                    if let Some(req) = surface {
+                        let Some(surface) = tl.tl_scanout_surface() else {
                             break 'get false;
+                        };
+                        if req.tearing_requested {
+                            if !surface.tearing.get() {
+                                break 'get false;
+                            }
                         }
                     }
+                    break 'get true;
                 }
-                true
+                false
             }
         };
         let res = self
@@ -1340,15 +1352,17 @@ impl OutputNode {
         if self.state.lock.locked.get() {
             return None;
         }
-        for stacked in self.state.root.stacked.iter_visible_rev() {
-            let Some(float) = stacked.deref().clone().node_into_float() else {
-                continue;
-            };
-            let pos = float.node_absolute_position();
-            if !pos.contains(x_abs, y_abs) {
-                continue;
+        for list in [&self.state.root.stacked] {
+            for stacked in list.iter_visible_rev() {
+                let Some(float) = stacked.deref().clone().node_into_float() else {
+                    continue;
+                };
+                let pos = float.node_absolute_position();
+                if !pos.contains(x_abs, y_abs) {
+                    continue;
+                }
+                return float.tile_drag_destination(source, x_abs, y_abs);
             }
-            return float.tile_drag_destination(source, x_abs, y_abs);
         }
         let rect = self.non_exclusive_rect.get();
         if !rect.contains(x_abs, y_abs) {
@@ -1556,20 +1570,25 @@ impl OutputNode {
     }
 
     pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let Some(ws) = self.workspace() else {
-            return;
-        };
-        if let Some(fs) = ws.fullscreen.get() {
-            if fs.node_visible() {
-                fs.node_do_focus(seat, direction);
-            }
-        } else if let Some(c) = ws.container.get() {
-            if c.node_visible() {
-                c.node_do_focus(seat, direction);
-            }
-        } else {
-            if ws.node_visible() {
-                seat.focus_node(ws);
+        for layer in [&self.workspace] {
+            let Some(ws) = layer.get() else {
+                continue;
+            };
+            if let Some(fs) = ws.fullscreen.get() {
+                if fs.node_visible() {
+                    fs.node_do_focus(seat, direction);
+                    return;
+                }
+            } else if let Some(c) = ws.container.get() {
+                if c.node_visible() {
+                    c.node_do_focus(seat, direction);
+                    return;
+                }
+            } else {
+                if ws.node_visible() {
+                    seat.focus_node(ws);
+                    return;
+                }
             }
         }
     }
@@ -1736,13 +1755,15 @@ impl Node for OutputNode {
         };
         if select_workspace && ws_rect_rel.contains(x, y) {
             let (x, y) = ws_rect_rel.translate(x, y);
-            if let Some(ws) = self.workspace.get() {
-                tree.push(FoundNode {
-                    node: ws.clone(),
-                    x,
-                    y,
-                });
-                return FindTreeResult::AcceptsInput;
+            for layer in [&self.workspace] {
+                if let Some(ws) = layer.get() {
+                    tree.push(FoundNode {
+                        node: ws.clone(),
+                        x,
+                        y,
+                    });
+                    return FindTreeResult::AcceptsInput;
+                }
             }
         }
         {
