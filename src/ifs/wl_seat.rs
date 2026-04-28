@@ -522,12 +522,24 @@ impl WlSeatGlobal {
         self.cursor_user_group.latest_output()
     }
 
+    pub fn get_cursor_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.cursor_user_group.latest_output().workspace()
+    }
+
     pub fn get_keyboard_node(&self) -> Rc<dyn Node> {
         self.keyboard_node.get()
     }
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
+    }
+
+    pub fn get_keyboard_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        let node = self.keyboard_node.get();
+        if let Some(ws) = node.node_workspace() {
+            return Some(ws);
+        }
+        node.node_output()?.workspace()
     }
 
     pub fn get_fallback_output(&self) -> Rc<OutputNode> {
@@ -537,6 +549,15 @@ impl WlSeatGlobal {
             return output;
         }
         self.get_cursor_output()
+    }
+
+    pub fn get_fallback_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        if self.fallback_output_mode.get() == FallbackOutputMode::Focus
+            && let Some(ws) = self.get_keyboard_workspace()
+        {
+            return Some(ws);
+        }
+        self.get_cursor_workspace()
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
