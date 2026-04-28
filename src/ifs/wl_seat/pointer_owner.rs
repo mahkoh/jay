@@ -402,7 +402,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         seat.handle_node_button(pn, time_usec, button, state, serial);
         let on = seat.pointer_cursor.output();
         seat.pointer_owner
-            .workspace_changed(seat, &on, on.workspace.get().as_ref());
+            .workspace_changed(seat, &on, on.workspace().as_ref());
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {

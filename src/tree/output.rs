@@ -693,6 +693,10 @@ impl OutputNode {
         self.create_workspace(&name)
     }
 
+    pub fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.workspace.get()
+    }
+
     pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
         let id = Some(ws.id);
@@ -1529,7 +1533,7 @@ impl OutputNode {
     }
 
     pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let Some(ws) = self.workspace.get() else {
+        let Some(ws) = self.workspace() else {
             return;
         };
         if let Some(fs) = ws.fullscreen.get() {
@@ -1671,7 +1675,7 @@ impl Node for OutputNode {
             }
             return;
         }
-        if let Some(ws) = self.workspace.get() {
+        if let Some(ws) = self.workspace() {
             ws.node_do_focus(seat, direction);
         }
     }

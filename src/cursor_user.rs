@@ -369,7 +369,7 @@ impl CursorUser {
         if let Some(owner) = self.owner.get() {
             owner.output_changed(output);
         }
-        self.workspace_changed(output, output.workspace.get().as_ref());
+        self.workspace_changed(output, output.workspace().as_ref());
     }
 
     pub fn output(&self) -> Rc<OutputNode> {

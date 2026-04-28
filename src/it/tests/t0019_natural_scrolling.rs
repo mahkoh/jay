@@ -25,7 +25,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let (x, y) = ds
         .output
-        .workspace()?
+        .workspace2()?
         .container()?
         .first_toplevel()?
         .center();
