@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::error::SpannedError,
+        config::{error::SpannedError, parsers::workspace::WorkspaceSlot},
         toml::{
             toml_parser::{ErrorHandler, ParserError},
             toml_span::{Span, Spanned},
@@ -8,13 +8,14 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
-    std::{cell::RefCell, convert::Infallible, error::Error},
+    std::{cell::RefCell, convert::Infallible, error::Error, rc::Rc},
 };
 
 pub struct Context<'a> {
     pub input: &'a [u8],
     pub used: RefCell<Used>,
     pub mark_names: &'a RefCell<AHashMap<String, u32>>,
+    pub workspaces: RefCell<AHashMap<String, Rc<WorkspaceSlot>>>,
 }
 
 #[derive(Default)]

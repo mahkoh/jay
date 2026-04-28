@@ -35,7 +35,7 @@ use {
     indexmap::IndexMap,
     jay_config::{
         Axis::{Horizontal, Vertical},
-        Direction, get_workspace,
+        Direction,
         input::{LayerDirection, Timeline},
     },
     thiserror::Error,
@@ -216,7 +216,7 @@ impl ActionParser<'_> {
             opt(val("fallback-output-mode")),
             opt(bol("focus")),
         ))?;
-        let name = name.value.to_string();
+        let ws = self.0.get_workspace_slot(name.value);
         let output = output
             .map(|o| {
                 o.parse_map(&mut OutputMatchParser(self.0))
@@ -232,7 +232,7 @@ impl ActionParser<'_> {
             })
             .transpose()?;
         Ok(Action::ShowWorkspace {
-            name,
+            ws,
             output,
             move_to_output: move_to_output.despan(),
             fallback_output_mode,
@@ -241,8 +241,9 @@ impl ActionParser<'_> {
     }
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let name = ext.extract(str("name"))?.value.to_string();
-        Ok(Action::MoveToWorkspace { name })
+        let name = ext.extract(str("name"))?.value;
+        let ws = self.0.get_workspace_slot(name);
+        Ok(Action::MoveToWorkspace { ws })
     }
 
     fn parse_configure_connector(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
@@ -422,7 +423,7 @@ impl ActionParser<'_> {
             .transpose()?;
         let direction = direction_val.map(Self::parse_direction).transpose()?;
         Ok(Action::MoveToOutput {
-            workspace: ws.despan().map(get_workspace),
+            workspace: ws.despan().map(|ws| self.0.get_workspace_slot(ws)),
             output,
             direction,
         })
