@@ -6,7 +6,10 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                xdg_surface::{
+                    PopupStackType,
+                    xdg_popup::{XdgPopup, XdgPopupParent},
+                },
             },
         },
         rect::Rect,
@@ -408,7 +411,7 @@ fn get_popup<T: TrayItem>(
     };
     seat.add_tray_item_popup(item, &popup);
     let stack = data.client.state.root.stacked.clone();
-    popup.xdg.set_popup_stack(&stack, false);
+    popup.xdg.set_popup_stack(&stack, PopupStackType::Normal);
     popup.xdg.set_output(&node);
     let user = Rc::new(Popup {
         parent: item.clone(),

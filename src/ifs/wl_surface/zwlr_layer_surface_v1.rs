@@ -6,7 +6,10 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                xdg_surface::{
+                    PopupStackType,
+                    xdg_popup::{XdgPopup, XdgPopupParent},
+                },
             },
             zwlr_layer_shell_v1::{OVERLAY, ZwlrLayerShellV1},
         },
@@ -288,7 +291,9 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::PopupHasParent);
         }
         let stack = self.client.state.root.stacked_above_layers.clone();
-        popup.xdg.set_popup_stack(&stack, true);
+        popup
+            .xdg
+            .set_popup_stack(&stack, PopupStackType::AboveLayers);
         let user = Rc::new(Popup {
             parent: slf.clone(),
             popup: popup.clone(),
