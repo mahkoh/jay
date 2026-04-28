@@ -1409,7 +1409,7 @@ impl State {
                 let (width, height) = target.logical_size(target_transform);
                 Rect::new_sized_saturating(0, 0, width, height)
             },
-            icons: None,
+            title_icons: None,
         };
         let mut sample_rect = SampleRect::identity();
         sample_rect.buffer_transform = transform;

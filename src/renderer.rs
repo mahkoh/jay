@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
         gfx_api::{AcquireSync, AlphaMode, GfxApiOpt, ReleaseSync, SampleRect},
-        icons::{IconState, SizedIcons},
+        icons::{IconState, SizedTitleIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
@@ -29,7 +29,7 @@ pub struct Renderer<'a> {
     pub state: &'a State,
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
-    pub icons: Option<Rc<SizedIcons>>,
+    pub title_icons: Option<Rc<SizedTitleIcons>>,
 }
 
 impl Renderer<'_> {
@@ -587,7 +587,7 @@ impl Renderer<'_> {
         let is_pinned = floating.pinned_link.borrow().is_some();
         if is_pinned || self.state.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1, y1);
-            if let Some(icons) = &self.icons {
+            if let Some(icons) = &self.title_icons {
                 let icon = if floating.active.get() {
                     &icons.pin_focused_title
                 } else if floating.attention_requested.get() {
