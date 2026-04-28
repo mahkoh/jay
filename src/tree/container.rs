@@ -96,6 +96,16 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub rect: Rect,
     pub tex: Rc<dyn GfxTexture>,
+    pub _ty: ContainerChildType,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+pub enum ContainerChildType {
+    Active,
+    AttentionRequested,
+    LastActive,
+    #[default]
+    Other,
 }
 
 #[derive(Default)]
@@ -127,6 +137,7 @@ pub struct ContainerNode {
     render_titles_scheduled: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
+    child_types_valid: Cell<bool>,
     focus_history: LinkedList<NodeRef<ContainerChild>>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     workspace: CloneCell<Rc<WorkspaceNode>>,
@@ -153,6 +164,7 @@ pub struct ContainerChild {
     pub title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub title_rect: Cell<Rect>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
+    ty: Cell<ContainerChildType>,
 
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
@@ -211,6 +223,7 @@ impl ContainerNode {
             title_rect: Default::default(),
             focus_history: Default::default(),
             attention_requested: Cell::new(false),
+            ty: Default::default(),
         });
         let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
@@ -234,6 +247,7 @@ impl ContainerNode {
             render_titles_scheduled: Cell::new(false),
             num_children: NumCell::new(1),
             children,
+            child_types_valid: Cell::new(false),
             focus_history: Default::default(),
             child_nodes: RefCell::new(child_nodes),
             workspace: CloneCell::new(workspace.clone()),
@@ -332,6 +346,7 @@ impl ContainerNode {
                 title_rect: Default::default(),
                 focus_history: Default::default(),
                 attention_requested: Default::default(),
+                ty: Default::default(),
             });
             let r = link.to_ref();
             links.insert(new.node_id(), link);
@@ -705,6 +720,7 @@ impl ContainerNode {
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
+        self.child_types_valid.set(false);
         if !self.render_titles_scheduled.replace(true) {
             self.state.pending_container_render_title.push(self.clone());
         }
@@ -717,6 +733,26 @@ impl ContainerNode {
         }
     }
 
+    fn update_child_types(&self) {
+        if self.child_types_valid.replace(true) {
+            return;
+        }
+        let last_active = self.last_active();
+        let have_active = self.children.iter().any(|c| c.active.get());
+        for child in self.children.iter() {
+            let ty = if child.active.get() {
+                ContainerChildType::Active
+            } else if child.attention_requested.get() {
+                ContainerChildType::AttentionRequested
+            } else if !have_active && last_active == Some(child.node.node_id()) {
+                ContainerChildType::LastActive
+            } else {
+                ContainerChildType::Other
+            };
+            child.ty.set(ty);
+        }
+    }
+
     fn render_titles(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let Some(ctx) = self.state.render_ctx.get() else {
@@ -725,19 +761,15 @@ impl ContainerNode {
         let theme = &self.state.theme;
         let th = theme.title_height();
         let font = theme.title_font();
-        let last_active = self.last_active();
-        let have_active = self.children.iter().any(|c| c.active.get());
         let scales = self.state.scales.lock();
+        self.update_child_types();
         for child in self.children.iter() {
             let rect = child.title_rect.get();
-            let color = if child.active.get() {
-                theme.colors.focused_title_text.get()
-            } else if child.attention_requested.get() {
-                theme.colors.unfocused_title_text.get()
-            } else if !have_active && last_active == Some(child.node.node_id()) {
-                theme.colors.focused_inactive_title_text.get()
-            } else {
-                theme.colors.unfocused_title_text.get()
+            let color = match child.ty.get() {
+                ContainerChildType::Active => theme.colors.focused_title_text.get(),
+                ContainerChildType::AttentionRequested => theme.colors.unfocused_title_text.get(),
+                ContainerChildType::LastActive => theme.colors.focused_inactive_title_text.get(),
+                ContainerChildType::Other => theme.colors.unfocused_title_text.get(),
             };
             let title = child.title.borrow_mut();
             let tt = &mut *child.title_tex.borrow_mut();
@@ -791,7 +823,11 @@ impl ContainerNode {
                 }
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle { rect, tex })
+                    titles.push(ContainerTitle {
+                        rect,
+                        tex,
+                        _ty: child.ty.get(),
+                    })
                 }
             }
         }
@@ -799,6 +835,7 @@ impl ContainerNode {
     }
 
     fn schedule_compute_render_positions(self: &Rc<Self>) {
+        self.child_types_valid.set(false);
         if !self.compute_render_positions_scheduled.replace(true) {
             self.state
                 .pending_container_render_positions
@@ -826,12 +863,11 @@ impl ContainerNode {
         rd.border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
-        let last_active = self.last_active();
         let mono = self.mono_child.is_some();
         let split = self.split.get();
-        let have_active = self.children.iter().any(|c| c.active.get());
         let abs_x = self.abs_x1.get();
         let abs_y = self.abs_y1.get();
+        self.update_child_types();
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
             if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
@@ -852,14 +888,11 @@ impl ContainerNode {
                 };
                 rd.border_rects.push(rect);
             }
-            if child.active.get() {
-                rd.active_title_rects.push(rect);
-            } else if child.attention_requested.get() {
-                rd.attention_title_rects.push(rect);
-            } else if !have_active && last_active == Some(child.node.node_id()) {
-                rd.last_active_rect = Some(rect);
-            } else {
-                rd.title_rects.push(rect);
+            match child.ty.get() {
+                ContainerChildType::Active => rd.active_title_rects.push(rect),
+                ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
+                ContainerChildType::LastActive => rd.last_active_rect = Some(rect),
+                ContainerChildType::Other => rd.title_rects.push(rect),
             }
             if !mono {
                 let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
@@ -869,7 +902,11 @@ impl ContainerNode {
             for (scale, tex) in tt {
                 if let Some(tex) = tex.texture() {
                     let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle { rect, tex })
+                    titles.push(ContainerTitle {
+                        rect,
+                        tex,
+                        _ty: child.ty.get(),
+                    })
                 }
             }
         }
@@ -1924,6 +1961,7 @@ impl ContainingNode for ContainerNode {
             title_rect: Cell::new(node.title_rect.get()),
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
+            ty: Default::default(),
         });
         if let Some(fh) = node.focus_history.take() {
             link.focus_history.set(Some(fh.append(link.to_ref())));
