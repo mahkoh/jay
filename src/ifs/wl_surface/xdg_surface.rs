@@ -622,8 +622,10 @@ impl XdgSurface {
         }
         let stack = self.popup_display_stack.get();
         for popup in self.popups.lock().values() {
-            if let Some(dl) = &*popup.display_link.borrow() {
+            if self.surface.visible.get() {
                 popup.popup.xdg.damage();
+            }
+            if let Some(dl) = &*popup.display_link.borrow() {
                 stack.add_last_existing(dl);
             }
             popup.popup.xdg.restack_popups();
