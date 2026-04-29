@@ -1985,7 +1985,7 @@ impl State {
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        for stacked in self.root.stacked.iter() {
+        for stacked in self.root.stacked.stacked.iter() {
             if let Some(float) = stacked.deref().clone().node_into_float() {
                 float.schedule_render_titles();
             }

@@ -48,7 +48,7 @@ use {
         theme::BarPosition,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, PinnedNode, StackedNode, TddType, TileDragDestination, Transform,
+            NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
             walker::NodeVisitor,
         },
@@ -991,7 +991,7 @@ impl OutputNode {
         self.node_visit_children(visitor);
         let root = &self.state.root;
         for layer in [&root.stacked, &root.stacked_above_layers] {
-            for stacked in layer.iter() {
+            for stacked in layer.stacked.iter() {
                 if stacked.node_output_id() != Some(self.id) {
                     continue;
                 }
@@ -1041,21 +1041,18 @@ impl OutputNode {
     }
     fn find_stacked_at(
         &self,
-        stack: &LinkedList<Rc<dyn StackedNode>>,
+        stack: &NodesStack,
         x: i32,
         y: i32,
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if stack.is_empty() {
+        if stack.definitely_has_no_visible() {
             return FindTreeResult::Other;
         }
         let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
-        for stacked in stack.rev_iter() {
+        for stacked in stack.iter_visible_rev() {
             let ext = stacked.node_absolute_position();
-            if !stacked.node_visible() {
-                continue;
-            }
             if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
                 // TODO: make constrain always true
                 continue;
@@ -1316,13 +1313,10 @@ impl OutputNode {
         if self.state.lock.locked.get() {
             return None;
         }
-        for stacked in self.state.root.stacked.rev_iter() {
+        for stacked in self.state.root.stacked.iter_visible_rev() {
             let Some(float) = stacked.deref().clone().node_into_float() else {
                 continue;
             };
-            if !float.node_visible() {
-                continue;
-            }
             let pos = float.node_absolute_position();
             if !pos.contains(x_abs, y_abs) {
                 continue;

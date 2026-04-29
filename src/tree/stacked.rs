@@ -12,6 +12,7 @@ pub trait StackedNode: Node {
     }
     fn stacked_set_visible(&self, visible: bool);
     fn stacked_has_workspace_link(&self) -> bool;
+    fn stacked_validate(self: Rc<Self>);
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         true

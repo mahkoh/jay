@@ -12,9 +12,9 @@ use {
         state::State,
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, StackedNode, TileDragDestination,
-            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            TileDragDestination, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase,
+            ToplevelType, WorkspaceNode, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -130,7 +130,7 @@ pub struct Xwindow {
     pub id: XwindowId,
     pub data: Rc<XwindowData>,
     pub x: Rc<XSurface>,
-    pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pub display_link: RefCell<NodesStackElement>,
     pub toplevel_data: ToplevelData,
 }
 
@@ -216,7 +216,7 @@ impl Xwindow {
             Self {
                 id,
                 data: data.clone(),
-                display_link: Default::default(),
+                display_link: data.state.root.stacked.element(),
                 toplevel_data: tld,
                 x: xsurface,
             }
@@ -245,7 +245,7 @@ impl Xwindow {
     }
 
     pub fn is_mapped(&self) -> bool {
-        self.toplevel_data.parent.is_some() || self.display_link.borrow_mut().is_some()
+        self.toplevel_data.parent.is_some() || self.display_link.borrow_mut().link.is_some()
     }
 
     pub fn may_be_mapped(&self) -> bool {
@@ -283,8 +283,10 @@ impl Xwindow {
             Change::Map if override_redirect => {
                 self.clone()
                     .tl_change_extents(&self.data.info.pending_extents.get());
-                *self.display_link.borrow_mut() =
-                    Some(self.data.state.root.stacked.add_last(self.clone()));
+                {
+                    let dl = &mut *self.display_link.borrow_mut();
+                    dl.link = Some(dl.stack.stacked.add_last(self.clone()));
+                }
                 self.data.state.tree_changed();
             }
             Change::Map if map_floating => {
@@ -370,7 +372,7 @@ impl Node for Xwindow {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        if let Some(link) = self.display_link.borrow().as_ref() {
+        if let Some(link) = self.display_link.borrow().link.as_ref() {
             return NodeLayerLink::Stacked(link.to_ref());
         }
         self.toplevel_data.node_layer()
@@ -499,10 +501,16 @@ impl ToplevelNodeBase for Xwindow {
 
     fn tl_set_visible_impl(&self, visible: bool) {
         self.x.surface.set_visible(visible);
+        if visible {
+            let dl = &*self.display_link.borrow();
+            if dl.link.is_some() {
+                dl.invalidate();
+            }
+        }
     }
 
     fn tl_destroy_impl(&self) {
-        self.display_link.borrow_mut().take();
+        self.display_link.borrow_mut().clear();
         self.x.surface.destroy_node();
     }
 
@@ -538,6 +546,12 @@ impl StackedNode for Xwindow {
 
     fn stacked_has_workspace_link(&self) -> bool {
         false
+    }
+
+    fn stacked_validate(self: Rc<Self>) {
+        if self.node_visible() {
+            self.display_link.borrow_mut().add_last_visible(&self);
+        }
     }
 }
 

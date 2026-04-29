@@ -15,8 +15,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, OutputNode, PinnedNode, StackedNode, TileDragDestination,
-            ToplevelNode, WorkspaceNode, toplevel_set_floating, walker::NodeVisitor,
+            NodeLayerLink, NodeLocation, NodesStackElement, OutputNode, PinnedNode, StackedNode,
+            TileDragDestination, ToplevelNode, WorkspaceNode, toplevel_set_floating,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -41,7 +42,7 @@ pub struct FloatNode {
     pub state: Rc<State>,
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
-    pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pub display_link: RefCell<NodesStackElement>,
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
@@ -121,7 +122,7 @@ impl FloatNode {
             state: state.clone(),
             visible: Cell::new(ws.float_visible()),
             position: Cell::new(position),
-            display_link: RefCell::new(None),
+            display_link: state.root.stacked.element(),
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
@@ -138,7 +139,10 @@ impl FloatNode {
             attention_requested: Cell::new(false),
         });
         floater.pull_child_properties();
-        *floater.display_link.borrow_mut() = Some(state.root.stacked.add_last(floater.clone()));
+        {
+            let dl = &mut *floater.display_link.borrow_mut();
+            dl.link = Some(dl.stack.stacked.add_last(floater.clone()));
+        }
         floater
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
@@ -148,6 +152,7 @@ impl FloatNode {
         floater.schedule_layout();
         if floater.visible.get() {
             state.damage(position);
+            floater.display_link.borrow().invalidate();
         }
         if child.tl_data().pinned.get() {
             floater.toggle_pinned();
@@ -512,12 +517,13 @@ impl FloatNode {
     }
 
     fn restack(&self) {
-        if let Some(dl) = &*self.display_link.borrow() {
-            if dl.next().is_none() {
+        let dl = &*self.display_link.borrow();
+        if let Some(link) = &dl.link {
+            if link.next().is_none() {
                 return;
             }
             self.state.damage(self.position.get());
-            self.state.root.stacked.add_last_existing(&dl);
+            dl.restack();
             if let Some(tl) = self.child.get() {
                 tl.tl_restack_popups();
             }
@@ -701,7 +707,7 @@ impl Node for FloatNode {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        let Some(l) = self.display_link.borrow().as_ref().map(|l| l.to_ref()) else {
+        let Some(l) = self.display_link.borrow().link.as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;
         };
         NodeLayerLink::Stacked(l)
@@ -911,7 +917,7 @@ impl ContainingNode for FloatNode {
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
         self.discard_child_properties();
         self.child.set(None);
-        self.display_link.borrow_mut().take();
+        self.display_link.borrow_mut().clear();
         self.workspace_link.set(None);
         self.pinned_link.take();
         if self.visible.get() {
@@ -1013,6 +1019,9 @@ impl StackedNode for FloatNode {
     fn stacked_set_visible(&self, visible: bool) {
         if self.visible.replace(visible) != visible {
             self.state.damage(self.position.get());
+            if visible {
+                self.display_link.borrow().invalidate();
+            }
         }
         if let Some(child) = self.child.get() {
             child.tl_set_visible(visible);
@@ -1022,6 +1031,12 @@ impl StackedNode for FloatNode {
 
     fn stacked_has_workspace_link(&self) -> bool {
         true
+    }
+
+    fn stacked_validate(self: Rc<Self>) {
+        if self.visible.get() {
+            self.display_link.borrow_mut().add_last_visible(&self);
+        }
     }
 }
 

@@ -376,7 +376,7 @@ impl tree::NodeVisitorBase for Visitor<'_> {
                 NodeVisitor::visit_output(self, output);
             }
             for layer in [&node.stacked, &node.stacked_above_layers] {
-                for stacked in layer.iter() {
+                for stacked in layer.stacked.iter() {
                     if stacked.stacked_has_workspace_link() {
                         continue;
                     }

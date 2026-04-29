@@ -85,7 +85,7 @@ use {
         state::{DeviceHandlerData, State},
         tree::{
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
-            NodeLocation, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
+            NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
             generic_node_visitor, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
         },
@@ -1025,7 +1025,7 @@ impl WlSeatGlobal {
             &NodeRef<Rc<dyn StackedNode>>,
         ) -> Option<NodeRef<Rc<dyn StackedNode>>>,
         layer_list_iter: impl Fn(&LinkedList<Rc<ZwlrLayerSurfaceV1>>) -> LI,
-        stacked_list_iter: impl Fn(&LinkedList<Rc<dyn StackedNode>>) -> SI,
+        stacked_list_iter: impl Fn(&NodesStack) -> SI,
     ) where
         LI: Iterator<Item = NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
         SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
@@ -1083,7 +1083,7 @@ impl WlSeatGlobal {
             }
             None
         };
-        let handle_stacked = |l: &LinkedList<Rc<dyn StackedNode>>| {
+        let handle_stacked = |l: &NodesStack| {
             for n in stacked_list_iter(l) {
                 if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
                     return Some(n.deref().clone() as Rc<dyn Node>);
@@ -1147,7 +1147,7 @@ impl WlSeatGlobal {
             |n| n.prev(),
             |n| n.prev(),
             |l| l.rev_iter(),
-            |l| l.rev_iter(),
+            |l| l.iter_visible_rev(),
         );
     }
 
@@ -1157,7 +1157,7 @@ impl WlSeatGlobal {
             |n| n.next(),
             |n| n.next(),
             |l| l.iter(),
-            |l| l.iter(),
+            |l| l.iter_visible(),
         );
     }
 

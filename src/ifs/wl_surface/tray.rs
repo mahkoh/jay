@@ -12,12 +12,10 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, StackedNode,
+            NodeVisitor, NodesStackElement, OutputNode,
         },
         utils::{
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, LinkedNode},
+            copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, linkedlist::LinkedNode,
             numcell::NumCell,
         },
         wire::{WlSeatId, XdgPopupId},
@@ -154,8 +152,7 @@ struct Popup<T> {
     seat: Rc<WlSeatGlobal>,
     serial: u64,
     focus: FocusHint,
-    stack: Rc<LinkedList<Rc<dyn StackedNode>>>,
-    stack_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    stack_link: RefCell<NodesStackElement>,
 }
 
 impl<T: TrayItem> XdgPopupParent for Popup<T> {
@@ -181,10 +178,10 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         let surface = &self.popup.xdg.surface;
         let state = &surface.client.state;
         if surface.buffer.is_some() {
-            if dl.is_none() {
+            if dl.link.is_none() {
                 let data = self.parent.data();
                 if data.surface.visible.get() {
-                    *dl = Some(self.stack.add_last(self.popup.clone()));
+                    dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     drop(dl);
                     self.popup.set_visible(true);
                     state.tree_changed();
@@ -200,7 +197,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
                 }
             }
         } else {
-            if dl.take().is_some() {
+            if dl.link.take().is_some() {
                 drop(dl);
                 self.popup.set_visible(false);
                 self.popup.destroy_node();
@@ -217,10 +214,14 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        let Some(link) = self.stack_link.borrow().as_ref().map(|w| w.to_ref()) else {
+        let Some(link) = self.stack_link.borrow().link.as_ref().map(|w| w.to_ref()) else {
             return NodeLayerLink::Display;
         };
         NodeLayerLink::Stacked(link)
+    }
+
+    fn nodes_stack_element(&self) -> &RefCell<NodesStackElement> {
+        &self.stack_link
     }
 
     fn tray_item(&self) -> Option<TrayItemId> {
@@ -407,8 +408,7 @@ fn get_popup<T: TrayItem>(
         seat: seat.clone(),
         serial,
         focus,
-        stack,
-        stack_link: Default::default(),
+        stack_link: stack.element(),
     });
     popup.parent.set(Some(user.clone()));
     item.popups().set(popup.id, user);
