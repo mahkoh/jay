@@ -184,8 +184,9 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
             if dl.is_none() {
                 let data = self.parent.data();
                 if data.surface.visible.get() {
-                    self.popup.set_visible(true);
                     *dl = Some(self.stack.add_last(self.popup.clone()));
+                    drop(dl);
+                    self.popup.set_visible(true);
                     state.tree_changed();
                     if self.focus == FocusHint::Immediate {
                         self.seat.handle_focus_request(

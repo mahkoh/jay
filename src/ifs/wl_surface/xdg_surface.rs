@@ -162,6 +162,7 @@ impl XdgPopupParent for Popup {
             }
             if any_set {
                 state.tree_changed();
+                drop(dl);
                 self.popup.set_visible(self.parent.surface.visible.get());
             }
         } else {

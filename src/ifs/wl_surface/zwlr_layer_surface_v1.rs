@@ -743,6 +743,7 @@ impl XdgPopupParent for Popup {
                     self.popup.xdg.set_output(&output);
                     *dl = Some(self.stack.add_last(self.popup.clone()));
                     state.tree_changed();
+                    drop(dl);
                     self.popup.set_visible(self.parent.surface.visible.get());
                 } else {
                     self.popup.destroy_node();
