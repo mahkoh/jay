@@ -74,9 +74,11 @@ impl DisplayNode {
         for output in self.outputs.lock().values() {
             output.update_visible();
         }
-        for stacked in self.stacked.iter() {
-            if !stacked.stacked_has_workspace_link() {
-                stacked.stacked_set_visible(visible);
+        for layer in [&self.stacked, &self.stacked_above_layers] {
+            for stacked in layer.iter() {
+                if !stacked.stacked_has_workspace_link() {
+                    stacked.stacked_set_visible(visible);
+                }
             }
         }
         for seat in state.globals.seats.lock().values() {
@@ -136,8 +138,10 @@ impl Node for DisplayNode {
         for (_, output) in outputs.deref() {
             visitor.visit_output(output);
         }
-        for stacked in self.stacked.iter() {
-            stacked.deref().clone().node_visit(visitor);
+        for layer in [&self.stacked, &self.stacked_above_layers] {
+            for stacked in layer.iter() {
+                stacked.deref().clone().node_visit(visitor);
+            }
         }
     }
 

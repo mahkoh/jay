@@ -1401,9 +1401,7 @@ impl WlSeatGlobal {
         mem::take(self.found_tree.borrow_mut().deref_mut());
         self.keyboard_node.set(self.state.root.clone());
         self.state
-            .root
-            .clone()
-            .node_visit(&mut generic_node_visitor(|node| {
+            .visit_all_nodes(&mut generic_node_visitor(|node| {
                 node.node_seat_state().on_seat_remove(self);
             }));
         self.bindings.borrow_mut().clear();

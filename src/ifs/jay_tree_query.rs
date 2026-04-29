@@ -260,7 +260,7 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
             return Err(JayTreeQueryError::NoRootSet);
         };
         match root {
-            Root::Display => Visitor(self).visit_display(&self.client.state.root),
+            Root::Display => self.client.state.visit_all_nodes(&mut Visitor(self)),
             Root::WorkspaceNode(n) => match n.get() {
                 Some(n) => Visitor(self).visit_workspace(&n),
                 None => self.send_not_found(),
@@ -375,11 +375,13 @@ impl tree::NodeVisitorBase for Visitor<'_> {
             for output in node.outputs.lock().values() {
                 NodeVisitor::visit_output(self, output);
             }
-            for stacked in node.stacked.iter() {
-                if stacked.stacked_has_workspace_link() {
-                    continue;
+            for layer in [&node.stacked, &node.stacked_above_layers] {
+                for stacked in layer.iter() {
+                    if stacked.stacked_has_workspace_link() {
+                        continue;
+                    }
+                    stacked.deref().clone().node_visit(self);
                 }
-                stacked.deref().clone().node_visit(self);
             }
         }
         s.send_end();

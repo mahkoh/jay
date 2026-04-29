@@ -989,11 +989,14 @@ impl OutputNode {
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         self.node_visit_children(visitor);
-        for stacked in self.state.root.stacked.iter() {
-            if stacked.node_output_id() != Some(self.id) {
-                continue;
+        let root = &self.state.root;
+        for layer in [&root.stacked, &root.stacked_above_layers] {
+            for stacked in layer.iter() {
+                if stacked.node_output_id() != Some(self.id) {
+                    continue;
+                }
+                stacked.deref().clone().node_visit(visitor);
             }
-            stacked.deref().clone().node_visit(visitor);
         }
     }
 

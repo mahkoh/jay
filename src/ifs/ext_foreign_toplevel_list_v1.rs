@@ -41,7 +41,9 @@ impl ExtForeignToplevelListV1Global {
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
-        ToplevelVisitor { list: &obj }.visit_display(&client.state.root);
+        client
+            .state
+            .visit_all_nodes(&mut ToplevelVisitor { list: &obj });
         client.state.toplevel_lists.set((client.id, id), obj);
         Ok(())
     }
