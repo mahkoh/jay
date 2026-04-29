@@ -90,6 +90,7 @@ mod t0056_sm_fullscreen;
 mod t0057_sm_floating;
 mod t0058_sm_parent;
 mod t0059_sm_background_ws;
+mod t0060_overlay;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -168,5 +169,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0057_sm_floating,
         t0058_sm_parent,
         t0059_sm_background_ws,
+        t0060_overlay,
     }
 }

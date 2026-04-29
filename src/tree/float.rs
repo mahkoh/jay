@@ -115,6 +115,7 @@ impl State {
     fn float_stack(&self, ty: WorkspaceType) -> &Rc<NodesStack> {
         match ty {
             WorkspaceType::Normal => &self.root.stacked,
+            WorkspaceType::Overlay => &self.root.stacked_in_overlay,
         }
     }
 }
@@ -234,6 +235,9 @@ impl FloatNode {
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();
+            if self.workspace_ty.get() == WorkspaceType::Overlay {
+                width = (width - th).max(0);
+            }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
                 width = (width - th).max(0);
             }
@@ -595,9 +599,13 @@ impl FloatNode {
         let mut is_icon_press = false;
         if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
             enum FloatIcon {
+                Overlay,
                 Pin,
             }
-            let mut icons = ArrayVec::<FloatIcon, 1>::new();
+            let mut icons = ArrayVec::<FloatIcon, 2>::new();
+            if self.workspace_ty.get() == WorkspaceType::Overlay {
+                icons.push(FloatIcon::Overlay);
+            }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
                 icons.push(FloatIcon::Pin);
             }
@@ -615,6 +623,7 @@ impl FloatNode {
                 is_icon_press = true;
                 match icon {
                     FloatIcon::Pin => self.toggle_pinned(),
+                    FloatIcon::Overlay => {}
                 }
             }
         }
@@ -671,7 +680,7 @@ impl FloatNode {
             }
         } else if !pressed {
             cursor_data.op_active = false;
-            let ws = cursor.output().ensure_normal_workspace();
+            let ws = cursor.output().ensure_workspace();
             self.set_workspace_(&ws, true, true);
         }
     }
@@ -748,6 +757,7 @@ impl Node for FloatNode {
         };
         match self.workspace_ty.get() {
             WorkspaceType::Normal => NodeLayerLink::Stacked(l),
+            WorkspaceType::Overlay => NodeLayerLink::OverlayStacked(l),
         }
     }
 
@@ -824,9 +834,7 @@ impl Node for FloatNode {
         if ws.map(|ws| ws.id) == Some(self.workspace.get().id) {
             return;
         }
-        let ws = ws
-            .cloned()
-            .unwrap_or_else(|| output.ensure_normal_workspace());
+        let ws = ws.cloned().unwrap_or_else(|| output.ensure_workspace());
         self.set_workspace_(&ws, true, false);
     }
 

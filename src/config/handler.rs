@@ -48,10 +48,10 @@ use {
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
             WindowCriterionIpc, WindowCriterionStringField, WireMode, WorkspaceShowOpV1,
-            bincode_ops,
+            WorkspaceShowOpV2, bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
-        Axis, Direction, Workspace,
+        Axis, Direction, Workspace, WorkspaceKind,
         client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
         input::{
             FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
@@ -81,6 +81,7 @@ use {
     libloading::Library,
     log::Level,
     regex::Regex,
+    smallvec::SmallVec,
     std::{
         cell::Cell,
         fmt,
@@ -952,6 +953,53 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_get_overlay(&self, name: &str) {
+        self.respond(Response::GetWorkspace {
+            workspace: self.get_workspace_by_name(&name.to_owned(), WorkspaceType::Overlay),
+        });
+    }
+
+    fn handle_hide_overlays(&self) {
+        let outputs: SmallVec<[Rc<OutputNode>; 8]> = self
+            .state
+            .root
+            .outputs
+            .lock()
+            .values()
+            .filter(|o| o.overlay.is_some())
+            .cloned()
+            .collect();
+        for output in outputs {
+            output.hide_overlay();
+        }
+    }
+
+    fn handle_hide_workspace(&self, workspace: Workspace) -> Result<(), CphError> {
+        let Some(ws) = self.get_existing_workspace(workspace)? else {
+            return Ok(());
+        };
+        if ws.ty == WorkspaceType::Overlay && ws.output.id() != self.state.dummy_output_id {
+            ws.output.get().hide_overlay();
+        }
+        Ok(())
+    }
+
+    fn handle_get_workspace_kind(&self, workspace: Workspace) -> Result<(), CphError> {
+        let ws = self.get_workspace(workspace)?;
+        let kind = self
+            .state
+            .workspaces
+            .get(&ws.name)
+            .map(|ws| ws.ty)
+            .unwrap_or(ws.ty.get());
+        let kind = match kind {
+            WorkspaceType::Normal => WorkspaceKind::Normal,
+            WorkspaceType::Overlay => WorkspaceKind::Overlay,
+        };
+        self.respond(Response::GetWorkspaceKind { kind });
+        Ok(())
+    }
+
     fn handle_get_workspace_capture(&self, workspace: Workspace) -> Result<(), CphError> {
         let ws = self.get_existing_workspace(workspace)?;
         let capture = match ws {
@@ -1086,14 +1134,24 @@ impl ConfigProxyHandler {
     }
 
     fn handle_show_workspace_3(&self, v1: WorkspaceShowOpV1) -> Result<(), CphError> {
+        self.handle_show_workspace_4(v1, Default::default())
+    }
+
+    fn handle_show_workspace_4(
+        &self,
+        v1: WorkspaceShowOpV1,
+        v2: WorkspaceShowOpV2,
+    ) -> Result<(), CphError> {
         let WorkspaceShowOpV1 {
             workspace,
             connector,
-            move_to_connector,
+            mut move_to_connector,
             seat,
             fallback_output_mode,
             focus,
         } = v1;
+        let WorkspaceShowOpV2 { toggle } = v2;
+        let toggle = toggle.unwrap_or(false);
         struct Params {
             move_: bool,
             ws: Rc<WorkspaceNode>,
@@ -1135,9 +1193,21 @@ impl ConfigProxyHandler {
                 seat = get_seat(&mut seat_opt)?;
             }
             if let Some(ws) = self.state.workspaces.get(&ws.name) {
+                if ws.ty == WorkspaceType::Overlay {
+                    if ws.output.id() == self.state.dummy_output_id {
+                        move_to_connector = true;
+                    } else if toggle {
+                        ws.output.get().hide_overlay();
+                        return Ok(());
+                    }
+                }
                 let mut output = ws.output.get();
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
+                }
+                if output.id == self.state.dummy_output_id {
+                    log::warn!("Could not determine output to show workspace on");
+                    return Ok(());
                 }
                 break 'params Params {
                     move_: move_to_connector && ws.output.id() != output.id,
@@ -1154,11 +1224,13 @@ impl ConfigProxyHandler {
                 move_: false,
                 ws: match ws.ty.get() {
                     WorkspaceType::Normal => output.create_normal_workspace(&ws.name),
+                    WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
                 },
                 output,
                 seat,
             }
         };
+        let mut did_focus = false;
         if move_ {
             move_ws_to_output(
                 &ws,
@@ -1171,16 +1243,18 @@ impl ConfigProxyHandler {
                 },
             );
             if let Some(seat) = &seat {
-                ws.do_focus(seat, crate::tree::Direction::Unspecified);
+                did_focus = ws.do_focus(seat, crate::tree::Direction::Unspecified);
             }
             if !output.is_dummy {
                 ws.desired_output.set(output.global.output_id.clone());
             }
             self.state.tree_changed();
         } else {
-            self.state.show_workspace2(seat.as_ref(), &output, &ws);
+            did_focus = self.state.show_workspace2(seat.as_ref(), &output, &ws);
         }
-        if let Some(seat) = &seat {
+        if (did_focus || ws.ty == WorkspaceType::Normal)
+            && let Some(seat) = &seat
+        {
             seat.maybe_schedule_warp_mouse_to_focus();
         }
         Ok(())
@@ -1195,6 +1269,7 @@ impl ConfigProxyHandler {
                 WorkspaceType::Normal => {
                     seat.get_fallback_output().create_normal_workspace(&ws.name)
                 }
+                WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
         seat.set_workspace(&workspace);
@@ -1211,6 +1286,7 @@ impl ConfigProxyHandler {
                     Some(o) => o.create_normal_workspace(&ws.name),
                     _ => return Ok(()),
                 },
+                WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
         toplevel_set_workspace(&self.state, window, &workspace);
@@ -3601,6 +3677,17 @@ impl ConfigProxyHandler {
             ClientMessage::ShowWorkspace3 { v1 } => {
                 self.handle_show_workspace_3(v1).wrn("show_workspace_3")?
             }
+            ClientMessage::ShowWorkspace4 { v1, v2 } => self
+                .handle_show_workspace_4(v1, v2)
+                .wrn("show_workspace_4")?,
+            ClientMessage::GetOverlay { name } => self.handle_get_overlay(name),
+            ClientMessage::HideOverlays => self.handle_hide_overlays(),
+            ClientMessage::HideWorkspace { workspace } => self
+                .handle_hide_workspace(workspace)
+                .wrn("hide_workspace")?,
+            ClientMessage::GetWorkspaceKind { workspace } => self
+                .handle_get_workspace_kind(workspace)
+                .wrn("get_workspace_kind")?,
         }
         Ok(())
     }

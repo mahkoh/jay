@@ -883,7 +883,7 @@ impl WlSeatGlobal {
             && let Some(output) = data.output_opt()
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
-            let ws = target.ensure_normal_workspace();
+            let ws = target.ensure_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
         } else if let Some(parent) = data.parent.get()
@@ -1084,7 +1084,9 @@ impl WlSeatGlobal {
                     return;
                 }
             }
-            NodeLayerLink::Stacked(l) | NodeLayerLink::StackedAboveLayers(l) => {
+            NodeLayerLink::Stacked(l)
+            | NodeLayerLink::StackedAboveLayers(l)
+            | NodeLayerLink::OverlayStacked(l) => {
                 let mut l = l.clone();
                 while let Some(n) = stacked_node_next(&l) {
                     if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
@@ -1104,6 +1106,9 @@ impl WlSeatGlobal {
             NodeLayerLink::Fullscreen => {}
             NodeLayerLink::Lock => {}
             NodeLayerLink::InputMethod => {}
+            NodeLayerLink::Overlay => {}
+            NodeLayerLink::OverlayTiled => {}
+            NodeLayerLink::OverlayFullscreen => {}
         }
         let handle_layer_shell = |l: &LinkedList<Rc<ZwlrLayerSurfaceV1>>| {
             for n in layer_list_iter(l) {
@@ -1148,6 +1153,7 @@ impl WlSeatGlobal {
                 .map(|n| n as Rc<dyn Node>)
         };
         let ws = output.workspace.get();
+        let overlay = output.overlay.get();
         let first = next_layer(current_layer.layer());
         let mut layer = first;
         loop {
@@ -1167,6 +1173,10 @@ impl WlSeatGlobal {
                 }
                 NodeLayer::Lock => None,
                 NodeLayer::InputMethod => None,
+                NodeLayer::Overlay => None,
+                NodeLayer::OverlayTiled => handle_tiled(overlay.as_ref()),
+                NodeLayer::OverlayFullscreen => handle_fullscreen(overlay.as_ref()),
+                NodeLayer::OverlayStacked => handle_stacked(&self.state.root.stacked_in_overlay),
             };
             if let Some(n) = node {
                 if node_viable(&*n) {
@@ -1213,7 +1223,7 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        for layer in [&output.workspace] {
+        for layer in [&output.overlay, &output.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };

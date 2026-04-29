@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{Extractor, ExtractorError},
+            extractor::{Extractor, ExtractorError, opt, recover, str},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
@@ -26,6 +26,7 @@ pub struct WorkspaceSlot {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WorkspaceType {
     Normal,
+    Overlay,
 }
 
 impl Context<'_> {
@@ -104,8 +105,20 @@ impl Parser for WorkspaceParser<'_> {
         span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let _ext = Extractor::new(self.cx, span, table);
-        let _ws = self.cx.get_workspace_slot(self.name);
+        let mut ext = Extractor::new(self.cx, span, table);
+        let (ty_str,) = ext.extract((recover(opt(str("type"))),))?;
+        let mut ty = WorkspaceType::Normal;
+        if let Some(ty_str) = ty_str {
+            match ty_str.value {
+                "normal" => ty = WorkspaceType::Normal,
+                "overlay" => ty = WorkspaceType::Overlay,
+                _ => {
+                    log::error!("Unknown workspace type: {}", self.cx.error3(ty_str.span));
+                }
+            }
+        }
+        let ws = self.cx.get_workspace_slot(self.name);
+        ws.ty.set(ty);
         Ok(())
     }
 }

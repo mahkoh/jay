@@ -81,6 +81,7 @@ impl XdgSurfaceRole {
 pub enum PopupStackType {
     Normal,
     AboveLayers,
+    Overlay,
 }
 
 pub struct XdgSurface {
@@ -189,6 +190,7 @@ impl XdgPopupParent for Popup {
         match self.popup.xdg.popup_stack_type.get() {
             PopupStackType::Normal => NodeLayerLink::Stacked(link),
             PopupStackType::AboveLayers => NodeLayerLink::StackedAboveLayers(link),
+            PopupStackType::Overlay => NodeLayerLink::OverlayStacked(link),
         }
     }
 
@@ -309,6 +311,9 @@ impl XdgSurface {
             match ws.ty {
                 WorkspaceType::Normal => {
                     self.set_popup_stack(&root.stacked, PopupStackType::Normal);
+                }
+                WorkspaceType::Overlay => {
+                    self.set_popup_stack(&root.stacked_in_overlay, PopupStackType::Overlay);
                 }
             }
         }

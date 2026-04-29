@@ -45,7 +45,7 @@
 
 use {
     crate::{
-        _private::{WorkspaceShowOpV1, ipc::WorkspaceSource},
+        _private::{WorkspaceShowOpV1, WorkspaceShowOpV2, ipc::WorkspaceSource},
         input::{FallbackOutputMode, Seat},
         keyboard::ModifiedKeySym,
         video::Connector,
@@ -208,7 +208,20 @@ impl Workspace {
                 fallback_output_mode: None,
                 focus: true,
             },
+            v2: Default::default(),
         }
+    }
+
+    /// Returns the kind of this workspace.
+    pub fn kind(self) -> WorkspaceKind {
+        get!(WorkspaceKind::Normal).get_workspace_kind(self)
+    }
+
+    /// Hides this workspace.
+    ///
+    /// This has no effect for normal workspaces.
+    pub fn hide(self) {
+        get!().hide_workspace(self);
     }
 }
 
@@ -216,6 +229,10 @@ impl Workspace {
 ///
 /// Workspaces are identified by their name. Calling this function alone does not create the
 /// workspace if it doesn't already exist.
+///
+/// Workspaces and overlays share the same namespace. If an overlay with the same name
+/// already exists, this request changes the pending kind of the workspace from `Overlay`
+/// to `Normal`.
 pub fn get_workspace(name: &str) -> Workspace {
     get!(Workspace(0)).get_workspace(name)
 }
@@ -226,6 +243,7 @@ pub fn get_workspace(name: &str) -> Workspace {
 #[must_use]
 pub struct WorkspaceShowOp {
     v1: WorkspaceShowOpV1,
+    v2: WorkspaceShowOpV2,
 }
 
 impl WorkspaceShowOp {
@@ -278,6 +296,41 @@ impl WorkspaceShowOp {
         self.v1.focus = focus;
         self
     }
+
+    /// Whether this operation should hide the workspace if it is already visible.
+    ///
+    /// This has no effect for normal workspaces.
+    pub fn toggle(mut self, toggle: bool) -> Self {
+        self.v2.toggle = Some(toggle);
+        self
+    }
+}
+
+/// The kind of a workspace.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum WorkspaceKind {
+    /// A normal workspace.
+    Normal,
+    /// An overlay workspace.
+    Overlay,
+}
+
+/// Returns the overlay with the given name.
+///
+/// Overlays are identified by their name. Calling this function alone does not create the
+/// overlay if it doesn't already exist.
+///
+/// Workspaces and overlays share the same namespace. If a workspace with the same name
+/// already exists, this request changes the pending kind of the workspace from `Normal`
+/// to `Overlay`.
+pub fn get_overlay(name: &str) -> Workspace {
+    get!(Workspace(0)).get_overlay(name)
+}
+
+/// Hides all overlays.
+pub fn hide_overlays() {
+    get!().hide_overlays();
 }
 
 /// A PCI ID.

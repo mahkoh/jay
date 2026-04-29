@@ -353,6 +353,65 @@ Action:
                 The default is `true`.
               required: false
               kind: boolean
+            toggle:
+              description: |
+                Whether to toggle the overlay. This has no effect if the workspace is not
+                an overlay.
+                
+                If this is `true` and the overlay is already visible, the overlay is
+                hidden.
+                
+                The default is `false`.
+              required: false
+              kind: boolean
+        show-overlay:
+          description: |
+            This is an alias for the `show-workspace` action with the following hard-coded
+            parameters:
+            
+            - `move-to-output`: `true`
+            - `toggle`: `false`
+          fields:
+            name:
+              description: See the same field in the `show-workspace` action.
+              required: true
+              kind: string
+            output:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              ref: OutputMatch
+            fallback-output-mode:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              ref: FallbackOutputMode
+            focus:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              kind: boolean
+        toggle-overlay:
+          description: |
+            This is an alias for the `show-workspace` action with the following hard-coded
+            parameters:
+            
+            - `move-to-output`: `false`
+            - `toggle`: `true`
+          fields:
+            name:
+              description: See the same field in the `show-workspace` action.
+              required: true
+              kind: string
+            output:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              ref: OutputMatch
+            fallback-output-mode:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              ref: FallbackOutputMode
+            focus:
+              description: See the same field in the `show-workspace` action.
+              required: false
+              kind: boolean
         move-to-workspace:
           description: |
             Moves the currently focused window to a workspace.
@@ -909,6 +968,13 @@ Action:
               required: false
               kind: number
               integer_only: true
+        hide-overlay:
+          description: Hides an overlay if it is visible.
+          fields:
+            name:
+              description: The name of the overlay.
+              required: true
+              kind: string
 
 
 Exec:
@@ -1254,6 +1320,8 @@ SimpleActionName:
     - value: warp-mouse-to-focus
       description: |
         Warps the cursor to the center of the currently focused window.
+    - value: hide-overlays
+      description: Hides all overlays.
 
 
 Color:
@@ -4776,3 +4844,25 @@ Workspace:
   description: |
     The settings of a workspace.
   fields:
+    type:
+      ref: WorkspaceType
+      required: false
+      description: The type of the workspace.
+
+
+WorkspaceType:
+  description: |
+    The type of a workspace.
+
+    - Example:
+    
+      ```toml
+      [workspaces."overlay1"]
+      type = "overlay"
+      ```
+  kind: string
+  values:
+    - value: normal
+      description: The workspace is a normal workspace. This is the default.
+    - value: overlay
+      description: The workspace is an overlay.

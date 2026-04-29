@@ -30,6 +30,7 @@ pub struct DisplayNode {
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: Rc<NodesStack>,
     pub stacked_above_layers: Rc<NodesStack>,
+    pub stacked_in_overlay: Rc<NodesStack>,
     pub seat_state: NodeSeatState,
 }
 
@@ -54,6 +55,7 @@ impl DisplayNode {
             outputs: Default::default(),
             stacked: Default::default(),
             stacked_above_layers: Default::default(),
+            stacked_in_overlay: Default::default(),
             seat_state: Default::default(),
         };
         slf.seat_state.disable_focus_history();
@@ -94,7 +96,11 @@ impl DisplayNode {
         for output in self.outputs.lock().values() {
             output.update_visible();
         }
-        for layer in [&self.stacked, &self.stacked_above_layers] {
+        for layer in [
+            &self.stacked,
+            &self.stacked_above_layers,
+            &self.stacked_in_overlay,
+        ] {
             for stacked in layer.stacked.iter() {
                 if !stacked.stacked_has_workspace_link() {
                     stacked.stacked_set_visible(visible);
@@ -158,7 +164,11 @@ impl Node for DisplayNode {
         for (_, output) in outputs.deref() {
             visitor.visit_output(output);
         }
-        for layer in [&self.stacked, &self.stacked_above_layers] {
+        for layer in [
+            &self.stacked,
+            &self.stacked_above_layers,
+            &self.stacked_in_overlay,
+        ] {
             for stacked in layer.stacked.iter() {
                 stacked.deref().clone().node_visit(visitor);
             }

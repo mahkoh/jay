@@ -133,6 +133,7 @@ alt-shift-r = "reload-config-toml"
   inherited mode bindings)
 - `disable-pointer-constraint` -- release a pointer lock/confinement
 - `focus-parent` -- move focus to the parent container
+- `hide-overlays` -- hide all visible [overlays](../overlays.md)
 - `toggle-bar`, `show-bar`, `hide-bar` -- control the status bar
 - `open-control-center` -- open the Jay control center GUI
 - `warp-mouse-to-focus` -- warp the cursor to the center of the focused window
@@ -180,6 +181,18 @@ alt-F2 = { type = "show-workspace", name = "2" }
 
 alt-shift-F1 = { type = "move-to-workspace", name = "1" }
 alt-shift-F2 = { type = "move-to-workspace", name = "2" }
+```
+
+### Overlays
+
+[Overlays](../overlays.md) are workspaces that render above the normal
+workspace. They can be shown, toggled, and hidden:
+
+```toml
+[shortcuts]
+alt-s       = { type = "toggle-overlay", name = "scratchpad" }
+alt-shift-s = { type = "hide-overlay", name = "scratchpad" }
+alt-Escape  = "hide-overlays"
 ```
 
 ### Moving workspaces to outputs
@@ -258,6 +271,9 @@ alt-shift-Right = { type = "resize", dx1 = 10, dx2 = 10 }
 - `create-mark` -- create a mark with an explicit ID (see [Marks](#marks))
 - `jump-to-mark` -- jump to a mark with an explicit ID
 - `copy-mark` -- copy a mark from one ID to another
+- `show-overlay` -- show an [overlay](../overlays.md) on the current output
+- `toggle-overlay` -- toggle an [overlay](../overlays.md) on or off
+- `hide-overlay` -- hide a specific [overlay](../overlays.md)
 - `create-virtual-output` -- create a virtual output
 - `remove-virtual-output` -- remove a virtual output
 

@@ -299,6 +299,7 @@ impl ConfigProxy {
                 ServerFeature::MOD_MASK,
                 ServerFeature::SHOW_WORKSPACE_ON,
                 ServerFeature::SHOW_WORKSPACE_3,
+                ServerFeature::SHOW_WORKSPACE_4,
             ],
         });
         self.send(&ServerMessage::Configure { reload });

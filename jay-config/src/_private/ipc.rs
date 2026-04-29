@@ -2,8 +2,9 @@ use {
     crate::{
         _private::{
             ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode, WorkspaceShowOpV1,
+            WorkspaceShowOpV2,
         },
-        Axis, Direction, PciId, Workspace,
+        Axis, Direction, PciId, Workspace, WorkspaceKind,
         client::{Client, ClientCapabilities, ClientMatcher},
         input::{
             FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
@@ -35,6 +36,7 @@ impl ServerFeature {
     pub const MOD_MASK: Self = Self(1);
     pub const SHOW_WORKSPACE_ON: Self = Self(2);
     pub const SHOW_WORKSPACE_3: Self = Self(3);
+    pub const SHOW_WORKSPACE_4: Self = Self(4);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -893,6 +895,20 @@ pub enum ClientMessage<'a> {
     ShowWorkspace3 {
         v1: WorkspaceShowOpV1,
     },
+    ShowWorkspace4 {
+        v1: WorkspaceShowOpV1,
+        v2: WorkspaceShowOpV2,
+    },
+    HideWorkspace {
+        workspace: Workspace,
+    },
+    GetWorkspaceKind {
+        workspace: Workspace,
+    },
+    GetOverlay {
+        name: &'a str,
+    },
+    HideOverlays,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1151,6 +1167,9 @@ pub enum Response {
     },
     ConnectorCompositorOutput {
         compositor_output: bool,
+    },
+    GetWorkspaceKind {
+        kind: WorkspaceKind,
     },
 }
 

@@ -26,6 +26,7 @@ use {
         client::Client,
         config, config_dir,
         exec::{Command, set_env, unset_env},
+        hide_overlays,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, capability::CAP_SWITCH,
             get_seat, input_devices, on_input_device_removed, on_new_input_device,
@@ -250,6 +251,7 @@ impl Action {
                     let persistent = state.persistent.clone();
                     b.new(move || persistent.seat.warp_mouse_to_focus())
                 }
+                SimpleCommand::HideOverlays => b.new(hide_overlays),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -267,6 +269,7 @@ impl Action {
                 move_to_output,
                 fallback_output_mode,
                 focus,
+                toggle,
             } => {
                 let workspace = ws.ws.get();
                 let state = state.clone();
@@ -294,6 +297,9 @@ impl Action {
                     }
                     if let Some(v) = fallback_output_mode {
                         op = op.fallback_output_mode(v);
+                    }
+                    if let Some(v) = toggle {
+                        op = op.toggle(v);
                     }
                     op.exec();
                 })
@@ -500,6 +506,10 @@ impl Action {
             Action::RemoveVirtualOutput { name } => b.new(move || remove_virtual_output(&name)),
             Action::Resize { dx1, dy1, dx2, dy2 } => {
                 window_or_seat!(s, s.resize(dx1, dy1, dx2, dy2))
+            }
+            Action::HideOverlay { ws } => {
+                let workspace = ws.ws.get();
+                b.new(move || workspace.hide())
             }
         }
     }

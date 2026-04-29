@@ -772,6 +772,7 @@ fn create_dummy_output(state: &Rc<State>) {
         jay_outputs: Default::default(),
         workspaces: Default::default(),
         workspace: Default::default(),
+        overlay: Default::default(),
         seat_state: Default::default(),
         layers: Default::default(),
         exclusive_zones: Default::default(),

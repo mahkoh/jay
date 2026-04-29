@@ -293,6 +293,86 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a boolean.
 
+  - `toggle` (optional):
+
+    Whether to toggle the overlay. This has no effect if the workspace is not
+    an overlay.
+    
+    If this is `true` and the overlay is already visible, the overlay is
+    hidden.
+    
+    The default is `false`.
+
+    The value of this field should be a boolean.
+
+- `show-overlay`:
+
+  This is an alias for the `show-workspace` action with the following hard-coded
+  parameters:
+  
+  - `move-to-output`: `true`
+  - `toggle`: `false`
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a string.
+
+  - `output` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a [OutputMatch](#types-OutputMatch).
+
+  - `fallback-output-mode` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a [FallbackOutputMode](#types-FallbackOutputMode).
+
+  - `focus` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a boolean.
+
+- `toggle-overlay`:
+
+  This is an alias for the `show-workspace` action with the following hard-coded
+  parameters:
+  
+  - `move-to-output`: `false`
+  - `toggle`: `true`
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a string.
+
+  - `output` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a [OutputMatch](#types-OutputMatch).
+
+  - `fallback-output-mode` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a [FallbackOutputMode](#types-FallbackOutputMode).
+
+  - `focus` (optional):
+
+    See the same field in the `show-workspace` action.
+
+    The value of this field should be a boolean.
+
 - `move-to-workspace`:
 
   Moves the currently focused window to a workspace.
@@ -963,6 +1043,18 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The value of this field should be a number.
 
     The numbers should be integers.
+
+- `hide-overlay`:
+
+  Hides an overlay if it is visible.
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the overlay.
+
+    The value of this field should be a string.
 
 
 <a name="types-BarPosition"></a>
@@ -4801,6 +4893,10 @@ The string should have one of the following values:
 
   Warps the cursor to the center of the currently focused window.
 
+- `hide-overlays`:
+
+  Hides all overlays.
+
 
 
 <a name="types-SimpleIm"></a>
@@ -5683,6 +5779,12 @@ Values of this type should be tables.
 
 The table has the following fields:
 
+- `type` (optional):
+
+  The type of the workspace.
+
+  The value of this field should be a [WorkspaceType](#types-WorkspaceType).
+
 
 <a name="types-WorkspaceDisplayOrder"></a>
 ### `WorkspaceDisplayOrder`
@@ -5700,6 +5802,32 @@ The string should have one of the following values:
 - `sorted`:
 
   Workspaces are sorted using natural ordering and cannot be manually dragged.
+
+
+
+<a name="types-WorkspaceType"></a>
+### `WorkspaceType`
+
+The type of a workspace.
+
+- Example:
+
+  ```toml
+  [workspaces."overlay1"]
+  type = "overlay"
+  ```
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `normal`:
+
+  The workspace is a normal workspace. This is the default.
+
+- `overlay`:
+
+  The workspace is an overlay.
 
 
 

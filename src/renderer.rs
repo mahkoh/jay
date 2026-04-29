@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
         gfx_api::{AcquireSync, AlphaMode, GfxApiOpt, ReleaseSync, SampleRect},
-        icons::{IconState, SizedTitleIcons},
+        icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
@@ -15,8 +15,8 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
-            ToplevelNodeBase, WorkspaceNode,
+            ContainerChildType, ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode,
+            ToplevelData, ToplevelNodeBase, WorkspaceNode, WorkspaceType,
         },
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -30,6 +30,7 @@ pub struct Renderer<'a> {
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
     pub title_icons: Option<Rc<SizedTitleIcons>>,
+    pub bar_icons: Option<Rc<SizedBarIcons>>,
 }
 
 impl Renderer<'_> {
@@ -75,7 +76,14 @@ impl Renderer<'_> {
             };
         }
         let mut fullscreen = None;
-        if let Some(ws) = output.workspace.get() {
+        let mut fullscreen_is_overlay = false;
+        if let Some(ws) = output.overlay.get() {
+            fullscreen = ws.fullscreen.get();
+            fullscreen_is_overlay = ws.fullscreen.is_some();
+        }
+        if fullscreen.is_none()
+            && let Some(ws) = output.workspace.get()
+        {
             fullscreen = ws.fullscreen.get();
         }
         let theme = &self.state.theme;
@@ -83,7 +91,9 @@ impl Renderer<'_> {
         let srgb = &srgb_srgb.linear;
         let perceptual = RenderIntent::Perceptual;
         if let Some(fs) = &fullscreen {
-            fs.node_render(self, x, y, None);
+            if !fullscreen_is_overlay {
+                fs.node_render(self, x, y, None);
+            }
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
@@ -109,6 +119,16 @@ impl Renderer<'_> {
                     };
                     self.base
                         .fill_boxes2(slice::from_ref(&aw.rect), &c, srgb, perceptual, x, y);
+                }
+                if let Some(aw) = &rd.overlay_workspace {
+                    self.base.fill_boxes2(
+                        slice::from_ref(aw),
+                        &theme.colors.focused_title_background.get(),
+                        srgb,
+                        perceptual,
+                        x,
+                        y,
+                    );
                 }
                 let mut c = theme.colors.separator.get();
                 if let Some(ws) = &ws
@@ -142,6 +162,28 @@ impl Renderer<'_> {
                 );
                 let scale = output.global.persistent.scale.get();
                 for title in &rd.titles {
+                    if let Some(icon_x) = title.icon_x
+                        && let Some(icons) = &self.bar_icons
+                    {
+                        let (x, y) = self.base.scale_point(x + icon_x, y + title.tex_y);
+                        self.base.render_texture(
+                            &icons.overlay,
+                            None,
+                            x,
+                            y,
+                            None,
+                            None,
+                            scale,
+                            Some(&bar_bg),
+                            None,
+                            AcquireSync::None,
+                            ReleaseSync::None,
+                            false,
+                            srgb_srgb,
+                            perceptual,
+                            AlphaMode::PremultipliedElectrical,
+                        );
+                    }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                     self.base.render_texture(
                         &title.tex,
@@ -216,15 +258,30 @@ impl Renderer<'_> {
         if fullscreen.is_none() {
             render_layer!(output.layers[2]);
         }
-        render_layer!(output.layers[3]);
+        if !fullscreen_is_overlay {
+            render_layer!(output.layers[3]);
+        }
         render_stacked!(self.state.root.stacked_above_layers);
-        if let Some(ws) = output.workspace.get()
-            && ws.render_highlight.get() > 0
+        if let Some(fs) = &fullscreen
+            && fullscreen_is_overlay
         {
-            let color = self.state.theme.colors.highlight.get();
-            let bounds = output.workspace_rect_rel.get().move_(x, y);
+            fs.node_render(self, x, y, None);
+        } else if let Some(ws) = output.overlay.get() {
+            let ws_rect = output.workspace_rect_rel.get();
+            let (x, y) = ws_rect.translate_inv(x, y);
             self.base.sync();
-            self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
+            self.render_workspace(&ws, x, y);
+        }
+        render_stacked!(self.state.root.stacked_in_overlay);
+        for layer in [&output.workspace, &output.overlay] {
+            if let Some(ws) = layer.get()
+                && ws.render_highlight.get() > 0
+            {
+                let color = self.state.theme.colors.highlight.get();
+                let bounds = output.workspace_rect_rel.get().move_(x, y);
+                self.base.sync();
+                self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
+            }
         }
     }
 
@@ -306,11 +363,47 @@ impl Renderer<'_> {
                 self.base
                     .fill_boxes2(std::slice::from_ref(lar), &c, srgb, perceptual, x, y);
             }
+            let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
+            let th = self.state.theme.title_height();
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
                     let rect = title.rect.move_(x, y);
                     let bounds = self.base.scale_rect(rect);
-                    let (x, y) = self.base.scale_point(rect.x1(), rect.y1());
+                    let mut x = rect.x1();
+                    if draw_overlay_icon {
+                        if let Some(icons) = &self.title_icons {
+                            let (x, y) = self.base.scale_point(x, rect.y1());
+                            let icon = match title.ty {
+                                ContainerChildType::Active => &icons.overlay_focused_title,
+                                ContainerChildType::AttentionRequested => {
+                                    &icons.overlay_attention_requested
+                                }
+                                ContainerChildType::LastActive => {
+                                    &icons.overlay_focused_inactive_title
+                                }
+                                ContainerChildType::Other => &icons.overlay_unfocused_title,
+                            };
+                            self.base.render_texture(
+                                icon,
+                                None,
+                                x,
+                                y,
+                                None,
+                                None,
+                                self.base.scale,
+                                Some(&bounds),
+                                None,
+                                AcquireSync::None,
+                                ReleaseSync::None,
+                                false,
+                                srgb_srgb,
+                                perceptual,
+                                AlphaMode::PremultipliedElectrical,
+                            );
+                        }
+                        x += th;
+                    }
+                    let (x, y) = self.base.scale_point(x, rect.y1());
                     self.base.render_texture(
                         &title.tex,
                         None,
@@ -584,6 +677,36 @@ impl Renderer<'_> {
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
         let (mut x1, y1) = rect.position();
+        if floating.workspace_ty.get() == WorkspaceType::Overlay {
+            if let Some(icons) = &self.title_icons {
+                let icon = if floating.active.get() {
+                    &icons.overlay_focused_title
+                } else if floating.attention_requested.get() {
+                    &icons.overlay_attention_requested
+                } else {
+                    &icons.overlay_unfocused_title
+                };
+                let (x, y) = self.base.scale_point(x1, y1);
+                self.base.render_texture(
+                    icon,
+                    None,
+                    x,
+                    y,
+                    None,
+                    None,
+                    self.base.scale,
+                    Some(&bounds),
+                    None,
+                    AcquireSync::None,
+                    ReleaseSync::None,
+                    false,
+                    srgb_srgb,
+                    perceptual,
+                    AlphaMode::PremultipliedElectrical,
+                );
+            }
+            x1 += th;
+        }
         let is_pinned = floating.pinned_link.borrow().is_some();
         if is_pinned || self.state.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1, y1);

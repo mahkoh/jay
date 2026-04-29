@@ -150,6 +150,68 @@
                 "focus": {
                   "type": "boolean",
                   "description": "Whether the workspace grabs the focus.\n\nThe default is `true`.\n"
+                },
+                "toggle": {
+                  "type": "boolean",
+                  "description": "Whether to toggle the overlay. This has no effect if the workspace is not\nan overlay.\n\nIf this is `true` and the overlay is already visible, the overlay is\nhidden.\n\nThe default is `false`.\n"
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `true`\n- `toggle`: `false`\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "show-overlay"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "See the same field in the `show-workspace` action."
+                },
+                "output": {
+                  "description": "See the same field in the `show-workspace` action.",
+                  "$ref": "#/$defs/OutputMatch"
+                },
+                "fallback-output-mode": {
+                  "description": "See the same field in the `show-workspace` action.",
+                  "$ref": "#/$defs/FallbackOutputMode"
+                },
+                "focus": {
+                  "type": "boolean",
+                  "description": "See the same field in the `show-workspace` action."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `false`\n- `toggle`: `true`\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "toggle-overlay"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "See the same field in the `show-workspace` action."
+                },
+                "output": {
+                  "description": "See the same field in the `show-workspace` action.",
+                  "$ref": "#/$defs/OutputMatch"
+                },
+                "fallback-output-mode": {
+                  "description": "See the same field in the `show-workspace` action.",
+                  "$ref": "#/$defs/FallbackOutputMode"
+                },
+                "focus": {
+                  "type": "boolean",
+                  "description": "See the same field in the `show-workspace` action."
                 }
               },
               "required": [
@@ -647,6 +709,23 @@
               },
               "required": [
                 "type"
+              ]
+            },
+            {
+              "description": "Hides an overlay if it is visible.",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "hide-overlay"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the overlay."
+                }
+              },
+              "required": [
+                "type",
+                "name"
               ]
             }
           ]
@@ -2096,7 +2175,8 @@
         "reload-simple-im",
         "enable-unicode-input",
         "open-control-center",
-        "warp-mouse-to-focus"
+        "warp-mouse-to-focus",
+        "hide-overlays"
       ]
     },
     "SimpleIm": {
@@ -2540,7 +2620,12 @@
     "Workspace": {
       "description": "The settings of a workspace.\n",
       "type": "object",
-      "properties": {},
+      "properties": {
+        "type": {
+          "description": "The type of the workspace.",
+          "$ref": "#/$defs/WorkspaceType"
+        }
+      },
       "required": []
     },
     "WorkspaceDisplayOrder": {
@@ -2549,6 +2634,14 @@
       "enum": [
         "manual",
         "sorted"
+      ]
+    },
+    "WorkspaceType": {
+      "type": "string",
+      "description": "The type of a workspace.\n\n- Example:\n\n  ```toml\n  [workspaces.\"overlay1\"]\n  type = \"overlay\"\n  ```\n",
+      "enum": [
+        "normal",
+        "overlay"
       ]
     },
     "XScalingMode": {

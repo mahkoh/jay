@@ -90,7 +90,11 @@ pub enum ActionParserError {
     #[error("Could not parse a copy-mark action")]
     CopyMark(#[source] MarkIdParserError),
     #[error("Could not parse a show-workspace action")]
-    ShowWorkspace(#[from] ShowWorkspaceError),
+    ShowWorkspace(#[source] ShowWorkspaceError),
+    #[error("Could not parse a show-overlay action")]
+    ShowOverlay(#[source] ShowWorkspaceError),
+    #[error("Could not parse a toggle-overlay action")]
+    ToggleOverlay(#[source] ShowWorkspaceError),
     #[error("Unknown direction {0}")]
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
@@ -178,6 +182,7 @@ impl ActionParser<'_> {
             "enable-unicode-input" => EnableUnicodeInput,
             "open-control-center" => OpenControlCenter,
             "warp-mouse-to-focus" => WarpMouseToFocus,
+            "hide-overlays" => HideOverlays,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
@@ -208,36 +213,75 @@ impl ActionParser<'_> {
         Ok(Action::SwitchToVt { num })
     }
 
-    fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let (name, output, move_to_output, fallback_output_mode, focus) = ext.extract((
+    fn parse_show_workspace_(
+        &mut self,
+        ext: &mut Extractor<'_>,
+        map_err: &dyn Fn(ShowWorkspaceError) -> ActionParserError,
+        defaults: ShowWorkspaceDefaults,
+    ) -> ParseResult<Self> {
+        let ShowWorkspaceDefaults {
+            mut move_to_output,
+            mut toggle,
+        } = defaults;
+        let (name, output, fallback_output_mode, focus) = ext.extract((
             str("name"),
             opt(val("output")),
-            opt(bol("move-to-output")),
             opt(val("fallback-output-mode")),
             opt(bol("focus")),
         ))?;
+        if move_to_output.is_none() {
+            move_to_output = ext.extract(opt(bol("move-to-output")))?.despan();
+        }
+        if toggle.is_none() {
+            toggle = ext.extract(opt(bol("toggle")))?.despan();
+        }
         let ws = self.0.get_workspace_slot(name.value);
         let output = output
             .map(|o| {
                 o.parse_map(&mut OutputMatchParser(self.0))
                     .map_spanned_err(ShowWorkspaceError::OutputMatchParser)
-                    .map_spanned_err(ActionParserError::ShowWorkspace)
+                    .map_spanned_err(map_err)
             })
             .transpose()?;
         let fallback_output_mode = fallback_output_mode
             .map(|o| {
                 o.parse(&mut FallbackOutputModeParser)
                     .map_spanned_err(ShowWorkspaceError::FallbackOutputModeParser)
-                    .map_spanned_err(ActionParserError::ShowWorkspace)
+                    .map_spanned_err(map_err)
             })
             .transpose()?;
         Ok(Action::ShowWorkspace {
             ws,
             output,
-            move_to_output: move_to_output.despan(),
+            move_to_output,
             fallback_output_mode,
             focus: focus.despan(),
+            toggle,
         })
+    }
+
+    fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let def = ShowWorkspaceDefaults {
+            move_to_output: None,
+            toggle: None,
+        };
+        self.parse_show_workspace_(ext, &ActionParserError::ShowWorkspace, def)
+    }
+
+    fn parse_show_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let def = ShowWorkspaceDefaults {
+            move_to_output: Some(true),
+            toggle: Some(false),
+        };
+        self.parse_show_workspace_(ext, &ActionParserError::ShowOverlay, def)
+    }
+
+    fn parse_toggle_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let def = ShowWorkspaceDefaults {
+            move_to_output: Some(false),
+            toggle: Some(true),
+        };
+        self.parse_show_workspace_(ext, &ActionParserError::ToggleOverlay, def)
     }
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
@@ -540,6 +584,17 @@ impl ActionParser<'_> {
             dy2: dy2.despan().unwrap_or(0),
         })
     }
+
+    fn parse_hide_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (name,) = ext.extract((str("name"),))?;
+        let ws = self.0.get_workspace_slot(name.value);
+        Ok(Action::HideOverlay { ws })
+    }
+}
+
+struct ShowWorkspaceDefaults {
+    move_to_output: Option<bool>,
+    toggle: Option<bool>,
 }
 
 impl Parser for ActionParser<'_> {
@@ -602,6 +657,9 @@ impl Parser for ActionParser<'_> {
             "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             "resize" => self.parse_resize(&mut ext),
+            "hide-overlay" => self.parse_hide_overlay(&mut ext),
+            "show-overlay" => self.parse_show_overlay(&mut ext),
+            "toggle-overlay" => self.parse_toggle_overlay(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

@@ -21,7 +21,7 @@ use {
         config::ConfigProxy,
         control_center::{
             CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
-            CCI_OUTPUTS, CCI_XWAYLAND, ControlCenters,
+            CCI_OUTPUTS, CCI_WORKSPACES, CCI_XWAYLAND, ControlCenters,
         },
         copy_device::CopyDeviceRegistry,
         cpu_worker::CpuWorker,
@@ -844,7 +844,11 @@ impl State {
     }
 
     pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
-        self.get_map_output(seat).ensure_normal_workspace()
+        self.get_map_output(seat).ensure_workspace()
+    }
+
+    pub fn get_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Option<Rc<WorkspaceNode>> {
+        self.get_map_output(seat).workspace()
     }
 
     pub fn map_restore(
@@ -889,6 +893,7 @@ impl State {
                             }
                             Some(on()?.ensure_normal_workspace())
                         }
+                        WorkspaceType::Overlay => Some(ws),
                     }
                 }
                 None => match ty {
@@ -902,6 +907,7 @@ impl State {
                         }
                         Some(on.create_normal_workspace(&name))
                     }
+                    WorkspaceType::Overlay => Some(self.create_overlay_workspace(&name)),
                 },
             }
         };
@@ -934,7 +940,7 @@ impl State {
         } else {
             return false;
         };
-        if ws.output.get().workspace.id() != Some(ws.id) {
+        if ws.ty == WorkspaceType::Normal && ws.output.get().workspace.id() != Some(ws.id) {
             data.request_attention(&*node);
         }
         true
@@ -1029,9 +1035,11 @@ impl State {
         seat: Option<&Rc<WlSeatGlobal>>,
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
-    ) {
+    ) -> bool {
         let mut pinned_is_focused = false;
-        if let Some(seat) = seat {
+        if ws.ty == WorkspaceType::Normal
+            && let Some(seat) = seat
+        {
             for pinned in output.pinned.iter() {
                 pinned
                     .deref()
@@ -1044,17 +1052,19 @@ impl State {
             }
         }
         let did_change = output.show_workspace(&ws);
+        let mut did_focus = false;
         if !pinned_is_focused && let Some(seat) = seat {
-            ws.do_focus(seat, Direction::Unspecified);
+            did_focus = ws.do_focus(seat, Direction::Unspecified);
         }
         if !did_change {
-            return;
+            return did_focus;
         }
         ws.flush_jay_workspaces();
         if !output.is_dummy {
             output.schedule_update_render_data();
             self.tree_changed();
         }
+        did_focus
     }
 
     pub fn show_workspace(
@@ -1080,10 +1090,12 @@ impl State {
                     }
                     output.create_normal_workspace(name)
                 }
+                WorkspaceType::Overlay => self.create_overlay_workspace(name),
             },
         };
         let output = match ty {
             WorkspaceType::Normal => ws.output.get(),
+            WorkspaceType::Overlay => output(),
         };
         self.show_workspace2(Some(seat), &output, &ws);
         seat.maybe_schedule_warp_mouse_to_focus();
@@ -1093,11 +1105,11 @@ impl State {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_fallback_output();
             if !output.is_dummy {
-                return output.ensure_normal_workspace();
+                return output.ensure_workspace();
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_normal_workspace();
+            return output.ensure_workspace();
         }
         self.dummy_output.get().unwrap().ensure_normal_workspace()
     }
@@ -1265,7 +1277,9 @@ impl State {
             h.async_event.clear();
         }
         self.backend_events.clear();
-        self.workspaces.clear();
+        for (_, ws) in self.workspaces.clear() {
+            ws.clear();
+        }
         {
             let seats = mem::take(self.globals.seats.lock().deref_mut());
             for seat in seats.values() {
@@ -1432,6 +1446,7 @@ impl State {
                 Rect::new_sized_saturating(0, 0, width, height)
             },
             title_icons: None,
+            bar_icons: None,
         };
         let mut sample_rect = SampleRect::identity();
         sample_rect.buffer_transform = transform;
@@ -2150,7 +2165,20 @@ impl State {
             for ws in output.workspaces.iter() {
                 ws.deref().clone().node_visit(visitor);
             }
+            for ws in self.workspaces.lock().values() {
+                if ws.ty == WorkspaceType::Overlay && ws.output.id() == output.id {
+                    ws.clone().node_visit(visitor);
+                }
+            }
         }
+    }
+
+    pub fn create_overlay_workspace(&self, name: &str) -> Rc<WorkspaceNode> {
+        let on = self.dummy_output.get().unwrap();
+        let ws = WorkspaceNode::new(&on, name, WorkspaceType::Overlay);
+        self.workspaces.set(name.to_string(), ws.clone());
+        self.trigger_cci(CCI_WORKSPACES);
+        ws
     }
 }
 

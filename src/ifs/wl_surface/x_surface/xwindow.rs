@@ -14,7 +14,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
             TileDragDestination, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            ToplevelType, WorkspaceNode, default_tile_drag_destination,
+            ToplevelType, WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -263,12 +263,15 @@ impl Xwindow {
     pub fn map_status_changed(self: &Rc<Self>) {
         let map_change = self.map_change();
         let override_redirect = self.data.info.override_redirect.get();
-        let map_floating = match self
-            .toplevel_data
-            .state
-            .initial_tile_state(&self.toplevel_data)
-        {
-            None => self.data.info.wants_floating.get(),
+        let state = &self.toplevel_data.state;
+        let map_floating = match state.initial_tile_state(&self.toplevel_data) {
+            None => {
+                self.data.info.wants_floating.get()
+                    || state
+                        .get_map_workspace(None)
+                        .map(|w| w.ty == WorkspaceType::Overlay)
+                        .unwrap_or(false)
+            }
             Some(m) => m == TileState::Floating,
         };
         match map_change {

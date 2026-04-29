@@ -91,6 +91,12 @@ Jay includes a built-in GUI control center (opened with `alt-c`) for managing
 outputs, input devices, GPUs, idle settings, color management, and more --
 without editing the config file. See [Control Center](control-center.md).
 
+## Overlay Workspaces
+
+Jay supports [overlay workspaces](overlays.md) that render above the normal
+workspace. Overlays can be toggled on and off, making them ideal for scratch
+pads or quick-access tools.
+
 ## Multi-Monitor Support
 
 Jay can be used with multiple monitors with hot-plug and hot-unplug support.

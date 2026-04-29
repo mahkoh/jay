@@ -20,6 +20,7 @@ use {
 #[derive(Default)]
 pub struct Icons {
     title_icons: CopyHashMap<i32, Option<Rc<SizedTitleIcons>>>,
+    bar_icons: CopyHashMap<i32, Option<Rc<SizedBarIcons>>>,
 }
 
 #[derive(Copy, Clone, Debug, Linearize)]
@@ -32,6 +33,14 @@ pub struct SizedTitleIcons {
     pub pin_unfocused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,
     pub pin_focused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,
     pub pin_attention_requested: StaticMap<IconState, Rc<dyn GfxTexture>>,
+    pub overlay_unfocused_title: Rc<dyn GfxTexture>,
+    pub overlay_focused_title: Rc<dyn GfxTexture>,
+    pub overlay_focused_inactive_title: Rc<dyn GfxTexture>,
+    pub overlay_attention_requested: Rc<dyn GfxTexture>,
+}
+
+pub struct SizedBarIcons {
+    pub overlay: Rc<dyn GfxTexture>,
 }
 
 #[derive(Debug, Error)]
@@ -49,6 +58,7 @@ pub enum IconsError {
 impl Icons {
     pub fn update_sizes(&self, state: &State) {
         self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
+        self.update_sizes_(state, state.theme.sizes.bar_height(), &self.bar_icons);
     }
 
     fn update_sizes_(&self, state: &State, height: i32, map: &CopyHashMap<i32, impl Sized>) {
@@ -64,6 +74,7 @@ impl Icons {
 
     pub fn clear(&self) {
         self.title_icons.clear();
+        self.bar_icons.clear();
     }
 
     pub fn get_title_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedTitleIcons>> {
@@ -73,6 +84,16 @@ impl Icons {
             state.theme.title_height(),
             &self.title_icons,
             create_title_icons,
+        )
+    }
+
+    pub fn get_bar_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedBarIcons>> {
+        self.get(
+            state,
+            scale,
+            state.theme.sizes.bar_height(),
+            &self.bar_icons,
+            create_bar_icons,
         )
     }
 
@@ -145,12 +166,41 @@ pub fn create_title_icons(
             IconState::Active => create_icon(&PIN_PATH, colors[1])?,
         })
     };
+    let create_overlay = |color: crate::theme::Color| {
+        let colors = calculate_accents(color);
+        create_icon(&OVERLAY_PATH, colors[0])
+    };
 
     Ok(SizedTitleIcons {
         pin_unfocused_title: create_pins(theme.colors.unfocused_title_background.get())?,
         pin_focused_title: create_pins(theme.colors.focused_title_background.get())?,
         pin_attention_requested: create_pins(theme.colors.attention_requested_background.get())?,
+        overlay_unfocused_title: create_overlay(theme.colors.unfocused_title_background.get())?,
+        overlay_attention_requested: create_overlay(
+            theme.colors.attention_requested_background.get(),
+        )?,
+        overlay_focused_title: create_overlay(theme.colors.focused_title_background.get())?,
+        overlay_focused_inactive_title: create_overlay(
+            theme.colors.focused_inactive_title_background.get(),
+        )?,
     })
+}
+
+pub fn create_bar_icons(
+    size: i32,
+    theme: &Theme,
+    ctx: &Rc<dyn GfxContext>,
+) -> Result<SizedBarIcons, IconsError> {
+    if size <= 0 {
+        return Err(IconsError::NonPositiveSize);
+    }
+    let overlay = create_icon(
+        size as u32,
+        ctx,
+        &OVERLAY_PATH,
+        calculate_accents(theme.colors.focused_title_background.get())[0],
+    )?;
+    Ok(SizedBarIcons { overlay })
 }
 
 fn upload_pixmap(
@@ -207,6 +257,49 @@ static PIN_PATH: LazyLock<Path> = LazyLock::new(|| {
 #[test]
 fn pin_path() {
     let _path = &*PIN_PATH;
+}
+
+static OVERLAY_PATH: LazyLock<Path> = LazyLock::new(|| {
+    const UT: f32 = 12.0;
+    const CX: f32 = 50.0;
+    const CY: f32 = 42.0;
+    const W: f32 = 40.0;
+    const H: f32 = 30.0;
+    const LT: f32 = 8.0;
+
+    let alpha = (H / W).atan();
+    let udy = UT / alpha.cos();
+    let udx = UT / alpha.sin();
+    let ldy = LT / alpha.cos();
+    let ldy2 = 0.5 * ldy;
+    let ldy3 = 1.5 * ldy;
+    let idy = LT * alpha.sin();
+    let idx = LT * alpha.cos();
+
+    let mut path = PathBuilder::new();
+    path.move_to(CX, CY - H);
+    path.line_to(CX + W, CY);
+    path.line_to(CX, CY + H);
+    path.line_to(CX - W, CY);
+    path.close();
+    path.move_to(CX, CY - H + udy);
+    path.line_to(CX + W - udx, CY);
+    path.line_to(CX, CY + H - udy);
+    path.line_to(CX - W + udx, CY);
+    path.close();
+    path.move_to(CX + W, CY + ldy3);
+    path.line_to(CX, CY + H + ldy3);
+    path.line_to(CX - W, CY + ldy3);
+    path.line_to(CX - W + idx, CY + ldy3 - idy);
+    path.line_to(CX, CY + H + ldy2);
+    path.line_to(CX + W - idx, CY + ldy3 - idy);
+    path.close();
+    path.finish().unwrap()
+});
+
+#[test]
+fn overlay_path() {
+    let _path = &*OVERLAY_PATH;
 }
 
 trait PathBuilderExt {
