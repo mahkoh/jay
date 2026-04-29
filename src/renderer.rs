@@ -202,14 +202,12 @@ impl Renderer<'_> {
         }
         macro_rules! render_stacked {
             ($stack:expr) => {
-                for stacked in $stack.iter() {
-                    if stacked.node_visible() {
-                        self.base.sync();
-                        let pos = stacked.node_absolute_position();
-                        if pos.intersects(&opos) {
-                            let (x, y) = opos.translate(pos.x1(), pos.y1());
-                            stacked.node_render(self, x, y, None);
-                        }
+                for stacked in $stack.iter_visible() {
+                    self.base.sync();
+                    let pos = stacked.node_absolute_position();
+                    if pos.intersects(&opos) {
+                        let (x, y) = opos.translate(pos.x1(), pos.y1());
+                        stacked.node_render(self, x, y, None);
                     }
                 }
             };

@@ -12,18 +12,38 @@ use {
             OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
             WorkspaceNodeId, walker::NodeVisitor,
         },
-        utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
+        utils::{
+            copyhashmap::CopyHashMap,
+            linkedlist::{LinkedList, LinkedListIter, LinkedNode, NodeRef, RevLinkedListIter},
+        },
     },
-    std::{cell::Cell, ops::Deref, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+    },
 };
 
 pub struct DisplayNode {
     pub id: NodeId,
     pub extents: Cell<Rect>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
-    pub stacked: Rc<LinkedList<Rc<dyn StackedNode>>>,
-    pub stacked_above_layers: Rc<LinkedList<Rc<dyn StackedNode>>>,
+    pub stacked: Rc<NodesStack>,
+    pub stacked_above_layers: Rc<NodesStack>,
     pub seat_state: NodeSeatState,
+}
+
+#[derive(Default)]
+pub struct NodesStack {
+    pub stacked: LinkedList<Rc<dyn StackedNode>>,
+    visible: LinkedList<Rc<dyn StackedNode>>,
+    visible_valid: Cell<bool>,
+}
+
+pub struct NodesStackElement {
+    pub stack: Rc<NodesStack>,
+    pub link: Option<LinkedNode<Rc<dyn StackedNode>>>,
+    visible: Option<LinkedNode<Rc<dyn StackedNode>>>,
 }
 
 impl DisplayNode {
@@ -74,9 +94,11 @@ impl DisplayNode {
         for output in self.outputs.lock().values() {
             output.update_visible();
         }
-        for stacked in self.stacked.iter() {
-            if !stacked.stacked_has_workspace_link() {
-                stacked.stacked_set_visible(visible);
+        for layer in [&self.stacked, &self.stacked_above_layers] {
+            for stacked in layer.stacked.iter() {
+                if !stacked.stacked_has_workspace_link() {
+                    stacked.stacked_set_visible(visible);
+                }
             }
         }
         for seat in state.globals.seats.lock().values() {
@@ -136,8 +158,10 @@ impl Node for DisplayNode {
         for (_, output) in outputs.deref() {
             visitor.visit_output(output);
         }
-        for stacked in self.stacked.iter() {
-            stacked.deref().clone().node_visit(visitor);
+        for layer in [&self.stacked, &self.stacked_above_layers] {
+            for stacked in layer.stacked.iter() {
+                stacked.deref().clone().node_visit(visitor);
+            }
         }
     }
 
@@ -206,5 +230,117 @@ impl Node for DisplayNode {
 
     fn node_is_display(&self) -> bool {
         true
+    }
+}
+
+impl NodesStack {
+    fn validate(&self) {
+        if self.visible_valid.replace(true) {
+            return;
+        }
+        for node in self.stacked.iter() {
+            node.deref().clone().stacked_validate();
+        }
+    }
+
+    pub fn iter_visible(&self) -> NodeStackVisibleIter {
+        self.validate();
+        NodeStackVisibleIter {
+            iter: self.visible.iter(),
+        }
+    }
+
+    pub fn iter_visible_rev(&self) -> RevNodeStackVisibleIter {
+        self.validate();
+        RevNodeStackVisibleIter {
+            iter: self.visible.rev_iter(),
+        }
+    }
+
+    pub fn element(self: &Rc<Self>) -> RefCell<NodesStackElement> {
+        RefCell::new(NodesStackElement {
+            stack: self.clone(),
+            link: Default::default(),
+            visible: Default::default(),
+        })
+    }
+
+    pub fn maybe_has_visible(&self) -> bool {
+        self.validate();
+        self.visible.is_not_empty()
+    }
+
+    pub fn definitely_has_no_visible(&self) -> bool {
+        !self.maybe_has_visible()
+    }
+}
+
+impl NodesStackElement {
+    pub fn clear(&mut self) {
+        self.link.take();
+        self.visible.take();
+    }
+
+    pub fn restack(&self) {
+        if let Some(link) = &self.link {
+            self.stack.stacked.add_last_existing(link);
+        }
+        if let Some(link) = &self.visible
+            && link.node_visible()
+        {
+            self.stack.visible.add_last_existing(link);
+        }
+    }
+
+    pub fn restack_on(&mut self, stack: &Rc<NodesStack>) {
+        self.stack = stack.clone();
+        self.restack();
+    }
+
+    pub fn add_last_visible(&mut self, slf: &Rc<impl StackedNode>) {
+        let link = self
+            .visible
+            .get_or_insert_with(|| LinkedNode::detached(slf.clone()));
+        self.stack.visible.add_last_existing(link);
+    }
+
+    pub fn invalidate(&self) {
+        self.stack.visible_valid.set(false);
+    }
+}
+
+fn next_visible(
+    iter: &mut impl Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
+) -> Option<NodeRef<Rc<dyn StackedNode>>> {
+    loop {
+        let v = iter.next()?;
+        if v.node_visible() {
+            return Some(v);
+        }
+        v.detach();
+    }
+}
+
+pub struct NodeStackVisibleIter {
+    iter: LinkedListIter<Rc<dyn StackedNode>>,
+}
+
+impl Iterator for NodeStackVisibleIter {
+    type Item = NodeRef<Rc<dyn StackedNode>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        next_visible(&mut self.iter)
+    }
+}
+
+pub struct RevNodeStackVisibleIter {
+    iter: RevLinkedListIter<Rc<dyn StackedNode>>,
+}
+
+impl Iterator for RevNodeStackVisibleIter {
+    type Item = NodeRef<Rc<dyn StackedNode>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        next_visible(&mut self.iter)
     }
 }

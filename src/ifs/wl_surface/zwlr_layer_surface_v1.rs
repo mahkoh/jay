@@ -16,15 +16,11 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
         },
         utils::{
-            bitflags::BitflagsExt,
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, LinkedNode},
-            numcell::NumCell,
-            option_ext::OptionExt,
+            bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
+            linkedlist::LinkedNode, numcell::NumCell, option_ext::OptionExt,
         },
         wire::{WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
     },
@@ -111,8 +107,7 @@ pub enum ExclusiveZone {
 struct Popup {
     parent: Rc<ZwlrLayerSurfaceV1>,
     popup: Rc<XdgPopup>,
-    stack: Rc<LinkedList<Rc<dyn StackedNode>>>,
-    stack_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    stack_link: RefCell<NodesStackElement>,
 }
 
 #[derive(Default)]
@@ -297,8 +292,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         let user = Rc::new(Popup {
             parent: slf.clone(),
             popup: popup.clone(),
-            stack,
-            stack_link: Default::default(),
+            stack_link: stack.element(),
         });
         popup.parent.set(Some(user.clone()));
         self.popups.set(popup.id, user);
@@ -738,18 +732,19 @@ impl XdgPopupParent for Popup {
         let surface = &self.popup.xdg.surface;
         let state = &surface.client.state;
         if surface.buffer.is_some() {
-            if dl.is_none() {
+            if dl.link.is_none() {
                 if self.parent.surface.visible.get() {
                     self.popup.xdg.set_output(&output);
-                    *dl = Some(self.stack.add_last(self.popup.clone()));
+                    dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     state.tree_changed();
+                    drop(dl);
                     self.popup.set_visible(self.parent.surface.visible.get());
                 } else {
                     self.popup.destroy_node();
                 }
             }
         } else {
-            if dl.take().is_some() {
+            if dl.link.take().is_some() {
                 drop(dl);
                 self.popup.set_visible(false);
                 self.popup.destroy_node();
@@ -766,10 +761,14 @@ impl XdgPopupParent for Popup {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        let Some(link) = self.stack_link.borrow().as_ref().map(|w| w.to_ref()) else {
+        let Some(link) = self.stack_link.borrow().link.as_ref().map(|w| w.to_ref()) else {
             return NodeLayerLink::Display;
         };
         NodeLayerLink::StackedAboveLayers(link)
+    }
+
+    fn nodes_stack_element(&self) -> &RefCell<NodesStackElement> {
+        &self.stack_link
     }
 }
 

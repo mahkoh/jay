@@ -21,6 +21,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         .state
         .root
         .stacked
+        .stacked
         .iter()
         .find_map(|n| Rc::clone(&n).node_into_float())
         .unwrap();

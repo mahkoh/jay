@@ -20,18 +20,13 @@ use {
         rect::Rect,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, OutputNode, StackedNode,
-            WorkspaceNode,
+            FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
+            NodesStackElement, OutputNode, StackedNode, WorkspaceNode,
         },
         utils::{
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, LinkedNode},
-            numcell::NumCell,
-            option_ext::OptionExt,
-            rc_eq::rc_eq,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt, linkedlist::LinkedNode, numcell::NumCell,
+            option_ext::OptionExt, rc_eq::rc_eq,
         },
         wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
     },
@@ -95,7 +90,7 @@ pub struct XdgSurface {
     effective_geometry: Cell<Rect>,
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
-    popup_display_stack: CloneCell<Rc<LinkedList<Rc<dyn StackedNode>>>>,
+    popup_display_stack: CloneCell<Rc<NodesStack>>,
     is_above_layers: Cell<bool>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
@@ -116,7 +111,7 @@ enum InitialCommitState {
 struct Popup {
     parent: Rc<XdgSurface>,
     popup: Rc<XdgPopup>,
-    display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    display_link: RefCell<NodesStackElement>,
     workspace_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
 }
 
@@ -151,17 +146,13 @@ impl XdgPopupParent for Popup {
                 *wl = Some(ws.stacked.add_last(self.popup.clone()));
                 any_set = true;
             }
-            if dl.is_none() {
-                *dl = Some(
-                    self.parent
-                        .popup_display_stack
-                        .get()
-                        .add_last(self.popup.clone()),
-                );
+            if dl.link.is_none() {
+                dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                 any_set = true;
             }
             if any_set {
                 state.tree_changed();
+                drop(dl);
                 self.popup.set_visible(self.parent.surface.visible.get());
             }
         } else {
@@ -185,13 +176,17 @@ impl XdgPopupParent for Popup {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        let Some(link) = self.display_link.borrow().as_ref().map(|w| w.to_ref()) else {
+        let Some(link) = self.display_link.borrow().link.as_ref().map(|w| w.to_ref()) else {
             return NodeLayerLink::Display;
         };
         match self.popup.xdg.is_above_layers.get() {
             true => NodeLayerLink::StackedAboveLayers(link),
             false => NodeLayerLink::Stacked(link),
         }
+    }
+
+    fn nodes_stack_element(&self) -> &RefCell<NodesStackElement> {
+        &self.display_link
     }
 
     fn tray_item(&self) -> Option<TrayItemId> {
@@ -416,20 +411,14 @@ impl XdgSurface {
         })
     }
 
-    pub fn set_popup_stack(
-        &self,
-        stack: &Rc<LinkedList<Rc<dyn StackedNode>>>,
-        is_above_layers: bool,
-    ) {
+    pub fn set_popup_stack(&self, stack: &Rc<NodesStack>, is_above_layers: bool) {
         self.is_above_layers.set(is_above_layers);
         let prev = self.popup_display_stack.set(stack.clone());
         if rc_eq(&prev, stack) {
             return;
         }
         for popup in self.popups.lock().values() {
-            if let Some(dl) = &*popup.display_link.borrow() {
-                stack.add_last_existing(dl);
-            }
+            popup.display_link.borrow_mut().restack_on(stack);
             popup.popup.xdg.set_popup_stack(stack, is_above_layers);
         }
     }
@@ -515,7 +504,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
             let user = Rc::new(Popup {
                 parent: parent.clone(),
                 popup: popup.clone(),
-                display_link: Default::default(),
+                display_link: parent.popup_display_stack.get().element(),
                 workspace_link: Default::default(),
             });
             popup.parent.set(Some(user.clone()));
@@ -619,12 +608,11 @@ impl XdgSurface {
         if self.popups.is_empty() {
             return;
         }
-        let stack = self.popup_display_stack.get();
         for popup in self.popups.lock().values() {
-            if let Some(dl) = &*popup.display_link.borrow() {
+            if self.surface.visible.get() {
                 popup.popup.xdg.damage();
-                stack.add_last_existing(dl);
             }
+            popup.display_link.borrow().restack();
             popup.popup.xdg.restack_popups();
         }
         self.surface.client.state.tree_changed();

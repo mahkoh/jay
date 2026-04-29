@@ -24,7 +24,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, StackedNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::{XdgPopupId, xdg_popup::*},
@@ -51,6 +51,7 @@ pub trait XdgPopupParent {
     fn visible(&self) -> bool;
     fn make_visible(self: Rc<Self>);
     fn node_layer(&self) -> NodeLayerLink;
+    fn nodes_stack_element(&self) -> &RefCell<NodesStackElement>;
     fn tray_item(&self) -> Option<TrayItemId> {
         None
     }
@@ -312,6 +313,10 @@ impl XdgPopup {
         self.set_visible_prepared.set(false);
         self.xdg.set_visible(visible);
         self.seat_state.set_visible(self, visible);
+
+        if visible && let Some(parent) = self.parent.get() {
+            parent.nodes_stack_element().borrow().invalidate();
+        }
     }
 
     pub fn destroy_node(&self) {
@@ -467,6 +472,17 @@ impl StackedNode for XdgPopup {
         match self.parent.get() {
             Some(p) => p.has_workspace_link(),
             _ => false,
+        }
+    }
+
+    fn stacked_validate(self: Rc<Self>) {
+        if self.node_visible()
+            && let Some(parent) = self.parent.get()
+        {
+            parent
+                .nodes_stack_element()
+                .borrow_mut()
+                .add_last_visible(&self);
         }
     }
 

@@ -106,10 +106,10 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
-            FoundNode, LatchListener, Node, NodeIds, NodeVisitorBase, OutputNode, PlaceholderNode,
-            TearingMode, TileState, ToplevelData, ToplevelIdentifier, ToplevelNode,
-            ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder, WorkspaceNode,
-            WsMoveConfig, generic_node_visitor, move_ws_to_output,
+            FoundNode, LatchListener, Node, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
+            PlaceholderNode, TearingMode, TileState, ToplevelData, ToplevelIdentifier,
+            ToplevelNode, ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder,
+            WorkspaceNode, WsMoveConfig, generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -635,7 +635,7 @@ impl State {
     }
 
     fn output_scales_changed(&self) {
-        UpdateTextTexturesVisitor.visit_display(&self.root);
+        self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
@@ -726,7 +726,7 @@ impl State {
                     node.node_visit_children(self);
                 }
             }
-            Walker.visit_display(&self.root);
+            self.visit_all_nodes(&mut Walker);
             let mut updated_buffers = AHashMap::new();
             for buffer in self.gfx_ctx_changed.iter() {
                 let had_buffer_texture = buffer.handle_gfx_context_change();
@@ -748,7 +748,7 @@ impl State {
 
         if ctx.is_some() {
             self.reload_cursors();
-            UpdateTextTexturesVisitor.visit_display(&self.root);
+            self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
         }
 
         for cursor_user_groups in self.cursor_user_groups.lock().values() {
@@ -1890,7 +1890,7 @@ impl State {
                 node.node_visit_children(self);
             }
         }
-        self.root.clone().node_visit(&mut V);
+        self.visit_all_nodes(&mut V);
         self.damage(self.root.extents.get());
         self.icons.clear();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
@@ -1955,7 +1955,7 @@ impl State {
                 node.node_visit_children(self);
             }
         }
-        self.root.clone().node_visit(&mut V);
+        self.visit_all_nodes(&mut V);
         self.damage(self.root.extents.get());
         self.icons.update_sizes(self);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
@@ -1985,7 +1985,7 @@ impl State {
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        for stacked in self.root.stacked.iter() {
+        for stacked in self.root.stacked.stacked.iter() {
             if let Some(float) = stacked.deref().clone().node_into_float() {
                 float.schedule_render_titles();
             }
@@ -2024,7 +2024,7 @@ impl State {
                 node.node_visit_children(self);
             }
         }
-        self.root.clone().node_visit(&mut V);
+        self.visit_all_nodes(&mut V);
     }
 
     pub fn reset_fonts(&self) {
@@ -2123,6 +2123,18 @@ impl State {
         }
         if let Some(sqlite) = &self.sqlite {
             sqlite.blocking_roundtrip();
+        }
+    }
+
+    pub fn visit_all_nodes(&self, visitor: &mut dyn NodeVisitor) {
+        self.root.clone().node_visit(visitor);
+        if let Some(output) = self.dummy_output.get() {
+            for ws in output.workspaces.iter() {
+                if ws.is_dummy {
+                    continue;
+                }
+                ws.deref().clone().node_visit(visitor);
+            }
         }
     }
 }
