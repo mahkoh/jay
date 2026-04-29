@@ -1055,15 +1055,16 @@ impl WlSeatGlobal {
                 }
             }
             NodeLayerLink::Stacked(l) | NodeLayerLink::StackedAboveLayers(l) => {
-                if let Some(n) = stacked_node_next(l)
-                    && node_viable(&**n)
-                    && n.node_output().map(|o| o.id) == Some(output.id)
-                {
-                    n.deref()
-                        .clone()
-                        .node_do_focus(self, Direction::Unspecified);
-                    self.maybe_schedule_warp_mouse_to_focus();
-                    return;
+                let mut l = l.clone();
+                while let Some(n) = stacked_node_next(&l) {
+                    if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
+                        n.deref()
+                            .clone()
+                            .node_do_focus(self, Direction::Unspecified);
+                        self.maybe_schedule_warp_mouse_to_focus();
+                        return;
+                    }
+                    l = n;
                 }
             }
             NodeLayerLink::Display => {}
