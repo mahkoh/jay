@@ -273,7 +273,6 @@ where
         self.raw.x1 == self.raw.x2 || self.raw.y1 == self.raw.y2
     }
 
-    #[expect(dead_code)]
     pub fn is_not_empty(&self) -> bool {
         !self.is_empty()
     }

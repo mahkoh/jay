@@ -267,7 +267,7 @@ impl OutputNode {
                 }
             }
             if let Some(c) = self.workspace.get() {
-                c.change_extents(&self.workspace_rect.get());
+                c.change_extents(&self.workspace_rect.get(), self);
             }
             if self.node_visible() {
                 self.state.damage(self.global.pos.get());
@@ -479,7 +479,7 @@ impl OutputNode {
     pub fn on_spaces_changed(self: &Rc<Self>) {
         self.update_rects();
         if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect.get());
+            c.change_extents(&self.workspace_rect.get(), self);
         }
         for item in self.tray_items.iter() {
             item.send_current_configure();
@@ -732,7 +732,7 @@ impl OutputNode {
         if let Some(fs) = ws.fullscreen.get() {
             fs.tl_change_extents(&self.global.pos.get());
         }
-        ws.change_extents(&self.workspace_rect.get());
+        ws.change_extents(&self.workspace_rect.get(), self);
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -938,7 +938,7 @@ impl OutputNode {
             if let Some(fs) = c.fullscreen.get() {
                 fs.tl_change_extents(rect);
             }
-            c.change_extents(&self.workspace_rect.get());
+            c.change_extents(&self.workspace_rect.get(), self);
         }
         for layer in &self.layers {
             for surface in layer.iter() {

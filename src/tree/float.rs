@@ -434,6 +434,9 @@ impl FloatNode {
         if let Some(pinned) = &*self.pinned_link.borrow() {
             output.pinned.add_last_existing(pinned);
         }
+    }
+
+    pub fn ensure_on_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
         }
@@ -471,6 +474,17 @@ impl FloatNode {
         self.position.set(new_pos);
         if self.visible.get() {
             self.state.damage(pos);
+            self.state.damage(new_pos);
+        }
+        self.schedule_layout();
+    }
+
+    pub fn move_(self: &Rc<Self>, dx: i32, dy: i32) {
+        let old_pos = self.position.get();
+        let new_pos = old_pos.move_(dx, dy);
+        self.position.set(new_pos);
+        if self.visible.get() {
+            self.state.damage(old_pos);
             self.state.damage(new_pos);
         }
         self.schedule_layout();
