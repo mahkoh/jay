@@ -61,6 +61,7 @@ use {
             event_listener::EventSource,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, NodeRef},
+            obj_and_id::{ObjAndId, ObjWithId},
             on_drop_event::OnDropEvent,
             scroller::Scroller,
         },
@@ -86,8 +87,7 @@ pub struct OutputNode {
     pub global: Rc<WlOutputGlobal>,
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<Rc<WorkspaceNode>>,
-    pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
-    pub workspace_id: Cell<Option<WorkspaceNodeId>>,
+    pub workspace: ObjAndId<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
     pub exclusive_zones: Cell<ExclusiveSize>,
@@ -131,6 +131,14 @@ pub struct OutputNode {
     pub tearing: Cell<bool>,
     pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
     pub cursor_users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
+}
+
+impl ObjWithId for Rc<OutputNode> {
+    type Id = OutputNodeId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -458,7 +466,6 @@ impl OutputNode {
     pub fn clear(&self) {
         self.global.clear();
         self.workspace.set(None);
-        self.workspace_id.set(None);
         self.cursor_users.clear();
         let workspaces: Vec<_> = self.workspaces.iter().collect();
         for workspace in workspaces {
@@ -542,7 +549,7 @@ impl OutputNode {
         if let Some(scale) = scale {
             texture_height = (bh as f64 * scale).round() as _;
         }
-        let active_id = self.workspace.get().map(|w| w.id);
+        let active_id = self.workspace.id();
         for ws in self.workspaces.iter() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
@@ -600,7 +607,7 @@ impl OutputNode {
         } else {
             None
         };
-        let active_id = self.workspace.get().map(|w| w.id);
+        let active_id = self.workspace.id();
         rd.bar_separator = self
             .bar_separator_rect_rel
             .get()
@@ -699,8 +706,7 @@ impl OutputNode {
 
     pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
-        let id = Some(ws.id);
-        if self.workspace_id.replace(id) == id {
+        if self.workspace.id() == Some(ws.id) {
             return false;
         }
         let old = self.workspace.set(Some(ws.clone()));
