@@ -571,7 +571,9 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     }
     for user in source.cursor_users.lock().values() {
         user.workspace_changed(&source, new_source_ws.as_ref());
-        new_source_ws = source.workspace.get();
+        if new_source_ws.is_none() {
+            new_source_ws = source.workspace.get();
+        }
     }
     if let Some(new_source_ws) = &new_source_ws {
         for pinned in source.pinned.iter() {
