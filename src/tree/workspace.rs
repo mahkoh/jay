@@ -150,6 +150,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
+        self.change_extents(&output.workspace_rect.get(), output);
         struct OutputSetter<'a> {
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
@@ -221,10 +222,29 @@ impl WorkspaceNode {
         self.visible.get() && (self.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
-    pub fn change_extents(&self, rect: &Rect) {
-        self.position.set(*rect);
+    pub fn change_extents(&self, rect: &Rect, output: &Rc<OutputNode>) {
+        if output.is_dummy {
+            return;
+        }
+        let old = self.position.replace(*rect);
         if let Some(c) = self.container.get() {
             c.tl_change_extents(rect);
+        }
+        if old != *rect {
+            let mut dx = 0;
+            let mut dy = 0;
+            if old.is_not_empty() {
+                dx = rect.x1() - old.x1();
+                dy = rect.y1() - old.y1();
+            }
+            for stacked in self.stacked.iter() {
+                if let Some(float) = stacked.deref().clone().node_into_float() {
+                    if (dx, dy) != (0, 0) {
+                        float.move_(dx, dy);
+                    }
+                    float.ensure_on_output(&output);
+                }
+            }
         }
     }
 
