@@ -1812,7 +1812,7 @@ impl State {
         if ws.is_dummy || output.is_dummy {
             return;
         }
-        if ws.output.get().id == output.id {
+        if ws.output.id() == output.id {
             return;
         }
         let link = match &*ws.output_link.borrow() {

@@ -549,7 +549,7 @@ impl OutputNode {
         if let Some(scale) = scale {
             texture_height = (bh as f64 * scale).round() as _;
         }
-        let active_id = self.workspace.get().map(|w| w.id);
+        let active_id = self.workspace.id();
         for ws in self.workspaces.iter() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
@@ -607,7 +607,7 @@ impl OutputNode {
         } else {
             None
         };
-        let active_id = self.workspace.get().map(|w| w.id);
+        let active_id = self.workspace.id();
         rd.bar_separator = self
             .bar_separator_rect_rel
             .get()
