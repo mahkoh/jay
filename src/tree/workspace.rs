@@ -547,10 +547,11 @@ pub fn move_ws_to_output(
     config: WsMoveConfig,
 ) {
     let source = ws.output.get();
-    if let Some(visible) = source.workspace.get()
-        && visible.id == ws.id
+    if let Some(visible) = source.workspace_id.get()
+        && visible == ws.id
     {
         source.workspace.take();
+        source.workspace_id.take();
     }
     let mut new_source_ws = None;
     if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
