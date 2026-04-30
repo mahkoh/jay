@@ -9,8 +9,12 @@ use {
         state::State,
         tree::{OutputNode, WorkspaceNode},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt, rc_eq::rc_eq,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
+            obj_and_id::{ObjAndId, ObjWithId},
+            rc_eq::rc_eq,
         },
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -27,8 +31,7 @@ pub trait CursorUserOwner {
 pub struct CursorUserGroup {
     pub id: CursorUserGroupId,
     state: Rc<State>,
-    active_id: Cell<Option<CursorUserId>>,
-    active: CloneCell<Option<Rc<CursorUser>>>,
+    active: ObjAndId<Option<Rc<CursorUser>>>,
     users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
     hardware_cursor: Cell<bool>,
     size: Cell<u32>,
@@ -46,6 +49,14 @@ pub struct CursorUser {
     owner: CloneCell<Option<Rc<dyn CursorUserOwner>>>,
 }
 
+impl ObjWithId for Rc<CursorUser> {
+    type Id = CursorUserId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 impl CursorUserGroup {
     pub fn create(state: &Rc<State>) -> Rc<Self> {
         let output = state
@@ -61,7 +72,6 @@ impl CursorUserGroup {
         let group = Rc::new(Self {
             id: state.cursor_user_group_ids.next(),
             state: state.clone(),
-            active_id: Default::default(),
             active: Default::default(),
             users: Default::default(),
             hardware_cursor: Cell::new(hardware_cursor),
@@ -96,8 +106,7 @@ impl CursorUserGroup {
         } else {
             self.damage_active();
         }
-        self.active_id.take();
-        self.active.take();
+        self.active.set(None);
     }
 
     pub fn latest_output(&self) -> Rc<OutputNode> {
@@ -272,13 +281,13 @@ impl CursorUser {
         self.set(None);
         self.owner.take();
         self.group.users.remove(&self.id);
-        if self.group.active_id.get() == Some(self.id) {
+        if self.group.active.id() == Some(self.id) {
             self.group.deactivate();
         }
     }
 
     pub fn activate(self: &Rc<Self>) {
-        if self.group.active_id.replace(Some(self.id)) == Some(self.id) {
+        if self.group.active.id() == Some(self.id) {
             return;
         }
         if self.software_cursor() {
@@ -386,7 +395,7 @@ impl CursorUser {
     }
 
     fn is_active(&self) -> bool {
-        self.group.active_id.get() == Some(self.id)
+        self.group.active.id() == Some(self.id)
     }
 
     fn set_cursor2(&self, cursor: Option<Rc<dyn Cursor>>) {

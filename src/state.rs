@@ -876,7 +876,7 @@ impl State {
                         if session.session.reason() == SessionReason::Recover {
                             return Some(ws);
                         }
-                        if ws_on.workspace_id.get() == Some(ws.id) {
+                        if ws_on.workspace.id() == Some(ws.id) {
                             return Some(ws);
                         }
                     }
@@ -923,7 +923,7 @@ impl State {
         } else {
             return false;
         };
-        if ws.output.get().workspace_id.get() != Some(ws.id) {
+        if ws.output.get().workspace.id() != Some(ws.id) {
             data.request_attention(&*node);
         }
         true

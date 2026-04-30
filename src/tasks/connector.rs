@@ -11,9 +11,7 @@ use {
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, Transform, WsMoveConfig, move_ws_to_output},
-        utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt, rc_eq::RcEq,
-        },
+        utils::{asyncevent::AsyncEvent, hash_map_ext::HashMapExt, rc_eq::RcEq},
     },
     std::{
         cell::{Cell, RefCell},
@@ -189,8 +187,7 @@ impl ConnectorHandler {
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
-            workspace: CloneCell::new(None),
-            workspace_id: Default::default(),
+            workspace: Default::default(),
             seat_state: Default::default(),
             global: global.clone(),
             layers: Default::default(),

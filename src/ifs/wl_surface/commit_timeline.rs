@@ -12,11 +12,11 @@ use {
         },
         tree::BeforeLatchResult,
         utils::{
-            clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            obj_and_id::{ObjAndId, ObjWithId},
             oserror::OsError,
             queue::AsyncQueue,
         },
@@ -61,8 +61,7 @@ struct CommitTimeWaiter {
 pub struct CommitTimeline {
     shared: Rc<CommitTimelines>,
     own_timeline: Rc<Inner>,
-    effective_timeline: CloneCell<Rc<Inner>>,
-    effective_timeline_id: Cell<CommitTimelineId>,
+    effective_timeline: ObjAndId<Rc<Inner>>,
     fifo_barrier_set: Cell<bool>,
     fifo_waiter: Cell<Option<NodeRef<Entry>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
@@ -72,6 +71,14 @@ pub struct CommitTimeline {
 struct Inner {
     id: CommitTimelineId,
     entries: LinkedList<Entry>,
+}
+
+impl ObjWithId for Rc<Inner> {
+    type Id = CommitTimelineId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
 }
 
 fn add_entry(
@@ -144,8 +151,7 @@ impl CommitTimelines {
         CommitTimeline {
             shared: self.clone(),
             own_timeline: timeline.clone(),
-            effective_timeline: CloneCell::new(timeline),
-            effective_timeline_id: Cell::new(id),
+            effective_timeline: ObjAndId::new(timeline),
             fifo_barrier_set: Cell::new(false),
             fifo_waiter: Default::default(),
             commit_time_waiter: Default::default(),
@@ -764,7 +770,7 @@ fn set_effective_timeline(
     pending: &PendingState,
     effective: &Rc<Inner>,
 ) {
-    if timeline.effective_timeline_id.replace(effective.id) != effective.id {
+    if timeline.effective_timeline.id() != effective.id {
         let prev = timeline.effective_timeline.set(effective.clone());
         if prev.entries.is_not_empty() {
             let noderef = add_entry(

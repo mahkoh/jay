@@ -21,15 +21,16 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, OutputNodeId,
-            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
-            container::ContainerNode, walker::NodeVisitor,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, PlaceholderNode,
+            StackedNode, ToplevelNode, WorkspaceDisplayOrder, container::ContainerNode,
+            walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            obj_and_id::{ObjAndId, ObjWithId},
             opt::Opt,
             threshold_counter::ThresholdCounter,
         },
@@ -52,8 +53,7 @@ pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
     pub is_dummy: bool,
-    pub output: CloneCell<Rc<OutputNode>>,
-    pub output_id: Cell<OutputNodeId>,
+    pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
@@ -75,14 +75,21 @@ pub struct WorkspaceNode {
     pub opt: Rc<Opt<WorkspaceNode>>,
 }
 
+impl ObjWithId for Rc<WorkspaceNode> {
+    type Id = WorkspaceNodeId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 impl WorkspaceNode {
     pub fn new(output: &Rc<OutputNode>, name: &str, is_dummy: bool) -> Rc<Self> {
         let slf = Rc::new(Self {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
             is_dummy,
-            output: CloneCell::new(output.clone()),
-            output_id: Cell::new(output.id),
+            output: ObjAndId::new(output.clone()),
             position: Default::default(),
             container: Default::default(),
             stacked: Default::default(),
@@ -141,7 +148,6 @@ impl WorkspaceNode {
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
-        self.output_id.set(output.id);
         let old = self.output.set(output.clone());
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
@@ -335,7 +341,7 @@ impl WorkspaceNode {
     }
 
     pub fn location(&self) -> NodeLocation {
-        NodeLocation::Workspace(self.output_id.get(), self.id)
+        NodeLocation::Workspace(self.output.id(), self.id)
     }
 
     pub fn collect_kb_foci(self: &Rc<Self>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
@@ -547,11 +553,10 @@ pub fn move_ws_to_output(
     config: WsMoveConfig,
 ) {
     let source = ws.output.get();
-    if let Some(visible) = source.workspace_id.get()
+    if let Some(visible) = source.workspace.id()
         && visible == ws.id
     {
-        source.workspace.take();
-        source.workspace_id.take();
+        source.workspace.set(None);
     }
     let mut new_source_ws = None;
     if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
