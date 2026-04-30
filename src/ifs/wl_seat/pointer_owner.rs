@@ -1696,17 +1696,13 @@ impl UiDragUsecase for WorkspaceDragUsecase {
         if ws.is_dummy || output.is_dummy {
             return;
         }
-        let link = match &*ws.output_link.borrow() {
-            None => return,
-            Some(l) => l.to_ref(),
-        };
         let config = WsMoveConfig {
             make_visible_always: true,
             make_visible_if_empty: true,
             source_is_destroyed: false,
             before: dest.before.clone(),
         };
-        move_ws_to_output(&link, &output, config);
+        move_ws_to_output(&ws, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
     }
 

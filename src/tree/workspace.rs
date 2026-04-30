@@ -28,7 +28,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            linkedlist::{LinkedList, LinkedNode, NodeRef},
+            linkedlist::{LinkedList, LinkedNode},
             numcell::NumCell,
             obj_and_id::{ObjAndId, ObjWithId},
             opt::Opt,
@@ -547,11 +547,11 @@ pub struct WsMoveConfig {
     pub before: Option<Rc<WorkspaceNode>>,
 }
 
-pub fn move_ws_to_output(
-    ws: &NodeRef<Rc<WorkspaceNode>>,
-    target: &Rc<OutputNode>,
-    config: WsMoveConfig,
-) {
+pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config: WsMoveConfig) {
+    let ws = &match &*ws.output_link.borrow() {
+        None => return,
+        Some(l) => l.to_ref(),
+    };
     let source = ws.output.get();
     if let Some(visible) = source.workspace.id()
         && visible == ws.id

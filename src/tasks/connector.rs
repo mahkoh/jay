@@ -17,6 +17,7 @@ use {
         cell::{Cell, RefCell},
         collections::VecDeque,
         fmt,
+        ops::Deref,
         rc::Rc,
     },
 };
@@ -260,7 +261,7 @@ impl ConnectorHandler {
                 if ws.is_dummy {
                     continue;
                 }
-                ws_to_move.push_back(ws);
+                ws_to_move.push_back(ws.deref().clone());
             }
         }
         for source in self.state.root.outputs.lock().values() {
@@ -272,7 +273,7 @@ impl ConnectorHandler {
                     continue;
                 }
                 if ws.desired_output.get() == global.output_id {
-                    ws_to_move.push_back(ws.clone());
+                    ws_to_move.push_back(ws.deref().clone());
                 }
             }
         }

@@ -258,17 +258,13 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(o) = o.node() else {
                         continue;
                     };
-                    let link = match &*ws.output_link.borrow() {
-                        None => continue,
-                        Some(l) => l.to_ref(),
-                    };
                     let config = WsMoveConfig {
                         make_visible_always: false,
                         make_visible_if_empty: true,
                         source_is_destroyed: false,
                         before: None,
                     };
-                    move_ws_to_output(&link, &o, config);
+                    move_ws_to_output(&ws, &o, config);
                     ws.desired_output.set(o.global.output_id.clone());
                     self.client.state.tree_changed();
                 }
