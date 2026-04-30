@@ -381,8 +381,11 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             } else {
                 break 'set_fullscreen;
             };
-            self.toplevel_data
-                .set_fullscreen(&client.state, slf.clone(), &output);
+            self.toplevel_data.set_fullscreen(
+                &client.state,
+                slf.clone(),
+                &output.ensure_workspace(),
+            );
         }
         self.send_current_configure();
         Ok(())
@@ -457,7 +460,7 @@ impl XdgToplevel {
         let fullscreen = self.states.get().contains(state_bits(STATE_FULLSCREEN));
         if fullscreen && let Some(ws) = self.xdg.workspace.get() {
             self.toplevel_data
-                .set_fullscreen2(&self.state, self.clone(), &ws);
+                .set_fullscreen(&self.state, self.clone(), &ws);
         }
     }
 
@@ -589,6 +592,10 @@ impl Node for XdgToplevel {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.toplevel_data.output_opt()
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.toplevel_data.workspace.get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

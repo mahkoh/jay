@@ -1041,7 +1041,7 @@ impl ConfigProxyHandler {
         let output = seat.get_cursor_output();
         let mut workspace = Workspace(0);
         if !output.is_dummy
-            && let Some(ws) = output.workspace.get()
+            && let Some(ws) = output.workspace()
         {
             workspace = self.get_workspace_by_name(&ws.name);
         }
@@ -1052,9 +1052,8 @@ impl ConfigProxyHandler {
     fn handle_get_seat_keyboard_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let mut workspace = Workspace(0);
-        if let Some(output) = seat.get_keyboard_output()
-            && !output.is_dummy
-            && let Some(ws) = output.workspace.get()
+        if let Some(ws) = seat.get_keyboard_workspace()
+            && !ws.is_dummy
         {
             workspace = self.get_workspace_by_name(&ws.name);
         }
@@ -1136,12 +1135,10 @@ impl ConfigProxyHandler {
                 Some(ws) => ws,
                 _ => return Ok(()),
             },
-            WorkspaceSource::Seat(s) => {
-                match self.get_seat(s)?.get_fallback_output().workspace.get() {
-                    Some(ws) => ws,
-                    _ => return Ok(()),
-                }
-            }
+            WorkspaceSource::Seat(s) => match self.get_seat(s)?.get_fallback_workspace() {
+                Some(ws) => ws,
+                _ => return Ok(()),
+            },
         };
         self.state.move_ws_to_output(&ws, &output);
         Ok(())

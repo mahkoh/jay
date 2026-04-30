@@ -522,12 +522,24 @@ impl WlSeatGlobal {
         self.cursor_user_group.latest_output()
     }
 
+    pub fn get_cursor_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.cursor_user_group.latest_output().workspace()
+    }
+
     pub fn get_keyboard_node(&self) -> Rc<dyn Node> {
         self.keyboard_node.get()
     }
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
+    }
+
+    pub fn get_keyboard_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        let node = self.keyboard_node.get();
+        if let Some(ws) = node.node_workspace() {
+            return Some(ws);
+        }
+        node.node_output()?.workspace()
     }
 
     pub fn get_fallback_output(&self) -> Rc<OutputNode> {
@@ -537,6 +549,15 @@ impl WlSeatGlobal {
             return output;
         }
         self.get_cursor_output()
+    }
+
+    pub fn get_fallback_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        if self.fallback_output_mode.get() == FallbackOutputMode::Focus
+            && let Some(ws) = self.get_keyboard_workspace()
+        {
+            return Some(ws);
+        }
+        self.get_cursor_workspace()
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
@@ -915,8 +936,13 @@ impl WlSeatGlobal {
             }
         }
         if workspace.is_none()
+            && let Some(ws) = original.node_workspace()
+        {
+            workspace = Some(ws.id);
+        }
+        if workspace.is_none()
             && let Some(output) = original.node_output()
-            && let Some(ws) = output.workspace.get()
+            && let Some(ws) = output.workspace()
         {
             workspace = Some(ws.id);
         }
@@ -1091,6 +1117,32 @@ impl WlSeatGlobal {
             }
             None
         };
+        let handle_workspace = |ws: Option<&Rc<WorkspaceNode>>| {
+            if let Some(ws) = ws
+                && ws.container_visible()
+            {
+                self.focus_node(ws.clone());
+                self.maybe_schedule_warp_mouse_to_focus();
+                return true;
+            }
+            false
+        };
+        macro_rules! handle_workspace {
+            ($ws:expr) => {{
+                if handle_workspace($ws.as_ref()) {
+                    return;
+                }
+                None
+            }};
+        }
+        let handle_tiled = |ws: Option<&Rc<WorkspaceNode>>| {
+            ws.and_then(|w| w.container.get())
+                .map(|n| n as Rc<dyn Node>)
+        };
+        let handle_fullscreen = |ws: Option<&Rc<WorkspaceNode>>| {
+            ws.and_then(|w| w.fullscreen.get())
+                .map(|n| n as Rc<dyn Node>)
+        };
         let ws = output.workspace.get();
         let first = next_layer(current_layer.layer());
         let mut layer = first;
@@ -1100,24 +1152,9 @@ impl WlSeatGlobal {
                 NodeLayer::Layer0 => handle_layer_shell(&output.layers[0]),
                 NodeLayer::Layer1 => handle_layer_shell(&output.layers[1]),
                 NodeLayer::Output => None,
-                NodeLayer::Workspace => {
-                    if let Some(ws) = &ws
-                        && ws.container_visible()
-                    {
-                        self.focus_node(ws.clone());
-                        self.maybe_schedule_warp_mouse_to_focus();
-                        return;
-                    }
-                    None
-                }
-                NodeLayer::Tiled => ws
-                    .as_ref()
-                    .and_then(|w| w.container.get())
-                    .map(|n| n as Rc<dyn Node>),
-                NodeLayer::Fullscreen => ws
-                    .as_ref()
-                    .and_then(|w| w.fullscreen.get())
-                    .map(|n| n as Rc<dyn Node>),
+                NodeLayer::Workspace => handle_workspace!(ws),
+                NodeLayer::Tiled => handle_tiled(ws.as_ref()),
+                NodeLayer::Fullscreen => handle_fullscreen(ws.as_ref()),
                 NodeLayer::Stacked => handle_stacked(&self.state.root.stacked),
                 NodeLayer::Layer2 => handle_layer_shell(&output.layers[2]),
                 NodeLayer::Layer3 => handle_layer_shell(&output.layers[3]),

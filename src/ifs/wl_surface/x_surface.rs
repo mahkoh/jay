@@ -5,7 +5,7 @@ use {
             x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
         },
         leaks::Tracker,
-        tree::{Node, NodeLayerLink, ToplevelNode, ToplevelNodeBase},
+        tree::{Node, NodeLayerLink, ToplevelNode, ToplevelNodeBase, WorkspaceNode},
         utils::clonecell::CloneCell,
         xwayland::XWaylandEvent,
     },
@@ -79,5 +79,9 @@ impl SurfaceExt for XSurface {
 
     fn into_xsurface(self: Rc<Self>) -> Option<Rc<XSurface>> {
         Some(self)
+    }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.xwindow.get()?.toplevel_data.workspace.get()
     }
 }

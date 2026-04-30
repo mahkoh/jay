@@ -6,13 +6,16 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                xdg_surface::{
+                    PopupStackType,
+                    xdg_popup::{XdgPopup, XdgPopupParent},
+                },
             },
         },
         rect::Rect,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, NodesStackElement, OutputNode,
+            NodeVisitor, NodesStackElement, OutputNode, WorkspaceNode,
         },
         utils::{
             copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, linkedlist::LinkedNode,
@@ -285,6 +288,10 @@ impl<T: TrayItem> SurfaceExt for T {
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
         Some(self.data().tray_item_id)
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
 }
 
 impl<T: TrayItem> Node for T {
@@ -314,6 +321,10 @@ impl<T: TrayItem> Node for T {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.data().output.node()
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
@@ -400,7 +411,7 @@ fn get_popup<T: TrayItem>(
     };
     seat.add_tray_item_popup(item, &popup);
     let stack = data.client.state.root.stacked.clone();
-    popup.xdg.set_popup_stack(&stack, false);
+    popup.xdg.set_popup_stack(&stack, PopupStackType::Normal);
     popup.xdg.set_output(&node);
     let user = Rc::new(Popup {
         parent: item.clone(),

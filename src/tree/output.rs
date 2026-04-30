@@ -18,7 +18,7 @@ use {
             wl_buffer::WlBufferStorage,
             wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
             wl_seat::{
-                BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci2,
+                BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal,
                 tablet::{TabletTool, TabletToolChanges, TabletToolId},
                 wl_pointer::PendingScroll,
             },
@@ -693,6 +693,10 @@ impl OutputNode {
         self.create_workspace(&name)
     }
 
+    pub fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.workspace.get()
+    }
+
     pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
         let id = Some(ws.id);
@@ -704,7 +708,7 @@ impl OutputNode {
             user.workspace_changed(self, Some(ws));
         }
         if let Some(old) = old {
-            collect_kb_foci2(old.clone(), &mut seats);
+            seats = old.collect_kb_foci();
             for pinned in self.pinned.iter() {
                 pinned.deref().clone().set_workspace(ws, false);
             }
@@ -1529,7 +1533,7 @@ impl OutputNode {
     }
 
     pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let Some(ws) = self.workspace.get() else {
+        let Some(ws) = self.workspace() else {
             return;
         };
         if let Some(fs) = ws.fullscreen.get() {
@@ -1652,6 +1656,10 @@ impl Node for OutputNode {
         self.global.opt.node()
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         Some(NodeLocation::Output(self.id))
     }
@@ -1667,7 +1675,7 @@ impl Node for OutputNode {
             }
             return;
         }
-        if let Some(ws) = self.workspace.get() {
+        if let Some(ws) = self.workspace() {
             ws.node_do_focus(seat, direction);
         }
     }

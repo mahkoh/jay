@@ -19,7 +19,7 @@ use {
 
 #[derive(Default)]
 pub struct Icons {
-    icons: CopyHashMap<i32, Option<Rc<SizedIcons>>>,
+    title_icons: CopyHashMap<i32, Option<Rc<SizedTitleIcons>>>,
 }
 
 #[derive(Copy, Clone, Debug, Linearize)]
@@ -28,7 +28,7 @@ pub enum IconState {
     Passive,
 }
 
-pub struct SizedIcons {
+pub struct SizedTitleIcons {
     pub pin_unfocused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,
     pub pin_focused_title: StaticMap<IconState, Rc<dyn GfxTexture>>,
     pub pin_attention_requested: StaticMap<IconState, Rc<dyn GfxTexture>>,
@@ -48,73 +48,105 @@ pub enum IconsError {
 
 impl Icons {
     pub fn update_sizes(&self, state: &State) {
+        self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
+    }
+
+    fn update_sizes_(&self, state: &State, height: i32, map: &CopyHashMap<i32, impl Sized>) {
         let mut sizes = AHashSet::new();
-        let height = state.theme.title_height();
         for &(scale, _) in &*state.scales.lock() {
             let [size] = scale.pixel_size([height]);
             if size > 0 {
                 sizes.insert(size);
             }
         }
-        self.icons.lock().retain(|size, _| sizes.contains(size));
+        map.lock().retain(|size, _| sizes.contains(size));
     }
 
     pub fn clear(&self) {
-        self.icons.clear();
+        self.title_icons.clear();
     }
 
-    pub fn get(&self, state: &State, scale: Scale) -> Option<Rc<SizedIcons>> {
-        let [size] = scale.pixel_size([state.theme.title_height()]);
-        if let Some(icons) = self.icons.get(&size) {
+    pub fn get_title_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedTitleIcons>> {
+        self.get(
+            state,
+            scale,
+            state.theme.title_height(),
+            &self.title_icons,
+            create_title_icons,
+        )
+    }
+
+    fn get<T>(
+        &self,
+        state: &State,
+        scale: Scale,
+        height: i32,
+        map: &CopyHashMap<i32, Option<Rc<T>>>,
+        f: impl FnOnce(i32, &Theme, &Rc<dyn GfxContext>) -> Result<T, IconsError>,
+    ) -> Option<Rc<T>> {
+        let [size] = scale.pixel_size([height]);
+        if let Some(icons) = map.get(&size) {
             return icons;
         }
-        let icons = match self.create(state, size) {
+        let icons = match self.create(state, size, f) {
             Ok(i) => Some(i),
             Err(e) => {
                 log::error!("Could not create icons: {}", e);
                 None
             }
         };
-        self.icons.set(size, icons.clone());
+        map.set(size, icons.clone());
         icons
     }
 
-    fn create(&self, state: &State, size: i32) -> Result<Rc<SizedIcons>, IconsError> {
+    fn create<T>(
+        &self,
+        state: &State,
+        size: i32,
+        f: impl FnOnce(i32, &Theme, &Rc<dyn GfxContext>) -> Result<T, IconsError>,
+    ) -> Result<Rc<T>, IconsError> {
         let Some(ctx) = state.render_ctx.get() else {
             return Err(IconsError::NoRenderContext);
         };
-        Ok(Rc::new(create_icons(size, &state.theme, &ctx)?))
+        Ok(Rc::new(f(size, &state.theme, &ctx)?))
     }
 }
 
-pub fn create_icons(
+fn create_icon(
+    size: u32,
+    ctx: &Rc<dyn GfxContext>,
+    path: &Path,
+    color: Color,
+) -> Result<Rc<dyn GfxTexture>, IconsError> {
+    let mut paint = Paint::default();
+    paint.set_color(color);
+    let s = size as f32 / 100.0;
+    let transform = Transform::from_scale(s, s);
+    let mut pixmap = Pixmap::new(size, size).ok_or(IconsError::CreatePixmap)?;
+    pixmap.fill_path(path, &paint, FillRule::EvenOdd, transform, None);
+    upload_pixmap(pixmap, ctx)
+}
+
+pub fn create_title_icons(
     size: i32,
     theme: &Theme,
     ctx: &Rc<dyn GfxContext>,
-) -> Result<SizedIcons, IconsError> {
+) -> Result<SizedTitleIcons, IconsError> {
     if size <= 0 {
         return Err(IconsError::NonPositiveSize);
     }
     let size = size as u32;
 
+    let create_icon = |path: &Path, color: Color| create_icon(size, ctx, path, color);
     let create_pins = |color: crate::theme::Color| {
-        let create_pin = |color: Color| {
-            let mut paint = Paint::default();
-            paint.set_color(color);
-            let s = size as f32 / 100.0;
-            let transform = Transform::from_scale(s, s);
-            let mut pixmap = Pixmap::new(size, size).ok_or(IconsError::CreatePixmap)?;
-            pixmap.fill_path(&PIN_PATH, &paint, FillRule::EvenOdd, transform, None);
-            upload_pixmap(pixmap, ctx)
-        };
         let colors = calculate_accents(color);
         Ok(static_map! {
-            IconState::Passive => create_pin(colors[0])?,
-            IconState::Active => create_pin(colors[1])?,
+            IconState::Passive => create_icon(&PIN_PATH, colors[0])?,
+            IconState::Active => create_icon(&PIN_PATH, colors[1])?,
         })
     };
 
-    Ok(SizedIcons {
+    Ok(SizedTitleIcons {
         pin_unfocused_title: create_pins(theme.colors.unfocused_title_background.get())?,
         pin_focused_title: create_pins(theme.colors.focused_title_background.get())?,
         pin_attention_requested: create_pins(theme.colors.attention_requested_background.get())?,

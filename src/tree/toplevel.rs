@@ -15,7 +15,7 @@ use {
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
-            wl_seat::{NodeSeatState, SeatId, collect_kb_foci, collect_kb_foci2},
+            wl_seat::{NodeSeatState, SeatId, collect_kb_foci},
             wl_surface::{
                 WlSurface, x_surface::xwindow::XwindowData,
                 xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
@@ -85,7 +85,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         if fullscreen {
             if let Some(ws) = ws.or_else(|| data.workspace.get()) {
-                data.set_fullscreen2(&data.state, self.clone(), &ws);
+                data.set_fullscreen(&data.state, self.clone(), &ws);
             }
         } else {
             data.unset_fullscreen(&data.state, self.clone());
@@ -113,6 +113,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         if !data.is_fullscreen.get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
+        }
+        data.is_root_container.set(false);
+        if let ToplevelType::Container = data.kind
+            && parent.node_is_workspace()
+        {
+            data.is_root_container.set(true);
         }
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
@@ -432,6 +438,7 @@ pub struct ToplevelData {
     pub content_type: Cell<Option<ContentType>>,
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
+    pub is_root_container: Cell<bool>,
 }
 
 impl ToplevelData {
@@ -487,6 +494,7 @@ impl ToplevelData {
             content_type: Default::default(),
             property_changed_source: Default::default(),
             session: Default::default(),
+            is_root_container: Default::default(),
         }
     }
 
@@ -591,6 +599,7 @@ impl ToplevelData {
         self.float.take();
         self.workspace.take();
         self.seat_state.destroy_node(node);
+        self.is_root_container.set(false);
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -746,15 +755,6 @@ impl ToplevelData {
         &self,
         state: &Rc<State>,
         node: Rc<dyn ToplevelNode>,
-        output: &Rc<OutputNode>,
-    ) {
-        self.set_fullscreen2(state, node, &output.ensure_workspace());
-    }
-
-    pub fn set_fullscreen2(
-        &self,
-        state: &Rc<State>,
-        node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
         if ws.fullscreen.is_some() {
@@ -788,12 +788,7 @@ impl ToplevelData {
         parent.cnode_replace_child(&*node, placeholder.clone());
         let mut kb_foci = Default::default();
         if ws.visible.get() {
-            if let Some(container) = ws.container.get() {
-                kb_foci = collect_kb_foci(container);
-            }
-            for stacked in ws.stacked.iter() {
-                collect_kb_foci2(stacked.deref().clone(), &mut kb_foci);
-            }
+            kb_foci = ws.collect_kb_foci();
         }
         *data = Some(FullscreenedData {
             placeholder,
@@ -954,16 +949,6 @@ impl ToplevelData {
             return float.node_layer();
         }
         NodeLayerLink::Tiled
-    }
-
-    pub fn is_root_container(&self) -> bool {
-        if not_matches!(self.kind, ToplevelType::Container) {
-            return false;
-        }
-        let Some(parent) = self.parent.get() else {
-            return false;
-        };
-        parent.node_is_workspace()
     }
 
     pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {

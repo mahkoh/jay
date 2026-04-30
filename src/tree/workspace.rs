@@ -6,7 +6,7 @@ use {
         ifs::{
             jay_workspace::JayWorkspace,
             wl_output::OutputId,
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
+            wl_seat::{NodeSeatState, WlSeatGlobal, collect_kb_foci2, tablet::TabletTool},
             wl_surface::{
                 WlSurface, x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel,
             },
@@ -35,6 +35,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         fmt::Debug,
@@ -45,7 +46,7 @@ use {
 
 tree_id!(WorkspaceNodeId);
 
-hash_type!(WorkspaceHash);
+hash_type!(WorkspaceNameHash);
 
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
@@ -58,7 +59,7 @@ pub struct WorkspaceNode {
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
     pub name: Rc<String>,
-    pub hash: WorkspaceHash,
+    pub name_hash: WorkspaceNameHash,
     pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
@@ -87,7 +88,7 @@ impl WorkspaceNode {
             stacked: Default::default(),
             seat_state: Default::default(),
             name: Rc::new(name.to_string()),
-            hash: WorkspaceHash::hash(name),
+            name_hash: WorkspaceNameHash::hash(name),
             output_link: Default::default(),
             visible: Default::default(),
             fullscreen: Default::default(),
@@ -316,6 +317,19 @@ impl WorkspaceNode {
     pub fn location(&self) -> NodeLocation {
         NodeLocation::Workspace(self.output_id.get(), self.id)
     }
+
+    pub fn collect_kb_foci(self: &Rc<Self>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
+        let mut seats = SmallVec::new();
+        self.collect_kb_foci2(&mut seats);
+        seats
+    }
+
+    pub fn collect_kb_foci2(self: &Rc<Self>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
+        collect_kb_foci2(self.clone(), seats);
+        for node in self.stacked.iter() {
+            collect_kb_foci2(node.deref().clone(), seats);
+        }
+    }
 }
 
 impl Node for WorkspaceNode {
@@ -350,6 +364,10 @@ impl Node for WorkspaceNode {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         Some(self.output.get())
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.opt.get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

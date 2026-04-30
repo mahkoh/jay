@@ -702,6 +702,10 @@ impl Node for FloatNode {
         Some(self.workspace.get().output.get())
     }
 
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
+    }
+
     fn node_location(&self) -> Option<NodeLocation> {
         Some(self.location.get())
     }

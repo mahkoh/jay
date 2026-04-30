@@ -912,7 +912,7 @@ impl State {
                 return false;
             };
             self.map_tiled_on(node.clone(), &ws);
-            data.set_fullscreen2(self, node.clone(), &ws);
+            data.set_fullscreen(self, node.clone(), &ws);
             ws
         } else if !has_parent {
             let Some(ws) = ws() else {
@@ -1409,7 +1409,7 @@ impl State {
                 let (width, height) = target.logical_size(target_transform);
                 Rect::new_sized_saturating(0, 0, width, height)
             },
-            icons: None,
+            title_icons: None,
         };
         let mut sample_rect = SampleRect::identity();
         sample_rect.buffer_transform = transform;

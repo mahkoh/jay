@@ -84,7 +84,7 @@ use {
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
             OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform,
-            VblankListener,
+            VblankListener, WorkspaceNode,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -432,6 +432,8 @@ trait SurfaceExt {
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
         None
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>>;
 }
 
 pub struct NoneSurfaceExt;
@@ -443,6 +445,10 @@ impl SurfaceExt for NoneSurfaceExt {
 
     fn is_some(&self) -> bool {
         false
+    }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 }
 
@@ -1853,6 +1859,10 @@ impl Node for WlSurface {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         Some(self.output.get())
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.ext.get().workspace()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

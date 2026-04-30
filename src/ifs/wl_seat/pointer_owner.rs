@@ -402,7 +402,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         seat.handle_node_button(pn, time_usec, button, state, serial);
         let on = seat.pointer_cursor.output();
         seat.pointer_owner
-            .workspace_changed(seat, &on, on.workspace.get().as_ref());
+            .workspace_changed(seat, &on, on.workspace().as_ref());
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -1192,7 +1192,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
         let (mut dx, mut dy) = pos.translate(x, y);
         let owner: Rc<dyn PointerOwner> = if button == BTN_LEFT {
             if let Some(tl) = pn.clone().node_into_toplevel() {
-                if tl.tl_data().is_root_container() {
+                if tl.tl_data().is_root_container.get() {
                     return false;
                 }
                 seat.pointer_cursor.set_known(KnownCursor::Move);
@@ -1636,7 +1636,7 @@ impl UiDragUsecase for TileDragUsecase {
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rect> {
-        if self.tl.tl_data().is_root_container() {
+        if self.tl.tl_data().is_root_container.get() {
             self.destination.take();
             return None;
         }

@@ -6,7 +6,10 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                xdg_surface::{
+                    PopupStackType,
+                    xdg_popup::{XdgPopup, XdgPopupParent},
+                },
             },
             zwlr_layer_shell_v1::{OVERLAY, ZwlrLayerShellV1},
         },
@@ -16,7 +19,7 @@ use {
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, WorkspaceNode,
         },
         utils::{
             bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -288,7 +291,9 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::PopupHasParent);
         }
         let stack = self.client.state.root.stacked_above_layers.clone();
-        popup.xdg.set_popup_stack(&stack, true);
+        popup
+            .xdg
+            .set_popup_stack(&stack, PopupStackType::AboveLayers);
         let user = Rc::new(Popup {
             parent: slf.clone(),
             popup: popup.clone(),
@@ -646,6 +651,10 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             None
         }
     }
+
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
 }
 
 impl Node for ZwlrLayerSurfaceV1 {
@@ -675,6 +684,10 @@ impl Node for ZwlrLayerSurfaceV1 {
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
         self.output.node()
+    }
+
+    fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
