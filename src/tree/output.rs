@@ -6,7 +6,7 @@ use {
         },
         client::ClientId,
         cmm::cmm_description::ColorDescription,
-        control_center::CCI_OUTPUTS,
+        control_center::{CCI_OUTPUTS, CCI_WORKSPACES},
         cursor::KnownCursor,
         cursor_user::{CursorUser, CursorUserId},
         fixed::Fixed,
@@ -728,6 +728,7 @@ impl OutputNode {
                 }
                 old.clear();
                 self.state.workspaces.remove(&*old.name);
+                self.state.trigger_cci(CCI_WORKSPACES);
             } else {
                 old.set_visible(false);
                 old.flush_jay_workspaces();
@@ -770,6 +771,7 @@ impl OutputNode {
         };
         *ws.output_link.borrow_mut() = Some(link);
         self.state.workspaces.set(name.to_string(), ws.clone());
+        self.state.trigger_cci(CCI_WORKSPACES);
         if self.workspace.is_none() {
             self.show_workspace(&ws);
         }
@@ -2147,5 +2149,11 @@ impl OutputNodeOrPersistent {
             }
             OutputNodeOrPersistent::Persistent(p) => p.vrr_cursor_hz.set(hz),
         }
+    }
+}
+
+impl PartialEq for OutputNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }

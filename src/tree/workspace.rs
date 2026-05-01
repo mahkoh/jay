@@ -1,6 +1,7 @@
 use {
     crate::{
         client::ClientId,
+        control_center::CCI_WORKSPACES,
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
@@ -201,6 +202,7 @@ impl WorkspaceNode {
         for stacked in self.stacked.iter() {
             stacked.deref().clone().node_visit(&mut visitor);
         }
+        self.state.trigger_cci(CCI_WORKSPACES);
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
@@ -252,6 +254,7 @@ impl WorkspaceNode {
                 }
             }
         }
+        self.state.trigger_cci(CCI_WORKSPACES);
     }
 
     pub fn flush_jay_workspaces(&self) {
@@ -283,6 +286,7 @@ impl WorkspaceNode {
             }
         }
         self.seat_state.set_visible(self, visible);
+        self.state.trigger_cci(CCI_WORKSPACES);
     }
 
     pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {

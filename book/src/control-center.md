@@ -226,6 +226,22 @@ or running applications on a display without a physical monitor.
 - **Add** a new virtual output by entering a name and clicking Add.
 - **Remove** an existing virtual output by clicking its X button.
 
+### Workspaces
+
+Inspect and manage workspaces. Each workspace appears as a collapsible section
+sorted by name.
+
+Position
+: The workspace's position and size in compositor space. Shows `hidden` when the
+  workspace is on a disconnected (dummy) output.
+
+Visible
+: Toggle workspace visibility. Enabling this makes the workspace the active
+  workspace on its output.
+
+Output
+: Dropdown to move the workspace to a different output.
+
 ### GPUs
 
 Inspect and configure graphics cards (DRM devices). Each GPU appears as a
