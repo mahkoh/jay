@@ -680,9 +680,12 @@ impl OutputNode {
 
     pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
         if let Some(ws) = self.workspace.get() {
-            if !ws.is_dummy {
-                return ws;
-            }
+            return ws;
+        }
+        if self.is_dummy
+            && let Some(ws) = self.workspaces.last()
+        {
+            return ws.deref().clone();
         }
         self.generate_workspace()
     }
@@ -705,6 +708,9 @@ impl OutputNode {
     }
 
     pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
+        if self.is_dummy {
+            return false;
+        }
         let mut seats = SmallVec::new();
         if self.workspace.id() == Some(ws.id) {
             return false;
@@ -761,7 +767,7 @@ impl OutputNode {
     }
 
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
-        let ws = WorkspaceNode::new(self, name, false);
+        let ws = WorkspaceNode::new(self, name);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {

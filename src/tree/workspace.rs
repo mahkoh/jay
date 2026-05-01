@@ -53,7 +53,6 @@ hash_type!(WorkspaceNameHash);
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
-    pub is_dummy: bool,
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
@@ -85,11 +84,10 @@ impl ObjWithId for Rc<WorkspaceNode> {
 }
 
 impl WorkspaceNode {
-    pub fn new(output: &Rc<OutputNode>, name: &str, is_dummy: bool) -> Rc<Self> {
+    pub fn new(output: &Rc<OutputNode>, name: &str) -> Rc<Self> {
         let slf = Rc::new(Self {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
-            is_dummy,
             output: ObjAndId::new(output.clone()),
             position: Default::default(),
             container: Default::default(),
@@ -457,9 +455,6 @@ impl Node for WorkspaceNode {
     }
 
     fn node_make_visible(self: Rc<Self>) {
-        if self.is_dummy {
-            return;
-        }
         self.state.show_workspace2(None, &self.output.get(), &self);
     }
 

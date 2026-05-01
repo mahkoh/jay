@@ -476,14 +476,12 @@ impl ToplevelSession {
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &WorkspaceNode, data: &ToplevelData) {
-        let hash = (!ws.is_dummy).then_some(ws.name_hash);
+        let hash = Some(ws.name_hash);
         if hash == self.state.workspace_name_hash.get() {
             return;
         }
         self.state.workspace_name_hash.set(hash);
-        self.state
-            .workspace
-            .set((!ws.is_dummy).then_some(ws.name.clone()));
+        self.state.workspace.set(Some(ws.name.clone()));
         self.state_changed();
         self.set_output(&ws.output.get(), data);
     }

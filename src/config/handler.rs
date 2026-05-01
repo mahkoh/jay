@@ -1052,9 +1052,7 @@ impl ConfigProxyHandler {
     fn handle_get_seat_keyboard_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let mut workspace = Workspace(0);
-        if let Some(ws) = seat.get_keyboard_workspace()
-            && !ws.is_dummy
-        {
+        if let Some(ws) = seat.get_keyboard_workspace() {
             workspace = self.get_workspace_by_name(&ws.name);
         }
         self.respond(Response::GetSeatKeyboardWorkspace { workspace });

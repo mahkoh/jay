@@ -60,7 +60,7 @@ use {
         tracy::enable_profiler,
         tree::{
             DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
-            WorkspaceDisplayOrder, WorkspaceNode, container_layout, container_render_positions,
+            WorkspaceDisplayOrder, container_layout, container_render_positions,
             container_render_titles, float_layout, float_titles, output_render_data,
             placeholder_render_textures,
         },
@@ -814,11 +814,6 @@ fn create_dummy_output(state: &Rc<State>) {
         active_zwlr_gamma_control: Default::default(),
         cursor_users: Default::default(),
     });
-    let dummy_workspace = WorkspaceNode::new(&dummy_output, "dummy", true);
-    dummy_workspace.may_capture.set(false);
-    *dummy_workspace.output_link.borrow_mut() =
-        Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
-    dummy_output.show_workspace(&dummy_workspace);
     state.dummy_output.set(Some(dummy_output));
 }
 

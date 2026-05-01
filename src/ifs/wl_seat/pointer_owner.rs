@@ -1693,7 +1693,7 @@ impl UiDragUsecase for WorkspaceDragUsecase {
         };
         let ws = self.ws.clone();
         let output = dest.output.clone();
-        if ws.is_dummy || output.is_dummy {
+        if output.is_dummy {
             return;
         }
         let config = WsMoveConfig {

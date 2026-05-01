@@ -73,9 +73,7 @@ impl ExtWorkspaceManagerV1Global {
             .set(obj.manager_id, obj.clone());
         let dummy_output = client.state.dummy_output.get().unwrap();
         for ws in dummy_output.workspaces.iter() {
-            if !ws.is_dummy {
-                obj.announce_workspace(&dummy_output, &ws);
-            }
+            obj.announce_workspace(&dummy_output, &ws);
         }
         for output in client.state.root.outputs.lock().values() {
             obj.announce_output(output);
