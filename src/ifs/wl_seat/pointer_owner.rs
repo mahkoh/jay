@@ -21,8 +21,9 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            OutputNode, PlaceholderNode, TddType, ToplevelNode, WorkspaceDragDestination,
-            WorkspaceNode, WsMoveConfig, move_ws_to_output, toplevel_set_workspace,
+            OutputNode, PlaceholderNode, TddType, ToplevelNode, WorkspaceChangeReason,
+            WorkspaceDragDestination, WorkspaceNode, WsMoveConfig, move_ws_to_output,
+            toplevel_set_workspace,
         },
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -244,8 +245,9 @@ impl PointerOwnerHolder {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
-        self.owner.get().workspace_changed(seat, on, ws);
+        self.owner.get().workspace_changed(seat, on, ws, reason);
     }
 }
 
@@ -331,10 +333,12 @@ trait PointerOwner {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
         let _ = seat;
         let _ = on;
         let _ = ws;
+        let _ = reason;
     }
 }
 
@@ -401,8 +405,12 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         pn.node_seat_state().add_pointer_grab(seat);
         seat.handle_node_button(pn, time_usec, button, state, serial);
         let on = seat.pointer_cursor.output();
-        seat.pointer_owner
-            .workspace_changed(seat, &on, on.workspace().as_ref());
+        seat.pointer_owner.workspace_changed(
+            seat,
+            &on,
+            on.workspace().as_ref(),
+            WorkspaceChangeReason::InitialGrab,
+        );
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -608,8 +616,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
-        self.usecase.workspace_changed(self, seat, on, ws);
+        self.usecase.workspace_changed(self, seat, on, ws, reason);
     }
 }
 
@@ -814,11 +823,13 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
         let _ = grab;
         let _ = seat;
         let _ = on;
         let _ = ws;
+        let _ = reason;
     }
 }
 
@@ -1037,8 +1048,11 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
-        grab.node.clone().node_grab_workspace_changed(seat, on, ws);
+        grab.node
+            .clone()
+            .node_grab_workspace_changed(seat, on, ws, reason);
     }
 }
 

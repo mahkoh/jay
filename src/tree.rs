@@ -389,6 +389,12 @@ impl NodeLayer {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum WorkspaceChangeReason {
+    InitialGrab,
+    OutputChanged,
+}
+
 pub trait Node: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
@@ -477,10 +483,12 @@ pub trait Node: 'static {
         seat: &Rc<WlSeatGlobal>,
         on: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
     ) {
         let _ = seat;
         let _ = on;
         let _ = ws;
+        let _ = reason;
     }
 
     // EVENT HANDLERS
