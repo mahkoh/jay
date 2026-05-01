@@ -19,6 +19,7 @@ enum PaneName {
     Clients,
     WindowSearch,
     VirtualOutputs,
+    Workspaces,
 }
 
 impl PaneName {
@@ -35,6 +36,7 @@ impl PaneName {
             PaneName::Clients => "Clients",
             PaneName::WindowSearch => "Window Search",
             PaneName::VirtualOutputs => "Virtual Outputs",
+            PaneName::Workspaces => "Workspaces",
         }
     }
 }
@@ -83,6 +85,9 @@ impl ControlCenterInner {
                                 }
                                 PaneName::VirtualOutputs => {
                                     PaneType::VirtualOutputs(self.create_virtual_outputs_pane())
+                                }
+                                PaneName::Workspaces => {
+                                    PaneType::Workspaces(self.create_workspaces_pane())
                                 }
                             };
                             self.open(tree, ty);

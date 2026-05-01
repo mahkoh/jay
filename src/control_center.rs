@@ -11,6 +11,7 @@ use {
             cc_outputs::OutputsPane,
             cc_virtual_outputs::VirtualOutputsPane,
             cc_window::{WindowPane, WindowSearchPane},
+            cc_workspaces::WorkspacesPane,
             cc_xwayland::XwaylandPane,
         },
         egui_adapter::egui_platform::{
@@ -53,6 +54,7 @@ mod cc_outputs;
 mod cc_sidebar;
 mod cc_virtual_outputs;
 mod cc_window;
+mod cc_workspaces;
 mod cc_xwayland;
 
 #[derive(Debug, Error)]
@@ -95,6 +97,7 @@ bitflags! {
         CCI_INPUT,
         CCI_LOOK_AND_FEEL,
         CCI_VIRTUAL_OUTPUTS,
+        CCI_WORKSPACES,
 }
 
 pub struct ControlCenter {
@@ -148,6 +151,7 @@ enum PaneType {
     WindowSearch(WindowSearchPane),
     Window(WindowPane),
     VirtualOutputs(VirtualOutputsPane),
+    Workspaces(WorkspacesPane),
 }
 
 struct CcBehavior<'a> {
@@ -178,6 +182,7 @@ impl Pane {
             PaneType::WindowSearch(v) => v.title(res),
             PaneType::Window(v) => v.title(res),
             PaneType::VirtualOutputs(v) => v.title(res),
+            PaneType::Workspaces(v) => v.title(res),
         }
     }
 
@@ -196,6 +201,7 @@ impl Pane {
             PaneType::WindowSearch(p) => p.show(behavior, ui),
             PaneType::Window(p) => p.show(behavior, ui),
             PaneType::VirtualOutputs(p) => p.show(ui),
+            PaneType::Workspaces(p) => p.show(ui),
         }
     }
 }
@@ -216,6 +222,7 @@ impl PaneType {
             PaneType::WindowSearch(_) => ControlCenterInterest::none(),
             PaneType::Window(_) => ControlCenterInterest::none(),
             PaneType::VirtualOutputs(_) => CCI_VIRTUAL_OUTPUTS,
+            PaneType::Workspaces(_) => CCI_WORKSPACES,
         }
     }
 }
