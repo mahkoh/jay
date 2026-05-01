@@ -16,8 +16,8 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodesStackElement, OutputNode, PinnedNode, StackedNode,
-            TileDragDestination, ToplevelNode, WorkspaceNode, toplevel_set_floating,
-            walker::NodeVisitor,
+            TileDragDestination, ToplevelNode, WorkspaceChangeReason, WorkspaceNode,
+            toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
@@ -799,6 +799,7 @@ impl Node for FloatNode {
         _seat: &Rc<WlSeatGlobal>,
         output: &Rc<OutputNode>,
         ws: Option<&Rc<WorkspaceNode>>,
+        _reason: WorkspaceChangeReason,
     ) {
         if ws.map(|ws| ws.id) == Some(self.workspace.get().id) {
             return;

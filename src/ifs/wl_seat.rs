@@ -85,8 +85,8 @@ use {
         state::{DeviceHandlerData, State},
         tree::{
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
-            NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceNode,
-            generic_node_visitor, toplevel_create_split, toplevel_parent_container,
+            NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceChangeReason,
+            WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
@@ -1718,7 +1718,8 @@ impl CursorUserOwner for WlSeatGlobal {
     }
 
     fn workspace_changed(self: Rc<Self>, on: &Rc<OutputNode>, ws: Option<&Rc<WorkspaceNode>>) {
-        self.pointer_owner.workspace_changed(&self, on, ws);
+        self.pointer_owner
+            .workspace_changed(&self, on, ws, WorkspaceChangeReason::OutputChanged);
     }
 }
 

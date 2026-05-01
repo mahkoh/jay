@@ -19,8 +19,8 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceChangeReason,
+            WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
             walker::NodeVisitor,
         },
         utils::{
@@ -1777,6 +1777,27 @@ impl Node for ContainerNode {
 
     fn node_make_visible(self: Rc<Self>) {
         self.toplevel_data.make_visible(&*self);
+    }
+
+    fn node_grab_workspace_changed(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        _on: &Rc<OutputNode>,
+        _ws: Option<&Rc<WorkspaceNode>>,
+        reason: WorkspaceChangeReason,
+    ) {
+        if reason != WorkspaceChangeReason::OutputChanged {
+            return;
+        }
+        let seats = self.cursors.borrow();
+        if let Some(seat_state) = seats.get(&CursorType::Seat(seat.id()))
+            && let Some(op) = &seat_state.op
+            && let SeatOpKind::Move = op.kind
+        {
+            let node = op.child.node.clone();
+            drop(seats);
+            seat.start_tile_drag(&node);
+        }
     }
 
     fn node_on_button(
