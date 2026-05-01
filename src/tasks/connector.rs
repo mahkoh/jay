@@ -258,9 +258,6 @@ impl ConnectorHandler {
             }
             let dummy = self.state.dummy_output.get().unwrap();
             for ws in dummy.workspaces.iter() {
-                if ws.is_dummy {
-                    continue;
-                }
                 ws_to_move.push_back(ws.deref().clone());
             }
         }
@@ -269,9 +266,6 @@ impl ConnectorHandler {
                 continue;
             }
             for ws in source.workspaces.iter() {
-                if ws.is_dummy {
-                    continue;
-                }
                 if ws.desired_output.get() == global.output_id {
                     ws_to_move.push_back(ws.deref().clone());
                 }

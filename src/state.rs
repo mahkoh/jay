@@ -1809,7 +1809,7 @@ impl State {
     }
 
     pub fn move_ws_to_output(&self, ws: &Rc<WorkspaceNode>, output: &Rc<OutputNode>) {
-        if ws.is_dummy || output.is_dummy {
+        if output.is_dummy {
             return;
         }
         if ws.output.id() == output.id {
@@ -2126,9 +2126,6 @@ impl State {
         self.root.clone().node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
             for ws in output.workspaces.iter() {
-                if ws.is_dummy {
-                    continue;
-                }
                 ws.deref().clone().node_visit(visitor);
             }
         }
