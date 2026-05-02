@@ -28,10 +28,10 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
+            ContainerSplit, Node, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
+            move_ws_to_output, toplevel_create_split, toplevel_parent_container,
+            toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -47,7 +47,8 @@ use {
     jay_config::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
-            WindowCriterionIpc, WindowCriterionStringField, WireMode, bincode_ops,
+            WindowCriterionIpc, WindowCriterionStringField, WireMode, WorkspaceShowOpV1,
+            bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace,
@@ -500,9 +501,7 @@ impl ConfigProxyHandler {
         seat: Seat,
         mode: FallbackOutputMode,
     ) -> Result<(), CphError> {
-        let Ok(mode) = mode.try_into() else {
-            return Err(CphError::UnknownFallbackOutputMode(mode));
-        };
+        let mode = map_fallback_output_mode(mode)?;
         let seat = self.get_seat(seat)?;
         seat.set_fallback_output_mode(mode);
         Ok(())
@@ -1069,6 +1068,101 @@ impl ConfigProxyHandler {
         let name = self.get_workspace(ws)?;
         let output = output.map(|o| self.get_output_node(o)).transpose()?;
         self.state.show_workspace(&seat, &name, output);
+        Ok(())
+    }
+
+    fn handle_show_workspace_3(&self, v1: WorkspaceShowOpV1) -> Result<(), CphError> {
+        let WorkspaceShowOpV1 {
+            workspace,
+            connector,
+            move_to_connector,
+            seat,
+            fallback_output_mode,
+            focus,
+        } = v1;
+        struct Params {
+            move_: bool,
+            ws: Rc<WorkspaceNode>,
+            output: Rc<OutputNode>,
+            seat: Option<Rc<WlSeatGlobal>>,
+        }
+        let Params {
+            move_,
+            ws,
+            output,
+            seat,
+        } = 'params: {
+            let get_output = || connector.map(|o| self.get_output_node(o)).transpose();
+            let mut seat_opt = None::<Option<_>>;
+            let get_seat = |seat_opt: &mut Option<Option<_>>| -> Result<_, CphError> {
+                Ok(match seat_opt {
+                    Some(s) => s.clone(),
+                    _ => seat_opt
+                        .insert(seat.map(|s| self.get_seat(s)).transpose()?)
+                        .clone(),
+                })
+            };
+            let get_output = |seat_opt| -> Result<_, CphError> {
+                let o = if let Some(o) = get_output()? {
+                    o
+                } else if let Some(s) = get_seat(seat_opt)? {
+                    let fom = fallback_output_mode
+                        .map(map_fallback_output_mode)
+                        .transpose()?;
+                    s.get_fallback_output2(fom)
+                } else {
+                    return Ok(None);
+                };
+                Ok(Some(o))
+            };
+            let name = self.get_workspace(workspace)?;
+            let mut seat = None;
+            if focus {
+                seat = get_seat(&mut seat_opt)?;
+            }
+            if let Some(ws) = self.state.workspaces.get(&*name) {
+                let mut output = ws.output.get();
+                if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
+                    output = o;
+                }
+                break 'params Params {
+                    move_: move_to_connector && ws.output.id() != output.id,
+                    ws,
+                    output,
+                    seat,
+                };
+            }
+            let Some(output) = get_output(&mut seat_opt)? else {
+                log::warn!("Workspace does not exist and no target output could be determined");
+                return Ok(());
+            };
+            Params {
+                move_: false,
+                ws: output.create_workspace(&name),
+                output,
+                seat,
+            }
+        };
+        if move_ {
+            move_ws_to_output(
+                &ws,
+                &output,
+                WsMoveConfig {
+                    make_visible_always: true,
+                    make_visible_if_empty: true,
+                    source_is_destroyed: false,
+                    before: None,
+                },
+            );
+            if let Some(seat) = &seat {
+                ws.node_do_focus(seat, crate::tree::Direction::Unspecified);
+            }
+        } else {
+            self.state.show_workspace2(seat.as_ref(), &output, &ws);
+        }
+        if let Some(seat) = &seat {
+            seat.maybe_schedule_warp_mouse_to_focus();
+        }
         Ok(())
     }
 
@@ -3477,6 +3571,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorCompositorOutput { connector } => {
                 self.handle_connector_compositor_output(connector)
             }
+            ClientMessage::ShowWorkspace3 { v1 } => {
+                self.handle_show_workspace_3(v1).wrn("show_workspace_3")?
+            }
         }
         Ok(())
     }
@@ -3654,4 +3751,11 @@ impl ClientCapabilitiesExt for ClientCapabilities {
     fn to_client_caps(self) -> ClientCaps {
         ClientCaps(self.0 as u32) & !CAP_JAY_COMPOSITOR & ClientCaps::all()
     }
+}
+
+fn map_fallback_output_mode(
+    fom: FallbackOutputMode,
+) -> Result<crate::ifs::wl_seat::FallbackOutputMode, CphError> {
+    fom.try_into()
+        .map_err(|_| CphError::UnknownFallbackOutputMode(fom))
 }

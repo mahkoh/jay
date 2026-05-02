@@ -150,6 +150,9 @@ pub enum Action {
     ShowWorkspace {
         name: String,
         output: Option<OutputMatch>,
+        move_to_output: Option<bool>,
+        fallback_output_mode: Option<FallbackOutputMode>,
+        focus: Option<bool>,
     },
     SimpleCommand {
         cmd: SimpleCommand,

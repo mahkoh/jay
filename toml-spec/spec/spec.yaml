@@ -321,7 +321,8 @@ Action:
             output:
               description: |
                 The output to show a newly created workspace on. This has no effect on
-                workspaces that already exist.
+                workspaces that already exist, except if move-to-output is also set to
+                `true`.
                 
                 If this is not set, then a new workspace is shown on the output that
                 contains the cursor.
@@ -330,6 +331,28 @@ Action:
                 output.
               required: false
               ref: OutputMatch
+            move-to-output:
+              description: |
+                Whether to move the workspace to the target output if it is not already on
+                that output.
+                
+                The default is `false`.
+              required: false
+              kind: boolean
+            fallback-output-mode:
+              description: |
+                The fallback output mode to use when no output is specified.
+                
+                The default is determined by the top-level `fallback-output-mode` setting.
+              required: false
+              ref: FallbackOutputMode
+            focus:
+              description: |
+                Whether the workspace grabs the focus.
+                
+                The default is `true`.
+              required: false
+              kind: boolean
         move-to-workspace:
           description: |
             Moves the currently focused window to a workspace.

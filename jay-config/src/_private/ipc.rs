@@ -1,6 +1,8 @@
 use {
     crate::{
-        _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode},
+        _private::{
+            ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode, WorkspaceShowOpV1,
+        },
         Axis, Direction, PciId, Workspace,
         client::{Client, ClientCapabilities, ClientMatcher},
         input::{
@@ -32,6 +34,7 @@ impl ServerFeature {
     pub const NONE: Self = Self(0);
     pub const MOD_MASK: Self = Self(1);
     pub const SHOW_WORKSPACE_ON: Self = Self(2);
+    pub const SHOW_WORKSPACE_3: Self = Self(3);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -886,6 +889,9 @@ pub enum ClientMessage<'a> {
     },
     ConnectorCompositorOutput {
         connector: Connector,
+    },
+    ShowWorkspace3 {
+        v1: WorkspaceShowOpV1,
     },
 }
 

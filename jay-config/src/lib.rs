@@ -43,12 +43,13 @@
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 
-#[expect(unused_imports)]
-use crate::input::Seat;
-
 use {
     crate::{
-        _private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector, window::Window,
+        _private::{WorkspaceShowOpV1, ipc::WorkspaceSource},
+        input::{FallbackOutputMode, Seat},
+        keyboard::ModifiedKeySym,
+        video::Connector,
+        window::Window,
     },
     serde::{Deserialize, Serialize},
     std::{
@@ -193,6 +194,22 @@ impl Workspace {
     pub fn connector(self) -> Connector {
         get!(Connector(0)).get_workspace_connector(self)
     }
+
+    /// Creates an operation to show this workspace.
+    ///
+    /// Does nothing until [`WorkspaceShowOp::exec`] is called.
+    pub fn show(self) -> WorkspaceShowOp {
+        WorkspaceShowOp {
+            v1: WorkspaceShowOpV1 {
+                workspace: self,
+                connector: None,
+                move_to_connector: false,
+                seat: None,
+                fallback_output_mode: None,
+                focus: true,
+            },
+        }
+    }
 }
 
 /// Returns the workspace with the given name.
@@ -201,6 +218,66 @@ impl Workspace {
 /// workspace if it doesn't already exist.
 pub fn get_workspace(name: &str) -> Workspace {
     get!(Workspace(0)).get_workspace(name)
+}
+
+/// An operation to show a workspace.
+///
+/// Create this using [`Workspace::show`].
+#[must_use]
+pub struct WorkspaceShowOp {
+    v1: WorkspaceShowOpV1,
+}
+
+impl WorkspaceShowOp {
+    /// Runs this operation.
+    pub fn exec(self) {
+        get!().show_workspace_3(self);
+    }
+
+    /// The connector on which to show the workspace.
+    ///
+    /// If the workspace does not already exist, it will be shown on this connector.
+    /// Otherwise, see [`WorkspaceShowOp::move_to_connector`].
+    ///
+    /// By default, this workspace is determined via the [`WorkspaceShowOp::seat`].
+    pub fn connector(mut self, c: Connector) -> Self {
+        self.v1.connector = Some(c);
+        self
+    }
+
+    /// Whether to move the workspace to the target connector if it already exists.
+    ///
+    /// The default is `false`.
+    pub fn move_to_connector(mut self, move_to_connector: bool) -> Self {
+        self.v1.move_to_connector = move_to_connector;
+        self
+    }
+
+    /// The reference seat.
+    ///
+    /// If no connector was explicitly set, this seat will be used to determine the target
+    /// output.
+    pub fn seat(mut self, s: Seat) -> Self {
+        self.v1.seat = Some(s);
+        self
+    }
+
+    /// The fallback output mode to use when the target output is determined via the
+    /// [WorkspaceShowOp::seat].
+    ///
+    /// The default is determined via [`Seat::set_fallback_output_mode`].
+    pub fn fallback_output_mode(mut self, mode: FallbackOutputMode) -> Self {
+        self.v1.fallback_output_mode = Some(mode);
+        self
+    }
+
+    /// Whether the workspace should grab the focus of the [`WorkspaceShowOp::seat`].
+    ///
+    /// The default is `true`.
+    pub fn focus(mut self, focus: bool) -> Self {
+        self.v1.focus = focus;
+        self
+    }
 }
 
 /// A PCI ID.

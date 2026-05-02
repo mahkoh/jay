@@ -31,6 +31,49 @@ alt-F1 = {
 }
 ```
 
+The `show-workspace` action supports several optional fields:
+
+`output`
+: The output to create a new workspace on. Has no effect on workspaces that
+  already exist unless `move-to-output` is also set to `true`. If multiple
+  outputs match, the first match is used.
+
+`move-to-output`
+: Whether to move the workspace to the target output if it already exists on a
+  different output. Default: `false`.
+
+`focus`
+: Whether the workspace grabs the keyboard focus. Default: `true`.
+
+`fallback-output-mode`
+: Which output to use when no explicit `output` is specified. Either `"cursor"`
+  or `"focus"`. Default: the global
+  [fallback-output-mode](configuration/misc.md#fallback-output-mode) setting.
+
+For example, to always show a workspace on a specific output, moving it there
+if necessary:
+
+```toml
+[shortcuts]
+alt-F1 = {
+    type = "show-workspace",
+    name = "1",
+    output.name = "left",
+    move-to-output = true,
+}
+```
+
+To switch to a workspace without changing focus:
+
+```toml
+[shortcuts]
+alt-F1 = {
+    type = "show-workspace",
+    name = "1",
+    focus = false,
+}
+```
+
 You can also scroll over the bar to cycle through workspaces on that output.
 
 ## Moving Windows to Workspaces

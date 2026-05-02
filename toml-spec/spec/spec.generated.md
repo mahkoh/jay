@@ -257,7 +257,8 @@ This table is a tagged union. The variant is determined by the `type` field. It 
   - `output` (optional):
 
     The output to show a newly created workspace on. This has no effect on
-    workspaces that already exist.
+    workspaces that already exist, except if move-to-output is also set to
+    `true`.
     
     If this is not set, then a new workspace is shown on the output that
     contains the cursor.
@@ -266,6 +267,31 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     output.
 
     The value of this field should be a [OutputMatch](#types-OutputMatch).
+
+  - `move-to-output` (optional):
+
+    Whether to move the workspace to the target output if it is not already on
+    that output.
+    
+    The default is `false`.
+
+    The value of this field should be a boolean.
+
+  - `fallback-output-mode` (optional):
+
+    The fallback output mode to use when no output is specified.
+    
+    The default is determined by the top-level `fallback-output-mode` setting.
+
+    The value of this field should be a [FallbackOutputMode](#types-FallbackOutputMode).
+
+  - `focus` (optional):
+
+    Whether the workspace grabs the focus.
+    
+    The default is `true`.
+
+    The value of this field should be a boolean.
 
 - `move-to-workspace`:
 

@@ -262,7 +262,13 @@ impl Action {
             }
             Action::Exec { exec } => b.new(move || create_command(&exec).spawn()),
             Action::SwitchToVt { num } => b.new(move || switch_to_vt(num)),
-            Action::ShowWorkspace { name, output } => {
+            Action::ShowWorkspace {
+                name,
+                output,
+                move_to_output,
+                fallback_output_mode,
+                focus,
+            } => {
                 let workspace = get_workspace(&name);
                 let state = state.clone();
                 b.new(move || {
@@ -271,16 +277,26 @@ impl Action {
                             break 'get_output None;
                         };
                         for connector in connectors() {
-                            if connector.connected() && output.matches(connector, &state) {
+                            if connector.compositor_output() && output.matches(connector, &state) {
                                 break 'get_output Some(connector);
                             }
                         }
                         None
                     };
-                    match output {
-                        Some(o) => s.show_workspace_on(workspace, o),
-                        _ => s.show_workspace(workspace),
+                    let mut op = workspace.show().seat(s);
+                    if let Some(v) = output {
+                        op = op.connector(v);
                     }
+                    if let Some(v) = move_to_output {
+                        op = op.move_to_connector(v);
+                    }
+                    if let Some(v) = focus {
+                        op = op.focus(v);
+                    }
+                    if let Some(v) = fallback_output_mode {
+                        op = op.fallback_output_mode(v);
+                    }
+                    op.exec();
                 })
             }
             Action::MoveToWorkspace { name } => {

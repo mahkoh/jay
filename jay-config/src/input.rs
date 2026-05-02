@@ -435,6 +435,8 @@ impl Seat {
     ///
     /// If the workspace doesn't currently exist, it is created on the output that contains the
     /// seat's cursor.
+    ///
+    /// See also [`Workspace::show`].
     pub fn show_workspace(self, workspace: Workspace) {
         get!().show_workspace(self, workspace)
     }
@@ -444,6 +446,8 @@ impl Seat {
     /// If the workspace doesn't currently exist and the connector is connected, the
     /// workspace is created on the given connector. If the connector is not connected,
     /// the workspace is created on the output that contains the seat's cursor.
+    ///
+    /// See also [`Workspace::show`].
     pub fn show_workspace_on(self, workspace: Workspace, connector: Connector) {
         get!().show_workspace_on(self, workspace, connector)
     }

@@ -12,6 +12,7 @@ use {
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
                 env::{EnvParser, EnvParserError},
                 exec::{ExecParser, ExecParserError},
+                fallback_output_mode::{FallbackOutputModeParser, FallbackOutputModeParserError},
                 gfx_api::{GfxApiParser, GfxApiParserError},
                 idle::{IdleParser, IdleParserError},
                 input::{InputParser, InputParserError},
@@ -89,11 +90,19 @@ pub enum ActionParserError {
     #[error("Could not parse a copy-mark action")]
     CopyMark(#[source] MarkIdParserError),
     #[error("Could not parse a show-workspace action")]
-    ShowWorkspace(#[source] OutputMatchParserError),
+    ShowWorkspace(#[from] ShowWorkspaceError),
     #[error("Unknown direction {0}")]
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
     OutputAndDirectionMutuallyExclusive,
+}
+
+#[derive(Debug, Error)]
+pub enum ShowWorkspaceError {
+    #[error(transparent)]
+    OutputMatchParser(OutputMatchParserError),
+    #[error(transparent)]
+    FallbackOutputModeParser(FallbackOutputModeParserError),
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -200,15 +209,35 @@ impl ActionParser<'_> {
     }
 
     fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let (name, output) = ext.extract((str("name"), opt(val("output"))))?;
+        let (name, output, move_to_output, fallback_output_mode, focus) = ext.extract((
+            str("name"),
+            opt(val("output")),
+            opt(bol("move-to-output")),
+            opt(val("fallback-output-mode")),
+            opt(bol("focus")),
+        ))?;
         let name = name.value.to_string();
         let output = output
             .map(|o| {
                 o.parse_map(&mut OutputMatchParser(self.0))
+                    .map_spanned_err(ShowWorkspaceError::OutputMatchParser)
                     .map_spanned_err(ActionParserError::ShowWorkspace)
             })
             .transpose()?;
-        Ok(Action::ShowWorkspace { name, output })
+        let fallback_output_mode = fallback_output_mode
+            .map(|o| {
+                o.parse(&mut FallbackOutputModeParser)
+                    .map_spanned_err(ShowWorkspaceError::FallbackOutputModeParser)
+                    .map_spanned_err(ActionParserError::ShowWorkspace)
+            })
+            .transpose()?;
+        Ok(Action::ShowWorkspace {
+            name,
+            output,
+            move_to_output: move_to_output.despan(),
+            fallback_output_mode,
+            focus: focus.despan(),
+        })
     }
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {

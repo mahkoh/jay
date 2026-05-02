@@ -543,7 +543,11 @@ impl WlSeatGlobal {
     }
 
     pub fn get_fallback_output(&self) -> Rc<OutputNode> {
-        if self.fallback_output_mode.get() == FallbackOutputMode::Focus
+        self.get_fallback_output2(None)
+    }
+
+    pub fn get_fallback_output2(&self, mode: Option<FallbackOutputMode>) -> Rc<OutputNode> {
+        if mode.unwrap_or(self.fallback_output_mode.get()) == FallbackOutputMode::Focus
             && let Some(output) = self.get_keyboard_output()
         {
             return output;
