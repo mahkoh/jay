@@ -1642,6 +1642,18 @@ impl ConfigClient {
         })
     }
 
+    pub fn get_seat_cursor_connector(&self, seat: Seat) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetSeatCursorConnector { seat });
+        get_response!(res, Connector(0), GetSeatConnector { connector });
+        connector
+    }
+
+    pub fn get_seat_keyboard_connector(&self, seat: Seat) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetSeatKeyboardConnector { seat });
+        get_response!(res, Connector(0), GetSeatConnector { connector });
+        connector
+    }
+
     pub fn get_socket_path(&self) -> Option<String> {
         let res = self.send_with_response(&ClientMessage::GetSocketPath);
         get_response!(res, None, GetSocketPath { path });

@@ -664,6 +664,20 @@ impl Seat {
     pub fn unstable_set_mouse_follows_focus(self, enabled: bool) {
         get!().seat_set_mouse_follows_focus(self, enabled)
     }
+
+    /// Returns the output that contains the seat's cursor.
+    ///
+    /// If no such connector exists, `exists` returns `false` for the returned connector.
+    pub fn get_cursor_connector(self) -> Connector {
+        get!(Connector(0)).get_seat_cursor_connector(self)
+    }
+
+    /// Returns the output that contains the seat's keyboard focus.
+    ///
+    /// If no such connector exists, `exists` returns `false` for the returned connector.
+    pub fn get_keyboard_connector(self) -> Connector {
+        get!(Connector(0)).get_seat_keyboard_connector(self)
+    }
 }
 
 /// A focus-follows-mouse mode.

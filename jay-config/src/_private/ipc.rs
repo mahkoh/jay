@@ -878,6 +878,12 @@ pub enum ClientMessage<'a> {
     SetSessionManagementEnabled {
         enabled: bool,
     },
+    GetSeatCursorConnector {
+        seat: Seat,
+    },
+    GetSeatKeyboardConnector {
+        seat: Seat,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1130,6 +1136,9 @@ pub enum Response {
     },
     ConnectorSupportsArbitraryModes {
         supports_arbitrary_modes: bool,
+    },
+    GetSeatConnector {
+        connector: Connector,
     },
 }
 

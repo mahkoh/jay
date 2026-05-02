@@ -2758,6 +2758,30 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_seat_connector(
+        &self,
+        seat: Seat,
+        get: impl FnOnce(&WlSeatGlobal) -> Option<Rc<OutputNode>>,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let mut connector = Connector(0);
+        if let Some(output) = get(&seat)
+            && !output.is_dummy
+        {
+            connector = Connector(output.global.connector.id.raw() as u64);
+        }
+        self.respond(Response::GetSeatConnector { connector });
+        Ok(())
+    }
+
+    fn handle_get_seat_cursor_connector(&self, seat: Seat) -> Result<(), CphError> {
+        self.handle_get_seat_connector(seat, |s| Some(s.get_cursor_output()))
+    }
+
+    fn handle_get_seat_keyboard_connector(&self, seat: Seat) -> Result<(), CphError> {
+        self.handle_get_seat_connector(seat, |s| s.get_keyboard_output())
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3435,6 +3459,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetSessionManagementEnabled { enabled } => {
                 self.handle_set_session_management_enabled(enabled)
             }
+            ClientMessage::GetSeatCursorConnector { seat } => self
+                .handle_get_seat_cursor_connector(seat)
+                .wrn("get_seat_cursor_connector")?,
+            ClientMessage::GetSeatKeyboardConnector { seat } => self
+                .handle_get_seat_keyboard_connector(seat)
+                .wrn("get_seat_keyboard_connector")?,
         }
         Ok(())
     }
