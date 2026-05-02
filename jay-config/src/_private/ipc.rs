@@ -884,6 +884,9 @@ pub enum ClientMessage<'a> {
     GetSeatKeyboardConnector {
         seat: Seat,
     },
+    ConnectorCompositorOutput {
+        connector: Connector,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1139,6 +1142,9 @@ pub enum Response {
     },
     GetSeatConnector {
         connector: Connector,
+    },
+    ConnectorCompositorOutput {
+        compositor_output: bool,
     },
 }
 

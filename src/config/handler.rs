@@ -2782,6 +2782,15 @@ impl ConfigProxyHandler {
         self.handle_get_seat_connector(seat, |s| s.get_keyboard_output())
     }
 
+    fn handle_connector_compositor_output(&self, connector: Connector) {
+        let compositor_output = self
+            .state
+            .root
+            .outputs
+            .contains(&ConnectorId::from_raw(connector.0 as _));
+        self.respond(Response::ConnectorCompositorOutput { compositor_output });
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3465,6 +3474,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetSeatKeyboardConnector { seat } => self
                 .handle_get_seat_keyboard_connector(seat)
                 .wrn("get_seat_keyboard_connector")?,
+            ClientMessage::ConnectorCompositorOutput { connector } => {
+                self.handle_connector_compositor_output(connector)
+            }
         }
         Ok(())
     }

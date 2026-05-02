@@ -1146,6 +1146,12 @@ impl ConfigClient {
         connected
     }
 
+    pub fn connector_compositor_output(&self, connector: Connector) -> bool {
+        let res = self.send_with_response(&ClientMessage::ConnectorCompositorOutput { connector });
+        get_response!(res, false, ConnectorCompositorOutput { compositor_output });
+        compositor_output
+    }
+
     pub fn connector_set_scale(&self, connector: Connector, scale: f64) {
         self.send(&ClientMessage::ConnectorSetScale { connector, scale });
     }
