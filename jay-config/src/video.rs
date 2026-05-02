@@ -80,6 +80,11 @@ impl Connector {
         get!(false).connector_connected(self)
     }
 
+    /// Returns whether this connector is used as an output by the compositor.
+    pub fn compositor_output(self) -> bool {
+        get!(false).connector_compositor_output(self)
+    }
+
     /// Returns the scale of the currently connected monitor.
     pub fn scale(self) -> f64 {
         if !self.exists() {

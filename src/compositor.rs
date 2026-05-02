@@ -251,6 +251,7 @@ fn start_compositor2(
         connector_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
         workspaces: Default::default(),
+        dummy_output_id: node_ids.next(),
         dummy_output: Default::default(),
         node_ids,
         backend_events: AsyncQueue::new(),
@@ -753,7 +754,7 @@ fn create_dummy_output(state: &Rc<State>) {
         &persistent_state,
     ));
     let dummy_output = Rc::new(OutputNode {
-        id: state.node_ids.next(),
+        id: state.dummy_output_id,
         global: Rc::new(WlOutputGlobal::new(
             state.globals.name(),
             state,

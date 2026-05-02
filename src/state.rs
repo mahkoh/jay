@@ -107,9 +107,10 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, Node, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
-            PlaceholderNode, TearingMode, TileState, ToplevelData, ToplevelIdentifier,
-            ToplevelNode, ToplevelNodeBase, Transform, VrrMode, WorkspaceDisplayOrder,
-            WorkspaceNode, WsMoveConfig, generic_node_visitor, move_ws_to_output,
+            OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
+            ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, VrrMode,
+            WorkspaceDisplayOrder, WorkspaceNode, WsMoveConfig, generic_node_visitor,
+            move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -182,6 +183,7 @@ pub struct State {
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
     pub workspaces: CopyHashMap<String, Rc<WorkspaceNode>>,
+    pub dummy_output_id: OutputNodeId,
     pub dummy_output: CloneCell<Option<Rc<OutputNode>>>,
     pub backend_events: AsyncQueue<BackendEvent>,
     pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,

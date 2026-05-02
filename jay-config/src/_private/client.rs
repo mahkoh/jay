@@ -11,7 +11,7 @@ use {
             },
             logging,
         },
-        Axis, Direction, ModifiedKeySym, PciId, Workspace,
+        Axis, Direction, ModifiedKeySym, PciId, Workspace, WorkspaceShowOp,
         client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
@@ -124,6 +124,7 @@ pub(crate) struct ConfigClient {
 
     feat_mod_mask: Cell<bool>,
     feat_show_workspace_on: Cell<bool>,
+    feat_show_workspace_3: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -269,6 +270,7 @@ pub unsafe extern "C" fn init(
         window_match_handlers: Default::default(),
         feat_mod_mask: Cell::new(false),
         feat_show_workspace_on: Cell::new(false),
+        feat_show_workspace_3: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -621,6 +623,22 @@ impl ConfigClient {
             });
         } else {
             self.show_workspace(seat, workspace);
+        }
+    }
+
+    pub fn show_workspace_3(&self, op: WorkspaceShowOp) {
+        if self.feat_show_workspace_3.get() {
+            self.send(&ClientMessage::ShowWorkspace3 { v1: op.v1 });
+        } else if let Some(seat) = op.v1.seat {
+            if let Some(connector) = op.v1.connector {
+                self.show_workspace_on(seat, op.v1.workspace, connector);
+            } else {
+                self.show_workspace(seat, op.v1.workspace);
+            }
+        } else {
+            log::error!(
+                "Compositor does not support show_workspace_3 feature and no seat was provided"
+            );
         }
     }
 
@@ -1146,6 +1164,12 @@ impl ConfigClient {
         connected
     }
 
+    pub fn connector_compositor_output(&self, connector: Connector) -> bool {
+        let res = self.send_with_response(&ClientMessage::ConnectorCompositorOutput { connector });
+        get_response!(res, false, ConnectorCompositorOutput { compositor_output });
+        compositor_output
+    }
+
     pub fn connector_set_scale(&self, connector: Connector, scale: f64) {
         self.send(&ClientMessage::ConnectorSetScale { connector, scale });
     }
@@ -1640,6 +1664,18 @@ impl ConfigClient {
             file,
             line,
         })
+    }
+
+    pub fn get_seat_cursor_connector(&self, seat: Seat) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetSeatCursorConnector { seat });
+        get_response!(res, Connector(0), GetSeatConnector { connector });
+        connector
+    }
+
+    pub fn get_seat_keyboard_connector(&self, seat: Seat) -> Connector {
+        let res = self.send_with_response(&ClientMessage::GetSeatKeyboardConnector { seat });
+        get_response!(res, Connector(0), GetSeatConnector { connector });
+        connector
     }
 
     pub fn get_socket_path(&self) -> Option<String> {
@@ -2271,6 +2307,7 @@ impl ConfigClient {
                         ServerFeature::NONE => {}
                         ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
                         ServerFeature::SHOW_WORKSPACE_ON => self.feat_show_workspace_on.set(true),
+                        ServerFeature::SHOW_WORKSPACE_3 => self.feat_show_workspace_3.set(true),
                         _ => {}
                     }
                 }

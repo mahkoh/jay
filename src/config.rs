@@ -295,7 +295,11 @@ impl ConfigProxy {
 
     pub fn configure(&self, reload: bool) {
         self.send(&ServerMessage::Features {
-            features: vec![ServerFeature::MOD_MASK, ServerFeature::SHOW_WORKSPACE_ON],
+            features: vec![
+                ServerFeature::MOD_MASK,
+                ServerFeature::SHOW_WORKSPACE_ON,
+                ServerFeature::SHOW_WORKSPACE_3,
+            ],
         });
         self.send(&ServerMessage::Configure { reload });
     }

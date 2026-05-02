@@ -6,8 +6,8 @@ use {
     crate::{
         Workspace,
         client::ClientMatcher,
-        input::Seat,
-        video::Mode,
+        input::{FallbackOutputMode, Seat},
+        video::{Connector, Mode},
         window::{ContentType, WindowMatcher, WindowType},
     },
     bincode::Options,
@@ -131,4 +131,14 @@ pub enum WindowCriterionStringField {
     XInstance,
     XRole,
     Workspace,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct WorkspaceShowOpV1 {
+    pub workspace: Workspace,
+    pub connector: Option<Connector>,
+    pub move_to_connector: bool,
+    pub seat: Option<Seat>,
+    pub fallback_output_mode: Option<FallbackOutputMode>,
+    pub focus: bool,
 }

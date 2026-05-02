@@ -136,8 +136,20 @@
                   "description": "The name of the workspace."
                 },
                 "output": {
-                  "description": "The output to show a newly created workspace on. This has no effect on\nworkspaces that already exist.\n\nIf this is not set, then a new workspace is shown on the output that\ncontains the cursor.\n\nIf multiple outputs match, the workspace is shown on the first matching\noutput.\n",
+                  "description": "The output to show a newly created workspace on. This has no effect on\nworkspaces that already exist, except if move-to-output is also set to\n`true`.\n\nIf this is not set, then a new workspace is shown on the output that\ncontains the cursor.\n\nIf multiple outputs match, the workspace is shown on the first matching\noutput.\n",
                   "$ref": "#/$defs/OutputMatch"
+                },
+                "move-to-output": {
+                  "type": "boolean",
+                  "description": "Whether to move the workspace to the target output if it is not already on\nthat output.\n\nThe default is `false`.\n"
+                },
+                "fallback-output-mode": {
+                  "description": "The fallback output mode to use when no output is specified.\n\nThe default is determined by the top-level `fallback-output-mode` setting.\n",
+                  "$ref": "#/$defs/FallbackOutputMode"
+                },
+                "focus": {
+                  "type": "boolean",
+                  "description": "Whether the workspace grabs the focus.\n\nThe default is `true`.\n"
                 }
               },
               "required": [

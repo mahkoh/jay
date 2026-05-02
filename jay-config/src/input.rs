@@ -435,6 +435,8 @@ impl Seat {
     ///
     /// If the workspace doesn't currently exist, it is created on the output that contains the
     /// seat's cursor.
+    ///
+    /// See also [`Workspace::show`].
     pub fn show_workspace(self, workspace: Workspace) {
         get!().show_workspace(self, workspace)
     }
@@ -444,6 +446,8 @@ impl Seat {
     /// If the workspace doesn't currently exist and the connector is connected, the
     /// workspace is created on the given connector. If the connector is not connected,
     /// the workspace is created on the output that contains the seat's cursor.
+    ///
+    /// See also [`Workspace::show`].
     pub fn show_workspace_on(self, workspace: Workspace, connector: Connector) {
         get!().show_workspace_on(self, workspace, connector)
     }
@@ -663,6 +667,20 @@ impl Seat {
     #[deprecated = "This setting is unstable and might be removed in the future"]
     pub fn unstable_set_mouse_follows_focus(self, enabled: bool) {
         get!().seat_set_mouse_follows_focus(self, enabled)
+    }
+
+    /// Returns the output that contains the seat's cursor.
+    ///
+    /// If no such connector exists, `exists` returns `false` for the returned connector.
+    pub fn get_cursor_connector(self) -> Connector {
+        get!(Connector(0)).get_seat_cursor_connector(self)
+    }
+
+    /// Returns the output that contains the seat's keyboard focus.
+    ///
+    /// If no such connector exists, `exists` returns `false` for the returned connector.
+    pub fn get_keyboard_connector(self) -> Connector {
+        get!(Connector(0)).get_seat_keyboard_connector(self)
     }
 }
 
