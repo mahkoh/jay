@@ -2487,6 +2487,12 @@ The table has the following fields:
 
   The value of this field should be a [Egui](#types-Egui).
 
+- `workspaces` (optional):
+
+  The workspaces.
+
+  The value of this field should be a table whose values are [Workspaces](#types-Workspace).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -5666,6 +5672,16 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [WindowTypeMask](#types-WindowTypeMask).
+
+
+<a name="types-Workspace"></a>
+### `Workspace`
+
+The settings of a workspace.
+
+Values of this type should be tables.
+
+The table has the following fields:
 
 
 <a name="types-WorkspaceDisplayOrder"></a>

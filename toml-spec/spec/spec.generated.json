@@ -1193,6 +1193,14 @@
         "egui": {
           "description": "Sets the egui settings of the compositor.\n",
           "$ref": "#/$defs/Egui"
+        },
+        "workspaces": {
+          "description": "The workspaces.\n",
+          "type": "object",
+          "additionalProperties": {
+            "description": "",
+            "$ref": "#/$defs/Workspace"
+          }
         }
       },
       "required": []
@@ -2528,6 +2536,12 @@
           }
         }
       ]
+    },
+    "Workspace": {
+      "description": "The settings of a workspace.\n",
+      "type": "object",
+      "properties": {},
+      "required": []
     },
     "WorkspaceDisplayOrder": {
       "type": "string",
