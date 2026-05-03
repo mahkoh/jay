@@ -49,8 +49,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
-            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
-            WorkspaceType, walker::NodeVisitor,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceType,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1411,7 +1411,7 @@ impl OutputNode {
 
     pub fn workspace_drag_destination(
         self: &Rc<Self>,
-        source: WorkspaceNodeId,
+        source: &WorkspaceNode,
         x_abs: i32,
         y_abs: i32,
     ) -> Option<WorkspaceDragDestination> {
@@ -1424,7 +1424,7 @@ impl OutputNode {
         }
         let bar_rect = self.bar_rect.get();
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            if self.workspaces.iter().any(|ws| ws.id == source) {
+            if self.workspaces.iter().any(|ws| ws.id == source.id) {
                 return None;
             }
             return Some(WorkspaceDragDestination {
@@ -1438,7 +1438,7 @@ impl OutputNode {
         let mut prev_is_source = false;
         let mut prev_center = 0;
         for t in &rd.titles {
-            if t.ws.id == source {
+            if t.ws.id == source.id {
                 prev_is_source = true;
                 continue;
             }

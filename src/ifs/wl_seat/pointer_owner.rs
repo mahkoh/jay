@@ -1725,7 +1725,7 @@ impl UiDragUsecase for WorkspaceDragUsecase {
         let dest =
             seat.state
                 .root
-                .workspace_drag_destination(self.ws.id, x.round_down(), y.round_down());
+                .workspace_drag_destination(&self.ws, x.round_down(), y.round_down());
         match dest {
             None => {
                 self.destination.take();
