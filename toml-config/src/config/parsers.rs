@@ -53,6 +53,7 @@ mod vrr;
 mod window_match;
 mod window_rule;
 mod window_type;
+pub mod workspace;
 mod workspace_display_order;
 mod xwayland;
 

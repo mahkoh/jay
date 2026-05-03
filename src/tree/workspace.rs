@@ -37,6 +37,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    linearize::Linearize,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -50,9 +51,15 @@ tree_id!(WorkspaceNodeId);
 
 hash_type!(WorkspaceNameHash);
 
+#[derive(Copy, Clone, Linearize, Eq, PartialEq, Debug)]
+pub enum WorkspaceType {
+    Normal,
+}
+
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
+    pub ty: WorkspaceType,
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
@@ -84,10 +91,11 @@ impl ObjWithId for Rc<WorkspaceNode> {
 }
 
 impl WorkspaceNode {
-    pub fn new(output: &Rc<OutputNode>, name: &str) -> Rc<Self> {
+    pub fn new(output: &Rc<OutputNode>, name: &str, ty: WorkspaceType) -> Rc<Self> {
         let slf = Rc::new(Self {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
+            ty,
             output: ObjAndId::new(output.clone()),
             position: Default::default(),
             container: Default::default(),
@@ -570,7 +578,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             .find(|c| c.id != ws.id)
             .map(|c| (*c).clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
-            new_source_ws = Some(source.generate_workspace());
+            new_source_ws = Some(source.generate_normal_workspace());
         }
     }
     for user in source.cursor_users.lock().values() {

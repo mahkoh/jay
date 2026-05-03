@@ -104,3 +104,7 @@ event placeholder_for {
 event content_type (since = 20) {
     ty: str,
 }
+
+event workspace_type (since = 31) {
+    ty: str,
+}

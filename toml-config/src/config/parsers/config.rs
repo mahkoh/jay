@@ -40,6 +40,7 @@ use {
                 ui_drag::UiDragParser,
                 vrr::VrrParser,
                 window_rule::WindowRulesParser,
+                workspace::WorkspacesParser,
                 workspace_display_order::WorkspaceDisplayOrderParser,
                 xwayland::XwaylandParser,
             },
@@ -157,7 +158,7 @@ impl Parser for ConfigParser<'_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
-            (session_management_val,),
+            (session_management_val, workspaces_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -219,7 +220,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("clean-logs-older-than")),
                 recover(opt(bol("unstable-mouse-follows-focus"))),
             ),
-            (opt(val("session-management")),),
+            (opt(val("session-management")), opt(val("workspaces"))),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -581,6 +582,11 @@ impl Parser for ConfigParser<'_> {
                         self.0.error(e)
                     );
                 }
+            }
+        }
+        if let Some(value) = workspaces_val {
+            if let Err(e) = value.parse(&mut WorkspacesParser(self.0)) {
+                log::warn!("Could not parse the workspaces: {}", self.0.error(e),);
             }
         }
         Ok(Config {

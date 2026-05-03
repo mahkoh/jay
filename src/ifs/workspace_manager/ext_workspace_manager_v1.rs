@@ -273,7 +273,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(output) = output.node() else {
                         return Ok(());
                     };
-                    output.create_workspace(&name);
+                    output.create_normal_workspace(&name);
                 }
             }
         }

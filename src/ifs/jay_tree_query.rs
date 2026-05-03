@@ -17,10 +17,13 @@ use {
         tree::{
             self, ContainerNode, DisplayNode, FloatNode, Node, NodeVisitor, OutputNode,
             PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
-            WorkspaceNode,
+            WorkspaceNode, WorkspaceType,
         },
         utils::{opaque::OpaqueError, opt::Opt},
-        wire::{JayTreeQueryId, jay_tree_query::*},
+        wire::{
+            JayTreeQueryId,
+            jay_tree_query::{self, *},
+        },
     },
     isnt::std_1::primitive::IsntStrExt,
     std::{
@@ -45,6 +48,8 @@ pub const TREE_TY_LAYER_SURFACE: u32 = 10;
 pub const TREE_TY_LOCK_SURFACE: u32 = 11;
 
 const CONTENT_TYPE_SINCE: Version = Version(20);
+
+const WORKSPACE_TYPE_SINCE: Version = Version(31);
 
 pub struct JayTreeQuery {
     pub id: JayTreeQueryId,
@@ -121,6 +126,16 @@ impl JayTreeQuery {
         self.client.event(WorkspaceName {
             self_id: self.id,
             name,
+        });
+    }
+
+    fn send_workspace_type(&self, ty: WorkspaceType) {
+        let ty = match ty {
+            WorkspaceType::Normal => "normal",
+        };
+        self.client.event(jay_tree_query::WorkspaceType {
+            self_id: self.id,
+            ty,
         });
     }
 
@@ -416,6 +431,9 @@ impl tree::NodeVisitorBase for Visitor<'_> {
         let o = node.output.get();
         if !o.is_dummy {
             s.send_output_name(&o.global.connector.name);
+        }
+        if self.0.version >= WORKSPACE_TYPE_SINCE {
+            s.send_workspace_type(node.ty);
         }
         for stacked in node.stacked.iter() {
             if stacked.stacked_is_xdg_popup() {

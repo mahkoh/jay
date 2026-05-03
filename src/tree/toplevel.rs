@@ -29,7 +29,7 @@ use {
         state::State,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
-            NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode,
+            NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
         },
         utils::{
             array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -160,6 +160,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
+        data.workspace_type.set(Some(ws.ty));
         let prev = data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
         self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
@@ -411,6 +412,7 @@ pub struct ToplevelData {
     pub self_or_ancestor_is_fullscreen: Cell<bool>,
     pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    pub workspace_type: Cell<Option<WorkspaceType>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub mapped_during_iteration: Cell<u64>,
@@ -470,6 +472,7 @@ impl ToplevelData {
             self_or_ancestor_is_fullscreen: Default::default(),
             fullscrceen_data: Default::default(),
             workspace: Default::default(),
+            workspace_type: Default::default(),
             title: RefCell::new(title),
             parent: Default::default(),
             mapped_during_iteration: Cell::new(0),
@@ -598,6 +601,7 @@ impl ToplevelData {
         }
         self.float.take();
         self.workspace.take();
+        self.workspace_type.take();
         self.seat_state.destroy_node(node);
         self.is_root_container.set(false);
     }
@@ -942,13 +946,18 @@ impl ToplevelData {
     }
 
     pub fn node_layer(&self) -> NodeLayerLink {
+        let ty = self.workspace_type.get().unwrap_or(WorkspaceType::Normal);
         if self.self_or_ancestor_is_fullscreen.get() {
-            return NodeLayerLink::Fullscreen;
+            return match ty {
+                WorkspaceType::Normal => NodeLayerLink::Fullscreen,
+            };
         }
         if let Some(float) = self.float.get() {
             return float.node_layer();
         }
-        NodeLayerLink::Tiled
+        match ty {
+            WorkspaceType::Normal => NodeLayerLink::Tiled,
+        }
     }
 
     pub fn property_changed_source(&self) -> &Rc<LazyEventSource> {

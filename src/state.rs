@@ -109,8 +109,8 @@ use {
             FoundNode, LatchListener, Node, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, VrrMode,
-            WorkspaceDisplayOrder, WorkspaceNode, WsMoveConfig, generic_node_visitor,
-            move_ws_to_output,
+            WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
+            generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -844,7 +844,7 @@ impl State {
     }
 
     pub fn ensure_map_workspace(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<WorkspaceNode> {
-        self.get_map_output(seat).ensure_workspace()
+        self.get_map_output(seat).ensure_normal_workspace()
     }
 
     pub fn map_restore(
@@ -866,34 +866,43 @@ impl State {
         };
         let ws = || {
             let Some(name) = s.workspace.get() else {
-                return Some(on()?.ensure_workspace());
+                return Some(on()?.ensure_normal_workspace());
             };
+            let ty = s.workspace_ty.get().unwrap_or(WorkspaceType::Normal);
             match self.workspaces.get(&*name) {
                 Some(ws) => {
                     let Some(o) = session.state.output.get() else {
                         return Some(ws);
                     };
-                    let ws_on = ws.output.get();
-                    if ws_on.global.output_id.hash == o {
+                    match ty {
+                        WorkspaceType::Normal => {
+                            if ws.ty == ty {
+                                let ws_on = ws.output.get();
+                                if ws_on.global.output_id.hash == o {
+                                    if session.session.reason() == SessionReason::Recover {
+                                        return Some(ws);
+                                    }
+                                    if ws_on.workspace.id() == Some(ws.id) {
+                                        return Some(ws);
+                                    }
+                                }
+                            }
+                            Some(on()?.ensure_normal_workspace())
+                        }
+                    }
+                }
+                None => match ty {
+                    WorkspaceType::Normal => {
+                        let on = on()?;
                         if session.session.reason() == SessionReason::Recover {
+                            return Some(on.create_normal_workspace(&name));
+                        }
+                        if let Some(ws) = on.workspace.get() {
                             return Some(ws);
                         }
-                        if ws_on.workspace.id() == Some(ws.id) {
-                            return Some(ws);
-                        }
+                        Some(on.create_normal_workspace(&name))
                     }
-                    Some(on()?.ensure_workspace())
-                }
-                None => {
-                    let on = on()?;
-                    if session.session.reason() == SessionReason::Recover {
-                        return Some(on.create_workspace(&name));
-                    }
-                    if let Some(ws) = on.workspace.get() {
-                        return Some(ws);
-                    }
-                    Some(on.create_workspace(&name))
-                }
+                },
             }
         };
         let ws = if let Some(pos) = s.floating_pos.get() {
@@ -1052,20 +1061,31 @@ impl State {
         &self,
         seat: &Rc<WlSeatGlobal>,
         name: &str,
-        output: Option<Rc<OutputNode>>,
+        ty: WorkspaceType,
+        mut output: Option<Rc<OutputNode>>,
     ) {
+        let mut output = || {
+            output
+                .get_or_insert_with(|| seat.get_fallback_output())
+                .clone()
+        };
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
-            _ => {
-                let output = output.unwrap_or_else(|| seat.get_fallback_output());
-                if output.is_dummy {
-                    log::warn!("Not showing workspace because seat is on dummy output");
-                    return;
+            _ => match ty {
+                WorkspaceType::Normal => {
+                    let output = output();
+                    if output.is_dummy {
+                        log::warn!("Not showing workspace because seat is on dummy output");
+                        return;
+                    }
+                    output.create_normal_workspace(name)
                 }
-                output.create_workspace(name)
-            }
+            },
         };
-        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
+        let output = match ty {
+            WorkspaceType::Normal => ws.output.get(),
+        };
+        self.show_workspace2(Some(seat), &output, &ws);
         seat.maybe_schedule_warp_mouse_to_focus();
     }
 
@@ -1073,13 +1093,13 @@ impl State {
         if let Some(seat) = self.seat_queue.last() {
             let output = seat.get_fallback_output();
             if !output.is_dummy {
-                return output.ensure_workspace();
+                return output.ensure_normal_workspace();
             }
         }
         if let Some(output) = self.root.outputs.lock().values().next().cloned() {
-            return output.ensure_workspace();
+            return output.ensure_normal_workspace();
         }
-        self.dummy_output.get().unwrap().ensure_workspace()
+        self.dummy_output.get().unwrap().ensure_normal_workspace()
     }
 
     pub fn set_status(&self, status: &str) {

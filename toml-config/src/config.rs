@@ -18,14 +18,16 @@ use {
                 float::Float,
                 focus_history::FocusHistory,
                 session_management::SessionManagement,
+                workspace::{WorkspaceSlot, WorkspaceType},
             },
         },
         toml::{self},
     },
     ahash::AHashMap,
     jay_config::{
-        Axis, Direction, Workspace,
+        Axis, Direction,
         client::ClientCapabilities,
+        get_workspace,
         input::{
             FallbackOutputMode, LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
             clickmethod::ClickMethod,
@@ -121,7 +123,7 @@ pub enum Action {
         exec: Exec,
     },
     MoveToWorkspace {
-        name: String,
+        ws: Rc<WorkspaceSlot>,
     },
     Multi {
         actions: Vec<Action>,
@@ -148,7 +150,7 @@ pub enum Action {
         theme: Box<Theme>,
     },
     ShowWorkspace {
-        name: String,
+        ws: Rc<WorkspaceSlot>,
         output: Option<OutputMatch>,
         move_to_output: Option<bool>,
         fallback_output_mode: Option<FallbackOutputMode>,
@@ -164,7 +166,7 @@ pub enum Action {
         env: Vec<String>,
     },
     MoveToOutput {
-        workspace: Option<Workspace>,
+        workspace: Option<Rc<WorkspaceSlot>>,
         output: Option<OutputMatch>,
         direction: Option<Direction>,
     },
@@ -592,6 +594,7 @@ where
         input,
         used: Default::default(),
         mark_names,
+        workspaces: Default::default(),
     };
     macro_rules! fatal {
         ($e:expr) => {{
@@ -628,6 +631,12 @@ where
     check_defined!("DRM device", drm_devices, defined_drm_devices);
     check_defined!("Output", outputs, defined_outputs);
     check_defined!("Input", inputs, defined_inputs);
+    for (name, ws) in cx.workspaces.take() {
+        let id = match ws.ty.get() {
+            WorkspaceType::Normal => get_workspace(&name),
+        };
+        ws.ws.set(id);
+    }
     Some(config)
 }
 

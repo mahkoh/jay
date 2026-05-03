@@ -21,7 +21,7 @@ use {
         state::State,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
-            NodesStackElement, OutputNode, StackedNode, WorkspaceNode,
+            NodesStackElement, OutputNode, StackedNode, WorkspaceNode, WorkspaceType,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -100,6 +100,7 @@ pub struct XdgSurface {
     popup_stack_type: Cell<PopupStackType>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    workspace_type: Cell<Option<WorkspaceType>>,
     pub tracker: Tracker<Self>,
     initial_commit_state: Cell<InitialCommitState>,
     configure_scheduled: Cell<bool>,
@@ -277,6 +278,7 @@ impl XdgSurface {
             popup_stack_type: Cell::new(PopupStackType::Normal),
             popups: Default::default(),
             workspace: Default::default(),
+            workspace_type: Default::default(),
             tracker: Default::default(),
             initial_commit_state: Default::default(),
             configure_scheduled: Default::default(),
@@ -302,6 +304,14 @@ impl XdgSurface {
 
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
+        if self.workspace_type.replace(Some(ws.ty)) != Some(ws.ty) {
+            let root = &self.surface.client.state.root;
+            match ws.ty {
+                WorkspaceType::Normal => {
+                    self.set_popup_stack(&root.stacked, PopupStackType::Normal);
+                }
+            }
+        }
         self.surface.set_output(&ws.output.get(), ws.location());
         let pu = self.popups.lock();
         for pu in pu.values() {
@@ -337,6 +347,7 @@ impl XdgSurface {
 
     fn destroy_node(&self) {
         self.workspace.set(None);
+        self.workspace_type.set(None);
         self.surface.destroy_node();
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();
@@ -345,6 +356,7 @@ impl XdgSurface {
 
     fn detach_node(&self) {
         self.workspace.set(None);
+        self.workspace_type.set(None);
         self.surface.detach_node(false);
         let popups = self.popups.lock();
         for popup in popups.values() {
@@ -634,6 +646,7 @@ impl Object for XdgSurface {
         self.ext.take();
         self.popups.clear();
         self.workspace.set(None);
+        self.workspace_type.set(None);
     }
 }
 

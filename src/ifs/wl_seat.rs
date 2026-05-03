@@ -883,7 +883,7 @@ impl WlSeatGlobal {
             && let Some(output) = data.output_opt()
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
-            let ws = target.ensure_workspace();
+            let ws = target.ensure_normal_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
         } else if let Some(parent) = data.parent.get()
@@ -1213,19 +1213,22 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        let Some(ws) = output.workspace.get() else {
-            return;
-        };
-        let node = match ws.fullscreen.get() {
-            Some(fs) => fs as Rc<dyn Node>,
-            _ => match ws.container.get() {
-                Some(c) => c,
-                _ => return,
-            },
-        };
-        if node.node_visible() && node.node_accepts_focus() {
-            node.node_do_focus(self, Direction::Unspecified);
-            self.maybe_schedule_warp_mouse_to_focus();
+        for layer in [&output.workspace] {
+            let Some(ws) = layer.get() else {
+                continue;
+            };
+            let node = match ws.fullscreen.get() {
+                Some(fs) => fs as Rc<dyn Node>,
+                _ => match ws.container.get() {
+                    Some(c) => c,
+                    _ => continue,
+                },
+            };
+            if node.node_visible() && node.node_accepts_focus() {
+                node.node_do_focus(self, Direction::Unspecified);
+                self.maybe_schedule_warp_mouse_to_focus();
+                break;
+            }
         }
     }
 

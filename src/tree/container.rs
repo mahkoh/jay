@@ -1088,7 +1088,7 @@ impl ContainerNode {
             let Some(output) = self.find_neighboring_output(direction) else {
                 return;
             };
-            let ws = output.ensure_workspace();
+            let ws = output.ensure_normal_workspace();
             let mut foci = SmallVec::new();
             let move_foci = !ws.container_visible();
             if move_foci {

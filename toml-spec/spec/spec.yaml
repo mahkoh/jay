@@ -3265,6 +3265,13 @@ Config:
       required: false
       description: |
         Sets the egui settings of the compositor.
+    workspaces:
+      kind: map
+      values:
+        ref: Workspace
+      required: false
+      description: |
+        The workspaces.
 
 
 Idle:
@@ -4762,3 +4769,10 @@ Egui:
         The list of monospace fonts.
         
         The default is `["monospace", "Noto Sans Mono", "Noto Color Emoji"]`.
+
+
+Workspace:
+  kind: table
+  description: |
+    The settings of a workspace.
+  fields:

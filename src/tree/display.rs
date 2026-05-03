@@ -10,7 +10,7 @@ use {
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
             OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination, WorkspaceNode,
-            WorkspaceNodeId, walker::NodeVisitor,
+            walker::NodeVisitor,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -126,7 +126,7 @@ impl DisplayNode {
 
     pub fn workspace_drag_destination(
         &self,
-        source: WorkspaceNodeId,
+        source: &WorkspaceNode,
         x: i32,
         y: i32,
     ) -> Option<WorkspaceDragDestination> {

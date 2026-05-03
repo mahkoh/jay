@@ -12,9 +12,9 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let setup = run.create_session_management_setup().await?;
 
-    let ws1 = setup.outputs[0].node.create_workspace("1");
-    let ws2 = setup.outputs[1].node.create_workspace("2");
-    let ws3 = setup.outputs[1].node.create_workspace("3");
+    let ws1 = setup.outputs[0].node.create_normal_workspace("1");
+    let ws2 = setup.outputs[1].node.create_normal_workspace("2");
+    let ws3 = setup.outputs[1].node.create_normal_workspace("3");
 
     tassert_eq!(setup.outputs[1].node.workspace.id(), Some(ws2.id));
 

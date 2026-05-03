@@ -26,7 +26,6 @@ use {
         client::Client,
         config, config_dir,
         exec::{Command, set_env, unset_env},
-        get_workspace,
         input::{
             FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, capability::CAP_SWITCH,
             get_seat, input_devices, on_input_device_removed, on_new_input_device,
@@ -263,13 +262,13 @@ impl Action {
             Action::Exec { exec } => b.new(move || create_command(&exec).spawn()),
             Action::SwitchToVt { num } => b.new(move || switch_to_vt(num)),
             Action::ShowWorkspace {
-                name,
+                ws,
                 output,
                 move_to_output,
                 fallback_output_mode,
                 focus,
             } => {
-                let workspace = get_workspace(&name);
+                let workspace = ws.ws.get();
                 let state = state.clone();
                 b.new(move || {
                     let output = 'get_output: {
@@ -299,8 +298,8 @@ impl Action {
                     op.exec();
                 })
             }
-            Action::MoveToWorkspace { name } => {
-                let workspace = get_workspace(&name);
+            Action::MoveToWorkspace { ws } => {
+                let workspace = ws.ws.get();
                 window_or_seat!(s, s.set_workspace(workspace))
             }
             Action::ConfigureConnector { con } => b.new(move || {
@@ -390,6 +389,7 @@ impl Action {
                 workspace,
                 direction,
             } => {
+                let workspace = workspace.map(|ws| ws.ws.get());
                 let state = state.clone();
                 b.new(move || {
                     let target_output = {
