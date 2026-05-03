@@ -114,6 +114,7 @@ impl WorkspaceNode {
     }
 
     pub fn clear(&self) {
+        self.seat_state.destroy_node(self);
         self.container.set(None);
         *self.output_link.borrow_mut() = None;
         self.fullscreen.set(None);
