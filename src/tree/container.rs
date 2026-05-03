@@ -1102,7 +1102,7 @@ impl ContainerNode {
             }
             if move_foci {
                 for seat in foci {
-                    ws.clone().node_do_focus(&seat, Direction::Unspecified);
+                    ws.do_focus(&seat, Direction::Unspecified);
                 }
             }
         };

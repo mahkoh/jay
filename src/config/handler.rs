@@ -28,7 +28,7 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColor, ThemeSized},
         tree::{
-            ContainerSplit, Node, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
+            ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
             ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
             move_ws_to_output, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
@@ -1155,7 +1155,7 @@ impl ConfigProxyHandler {
                 },
             );
             if let Some(seat) = &seat {
-                ws.node_do_focus(seat, crate::tree::Direction::Unspecified);
+                ws.do_focus(seat, crate::tree::Direction::Unspecified);
             }
         } else {
             self.state.show_workspace2(seat.as_ref(), &output, &ws);

@@ -1100,7 +1100,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     cn.cnode_remove_child2(&*tl, true);
     if !ws.visible.get() {
         for focus in kb_foci {
-            old_ws.clone().node_do_focus(&focus, Direction::Unspecified);
+            old_ws.do_focus(&focus, Direction::Unspecified);
         }
     }
     if tl.tl_data().parent_is_float.get() {

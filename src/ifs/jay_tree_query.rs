@@ -413,7 +413,10 @@ impl tree::NodeVisitorBase for Visitor<'_> {
         s.send_start(TREE_TY_WORKSPACE);
         s.send_node_position(&**node);
         s.send_workspace_name(&node.name);
-        s.send_output_name(&node.output.get().global.connector.name);
+        let o = node.output.get();
+        if !o.is_dummy {
+            s.send_output_name(&o.global.connector.name);
+        }
         for stacked in node.stacked.iter() {
             if stacked.stacked_is_xdg_popup() {
                 continue;

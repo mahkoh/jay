@@ -747,7 +747,7 @@ impl OutputNode {
         }
         ws.change_extents(&self.workspace_rect.get(), self);
         for seat in seats {
-            ws.clone().node_do_focus(&seat, Direction::Unspecified);
+            ws.do_focus(&seat, Direction::Unspecified);
         }
         if self.node_visible() {
             self.state.damage(self.global.pos.get());
@@ -1690,7 +1690,7 @@ impl Node for OutputNode {
             return;
         }
         if let Some(ws) = self.workspace() {
-            ws.node_do_focus(seat, direction);
+            ws.do_focus(seat, direction);
         }
     }
 

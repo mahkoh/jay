@@ -114,6 +114,7 @@ impl WorkspaceNode {
     }
 
     pub fn clear(&self) {
+        self.seat_state.destroy_node(self);
         self.container.set(None);
         *self.output_link.borrow_mut() = None;
         self.fullscreen.set(None);
@@ -358,6 +359,27 @@ impl WorkspaceNode {
             collect_kb_foci2(node.deref().clone(), seats);
         }
     }
+
+    pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(fs) = self.fullscreen.get() {
+            fs.node_do_focus(seat, direction);
+        } else if self.stacked.is_not_empty()
+            && let Some(last) = seat.get_last_focus_on_workspace(&self)
+        {
+            seat.focus_node(last);
+        } else if let Some(container) = self.container.get() {
+            container.node_do_focus(seat, direction);
+        } else if let Some(child) = self
+            .stacked
+            .rev_iter()
+            .filter_map(|node| (*node).clone().node_into_float())
+            .find_map(|float| float.child.get())
+        {
+            child.node_do_focus(seat, direction);
+        } else {
+            seat.focus_node(self.clone());
+        }
+    }
 }
 
 impl Node for WorkspaceNode {
@@ -407,24 +429,7 @@ impl Node for WorkspaceNode {
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(fs) = self.fullscreen.get() {
-            fs.node_do_focus(seat, direction);
-        } else if self.stacked.is_not_empty()
-            && let Some(last) = seat.get_last_focus_on_workspace(&self)
-        {
-            seat.focus_node(last);
-        } else if let Some(container) = self.container.get() {
-            container.node_do_focus(seat, direction);
-        } else if let Some(child) = self
-            .stacked
-            .rev_iter()
-            .filter_map(|node| (*node).clone().node_into_float())
-            .find_map(|float| float.child.get())
-        {
-            child.node_do_focus(seat, direction);
-        } else {
-            seat.focus_node(self);
-        }
+        self.do_focus(seat, direction);
     }
 
     fn node_active_changed(&self, _active: bool) {
