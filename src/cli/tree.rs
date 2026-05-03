@@ -128,6 +128,7 @@ struct Node {
     x_instance: Option<String>,
     x_role: Option<String>,
     workspace: Option<String>,
+    workspace_type: Option<String>,
     placeholder_for: Option<String>,
     floating: bool,
     visible: bool,
@@ -211,6 +212,10 @@ impl Query<'_> {
         WorkspaceName::handle(tl, id, d.clone(), |d, event| {
             last!(d, n);
             n.workspace = Some(event.name.to_string());
+        });
+        WorkspaceType::handle(tl, id, d.clone(), |d, event| {
+            last!(d, n);
+            n.workspace_type = Some(event.ty.to_string());
         });
         ToplevelId::handle(tl, id, d.clone(), |d, event| {
             last!(d, n);
@@ -340,6 +345,7 @@ fn make_json_tree_node<'b>(clients: &'b AHashMap<u64, Client>, node: &'b Node) -
         ty: JsonTreeNodeType(node.ty),
         output: node.output.as_deref(),
         workspace: node.workspace.as_deref(),
+        workspace_type: node.workspace_type.as_deref(),
         toplevel_id: node.toplevel_id.as_deref(),
         placeholder_for: node.placeholder_for.as_deref(),
         position,
@@ -410,6 +416,7 @@ impl Printer {
         }
         if node.ty == TREE_TY_WORKSPACE {
             opt!(workspace, "name");
+            opt!(workspace_type, "workspace-type");
         }
         opt!(toplevel_id, "id");
         opt!(placeholder_for, "placeholder-for");

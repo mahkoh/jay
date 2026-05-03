@@ -37,6 +37,7 @@ use {
         },
         wire::JayWorkspaceId,
     },
+    linearize::Linearize,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -50,9 +51,15 @@ tree_id!(WorkspaceNodeId);
 
 hash_type!(WorkspaceNameHash);
 
+#[derive(Copy, Clone, Linearize, Eq, PartialEq, Debug)]
+pub enum WorkspaceType {
+    Normal,
+}
+
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
+    pub ty: WorkspaceType,
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
@@ -84,10 +91,11 @@ impl ObjWithId for Rc<WorkspaceNode> {
 }
 
 impl WorkspaceNode {
-    pub fn new(output: &Rc<OutputNode>, name: &str) -> Rc<Self> {
+    pub fn new(output: &Rc<OutputNode>, name: &str, ty: WorkspaceType) -> Rc<Self> {
         let slf = Rc::new(Self {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
+            ty,
             output: ObjAndId::new(output.clone()),
             position: Default::default(),
             container: Default::default(),

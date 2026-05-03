@@ -29,8 +29,8 @@ use {
         theme::{ThemeColor, ThemeSized},
         tree::{
             ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WsMoveConfig,
-            move_ws_to_output, toplevel_create_split, toplevel_parent_container,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WorkspaceType,
+            WsMoveConfig, move_ws_to_output, toplevel_create_split, toplevel_parent_container,
             toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
@@ -1067,7 +1067,8 @@ impl ConfigProxyHandler {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
         let output = output.map(|o| self.get_output_node(o)).transpose()?;
-        self.state.show_workspace(&seat, &name, output);
+        self.state
+            .show_workspace(&seat, &name, WorkspaceType::Normal, output);
         Ok(())
     }
 

@@ -335,6 +335,8 @@ pub struct JsonTreeNode<'a> {
     #[serde(skip_serializing_if = "is_none")]
     pub workspace: Option<&'a str>,
     #[serde(skip_serializing_if = "is_none")]
+    pub workspace_type: Option<&'a str>,
+    #[serde(skip_serializing_if = "is_none")]
     pub toplevel_id: Option<&'a str>,
     #[serde(skip_serializing_if = "is_none")]
     pub placeholder_for: Option<&'a str>,

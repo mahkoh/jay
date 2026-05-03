@@ -1,10 +1,10 @@
 use {
     crate::{
-        control_center::{ControlCenterInner, bool, grid, row},
+        control_center::{ControlCenterInner, bool, grid, label, row},
         state::State,
-        tree::Node,
+        tree::{Node, WorkspaceType},
     },
-    egui::{CollapsingHeader, ComboBox, Ui},
+    egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
     std::rc::Rc,
 };
 
@@ -32,8 +32,29 @@ impl WorkspacesPane {
         outputs.sort_unstable_by_key(|o| o.global.connector.name.clone());
         for ws in ws {
             let output = ws.output.get();
-            CollapsingHeader::new(&*ws.name).show(ui, |ui| {
+            let ty = match ws.ty {
+                WorkspaceType::Normal => "Normal",
+            };
+            let mut layout_job = LayoutJob::default();
+            layout_job.append(
+                ty,
+                0.0,
+                TextFormat {
+                    color: ui.style().visuals.widgets.inactive.text_color(),
+                    ..Default::default()
+                },
+            );
+            layout_job.append(
+                &ws.name,
+                10.0,
+                TextFormat {
+                    color: ui.style().visuals.widgets.active.text_color(),
+                    ..Default::default()
+                },
+            );
+            CollapsingHeader::new(layout_job).show(ui, |ui| {
                 grid(ui, "settings", |ui| {
+                    label(ui, "Type", ty);
                     row(ui, "Position", |ui| {
                         let p = ws.position.get();
                         if output.is_dummy {

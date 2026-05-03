@@ -109,8 +109,8 @@ use {
             FoundNode, LatchListener, Node, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, VrrMode,
-            WorkspaceDisplayOrder, WorkspaceNode, WsMoveConfig, generic_node_visitor,
-            move_ws_to_output,
+            WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
+            generic_node_visitor, move_ws_to_output,
         },
         udmabuf::UdmabufHolder,
         utils::{
@@ -1052,20 +1052,31 @@ impl State {
         &self,
         seat: &Rc<WlSeatGlobal>,
         name: &str,
-        output: Option<Rc<OutputNode>>,
+        ty: WorkspaceType,
+        mut output: Option<Rc<OutputNode>>,
     ) {
+        let mut output = || {
+            output
+                .get_or_insert_with(|| seat.get_fallback_output())
+                .clone()
+        };
         let ws = match self.workspaces.get(name) {
             Some(ws) => ws,
-            _ => {
-                let output = output.unwrap_or_else(|| seat.get_fallback_output());
-                if output.is_dummy {
-                    log::warn!("Not showing workspace because seat is on dummy output");
-                    return;
+            _ => match ty {
+                WorkspaceType::Normal => {
+                    let output = output();
+                    if output.is_dummy {
+                        log::warn!("Not showing workspace because seat is on dummy output");
+                        return;
+                    }
+                    output.create_workspace(name)
                 }
-                output.create_workspace(name)
-            }
+            },
         };
-        self.show_workspace2(Some(seat), &ws.output.get(), &ws);
+        let output = match ty {
+            WorkspaceType::Normal => ws.output.get(),
+        };
+        self.show_workspace2(Some(seat), &output, &ws);
         seat.maybe_schedule_warp_mouse_to_focus();
     }
 

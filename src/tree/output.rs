@@ -50,7 +50,7 @@ use {
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceNodeId,
-            walker::NodeVisitor,
+            WorkspaceType, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -711,6 +711,12 @@ impl OutputNode {
         if self.is_dummy {
             return false;
         }
+        match ws.ty {
+            WorkspaceType::Normal => self.show_normal_workspace(ws),
+        }
+    }
+
+    fn show_normal_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
         if self.workspace.id() == Some(ws.id) {
             return false;
@@ -767,7 +773,7 @@ impl OutputNode {
     }
 
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
-        let ws = WorkspaceNode::new(self, name);
+        let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
