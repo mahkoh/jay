@@ -1036,7 +1036,7 @@ impl State {
         }
         let did_change = output.show_workspace(&ws);
         if !pinned_is_focused && let Some(seat) = seat {
-            ws.clone().node_do_focus(seat, Direction::Unspecified);
+            ws.do_focus(seat, Direction::Unspecified);
         }
         if !did_change {
             return;
