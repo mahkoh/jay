@@ -1281,7 +1281,7 @@ impl OutputNode {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::Other,
             FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::Other,
-            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
+            FindTreeUsecase::SelectNormalWorkspace => return FindTreeResult::Other,
         }
         let len = tree.len();
         for layer in layers.iter().copied() {
@@ -1953,7 +1953,7 @@ impl Node for OutputNode {
                 FindTreeUsecase::None => true,
                 FindTreeUsecase::SelectToplevel => false,
                 FindTreeUsecase::SelectToplevelOrPopup => false,
-                FindTreeUsecase::SelectWorkspace => false,
+                FindTreeUsecase::SelectNormalWorkspace => false,
             };
             if allow_surface && let Some(ls) = self.lock_surface.get() {
                 tree.push(FoundNode {
@@ -1970,19 +1970,17 @@ impl Node for OutputNode {
             FindTreeUsecase::None => false,
             FindTreeUsecase::SelectToplevel => false,
             FindTreeUsecase::SelectToplevelOrPopup => false,
-            FindTreeUsecase::SelectWorkspace => true,
+            FindTreeUsecase::SelectNormalWorkspace => true,
         };
         if select_workspace && ws_rect_rel.contains(x, y) {
             let (x, y) = ws_rect_rel.translate(x, y);
-            for layer in [&self.overlay, &self.workspace] {
-                if let Some(ws) = layer.get() {
-                    tree.push(FoundNode {
-                        node: ws.clone(),
-                        x,
-                        y,
-                    });
-                    return FindTreeResult::AcceptsInput;
-                }
+            if let Some(ws) = self.workspace.get() {
+                tree.push(FoundNode {
+                    node: ws.clone(),
+                    x,
+                    y,
+                });
+                return FindTreeResult::AcceptsInput;
             }
         }
         {

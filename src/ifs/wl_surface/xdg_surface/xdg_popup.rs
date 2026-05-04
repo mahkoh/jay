@@ -409,7 +409,7 @@ impl Node for XdgPopup {
                 tree.truncate(len);
                 return res;
             }
-            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
+            FindTreeUsecase::SelectNormalWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
     }

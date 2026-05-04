@@ -1147,7 +1147,7 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
 }
 
 impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
-    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectWorkspace;
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectNormalWorkspace;
 
     fn default_button(
         self: &Rc<Self>,
