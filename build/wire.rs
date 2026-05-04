@@ -32,7 +32,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
 }
 
 fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
-    write!(f, "        pub {}: ", field.name)?;
+    write!(f, "    pub {}: ", field.name)?;
     write_type(f, &field.ty.val)?;
     writeln!(f, ",")?;
     Ok(())
