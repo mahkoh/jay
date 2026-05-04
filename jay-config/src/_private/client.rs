@@ -11,7 +11,7 @@ use {
             },
             logging,
         },
-        Axis, Direction, ModifiedKeySym, PciId, Workspace, WorkspaceShowOp,
+        Axis, Direction, ModifiedKeySym, PciId, Workspace, WorkspaceKind, WorkspaceShowOp,
         client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
@@ -125,6 +125,7 @@ pub(crate) struct ConfigClient {
     feat_mod_mask: Cell<bool>,
     feat_show_workspace_on: Cell<bool>,
     feat_show_workspace_3: Cell<bool>,
+    feat_show_workspace_4: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -271,6 +272,7 @@ pub unsafe extern "C" fn init(
         feat_mod_mask: Cell::new(false),
         feat_show_workspace_on: Cell::new(false),
         feat_show_workspace_3: Cell::new(false),
+        feat_show_workspace_4: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -627,7 +629,12 @@ impl ConfigClient {
     }
 
     pub fn show_workspace_3(&self, op: WorkspaceShowOp) {
-        if self.feat_show_workspace_3.get() {
+        if self.feat_show_workspace_4.get() {
+            self.send(&ClientMessage::ShowWorkspace4 {
+                v1: op.v1,
+                v2: op.v2,
+            });
+        } else if self.feat_show_workspace_3.get() {
             self.send(&ClientMessage::ShowWorkspace3 { v1: op.v1 });
         } else if let Some(seat) = op.v1.seat {
             if let Some(connector) = op.v1.connector {
@@ -1549,6 +1556,12 @@ impl ConfigClient {
         connector
     }
 
+    pub fn get_workspace_kind(&self, workspace: Workspace) -> WorkspaceKind {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceKind { workspace });
+        get_response!(res, WorkspaceKind::Normal, GetWorkspaceKind { kind });
+        kind
+    }
+
     pub fn set_client_matcher_capabilities(
         &self,
         matcher: ClientMatcher,
@@ -2058,6 +2071,20 @@ impl ConfigClient {
         self.send(&ClientMessage::SetPointerRevertKey { seat, key });
     }
 
+    pub fn get_overlay(&self, name: &str) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetOverlay { name });
+        get_response!(res, Workspace(0), GetWorkspace { workspace });
+        workspace
+    }
+
+    pub fn hide_overlays(&self) {
+        self.send(&ClientMessage::HideOverlays)
+    }
+
+    pub fn hide_workspace(&self, workspace: Workspace) {
+        self.send(&ClientMessage::HideWorkspace { workspace })
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();
@@ -2308,6 +2335,7 @@ impl ConfigClient {
                         ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
                         ServerFeature::SHOW_WORKSPACE_ON => self.feat_show_workspace_on.set(true),
                         ServerFeature::SHOW_WORKSPACE_3 => self.feat_show_workspace_3.set(true),
+                        ServerFeature::SHOW_WORKSPACE_4 => self.feat_show_workspace_4.set(true),
                         _ => {}
                     }
                 }

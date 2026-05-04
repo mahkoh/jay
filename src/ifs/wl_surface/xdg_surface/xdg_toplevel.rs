@@ -26,7 +26,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination, TileState,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
-            WorkspaceNode, default_tile_drag_destination,
+            WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt, numcell::NumCell,
@@ -431,6 +431,12 @@ impl XdgToplevel {
             }
             return;
         }
+        if let Some(ws) = self.state.get_map_workspace(None)
+            && ws.ty == WorkspaceType::Overlay
+        {
+            self.map_floating(&ws, None);
+            return;
+        }
         match parent {
             None => self.map_tiled(),
             Some(p) => self.map_child(p, pos),
@@ -445,7 +451,7 @@ impl XdgToplevel {
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
         if let Some((output, x, y)) = pos {
-            let w = output.ensure_normal_workspace();
+            let w = output.ensure_workspace();
             self.map_floating(&w, Some((x, y)));
             return;
         }

@@ -189,6 +189,7 @@ impl ConnectorHandler {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
             workspace: Default::default(),
+            overlay: Default::default(),
             seat_state: Default::default(),
             global: global.clone(),
             layers: Default::default(),
@@ -355,6 +356,7 @@ impl ConnectorHandler {
                 surface.send_closed();
             }
         }
+        on.hide_overlay();
         let target = match self.state.root.outputs.lock().values().next() {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),

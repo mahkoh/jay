@@ -329,7 +329,14 @@ pub enum NodeLayer {
     StackedAboveLayers,
     Lock,
     InputMethod,
+    Overlay,
+    OverlayTiled,
+    OverlayFullscreen,
+    OverlayStacked,
 }
+
+const NODE_LAYER_FIRST: NodeLayer = NodeLayer::Display;
+const NODE_LAYER_LAST: NodeLayer = NodeLayer::OverlayStacked;
 
 pub enum NodeLayerLink {
     Display,
@@ -345,6 +352,10 @@ pub enum NodeLayerLink {
     StackedAboveLayers(NodeRef<Rc<dyn StackedNode>>),
     Lock,
     InputMethod,
+    Overlay,
+    OverlayTiled,
+    OverlayFullscreen,
+    OverlayStacked(NodeRef<Rc<dyn StackedNode>>),
 }
 
 impl NodeLayerLink {
@@ -372,20 +383,24 @@ impl NodeLayerLink {
             StackedAboveLayers,
             Lock,
             InputMethod,
+            Overlay,
+            OverlayTiled,
+            OverlayFullscreen,
+            OverlayStacked,
         }
     }
 }
 
 impl NodeLayer {
     pub fn prev(self) -> Self {
-        if self == NodeLayer::Display {
-            return NodeLayer::InputMethod;
+        if self == NODE_LAYER_FIRST {
+            return NODE_LAYER_LAST;
         }
-        Self::from_linear(self.linearize() - 1).unwrap_or(NodeLayer::InputMethod)
+        Self::from_linear(self.linearize() - 1).unwrap_or(NODE_LAYER_LAST)
     }
 
     pub fn next(self) -> Self {
-        Self::from_linear(self.linearize() + 1).unwrap_or(NodeLayer::Display)
+        Self::from_linear(self.linearize() + 1).unwrap_or(NODE_LAYER_FIRST)
     }
 }
 

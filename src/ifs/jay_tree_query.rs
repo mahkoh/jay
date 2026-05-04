@@ -132,6 +132,7 @@ impl JayTreeQuery {
     fn send_workspace_type(&self, ty: WorkspaceType) {
         let ty = match ty {
             WorkspaceType::Normal => "normal",
+            WorkspaceType::Overlay => "overlay",
         };
         self.client.event(jay_tree_query::WorkspaceType {
             self_id: self.id,
@@ -390,7 +391,11 @@ impl tree::NodeVisitorBase for Visitor<'_> {
             for output in node.outputs.lock().values() {
                 NodeVisitor::visit_output(self, output);
             }
-            for layer in [&node.stacked, &node.stacked_above_layers] {
+            for layer in [
+                &node.stacked,
+                &node.stacked_above_layers,
+                &node.stacked_in_overlay,
+            ] {
                 for stacked in layer.stacked.iter() {
                     if stacked.stacked_has_workspace_link() {
                         continue;

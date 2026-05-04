@@ -229,7 +229,8 @@ or running applications on a display without a physical monitor.
 ### Workspaces
 
 Inspect and manage workspaces. Each workspace appears as a collapsible section
-sorted by name.
+sorted by name. The type (Normal or Overlay) is shown next to each workspace's
+name.
 
 Position
 : The workspace's position and size in compositor space. Shows `hidden` when the
@@ -237,7 +238,7 @@ Position
 
 Visible
 : Toggle workspace visibility. Enabling this makes the workspace the active
-  workspace on its output.
+  workspace on its output. Disabling it hides an [overlay](overlays.md).
 
 Output
 : Dropdown to move the workspace to a different output.

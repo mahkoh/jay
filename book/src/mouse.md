@@ -27,7 +27,9 @@ container.
 
 ## Floating Windows
 
-**Drag a floating window's title** to move it.
+**Drag a floating window's title** to move it. When dropped on a different
+output, the window moves to that output's [overlay](overlays.md) if one is
+visible, or to its normal workspace otherwise.
 
 **Drag a floating window's border** to resize it.
 
@@ -51,6 +53,8 @@ show-pin-icon = true
 **Drag workspace titles** in the bar to reorder them. This only works in manual
 display order mode (the default). See
 [Workspaces -- Display Order](workspaces.md#workspace-display-order).
+
+**Middle-click an [overlay](overlays.md) tab** in the bar to hide it.
 
 ## Window Management Mode
 

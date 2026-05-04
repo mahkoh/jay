@@ -54,6 +54,7 @@ hash_type!(WorkspaceNameHash);
 #[derive(Copy, Clone, Linearize, Eq, PartialEq, Debug)]
 pub enum WorkspaceType {
     Normal,
+    Overlay,
 }
 
 pub struct WorkspaceNode {
@@ -133,6 +134,9 @@ impl WorkspaceNode {
     }
 
     pub fn update_has_captures(&self) {
+        if self.ty != WorkspaceType::Normal {
+            return;
+        }
         let mut has_capture = false;
         let output = self.output.get();
         'update: {
@@ -186,7 +190,9 @@ impl WorkspaceNode {
             }
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.after_ws_move(self.new);
+                if self.ws.ty == WorkspaceType::Normal {
+                    node.after_ws_move(self.new);
+                }
                 node.node_visit_children(self);
             }
 
@@ -368,7 +374,7 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
         if let Some(fs) = self.fullscreen.get() {
             fs.node_do_focus(seat, direction);
         } else if self.stacked.is_not_empty()
@@ -384,9 +390,12 @@ impl WorkspaceNode {
             .find_map(|float| float.child.get())
         {
             child.node_do_focus(seat, direction);
-        } else {
+        } else if self.ty == WorkspaceType::Normal {
             seat.focus_node(self.clone());
+        } else {
+            return false;
         }
+        true
     }
 }
 
@@ -433,6 +442,9 @@ impl Node for WorkspaceNode {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
+        if self.ty == WorkspaceType::Overlay {
+            return NodeLayerLink::Overlay;
+        }
         NodeLayerLink::Workspace
     }
 
@@ -468,6 +480,9 @@ impl Node for WorkspaceNode {
     }
 
     fn node_make_visible(self: Rc<Self>) {
+        if self.ty != WorkspaceType::Normal {
+            return;
+        }
         self.state.show_workspace2(None, &self.output.get(), &self);
     }
 
@@ -560,6 +575,10 @@ pub struct WsMoveConfig {
 }
 
 pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config: WsMoveConfig) {
+    if ws.ty == WorkspaceType::Overlay {
+        target.show_workspace(&ws);
+        return;
+    }
     let ws = &match &*ws.output_link.borrow() {
         None => return,
         Some(l) => l.to_ref(),
@@ -581,10 +600,12 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             new_source_ws = Some(source.generate_normal_workspace());
         }
     }
-    for user in source.cursor_users.lock().values() {
-        user.workspace_changed(&source, new_source_ws.as_ref());
-        if new_source_ws.is_none() {
-            new_source_ws = source.workspace.get();
+    if source.overlay.is_none() {
+        for user in source.cursor_users.lock().values() {
+            user.workspace_changed(&source, new_source_ws.as_ref());
+            if new_source_ws.is_none() {
+                new_source_ws = source.workspace.get();
+            }
         }
     }
     if let Some(new_source_ws) = &new_source_ws {

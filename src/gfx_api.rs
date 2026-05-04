@@ -706,6 +706,7 @@ impl dyn GfxFramebuffer {
                 Rect::new_saturating(0, 0, width, height)
             },
             title_icons: None,
+            bar_icons: None,
         };
         cursor.render_hardware_cursor(&mut renderer);
         self.render(
@@ -1039,6 +1040,7 @@ pub fn create_render_pass(
             Rect::new_saturating(0, 0, width, height)
         },
         title_icons: state.icons.get_title_icons(state, scale),
+        bar_icons: state.icons.get_bar_icons(state, scale),
     };
     node.node_render(&mut renderer, 0, 0, None);
     if let Some(rect) = cursor_rect {

@@ -136,6 +136,7 @@ impl From<WorkspaceType> for u32 {
     fn from(value: WorkspaceType) -> Self {
         match value {
             WorkspaceType::Normal => 0,
+            WorkspaceType::Overlay => 1,
         }
     }
 }
@@ -143,6 +144,7 @@ impl From<WorkspaceType> for u32 {
 fn map_workspace_type(v: u32) -> Option<WorkspaceType> {
     match v {
         0 => Some(WorkspaceType::Normal),
+        1 => Some(WorkspaceType::Overlay),
         _ => None,
     }
 }

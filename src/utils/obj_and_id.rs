@@ -71,7 +71,6 @@ impl<T> ObjAndId<Option<T>>
 where
     T: ObjWithId,
 {
-    #[expect(dead_code)]
     #[inline]
     pub fn is_some(&self) -> bool {
         self.id.is_some()

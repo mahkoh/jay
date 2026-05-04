@@ -34,6 +34,7 @@ impl WorkspacesPane {
             let output = ws.output.get();
             let ty = match ws.ty {
                 WorkspaceType::Normal => "Normal",
+                WorkspaceType::Overlay => "Overlay",
             };
             let mut layout_job = LayoutJob::default();
             layout_job.append(
@@ -72,17 +73,21 @@ impl WorkspacesPane {
                     bool(ui, "Visible", ws.visible.get(), |v| {
                         if v {
                             ws.clone().node_make_visible();
+                        } else if ws.ty == WorkspaceType::Overlay {
+                            ws.output.get().hide_overlay();
                         }
                     });
                     row(ui, "Output", |ui| {
                         let mut new = &output;
-                        ComboBox::from_id_salt("output")
-                            .selected_text(&*output.global.connector.name)
-                            .show_ui(ui, |ui| {
-                                for o in &outputs {
-                                    ui.selectable_value(&mut new, o, &*o.global.connector.name);
-                                }
-                            });
+                        let mut cb = ComboBox::from_id_salt("output");
+                        if !output.is_dummy {
+                            cb = cb.selected_text(&*output.global.connector.name);
+                        }
+                        cb.show_ui(ui, |ui| {
+                            for o in &outputs {
+                                ui.selectable_value(&mut new, o, &*o.global.connector.name);
+                            }
+                        });
                         if output.id != new.id {
                             self.state.move_ws_to_output(&ws, new);
                         }

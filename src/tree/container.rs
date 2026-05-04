@@ -96,7 +96,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub rect: Rect,
     pub tex: Rc<dyn GfxTexture>,
-    pub _ty: ContainerChildType,
+    pub ty: ContainerChildType,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -762,6 +762,7 @@ impl ContainerNode {
         let th = theme.title_height();
         let font = theme.title_font();
         let scales = self.state.scales.lock();
+        let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
         self.update_child_types();
         for child in self.children.iter() {
             let rect = child.title_rect.get();
@@ -778,6 +779,9 @@ impl ContainerNode {
                 let mut th = th;
                 let mut scalef = None;
                 let mut width = rect.width();
+                if draw_overlay_icon {
+                    width = (width - th).max(0);
+                }
                 if *scale != 1 {
                     let scale = scale.to_f64();
                     th = (th as f64 * scale).round() as _;
@@ -826,7 +830,7 @@ impl ContainerNode {
                     titles.push(ContainerTitle {
                         rect,
                         tex,
-                        _ty: child.ty.get(),
+                        ty: child.ty.get(),
                     })
                 }
             }
@@ -905,7 +909,7 @@ impl ContainerNode {
                     titles.push(ContainerTitle {
                         rect,
                         tex,
-                        _ty: child.ty.get(),
+                        ty: child.ty.get(),
                     })
                 }
             }
@@ -1088,7 +1092,7 @@ impl ContainerNode {
             let Some(output) = self.find_neighboring_output(direction) else {
                 return;
             };
-            let ws = output.ensure_normal_workspace();
+            let ws = output.ensure_workspace();
             let mut foci = SmallVec::new();
             let move_foci = !ws.container_visible();
             if move_foci {

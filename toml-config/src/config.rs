@@ -27,7 +27,7 @@ use {
     jay_config::{
         Axis, Direction,
         client::ClientCapabilities,
-        get_workspace,
+        get_overlay, get_workspace,
         input::{
             FallbackOutputMode, LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
             clickmethod::ClickMethod,
@@ -95,6 +95,7 @@ pub enum SimpleCommand {
     EnableUnicodeInput,
     OpenControlCenter,
     WarpMouseToFocus,
+    HideOverlays,
 }
 
 #[derive(Debug, Clone)]
@@ -155,6 +156,7 @@ pub enum Action {
         move_to_output: Option<bool>,
         fallback_output_mode: Option<FallbackOutputMode>,
         focus: Option<bool>,
+        toggle: Option<bool>,
     },
     SimpleCommand {
         cmd: SimpleCommand,
@@ -201,6 +203,9 @@ pub enum Action {
         dy1: i32,
         dx2: i32,
         dy2: i32,
+    },
+    HideOverlay {
+        ws: Rc<WorkspaceSlot>,
     },
 }
 
@@ -634,6 +639,7 @@ where
     for (name, ws) in cx.workspaces.take() {
         let id = match ws.ty.get() {
             WorkspaceType::Normal => get_workspace(&name),
+            WorkspaceType::Overlay => get_overlay(&name),
         };
         ws.ws.set(id);
     }

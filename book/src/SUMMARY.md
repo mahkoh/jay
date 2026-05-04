@@ -32,6 +32,7 @@
 
 - [Tiling](tiling.md)
 - [Workspaces](workspaces.md)
+- [Overlays](overlays.md)
 - [Floating Windows](floating.md)
 - [Mouse Interactions](mouse.md)
 - [Input Modes](input-modes.md)

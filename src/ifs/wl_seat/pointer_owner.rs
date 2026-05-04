@@ -1486,7 +1486,7 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
             }
             return;
         };
-        let ws = output.ensure_normal_workspace();
+        let ws = output.ensure_workspace();
         toplevel_set_workspace(&seat.state, tl.clone(), &ws);
     }
 }

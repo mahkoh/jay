@@ -142,3 +142,8 @@ pub struct WorkspaceShowOpV1 {
     pub fallback_output_mode: Option<FallbackOutputMode>,
     pub focus: bool,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq, Default)]
+pub struct WorkspaceShowOpV2 {
+    pub toggle: Option<bool>,
+}

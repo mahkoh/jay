@@ -5,6 +5,9 @@ lives on an output (monitor) and contains its own tiling layout. Jay creates
 workspaces on demand and automatically manages them when monitors are connected
 or disconnected.
 
+Jay also supports [overlay](overlays.md) workspaces that render above normal
+workspaces and can be toggled on and off.
+
 ## Switching Workspaces
 
 Use the `show-workspace` action to switch to a workspace. In the default
@@ -49,6 +52,10 @@ The `show-workspace` action supports several optional fields:
 : Which output to use when no explicit `output` is specified. Either `"cursor"`
   or `"focus"`. Default: the global
   [fallback-output-mode](configuration/misc.md#fallback-output-mode) setting.
+
+`toggle`
+: Whether to hide the workspace if it is already visible. This only has an
+  effect for [overlay](overlays.md) workspaces. Default: `false`.
 
 For example, to always show a workspace on a specific output, moving it there
 if necessary:

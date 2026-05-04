@@ -12,7 +12,7 @@ macro_rules! tassert {
 }
 
 macro_rules! tassert_eq {
-    ($left:expr, $right:expr) => {{
+    ($left:expr, $right:expr $(,)?) => {{
         match ($left, $right) {
             (left, right) => {
                 if left != right {

@@ -115,10 +115,13 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
         data.is_root_container.set(false);
+        data.is_overlay_root_container.set(false);
         if let ToplevelType::Container = data.kind
-            && parent.node_is_workspace()
+            && let Some(ws) = parent.clone().node_into_workspace()
         {
             data.is_root_container.set(true);
+            data.is_overlay_root_container
+                .set(ws.ty == WorkspaceType::Overlay);
         }
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
@@ -441,6 +444,7 @@ pub struct ToplevelData {
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
     pub is_root_container: Cell<bool>,
+    pub is_overlay_root_container: Cell<bool>,
 }
 
 impl ToplevelData {
@@ -498,6 +502,7 @@ impl ToplevelData {
             property_changed_source: Default::default(),
             session: Default::default(),
             is_root_container: Default::default(),
+            is_overlay_root_container: Default::default(),
         }
     }
 
@@ -603,6 +608,7 @@ impl ToplevelData {
         self.workspace.take();
         self.workspace_type.take();
         self.seat_state.destroy_node(node);
+        self.is_overlay_root_container.set(false);
         self.is_root_container.set(false);
     }
 
@@ -950,6 +956,7 @@ impl ToplevelData {
         if self.self_or_ancestor_is_fullscreen.get() {
             return match ty {
                 WorkspaceType::Normal => NodeLayerLink::Fullscreen,
+                WorkspaceType::Overlay => NodeLayerLink::OverlayFullscreen,
             };
         }
         if let Some(float) = self.float.get() {
@@ -957,6 +964,7 @@ impl ToplevelData {
         }
         match ty {
             WorkspaceType::Normal => NodeLayerLink::Tiled,
+            WorkspaceType::Overlay => NodeLayerLink::OverlayTiled,
         }
     }
 
