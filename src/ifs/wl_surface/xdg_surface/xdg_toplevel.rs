@@ -631,7 +631,7 @@ impl Node for XdgToplevel {
             FindTreeUsecase::None => {}
             FindTreeUsecase::SelectToplevel => return FindTreeResult::AcceptsInput,
             FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::AcceptsInput,
-            FindTreeUsecase::SelectWorkspace => return FindTreeResult::Other,
+            FindTreeUsecase::SelectNormalWorkspace => return FindTreeResult::Other,
         }
         self.xdg.find_tree_at(x, y, tree)
     }

@@ -305,7 +305,7 @@ pub enum FindTreeUsecase {
     None,
     SelectToplevel,
     SelectToplevelOrPopup,
-    SelectWorkspace,
+    SelectNormalWorkspace,
 }
 
 #[derive(Copy, Clone)]
