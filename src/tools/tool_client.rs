@@ -5,7 +5,7 @@ use {
         compositor::{LogLevel, WAYLAND_DISPLAY},
         io_uring::{IoUring, IoUringError},
         logger::Logger,
-        object::{ObjectId, WL_DISPLAY_ID},
+        object::{ObjectId, Version, WL_DISPLAY_ID},
         utils::{
             asyncevent::AsyncEvent,
             bitfield::Bitfield,
@@ -87,6 +87,7 @@ pub struct ToolClient {
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     singletons: CloneCell<Option<Rc<Singletons>>>,
     jay_compositor: Cell<Option<JayCompositorId>>,
+    jay_compositor_version: Cell<Option<Version>>,
     jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
@@ -186,6 +187,7 @@ impl ToolClient {
             outgoing: Default::default(),
             singletons: Default::default(),
             jay_compositor: Default::default(),
+            jay_compositor_version: Default::default(),
             jay_damage_tracking: Default::default(),
         });
         wl_display::Error::handle(&slf, WL_DISPLAY_ID, (), |_, val| {
@@ -330,11 +332,20 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(31),
+            version: s.jay_compositor.1.min(32),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
         id
+    }
+
+    pub async fn jay_compositor_version(self: &Rc<Self>) -> Version {
+        if let Some(v) = self.jay_compositor_version.get() {
+            return v;
+        }
+        let v = Version(self.singletons().await.jay_compositor.1);
+        self.jay_compositor_version.set(Some(v));
+        v
     }
 
     pub async fn jay_damage_tracking(self: &Rc<Self>) -> Option<JayDamageTrackingId> {

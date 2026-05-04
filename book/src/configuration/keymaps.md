@@ -94,6 +94,21 @@ alt-F9  = { type = "set-keymap", keymap.name = "laptop" }
 alt-F10 = { type = "set-keymap", keymap.name = "external" }
 ```
 
+The `set-keymap` action also supports inline keymap definitions with
+`shortcuts-group`:
+
+```toml
+[shortcuts]
+alt-F11 = {
+    type = "set-keymap",
+    keymap.rmlvo = {
+        layout = "us,ru",
+        options = "grp:ctrl_space_toggle",
+    },
+    keymap.shortcuts-group = 0,
+}
+```
+
 You can also switch keymaps from the command line:
 
 ```shell
@@ -127,6 +142,46 @@ Or from the command line:
 
 ```shell
 ~$ jay input seat default set-repeat-rate 40 200
+```
+
+## Shortcuts group
+
+By default, Jay resolves shortcuts using the currently active keymap group.
+This means that when you switch to a non-Latin layout (e.g. Russian), shortcuts
+defined for Latin keysyms stop working because the active group produces
+different keysyms.
+
+The `shortcuts-group` option pins shortcut resolution to a specific group index,
+regardless of which group is active for typing. This way, shortcuts always
+resolve using the specified group while the active group is used normally for
+text input.
+
+```toml
+keymap.rmlvo = {
+    layout = "us,ru",
+    options = "grp:ctrl_space_toggle",
+}
+keymap.shortcuts-group = 0
+```
+
+With this configuration, shortcuts always use group 0 (US) even when group 1
+(Russian) is active for typing.
+
+The value can be:
+- An integer (0-based group index)
+- The string `"active"` (the default -- use whichever group is currently active)
+
+The `shortcuts-group` option can be used with any keymap definition method
+(`map`, `path`, or `rmlvo`):
+
+```toml
+[[keymaps]]
+name = "multilingual"
+rmlvo = {
+    layout = "us,de,ru",
+    options = "grp:ctrl_space_toggle",
+}
+shortcuts-group = 0
 ```
 
 ## Per-device keymaps

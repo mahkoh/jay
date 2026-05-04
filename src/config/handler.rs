@@ -46,9 +46,10 @@ use {
     bincode::Options,
     jay_config::{
         _private::{
-            ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc, PollableId,
-            WindowCriterionIpc, WindowCriterionStringField, WireMode, WorkspaceShowOpV1,
-            WorkspaceShowOpV2, bincode_ops,
+            ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc,
+            KeymapBuildParamsV1, KeymapBuildParamsV1Kind, PollableId, WindowCriterionIpc,
+            WindowCriterionStringField, WireMode, WorkspaceShowOpV1, WorkspaceShowOpV2,
+            bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
         },
         Axis, Direction, Workspace, WorkspaceKind,
@@ -77,7 +78,7 @@ use {
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
-    kbvm::Keycode,
+    kbvm::{GroupIndex, Keycode},
     libloading::Library,
     log::Level,
     regex::Regex,
@@ -310,7 +311,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_parse_keymap(&self, keymap: &str) -> Result<(), CphError> {
-        let (keymap, res) = match self.state.kb_ctx.parse_keymap(keymap.as_bytes()) {
+        let (keymap, res) = match self.state.kb_ctx.parse_keymap(keymap.as_bytes(), None) {
             Ok(keymap) => {
                 let id = Keymap(self.id());
                 self.keymaps.set(id, keymap);
@@ -343,6 +344,7 @@ impl ConfigProxyHandler {
             model,
             kbvm_groups.as_deref(),
             options.as_deref(),
+            None,
         ) {
             Ok(keymap) => {
                 let id = Keymap(self.id());
@@ -2988,6 +2990,50 @@ impl ConfigProxyHandler {
         self.respond(Response::ConnectorCompositorOutput { compositor_output });
     }
 
+    fn handle_parse_keymap_2(&self, v1: KeymapBuildParamsV1) -> Result<(), CphError> {
+        let Some(kind) = v1.kind else {
+            return Err(CphError::MissingKeymapKind);
+        };
+        let ctx = &self.state.kb_ctx;
+        let group = v1.shortcuts_group.map(GroupIndex);
+        let res = match kind {
+            KeymapBuildParamsV1Kind::Map(m) => ctx.parse_keymap(m.as_bytes(), group),
+            KeymapBuildParamsV1Kind::Names {
+                rules,
+                model,
+                groups,
+                options,
+            } => {
+                let kbvm_groups = groups.map(|groups| {
+                    groups
+                        .iter()
+                        .map(|g| kbvm::xkb::rmlvo::Group {
+                            layout: g.layout,
+                            variant: g.variant,
+                        })
+                        .collect::<Vec<_>>()
+                });
+                ctx.keymap_from_names(
+                    rules,
+                    model,
+                    kbvm_groups.as_deref(),
+                    options.as_deref(),
+                    group,
+                )
+            }
+        };
+        let (keymap, res) = match res {
+            Ok(keymap) => {
+                let id = Keymap(self.id());
+                self.keymaps.set(id, keymap);
+                (id, Ok(()))
+            }
+            Err(e) => (Keymap::INVALID, Err(CphError::ParseKeymapError(e))),
+        };
+        self.respond(Response::ParseKeymap2 { keymap });
+        res
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3688,6 +3734,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetWorkspaceKind { workspace } => self
                 .handle_get_workspace_kind(workspace)
                 .wrn("get_workspace_kind")?,
+            ClientMessage::ParseKeymap2 { v1 } => {
+                self.handle_parse_keymap_2(v1).wrn("parse_keymap_2")?
+            }
         }
         Ok(())
     }
@@ -3845,6 +3894,8 @@ enum CphError {
     UnknownTileState(ConfigTileState),
     #[error("Could not create a tagged acceptor")]
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
+    #[error("Keymap must be defined through a map or rmlvo names")]
+    MissingKeymapKind,
 }
 
 trait WithRequestName {

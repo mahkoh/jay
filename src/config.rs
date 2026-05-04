@@ -300,6 +300,7 @@ impl ConfigProxy {
                 ServerFeature::SHOW_WORKSPACE_ON,
                 ServerFeature::SHOW_WORKSPACE_3,
                 ServerFeature::SHOW_WORKSPACE_4,
+                ServerFeature::PARSE_KEYMAP_2,
             ],
         });
         self.send(&ServerMessage::Configure { reload });

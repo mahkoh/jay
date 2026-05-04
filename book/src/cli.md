@@ -372,6 +372,13 @@ Set the keymap from a file (or stdin):
 ~$ jay input seat default set-keymap /path/to/keymap.xkb
 ```
 
+Both `set-keymap` and `set-keymap-from-names` accept a `--shortcuts-group`
+option to pin shortcut resolution to a specific group index:
+
+```shell
+~$ jay input seat default set-keymap-from-names -l us,ru -o grp:ctrl_space_toggle --shortcuts-group 0
+```
+
 Retrieve the current keymap:
 
 ```shell
@@ -473,6 +480,12 @@ Set a per-device keymap:
 ~$ jay input device 42 set-keymap /path/to/keymap.xkb
 ~$ jay input device 42 set-keymap-from-names -l de
 ~$ jay input device 42 keymap > device.xkb
+```
+
+The `--shortcuts-group` option is also available for per-device keymaps:
+
+```shell
+~$ jay input device 42 set-keymap-from-names -l us,de --shortcuts-group 0
 ```
 
 Attach / detach a device from a seat:

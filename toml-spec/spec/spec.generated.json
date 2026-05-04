@@ -1863,9 +1863,30 @@
             "rmlvo": {
               "description": "Creates a keymap from RMLVO names.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of\n`map`, `path`, and `rmlvo` has to be defined.\n",
               "$ref": "#/$defs/Rmlvo"
+            },
+            "shortcuts-group": {
+              "description": "The keymap group to use for shortcuts.\n\nThe default is `\"active\"`.\n",
+              "$ref": "#/$defs/KeymapGroup"
             }
           },
           "required": []
+        }
+      ]
+    },
+    "KeymapGroup": {
+      "description": "A keymap group.",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "A group identified by a name.",
+          "enum": [
+            "active"
+          ]
+        },
+        {
+          "type": "integer",
+          "description": "A 0-based group index.",
+          "minimum": 0.0
         }
       ]
     },

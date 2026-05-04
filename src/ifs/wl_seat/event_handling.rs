@@ -948,11 +948,11 @@ impl WlSeatGlobal {
                     mods |= RELEASE.0;
                 }
                 let scs = &*self.shortcuts.borrow();
-                let keysyms = kbvm_state.map.lookup_table.lookup(
-                    kbvm_state.kb_state.mods.group,
-                    ModifierMask::default(),
-                    kc,
-                );
+                let map = &kbvm_state.map;
+                let group = map
+                    .shortcuts_group
+                    .unwrap_or(kbvm_state.kb_state.mods.group);
+                let keysyms = map.lookup_table.lookup(group, ModifierMask::default(), kc);
                 repeats = keysyms.repeats();
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {

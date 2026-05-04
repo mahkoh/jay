@@ -7,6 +7,7 @@ use {
         Workspace,
         client::ClientMatcher,
         input::{FallbackOutputMode, Seat},
+        keyboard::Group,
         video::{Connector, Mode},
         window::{ContentType, WindowMatcher, WindowType},
     },
@@ -146,4 +147,22 @@ pub struct WorkspaceShowOpV1 {
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq, Default)]
 pub struct WorkspaceShowOpV2 {
     pub toggle: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct KeymapBuildParamsV1<'a> {
+    #[serde(borrow)]
+    pub kind: Option<KeymapBuildParamsV1Kind<'a>>,
+    pub shortcuts_group: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum KeymapBuildParamsV1Kind<'a> {
+    Map(&'a str),
+    Names {
+        rules: Option<&'a str>,
+        model: Option<&'a str>,
+        groups: Option<Vec<Group<'a>>>,
+        options: Option<Vec<&'a str>>,
+    },
 }

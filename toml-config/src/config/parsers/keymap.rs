@@ -12,10 +12,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::{
-        config_dir,
-        keyboard::{Keymap, keymap_from_names, parse_keymap},
-    },
+    jay_config::{config_dir, keyboard::Keymap},
     kbvm::xkb::rmlvo::Group,
     std::{io, path::PathBuf},
     thiserror::Error,
@@ -37,6 +34,8 @@ pub enum KeymapParserError {
     DefinitionRequired,
     #[error("Could not read {0}")]
     ReadFile(String, #[source] io::Error),
+    #[error("Unknown shortcuts group")]
+    UnknownShortcutsGroup,
 }
 
 pub struct KeymapParser<'a> {
@@ -50,7 +49,7 @@ impl Parser for KeymapParser<'_> {
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Table];
 
     fn parse_string(&mut self, span: Span, string: &str) -> ParseResult<Self> {
-        Ok(ConfigKeymap::Literal(parse(span, string)?))
+        Ok(ConfigKeymap::Literal(parse(span, string, None)?))
     }
 
     fn parse_table(
@@ -59,12 +58,14 @@ impl Parser for KeymapParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mut name_val, mut map_val, mut path, mut rmlvo) = ext.extract((
-            opt(str("name")),
-            opt(str("map")),
-            opt(str("path")),
-            opt(val("rmlvo")),
-        ))?;
+        let (mut name_val, mut map_val, mut path, mut rmlvo, mut shortcuts_group_val) = ext
+            .extract((
+                opt(str("name")),
+                opt(str("map")),
+                opt(str("path")),
+                opt(val("rmlvo")),
+                opt(val("shortcuts-group")),
+            ))?;
         if map_val.is_some() as u32 + path.is_some() as u32 + rmlvo.is_some() as u32 > 1 {
             log::warn!(
                 "At most one of `map`, `path`, and `rmlvo` should be specified: {}",
@@ -94,12 +95,31 @@ impl Parser for KeymapParser<'_> {
             };
             map_val = Some(file_content.as_str().spanned(path.span));
         }
+        if let Some(val) = shortcuts_group_val
+            && map_val.is_none()
+            && rmlvo.is_none()
+        {
+            log::error!(
+                "`shortcuts-group` has no effect in this position: {}",
+                self.cx.error3(val.span),
+            );
+            shortcuts_group_val = None;
+        }
+        let mut shortcuts_group = None;
+        if let Some(val) = shortcuts_group_val {
+            match val.parse(&mut ShortcutsGroupParser) {
+                Ok(g) => shortcuts_group = g,
+                Err(e) => {
+                    log::error!("Could not parse shortcuts group: {}", self.cx.error(e));
+                }
+            }
+        }
         let mut map = None;
         if let Some(val) = &map_val {
-            map = Some(parse(val.span, val.value)?);
+            map = Some(parse(val.span, val.value, shortcuts_group)?);
         }
         if let Some(val) = rmlvo {
-            map = Some(val.parse(&mut RmlvoParser(self.cx))?);
+            map = Some(val.parse(&mut RmlvoParser(self.cx, shortcuts_group))?);
         }
         if self.definition && (name_val.is_none() || map.is_none()) {
             return Err(KeymapParserError::DefinitionRequired.spanned(span));
@@ -137,7 +157,7 @@ impl Parser for KeymapParser<'_> {
     }
 }
 
-struct RmlvoParser<'a>(&'a Context<'a>);
+struct RmlvoParser<'a>(&'a Context<'a>, Option<u32>);
 
 impl Parser for RmlvoParser<'_> {
     type Value = Keymap;
@@ -175,12 +195,16 @@ impl Parser for RmlvoParser<'_> {
         if let Some(options) = options {
             options_vec = Some(options.value.split(",").collect());
         }
-        let map = keymap_from_names(
+        let mut builder = Keymap::builder().names(
             rules.despan(),
             model.despan(),
             groups.as_deref(),
             options_vec.as_deref(),
         );
+        if let Some(n) = self.1 {
+            builder = builder.shortcuts_group(n);
+        }
+        let map = builder.build();
         match map.is_valid() {
             true => Ok(map),
             false => Err(KeymapParserError::Invalid.spanned(span)),
@@ -188,10 +212,40 @@ impl Parser for RmlvoParser<'_> {
     }
 }
 
-fn parse(span: Span, string: &str) -> Result<Keymap, Spanned<KeymapParserError>> {
-    let map = parse_keymap(string);
+fn parse(
+    span: Span,
+    string: &str,
+    shortcuts_group: Option<u32>,
+) -> Result<Keymap, Spanned<KeymapParserError>> {
+    let mut builder = Keymap::builder().map(string);
+    if let Some(n) = shortcuts_group {
+        builder = builder.shortcuts_group(n);
+    }
+    let map = builder.build();
     match map.is_valid() {
         true => Ok(map),
         false => Err(KeymapParserError::Invalid.spanned(span)),
+    }
+}
+
+struct ShortcutsGroupParser;
+
+impl Parser for ShortcutsGroupParser {
+    type Value = Option<u32>;
+    type Error = KeymapParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Integer];
+
+    fn parse_string(&mut self, span: Span, string: &str) -> ParseResult<Self> {
+        match string {
+            "active" => Ok(None),
+            _ => Err(KeymapParserError::UnknownShortcutsGroup.spanned(span)),
+        }
+    }
+
+    fn parse_integer(&mut self, span: Span, integer: i64) -> ParseResult<Self> {
+        let Ok(n) = integer.try_into() else {
+            return Err(KeymapParserError::UnknownShortcutsGroup.spanned(span));
+        };
+        Ok(Some(n))
     }
 }

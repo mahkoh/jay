@@ -20,6 +20,7 @@ pub mod jay_ei_session;
 pub mod jay_ei_session_builder;
 pub mod jay_idle;
 pub mod jay_input;
+pub mod jay_keymap_builder;
 pub mod jay_log_file;
 pub mod jay_open_control_center_request;
 pub mod jay_output;

@@ -17,6 +17,7 @@ use {
                 wl_data_source::WlDataSource,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
+            jay_keymap_builder::JayKeymapBuilder,
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
             jay_toplevel::JayToplevel,
@@ -47,13 +48,14 @@ use {
         },
         wire::{
             ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
-            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayOutputId,
-            JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
-            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, WpDrmLeaseConnectorV1Id,
-            WpImageDescriptionReferenceV1Id, WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id,
-            XdgPopupId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
-            ZwlrDataControlSourceV1Id, ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id,
-            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
+            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayKeymapBuilderId,
+            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
+            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
+            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionReferenceV1Id,
+            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
+            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
+            ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id,
+            ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -98,6 +100,7 @@ pub struct Objects {
     pub wp_image_description: CopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
     pub wp_image_description_reference:
         CopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
+    pub jay_keymap_builders: CopyHashMap<JayKeymapBuilderId, Rc<JayKeymapBuilder>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -140,6 +143,7 @@ impl Objects {
             ext_workspace_groups: Default::default(),
             wp_image_description: Default::default(),
             wp_image_description_reference: Default::default(),
+            jay_keymap_builders: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -186,6 +190,7 @@ impl Objects {
         self.ext_workspace_groups.clear();
         self.wp_image_description.clear();
         self.wp_image_description_reference.clear();
+        self.jay_keymap_builders.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

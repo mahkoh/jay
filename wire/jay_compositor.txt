@@ -139,6 +139,10 @@ request open_control_center (since = 28) {
     id: id(jay_open_control_center_request),
 }
 
+request create_keymap_builder (since = 32) {
+    id: id(jay_keymap_builder) (new),
+}
+
 # events
 
 event client_id {

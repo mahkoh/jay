@@ -3985,6 +3985,41 @@ The table has the following fields:
 
   The value of this field should be a [Rmlvo](#types-Rmlvo).
 
+- `shortcuts-group` (optional):
+
+  The keymap group to use for shortcuts.
+  
+  The default is `"active"`.
+
+  The value of this field should be a [KeymapGroup](#types-KeymapGroup).
+
+
+<a name="types-KeymapGroup"></a>
+### `KeymapGroup`
+
+A keymap group.
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+A group identified by a name.
+
+The string should have one of the following values:
+
+- `active`:
+
+  The group that is currently active in the keymap state.
+
+
+#### A number
+
+A 0-based group index.
+
+The numbers should be integers.
+
+The numbers should be greater than or equal to 0.
+
 
 <a name="types-Libei"></a>
 ### `Libei`

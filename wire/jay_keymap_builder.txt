@@ -1,0 +1,20 @@
+request set_map {
+    keymap: fd,
+    keymap_len: u32,
+}
+
+request set_names {
+    rules: optstr,
+    model: optstr,
+    layout: optstr,
+    variant: optstr,
+    options: optstr,
+}
+
+request set_shortcuts_group {
+    group: u32,
+}
+
+request destroy {
+
+}

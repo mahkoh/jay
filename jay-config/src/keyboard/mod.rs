@@ -1,7 +1,10 @@
 //! Tools affecting the keyboard behavior.
 
 use {
-    crate::keyboard::{mods::Modifiers, syms::KeySym},
+    crate::{
+        _private::{KeymapBuildParamsV1, KeymapBuildParamsV1Kind},
+        keyboard::{mods::Modifiers, syms::KeySym},
+    },
     serde::{Deserialize, Serialize},
     std::ops::{BitOr, BitOrAssign},
 };
@@ -68,6 +71,16 @@ impl Keymap {
             get!().destroy_keymap(self);
         }
     }
+
+    /// Creates a keymap builder.
+    pub fn builder<'a>() -> KeymapBuilder<'a> {
+        KeymapBuilder {
+            v1: KeymapBuildParamsV1 {
+                kind: None,
+                shortcuts_group: None,
+            },
+        }
+    }
 }
 
 /// An RMLVO group consisting of a layout and a variant.
@@ -113,6 +126,8 @@ pub struct Group<'a> {
 ///
 /// General information about the keymap format can be found in the [arch wiki][wiki].
 ///
+/// See also [`Keymap::builder`] for a more general interface.
+///
 /// [default]: https://github.com/mahkoh/jay/tree/master/src/keymap.xkb
 /// [wiki]: https://wiki.archlinux.org/title/X_keyboard_extension
 pub fn parse_keymap(keymap: &str) -> Keymap {
@@ -146,6 +161,8 @@ pub fn parse_keymap(keymap: &str) -> Keymap {
 ///     Group { layout: "jp", variant: "" },
 /// ]
 /// ```
+///
+/// See also [`Keymap::builder`] for a more general interface.
 pub fn keymap_from_names(
     rules: Option<&str>,
     model: Option<&str>,
@@ -153,4 +170,56 @@ pub fn keymap_from_names(
     options: Option<&[&str]>,
 ) -> Keymap {
     get!(Keymap::INVALID).keymap_from_names(rules, model, groups, options)
+}
+
+/// A keymap builder.
+pub struct KeymapBuilder<'a> {
+    pub(crate) v1: KeymapBuildParamsV1<'a>,
+}
+
+impl<'a> KeymapBuilder<'a> {
+    /// Builds the keymap.
+    pub fn build(self) -> Keymap {
+        get!(Keymap::INVALID).parse_keymap_2(self)
+    }
+
+    /// Sets the XKB map to parse.
+    ///
+    /// See [`parse_keymap`] for details about the format.
+    pub fn map(mut self, map: &'a str) -> Self {
+        self.v1.kind = Some(KeymapBuildParamsV1Kind::Map(map));
+        self
+    }
+
+    /// Sets the RMLVO names to parse.
+    ///
+    /// See [`keymap_from_names`] for details about the format.
+    pub fn names(
+        mut self,
+        rules: Option<&'a str>,
+        model: Option<&'a str>,
+        groups: Option<&'a [Group<'a>]>,
+        options: Option<&'a [&'a str]>,
+    ) -> Self {
+        self.v1.kind = Some(KeymapBuildParamsV1Kind::Names {
+            rules,
+            model,
+            groups: groups.map(|v| v.to_vec()),
+            options: options.map(|v| v.to_vec()),
+        });
+        self
+    }
+
+    /// Sets the 0-based group index to use for shortcuts.
+    ///
+    /// By default, the group that is active at the time of the key press is used. For
+    /// example, if the keymap has two groups, US and RU, and the active group is 1,
+    /// shortcuts are looked up against the Russian group.
+    ///
+    /// By calling `shortcuts_group(0)`, shortcuts are instead always looked up against
+    /// the English group.
+    pub fn shortcuts_group(mut self, group: u32) -> Self {
+        self.v1.shortcuts_group = Some(group);
+        self
+    }
 }
