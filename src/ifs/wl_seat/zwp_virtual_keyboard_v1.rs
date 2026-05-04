@@ -71,7 +71,7 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
             .client
             .state
             .kb_ctx
-            .parse_keymap(&map)
+            .parse_keymap(&map, None)
             .map_err(ZwpVirtualKeyboardV1Error::ParseKeymap)?;
         *self.kb_state.borrow_mut() = KeyboardState {
             id: self.client.state.keyboard_state_ids.next(),

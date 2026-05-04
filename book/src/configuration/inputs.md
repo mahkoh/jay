@@ -212,6 +212,18 @@ keymap.rmlvo = {
 }
 ```
 
+Per-device keymaps also support `shortcuts-group`:
+
+```toml
+[[inputs]]
+match.name = "ZSA Technology Labs Inc ErgoDox EZ"
+keymap.rmlvo = {
+    layout = "us,de",
+    options = "grp:ctrl_space_toggle",
+}
+keymap.shortcuts-group = 0
+```
+
 The override becomes active when a key is pressed on that device. See the
 [Keymaps & Repeat Rate](keymaps.md) chapter for the full range of keymap
 options.

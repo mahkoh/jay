@@ -10,7 +10,7 @@ use {
         },
     },
     kbvm::{
-        Keycode,
+        GroupIndex, Keycode,
         lookup::LookupTable,
         state_machine::{self, Direction, Event, StateMachine},
         xkb::{
@@ -65,6 +65,7 @@ pub struct KbvmMap {
     pub scroll_lock: Option<IndicatorMatcher>,
     pub compose: Option<IndicatorMatcher>,
     pub kana: Option<IndicatorMatcher>,
+    pub shortcuts_group: Option<GroupIndex>,
 }
 
 pub struct KbvmState {
@@ -93,13 +94,17 @@ impl DynKeyboardState for RefCell<KbvmState> {
 }
 
 impl KbvmContext {
-    pub fn parse_keymap(&self, keymap: &[u8]) -> Result<Rc<KbvmMap>, KbvmError> {
+    pub fn parse_keymap(
+        &self,
+        keymap: &[u8],
+        shortcuts_group: Option<GroupIndex>,
+    ) -> Result<Rc<KbvmMap>, KbvmError> {
         let map = self
             .ctx
             .keymap_from_bytes(WriteToLog, None, keymap)
             .map_err(KbvmError::CouldNotParseKeymap)?;
-        let id = KbvmMapId(*blake3::hash(keymap).as_bytes());
-        self.create_keymap(id, map)
+        let id = keymap_id(keymap, shortcuts_group);
+        self.create_keymap(id, map, shortcuts_group)
     }
 
     pub fn keymap_from_rmlvo(
@@ -109,6 +114,7 @@ impl KbvmContext {
         layout: Option<&str>,
         variant: Option<&str>,
         options: Option<&str>,
+        shortcuts_group: Option<GroupIndex>,
     ) -> Result<Rc<KbvmMap>, KbvmError> {
         let mut groups = None::<Vec<_>>;
         if layout.is_some() || variant.is_some() {
@@ -124,7 +130,13 @@ impl KbvmContext {
         if let Some(options) = options {
             options_vec = Some(options.split(",").collect());
         }
-        self.keymap_from_names(rules, model, groups.as_deref(), options_vec.as_deref())
+        self.keymap_from_names(
+            rules,
+            model,
+            groups.as_deref(),
+            options_vec.as_deref(),
+            shortcuts_group,
+        )
     }
 
     pub fn keymap_from_names(
@@ -133,15 +145,21 @@ impl KbvmContext {
         model: Option<&str>,
         groups: Option<&[Group<'_>]>,
         options: Option<&[&str]>,
+        shortcuts_group: Option<GroupIndex>,
     ) -> Result<Rc<KbvmMap>, KbvmError> {
         let map = self
             .ctx
             .keymap_from_names(WriteToLog, rules, model, groups, options);
-        let id = KbvmMapId(*blake3::hash(map.format().to_string().as_bytes()).as_bytes());
-        self.create_keymap(id, map)
+        let id = keymap_id(map.format().to_string().as_bytes(), shortcuts_group);
+        self.create_keymap(id, map, shortcuts_group)
     }
 
-    fn create_keymap(&self, id: KbvmMapId, map: Keymap) -> Result<Rc<KbvmMap>, KbvmError> {
+    fn create_keymap(
+        &self,
+        id: KbvmMapId,
+        map: Keymap,
+        shortcuts_group: Option<GroupIndex>,
+    ) -> Result<Rc<KbvmMap>, KbvmError> {
         let mut has_indicators = false;
         let mut num_lock = None;
         let mut caps_lock = None;
@@ -175,6 +193,7 @@ impl KbvmContext {
             scroll_lock,
             compose,
             kana,
+            shortcuts_group,
         }))
     }
 }
@@ -306,4 +325,20 @@ impl PhysicalKeyboardState {
         }
         self.flush(time_usec, seat);
     }
+}
+
+fn keymap_id(map: &[u8], shortcuts_group: Option<GroupIndex>) -> KbvmMapId {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&map.len().to_ne_bytes());
+    hasher.update(map);
+    match shortcuts_group {
+        None => {
+            hasher.update(&[0]);
+        }
+        Some(n) => {
+            hasher.update(&[1]);
+            hasher.update(&n.0.to_ne_bytes());
+        }
+    }
+    KbvmMapId(*hasher.finalize().as_bytes())
 }

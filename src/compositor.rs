@@ -212,7 +212,7 @@ fn start_compositor2(
     clientmem::init()?;
     let kb_ctx = KbvmContext::default();
     let kb_keymap = kb_ctx
-        .parse_keymap(include_str!("keymap.xkb").as_bytes())
+        .parse_keymap(include_str!("keymap.xkb").as_bytes(), None)
         .unwrap();
     let engine = AsyncEngine::new();
     let ring = IoUring::new(&engine, 32)?;

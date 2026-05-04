@@ -1,8 +1,8 @@
 use {
     crate::{
         _private::{
-            ClientCriterionIpc, PollableId, WindowCriterionIpc, WireMode, WorkspaceShowOpV1,
-            WorkspaceShowOpV2,
+            ClientCriterionIpc, KeymapBuildParamsV1, PollableId, WindowCriterionIpc, WireMode,
+            WorkspaceShowOpV1, WorkspaceShowOpV2,
         },
         Axis, Direction, PciId, Workspace, WorkspaceKind,
         client::{Client, ClientCapabilities, ClientMatcher},
@@ -37,6 +37,7 @@ impl ServerFeature {
     pub const SHOW_WORKSPACE_ON: Self = Self(2);
     pub const SHOW_WORKSPACE_3: Self = Self(3);
     pub const SHOW_WORKSPACE_4: Self = Self(4);
+    pub const PARSE_KEYMAP_2: Self = Self(5);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -909,6 +910,9 @@ pub enum ClientMessage<'a> {
         name: &'a str,
     },
     HideOverlays,
+    ParseKeymap2 {
+        v1: KeymapBuildParamsV1<'a>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1170,6 +1174,9 @@ pub enum Response {
     },
     GetWorkspaceKind {
         kind: WorkspaceKind,
+    },
+    ParseKeymap2 {
+        keymap: Keymap,
     },
 }
 

@@ -322,13 +322,21 @@ Below the settings grid:
 
 Each seat has a full keymap management section:
 
+Shortcuts group
+: Read-only display of the current keymap's shortcuts group setting (`active`
+  or a group index).
+
 - **Copy Keymap** -- copies the current keymap text to the clipboard.
 - **Load Default Keymap** -- restores the compositor's default keymap.
 - **Backup / Restore Keymap** -- save and restore a keymap backup.
-- **Load Keymap from Clipboard** -- paste a keymap from the clipboard.
+- **Load Keymap from Clipboard** -- paste a keymap from the clipboard. Next to
+  this button, a **Fixed Shortcuts Group** checkbox pins shortcut resolution to
+  a specific group index. When enabled, a numeric input sets the group.
 - **Create Keymap from Names** -- build a keymap from RMLVO (Rules, Model,
   Layout, Variant, Options) fields. Rules and Model have a text input and a
   "Default" checkbox; Layouts, Variants, and Options have text inputs only.
+  A **Shortcuts Group** row sets the group index for shortcut resolution; check
+  **Active** to use whichever group is currently active instead.
   Click **Load** to apply.
 
 #### Per-device settings

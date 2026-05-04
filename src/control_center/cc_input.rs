@@ -21,7 +21,7 @@ use {
     },
     isnt::std_1::string::IsntStringExt,
     jay_config::keyboard::syms::KeySym,
-    kbvm::Keysym,
+    kbvm::{GroupIndex, Keysym},
     linearize::LinearizeExt,
     rand::random,
     std::{mem, rc::Rc},
@@ -52,6 +52,7 @@ struct KeymapState {
     pointer_revert_key: Keysym,
     pointer_revert_key_str: Option<String>,
     unknown_pointer_revert_key: bool,
+    shortcuts_group: Option<GroupIndex>,
 }
 
 impl Default for KeymapState {
@@ -69,6 +70,7 @@ impl Default for KeymapState {
             pointer_revert_key: Default::default(),
             pointer_revert_key_str: None,
             unknown_pointer_revert_key: false,
+            shortcuts_group: None,
         }
     }
 }
@@ -529,6 +531,15 @@ fn show_keymap(
     ui.scope_builder(
         UiBuilder::new().id(Id::new(("keymap-settings", ks.seed))),
         |ui| {
+            if let Some(map) = map {
+                ui.horizontal(|ui| {
+                    ui.label("Shortcuts group: ");
+                    match map.shortcuts_group {
+                        None => ui.label("active"),
+                        Some(g) => ui.label(g.0.to_string()),
+                    }
+                });
+            }
             ui.add_enabled_ui(map.is_some(), |ui| {
                 if ui.button("Copy Keymap").clicked()
                     && let Some(map) = map
@@ -557,44 +568,63 @@ fn show_keymap(
                     ks.backup = None;
                 }
             });
-            let mut label = "Load Keymap from Clipboard".to_string();
-            if *paste_requested == Some(ui.id()) {
-                label.push_str(" ");
-                label.push_str(ICON_PENDING);
-            }
-            let button = ui.button(label);
-            if button.clicked() {
-                *paste_requested = Some(ui.id());
-                button.request_focus();
-                ui.send_viewport_cmd(ViewportCommand::RequestPaste);
-            } else if *paste_requested == Some(ui.id()) && button.has_focus() {
-                ui.input(|e| {
-                    let map = e
-                        .events
-                        .iter()
-                        .filter_map(|e| match e {
-                            Event::Paste(s) => Some(s),
-                            _ => None,
-                        })
-                        .next();
-                    let Some(map) = map else {
-                        return;
-                    };
-                    *paste_requested = None;
-                    let map = match state.kb_ctx.parse_keymap(map.as_bytes()) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            let error = format!("Could not parse keymap: {}", ErrorFmt(e));
-                            ps.errors.push(error);
+            ui.horizontal(|ui| {
+                let mut label = "Load Keymap from Clipboard".to_string();
+                if *paste_requested == Some(ui.id()) {
+                    label.push_str(" ");
+                    label.push_str(ICON_PENDING);
+                }
+                let button = ui.button(label);
+                if button.clicked() {
+                    *paste_requested = Some(ui.id());
+                    button.request_focus();
+                    ui.send_viewport_cmd(ViewportCommand::RequestPaste);
+                } else if *paste_requested == Some(ui.id()) && button.has_focus() {
+                    ui.input(|e| {
+                        let map = e
+                            .events
+                            .iter()
+                            .filter_map(|e| match e {
+                                Event::Paste(s) => Some(s),
+                                _ => None,
+                            })
+                            .next();
+                        let Some(map) = map else {
                             return;
-                        }
-                    };
-                    backup(ks);
-                    set_map(&map);
-                });
-            } else if *paste_requested == Some(ui.id()) {
-                *paste_requested = None;
-            }
+                        };
+                        *paste_requested = None;
+                        let map = match state
+                            .kb_ctx
+                            .parse_keymap(map.as_bytes(), ks.shortcuts_group)
+                        {
+                            Ok(m) => m,
+                            Err(e) => {
+                                let error = format!("Could not parse keymap: {}", ErrorFmt(e));
+                                ps.errors.push(error);
+                                return;
+                            }
+                        };
+                        backup(ks);
+                        set_map(&map);
+                    });
+                } else if *paste_requested == Some(ui.id()) {
+                    *paste_requested = None;
+                }
+                let mut fixed_group = ks.shortcuts_group.is_some();
+                if ui
+                    .checkbox(&mut fixed_group, "Fixed Shortcuts Group")
+                    .changed()
+                {
+                    if fixed_group {
+                        ks.shortcuts_group = Some(GroupIndex(0));
+                    } else {
+                        ks.shortcuts_group = None;
+                    }
+                }
+                if let Some(GroupIndex(v)) = &mut ks.shortcuts_group {
+                    DragValue::new(v).ui(ui);
+                }
+            });
             ui.collapsing("Create Keymap from Names", |ui| {
                 grid(ui, ("keymap-from-names", ui.id()), |ui| {
                     let defaulted =
@@ -616,6 +646,25 @@ fn show_keymap(
                     required(ui, "Layouts", &mut ks.layouts);
                     required(ui, "Variants", &mut ks.variants);
                     required(ui, "Options", &mut ks.options);
+                    {
+                        let ui = &mut *ui.row();
+                        grid_label(ui, "Shortcuts Group");
+                        ui.add_enabled_ui(ks.shortcuts_group.is_some(), |ui| {
+                            let mut v = 0;
+                            let v = match &mut ks.shortcuts_group {
+                                None => &mut v,
+                                Some(v) => &mut v.0,
+                            };
+                            DragValue::new(v).ui(ui);
+                        });
+                        let mut active = ks.shortcuts_group.is_none();
+                        ui.checkbox(&mut active, "Active");
+                        if active {
+                            ks.shortcuts_group = None;
+                        } else {
+                            ks.shortcuts_group.get_or_insert(GroupIndex(0));
+                        }
+                    }
                 });
                 if ui.button("Load").clicked() {
                     'set_map: {
@@ -625,6 +674,7 @@ fn show_keymap(
                             Some(&ks.layouts),
                             Some(&ks.variants),
                             Some(&ks.options),
+                            ks.shortcuts_group,
                         );
                         let map = match map {
                             Ok(map) => map,

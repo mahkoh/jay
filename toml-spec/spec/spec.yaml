@@ -81,6 +81,13 @@ Keymap:
             
             For each keymap defined in the top-level `keymaps` array, exactly one of
             `map`, `path`, and `rmlvo` has to be defined.
+        shortcuts-group:
+          ref: KeymapGroup
+          required: false
+          description: |
+            The keymap group to use for shortcuts.
+
+            The default is `"active"`.
 
 
 Rmlvo:
@@ -4866,3 +4873,18 @@ WorkspaceType:
       description: The workspace is a normal workspace. This is the default.
     - value: overlay
       description: The workspace is an overlay.
+
+
+KeymapGroup:
+  description: A keymap group.
+  kind: variable
+  variants:
+    - kind: string
+      description: A group identified by a name.
+      values:
+        - value: active
+          description: The group that is currently active in the keymap state.
+    - kind: number
+      description: A 0-based group index.
+      integer_only: true
+      minimum: 0

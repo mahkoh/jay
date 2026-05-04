@@ -11,9 +11,13 @@ use {
             LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
             LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
         },
+        object::Version,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{errorfmt::ErrorFmt, static_text::StaticText, string_ext::StringExt},
-        wire::{JayInputId, jay_compositor, jay_input},
+        wire::{
+            JayCompositorId, JayInputId, JayKeymapBuilderId, jay_compositor, jay_input,
+            jay_keymap_builder,
+        },
     },
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     isnt::std_1::vec::IsntVecExt,
@@ -295,6 +299,9 @@ pub struct SetCursorSizeArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct SetKeymapArgs {
+    /// The keymap group to use for shortcuts.
+    #[clap(long)]
+    pub shortcuts_group: Option<u32>,
     /// The file to read the keymap from. Omit for stdin.
     #[clap(value_hint = ValueHint::FilePath)]
     pub file: Option<String>,
@@ -302,6 +309,9 @@ pub struct SetKeymapArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct SetKeymapFromNamesArgs {
+    /// The keymap group to use for shortcuts.
+    #[clap(long)]
+    pub shortcuts_group: Option<u32>,
     /// The rules file.
     #[clap(short, long)]
     pub rules: Option<String>,
@@ -328,7 +338,11 @@ pub struct UseHardwareCursorArgs {
 
 pub fn main(global: GlobalArgs, args: InputArgs) {
     with_tool_client(global.log_level, |tc| async move {
-        let idle = Rc::new(Input { tc: tc.clone() });
+        let comp = tc.jay_compositor().await;
+        let idle = Rc::new(Input {
+            tc: tc.clone(),
+            comp,
+        });
         idle.run(&global, args).await;
     });
 }
@@ -372,15 +386,17 @@ struct Data {
 
 struct Input {
     tc: Rc<ToolClient>,
+    comp: JayCompositorId,
 }
+
+const KEYMAP_BUILDER_SINCE: Version = Version(32);
 
 impl Input {
     async fn run(self: &Rc<Self>, global: &GlobalArgs, args: InputArgs) {
         let tc = &self.tc;
-        let comp = tc.jay_compositor().await;
         let input = tc.id();
         tc.send(jay_compositor::GetInput {
-            self_id: comp,
+            self_id: self.comp,
             id: input,
         });
         match args.command.unwrap_or_default() {
@@ -427,6 +443,50 @@ impl Input {
         (Rc::new(memfd), map.len())
     }
 
+    fn prepare_keymap_builder(
+        &self,
+        shortcuts_group: Option<u32>,
+        f: impl FnOnce(JayKeymapBuilderId),
+    ) -> JayKeymapBuilderId {
+        let id = self.tc.id();
+        self.tc.send(jay_compositor::CreateKeymapBuilder {
+            self_id: self.comp,
+            id,
+        });
+        f(id);
+        if let Some(g) = shortcuts_group {
+            self.tc.send(jay_keymap_builder::SetShortcutsGroup {
+                self_id: id,
+                group: g,
+            });
+        }
+        id
+    }
+
+    fn prepare_keymap_builder_from_map(&self, a: &SetKeymapArgs) -> JayKeymapBuilderId {
+        self.prepare_keymap_builder(a.shortcuts_group, |id| {
+            let (keymap, keymap_len) = self.prepare_keymap(a);
+            self.tc.send(jay_keymap_builder::SetMap {
+                self_id: id,
+                keymap,
+                keymap_len: keymap_len as _,
+            });
+        })
+    }
+
+    fn prepare_keymap_builder_from_names(&self, a: &SetKeymapFromNamesArgs) -> JayKeymapBuilderId {
+        self.prepare_keymap_builder(a.shortcuts_group, |id| {
+            self.tc.send(jay_keymap_builder::SetNames {
+                self_id: id,
+                rules: a.rules.as_deref(),
+                model: a.model.as_deref(),
+                layout: a.layout.as_deref(),
+                variant: a.variant.as_deref(),
+                options: a.options.as_deref(),
+            });
+        })
+    }
+
     async fn handle_keymap(&self, input: JayInputId) -> Vec<u8> {
         let data = Rc::new(RefCell::new(Vec::new()));
         jay_input::Keymap::handle(&self.tc, input, data.clone(), |d, map| {
@@ -469,16 +529,24 @@ impl Input {
                 });
             }
             SeatCommand::SetKeymap(a) => {
-                let (memfd, len) = self.prepare_keymap(&a);
                 self.handle_error(input, |e| {
                     eprintln!("Could not set keymap: {}", e);
                 });
-                tc.send(jay_input::SetKeymap {
-                    self_id: input,
-                    seat: &args.seat,
-                    keymap: memfd,
-                    keymap_len: len as _,
-                });
+                if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
+                    tc.send(jay_input::SetKeymapFromBuilder {
+                        self_id: input,
+                        seat: &args.seat,
+                        builder: self.prepare_keymap_builder_from_map(&a),
+                    });
+                } else {
+                    let (memfd, len) = self.prepare_keymap(&a);
+                    tc.send(jay_input::SetKeymap {
+                        self_id: input,
+                        seat: &args.seat,
+                        keymap: memfd,
+                        keymap_len: len as _,
+                    });
+                }
             }
             SeatCommand::UseHardwareCursor(a) => {
                 self.handle_error(input, |e| {
@@ -536,15 +604,23 @@ impl Input {
                 self.handle_error(input, |e| {
                     eprintln!("Could not set keymap: {}", e);
                 });
-                tc.send(jay_input::SetKeymapFromNames {
-                    self_id: input,
-                    seat: &args.seat,
-                    rules: a.rules.as_deref(),
-                    model: a.model.as_deref(),
-                    layout: a.layout.as_deref(),
-                    variant: a.variant.as_deref(),
-                    options: a.options.as_deref(),
-                });
+                if tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
+                    tc.send(jay_input::SetKeymapFromBuilder {
+                        self_id: input,
+                        seat: &args.seat,
+                        builder: self.prepare_keymap_builder_from_names(&a),
+                    });
+                } else {
+                    tc.send(jay_input::SetKeymapFromNames {
+                        self_id: input,
+                        seat: &args.seat,
+                        rules: a.rules.as_deref(),
+                        model: a.model.as_deref(),
+                        layout: a.layout.as_deref(),
+                        variant: a.variant.as_deref(),
+                        options: a.options.as_deref(),
+                    });
+                }
             }
         }
         tc.round_trip().await;
@@ -687,16 +763,24 @@ impl Input {
                 });
             }
             DeviceCommand::SetKeymap(a) => {
-                let (memfd, len) = self.prepare_keymap(&a);
                 self.handle_error(input, |e| {
                     eprintln!("Could not set keymap: {}", e);
                 });
-                tc.send(jay_input::SetDeviceKeymap {
-                    self_id: input,
-                    id: args.device,
-                    keymap: memfd,
-                    keymap_len: len as _,
-                });
+                if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
+                    tc.send(jay_input::SetDeviceKeymapFromBuilder {
+                        self_id: input,
+                        id: args.device,
+                        builder: self.prepare_keymap_builder_from_map(&a),
+                    });
+                } else {
+                    let (memfd, len) = self.prepare_keymap(&a);
+                    tc.send(jay_input::SetDeviceKeymap {
+                        self_id: input,
+                        id: args.device,
+                        keymap: memfd,
+                        keymap_len: len as _,
+                    });
+                }
             }
             DeviceCommand::Keymap => {
                 self.handle_error(input, |e| {
@@ -776,15 +860,23 @@ impl Input {
                 self.handle_error(input, |e| {
                     eprintln!("Could not set keymap: {}", e);
                 });
-                tc.send(jay_input::SetDeviceKeymapFromNames {
-                    self_id: input,
-                    id: args.device,
-                    rules: a.rules.as_deref(),
-                    model: a.model.as_deref(),
-                    layout: a.layout.as_deref(),
-                    variant: a.variant.as_deref(),
-                    options: a.options.as_deref(),
-                });
+                if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
+                    tc.send(jay_input::SetDeviceKeymapFromBuilder {
+                        self_id: input,
+                        id: args.device,
+                        builder: self.prepare_keymap_builder_from_names(&a),
+                    });
+                } else {
+                    tc.send(jay_input::SetDeviceKeymapFromNames {
+                        self_id: input,
+                        id: args.device,
+                        rules: a.rules.as_deref(),
+                        model: a.model.as_deref(),
+                        layout: a.layout.as_deref(),
+                        variant: a.variant.as_deref(),
+                        options: a.options.as_deref(),
+                    });
+                }
             }
         }
         tc.round_trip().await;

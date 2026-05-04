@@ -161,6 +161,16 @@ request set_device_keymap_from_names (since = 24) {
     options: optstr,
 }
 
+request set_keymap_from_builder (since = 32) {
+    seat: str,
+    builder: id(jay_keymap_builder),
+}
+
+request set_device_keymap_from_builder (since = 32) {
+    id: u32,
+    builder: id(jay_keymap_builder),
+}
+
 # events
 
 event seat {

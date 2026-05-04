@@ -4,7 +4,7 @@ use {
     crate::{
         _private::{
             ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
-            GenericCriterionIpc, PollableId, VERSION, WindowCriterionIpc,
+            GenericCriterionIpc, KeymapBuildParamsV1Kind, PollableId, VERSION, WindowCriterionIpc,
             WindowCriterionStringField, WireMode, bincode_ops,
             ipc::{
                 ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
@@ -20,7 +20,7 @@ use {
             clickmethod::ClickMethod,
         },
         keyboard::{
-            Group, Keymap,
+            Group, Keymap, KeymapBuilder,
             mods::{Modifiers, RELEASE},
             syms::KeySym,
         },
@@ -126,6 +126,7 @@ pub(crate) struct ConfigClient {
     feat_show_workspace_on: Cell<bool>,
     feat_show_workspace_3: Cell<bool>,
     feat_show_workspace_4: Cell<bool>,
+    feat_parse_keymap_2: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -273,6 +274,7 @@ pub unsafe extern "C" fn init(
         feat_show_workspace_on: Cell::new(false),
         feat_show_workspace_3: Cell::new(false),
         feat_show_workspace_4: Cell::new(false),
+        feat_parse_keymap_2: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -2085,6 +2087,29 @@ impl ConfigClient {
         self.send(&ClientMessage::HideWorkspace { workspace })
     }
 
+    pub fn parse_keymap_2(&self, builder: KeymapBuilder<'_>) -> Keymap {
+        if self.feat_parse_keymap_2.get() {
+            let res = self.send_with_response(&ClientMessage::ParseKeymap2 { v1: builder.v1 });
+            get_response!(res, Keymap(0), ParseKeymap2 { keymap });
+            keymap
+        } else if let Some(map) = builder.v1.kind {
+            match map {
+                KeymapBuildParamsV1Kind::Map(m) => self.parse_keymap(m),
+                KeymapBuildParamsV1Kind::Names {
+                    rules,
+                    model,
+                    groups,
+                    options,
+                } => self.keymap_from_names(rules, model, groups.as_deref(), options.as_deref()),
+            }
+        } else {
+            log::error!(
+                "Compositor does not support parse_keymap_2 feature but builder has no kind"
+            );
+            Keymap::INVALID
+        }
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();
@@ -2336,6 +2361,7 @@ impl ConfigClient {
                         ServerFeature::SHOW_WORKSPACE_ON => self.feat_show_workspace_on.set(true),
                         ServerFeature::SHOW_WORKSPACE_3 => self.feat_show_workspace_3.set(true),
                         ServerFeature::SHOW_WORKSPACE_4 => self.feat_show_workspace_4.set(true),
+                        ServerFeature::PARSE_KEYMAP_2 => self.feat_parse_keymap_2.set(true),
                         _ => {}
                     }
                 }

@@ -5,7 +5,7 @@ use {
         },
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
-        ifs::wl_seat::WlSeatGlobal,
+        ifs::{jay_keymap_builder::MapKind, wl_seat::WlSeatGlobal},
         kbvm::{KbvmError, KbvmMap},
         leaks::Tracker,
         libinput::consts::{
@@ -16,9 +16,10 @@ use {
         object::{Object, Version},
         state::{DeviceHandlerData, InputDeviceData, State},
         utils::errorfmt::ErrorFmt,
-        wire::{JayInputId, jay_input::*},
+        wire::{JayInputId, JayKeymapBuilderId, jay_input::*},
     },
     arrayvec::ArrayVec,
+    kbvm::GroupIndex,
     linearize::{Linearize, LinearizeExt},
     std::rc::Rc,
     thiserror::Error,
@@ -195,7 +196,13 @@ impl JayInput {
         }
     }
 
-    fn set_keymap_impl<F>(&self, keymap: &Rc<OwnedFd>, len: u32, f: F) -> Result<(), JayInputError>
+    fn set_keymap_impl<F>(
+        &self,
+        keymap: &Rc<OwnedFd>,
+        len: u32,
+        shortcuts_group: Option<u32>,
+        f: F,
+    ) -> Result<(), JayInputError>
     where
         F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
     {
@@ -211,7 +218,11 @@ impl JayInput {
         let mut map = vec![];
         cm.read(&mut map)?;
         self.or_error(|| {
-            let map = self.client.state.kb_ctx.parse_keymap(&map)?;
+            let map = self
+                .client
+                .state
+                .kb_ctx
+                .parse_keymap(&map, shortcuts_group.map(GroupIndex))?;
             f(&map)?;
             Ok(())
         })
@@ -224,19 +235,59 @@ impl JayInput {
         layout: Option<&str>,
         variant: Option<&str>,
         options: Option<&str>,
+        shortcuts_group: Option<u32>,
         f: F,
     ) -> Result<(), JayInputError>
     where
         F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
     {
         self.or_error(|| {
-            let keymap = self
-                .client
-                .state
-                .kb_ctx
-                .keymap_from_rmlvo(rules, model, layout, variant, options)?;
+            let keymap = self.client.state.kb_ctx.keymap_from_rmlvo(
+                rules,
+                model,
+                layout,
+                variant,
+                options,
+                shortcuts_group.map(GroupIndex),
+            )?;
             f(&keymap)?;
             Ok(())
+        })
+    }
+
+    fn set_keymap_from_builder_impl<F>(
+        &self,
+        builder: JayKeymapBuilderId,
+        f: F,
+    ) -> Result<(), JayInputError>
+    where
+        F: FnOnce(&Rc<KbvmMap>) -> Result<(), JayInputError>,
+    {
+        self.or_error(|| {
+            let builder = self.client.lookup(builder)?;
+            let Some(kind) = builder.kind.take() else {
+                return Err(JayInputError::EmptyBuilder);
+            };
+            match kind {
+                MapKind::Map { fd, len } => {
+                    self.set_keymap_impl(&fd, len, builder.shortcuts_group.get(), f)
+                }
+                MapKind::Names {
+                    rules,
+                    model,
+                    layout,
+                    variant,
+                    options,
+                } => self.set_keymap_from_names_impl(
+                    rules.as_deref(),
+                    model.as_deref(),
+                    layout.as_deref(),
+                    variant.as_deref(),
+                    options.as_deref(),
+                    builder.shortcuts_group.get(),
+                    f,
+                ),
+            }
         })
     }
 }
@@ -275,7 +326,7 @@ impl JayInputRequestHandler for JayInput {
     }
 
     fn set_keymap(&self, req: SetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.set_keymap_impl(&req.keymap, req.keymap_len, |map| {
+        self.set_keymap_impl(&req.keymap, req.keymap_len, None, |map| {
             let seat = self.seat(req.seat)?;
             seat.set_seat_keymap(&map);
             Ok(())
@@ -459,7 +510,7 @@ impl JayInputRequestHandler for JayInput {
     }
 
     fn set_device_keymap(&self, req: SetDeviceKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.set_keymap_impl(&req.keymap, req.keymap_len, |map| {
+        self.set_keymap_impl(&req.keymap, req.keymap_len, None, |map| {
             let dev = self.device(req.id)?;
             dev.set_keymap(&self.state, Some(map.clone()));
             Ok(())
@@ -578,6 +629,7 @@ impl JayInputRequestHandler for JayInput {
             req.layout,
             req.variant,
             req.options,
+            None,
             |map| {
                 let seat = self.seat(req.seat)?;
                 seat.set_seat_keymap(&map);
@@ -597,12 +649,37 @@ impl JayInputRequestHandler for JayInput {
             req.layout,
             req.variant,
             req.options,
+            None,
             |map| {
                 let dev = self.device(req.id)?;
                 dev.set_keymap(&self.state, Some(map.clone()));
                 Ok(())
             },
         )
+    }
+
+    fn set_keymap_from_builder(
+        &self,
+        req: SetKeymapFromBuilder<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.set_keymap_from_builder_impl(req.builder, |map| {
+            let seat = self.seat(req.seat)?;
+            seat.set_seat_keymap(&map);
+            Ok(())
+        })
+    }
+
+    fn set_device_keymap_from_builder(
+        &self,
+        req: SetDeviceKeymapFromBuilder,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.set_keymap_from_builder_impl(req.builder, |map| {
+            let dev = self.device(req.id)?;
+            dev.set_keymap(&self.state, Some(map.clone()));
+            Ok(())
+        })
     }
 }
 
@@ -637,5 +714,7 @@ pub enum JayInputError {
     ParseKeymap(#[from] KbvmError),
     #[error("Output is not connected")]
     OutputNotConnected,
+    #[error("Keymap builder has neither a map nor names set")]
+    EmptyBuilder,
 }
 efrom!(JayInputError, ClientError);

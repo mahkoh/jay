@@ -15,7 +15,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let virtual_keymap_str = {
         let xkb = KbvmContext::default();
-        let map = xkb.parse_keymap(VIRTUAL_KEYMAP.as_bytes()).unwrap();
+        let map = xkb.parse_keymap(VIRTUAL_KEYMAP.as_bytes(), None).unwrap();
         read_keymap(&map.map.map, map.map.len)
     };
 
