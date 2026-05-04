@@ -1173,6 +1173,10 @@ impl ConfigProxyHandler {
             if let Some(seat) = &seat {
                 ws.do_focus(seat, crate::tree::Direction::Unspecified);
             }
+            if !output.is_dummy {
+                ws.desired_output.set(output.global.output_id.clone());
+            }
+            self.state.tree_changed();
         } else {
             self.state.show_workspace2(seat.as_ref(), &output, &ws);
         }
