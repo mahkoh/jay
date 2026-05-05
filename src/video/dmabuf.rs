@@ -9,7 +9,8 @@ use {
         },
     },
     arrayvec::ArrayVec,
-    std::{cell::OnceCell, rc::Rc, sync::OnceLock},
+    bstr::ByteSlice,
+    std::{cell::OnceCell, io::Read, rc::Rc, sync::OnceLock},
     uapi::{
         _IOW, _IOWR, OwnedFd,
         c::{self, dev_t, ioctl},
@@ -93,16 +94,7 @@ impl DmaBuf {
                 let _ = DMABUF_DEV.set(stat.st_dev);
             }
         }
-        let path = format_ustr!("/sys/kernel/dmabuf/buffers/{}/exporter_name", stat.st_ino);
-        let Ok(file) = uapi::open(path, c::O_RDONLY, 0) else {
-            return None;
-        };
-        const MARKER: &[u8] = b"udmabuf\n";
-        let mut buf = [0u8; MARKER.len()];
-        if uapi::read(file.raw(), &mut buf).is_err() {
-            return None;
-        }
-        if buf != MARKER {
+        if is_not_udmabuf(&self.planes[0].fd, stat.st_ino) {
             return None;
         }
         Some(stat.st_size as usize)
@@ -182,4 +174,44 @@ pub fn dma_buf_import_sync_file(
     } else {
         Ok(())
     }
+}
+
+fn is_not_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
+    !is_udmabuf(fd, ino)
+}
+
+fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
+    {
+        thread_local! {
+            static BUF: *mut Vec<u8> = Box::into_raw(Box::new(vec!()));
+        }
+        let buf = BUF.with(|b| *b);
+        let buf = unsafe { &mut *buf };
+        buf.clear();
+        let path = format_ustr!("/proc/self/fdinfo/{}", fd.raw());
+        if let Ok(mut file) = uapi::open(path, c::O_RDONLY, 0)
+            && let Ok(_) = file.read_to_end(buf)
+        {
+            for line in buf.split_str(b"\n") {
+                if let Some(v) = line.strip_prefix(b"exp_name:") {
+                    if v.trim_ascii() == b"udmabuf" {
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    {
+        let path = format_ustr!("/sys/kernel/dmabuf/buffers/{ino}/exporter_name");
+        const MARKER: &[u8] = b"udmabuf\n";
+        let mut buf = [0u8; MARKER.len()];
+        if let Ok(file) = uapi::open(path, c::O_RDONLY, 0)
+            && let Ok(_) = uapi::read(file.raw(), &mut buf)
+            && buf == MARKER
+        {
+            return true;
+        }
+    }
+    false
 }
