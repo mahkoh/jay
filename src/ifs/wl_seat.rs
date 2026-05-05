@@ -2048,6 +2048,11 @@ impl DeviceHandlerData {
         state.trigger_cci(CCI_INPUT);
     }
 
+    pub fn set_px_scroll_multiplier(&self, state: &State, v: f64) {
+        self.px_scroll_multiplier.set((v != 1.0).then_some(v));
+        state.trigger_cci(CCI_INPUT);
+    }
+
     pub fn set_transform_matrix(&self, state: &State, v: TransformMatrix) {
         self.device.set_transform_matrix(v);
         state.trigger_cci(CCI_INPUT);

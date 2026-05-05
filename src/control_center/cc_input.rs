@@ -384,6 +384,19 @@ impl InputPane {
                             0.1,
                             |v| dev.set_px_per_scroll_wheel(&self.state, v),
                         );
+                        drag_value_ui(
+                            ui,
+                            "Pixel Scroll Multiplier",
+                            |ui| {
+                                tip(ui, |ui| {
+                                    ui.label("This multiplier applies to non-wheel scroll events");
+                                });
+                            },
+                            dev.px_scroll_multiplier.get().unwrap_or(1.0),
+                            -f64::INFINITY..=f64::INFINITY,
+                            0.1,
+                            |v| dev.set_px_scroll_multiplier(&self.state, v),
+                        );
                     }
                     if let Some(old) = dev.device.accel_profile() {
                         combo_box(ui, "Accel Profile", old, |v| {

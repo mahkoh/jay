@@ -194,7 +194,7 @@ impl MetalBackend {
                 }
             } else {
                 InputEvent::AxisPx {
-                    dist: Fixed::from_f64(scroll),
+                    dist: scroll,
                     axis,
                     inverted: dev
                         .effective

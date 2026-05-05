@@ -1878,10 +1878,15 @@ Input:
         
         See the libinput documentation for more details.
     px-per-wheel-scroll:
-      kind: boolean
+      kind: number
       required: false
       description: |
         The number of pixels to scroll for each scroll wheel dedent.
+    px-scroll-multiplier:
+      kind: number
+      required: false
+      description: |
+        A multiplier to apply to non-wheel scroll events.
     transform-matrix:
       kind: array
       items:

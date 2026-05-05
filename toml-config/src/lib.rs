@@ -725,6 +725,9 @@ impl Input {
         if let Some(v) = self.px_per_wheel_scroll {
             c.set_px_per_wheel_scroll(v);
         }
+        if let Some(v) = self.px_scroll_multiplier {
+            c.set_px_scroll_multiplier(v);
+        }
         if let Some(v) = self.transform_matrix {
             c.set_transform_matrix(v);
         }

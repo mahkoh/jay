@@ -681,6 +681,18 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_px_scroll_multiplier(
+        &self,
+        req: SetPxScrollMultiplier,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            dev.set_px_scroll_multiplier(&self.state, req.mul);
+            Ok(())
+        })
+    }
 }
 
 object_base! {

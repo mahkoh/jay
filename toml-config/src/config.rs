@@ -440,6 +440,7 @@ pub struct Input {
     pub click_method: Option<ClickMethod>,
     pub middle_button_emulation: Option<bool>,
     pub px_per_wheel_scroll: Option<f64>,
+    pub px_scroll_multiplier: Option<f64>,
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub keymap: Option<ConfigKeymap>,
     pub switch_actions: AHashMap<SwitchEvent, Action>,

@@ -414,7 +414,7 @@ pub enum InputEvent {
     },
 
     AxisPx {
-        dist: Fixed,
+        dist: f64,
         axis: ScrollAxis,
         inverted: bool,
     },

@@ -22,6 +22,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         keyboard_id: state.physical_keyboard_ids.next(),
         seat: Default::default(),
         px_per_scroll_wheel: Cell::new(PX_PER_SCROLL),
+        px_scroll_multiplier: Default::default(),
         device: dev.clone(),
         syspath: props.syspath,
         devnode: props.devnode,

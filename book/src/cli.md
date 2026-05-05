@@ -448,6 +448,12 @@ Set pixels per scroll-wheel step:
 ~$ jay input device 42 set-px-per-wheel-scroll 30.0
 ```
 
+Set the multiplier for non-wheel scroll events:
+
+```shell
+~$ jay input device 42 set-px-scroll-multiplier 2.0
+```
+
 Set the transform matrix (2x2):
 
 ```shell

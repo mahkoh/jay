@@ -508,7 +508,7 @@ impl TestBackendMouse {
             source: AxisSource::Finger,
         });
         self.common.event(InputEvent::AxisPx {
-            dist: Fixed::from_int(dy),
+            dist: dy as f64,
             axis: ScrollAxis::Vertical,
             inverted,
         });

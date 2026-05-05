@@ -172,6 +172,20 @@ px-per-wheel-scroll = 30
 This setting maps to the legacy `wl_pointer.axis` event that is mostly unused
 nowadays. It has no effect on applications that don't use this event.
 
+### Pixel scroll multiplier
+
+Apply a multiplier to non-wheel scroll events (e.g. touchpad two-finger
+scrolling):
+
+```toml
+[[inputs]]
+match.is-pointer = true
+px-scroll-multiplier = 2.0
+```
+
+The default is `1.0`. This has no effect on scroll events created by a scroll
+wheel.
+
 ## Transform matrix
 
 Apply a 2x2 matrix to relative motion events. This is useful for adjusting

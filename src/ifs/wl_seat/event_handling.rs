@@ -441,10 +441,15 @@ impl WlSeatGlobal {
                 inverted,
             } => self.axis_120(dist, axis, inverted),
             InputEvent::AxisPx {
-                dist,
+                mut dist,
                 axis,
                 inverted,
-            } => self.axis_px(dist, axis, inverted),
+            } => {
+                if let Some(mul) = dev.px_scroll_multiplier.get() {
+                    dist *= mul;
+                }
+                self.axis_px(Fixed::from_f64(dist), axis, inverted)
+            }
             InputEvent::AxisStop { axis } => self.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => {
                 self.axis_frame(dev.px_per_scroll_wheel.get(), time_usec)

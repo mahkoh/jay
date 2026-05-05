@@ -150,6 +150,8 @@ pub enum DeviceCommand {
     SetNaturalScrolling(SetNaturalScrollingArgs),
     /// Set the pixels to scroll per scroll-wheel dedent.
     SetPxPerWheelScroll(SetPxPerWheelScrollArgs),
+    /// Set the multiplier for non-scroll-wheel scroll events.
+    SetPxScrollMultiplier(SetPxScrollMultiplierArgs),
     /// Set the transformation matrix.
     SetTransformMatrix(SetTransformMatrixArgs),
     /// Set the keymap of this device.
@@ -231,6 +233,12 @@ pub struct SetNaturalScrollingArgs {
 pub struct SetPxPerWheelScrollArgs {
     /// The number of pixels to scroll.
     pub px: f64,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetPxScrollMultiplierArgs {
+    /// The multiplier.
+    pub mul: f64,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -728,6 +736,16 @@ impl Input {
                     self_id: input,
                     id: args.device,
                     px: a.px,
+                });
+            }
+            DeviceCommand::SetPxScrollMultiplier(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not modify the px-scroll-multiplier setting: {}", e);
+                });
+                tc.send(jay_input::SetPxScrollMultiplier {
+                    self_id: input,
+                    id: args.device,
+                    mul: a.mul,
                 });
             }
             DeviceCommand::SetTransformMatrix(a) => {

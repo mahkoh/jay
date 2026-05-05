@@ -3505,7 +3505,13 @@ The table has the following fields:
 
   The number of pixels to scroll for each scroll wheel dedent.
 
-  The value of this field should be a boolean.
+  The value of this field should be a number.
+
+- `px-scroll-multiplier` (optional):
+
+  A multiplier to apply to non-wheel scroll events.
+
+  The value of this field should be a number.
 
 - `transform-matrix` (optional):
 

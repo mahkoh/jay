@@ -1686,8 +1686,12 @@
           "$ref": "#/$defs/ClickMethod"
         },
         "px-per-wheel-scroll": {
-          "type": "boolean",
+          "type": "number",
           "description": "The number of pixels to scroll for each scroll wheel dedent.\n"
+        },
+        "px-scroll-multiplier": {
+          "type": "number",
+          "description": "A multiplier to apply to non-wheel scroll events.\n"
         },
         "transform-matrix": {
           "type": "array",

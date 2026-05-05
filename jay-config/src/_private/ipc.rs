@@ -913,6 +913,10 @@ pub enum ClientMessage<'a> {
     ParseKeymap2 {
         v1: KeymapBuildParamsV1<'a>,
     },
+    SetPxScrollMultiplier {
+        device: InputDevice,
+        mul: f64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
