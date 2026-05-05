@@ -171,6 +171,11 @@ request set_device_keymap_from_builder (since = 32) {
     builder: id(jay_keymap_builder),
 }
 
+request set_px_scroll_multiplier (since = 33) {
+    id: u32,
+    mul: pod(f64),
+}
+
 # events
 
 event seat {

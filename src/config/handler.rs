@@ -867,6 +867,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_px_scroll_multiplier(
+        &self,
+        device: InputDevice,
+        mul: f64,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.set_px_scroll_multiplier(&self.state, mul);
+        Ok(())
+    }
+
     fn handle_set_tap_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         dev.set_tap_enabled(&self.state, enabled);
@@ -3214,6 +3224,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetPxPerWheelScroll { device, px } => self
                 .handle_set_px_per_wheel_scroll(device, px)
                 .wrn("set_px_per_wheel_scroll")?,
+            ClientMessage::SetPxScrollMultiplier { device, mul } => self
+                .handle_set_px_scroll_multiplier(device, mul)
+                .wrn("set_px_scroll_multiplier")?,
             ClientMessage::ConnectorSetScale { connector, scale } => self
                 .handle_connector_set_scale(connector, scale)
                 .wrn("connector_set_scale")?,

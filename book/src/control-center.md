@@ -359,6 +359,9 @@ Natural Scrolling
 Scroll Distance (px)
 : Pixels per legacy scroll event. Shown for pointer devices.
 
+Pixel Scroll Multiplier
+: Multiplier for non-wheel scroll events (e.g. touchpad scrolling). Default 1.0. Shown for pointer devices.
+
 Accel Profile
 : Dropdown: Flat or Adaptive. Shown for devices with acceleration.
 

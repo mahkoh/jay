@@ -420,6 +420,7 @@ pub struct DeviceHandlerData {
     pub keyboard_id: PhysicalKeyboardId,
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub px_per_scroll_wheel: Cell<f64>,
+    pub px_scroll_multiplier: Cell<Option<f64>>,
     pub device: Rc<dyn InputDevice>,
     pub syspath: Option<String>,
     pub devnode: Option<String>,

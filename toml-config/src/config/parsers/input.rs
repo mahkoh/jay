@@ -90,7 +90,7 @@ impl Parser for InputParser<'_> {
                 calibration_matrix,
                 click_method,
             ),
-            (middle_button_emulation,),
+            (middle_button_emulation, px_scroll_multiplier),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -116,7 +116,10 @@ impl Parser for InputParser<'_> {
                 recover(opt(val("calibration-matrix"))),
                 recover(opt(str("click-method"))),
             ),
-            (recover(opt(bol("middle-button-emulation"))),),
+            (
+                recover(opt(bol("middle-button-emulation"))),
+                recover(opt(fltorint("px-scroll-multiplier"))),
+            ),
         ))?;
         let accel_profile = match accel_profile {
             None => None,
@@ -262,6 +265,7 @@ impl Parser for InputParser<'_> {
             middle_button_emulation: middle_button_emulation.despan(),
             click_method,
             px_per_wheel_scroll: px_per_wheel_scroll.despan(),
+            px_scroll_multiplier: px_scroll_multiplier.despan(),
             transform_matrix,
             keymap,
             switch_actions,

@@ -1400,6 +1400,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetPxPerWheelScroll { device, px })
     }
 
+    pub fn set_px_scroll_multiplier(&self, device: InputDevice, mul: f64) {
+        self.send(&ClientMessage::SetPxScrollMultiplier { device, mul })
+    }
+
     pub fn set_input_tap_enabled(&self, device: InputDevice, enabled: bool) {
         self.send(&ClientMessage::SetTapEnabled { device, enabled })
     }

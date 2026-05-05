@@ -106,6 +106,15 @@ impl InputDevice {
         get!().set_px_per_wheel_scroll(self, px);
     }
 
+    /// Sets a multiplier for pixel scroll events.
+    ///
+    /// Default: `1.0`
+    ///
+    /// This setting has no effect on scroll events created by a scroll wheel.
+    pub fn set_px_scroll_multiplier(self, mul: f64) {
+        get!().set_px_scroll_multiplier(self, mul);
+    }
+
     /// Sets whether tap-to-click is enabled for this device.
     ///
     /// See <https://wayland.freedesktop.org/libinput/doc/latest/tapping.html>
