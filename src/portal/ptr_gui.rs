@@ -240,6 +240,7 @@ impl GuiElement for Button {
                 srgb_srgb,
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
     }
@@ -344,6 +345,7 @@ impl GuiElement for Label {
                 color_manager.srgb_gamma22(),
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
     }

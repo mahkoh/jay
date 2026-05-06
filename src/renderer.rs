@@ -182,6 +182,7 @@ impl Renderer<'_> {
                             srgb_srgb,
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
+                            false,
                         );
                     }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -201,6 +202,7 @@ impl Renderer<'_> {
                         self.state.color_manager.srgb_gamma22(),
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
+                        false,
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -225,6 +227,7 @@ impl Renderer<'_> {
                         srgb_srgb,
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
+                        false,
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -327,6 +330,7 @@ impl Renderer<'_> {
                 self.state.color_manager.srgb_gamma22(),
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -399,6 +403,7 @@ impl Renderer<'_> {
                                 srgb_srgb,
                                 perceptual,
                                 AlphaMode::PremultipliedElectrical,
+                                false,
                             );
                         }
                         x += th;
@@ -420,6 +425,7 @@ impl Renderer<'_> {
                         srgb_srgb,
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
+                        false,
                     );
                 }
             }
@@ -608,6 +614,7 @@ impl Renderer<'_> {
                 &cd,
                 intent,
                 alpha_mode,
+                false,
             );
         } else if let Some(color) = &buf.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -703,6 +710,7 @@ impl Renderer<'_> {
                     srgb_srgb,
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
+                    false,
                 );
             }
             x1 += th;
@@ -738,6 +746,7 @@ impl Renderer<'_> {
                     srgb_srgb,
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
+                    false,
                 );
             }
             x1 += th;
@@ -762,6 +771,7 @@ impl Renderer<'_> {
                 srgb_srgb,
                 perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
         let body = Rect::new_sized_saturating(

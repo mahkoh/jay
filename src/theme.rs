@@ -368,6 +368,14 @@ impl Color {
 
         Oklab { l, a, b }
     }
+
+    pub fn to_grayscale(mut self) -> Self {
+        let y = 0.2126 * self.r + 0.7152 * self.g + 0.0722 * self.b;
+        self.r = y;
+        self.g = y;
+        self.b = y;
+        self
+    }
 }
 
 impl From<jay_config::theme::Color> for Color {

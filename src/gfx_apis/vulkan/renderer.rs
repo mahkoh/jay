@@ -225,6 +225,7 @@ struct VulkanTexOp {
     eotf_args_address: Option<DeviceAddress>,
     resource_descriptor_buffer_offset: DeviceAddress,
     resource_descriptor_heap_offset: u32,
+    grayscale: bool,
 }
 
 struct VulkanFillOp {
@@ -273,6 +274,7 @@ struct TexPipelineKey {
     tex_alpha_mode: AlphaMode,
     eotf: VulkanEotf,
     has_color_management_data: bool,
+    grayscale: bool,
 }
 
 pub(super) struct TexPipelines {
@@ -493,6 +495,7 @@ impl VulkanRenderer {
                 descriptor_set_layouts: Default::default(),
                 has_color_management_data: false,
                 frag_descriptor_mappings: &[],
+                grayscale: false,
             };
             self.device.create_pipeline2(info, push_size)
         };
@@ -533,6 +536,7 @@ impl VulkanRenderer {
         tex_source_type: TexSourceType,
         mut tex_alpha_mode: AlphaMode,
         has_color_management_data: bool,
+        grayscale: bool,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         if tex_source_type == TexSourceType::Opaque {
             tex_alpha_mode = AlphaMode::PremultipliedElectrical;
@@ -543,6 +547,7 @@ impl VulkanRenderer {
             tex_alpha_mode,
             eotf: tex_cd.eotf.to_vulkan(),
             has_color_management_data,
+            grayscale,
         };
         if let Some(pl) = pipelines.pipelines.get(&key) {
             return Ok(pl);
@@ -573,6 +578,7 @@ impl VulkanRenderer {
             descriptor_set_layouts: self.tex_descriptor_set_layouts.clone(),
             has_color_management_data,
             frag_descriptor_mappings: &self.tex_frag_bindings,
+            grayscale: key.grayscale,
         };
         let pl = self.device.create_pipeline2(info, push_size)?;
         pipelines.pipelines.set(key, pl.clone());
@@ -613,6 +619,7 @@ impl VulkanRenderer {
                 descriptor_set_layouts,
                 has_color_management_data,
                 frag_descriptor_mappings: &self.out_frag_bindings,
+                grayscale: false,
             })?;
         pipelines.set(key, out.clone());
         Ok(out)
@@ -981,6 +988,7 @@ impl VulkanRenderer {
                             eotf_args_address,
                             resource_descriptor_buffer_offset: 0,
                             resource_descriptor_heap_offset: 0,
+                            grayscale: ct.grayscale,
                         }));
                     }
                 }
@@ -1460,6 +1468,7 @@ impl VulkanRenderer {
                         c.source_type,
                         c.alpha_mode,
                         c.color_management_data_address.is_some(),
+                        c.grayscale,
                     )?;
                     bind(&pipeline);
                     if let Some(dh) = &self.device.descriptor_heap {

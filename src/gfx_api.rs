@@ -287,6 +287,7 @@ pub struct CopyTexture {
     pub render_intent: RenderIntent,
     pub cd: Rc<ColorDescription>,
     pub alpha_mode: AlphaMode,
+    pub grayscale: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -522,6 +523,7 @@ impl dyn GfxFramebuffer {
             texture_cd,
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
+            false,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(

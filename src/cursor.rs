@@ -436,6 +436,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             renderer.state.color_manager.srgb_gamma22(),
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
+            false,
         );
     }
 }
@@ -463,6 +464,7 @@ impl Cursor for StaticCursor {
                 renderer.state.color_manager.srgb_gamma22(),
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
     }
@@ -513,6 +515,7 @@ impl Cursor for AnimatedCursor {
                 renderer.state.color_manager.srgb_gamma22(),
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
     }
