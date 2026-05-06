@@ -3750,6 +3750,10 @@ impl ConfigProxyHandler {
             ClientMessage::ParseKeymap2 { v1 } => {
                 self.handle_parse_keymap_2(v1).wrn("parse_keymap_2")?
             }
+            ClientMessage::SetShowWindowIcons { show } => self.state.set_show_window_icons(show),
+            ClientMessage::SetWindowIconsGrayscale { grayscale } => {
+                self.state.set_window_icons_grayscale(grayscale)
+            }
         }
         Ok(())
     }

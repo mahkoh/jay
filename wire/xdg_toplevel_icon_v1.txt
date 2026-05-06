@@ -1,0 +1,11 @@
+request destroy (destructor) {
+}
+
+request set_name {
+    icon_name: str,
+}
+
+request add_buffer {
+    buffer: id(wl_buffer),
+    scale: i32,
+}

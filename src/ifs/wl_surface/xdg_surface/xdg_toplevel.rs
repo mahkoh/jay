@@ -11,7 +11,11 @@ use {
             wl_surface::{
                 WlSurface,
                 xdg_surface::{
-                    XdgSurface, XdgSurfaceExt, xdg_toplevel::xdg_dialog_v1::XdgDialogV1,
+                    XdgSurface, XdgSurfaceExt,
+                    xdg_toplevel::{
+                        xdg_dialog_v1::XdgDialogV1,
+                        xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
+                    },
                 },
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -29,7 +33,8 @@ use {
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt, numcell::NumCell,
+            bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt,
+            numcell::NumCell, obj_and_id::ObjAndId,
         },
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
@@ -45,6 +50,8 @@ use {
 };
 
 pub mod xdg_dialog_v1;
+pub mod xdg_toplevel_icon_manager_v1;
+pub mod xdg_toplevel_icon_v1;
 pub mod xdg_toplevel_session_v1;
 
 const STATE_MAXIMIZED: u32 = 1;
@@ -118,6 +125,7 @@ pub struct XdgToplevel {
     extents_set: Cell<bool>,
     pub data: Rc<XdgToplevelToplevelData>,
     committed: Cell<bool>,
+    icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
 }
 
 impl Debug for XdgToplevel {
@@ -182,6 +190,7 @@ impl XdgToplevel {
             extents_set: Cell::new(false),
             data,
             committed: Default::default(),
+            icon: Default::default(),
         }
     }
 
@@ -256,6 +265,12 @@ impl XdgToplevel {
             capabilities: &[CAP_FULLSCREEN],
         })
     }
+
+    fn icon_changed(&self) {
+        if let Some(parent) = self.toplevel_data.parent.get() {
+            parent.cnode_child_icon_changed(self);
+        }
+    }
 }
 
 impl XdgToplevelRequestHandler for XdgToplevel {
@@ -286,6 +301,9 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         }
         self.xdg.surface.client.remove_obj(self)?;
         self.xdg.surface.set_toplevel(None);
+        if let Some(icon) = self.icon.set(None) {
+            icon.toplevels.remove(&self.id);
+        }
         Ok(())
     }
 
@@ -565,6 +583,7 @@ impl Object for XdgToplevel {
         self.tl_destroy();
         self.parent.set(None);
         self.dialog.set(None);
+        self.icon.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
 }
@@ -798,6 +817,14 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_mark_fullscreen_ext(&self) {
         self.xdg.update_effective_geometry();
+    }
+
+    fn tl_update_icon(&self, user: &ToplevelIconUser) {
+        let Some(icon) = self.icon.get() else {
+            user.clear();
+            return;
+        };
+        icon.update_user(user);
     }
 }
 

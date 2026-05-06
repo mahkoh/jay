@@ -1,0 +1,18 @@
+request destroy (destructor) {
+}
+
+request create_icon {
+    id: id(xdg_toplevel_icon_v1) (new),
+}
+
+request set_icon {
+    toplevel: id(xdg_toplevel),
+    icon: id(xdg_toplevel_icon_v1),
+}
+
+event icon_size {
+    size: i32,
+}
+
+event done {
+}

@@ -406,6 +406,8 @@ fn start_compositor2(
         sm,
         session_management_enabled: Cell::new(true),
         fallback_output: Default::default(),
+        toplevel_icon_ids: Default::default(),
+        toplevel_icons: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
