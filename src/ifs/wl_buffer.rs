@@ -401,21 +401,19 @@ impl WlBuffer {
         mem: &Rc<ClientMemOffset>,
         stride: i32,
         dmabuf_buffer_params: &mut DmabufBufferParams,
-    ) -> bool {
+    ) -> Option<Rc<dyn GfxTexture>> {
         let DmabufBufferParams {
             tex,
             tex_impossible,
             ..
         } = dmabuf_buffer_params;
         if tex.is_some() {
-            return true;
+            return tex.clone();
         }
         if *tex_impossible {
-            return false;
+            return None;
         }
-        let Some(udmabuf) = self.get_udmabuf(mem, dmabuf_buffer_params) else {
-            return false;
-        };
+        let udmabuf = self.get_udmabuf(mem, dmabuf_buffer_params)?;
         let DmabufBufferParams {
             udmabuf_offset,
             tex,
@@ -441,7 +439,7 @@ impl WlBuffer {
             Err(e) => {
                 *tex_impossible = true;
                 log::debug!("Could not import udmabuf as GfxImage: {}", ErrorFmt(e));
-                return false;
+                return None;
             }
         };
         let tex_ = match img.to_texture() {
@@ -449,12 +447,12 @@ impl WlBuffer {
             Err(e) => {
                 *tex_impossible = true;
                 log::debug!("Could not import udmabuf as GfxTexture: {}", ErrorFmt(e));
-                return false;
+                return None;
             }
         };
-        *tex = Some(tex_);
+        *tex = Some(tex_.clone());
         log::debug!("Using zero-copy wl_shm path");
-        true
+        Some(tex_)
     }
 
     fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {
@@ -477,7 +475,9 @@ impl WlBuffer {
                     return Ok(());
                 };
                 if ctx.fast_ram_access()
-                    && self.import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+                    && self
+                        .import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+                        .is_some()
                 {
                     return Ok(());
                 }

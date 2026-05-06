@@ -642,7 +642,10 @@ fn schedule_async_upload(
         .render_ctx
         .get()
         .ok_or(WlSurfaceError::NoRenderContext)?;
-    if ctx.fast_ram_access() && buf.import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+    if ctx.fast_ram_access()
+        && buf
+            .import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
+            .is_some()
     {
         back.damage.clear();
         back.tex.take();
