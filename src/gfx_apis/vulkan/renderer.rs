@@ -1228,6 +1228,12 @@ impl VulkanRenderer {
                     }
                     QueueTransfer::Impossible => return Err(VulkanError::BusyInTransfer),
                 }
+            } else if let VulkanImageMemory::Rw(..) = &fb.ty {
+                fb_image_memory_barrier =
+                    fb_image_memory_barrier.old_layout(match fb.is_undefined.get() {
+                        true => ImageLayout::UNDEFINED,
+                        false => ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    });
             } else {
                 fb_image_memory_barrier = fb_image_memory_barrier
                     .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
@@ -1764,6 +1770,20 @@ impl VulkanRenderer {
                     )
                     .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
             }
+            memory.image_barriers.push(fb_image_memory_barrier);
+        } else if let VulkanImageMemory::Rw(..) = fb.ty {
+            let fb_image_memory_barrier = image_barrier()
+                .image(fb.image)
+                .src_queue_family_index(self.device.graphics_queue_idx)
+                .dst_queue_family_index(self.device.graphics_queue_idx)
+                .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                .src_access_mask(
+                    AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+                )
+                .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
+                .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
             memory.image_barriers.push(fb_image_memory_barrier);
         }
         for img in &memory.dmabuf_sample {
@@ -2389,6 +2409,9 @@ impl VulkanImage {
                 }
                 VulkanImageMemory::Blend(_v) => {
                     log::warn!("Mixed device use with blend buffer");
+                }
+                VulkanImageMemory::Rw(_v) => {
+                    log::warn!("Mixed device use with read-write buffer");
                 }
             }
             log::info!("Image address {:?}", ptr::from_ref(self));

@@ -145,6 +145,7 @@ pub enum QueueTransfer {
 pub enum VulkanImageMemory {
     DmaBuf(VulkanDmaBufImage),
     Internal(VulkanShmImage),
+    Rw(VulkanAllocation),
     Blend(VulkanAllocation),
 }
 
@@ -729,6 +730,7 @@ impl GfxTexture for VulkanImage {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
             VulkanImageMemory::Internal(_) => None,
             VulkanImageMemory::Blend(_) => None,
+            VulkanImageMemory::Rw(_) => None,
         }
     }
 

@@ -13,7 +13,7 @@ use {
 
 #[derive(Debug, Error)]
 #[error(transparent)]
-pub struct AllocatorError(#[from] pub Box<dyn Error + Send>);
+pub struct AllocatorError(#[from] pub Box<dyn Error + Send + Sync>);
 
 bitflags! {
     BufferUsage: u32;

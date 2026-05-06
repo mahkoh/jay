@@ -25,6 +25,7 @@ pub struct VulkanFormat {
     pub format: &'static Format,
     pub modifiers: AHashMap<Modifier, VulkanModifier>,
     pub shm: Option<VulkanInternalFormat>,
+    pub rw: Option<VulkanInternalFormat>,
 }
 
 #[derive(Debug)]
@@ -71,6 +72,8 @@ const TRANSFER_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
 );
 const SHM_FEATURES: FormatFeatureFlags =
     FormatFeatureFlags::from_raw(TRANSFER_FEATURES.as_raw() | TEX_FEATURES.as_raw());
+const RW_FEATURES: FormatFeatureFlags =
+    FormatFeatureFlags::from_raw(FRAMEBUFFER_FEATURES.as_raw() | TEX_FEATURES.as_raw());
 
 const FRAMEBUFFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
     ImageUsageFlags::COLOR_ATTACHMENT.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
@@ -84,6 +87,8 @@ const TRANSFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
 );
 const SHM_USAGE: ImageUsageFlags =
     ImageUsageFlags::from_raw(TRANSFER_USAGE.as_raw() | TEX_USAGE.as_raw());
+pub const RW_USAGE: ImageUsageFlags =
+    ImageUsageFlags::from_raw(FRAMEBUFFER_USAGE.as_raw() | TEX_USAGE.as_raw());
 
 pub const BLEND_FORMAT: &Format = ABGR16161616F;
 const BLEND_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
@@ -123,19 +128,21 @@ impl VulkanInstance {
             );
         }
         let shm = self.load_shm_format(phy_dev, format, &format_properties.format_properties)?;
+        let rw = self.load_rw_format(phy_dev, format, &format_properties.format_properties)?;
         let modifiers = self.load_drm_format(
             phy_dev,
             format,
             &format_properties.format_properties,
             &modifier_props,
         )?;
-        if shm.is_some() || modifiers.is_not_empty() {
+        if shm.is_some() || modifiers.is_not_empty() || rw.is_some() {
             dst.insert(
                 format.drm,
                 VulkanFormat {
                     format,
                     modifiers,
                     shm,
+                    rw,
                 },
             );
         }
@@ -172,6 +179,15 @@ impl VulkanInstance {
         props: &FormatProperties,
     ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
         self.load_internal_format(phy_dev, format, props, SHM_FEATURES, SHM_USAGE)
+    }
+
+    fn load_rw_format(
+        &self,
+        phy_dev: PhysicalDevice,
+        format: &Format,
+        props: &FormatProperties,
+    ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
+        self.load_internal_format(phy_dev, format, props, RW_FEATURES, RW_USAGE)
     }
 
     fn load_internal_format(

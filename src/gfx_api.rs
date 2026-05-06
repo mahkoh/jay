@@ -24,7 +24,7 @@ use {
         },
         video::{
             Modifier,
-            dmabuf::DmaBuf,
+            dmabuf::{DmaBuf, DmaBufIds},
             drm::syncobj::{Syncobj, SyncobjCtx, SyncobjPoint},
         },
     },
@@ -879,6 +879,15 @@ pub trait GfxContext: Debug {
         stride: i32,
         format: &'static Format,
     ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
+
+    #[expect(dead_code)]
+    fn create_read_write_img(
+        self: Rc<Self>,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<(Rc<dyn GfxFramebuffer>, Rc<dyn GfxTexture>), GfxError>;
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>>;
 

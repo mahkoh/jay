@@ -13,7 +13,11 @@ use {
         },
         rect::{Rect, Region},
         theme::Color,
-        video::{LINEAR_MODIFIER, dmabuf::DmaBuf, drm::syncobj::SyncobjCtx},
+        video::{
+            LINEAR_MODIFIER,
+            dmabuf::{DmaBuf, DmaBufIds},
+            drm::syncobj::SyncobjCtx,
+        },
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -192,6 +196,28 @@ impl GfxContext for TestGfxCtx {
             })),
             staging: RefCell::new(vec![Color::TRANSPARENT; (width * height) as usize]),
         }))
+    }
+
+    fn create_read_write_img(
+        self: Rc<Self>,
+        _dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<(Rc<dyn GfxFramebuffer>, Rc<dyn GfxTexture>), GfxError> {
+        let stride = width * format.bpp as i32;
+        let img = Rc::new(TestGfxImage::Shm(TestShmGfxImage {
+            data: RefCell::new(vec![0; (stride * height) as usize]),
+            width,
+            height,
+            stride,
+            format,
+        }));
+        let fb = Rc::new(TestGfxFb {
+            img: img.clone(),
+            staging: RefCell::new(vec![Color::TRANSPARENT; (width * height) as usize]),
+        });
+        Ok((fb, img))
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
