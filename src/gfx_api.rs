@@ -880,7 +880,6 @@ pub trait GfxContext: Debug {
         format: &'static Format,
     ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
 
-    #[expect(dead_code)]
     fn create_read_write_img(
         self: Rc<Self>,
         dma_buf_ids: &DmaBufIds,

@@ -21,7 +21,6 @@ impl<T> Default for RefCounted<T> {
 }
 
 impl<T: Eq> RefCounted<T> {
-    #[expect(dead_code)]
     pub fn version(&self) -> u64 {
         self.version.get()
     }
