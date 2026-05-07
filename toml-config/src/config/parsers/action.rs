@@ -24,6 +24,7 @@ use {
                 repeat_rate::{RepeatRateParser, RepeatRateParserError},
                 status::{StatusParser, StatusParserError},
                 theme::{ThemeParser, ThemeParserError},
+                workspace::WorkspaceType,
             },
             spanned::SpannedErrorExt,
         },
@@ -222,6 +223,7 @@ impl ActionParser<'_> {
         let ShowWorkspaceDefaults {
             mut move_to_output,
             mut toggle,
+            ty,
         } = defaults;
         let (name, output, fallback_output_mode, focus) = ext.extract((
             str("name"),
@@ -236,6 +238,9 @@ impl ActionParser<'_> {
             toggle = ext.extract(opt(bol("toggle")))?.despan();
         }
         let ws = self.0.get_workspace_slot(name.value);
+        if let Some(ty) = ty {
+            ws.implicit_ty.set(ty);
+        }
         let output = output
             .map(|o| {
                 o.parse_map(&mut OutputMatchParser(self.0))
@@ -264,6 +269,7 @@ impl ActionParser<'_> {
         let def = ShowWorkspaceDefaults {
             move_to_output: None,
             toggle: None,
+            ty: None,
         };
         self.parse_show_workspace_(ext, &ActionParserError::ShowWorkspace, def)
     }
@@ -272,6 +278,7 @@ impl ActionParser<'_> {
         let def = ShowWorkspaceDefaults {
             move_to_output: Some(true),
             toggle: Some(false),
+            ty: Some(WorkspaceType::Overlay),
         };
         self.parse_show_workspace_(ext, &ActionParserError::ShowOverlay, def)
     }
@@ -280,6 +287,7 @@ impl ActionParser<'_> {
         let def = ShowWorkspaceDefaults {
             move_to_output: Some(false),
             toggle: Some(true),
+            ty: Some(WorkspaceType::Overlay),
         };
         self.parse_show_workspace_(ext, &ActionParserError::ToggleOverlay, def)
     }
@@ -595,6 +603,7 @@ impl ActionParser<'_> {
 struct ShowWorkspaceDefaults {
     move_to_output: Option<bool>,
     toggle: Option<bool>,
+    ty: Option<WorkspaceType>,
 }
 
 impl Parser for ActionParser<'_> {

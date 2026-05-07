@@ -378,6 +378,9 @@ Action:
             
             - `move-to-output`: `true`
             - `toggle`: `false`
+
+            For convenience, the type of the workspace is automatically set to `overlay`
+            even if it is not defined in the `workspaces` table.
           fields:
             name:
               description: See the same field in the `show-workspace` action.
@@ -402,6 +405,9 @@ Action:
             
             - `move-to-output`: `false`
             - `toggle`: `true`
+
+            For convenience, the type of the workspace is automatically set to `overlay`
+            even if it is not defined in the `workspaces` table.
           fields:
             name:
               description: See the same field in the `show-workspace` action.
