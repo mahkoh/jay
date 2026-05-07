@@ -8,8 +8,16 @@ concept special workspaces or scratchpads.
 
 ## Defining an Overlay
 
-Declare an overlay in the `[workspaces]` table by setting its type to
-`"overlay"`:
+The `show-overlay` and `toggle-overlay` actions automatically set the
+workspace type to `overlay`. A shortcut binding is all you need:
+
+```toml
+[shortcuts]
+alt-s = { type = "toggle-overlay", name = "scratchpad" }
+```
+
+If you want to configure additional workspace properties, you can also
+declare the overlay explicitly in the `[workspaces]` table:
 
 ```toml
 [workspaces."scratchpad"]
@@ -130,7 +138,9 @@ latch = { type = "hide-overlay", name = "scratchpad" }
 
 The `show-overlay` and `toggle-overlay` actions are convenience aliases. You
 can use `show-workspace` directly with overlay workspaces for full control
-over the `toggle` and `move-to-output` fields:
+over the `toggle` and `move-to-output` fields. Unlike the overlay actions,
+`show-workspace` does not automatically set the workspace type, so you must
+define the overlay in the `[workspaces]` table:
 
 ```toml
 [shortcuts]

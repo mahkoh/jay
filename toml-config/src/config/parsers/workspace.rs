@@ -20,7 +20,8 @@ use {
 #[derive(Debug)]
 pub struct WorkspaceSlot {
     pub ws: Cell<Workspace>,
-    pub ty: Cell<WorkspaceType>,
+    pub implicit_ty: Cell<WorkspaceType>,
+    pub explicit_ty: Cell<Option<WorkspaceType>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -37,7 +38,8 @@ impl Context<'_> {
         }
         let ws = Rc::new(WorkspaceSlot {
             ws: Cell::new(Workspace(0)),
-            ty: Cell::new(WorkspaceType::Normal),
+            implicit_ty: Cell::new(WorkspaceType::Normal),
+            explicit_ty: Default::default(),
         });
         map.insert(name.to_string(), ws.clone());
         ws
@@ -107,18 +109,20 @@ impl Parser for WorkspaceParser<'_> {
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (ty_str,) = ext.extract((recover(opt(str("type"))),))?;
-        let mut ty = WorkspaceType::Normal;
-        if let Some(ty_str) = ty_str {
-            match ty_str.value {
-                "normal" => ty = WorkspaceType::Normal,
-                "overlay" => ty = WorkspaceType::Overlay,
-                _ => {
-                    log::error!("Unknown workspace type: {}", self.cx.error3(ty_str.span));
-                }
+        let ws = self.cx.get_workspace_slot(self.name);
+        'ty: {
+            if let Some(ty_str) = ty_str {
+                let ty = match ty_str.value {
+                    "normal" => WorkspaceType::Normal,
+                    "overlay" => WorkspaceType::Overlay,
+                    _ => {
+                        log::error!("Unknown workspace type: {}", self.cx.error3(ty_str.span));
+                        break 'ty;
+                    }
+                };
+                ws.explicit_ty.set(Some(ty));
             }
         }
-        let ws = self.cx.get_workspace_slot(self.name);
-        ws.ty.set(ty);
         Ok(())
     }
 }

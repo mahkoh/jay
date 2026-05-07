@@ -640,7 +640,8 @@ where
     check_defined!("Output", outputs, defined_outputs);
     check_defined!("Input", inputs, defined_inputs);
     for (name, ws) in cx.workspaces.take() {
-        let id = match ws.ty.get() {
+        let ty = ws.explicit_ty.get().unwrap_or(ws.implicit_ty.get());
+        let id = match ty {
             WorkspaceType::Normal => get_workspace(&name),
             WorkspaceType::Overlay => get_overlay(&name),
         };

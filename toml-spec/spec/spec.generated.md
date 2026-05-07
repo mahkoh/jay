@@ -312,6 +312,9 @@ This table is a tagged union. The variant is determined by the `type` field. It 
   
   - `move-to-output`: `true`
   - `toggle`: `false`
+  
+  For convenience, the type of the workspace is automatically set to `overlay`
+  even if it is not defined in the `workspaces` table.
 
   The table has the following fields:
 
@@ -346,6 +349,9 @@ This table is a tagged union. The variant is determined by the `type` field. It 
   
   - `move-to-output`: `false`
   - `toggle`: `true`
+  
+  For convenience, the type of the workspace is automatically set to `overlay`
+  even if it is not defined in the `workspaces` table.
 
   The table has the following fields:
 

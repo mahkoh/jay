@@ -162,7 +162,7 @@
               ]
             },
             {
-              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `true`\n- `toggle`: `false`\n",
+              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `true`\n- `toggle`: `false`\n\nFor convenience, the type of the workspace is automatically set to `overlay`\neven if it is not defined in the `workspaces` table.\n",
               "type": "object",
               "properties": {
                 "type": {
@@ -191,7 +191,7 @@
               ]
             },
             {
-              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `false`\n- `toggle`: `true`\n",
+              "description": "This is an alias for the `show-workspace` action with the following hard-coded\nparameters:\n\n- `move-to-output`: `false`\n- `toggle`: `true`\n\nFor convenience, the type of the workspace is automatically set to `overlay`\neven if it is not defined in the `workspaces` table.\n",
               "type": "object",
               "properties": {
                 "type": {
