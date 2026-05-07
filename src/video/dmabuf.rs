@@ -194,10 +194,7 @@ fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
         {
             for line in buf.split_str(b"\n") {
                 if let Some(v) = line.strip_prefix(b"exp_name:") {
-                    if v.trim_ascii() == b"udmabuf" {
-                        return true;
-                    }
-                    break;
+                    return v.trim_ascii() == b"udmabuf";
                 }
             }
         }
