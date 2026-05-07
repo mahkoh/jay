@@ -6,7 +6,10 @@ use {
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
-            xdg_surface::{XdgSurface, xdg_toplevel::XdgToplevel},
+            xdg_surface::{
+                XdgSurface,
+                xdg_toplevel::{XdgToplevel, xdg_toplevel_icon_v1::ToplevelIcon},
+            },
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
         },
         rect::Rect,
@@ -182,6 +185,7 @@ impl Renderer<'_> {
                             srgb_srgb,
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
+                            false,
                         );
                     }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -201,6 +205,7 @@ impl Renderer<'_> {
                         self.state.color_manager.srgb_gamma22(),
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
+                        false,
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -225,6 +230,7 @@ impl Renderer<'_> {
                         srgb_srgb,
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
+                        false,
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -327,6 +333,7 @@ impl Renderer<'_> {
                 self.state.color_manager.srgb_gamma22(),
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -399,28 +406,36 @@ impl Renderer<'_> {
                                 srgb_srgb,
                                 perceptual,
                                 AlphaMode::PremultipliedElectrical,
+                                false,
                             );
                         }
                         x += th;
                     }
-                    let (x, y) = self.base.scale_point(x, rect.y1());
-                    self.base.render_texture(
-                        &title.tex,
-                        None,
-                        x,
-                        y,
-                        None,
-                        None,
-                        self.base.scale,
-                        Some(&bounds),
-                        None,
-                        AcquireSync::None,
-                        ReleaseSync::None,
-                        false,
-                        srgb_srgb,
-                        perceptual,
-                        AlphaMode::PremultipliedElectrical,
-                    );
+                    if let Some(icon) = &title.icon {
+                        self.render_icon(icon, &bounds, x, rect.y1());
+                        x += th;
+                    }
+                    if let Some(tex) = &title.tex {
+                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        self.base.render_texture(
+                            tex,
+                            None,
+                            x,
+                            y,
+                            None,
+                            None,
+                            self.base.scale,
+                            Some(&bounds),
+                            None,
+                            AcquireSync::None,
+                            ReleaseSync::None,
+                            false,
+                            srgb_srgb,
+                            perceptual,
+                            AlphaMode::PremultipliedElectrical,
+                            false,
+                        );
+                    }
                 }
             }
         }
@@ -608,6 +623,7 @@ impl Renderer<'_> {
                 &cd,
                 intent,
                 alpha_mode,
+                false,
             );
         } else if let Some(color) = &buf.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
@@ -703,6 +719,7 @@ impl Renderer<'_> {
                     srgb_srgb,
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
+                    false,
                 );
             }
             x1 += th;
@@ -738,8 +755,13 @@ impl Renderer<'_> {
                     srgb_srgb,
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
+                    false,
                 );
             }
+            x1 += th;
+        }
+        if let Some(icon) = floating.icons.get(&self.base.scale) {
+            self.render_icon(&icon, &bounds, x1, y1);
             x1 += th;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
@@ -762,6 +784,7 @@ impl Renderer<'_> {
                 srgb_srgb,
                 perceptual,
                 AlphaMode::PremultipliedElectrical,
+                false,
             );
         }
         let body = Rect::new_sized_saturating(
@@ -796,5 +819,49 @@ impl Renderer<'_> {
         let surface_size = self.base.scale_rect(surface_size);
         let bounds = bounds.move_(-x, -y).intersect(surface_size);
         region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
+    }
+
+    fn render_icon(&mut self, icon: &ToplevelIcon, bounds: &Rect, x1: i32, y1: i32) {
+        let (x, y) = self.base.scale_point(x1 + 1, y1 + 1);
+        let grayscale = self.state.theme.window_icons_grayscale.get();
+        let srgb = self.state.color_manager.srgb_gamma22();
+        let perceptual = RenderIntent::Perceptual;
+        match icon {
+            ToplevelIcon::Srgb(color) => {
+                let tis = self.state.theme.title_icon_size() + 1;
+                let (x2, y2) = self.base.scale_point(x1 + tis, y1 + tis);
+                let color = match grayscale {
+                    true => color.to_grayscale(),
+                    false => *color,
+                };
+                self.base.fill_scaled_boxes(
+                    slice::from_ref(&Rect::new_saturating(x, y, x2, y2)),
+                    &color,
+                    None,
+                    &srgb.linear,
+                    perceptual,
+                )
+            }
+            ToplevelIcon::Tex(tex) => {
+                self.base.render_texture(
+                    &tex,
+                    None,
+                    x,
+                    y,
+                    None,
+                    None,
+                    self.base.scale,
+                    Some(bounds),
+                    None,
+                    AcquireSync::None,
+                    ReleaseSync::None,
+                    false,
+                    srgb,
+                    perceptual,
+                    AlphaMode::PremultipliedElectrical,
+                    grayscale,
+                );
+            }
+        }
     }
 }

@@ -46,7 +46,8 @@ use {
         tasks::{self, JoinHandle},
         theme::{
             reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position,
-            set_egui_monospace_fonts, set_egui_proportional_fonts, set_font, set_title_font,
+            set_egui_monospace_fonts, set_egui_proportional_fonts, set_font, set_show_window_icons,
+            set_title_font, set_window_icons_grayscale,
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         video::{
@@ -1042,6 +1043,12 @@ impl State {
         font!(set_font, font);
         font!(set_title_font, title_font);
         font!(set_bar_font, bar_font);
+        if let Some(v) = theme.show_window_icons {
+            set_show_window_icons(v);
+        }
+        if let Some(v) = theme.window_icons_grayscale {
+            set_window_icons_grayscale(v);
+        }
     }
 
     fn handle_switch_device(self: &Rc<Self>, dev: InputDevice, actions: &Rc<SwitchActions>) {

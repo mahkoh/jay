@@ -45,6 +45,20 @@ impl LookAndFeelPane {
             bool(ui, "Show Titles", t.show_titles.get(), |v| {
                 self.state.set_show_titles(v)
             });
+            bool(ui, "Show Window Icons", t.show_window_icons.get(), |v| {
+                self.state.set_show_window_icons(v)
+            });
+            bool_ui(
+                ui,
+                "Window Icons Grayscale",
+                |ui| {
+                    tip(ui, |ui| {
+                        ui.label("Only supported by the Vulkan renderer.");
+                    });
+                },
+                t.window_icons_grayscale.get(),
+                |v| self.state.set_window_icons_grayscale(v),
+            );
             bool_ui(
                 ui,
                 "Primary Selection",

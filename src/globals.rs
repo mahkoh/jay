@@ -42,7 +42,10 @@ use {
             },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
-            wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
+            wl_surface::{
+                xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1Global,
+                xwayland_shell_v1::XwaylandShellV1Global,
+            },
             wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global,
             workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global,
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
@@ -250,6 +253,7 @@ singletons! {
     WpPresentation,
     ZwlrVirtualPointerManagerV1,
     XdgSessionManagerV1,
+    XdgToplevelIconManagerV1,
 }
 
 pub struct Globals {

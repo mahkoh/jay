@@ -198,6 +198,7 @@ impl RendererBase<'_> {
         cd: &Rc<ColorDescription>,
         render_intent: RenderIntent,
         alpha_mode: AlphaMode,
+        grayscale: bool,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
         // log::info!("{:?}", backtrace::Backtrace::new());
@@ -247,6 +248,7 @@ impl RendererBase<'_> {
             render_intent,
             cd: cd.clone(),
             alpha_mode,
+            grayscale,
         }));
     }
 

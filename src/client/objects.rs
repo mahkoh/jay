@@ -30,7 +30,14 @@ use {
             wl_seat::{WlSeat, tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer},
             wl_surface::{
                 WlSurface,
-                xdg_surface::{XdgSurface, xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
+                xdg_surface::{
+                    XdgSurface,
+                    xdg_popup::XdgPopup,
+                    xdg_toplevel::{
+                        XdgToplevel, xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1,
+                        xdg_toplevel_icon_v1::XdgToplevelIconV1,
+                    },
+                },
             },
             wlr_output_manager::{
                 zwlr_output_head_v1::ZwlrOutputHeadV1, zwlr_output_mode_v1::ZwlrOutputModeV1,
@@ -53,9 +60,9 @@ use {
             WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
             WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionReferenceV1Id,
             WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id,
-            ZwpTabletToolV2Id,
+            XdgSurfaceId, XdgToplevelIconManagerV1Id, XdgToplevelIconV1Id, XdgToplevelId,
+            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id,
+            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -101,6 +108,9 @@ pub struct Objects {
     pub wp_image_description_reference:
         CopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
     pub jay_keymap_builders: CopyHashMap<JayKeymapBuilderId, Rc<JayKeymapBuilder>>,
+    pub xdg_toplevel_icons: CopyHashMap<XdgToplevelIconV1Id, Rc<XdgToplevelIconV1>>,
+    pub xdg_toplevel_icon_managers:
+        CopyHashMap<XdgToplevelIconManagerV1Id, Rc<XdgToplevelIconManagerV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -144,6 +154,8 @@ impl Objects {
             wp_image_description: Default::default(),
             wp_image_description_reference: Default::default(),
             jay_keymap_builders: Default::default(),
+            xdg_toplevel_icons: Default::default(),
+            xdg_toplevel_icon_managers: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -191,6 +203,8 @@ impl Objects {
         self.wp_image_description.clear();
         self.wp_image_description_reference.clear();
         self.jay_keymap_builders.clear();
+        self.xdg_toplevel_icons.clear();
+        self.xdg_toplevel_icon_managers.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

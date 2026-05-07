@@ -44,4 +44,7 @@ pub trait ContainingNode: Node {
     fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
         false
     }
+    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
+        let _ = child;
+    }
 }

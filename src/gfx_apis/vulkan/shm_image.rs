@@ -7,6 +7,7 @@ use {
             VulkanError, VulkanSync,
             allocator::VulkanAllocation,
             command::VulkanCommandBuffer,
+            format::RW_USAGE,
             image::{QueueFamily, QueueState, VulkanImage, VulkanImageMemory},
             renderer::{VulkanRenderer, image_barrier},
             staging::VulkanStagingBuffer,
@@ -488,11 +489,107 @@ impl VulkanRenderer {
         let shm = match &img.ty {
             VulkanImageMemory::DmaBuf(_) => unreachable!(),
             VulkanImageMemory::Blend(_) => unreachable!(),
+            VulkanImageMemory::Rw(_) => unreachable!(),
             VulkanImageMemory::Internal(s) => s,
         };
         if data.is_not_empty() {
             shm.upload(&img, data, None)?;
         }
+        Ok(img)
+    }
+
+    pub fn create_rw_image(
+        self: &Rc<Self>,
+        format: &'static Format,
+        width: i32,
+        height: i32,
+    ) -> Result<Rc<VulkanImage>, VulkanError> {
+        if width <= 0 || height <= 0 {
+            return Err(VulkanError::NonPositiveImageSize);
+        }
+        let width = width as u32;
+        let height = height as u32;
+        let vk_format = self
+            .device
+            .formats
+            .get(&format.drm)
+            .ok_or(VulkanError::FormatNotSupported)?;
+        let rw = vk_format.rw.as_ref().ok_or(VulkanError::RwNotSupported)?;
+        if width > rw.limits.max_width || height > rw.limits.max_height {
+            return Err(VulkanError::ImageTooLarge);
+        }
+        let usage = RW_USAGE;
+        let create_info = ImageCreateInfo::default()
+            .image_type(ImageType::TYPE_2D)
+            .format(format.vk_format)
+            .mip_levels(1)
+            .array_layers(1)
+            .tiling(ImageTiling::OPTIMAL)
+            .samples(SampleCountFlags::TYPE_1)
+            .sharing_mode(SharingMode::EXCLUSIVE)
+            .initial_layout(ImageLayout::UNDEFINED)
+            .extent(Extent3D {
+                width,
+                height,
+                depth: 1,
+            })
+            .usage(usage);
+        let image = unsafe { self.device.device.create_image(&create_info, None) };
+        let image = image.map_err(VulkanError::CreateImage)?;
+        let destroy_image = on_drop(|| unsafe { self.device.device.destroy_image(image, None) });
+        let memory_requirements =
+            unsafe { self.device.device.get_image_memory_requirements(image) };
+        let allocation =
+            self.allocator
+                .alloc(&memory_requirements, UsageFlags::FAST_DEVICE_ACCESS, false)?;
+        let res = unsafe {
+            self.device
+                .device
+                .bind_image_memory(image, allocation.memory, allocation.offset)
+        };
+        res.map_err(VulkanError::BindImageMemory)?;
+        let image_view_create_info = ImageViewCreateInfo::default()
+            .image(image)
+            .format(format.vk_format)
+            .view_type(ImageViewType::TYPE_2D)
+            .subresource_range(ImageSubresourceRange {
+                aspect_mask: ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            });
+        let view = unsafe {
+            self.device
+                .device
+                .create_image_view(&image_view_create_info, None)
+        };
+        let view = view.map_err(VulkanError::CreateImageView)?;
+        let destroy_image_view =
+            on_drop(|| unsafe { self.device.device.destroy_image_view(view, None) });
+        let descriptor_heap = self.descriptor_heap_image(usage, &image_view_create_info)?;
+        destroy_image_view.forget();
+        destroy_image.forget();
+        let img = Rc::new(VulkanImage {
+            renderer: self.clone(),
+            format,
+            width,
+            height,
+            stride: 0,
+            texture_view: Some(view),
+            render_view: None,
+            image,
+            is_undefined: Cell::new(true),
+            contents_are_undefined: Cell::new(true),
+            queue_state: Cell::new(QueueState::Acquired {
+                family: QueueFamily::Gfx,
+            }),
+            ty: VulkanImageMemory::Rw(allocation),
+            bridge: None,
+            execution_version: Cell::new(0),
+            descriptor_buffer: self.descriptor_buffer_image(usage, view),
+            descriptor_heap,
+        });
         Ok(img)
     }
 }

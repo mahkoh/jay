@@ -3,7 +3,7 @@ use {
         config::{
             Theme,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, recover, s32, str, val},
+            extractor::{Extractor, ExtractorError, bol, opt, recover, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::color::ColorParser,
         },
@@ -63,7 +63,13 @@ impl Parser for ThemeParser<'_> {
                 font,
                 title_font,
             ),
-            (bar_font, bar_position_val, bar_separator_width),
+            (
+                bar_font,
+                bar_position_val,
+                bar_separator_width,
+                show_window_icons,
+                window_icons_grayscale,
+            ),
         ) = ext.extract((
             (
                 opt(val("attention-requested-bg-color")),
@@ -93,6 +99,8 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(str("bar-font"))),
                 recover(opt(str("bar-position"))),
                 recover(opt(s32("bar-separator-width"))),
+                recover(opt(bol("show-window-icons"))),
+                recover(opt(bol("window-icons-grayscale"))),
             ),
         ))?;
         macro_rules! color {
@@ -146,6 +154,8 @@ impl Parser for ThemeParser<'_> {
             bar_font: bar_font.map(|f| f.value.to_string()),
             bar_position,
             bar_separator_width: bar_separator_width.despan(),
+            show_window_icons: show_window_icons.despan(),
+            window_icons_grayscale: window_icons_grayscale.despan(),
         })
     }
 }

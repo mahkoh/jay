@@ -20,6 +20,7 @@ macro_rules! egl_transparent {
 
 use {
     crate::{
+        allocator::AllocatorError,
         cmm::cmm_eotf::Eotf,
         gfx_api::{
             AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOpt, GfxContext, GfxError,
@@ -166,6 +167,8 @@ enum RenderError {
     NoHardwareRenderer,
     #[error("Could not query display device")]
     QueryDisplayDevice,
+    #[error("Could not allocate buffer object")]
+    AllocateBo(#[source] AllocatorError),
 }
 
 #[derive(Default)]

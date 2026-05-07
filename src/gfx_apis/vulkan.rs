@@ -31,8 +31,8 @@ use {
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
-            GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus,
-            STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
+            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            ResetStatus, STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             device::VulkanDevice, image::VulkanImageMemory, instance::VulkanInstance,
@@ -43,7 +43,7 @@ use {
         rect::Rect,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
-            dmabuf::DmaBuf,
+            dmabuf::{DmaBuf, DmaBufIds},
             drm::{Drm, DrmError, syncobj::SyncobjCtx},
             gbm::GbmError,
         },
@@ -146,6 +146,8 @@ pub enum VulkanError {
     BindImageMemory(#[source] vk::Result),
     #[error("The format does not support shared memory images")]
     ShmNotSupported,
+    #[error("The format does not support read-write images")]
+    RwNotSupported,
     #[error("Could not bind memory to the buffer")]
     BindBufferMemory(#[source] vk::Result),
     #[error("Could not map the memory")]
@@ -306,6 +308,7 @@ impl GfxContext for Context {
             let shm = match &old.ty {
                 VulkanImageMemory::DmaBuf(_) => unreachable!(),
                 VulkanImageMemory::Blend(_) => unreachable!(),
+                VulkanImageMemory::Rw(_) => unreachable!(),
                 VulkanImageMemory::Internal(shm) => shm,
             };
             if old.width as i32 == width
@@ -369,6 +372,17 @@ impl GfxContext for Context {
             Some(cpu_worker),
         )?;
         Ok(fb)
+    }
+
+    fn create_read_write_img(
+        self: Rc<Self>,
+        _dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<(Rc<dyn GfxFramebuffer>, Rc<dyn GfxTexture>), GfxError> {
+        let img = self.0.create_rw_image(format, width, height)?;
+        Ok((img.clone(), img))
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {

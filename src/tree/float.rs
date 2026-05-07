@@ -4,9 +4,14 @@ use {
         cursor::KnownCursor,
         cursor_user::CursorUser,
         fixed::Fixed,
-        ifs::wl_seat::{
-            BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal,
-            tablet::{TabletTool, TabletToolChanges, TabletToolId},
+        ifs::{
+            wl_seat::{
+                BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal,
+                tablet::{TabletTool, TabletToolChanges, TabletToolId},
+            },
+            wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::{
+                ToplevelIcon, ToplevelIconUser,
+            },
         },
         rect::Rect,
         renderer::Renderer,
@@ -20,9 +25,13 @@ use {
             WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, double_click_state::DoubleClickState,
-            errorfmt::ErrorFmt, linkedlist::LinkedNode, on_drop_event::OnDropEvent,
-            smallmap::SmallMapMut,
+            asyncevent::AsyncEvent,
+            clonecell::CloneCell,
+            double_click_state::DoubleClickState,
+            errorfmt::ErrorFmt,
+            linkedlist::LinkedNode,
+            on_drop_event::OnDropEvent,
+            smallmap::{SmallMap, SmallMapMut},
         },
     },
     ahash::AHashMap,
@@ -56,6 +65,8 @@ pub struct FloatNode {
     pub title_rect: Cell<Rect>,
     pub title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+    pub icon: ToplevelIconUser,
+    pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
     pub attention_requested: Cell<bool>,
 }
@@ -146,9 +157,12 @@ impl FloatNode {
             title_rect: Default::default(),
             title: Default::default(),
             title_textures: Default::default(),
+            icon: state.toplevel_icon_user(),
+            icons: Default::default(),
             cursors: Default::default(),
             attention_requested: Cell::new(false),
         });
+        child.tl_update_icon(&floater.icon);
         floater.pull_child_properties();
         {
             let dl = &mut *floater.display_link.borrow_mut();
@@ -172,6 +186,11 @@ impl FloatNode {
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
+        if self.icon.set_size(self.state.theme.title_icon_size())
+            && let Some(child) = self.child.get()
+        {
+            child.tl_update_icon(&self.icon);
+        }
         self.schedule_layout();
     }
 
@@ -230,11 +249,23 @@ impl FloatNode {
         let scales = self.state.scales.lock();
         let tr = self.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
+        self.icons.clear();
         for (scale, _) in scales.iter() {
             let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();
+            let icon = self
+                .state
+                .theme
+                .show_window_icons
+                .get()
+                .then(|| self.icon.get(*scale))
+                .flatten();
+            if let Some(icon) = icon {
+                width = (width - th).max(0);
+                self.icons.insert(*scale, icon);
+            }
             if self.workspace_ty.get() == WorkspaceType::Overlay {
                 width = (width - th).max(0);
             }
@@ -955,6 +986,7 @@ impl ContainingNode for FloatNode {
         self.discard_child_properties();
         self.child.set(Some(new.clone()));
         new.tl_set_parent(self.clone());
+        new.tl_update_icon(&self.icon);
         self.pull_child_properties();
         new.tl_set_visible(self.visible.get());
         self.schedule_layout();
@@ -1061,6 +1093,11 @@ impl ContainingNode for FloatNode {
 
     fn cnode_get_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         Some(self)
+    }
+
+    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
+        child.tl_update_icon(&self.icon);
+        self.schedule_render_titles();
     }
 }
 

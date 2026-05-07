@@ -2357,6 +2357,14 @@
         "bar-font": {
           "type": "string",
           "description": "The name of the font to use in the bar. Defaults to `font` if not set."
+        },
+        "show-window-icons": {
+          "type": "boolean",
+          "description": "Whether window icons set by the client are shown in window titles.\n\nThe default is `true`.\n"
+        },
+        "window-icons-grayscale": {
+          "type": "boolean",
+          "description": "Whether window icons are rendered grayscale.\n\nThis is only supported on the Vulkan renderer.\n\nThe default is `false`.\n"
         }
       },
       "required": []

@@ -917,6 +917,12 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         mul: f64,
     },
+    SetShowWindowIcons {
+        show: bool,
+    },
+    SetWindowIconsGrayscale {
+        grayscale: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

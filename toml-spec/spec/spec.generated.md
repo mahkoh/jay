@@ -5227,6 +5227,24 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `show-window-icons` (optional):
+
+  Whether window icons set by the client are shown in window titles.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
+- `window-icons-grayscale` (optional):
+
+  Whether window icons are rendered grayscale.
+  
+  This is only supported on the Vulkan renderer.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-TileState"></a>
 ### `TileState`

@@ -234,6 +234,8 @@ pub struct Theme {
     pub bar_font: Option<String>,
     pub bar_position: Option<BarPosition>,
     pub bar_separator_width: Option<i32>,
+    pub show_window_icons: Option<bool>,
+    pub window_icons_grayscale: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]

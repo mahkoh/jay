@@ -1,21 +1,30 @@
 use {
-    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    crate::utils::{
+        numcell::NumCell,
+        ptr_ext::{MutPtrExt, PtrExt},
+    },
     std::{cell::UnsafeCell, mem, ops::Deref},
 };
 
 pub struct RefCounted<T> {
     map: UnsafeCell<Vec<(T, usize)>>,
+    version: NumCell<u64>,
 }
 
 impl<T> Default for RefCounted<T> {
     fn default() -> Self {
         Self {
             map: UnsafeCell::new(vec![]),
+            version: NumCell::new(1),
         }
     }
 }
 
 impl<T: Eq> RefCounted<T> {
+    pub fn version(&self) -> u64 {
+        self.version.get()
+    }
+
     pub fn add(&self, t: T) -> bool {
         unsafe {
             let map = self.map.get().deref_mut();
@@ -26,6 +35,7 @@ impl<T: Eq> RefCounted<T> {
                 }
             }
             map.push((t, 1));
+            self.version.fetch_add(1);
             true
         }
     }
@@ -47,6 +57,7 @@ impl<T: Eq> RefCounted<T> {
                 return false;
             };
             let _v = map.swap_remove(idx);
+            self.version.fetch_add(1);
             true
         }
     }

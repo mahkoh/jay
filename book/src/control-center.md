@@ -424,6 +424,12 @@ Bar Position
 Show Titles
 : Toggle window title bars
 
+Show Window Icons
+: Toggle window icons in title bars
+
+Window Icons Grayscale
+: Render window icons in grayscale (only supported by the Vulkan renderer)
+
 Primary Selection
 : Toggle middle-click paste (requires application restart to take effect)
 

@@ -2114,6 +2114,14 @@ impl ConfigClient {
         }
     }
 
+    pub fn set_show_window_icons(&self, show: bool) {
+        self.send(&ClientMessage::SetShowWindowIcons { show });
+    }
+
+    pub fn set_window_icons_grayscale(&self, grayscale: bool) {
+        self.send(&ClientMessage::SetWindowIconsGrayscale { grayscale });
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();

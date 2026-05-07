@@ -211,6 +211,22 @@ pub fn set_egui_monospace_fonts<'a>(fonts: impl IntoIterator<Item = &'a str>) {
     get!().set_egui_fonts(None, Some(fonts.into_iter().collect()));
 }
 
+/// Sets whether window icons set by the client are shown.
+///
+/// The default is `true`.
+pub fn set_show_window_icons(show: bool) {
+    get!().set_show_window_icons(show);
+}
+
+/// Sets whether window icons set by the client are rendered as grayscale.
+///
+/// This is only supported on the Vulkan renderer.
+///
+/// The default is `false`.
+pub fn set_window_icons_grayscale(grayscale: bool) {
+    get!().set_window_icons_grayscale(grayscale);
+}
+
 /// Elements of the compositor whose color can be changed.
 pub mod colors {
     use {

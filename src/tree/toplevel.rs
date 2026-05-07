@@ -17,8 +17,11 @@ use {
             jay_toplevel::JayToplevel,
             wl_seat::{NodeSeatState, SeatId, collect_kb_foci},
             wl_surface::{
-                WlSurface, x_surface::xwindow::XwindowData,
-                xdg_surface::xdg_toplevel::XdgToplevelToplevelData,
+                WlSurface,
+                x_surface::xwindow::XwindowData,
+                xdg_surface::xdg_toplevel::{
+                    XdgToplevelToplevelData, xdg_toplevel_icon_v1::ToplevelIconUser,
+                },
             },
             wp_content_type_v1::ContentType,
             zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
@@ -355,6 +358,10 @@ pub trait ToplevelNodeBase: Node {
 
     fn tl_mark_fullscreen_ext(&self) {
         // nothing
+    }
+
+    fn tl_update_icon(&self, user: &ToplevelIconUser) {
+        user.clear();
     }
 }
 

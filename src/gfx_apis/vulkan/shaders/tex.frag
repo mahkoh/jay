@@ -16,7 +16,7 @@ layout(location = 0) out vec4 out_color;
 
 void main() {
 	vec4 c = textureLod(sampler2D(tex, sam), tex_pos, 0);
-	if (eotf != inv_eotf || has_matrix || alpha_mode != AM_PREMULTIPLIED_ELECTRICAL) {
+	if (eotf != inv_eotf || has_matrix || alpha_mode != AM_PREMULTIPLIED_ELECTRICAL || grayscale) {
 		vec3 rgb = c.rgb;
 		if (src_has_alpha && alpha_mode == AM_PREMULTIPLIED_ELECTRICAL) {
 			rgb /= mix(c.a, 1.0, c.a == 0.0);
@@ -27,6 +27,10 @@ void main() {
 		}
 		if (has_matrix) {
 			rgb = (cm_data.matrix * vec4(rgb, 1.0)).rgb;
+		}
+		if (grayscale) {
+			float y = 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
+			rgb = vec3(y);
 		}
 		rgb = apply_inv_eotf(rgb);
 		if (src_has_alpha) {

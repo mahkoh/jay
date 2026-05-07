@@ -24,7 +24,7 @@ use {
         },
         video::{
             Modifier,
-            dmabuf::DmaBuf,
+            dmabuf::{DmaBuf, DmaBufIds},
             drm::syncobj::{Syncobj, SyncobjCtx, SyncobjPoint},
         },
     },
@@ -287,6 +287,7 @@ pub struct CopyTexture {
     pub render_intent: RenderIntent,
     pub cd: Rc<ColorDescription>,
     pub alpha_mode: AlphaMode,
+    pub grayscale: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -522,6 +523,7 @@ impl dyn GfxFramebuffer {
             texture_cd,
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
+            false,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(
@@ -877,6 +879,14 @@ pub trait GfxContext: Debug {
         stride: i32,
         format: &'static Format,
     ) -> Result<Rc<dyn GfxInternalFramebuffer>, GfxError>;
+
+    fn create_read_write_img(
+        self: Rc<Self>,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<(Rc<dyn GfxFramebuffer>, Rc<dyn GfxTexture>), GfxError>;
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>>;
 

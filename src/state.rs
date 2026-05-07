@@ -73,7 +73,12 @@ use {
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
-                xdg_surface::XdgSurfaceConfigureEvent,
+                xdg_surface::{
+                    XdgSurfaceConfigureEvent,
+                    xdg_toplevel::xdg_toplevel_icon_v1::{
+                        ToplevelIconId, ToplevelIconIds, XdgToplevelIconV1,
+                    },
+                },
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
             },
@@ -309,6 +314,8 @@ pub struct State {
     pub sm: Option<Rc<SessionManager>>,
     pub session_management_enabled: Cell<bool>,
     pub fallback_output: Cell<Option<ConnectorId>>,
+    pub toplevel_icon_ids: ToplevelIconIds,
+    pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
 }
 
 // impl Drop for State {
@@ -642,6 +649,15 @@ impl State {
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
+        self.update_toplevel_icon_sizes();
+    }
+
+    fn update_toplevel_icon_sizes(&self) {
+        for v in self.toplevel_icons.lock().values() {
+            if let Some(v) = v.upgrade() {
+                v.update_sizes();
+            }
+        }
     }
 
     fn cursor_sizes_changed(&self) {
@@ -705,9 +721,11 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
-                    node.children
-                        .iter()
-                        .for_each(|c| c.title_tex.borrow_mut().clear());
+                    node.children.iter().for_each(|c| {
+                        c.title_tex.borrow_mut().clear();
+                        c.icon.clear();
+                        c.icons.clear();
+                    });
                     node.node_visit_children(self);
                 }
                 fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
@@ -722,6 +740,8 @@ impl State {
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {
                     node.title_textures.borrow_mut().clear();
+                    node.icon.clear();
+                    node.icons.clear();
                     node.node_visit_children(self);
                 }
                 fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
@@ -745,6 +765,11 @@ impl State {
                             buf.update_texture_or_log(surface, true);
                         }
                     }
+                }
+            }
+            for icon in self.toplevel_icons.lock().values() {
+                if let Some(icon) = icon.upgrade() {
+                    icon.handle_render_ctx_change();
                 }
             }
         }
@@ -1467,6 +1492,7 @@ impl State {
             src_cd,
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
+            false,
         );
         if render_hardware_cursors
             && let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get()
@@ -1992,6 +2018,13 @@ impl State {
         self.visit_all_nodes(&mut V);
         self.damage(self.root.extents.get());
         self.icons.update_sizes(self);
+        for client in self.clients.clients.borrow().values() {
+            let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
+            for v in mgrs.lock().values() {
+                v.send_sizes();
+            }
+        }
+        self.update_toplevel_icon_sizes();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2003,6 +2036,29 @@ impl State {
     pub fn set_show_titles(&self, show: bool) {
         self.theme.show_titles.set(show);
         self.spaces_changed();
+    }
+
+    pub fn set_show_window_icons(&self, show: bool) {
+        self.theme.show_window_icons.set(show);
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.schedule_render_titles();
+                node.node_visit_children(self);
+            }
+        }
+        self.visit_all_nodes(&mut V);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_window_icons_grayscale(&self, show: bool) {
+        self.theme.window_icons_grayscale.set(show);
+        self.damage(self.root.extents.get());
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_ui_drag_enabled(&self, enabled: bool) {

@@ -2539,6 +2539,22 @@ Theme:
       kind: string
       required: false
       description: The name of the font to use in the bar. Defaults to `font` if not set.
+    show-window-icons:
+      description: |
+        Whether window icons set by the client are shown in window titles.
+        
+        The default is `true`.
+      kind: boolean
+      required: false
+    window-icons-grayscale:
+      description: |
+        Whether window icons are rendered grayscale.
+        
+        This is only supported on the Vulkan renderer.
+        
+        The default is `false`.
+      kind: boolean
+      required: false
 
 
 Config:

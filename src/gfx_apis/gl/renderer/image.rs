@@ -1,5 +1,6 @@
 use {
     crate::{
+        allocator::BufferObject,
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         gfx_apis::gl::{
             Framebuffer, GlRenderContext, RenderError, Texture, egl::image::EglImage,
@@ -12,6 +13,7 @@ use {
 pub struct Image {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
     pub(in crate::gfx_apis::gl) gl: Rc<EglImage>,
+    pub(in crate::gfx_apis::gl) _bo: Option<Rc<dyn BufferObject>>,
 }
 
 impl Image {

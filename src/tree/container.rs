@@ -5,11 +5,16 @@ use {
         cursor_user::CursorUser,
         fixed::Fixed,
         gfx_api::GfxTexture,
-        ifs::wl_seat::{
-            BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci,
-            collect_kb_foci2,
-            tablet::{TabletTool, TabletToolChanges, TabletToolId},
-            wl_pointer::PendingScroll,
+        ifs::{
+            wl_seat::{
+                BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci,
+                collect_kb_foci2,
+                tablet::{TabletTool, TabletToolChanges, TabletToolId},
+                wl_pointer::PendingScroll,
+            },
+            wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::{
+                ToplevelIcon, ToplevelIconUser,
+            },
         },
         rect::Rect,
         renderer::Renderer,
@@ -34,7 +39,7 @@ use {
             on_drop_event::OnDropEvent,
             rc_eq::rc_eq,
             scroller::Scroller,
-            smallmap::SmallMapMut,
+            smallmap::{SmallMap, SmallMapMut},
             threshold_counter::ThresholdCounter,
         },
     },
@@ -95,7 +100,8 @@ tree_id!(ContainerNodeId);
 
 pub struct ContainerTitle {
     pub rect: Rect,
-    pub tex: Rc<dyn GfxTexture>,
+    pub tex: Option<Rc<dyn GfxTexture>>,
+    pub icon: Option<ToplevelIcon>,
     pub ty: ContainerChildType,
 }
 
@@ -163,6 +169,8 @@ pub struct ContainerChild {
     title: RefCell<String>,
     pub title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub title_rect: Cell<Rect>,
+    pub icon: ToplevelIconUser,
+    pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
     ty: Cell<ContainerChildType>,
 
@@ -185,6 +193,22 @@ struct CursorState {
     y: i32,
     op: Option<SeatOp>,
     double_click_state: DoubleClickState,
+}
+
+impl ContainerRenderData {
+    fn add_title(&mut self, rect: Rect, child: &ContainerChild, scale: Scale, title: &TextTexture) {
+        let tex = title.texture();
+        let icon = child.icons.get(&scale);
+        if tex.is_some() || icon.is_some() {
+            let titles = self.titles.get_or_default_mut(scale);
+            titles.push(ContainerTitle {
+                rect,
+                tex,
+                icon,
+                ty: child.ty.get(),
+            })
+        }
+    }
 }
 
 impl ContainerChild {
@@ -221,10 +245,13 @@ impl ContainerNode {
             title: Default::default(),
             title_tex: Default::default(),
             title_rect: Default::default(),
+            icon: state.toplevel_icon_user(),
+            icons: Default::default(),
             focus_history: Default::default(),
             attention_requested: Cell::new(false),
             ty: Default::default(),
         });
+        child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(child.node_id(), child_node);
@@ -344,6 +371,8 @@ impl ContainerNode {
                 title: Default::default(),
                 title_tex: Default::default(),
                 title_rect: Default::default(),
+                icon: self.state.toplevel_icon_user(),
+                icons: Default::default(),
                 focus_history: Default::default(),
                 attention_requested: Default::default(),
                 ty: Default::default(),
@@ -352,6 +381,7 @@ impl ContainerNode {
             links.insert(new.node_id(), link);
             r
         };
+        new.tl_update_icon(&new_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&new_ref);
         new.tl_set_visible(self.toplevel_data.visible.get());
@@ -385,6 +415,11 @@ impl ContainerNode {
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
+        for child in self.child_nodes.borrow().values() {
+            if child.icon.set_size(self.state.theme.title_icon_size()) {
+                child.node.tl_update_icon(&child.icon);
+            }
+        }
         self.update_content_size();
         // log::info!("on_spaces_changed");
         self.schedule_layout();
@@ -774,13 +809,25 @@ impl ContainerNode {
             };
             let title = child.title.borrow_mut();
             let tt = &mut *child.title_tex.borrow_mut();
+            child.icons.clear();
             for (scale, _) in scales.iter() {
                 let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
                 let mut th = th;
                 let mut scalef = None;
                 let mut width = rect.width();
+                let icon = self
+                    .state
+                    .theme
+                    .show_window_icons
+                    .get()
+                    .then(|| child.icon.get(*scale))
+                    .flatten();
                 if draw_overlay_icon {
                     width = (width - th).max(0);
+                }
+                if let Some(icon) = icon {
+                    width = (width - th).max(0);
+                    child.icons.insert(*scale, icon);
                 }
                 if *scale != 1 {
                     let scale = scale.to_f64();
@@ -821,18 +868,11 @@ impl ContainerNode {
             }
             let title = child.title.borrow_mut();
             let tt = &*child.title_tex.borrow();
-            for (scale, tex) in tt {
+            for (&scale, tex) in tt {
                 if let Err(e) = tex.flip() {
                     log::error!("Could not render title {}: {}", title, ErrorFmt(e));
                 }
-                if let Some(tex) = tex.texture() {
-                    let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        rect,
-                        tex,
-                        ty: child.ty.get(),
-                    })
-                }
+                rd.add_title(rect, &child, scale, tex);
             }
         }
         rd.titles.remove_if(|_, v| v.is_empty());
@@ -903,15 +943,8 @@ impl ContainerNode {
                 rd.underline_rects.push(rect);
             }
             let tt = &*child.title_tex.borrow();
-            for (scale, tex) in tt {
-                if let Some(tex) = tex.texture() {
-                    let titles = rd.titles.get_or_default_mut(*scale);
-                    titles.push(ContainerTitle {
-                        rect,
-                        tex,
-                        ty: child.ty.get(),
-                    })
-                }
+            for (&scale, tex) in tt {
+                rd.add_title(rect, &child, scale, tex);
             }
         }
         if mono {
@@ -1984,6 +2017,8 @@ impl ContainingNode for ContainerNode {
             title: Default::default(),
             title_tex: Default::default(),
             title_rect: Cell::new(node.title_rect.get()),
+            icon: self.state.toplevel_icon_user(),
+            icons: Default::default(),
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
             ty: Default::default(),
@@ -2003,6 +2038,7 @@ impl ContainingNode for ContainerNode {
         };
         let link_ref = link.to_ref();
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
+        new.tl_update_icon(&link_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&link_ref);
         new.tl_set_visible(visible);
@@ -2276,6 +2312,15 @@ impl ContainingNode for ContainerNode {
 
     fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
         self.tl_data().self_or_ancestor_is_fullscreen.get()
+    }
+
+    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
+        let children = self.child_nodes.borrow();
+        let Some(cc) = children.get(&child.node_id()) else {
+            return;
+        };
+        child.tl_update_icon(&cc.icon);
+        self.schedule_render_titles();
     }
 }
 

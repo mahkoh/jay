@@ -148,6 +148,32 @@ alt-F9 = { type = "set-theme", theme.bg-color = "#000000" }
 
 Only the fields you include are changed; everything else stays the same.
 
+## Window Icons
+
+Applications can provide custom icons for their windows via the
+`xdg_toplevel_icon_manager_v1` protocol. These icons are displayed in the
+title bar next to the window title.
+
+`show-window-icons`
+: Show window icons set by clients. Default: `true`.
+
+`window-icons-grayscale`
+: Render window icons in grayscale. Only supported by the Vulkan renderer.
+  Default: `false`.
+
+```toml
+[theme]
+show-window-icons = true
+window-icons-grayscale = false
+```
+
+These settings can also be changed at runtime via the `set-theme` action:
+
+```toml
+[shortcuts]
+alt-i = { type = "set-theme", theme.show-window-icons = false }
+```
+
 ## Showing and Hiding UI Elements
 
 These top-level settings control whether the bar and title bars are visible:

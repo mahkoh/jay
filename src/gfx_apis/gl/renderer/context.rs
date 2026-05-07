@@ -1,11 +1,11 @@
 use {
     crate::{
-        allocator::Allocator,
+        allocator::{Allocator, BO_USE_RENDERING, BufferObject, BufferUsage},
         cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
             AsyncShmGfxTexture, BufferResvUser, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, ResetStatus,
+            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxTexture, ResetStatus,
             ShmGfxTexture,
         },
         gfx_apis::gl::{
@@ -19,7 +19,7 @@ use {
         },
         rect::Rect,
         video::{
-            dmabuf::DmaBuf,
+            dmabuf::{DmaBuf, DmaBufIds},
             drm::{Drm, syncobj::SyncobjCtx},
             gbm::GbmDevice,
         },
@@ -204,11 +204,20 @@ impl GlRenderContext {
     }
 
     fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Image>, RenderError> {
+        self.dmabuf_img2(buf, None)
+    }
+
+    fn dmabuf_img2(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+        bo: Option<Rc<dyn BufferObject>>,
+    ) -> Result<Rc<Image>, RenderError> {
         self.ctx.with_current(|| {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
             Ok(Rc::new(Image {
                 ctx: self.clone(),
                 gl: img,
+                _bo: bo,
             }))
         })
     }
@@ -341,6 +350,38 @@ impl GfxContext for GlRenderContext {
             GlRenderBuffer::new(&self.ctx, width, height, stride, format)?.create_framebuffer()
         })?;
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
+    }
+
+    fn create_read_write_img(
+        self: Rc<Self>,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<(Rc<dyn GfxFramebuffer>, Rc<dyn GfxTexture>), GfxError> {
+        let allocator = self.allocator();
+        let Some(format) = self.formats().get(&format.drm) else {
+            return Err(RenderError::UnsupportedFormat.into());
+        };
+        let mut needs_render_usage = false;
+        let mut modifiers = vec![];
+        for (modifier, gwm) in format.write_modifiers.iter() {
+            if format.read_modifiers.contains(modifier) {
+                needs_render_usage |= gwm.needs_render_usage;
+                modifiers.push(*modifier);
+            }
+        }
+        let mut usage = BufferUsage::none();
+        if needs_render_usage {
+            usage |= BO_USE_RENDERING;
+        }
+        let bo = allocator
+            .create_bo(dma_buf_ids, width, height, format.format, &modifiers, usage)
+            .map_err(RenderError::AllocateBo)?;
+        let img = self.dmabuf_img2(bo.dmabuf(), Some(bo.clone()))?;
+        let tex = img.clone().to_texture()?;
+        let fb = img.to_framebuffer()?;
+        Ok((fb, tex))
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {

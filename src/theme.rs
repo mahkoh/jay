@@ -368,6 +368,14 @@ impl Color {
 
         Oklab { l, a, b }
     }
+
+    pub fn to_grayscale(mut self) -> Self {
+        let y = 0.2126 * self.r + 0.7152 * self.g + 0.0722 * self.b;
+        self.r = y;
+        self.g = y;
+        self.b = y;
+        self
+    }
 }
 
 impl From<jay_config::theme::Color> for Color {
@@ -648,6 +656,8 @@ pub struct Theme {
     pub default_font: Arc<String>,
     pub show_titles: Cell<bool>,
     pub bar_position: Cell<BarPosition>,
+    pub show_window_icons: Cell<bool>,
+    pub window_icons_grayscale: Cell<bool>,
 }
 
 impl Default for Theme {
@@ -662,6 +672,8 @@ impl Default for Theme {
             default_font,
             show_titles: Cell::new(true),
             bar_position: Default::default(),
+            show_window_icons: Cell::new(true),
+            window_icons_grayscale: Cell::new(false),
         }
     }
 }
@@ -681,6 +693,10 @@ impl Theme {
         } else {
             0
         }
+    }
+
+    pub fn title_icon_size(&self) -> i32 {
+        (self.title_height() - 2).max(0)
     }
 
     pub fn title_underline_height(&self) -> i32 {
