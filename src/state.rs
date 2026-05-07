@@ -2233,6 +2233,7 @@ impl State {
     pub fn create_overlay_workspace(&self, name: &str) -> Rc<WorkspaceNode> {
         let on = self.dummy_output.get().unwrap();
         let ws = WorkspaceNode::new(&on, name, WorkspaceType::Overlay);
+        ws.opt.set(Some(ws.clone()));
         self.workspaces.set(name.to_string(), ws.clone());
         self.trigger_cci(CCI_WORKSPACES);
         ws
