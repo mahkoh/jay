@@ -10,7 +10,7 @@ pub struct sqlite3(#[expect(dead_code)] u8);
 pub struct sqlite3_stmt(#[expect(dead_code)] u8);
 
 dynload! {
-    SQLITE: Sqlite from "libsqlite3.so" {
+    SQLITE: Sqlite from "libsqlite3.so.0" {
         sqlite3_bind_blob: unsafe extern "C" fn(
             arg1: *mut sqlite3_stmt,
             arg2: c_int,
