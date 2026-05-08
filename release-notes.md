@@ -1,5 +1,331 @@
 # Unreleased
 
+## Fixes
+
+As always, this release contains many bug fixes. Thanks to the following people
+for reporting or fixing bugs:
+
+- @Ktrompfl
+- @luvvlyjude
+- @polycatenane
+- @Stoppedpuma
+
+## The Jay Book
+
+Jay now has a [book](https://mahkoh.github.io/jay/book) that makes it easier to
+get started with Jay and to discover its various features. For example, did you
+know that you can toggle windows between floating and tiled by double-clicking
+on their titles? Or that Jay has a window-management mode that allows you to
+drag fullscreen windows between outputs? Previously there was no way to discover
+these features if you didn't follow Jay development closely.
+
+The book was written with the help of large language models. If you don't want
+to consume that kind of content, the reference documentation of the toml config
+and the Jay code itself remains free of AI, as far as I know.
+
+## Session Management
+
+Jay now supports the session-management protocol that allows application windows
+to be restored after a restart.
+
+In tiling window managers, restoring the exact layout is often not possible, for
+example, tiles created by other applications might no longer exist. Therefore,
+restoration is limited to the following features:
+
+- Restoring windows on the original workspace.
+- Restoring windows on the original output.
+- Restoring fullscreen windows fullscreen.
+- Restoring floating windows with the same size and position.
+
+Session state is stored in an SQLite database under `~/.local/share/jay/db`.
+This feature is only available if Jay is able to load `libsqlite3.so` at
+runtime.
+
+## Overlay Workspaces
+
+Jay now supports overlay workspaces, also known as special workspaces or
+scratchpads in other compositors.
+
+```toml
+alt-x = { type = "toggle-overlay", name = "overlay" }
+```
+
+Overlays are like normal workspaces except that both a normal workspace and an
+overlay can be visible on the same output at once.
+
+Overlays are always rendered above all other surfaces including all layer-shell
+surfaces and fullscreen windows.
+
+Floating windows can be moved from a normal workspace to an overlay workspace by
+dragging them onto the output showing the overlay. If the window is already on
+that output, this happens as soon as the window title is clicked.
+
+Conversely, a floating window can be moved off of the overlay workspace by
+dragging it onto an output that isn't showing an overlay. If you're holding onto
+the title of such a window and then hide the overlay on the output, the window
+is also moved to the normal workspace below.
+
+Of course, the normal `move-to-workspace` action also works for overlays.
+
+Windows on overlays are distinguished from other windows by showing a layer icon
+in their title. Similarly, if an overlay is visible on an output, it appears in
+the bar with a layer icon next to its name. You can hide overlays by
+middle-clicking their name in the bar.
+
+See the Overlays chapter in the book for more details.
+
+Thanks to @Stoppedpuma for suggesting this.
+
+## Custom config.so With Privileges
+
+It is recommended to give the Jay executable the `CAP_SYS_NICE` filesystem
+capability to improve responsiveness under high system load.
+
+```shell
+~$ sudo setcap cap_sys_nice=p $(which jay)
+```
+
+Previously, doing this fully disabled loading of custom config.so for the
+following reason: Any unprivileged application could have created a config.so,
+placed it in `~/.config/jay` and started Jay to run arbitrary code with the
+`CAP_SYS_NICE` capability, possibly enabling a local denial-of-service attack.
+
+This meant that the toml config was privileged since it was the only config type
+able to run with privileges. Jay's config system was designed from the start to
+allow people to write arbitrary config.so's. For example, if someone wanted to
+write a config that uses Lua instead of toml, they should be able to do so.
+
+Jay will now load config.so even when running with capabilities as long as the
+config.so is owned by the root user. If you want to use such a config.so, simply
+`sudo chown root:root config.so`. If you have a config.so that was installed as
+root by a package manager, you can create a symlink to it without having to
+invoke `sudo`.
+
+## Keymap Shortcuts Group
+
+When using non-Latin layouts, it can sometimes be troublesome to invoke keyboard
+shortcuts. For example
+
+```toml
+keymap.rmlvo = {
+    layout = "us,ru",
+    options = "grp:ctrl_space_toggle",
+}
+
+[shortcuts]
+alt-h = "focus-left"
+```
+
+When in the Russian layout, pressing `alt-h` would not invoke the shortcut
+because the `h` key does not produce the `h` keysym.
+
+Jay now supports specifying a dedicated shortcuts group for a keymap.
+
+```toml
+keymap.rmlvo = {
+  layout = "us,ru",
+  options = "grp:ctrl_space_toggle",
+}
+keymap.shortcuts-group = 0
+```
+
+This means that shortcuts are always evaluated against the first (starting at 0)
+group in the keymap. Pressing `alt-h` will therefore invoke the shortcut because
+the `h` key produces the `h` keysym in the US layout.
+
+## Virtual Outputs and Headless Backend
+
+Jay now supports virtual outputs. Virtual outputs act like normal outputs as far
+as applications are concerned but are not connected to any physical hardware.
+They support arbitrary modes, VRR, and tearing.
+
+Virtual outputs can be created in the control center in the virtual outputs
+pane, on the command line, or in the config.
+
+```shell
+~$ jay randr virtual-output create abc
+```
+
+```toml
+[shortcuts]
+alt-x = { type = "create-virtual-output", name = "abc" }
+```
+
+Once created, they can be configured like any other output.
+
+Jay now also supports a headless backend, that is, a backend that doesn't use
+any physical hardware. You can interact with such a Jay instance by using
+virtual outputs and any remote-desktop solution.
+
+## Warp To Focus
+
+Jay now supports warping the cursor to the center of the focused window. This
+can be done either automatically or with an action.
+
+```toml
+# automatic
+unstable-mouse-follows-focus = true
+
+# manual
+[shortcuts]
+alt-x = "warp-mouse-to-focus"
+```
+
+Due to limitations in Jay's layout algorithm, the automatic warping is still
+considered unstable and its behavior might change in the future.
+
+Thanks to @Ktrompfl for implementing this.
+
+## Config Subcommand
+
+The Jay CLI now has a config subcommand to make it easier to initialize and find
+the toml config.
+
+```shell
+~$ jay config       
+Create/modify the toml config
+
+Usage: jay config <COMMAND>
+
+Commands:
+  init      Initialize the toml config file
+  path      Print the path to the config
+  open-dir  Open the config directory with xdg-open
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+## CLI JSON Output
+
+Most CLI commands now support JSON output for scripting.
+
+```shell
+~$ jay --json randr | jq . | head -10
+{
+  "drm_devices": [
+    {
+      "devnode": "/dev/dri/card0",
+      "syspath": "/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0",
+      "vendor": 4098,
+      "vendor_name": "Advanced Micro Devices, Inc. [AMD/ATI]",
+      "model": 5710,
+      "model_name": "Raphael",
+      "gfx_api": "Vulkan",
+```
+
+## Deleting Old Log Files
+
+Jay stores its logs in `~/.local/share/jay/log/jay`. Previously these log files
+were never automatically deleted. You can now configure Jay to delete log files
+whose Jay instance has already terminated.
+
+```toml
+clean-logs-older-than.days = 5
+```
+
+Thanks to @khyperia for implementing this.
+
+## Resizing and Moving Windows with Actions
+
+The new `resize` action can be used to move or resize windows.
+
+```toml
+alt-x = { type = "resize", dx1 = -10, dx2 = -10 }
+```
+
+This works for both floating and tiled windows.
+
+Thanks to @BergmannAtmet for suggesting this.
+
+## Color Management Improvements
+
+Jay now supports the following rendering intents in addition to the perceptual
+intent:
+
+- absolute_no_adaptation
+- relative
+- relative_bpc
+
+## Numerical Workspace Sorting
+
+When automatic workspace sorting is enabled, workspaces are now sorted
+numerically instead of lexicographically. For example,
+
+- 1
+- 2
+- 10
+
+whereas previously 2 and 10 would be swapped.
+
+Thanks to @llyyr for implementing this.
+
+## Vulkan Descriptor Heaps
+
+Jay now supports the VK_EXT_descriptor_heap extension. It will be used if
+available with a fallback to VK_EXT_descriptor_buffer as before.
+
+The extension is available on the proprietary Nvidia driver and on radv if the
+environment variable `RADV_EXPERIMENTAL=heap` is set before starting Jay.
+
+Since drivers might still have bugs, use of descriptor heaps can be disabled by
+starting jay with `JAY_NO_DESCRIPTOR_HEAP=1`.
+
+## Disabling Outputs
+
+Outputs can now be disabled in the `outputs` array.
+
+```toml
+[[outputs]]
+match.serial-number = "ETW1M02062SL0"
+enabled = true
+```
+
+Previously this required disabling the connector via the `connectors` array.
+
+Thanks to @marienz for implementing this.
+
+## Showing Workspaces Without Focusing Them
+
+It is now possible to show a workspace on an output without moving the focus to
+that workspace.
+
+```toml
+alt-x = { type = "show-workspace", name = "2", focus = false }
+```
+
+If this causes a workspace to be hidden that contains the focus, then the focus
+is still moved to the new workspace. This is therefore primarily useful on
+multi-monitor systems.
+
+## Pixel Scroll Multiplier
+
+When using two-finger scrolling on a touchpad, you can now specify a multiplier
+that applies to the scroll distance.
+
+```toml
+[[inputs]]
+match.is-pointer = true
+px-scroll-multiplier = 0.5
+```
+
+This has no effect on scroll events created by a mouse wheel.
+
+Thanks to @luvvlyjude for suggesting this.
+
+## Toplevel Icons
+
+Jay now supports the toplevel icon protocol that allows applications to show
+icons in their window titles. Icons can be disabled and they can optionally be
+rendered as grayscale.
+
+```toml
+[theme]
+show-window-icons = false
+window-icons-grayscale = true
+```
+
 # 1.12.0 (2026-03-16)
 
 ## Fixes
