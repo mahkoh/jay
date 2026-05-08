@@ -552,7 +552,9 @@ affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
 `split-horizontal`, `split-vertical`, `toggle-split`, `tile-horizontal`,
 `tile-vertical`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
-`tile`, `toggle-float-pinned`, `pin-float`, `unpin-float`, and `resize`.
+`tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
+
+The parameterized `resize` action also applies to the matched window.
 
 Similarly, `kill-client` applies to the matched window's client in a window
 rule, or to the matched client in a client rule.
