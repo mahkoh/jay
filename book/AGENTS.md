@@ -50,11 +50,6 @@ list and must be updated when adding a new chapter. Chapter-to-topic mapping:
 | `src/control_center/cc_*.rs` | Control center panes: 11 sidebar panes + `cc_window.rs` / `cc_clients.rs` detail panes + `cc_criterion.rs` shared helper. Verify field names/ordering here |
 | `toml-config/src/config/parsers/exec.rs` | Exec parser (string, array, or table forms) |
 
-### Known spec.yaml bugs
-
-- `px-per-wheel-scroll`: listed as `kind: boolean` but parser uses `fltorint`
-  (a number). Book correctly documents it as numeric.
-
 ## Critical facts
 
 1. **Config replacement.** `~/.config/jay/config.toml` replaces the entire
