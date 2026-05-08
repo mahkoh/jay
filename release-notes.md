@@ -328,15 +328,18 @@ show-window-icons = false
 window-icons-grayscale = true
 ```
 
+Thanks to @Skylewl for suggesting this.
+
 ## Protocol Updates and Additions
 
 This version of Jay supports the following new and improved protocols:
 
-| Global                       | Old | New |
-|------------------------------|:----|:----|
-| wl_fixes                     | 1   | 2   |
-| xdg_session_manager_v1       |     | 1   |
-| xdg_toplevel_icon_manager_v1 |     | 1   |
+| Global                          | Old | New |
+|---------------------------------|:----|:----|
+| wl_fixes                        | 1   | 2   |
+| xdg_session_manager_v1          |     | 1   |
+| xdg_toplevel_icon_manager_v1    |     | 1   |
+| zwlr_virtual_pointer_manager_v1 |     | 2   |
 
 # 1.12.0 (2026-03-16)
 
