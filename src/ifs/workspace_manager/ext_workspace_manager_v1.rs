@@ -268,10 +268,10 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                 }
                 WorkspaceChange::CreateWorkspace(name, output) => {
                     if self.client.state.workspaces.contains(&name) {
-                        return Ok(());
+                        continue;
                     }
                     let Some(output) = output.node() else {
-                        return Ok(());
+                        continue;
                     };
                     output.create_normal_workspace(&name);
                 }
