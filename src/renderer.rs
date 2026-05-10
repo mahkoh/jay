@@ -60,15 +60,16 @@ impl Renderer<'_> {
     }
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
+        let ns = &output.node_state;
         if self.state.lock.locked.get() {
-            if let Some(surface) = output.node_state.lock_surface.get()
+            if let Some(surface) = ns.lock_surface.get()
                 && surface.surface.buffer.is_some()
             {
                 self.render_surface(&surface.surface, x, y, None);
             }
             return;
         }
-        let opos = output.node_state.pos.get();
+        let opos = ns.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {
@@ -80,13 +81,13 @@ impl Renderer<'_> {
         }
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
-        if let Some(ws) = output.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             let wns = &ws.node_state;
             fullscreen = wns.fullscreen.get();
             fullscreen_is_overlay = wns.fullscreen.is_some();
         }
         if fullscreen.is_none()
-            && let Some(ws) = output.node_state.workspace.get()
+            && let Some(ws) = ns.workspace.get()
         {
             fullscreen = ws.node_state.fullscreen.get();
         }
@@ -101,11 +102,11 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let ws = output.node_state.workspace.get();
+            let ws = ns.workspace.get();
             if self.state.show_bar.get() {
-                let non_exclusive_rect_rel = output.node_state.rects.non_exclusive_rel.get();
+                let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
-                let bar_rect = output.node_state.rects.bar_rel.get();
+                let bar_rect = ns.rects.bar_rel.get();
                 let bar_bg = bar_rect.move_(
                     x - non_exclusive_rect_rel.x1(),
                     y - non_exclusive_rect_rel.y1(),
@@ -244,7 +245,7 @@ impl Renderer<'_> {
                 }
             }
             if let Some(ws) = &ws {
-                let ws_rect = output.node_state.rects.workspace_rel.get();
+                let ws_rect = ns.rects.workspace_rel.get();
                 let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);
             }
@@ -273,19 +274,19 @@ impl Renderer<'_> {
             && fullscreen_is_overlay
         {
             fs.node_render(self, x, y, None);
-        } else if let Some(ws) = output.node_state.overlay.get() {
-            let ws_rect = output.node_state.rects.workspace_rel.get();
+        } else if let Some(ws) = ns.overlay.get() {
+            let ws_rect = ns.rects.workspace_rel.get();
             let (x, y) = ws_rect.translate_inv(x, y);
             self.base.sync();
             self.render_workspace(&ws, x, y);
         }
         render_stacked!(self.state.root.stacked_in_overlay);
-        for layer in [&output.node_state.workspace, &output.node_state.overlay] {
+        for layer in [&ns.workspace, &ns.overlay] {
             if let Some(ws) = layer.get()
                 && ws.render_highlight.get() > 0
             {
                 let color = self.state.theme.colors.highlight.get();
-                let bounds = output.node_state.rects.workspace_rel.get().move_(x, y);
+                let bounds = ns.rects.workspace_rel.get().move_(x, y);
                 self.base.sync();
                 self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
             }

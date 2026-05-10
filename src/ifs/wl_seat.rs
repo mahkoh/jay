@@ -1153,8 +1153,9 @@ impl WlSeatGlobal {
             ws.and_then(|w| w.node_state.fullscreen.get())
                 .map(|n| n as Rc<dyn Node>)
         };
-        let ws = output.node_state.workspace.get();
-        let overlay = output.node_state.overlay.get();
+        let ons = &output.node_state;
+        let ws = ons.workspace.get();
+        let overlay = ons.overlay.get();
         let first = next_layer(current_layer.layer());
         let mut layer = first;
         loop {
@@ -1224,7 +1225,8 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        for layer in [&output.node_state.overlay, &output.node_state.workspace] {
+        let ons = &output.node_state;
+        for layer in [&ons.overlay, &ons.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };

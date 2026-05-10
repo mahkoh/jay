@@ -195,8 +195,9 @@ impl MetalConnector {
         let next_buffer_idx = ((connector_drm_state.fb_idx + 1) % buffers.len() as u64) as usize;
         let buffer = &buffers[next_buffer_idx];
 
-        let cd = node.node_state.color_description.get();
-        let linear_cd = node.node_state.linear_color_description.get();
+        let ons = &node.node_state;
+        let cd = ons.color_description.get();
+        let linear_cd = ons.linear_color_description.get();
         let blend_cd = match node.global.persistent.blend_space.get() {
             BlendSpace::Linear => &linear_cd,
             BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),

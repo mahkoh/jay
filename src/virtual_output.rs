@@ -445,8 +445,9 @@ impl VirtualOutput {
                 continue;
             };
             let fb = &fbs.fbs[FbType::Primary];
-            let cd = on.node_state.color_description.get();
-            let linear_cd = on.node_state.linear_color_description.get();
+            let ns = &on.node_state;
+            let cd = ns.color_description.get();
+            let linear_cd = ns.linear_color_description.get();
             let blend_cd = match on.global.persistent.blend_space.get() {
                 BlendSpace::Linear => &linear_cd,
                 BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),

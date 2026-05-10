@@ -373,13 +373,14 @@ impl OutputNode {
                     surface.exclusive_zones_changed();
                 }
             }
-            for layer in [&self.node_state.workspace, &self.node_state.overlay] {
+            let ns = &self.node_state;
+            for layer in [&ns.workspace, &ns.overlay] {
                 if let Some(c) = layer.get() {
-                    c.change_extents(&self.node_state.rects.workspace.get(), self);
+                    c.change_extents(&ns.rects.workspace.get(), self);
                 }
             }
             if self.node_visible() {
-                self.state.damage(self.node_state.pos.get());
+                self.state.damage(ns.pos.get());
             }
         }
     }
@@ -473,6 +474,7 @@ impl OutputNode {
         if self.screencopies.is_empty() {
             return;
         }
+        let ns = &self.node_state;
         let now = self.state.now();
         for capture in self.screencopies.lock().drain_values() {
             let wl_buffer = match capture.buffer.take() {
@@ -495,7 +497,7 @@ impl OutputNode {
                             tex,
                             cd,
                             acquire_sync,
-                            self.node_state.pos.get(),
+                            ns.pos.get(),
                             x_off,
                             y_off,
                             size,
@@ -538,7 +540,7 @@ impl OutputNode {
                             ReleaseSync::Implicit,
                             self.global.persistent.transform.get(),
                             self.state.color_manager.srgb_gamma22(),
-                            self.node_state.pos.get(),
+                            ns.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
                             y_off - capture.rect.y1(),
@@ -588,9 +590,10 @@ impl OutputNode {
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
         self.update_rects();
-        for layer in [&self.node_state.workspace, &self.node_state.overlay] {
+        let ns = &self.node_state;
+        for layer in [&ns.workspace, &ns.overlay] {
             if let Some(c) = layer.get() {
-                c.change_extents(&self.node_state.rects.workspace.get(), self);
+                c.change_extents(&ns.rects.workspace.get(), self);
             }
         }
         for item in self.tray_items.iter() {
@@ -654,7 +657,8 @@ impl OutputNode {
         if let Some(scale) = scale {
             texture_height = (bh as f64 * scale).round() as _;
         }
-        let active_id = self.node_state.workspace.id();
+        let ns = &self.node_state;
+        let active_id = ns.workspace.id();
         for ws in self.workspaces.iter() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
@@ -672,7 +676,7 @@ impl OutputNode {
                 scale,
             );
         }
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             tex.schedule_render_fitting(
@@ -717,8 +721,9 @@ impl OutputNode {
             return;
         }
         let mut pos = 0;
-        let bar_rect_rel = self.node_state.rects.bar_rel.get();
-        let non_exclusive_rect_rel = self.node_state.rects.non_exclusive_rel.get();
+        let ns = &self.node_state;
+        let bar_rect_rel = ns.rects.bar_rel.get();
+        let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
         let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
@@ -726,9 +731,8 @@ impl OutputNode {
         } else {
             None
         };
-        let active_id = self.node_state.workspace.id();
-        rd.bar_separator = self
-            .node_state
+        let active_id = ns.workspace.id();
+        rd.bar_separator = ns
             .rects
             .bar_separator_rel
             .get()
@@ -800,7 +804,7 @@ impl OutputNode {
         for ws in self.workspaces.iter() {
             handle_workspace(&ws, false);
         }
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             handle_workspace(&ws, true);
         }
         if let Some(status) = &mut rd.status {
@@ -817,7 +821,7 @@ impl OutputNode {
             }
         }
         let old_full_area = rd.full_area;
-        rd.full_area = self.node_state.rects.bar_with_separator.get();
+        rd.full_area = ns.rects.bar_with_separator.get();
         if self.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
@@ -854,10 +858,11 @@ impl OutputNode {
     }
 
     pub fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        if let Some(ws) = self.node_state.overlay.get() {
+        let ns = &self.node_state;
+        if let Some(ws) = ns.overlay.get() {
             return Some(ws);
         }
-        self.node_state.workspace.get()
+        ns.workspace.get()
     }
 
     pub fn show_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
@@ -872,11 +877,12 @@ impl OutputNode {
 
     fn show_normal_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
         let mut seats = SmallVec::new();
-        if self.node_state.workspace.id() == Some(ws.id) {
+        let ns = &self.node_state;
+        if ns.workspace.id() == Some(ws.id) {
             return false;
         }
-        let old = self.node_state.workspace.set(Some(ws.clone()));
-        if self.node_state.overlay.is_none() {
+        let old = ns.workspace.set(Some(ws.clone()));
+        if ns.overlay.is_none() {
             for user in self.cursor_users.lock().values() {
                 user.workspace_changed(self, Some(ws));
             }
@@ -905,29 +911,30 @@ impl OutputNode {
         self.update_visible();
         self.update_presentation_type();
         if let Some(fs) = ws.node_state.fullscreen.get() {
-            fs.tl_change_extents(&self.node_state.pos.get());
+            fs.tl_change_extents(&ns.pos.get());
         }
-        ws.change_extents(&self.node_state.rects.workspace.get(), self);
+        ws.change_extents(&ns.rects.workspace.get(), self);
         for seat in seats {
             ws.do_focus(&seat, Direction::Unspecified);
         }
         if self.node_visible() {
-            self.state.damage(self.node_state.pos.get());
+            self.state.damage(ns.pos.get());
         }
         true
     }
 
     fn show_overlay_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) -> bool {
-        if self.node_state.overlay.id() == Some(ws.id) {
+        let ns = &self.node_state;
+        if ns.overlay.id() == Some(ws.id) {
             return false;
         }
-        if self.node_state.overlay.is_some() {
+        if ns.overlay.is_some() {
             self.move_pinned_to_normal_workspace();
         }
         let mut seats = SmallVec::new();
         let wns = &ws.node_state;
         wns.output.get().hide_overlay2(false, &mut seats);
-        let old = self.node_state.overlay.set(Some(ws.clone()));
+        let old = ns.overlay.set(Some(ws.clone()));
         if let Some(old) = &old {
             old.collect_kb_foci2(&mut seats);
         }
@@ -941,15 +948,15 @@ impl OutputNode {
         self.update_presentation_type();
         ws.set_output(self);
         if let Some(fs) = wns.fullscreen.get() {
-            fs.tl_change_extents(&self.node_state.pos.get());
+            fs.tl_change_extents(&ns.pos.get());
         }
-        ws.change_extents(&self.node_state.rects.workspace.get(), self);
+        ws.change_extents(&ns.rects.workspace.get(), self);
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
         self.schedule_update_render_data();
         if self.node_visible() {
-            self.state.damage(self.node_state.pos.get());
+            self.state.damage(ns.pos.get());
         }
         true
     }
@@ -974,14 +981,15 @@ impl OutputNode {
         clear_old: bool,
         seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>,
     ) {
-        if self.node_state.overlay.is_none() {
+        let ns = &self.node_state;
+        if ns.overlay.is_none() {
             return;
         }
         self.hide_overlay3(clear_old, seats);
         self.update_visible();
         self.update_presentation_type();
         if self.node_visible() {
-            self.state.damage(self.node_state.pos.get());
+            self.state.damage(ns.pos.get());
         }
     }
 
@@ -1067,7 +1075,8 @@ impl OutputNode {
     }
 
     pub fn update_rects(self: &Rc<Self>) {
-        let rect = self.node_state.pos.get();
+        let ns = &self.node_state;
+        let rect = ns.pos.get();
         let bh = self.state.theme.sizes.bar_height();
         let bsw = self.state.theme.sizes.bar_separator_width();
         let exclusive = self.exclusive_zones.get();
@@ -1112,28 +1121,18 @@ impl OutputNode {
             bar_separator_rect_rel = to_rel(bar_separator_rect);
             workspace_rect_rel = to_rel(workspace_rect);
         }
-        self.node_state.rects.non_exclusive.set(non_exclusive_rect);
-        self.node_state
-            .rects
-            .non_exclusive_rel
-            .set(non_exclusive_rect_rel);
-        self.node_state.rects.bar.set(bar_rect);
-        self.node_state.rects.bar_rel.set(bar_rect_rel);
-        self.node_state
-            .rects
-            .bar_with_separator
-            .set(bar_rect_with_separator);
-        self.node_state
-            .rects
+        ns.rects.non_exclusive.set(non_exclusive_rect);
+        ns.rects.non_exclusive_rel.set(non_exclusive_rect_rel);
+        ns.rects.bar.set(bar_rect);
+        ns.rects.bar_rel.set(bar_rect_rel);
+        ns.rects.bar_with_separator.set(bar_rect_with_separator);
+        ns.rects
             .bar_with_separator_rel
             .set(bar_rect_with_separator_rel);
-        self.node_state.rects.bar_separator.set(bar_separator_rect);
-        self.node_state
-            .rects
-            .bar_separator_rel
-            .set(bar_separator_rect_rel);
-        self.node_state.rects.workspace.set(workspace_rect);
-        self.node_state.rects.workspace_rel.set(workspace_rect_rel);
+        ns.rects.bar_separator.set(bar_separator_rect);
+        ns.rects.bar_separator_rel.set(bar_separator_rect_rel);
+        ns.rects.workspace.set(workspace_rect);
+        ns.rects.workspace_rel.set(workspace_rect_rel);
         self.update_tray_positions();
         self.schedule_update_render_data();
     }
@@ -1215,27 +1214,28 @@ impl OutputNode {
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
         let visible = self.node_visible();
+        let ns = &self.node_state;
         if visible {
-            let old_pos = self.node_state.pos.get();
+            let old_pos = ns.pos.get();
             self.state.damage(old_pos);
         }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
-        self.node_state.pos.set(*rect);
+        ns.pos.set(*rect);
         self.update_damage_matrix();
         if visible {
             self.state.damage(*rect);
         }
         self.state.output_extents_changed();
         self.update_rects();
-        if let Some(ls) = self.node_state.lock_surface.get() {
+        if let Some(ls) = ns.lock_surface.get() {
             ls.change_extents(*rect);
         }
-        for layer in [&self.node_state.workspace, &self.node_state.overlay] {
+        for layer in [&ns.workspace, &ns.overlay] {
             if let Some(c) = layer.get() {
                 if let Some(fs) = c.node_state.fullscreen.get() {
                     fs.tl_change_extents(rect);
                 }
-                c.change_extents(&self.node_state.rects.workspace.get(), self);
+                c.change_extents(&ns.rects.workspace.get(), self);
             }
         }
         for layer in &self.layers {
@@ -1267,8 +1267,9 @@ impl OutputNode {
     }
 
     fn update_btf_and_bcs(&self, btf: BackendEotfs, bcs: BackendColorSpace) {
-        let old_btf = self.node_state.btf.replace(btf);
-        let old_bcs = self.node_state.bcs.replace(bcs);
+        let ns = &self.node_state;
+        let old_btf = ns.btf.replace(btf);
+        let old_bcs = ns.bcs.replace(bcs);
         if (old_btf, old_bcs) == (btf, bcs) {
             return;
         }
@@ -1425,13 +1426,12 @@ impl OutputNode {
     }
 
     pub fn has_fullscreen(&self) -> bool {
-        self.node_state
-            .workspace
+        let ns = &self.node_state;
+        ns.workspace
             .get()
             .map(|w| w.node_state.fullscreen.is_some())
             .unwrap_or(false)
-            || self
-                .node_state
+            || ns
                 .overlay
                 .get()
                 .map(|w| w.node_state.fullscreen.is_some())
@@ -1468,8 +1468,9 @@ impl OutputNode {
 
     pub fn update_visible(&self) {
         let mut visible = self.state.root_visible();
+        let ns = &self.node_state;
         if self.state.lock.locked.get() {
-            if let Some(surface) = self.node_state.lock_surface.get() {
+            if let Some(surface) = ns.lock_surface.get() {
                 surface.set_visible(visible);
             }
             visible = false;
@@ -1483,11 +1484,11 @@ impl OutputNode {
         }
         let mut have_fullscreen = false;
         let mut have_overlay_fullscreen = false;
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             have_fullscreen = ws.node_state.fullscreen.is_some();
             have_overlay_fullscreen = have_fullscreen;
         }
-        if !have_fullscreen && let Some(ws) = self.node_state.workspace.get() {
+        if !have_fullscreen && let Some(ws) = ns.workspace.get() {
             have_fullscreen = ws.node_state.fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
@@ -1499,11 +1500,11 @@ impl OutputNode {
             item.set_visible(lower_visible);
         }
         let ws_visible = visible && !have_overlay_fullscreen;
-        if let Some(ws) = self.node_state.workspace.get() {
+        if let Some(ws) = ns.workspace.get() {
             ws.set_visible(ws_visible);
         }
         set_layer_visible!(self.layers[3], ws_visible);
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             ws.set_visible(visible);
         }
     }
@@ -1568,7 +1569,8 @@ impl OutputNode {
             VrrMode::Never => false,
             VrrMode::Always => true,
             VrrMode::Fullscreen { surface } => 'get: {
-                for layer in [&self.node_state.overlay, &self.node_state.workspace] {
+                let ns = &self.node_state;
+                for layer in [&ns.overlay, &ns.workspace] {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
@@ -1610,7 +1612,8 @@ impl OutputNode {
             TearingMode::Never => false,
             TearingMode::Always => true,
             TearingMode::Fullscreen { surface } => 'get: {
-                for layer in [&self.node_state.overlay, &self.node_state.workspace] {
+                let ns = &self.node_state;
+                for layer in [&ns.overlay, &ns.workspace] {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
@@ -1665,12 +1668,13 @@ impl OutputNode {
                 return float.tile_drag_destination(source, x_abs, y_abs);
             }
         }
-        if let Some(ws) = self.node_state.overlay.get() {
+        let ns = &self.node_state;
+        if let Some(ws) = ns.overlay.get() {
             let wns = &ws.node_state;
             if wns.fullscreen.is_some() {
                 return None;
             }
-            let rect = self.node_state.rects.workspace.get();
+            let rect = ns.rects.workspace.get();
             if rect.contains(x_abs, y_abs) {
                 let Some(c) = wns.container.get() else {
                     return Some(TileDragDestination {
@@ -1681,11 +1685,11 @@ impl OutputNode {
                 return c.tile_drag_destination(source, rect, x_abs, y_abs);
             }
         }
-        let rect = self.node_state.rects.non_exclusive.get();
+        let rect = ns.rects.non_exclusive.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
-        let Some(ws) = self.node_state.workspace.get() else {
+        let Some(ws) = ns.workspace.get() else {
             return Some(TileDragDestination {
                 highlight: rect,
                 ty: TddType::NewWorkspace {
@@ -1697,10 +1701,10 @@ impl OutputNode {
         if wns.fullscreen.is_some() {
             return None;
         }
-        let bar_rect_with_separator = self.node_state.rects.bar_with_separator.get();
+        let bar_rect_with_separator = ns.rects.bar_with_separator.get();
         if bar_rect_with_separator.contains(x_abs, y_abs) {
             let rd = &*self.render_data.borrow();
-            let bar_rect = self.node_state.rects.bar.get();
+            let bar_rect = ns.rects.bar.get();
             let (x, _) = bar_rect.translate(x_abs, y_abs);
             let mut last_x2 = 0;
             for t in &rd.titles {
@@ -1731,7 +1735,7 @@ impl OutputNode {
                 },
             });
         }
-        let rect = self.node_state.rects.workspace.get();
+        let rect = ns.rects.workspace.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
@@ -1753,13 +1757,14 @@ impl OutputNode {
         if !self.state.show_bar.get() {
             return None;
         }
-        let bar_rect_with_separator = self.node_state.rects.bar_with_separator.get();
+        let ns = &self.node_state;
+        let bar_rect_with_separator = ns.rects.bar_with_separator.get();
         if bar_rect_with_separator.not_contains(x_abs, y_abs) {
             return None;
         }
-        let bar_rect = self.node_state.rects.bar.get();
+        let bar_rect = ns.rects.bar.get();
         if source.ty == WorkspaceType::Overlay {
-            if self.node_state.overlay.id() == Some(source.id) {
+            if ns.overlay.id() == Some(source.id) {
                 return None;
             }
             return Some(WorkspaceDragDestination {
@@ -1901,7 +1906,8 @@ impl OutputNode {
     }
 
     pub fn take_keyboard_navigation_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        for layer in [&self.node_state.overlay, &self.node_state.workspace] {
+        let ns = &self.node_state;
+        for layer in [&ns.overlay, &ns.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };
@@ -1952,7 +1958,8 @@ impl OutputNode {
     }
 
     fn update_damage_matrix(&self) {
-        let pos = self.node_state.pos.get();
+        let ns = &self.node_state;
+        let pos = ns.pos.get();
         let mode = self.global.mode.get();
         let matrix = DamageMatrix::new(
             self.global.persistent.transform.get().inverse(),
@@ -1963,7 +1970,7 @@ impl OutputNode {
             mode.width,
             mode.height,
         );
-        self.node_state.damage_matrix.set(matrix);
+        ns.damage_matrix.set(matrix);
         self.global
             .connector
             .damage_intersect
@@ -1971,9 +1978,10 @@ impl OutputNode {
     }
 
     pub fn add_damage_area(&self, area: &Rect) {
-        let pos = self.node_state.pos.get();
+        let ns = &self.node_state;
+        let pos = ns.pos.get();
         let rect = area.move_(-pos.x1(), -pos.y1());
-        let mut rect = self.node_state.damage_matrix.get().apply(0, 0, rect);
+        let mut rect = ns.damage_matrix.get().apply(0, 0, rect);
         let damage = &mut *self.global.connector.damage.borrow_mut();
         const MAX_CONNECTOR_DAMAGE: usize = 32;
         if damage.len() >= MAX_CONNECTOR_DAMAGE {
@@ -1987,7 +1995,8 @@ impl OutputNode {
     }
 
     fn update_color_description_(&self) -> bool {
-        let (mut luminance, tf) = match self.node_state.btf.get() {
+        let ns = &self.node_state;
+        let (mut luminance, tf) = match ns.btf.get() {
             BackendEotfs::Default => (Luminance::SRGB, Eotf::Gamma22),
             BackendEotfs::Pq => (Luminance::ST2084_PQ, Eotf::St2084Pq),
         };
@@ -1998,7 +2007,7 @@ impl OutputNode {
         let mut max_cll = None;
         let mut max_fall = None;
         if let Some(l) = self.global.luminance
-            && self.node_state.btf.get() == BackendEotfs::Pq
+            && ns.btf.get() == BackendEotfs::Pq
         {
             target_luminance.min = F64(l.min);
             target_luminance.max = F64(l.max);
@@ -2008,7 +2017,7 @@ impl OutputNode {
         let named_primaries;
         let primaries;
         let target_primaries;
-        match self.node_state.bcs.get() {
+        match ns.bcs.get() {
             BackendColorSpace::Default => {
                 if self.global.persistent.use_native_gamut.get()
                     && self.global.primaries != NamedPrimaries::Srgb.primaries()
@@ -2038,10 +2047,8 @@ impl OutputNode {
             max_fall,
         );
         let cd_linear = self.state.color_manager.get_with_tf(&cd, Eotf::Linear);
-        self.node_state
-            .linear_color_description
-            .set(cd_linear.clone());
-        self.node_state.color_description.set(cd.clone()).id != cd.id
+        ns.linear_color_description.set(cd_linear.clone());
+        ns.color_description.set(cd.clone()).id != cd.id
     }
 }
 
@@ -2106,13 +2113,14 @@ impl Node for OutputNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(ls) = self.node_state.lock_surface.get() {
+        let ns = &self.node_state;
+        if let Some(ls) = ns.lock_surface.get() {
             visitor.visit_lock_surface(&ls);
         }
         for ws in self.workspaces.iter() {
             visitor.visit_workspace(ws.deref());
         }
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             visitor.visit_workspace(&ws);
         }
         for layers in &self.layers {
@@ -2168,6 +2176,7 @@ impl Node for OutputNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
+        let ns = &self.node_state;
         if self.state.lock.locked.get() {
             let allow_surface = match usecase {
                 FindTreeUsecase::None => true,
@@ -2175,7 +2184,7 @@ impl Node for OutputNode {
                 FindTreeUsecase::SelectToplevelOrPopup => false,
                 FindTreeUsecase::SelectNormalWorkspace => false,
             };
-            if allow_surface && let Some(ls) = self.node_state.lock_surface.get() {
+            if allow_surface && let Some(ls) = ns.lock_surface.get() {
                 tree.push(FoundNode {
                     node: ls.clone(),
                     x,
@@ -2185,7 +2194,7 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
-        let ws_rect_rel = self.node_state.rects.workspace_rel.get();
+        let ws_rect_rel = ns.rects.workspace_rel.get();
         let select_workspace = match usecase {
             FindTreeUsecase::None => false,
             FindTreeUsecase::SelectToplevel => false,
@@ -2194,7 +2203,7 @@ impl Node for OutputNode {
         };
         if select_workspace && ws_rect_rel.contains(x, y) {
             let (x, y) = ws_rect_rel.translate(x, y);
-            if let Some(ws) = self.node_state.workspace.get() {
+            if let Some(ws) = ns.workspace.get() {
                 tree.push(FoundNode {
                     node: ws.clone(),
                     x,
@@ -2210,7 +2219,7 @@ impl Node for OutputNode {
                 return res;
             }
         }
-        if let Some(ws) = self.node_state.overlay.get() {
+        if let Some(ws) = ns.overlay.get() {
             if let Some(fs) = ws.node_state.fullscreen.get() {
                 tree.push(FoundNode {
                     node: fs.clone(),
@@ -2242,7 +2251,7 @@ impl Node for OutputNode {
             }
         }
         let mut fullscreen = None;
-        if let Some(ws) = self.node_state.workspace.get() {
+        if let Some(ws) = ns.workspace.get() {
             fullscreen = ws.node_state.fullscreen.get();
         }
         {
@@ -2270,7 +2279,7 @@ impl Node for OutputNode {
             fs.node_find_tree_at(x, y, tree, usecase)
         } else {
             let mut search_layers = true;
-            let bar_rect_rel = self.node_state.rects.bar_rel.get();
+            let bar_rect_rel = ns.rects.bar_rel.get();
             if bar_rect_rel.contains(x, y) {
                 let (x, y) = bar_rect_rel.translate(x, y);
                 search_layers = false;
@@ -2288,7 +2297,7 @@ impl Node for OutputNode {
                     }
                 }
             } else if ws_rect_rel.contains(x, y)
-                && let Some(ws) = self.node_state.workspace.get()
+                && let Some(ws) = ns.workspace.get()
             {
                 let (x, y) = ws_rect_rel.translate(x, y);
                 let len = tree.len();

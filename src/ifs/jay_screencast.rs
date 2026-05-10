@@ -320,8 +320,9 @@ impl JayScreencast {
         if !self.running.get() {
             return;
         }
+        let ons = &on.node_state;
         if !self.show_all.get() {
-            let ws = match on.node_state.workspace.get() {
+            let ws = match ons.workspace.get() {
                 Some(ws) => ws,
                 _ => return,
             };
@@ -343,7 +344,7 @@ impl JayScreencast {
                     ReleaseSync::Implicit,
                     Transform::None,
                     self.client.state.color_manager.srgb_gamma22(),
-                    on.node_state.pos.get(),
+                    ons.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,

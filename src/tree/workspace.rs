@@ -610,13 +610,14 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         Some(l) => l.to_ref(),
     };
     let source = ns.output.get();
-    if let Some(visible) = source.node_state.workspace.id()
+    let sns = &source.node_state;
+    if let Some(visible) = sns.workspace.id()
         && visible == ws.id
     {
-        source.node_state.workspace.set(None);
+        sns.workspace.set(None);
     }
     let mut new_source_ws = None;
-    if !config.source_is_destroyed && !source.is_dummy && source.node_state.workspace.is_none() {
+    if !config.source_is_destroyed && !source.is_dummy && sns.workspace.is_none() {
         new_source_ws = source
             .workspaces
             .iter()
@@ -626,11 +627,11 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             new_source_ws = Some(source.generate_normal_workspace());
         }
     }
-    if source.node_state.overlay.is_none() {
+    if sns.overlay.is_none() {
         for user in source.cursor_users.lock().values() {
             user.workspace_changed(&source, new_source_ws.as_ref());
             if new_source_ws.is_none() {
-                new_source_ws = source.node_state.workspace.get();
+                new_source_ws = sns.workspace.get();
             }
         }
     }
@@ -656,9 +657,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         }
         target.workspaces.add_last_existing(&ws);
     }
+    let tns = &target.node_state;
     let make_visible = !target.is_dummy
         && (config.make_visible_always
-            || (config.make_visible_if_empty && target.node_state.workspace.is_none()));
+            || (config.make_visible_if_empty && tns.workspace.is_none()));
     if make_visible {
         ws.state.show_workspace2(None, target, &ws);
     } else {
@@ -675,10 +677,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         source.schedule_update_render_data();
     }
     if source.node_visible() {
-        target.state.damage(source.node_state.pos.get());
+        target.state.damage(sns.pos.get());
     }
     if target.node_visible() {
-        target.state.damage(target.node_state.pos.get());
+        target.state.damage(tns.pos.get());
     }
 }
 
