@@ -55,7 +55,10 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: self.output.node().map(|o| o.color_description.get()),
+            description: self
+                .output
+                .node()
+                .map(|o| o.node_state.color_description.get()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

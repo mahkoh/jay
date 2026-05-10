@@ -135,7 +135,7 @@ impl XdgPopup {
         let mut rel_pos = positioner.get_position(false, false);
         let mut abs_pos = rel_pos.move_(parent_abs.x1(), parent_abs.y1());
         {
-            let output_pos = parent.output().pos.get();
+            let output_pos = parent.output().node_state.pos.get();
             let mut overflow = output_pos.get_overflow(&abs_pos);
             if !overflow.is_contained() {
                 let mut flip_x = positioner.ca.contains(CA_FLIP_X) && overflow.x_overflow();

@@ -112,7 +112,7 @@ impl ZwlrVirtualPointerV1RequestHandler for ZwlrVirtualPointerV1 {
                         .output
                         .as_ref()
                         .and_then(|c| c.node())
-                        .map(|g| g.pos.get())
+                        .map(|g| g.node_state.pos.get())
                         .unwrap_or_else(|| self.client.state.root.extents.get());
                     self.seat.motion_absolute_event(ms_to_us(time), rect, x, y);
                 }

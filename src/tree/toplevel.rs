@@ -538,7 +538,7 @@ impl ToplevelData {
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
-        let output = ws.node_state.output.get().pos.get();
+        let output = ws.node_state.output.get().node_state.pos.get();
         let mut width = self.float_width.get();
         let mut height = self.float_height.get();
         if width == 0 {
@@ -817,7 +817,7 @@ impl ToplevelData {
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
         node.clone()
-            .tl_change_extents(&ws.node_state.output.get().pos.get());
+            .tl_change_extents(&ws.node_state.output.get().node_state.pos.get());
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }

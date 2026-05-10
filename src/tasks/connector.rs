@@ -246,7 +246,7 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        on.add_damage_area(&on.pos.get());
+        on.add_damage_area(&on.node_state.pos.get());
         self.data.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
@@ -294,7 +294,7 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);
-        on.lock_surface.take();
+        on.node_state.lock_surface.take();
         {
             let mut surfaces = vec![];
             for layer in &on.layers {

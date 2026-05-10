@@ -137,7 +137,7 @@ impl CursorUserGroup {
             desired_known_cursor: Cell::new(None),
             cursor: Default::default(),
             pos: Cell::new(self.output_center(&output)),
-            output_pos: Cell::new(output.pos.get()),
+            output_pos: Cell::new(output.node_state.pos.get()),
             output: CloneCell::new(output.clone()),
             owner: Default::default(),
         });
@@ -216,7 +216,7 @@ impl CursorUserGroup {
     }
 
     fn output_center(&self, output: &Rc<OutputNode>) -> (Fixed, Fixed) {
-        let pos = output.pos.get();
+        let pos = output.node_state.pos.get();
         let x = Fixed::from_int((pos.x1() + pos.x2()) / 2);
         let y = Fixed::from_int((pos.y1() + pos.y2()) / 2);
         (x, y)
@@ -248,7 +248,7 @@ impl CursorUserGroup {
         let (x, y) = self.output_center(output);
         for user in self.users.lock().values() {
             if user.output.get().id == output.id {
-                user.output_pos.set(output.pos.get());
+                user.output_pos.set(output.node_state.pos.get());
                 user.set_position(x, y);
             }
         }
@@ -366,7 +366,7 @@ impl CursorUser {
 
     fn set_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
         let old = self.output.set(output.clone());
-        self.output_pos.set(output.pos.get());
+        self.output_pos.set(output.node_state.pos.get());
         old.cursor_users.remove(&self.id);
         output.cursor_users.set(self.id, self.clone());
         if self.is_active() {
@@ -498,7 +498,7 @@ impl CursorUser {
         let transform = output.global.persistent.transform.get();
         let render = output.hardware_cursor_needs_render.take();
         let scale = output.global.persistent.scale.get();
-        let cd = output.color_description.get();
+        let cd = output.node_state.color_description.get();
         if render {
             cursor.tick();
         }
@@ -511,7 +511,7 @@ impl CursorUser {
                 return;
             }
         }
-        let opos = output.pos.get();
+        let opos = output.node_state.pos.get();
         let (x_rel, y_rel);
         if scale == 1 {
             x_rel = x.round_down() - opos.x1();

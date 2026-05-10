@@ -445,8 +445,8 @@ impl VirtualOutput {
                 continue;
             };
             let fb = &fbs.fbs[FbType::Primary];
-            let cd = on.color_description.get();
-            let linear_cd = on.linear_color_description.get();
+            let cd = on.node_state.color_description.get();
+            let linear_cd = on.node_state.linear_color_description.get();
             let blend_cd = match on.global.persistent.blend_space.get() {
                 BlendSpace::Linear => &linear_cd,
                 BlendSpace::Srgb => self.state.color_manager.srgb_gamma22(),
@@ -584,7 +584,7 @@ impl VirtualOutput {
             on.global.mode.get().size(),
             &**on,
             &self.state,
-            Some(on.pos.get()),
+            Some(on.node_state.pos.get()),
             on.global.persistent.scale.get(),
             true,
             false,
@@ -971,7 +971,7 @@ impl PreparedTransaction {
                 ]);
                 o.damage();
                 if let Some(on) = self.state.root.outputs.get(&o.id) {
-                    on.add_damage_area(&on.pos.get());
+                    on.add_damage_area(&on.node_state.pos.get());
                     on.global.connector.damage();
                 }
             } else {

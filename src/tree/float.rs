@@ -500,7 +500,7 @@ impl FloatNode {
             return;
         }
         let pos = self.node_state.position.get();
-        let opos = output.pos.get();
+        let opos = output.node_state.pos.get();
         if pos.intersects(&opos) {
             return;
         }

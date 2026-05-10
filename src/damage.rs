@@ -187,7 +187,7 @@ impl DamageVisualizer {
         }
         self.trim();
         let entries = &*self.entries.borrow();
-        let pos = output.pos.get();
+        let pos = output.node_state.pos.get();
         for entry in entries {
             if entry.rect.intersects(&pos) {
                 output.add_damage_area(&entry.rect);
