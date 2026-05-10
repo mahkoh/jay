@@ -1579,6 +1579,7 @@ impl State {
     }
 
     pub fn create_seat(self: &Rc<Self>, name: &str) -> Rc<WlSeatGlobal> {
+        self.tree_changed_sent.set(false);
         let global_name = self.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, self);
         self.globals.add_global(self, &seat);
