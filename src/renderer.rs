@@ -449,13 +449,14 @@ impl Renderer<'_> {
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
             for child in container.children.iter() {
-                let body = child.node_state.body.get();
+                let cns = &child.node_state;
+                let body = cns.body.get();
                 if body.x1() >= ns.width.get() || body.y1() >= ns.height.get() {
                     break;
                 }
                 let body = body.move_(x, y);
                 let body = self.base.scale_rect(body);
-                let content = child.node_state.content.get();
+                let content = cns.content.get();
                 child
                     .node
                     .node_render(self, x + content.x1(), y + content.y1(), Some(&body));

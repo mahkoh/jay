@@ -223,8 +223,9 @@ impl ContainerRenderData {
 
 impl ContainerChild {
     fn position_content(&self) {
-        let mut content = self.node_state.content.get();
-        let body = self.node_state.body.get();
+        let cns = &self.node_state;
+        let mut content = cns.content.get();
+        let body = cns.body.get();
         let width = content.width();
         let height = content.height();
         // let x1 = body.x1() + (body.width() - width) / 2;
@@ -234,7 +235,7 @@ impl ContainerChild {
         content = Rect::new_sized_saturating(x1, y1, width, height);
         // log::debug!("body: {:?}", body);
         // log::debug!("content: {:?}", content);
-        self.node_state.content.set(content);
+        cns.content.set(content);
     }
 }
 
@@ -544,7 +545,8 @@ impl ContainerNode {
             let mut rem = remaining_content_size % num_children as i32;
             pos = 0;
             for child in self.children.iter() {
-                let mut body = child.node_state.body.get();
+                let cns = &child.node_state;
+                let mut body = cns.body.get();
                 let mut add = size_per;
                 if rem > 0 {
                     rem -= 1;
@@ -573,7 +575,7 @@ impl ContainerNode {
                     }
                 };
                 body = Rect::new_sized_saturating(x1, y1, width, height);
-                child.node_state.body.set(body);
+                cns.body.set(body);
                 pos += size + border_width;
                 if split == ContainerSplit::Vertical {
                     pos += title_plus_underline_height;
@@ -582,8 +584,9 @@ impl ContainerNode {
         }
         self.sum_factors.set(1.0);
         for child in self.children.iter() {
-            let body = child.node_state.body.get();
-            child.node_state.title_rect.set(Rect::new_sized_saturating(
+            let cns = &child.node_state;
+            let body = cns.body.get();
+            cns.title_rect.set(Rect::new_sized_saturating(
                 body.x1(),
                 body.y1() - title_plus_underline_height,
                 body.width(),
@@ -805,8 +808,9 @@ impl ContainerNode {
         let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
         self.update_child_types();
         for child in self.children.iter() {
-            let rect = child.node_state.title_rect.get();
-            let color = match child.node_state.ty.get() {
+            let cns = &child.node_state;
+            let rect = cns.title_rect.get();
+            let color = match cns.ty.get() {
                 ContainerChildType::Active => theme.colors.focused_title_text.get(),
                 ContainerChildType::AttentionRequested => theme.colors.unfocused_title_text.get(),
                 ContainerChildType::LastActive => theme.colors.focused_inactive_title_text.get(),
@@ -920,7 +924,8 @@ impl ContainerNode {
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
         for (i, child) in self.children.iter().enumerate() {
-            let rect = child.node_state.title_rect.get();
+            let cns = &child.node_state;
+            let rect = cns.title_rect.get();
             if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
                 self.state.damage(Rect::new_sized_saturating(
                     abs_x,
@@ -939,7 +944,7 @@ impl ContainerNode {
                 };
                 rd.border_rects.push(rect);
             }
-            match child.node_state.ty.get() {
+            match cns.ty.get() {
                 ContainerChildType::Active => rd.active_title_rects.push(rect),
                 ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
                 ContainerChildType::LastActive => rd.last_active_rect = Some(rect),
@@ -1371,7 +1376,8 @@ impl ContainerNode {
             let (kind, child) = 'res: {
                 let mono = ns.mono_child.is_some();
                 for child in self.children.iter() {
-                    let rect = child.node_state.title_rect.get();
+                    let cns = &child.node_state;
+                    let rect = cns.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
                         self.activate_child(&child);
                         child
@@ -1386,7 +1392,7 @@ impl ContainerNode {
                                     SeatOpKind::Resize {
                                         dist_left: seat_data.x
                                             - child.prev().unwrap().node_state.body.get().x2(),
-                                        dist_right: child.node_state.body.get().x1() - seat_data.x,
+                                        dist_right: cns.body.get().x1() - seat_data.x,
                                     },
                                     child,
                                 );
@@ -1397,7 +1403,7 @@ impl ContainerNode {
                                     SeatOpKind::Resize {
                                         dist_left: seat_data.y
                                             - child.prev().unwrap().node_state.body.get().y2(),
-                                        dist_right: child.node_state.body.get().y1() - seat_data.y,
+                                        dist_right: cns.body.get().y1() - seat_data.y,
                                     },
                                     child,
                                 );
@@ -1806,8 +1812,9 @@ impl Node for ContainerNode {
             recurse(ns.mono_content.get(), child);
         } else {
             for child in self.children.iter() {
-                if child.node_state.body.get().contains(x, y) {
-                    recurse(child.node_state.content.get(), child);
+                let cns = &child.node_state;
+                if cns.body.get().contains(x, y) {
+                    recurse(cns.content.get(), child);
                     break;
                 }
             }
