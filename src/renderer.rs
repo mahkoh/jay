@@ -439,19 +439,18 @@ impl Renderer<'_> {
                 }
             }
         }
-        if let Some(child) = container.node_state.mono_child.get() {
-            let body = container.node_state.mono_body.get().move_(x, y);
+        let ns = &container.node_state;
+        if let Some(child) = ns.mono_child.get() {
+            let body = ns.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
-            let content = container.node_state.mono_content.get();
+            let content = ns.mono_content.get();
             child
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
             for child in container.children.iter() {
                 let body = child.node_state.body.get();
-                if body.x1() >= container.node_state.width.get()
-                    || body.y1() >= container.node_state.height.get()
-                {
+                if body.x1() >= ns.width.get() || body.y1() >= ns.height.get() {
                     break;
                 }
                 let body = body.move_(x, y);
