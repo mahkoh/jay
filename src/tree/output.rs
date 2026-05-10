@@ -150,16 +150,21 @@ pub struct OutputNodeState {
     pub color_description: CloneCell<Rc<ColorDescription>>,
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
     pub damage_matrix: Cell<DamageMatrix>,
-    pub workspace_rect: Cell<Rect>,
-    pub workspace_rect_rel: Cell<Rect>,
-    pub non_exclusive_rect: Cell<Rect>,
-    pub non_exclusive_rect_rel: Cell<Rect>,
-    pub bar_rect: Cell<Rect>,
-    pub bar_rect_rel: Cell<Rect>,
-    pub bar_rect_with_separator: Cell<Rect>,
-    pub bar_rect_with_separator_rel: Cell<Rect>,
-    pub bar_separator_rect: Cell<Rect>,
-    pub bar_separator_rect_rel: Cell<Rect>,
+    pub rects: OutputNodeRects,
+}
+
+#[derive(Default)]
+pub struct OutputNodeRects {
+    pub non_exclusive: Cell<Rect>,
+    pub non_exclusive_rel: Cell<Rect>,
+    pub workspace: Cell<Rect>,
+    pub workspace_rel: Cell<Rect>,
+    pub bar: Cell<Rect>,
+    pub bar_rel: Cell<Rect>,
+    pub bar_with_separator: Cell<Rect>,
+    pub bar_with_separator_rel: Cell<Rect>,
+    pub bar_separator: Cell<Rect>,
+    pub bar_separator_rel: Cell<Rect>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -285,16 +290,7 @@ impl OutputNode {
                 workspace: Default::default(),
                 overlay: Default::default(),
                 lock_surface: Default::default(),
-                workspace_rect: Default::default(),
-                workspace_rect_rel: Default::default(),
-                non_exclusive_rect: Default::default(),
-                non_exclusive_rect_rel: Default::default(),
-                bar_rect: Default::default(),
-                bar_rect_rel: Default::default(),
-                bar_rect_with_separator: Default::default(),
-                bar_rect_with_separator_rel: Default::default(),
-                bar_separator_rect: Default::default(),
-                bar_separator_rect_rel: Default::default(),
+                rects: Default::default(),
             },
         });
         on.update_visible();
@@ -379,7 +375,7 @@ impl OutputNode {
             }
             for layer in [&self.node_state.workspace, &self.node_state.overlay] {
                 if let Some(c) = layer.get() {
-                    c.change_extents(&self.node_state.workspace_rect.get(), self);
+                    c.change_extents(&self.node_state.rects.workspace.get(), self);
                 }
             }
             if self.node_visible() {
@@ -594,7 +590,7 @@ impl OutputNode {
         self.update_rects();
         for layer in [&self.node_state.workspace, &self.node_state.overlay] {
             if let Some(c) = layer.get() {
-                c.change_extents(&self.node_state.workspace_rect.get(), self);
+                c.change_extents(&self.node_state.rects.workspace.get(), self);
             }
         }
         for item in self.tray_items.iter() {
@@ -721,8 +717,8 @@ impl OutputNode {
             return;
         }
         let mut pos = 0;
-        let bar_rect_rel = self.node_state.bar_rect_rel.get();
-        let non_exclusive_rect_rel = self.node_state.non_exclusive_rect_rel.get();
+        let bar_rect_rel = self.node_state.rects.bar_rel.get();
+        let non_exclusive_rect_rel = self.node_state.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
         let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
@@ -733,7 +729,8 @@ impl OutputNode {
         let active_id = self.node_state.workspace.id();
         rd.bar_separator = self
             .node_state
-            .bar_separator_rect_rel
+            .rects
+            .bar_separator_rel
             .get()
             .move_(-non_exclusive_rect_rel.x1(), -non_exclusive_rect_rel.y1());
         let mut handle_workspace = |ws: &Rc<WorkspaceNode>, overlay: bool| {
@@ -820,7 +817,7 @@ impl OutputNode {
             }
         }
         let old_full_area = rd.full_area;
-        rd.full_area = self.node_state.bar_rect_with_separator.get();
+        rd.full_area = self.node_state.rects.bar_with_separator.get();
         if self.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
@@ -910,7 +907,7 @@ impl OutputNode {
         if let Some(fs) = ws.node_state.fullscreen.get() {
             fs.tl_change_extents(&self.node_state.pos.get());
         }
-        ws.change_extents(&self.node_state.workspace_rect.get(), self);
+        ws.change_extents(&self.node_state.rects.workspace.get(), self);
         for seat in seats {
             ws.do_focus(&seat, Direction::Unspecified);
         }
@@ -945,7 +942,7 @@ impl OutputNode {
         if let Some(fs) = ws.node_state.fullscreen.get() {
             fs.tl_change_extents(&self.node_state.pos.get());
         }
-        ws.change_extents(&self.node_state.workspace_rect.get(), self);
+        ws.change_extents(&self.node_state.rects.workspace.get(), self);
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -1114,24 +1111,28 @@ impl OutputNode {
             bar_separator_rect_rel = to_rel(bar_separator_rect);
             workspace_rect_rel = to_rel(workspace_rect);
         }
-        self.node_state.non_exclusive_rect.set(non_exclusive_rect);
+        self.node_state.rects.non_exclusive.set(non_exclusive_rect);
         self.node_state
-            .non_exclusive_rect_rel
+            .rects
+            .non_exclusive_rel
             .set(non_exclusive_rect_rel);
-        self.node_state.bar_rect.set(bar_rect);
-        self.node_state.bar_rect_rel.set(bar_rect_rel);
+        self.node_state.rects.bar.set(bar_rect);
+        self.node_state.rects.bar_rel.set(bar_rect_rel);
         self.node_state
-            .bar_rect_with_separator
+            .rects
+            .bar_with_separator
             .set(bar_rect_with_separator);
         self.node_state
-            .bar_rect_with_separator_rel
+            .rects
+            .bar_with_separator_rel
             .set(bar_rect_with_separator_rel);
-        self.node_state.bar_separator_rect.set(bar_separator_rect);
+        self.node_state.rects.bar_separator.set(bar_separator_rect);
         self.node_state
-            .bar_separator_rect_rel
+            .rects
+            .bar_separator_rel
             .set(bar_separator_rect_rel);
-        self.node_state.workspace_rect.set(workspace_rect);
-        self.node_state.workspace_rect_rel.set(workspace_rect_rel);
+        self.node_state.rects.workspace.set(workspace_rect);
+        self.node_state.rects.workspace_rel.set(workspace_rect_rel);
         self.update_tray_positions();
         self.schedule_update_render_data();
     }
@@ -1233,7 +1234,7 @@ impl OutputNode {
                 if let Some(fs) = c.node_state.fullscreen.get() {
                     fs.tl_change_extents(rect);
                 }
-                c.change_extents(&self.node_state.workspace_rect.get(), self);
+                c.change_extents(&self.node_state.rects.workspace.get(), self);
             }
         }
         for layer in &self.layers {
@@ -1510,7 +1511,7 @@ impl OutputNode {
         if !self.state.show_bar.get() {
             return false;
         }
-        let bar_rect_rel = self.node_state.bar_rect_rel.get();
+        let bar_rect_rel = self.node_state.rects.bar_rel.get();
         if bar_rect_rel.not_contains(x, y) {
             return false;
         }
@@ -1548,7 +1549,7 @@ impl OutputNode {
         if button != BTN_LEFT {
             return;
         }
-        let bar_rect_with_separator_rel = self.node_state.bar_rect_with_separator_rel.get();
+        let bar_rect_with_separator_rel = self.node_state.rects.bar_with_separator_rel.get();
         if bar_rect_with_separator_rel.contains(x, y) {
             return;
         }
@@ -1667,7 +1668,7 @@ impl OutputNode {
             if ws.node_state.fullscreen.is_some() {
                 return None;
             }
-            let rect = self.node_state.workspace_rect.get();
+            let rect = self.node_state.rects.workspace.get();
             if rect.contains(x_abs, y_abs) {
                 let Some(c) = ws.node_state.container.get() else {
                     return Some(TileDragDestination {
@@ -1678,7 +1679,7 @@ impl OutputNode {
                 return c.tile_drag_destination(source, rect, x_abs, y_abs);
             }
         }
-        let rect = self.node_state.non_exclusive_rect.get();
+        let rect = self.node_state.rects.non_exclusive.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
@@ -1693,10 +1694,10 @@ impl OutputNode {
         if ws.node_state.fullscreen.is_some() {
             return None;
         }
-        let bar_rect_with_separator = self.node_state.bar_rect_with_separator.get();
+        let bar_rect_with_separator = self.node_state.rects.bar_with_separator.get();
         if bar_rect_with_separator.contains(x_abs, y_abs) {
             let rd = &*self.render_data.borrow();
-            let bar_rect = self.node_state.bar_rect.get();
+            let bar_rect = self.node_state.rects.bar.get();
             let (x, _) = bar_rect.translate(x_abs, y_abs);
             let mut last_x2 = 0;
             for t in &rd.titles {
@@ -1727,7 +1728,7 @@ impl OutputNode {
                 },
             });
         }
-        let rect = self.node_state.workspace_rect.get();
+        let rect = self.node_state.rects.workspace.get();
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
@@ -1749,11 +1750,11 @@ impl OutputNode {
         if !self.state.show_bar.get() {
             return None;
         }
-        let bar_rect_with_separator = self.node_state.bar_rect_with_separator.get();
+        let bar_rect_with_separator = self.node_state.rects.bar_with_separator.get();
         if bar_rect_with_separator.not_contains(x_abs, y_abs) {
             return None;
         }
-        let bar_rect = self.node_state.bar_rect.get();
+        let bar_rect = self.node_state.rects.bar.get();
         if source.ty == WorkspaceType::Overlay {
             if self.node_state.overlay.id() == Some(source.id) {
                 return None;
@@ -1822,7 +1823,7 @@ impl OutputNode {
     }
 
     pub fn update_tray_positions(self: &Rc<Self>) {
-        let bar_rect = self.node_state.bar_rect.get();
+        let bar_rect = self.node_state.rects.bar.get();
         let mut right = bar_rect.width();
         let mut have_any = false;
         let icon_size = self.state.tray_icon_size();
@@ -2180,7 +2181,7 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
-        let ws_rect_rel = self.node_state.workspace_rect_rel.get();
+        let ws_rect_rel = self.node_state.rects.workspace_rel.get();
         let select_workspace = match usecase {
             FindTreeUsecase::None => false,
             FindTreeUsecase::SelectToplevel => false,
@@ -2265,7 +2266,7 @@ impl Node for OutputNode {
             fs.node_find_tree_at(x, y, tree, usecase)
         } else {
             let mut search_layers = true;
-            let bar_rect_rel = self.node_state.bar_rect_rel.get();
+            let bar_rect_rel = self.node_state.rects.bar_rel.get();
             if bar_rect_rel.contains(x, y) {
                 let (x, y) = bar_rect_rel.translate(x, y);
                 search_layers = false;
@@ -2378,7 +2379,7 @@ impl Node for OutputNode {
                 .state
                 .ui_drag_threshold_reached((x.round_down(), y.round_down()), (down_x, down_y))
         {
-            let bar_rect_rel = self.node_state.bar_rect_rel.get();
+            let bar_rect_rel = self.node_state.rects.bar_rel.get();
             if bar_rect_rel.contains(down_x, down_y) {
                 let (down_x, _) = bar_rect_rel.translate(down_x, down_y);
                 let rd = self.render_data.borrow_mut();

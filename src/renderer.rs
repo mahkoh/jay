@@ -102,9 +102,9 @@ impl Renderer<'_> {
             render_layer!(output.layers[1]);
             let ws = output.node_state.workspace.get();
             if self.state.show_bar.get() {
-                let non_exclusive_rect_rel = output.node_state.non_exclusive_rect_rel.get();
+                let non_exclusive_rect_rel = output.node_state.rects.non_exclusive_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
-                let bar_rect = output.node_state.bar_rect_rel.get();
+                let bar_rect = output.node_state.rects.bar_rel.get();
                 let bar_bg = bar_rect.move_(
                     x - non_exclusive_rect_rel.x1(),
                     y - non_exclusive_rect_rel.y1(),
@@ -243,7 +243,7 @@ impl Renderer<'_> {
                 }
             }
             if let Some(ws) = &ws {
-                let ws_rect = output.node_state.workspace_rect_rel.get();
+                let ws_rect = output.node_state.rects.workspace_rel.get();
                 let (x, y) = ws_rect.translate_inv(x, y);
                 self.render_workspace(&ws, x, y);
             }
@@ -273,7 +273,7 @@ impl Renderer<'_> {
         {
             fs.node_render(self, x, y, None);
         } else if let Some(ws) = output.node_state.overlay.get() {
-            let ws_rect = output.node_state.workspace_rect_rel.get();
+            let ws_rect = output.node_state.rects.workspace_rel.get();
             let (x, y) = ws_rect.translate_inv(x, y);
             self.base.sync();
             self.render_workspace(&ws, x, y);
@@ -284,7 +284,7 @@ impl Renderer<'_> {
                 && ws.render_highlight.get() > 0
             {
                 let color = self.state.theme.colors.highlight.get();
-                let bounds = output.node_state.workspace_rect_rel.get().move_(x, y);
+                let bounds = output.node_state.rects.workspace_rel.get().move_(x, y);
                 self.base.sync();
                 self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
             }

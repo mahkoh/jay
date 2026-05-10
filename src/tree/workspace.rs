@@ -180,7 +180,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
-        self.change_extents(&output.node_state.workspace_rect.get(), output);
+        self.change_extents(&output.node_state.rects.workspace.get(), output);
         struct OutputSetter<'a> {
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
@@ -477,7 +477,7 @@ impl Node for WorkspaceNode {
     fn node_active_changed(&self, _active: bool) {
         let output = self.node_state.output.get();
         self.state
-            .damage(output.node_state.bar_separator_rect.get());
+            .damage(output.node_state.rects.bar_separator.get());
     }
 
     fn node_find_tree_at(
