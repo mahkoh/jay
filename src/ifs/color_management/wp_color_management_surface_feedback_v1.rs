@@ -37,7 +37,7 @@ impl WpColorManagementSurfaceFeedbackV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: Some(self.surface.get_output().global.color_description.get()),
+            description: Some(self.surface.get_output().color_description.get()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

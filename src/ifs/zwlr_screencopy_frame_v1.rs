@@ -48,7 +48,7 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     pub fn send_damage(&self) {
-        if let Some(output) = self.output.get() {
+        if let Some(output) = self.output.node() {
             let pos = output.pos.get();
             self.client.event(Damage {
                 self_id: self.id,

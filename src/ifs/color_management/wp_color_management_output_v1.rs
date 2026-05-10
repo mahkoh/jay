@@ -28,7 +28,7 @@ impl WpColorManagementOutputV1 {
     }
 
     fn detach(&self) {
-        if let Some(output) = self.output.get() {
+        if let Some(output) = self.output.node() {
             output
                 .color_description_listeners
                 .remove(&(self.client.id, self.id));
@@ -55,7 +55,7 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: self.output.get().map(|o| o.color_description.get()),
+            description: self.output.node().map(|o| o.color_description.get()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

@@ -25,7 +25,7 @@ async fn test_bar(
     output: &OutputNode,
     separator_width: i32,
 ) -> Result<(), TestError> {
-    let output_rect = output.global.pos.get();
+    let output_rect = output.pos.get();
 
     run.cfg.set_bar_separator_width(separator_width)?;
     run.cfg.set_bar_position(BarPosition::Top)?;

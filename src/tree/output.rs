@@ -5,13 +5,18 @@ use {
             HardwareCursor, Mode, transaction::BackendConnectorTransactionError,
         },
         client::ClientId,
-        cmm::cmm_description::ColorDescription,
+        cmm::{
+            cmm_description::ColorDescription, cmm_eotf::Eotf, cmm_luminance::Luminance,
+            cmm_primaries::NamedPrimaries,
+        },
         control_center::{CCI_OUTPUTS, CCI_WORKSPACES},
         cursor::KnownCursor,
         cursor_user::{CursorUser, CursorUserId},
+        damage::DamageMatrix,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, GfxTexture, ReleaseSync},
         ifs::{
+            color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
@@ -63,10 +68,12 @@ use {
             linkedlist::{LinkedList, NodeRef},
             obj_and_id::{ObjAndId, ObjWithId},
             on_drop_event::OnDropEvent,
+            ordered_float::F64,
             scroller::Scroller,
         },
         wire::{
-            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id,
+            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId,
+            WpColorManagementOutputV1Id, ZwlrScreencopyFrameV1Id,
         },
     },
     ahash::AHashMap,
@@ -132,6 +139,15 @@ pub struct OutputNode {
     pub tearing: Cell<bool>,
     pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
     pub cursor_users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
+    pub pos: Cell<Rect>,
+    pub legacy_scale: Cell<u32>,
+    pub damage_matrix: Cell<DamageMatrix>,
+    pub btf: Cell<BackendEotfs>,
+    pub bcs: Cell<BackendColorSpace>,
+    pub color_description: CloneCell<Rc<ColorDescription>>,
+    pub linear_color_description: CloneCell<Rc<ColorDescription>>,
+    pub color_description_listeners:
+        CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
 }
 
 impl ObjWithId for Rc<OutputNode> {
@@ -202,6 +218,86 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn new(
+        id: OutputNodeId,
+        global: &Rc<WlOutputGlobal>,
+        schedule: &Rc<OutputSchedule>,
+    ) -> Rc<Self> {
+        let state = &global.state;
+        let (x, y) = global.persistent.pos.get();
+        let mode = global.mode.get();
+        let scale = global.persistent.scale.get();
+        let (width, height) = calculate_logical_size(
+            (mode.width, mode.height),
+            global.persistent.transform.get(),
+            scale,
+        );
+        let connector_state = &*global.connector.state.borrow();
+        let on = Rc::new(OutputNode {
+            id,
+            workspaces: Default::default(),
+            workspace: Default::default(),
+            overlay: Default::default(),
+            seat_state: Default::default(),
+            global: global.clone(),
+            layers: Default::default(),
+            exclusive_zones: Default::default(),
+            workspace_rect: Default::default(),
+            workspace_rect_rel: Default::default(),
+            non_exclusive_rect: Default::default(),
+            non_exclusive_rect_rel: Default::default(),
+            bar_rect: Default::default(),
+            bar_rect_rel: Default::default(),
+            bar_rect_with_separator: Default::default(),
+            bar_rect_with_separator_rel: Default::default(),
+            bar_separator_rect: Default::default(),
+            bar_separator_rect_rel: Default::default(),
+            render_data: Default::default(),
+            state: state.clone(),
+            is_dummy: id == state.dummy_output_id,
+            status: state.status.clone(),
+            scroll: Default::default(),
+            pointer_positions: Default::default(),
+            pointer_down: Default::default(),
+            lock_surface: Default::default(),
+            hardware_cursor: Default::default(),
+            jay_outputs: Default::default(),
+            screencasts: Default::default(),
+            update_render_data_scheduled: Cell::new(false),
+            hardware_cursor_needs_render: Cell::new(false),
+            screencopies: Default::default(),
+            title_visible: Default::default(),
+            schedule: schedule.clone(),
+            latch_event: Default::default(),
+            vblank_event: Default::default(),
+            presentation_event: Default::default(),
+            render_margin_ns: Default::default(),
+            flip_margin_ns: Default::default(),
+            ext_copy_sessions: Default::default(),
+            before_latch_event: Default::default(),
+            tray_start_rel: Default::default(),
+            tray_items: Default::default(),
+            ext_workspace_groups: Default::default(),
+            pinned: Default::default(),
+            tearing: Default::default(),
+            active_zwlr_gamma_control: Default::default(),
+            cursor_users: Default::default(),
+            pos: Cell::new(Rect::new_sized_saturating(x, y, width, height)),
+            legacy_scale: Cell::new(scale.round_up()),
+            damage_matrix: Default::default(),
+            btf: Cell::new(connector_state.eotf),
+            bcs: Cell::new(connector_state.color_space),
+            color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
+            linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
+            color_description_listeners: Default::default(),
+        });
+        on.update_visible();
+        on.update_rects();
+        on.update_damage_matrix();
+        on.update_color_description();
+        on
+    }
+
     pub async fn before_latch(&self, present: u64) {
         let mut res = BeforeLatchResult::None;
         for listener in self.before_latch_event.iter() {
@@ -281,7 +377,7 @@ impl OutputNode {
                 }
             }
             if self.node_visible() {
-                self.state.damage(self.global.pos.get());
+                self.state.damage(self.pos.get());
             }
         }
     }
@@ -397,7 +493,7 @@ impl OutputNode {
                             tex,
                             cd,
                             acquire_sync,
-                            self.global.pos.get(),
+                            self.pos.get(),
                             x_off,
                             y_off,
                             size,
@@ -440,7 +536,7 @@ impl OutputNode {
                             ReleaseSync::Implicit,
                             self.global.persistent.transform.get(),
                             self.state.color_manager.srgb_gamma22(),
-                            self.global.pos.get(),
+                            self.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
                             y_off - capture.rect.y1(),
@@ -485,6 +581,7 @@ impl OutputNode {
         self.vblank_event.clear();
         self.presentation_event.clear();
         self.render_data.borrow_mut().clear();
+        self.color_description_listeners.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -509,7 +606,7 @@ impl OutputNode {
             return;
         }
         let legacy_scale = scale.round_up();
-        if self.global.legacy_scale.replace(legacy_scale) != legacy_scale {
+        if self.legacy_scale.replace(legacy_scale) != legacy_scale {
             self.global.send_mode();
         }
         self.state.remove_output_scale(old_scale);
@@ -804,14 +901,14 @@ impl OutputNode {
         self.update_visible();
         self.update_presentation_type();
         if let Some(fs) = ws.fullscreen.get() {
-            fs.tl_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(&self.pos.get());
         }
         ws.change_extents(&self.workspace_rect.get(), self);
         for seat in seats {
             ws.do_focus(&seat, Direction::Unspecified);
         }
         if self.node_visible() {
-            self.state.damage(self.global.pos.get());
+            self.state.damage(self.pos.get());
         }
         true
     }
@@ -839,7 +936,7 @@ impl OutputNode {
         self.update_presentation_type();
         ws.set_output(self);
         if let Some(fs) = ws.fullscreen.get() {
-            fs.tl_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(&self.pos.get());
         }
         ws.change_extents(&self.workspace_rect.get(), self);
         for seat in seats {
@@ -847,7 +944,7 @@ impl OutputNode {
         }
         self.schedule_update_render_data();
         if self.node_visible() {
-            self.state.damage(self.global.pos.get());
+            self.state.damage(self.pos.get());
         }
         true
     }
@@ -879,7 +976,7 @@ impl OutputNode {
         self.update_visible();
         self.update_presentation_type();
         if self.node_visible() {
-            self.state.damage(self.global.pos.get());
+            self.state.damage(self.pos.get());
         }
     }
 
@@ -965,7 +1062,7 @@ impl OutputNode {
     }
 
     pub fn update_rects(self: &Rc<Self>) {
-        let rect = self.global.pos.get();
+        let rect = self.pos.get();
         let bh = self.state.theme.sizes.bar_height();
         let bsw = self.state.theme.sizes.bar_separator_width();
         let exclusive = self.exclusive_zones.get();
@@ -1026,7 +1123,7 @@ impl OutputNode {
     }
 
     pub fn set_position(self: &Rc<Self>, x: i32, y: i32) {
-        let pos = self.global.pos.get();
+        let pos = self.pos.get();
         if (pos.x1(), pos.y1()) == (x, y) {
             return;
         }
@@ -1051,11 +1148,11 @@ impl OutputNode {
         if (old_mode, old_transform) == (mode, transform) {
             return;
         }
-        let (old_width, old_height) = self.global.pixel_size();
+        let (old_width, old_height) = self.pixel_size();
         self.global.mode.set(mode);
         self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
-        let (new_width, new_height) = self.global.pixel_size();
+        let (new_width, new_height) = self.pixel_size();
         self.change_extents_(&self.calculate_extents());
 
         if (old_width, old_height) != (new_width, new_height) {
@@ -1086,7 +1183,7 @@ impl OutputNode {
             self.global.mode.get(),
             self.global.persistent.transform.get(),
             self.global.persistent.scale.get(),
-            self.global.pos.get().position(),
+            self.pos.get().position(),
         )
     }
 
@@ -1103,12 +1200,12 @@ impl OutputNode {
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
         let visible = self.node_visible();
         if visible {
-            let old_pos = self.global.pos.get();
+            let old_pos = self.pos.get();
             self.state.damage(old_pos);
         }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
-        self.global.pos.set(*rect);
-        self.global.update_damage_matrix();
+        self.pos.set(*rect);
+        self.update_damage_matrix();
         if visible {
             self.state.damage(*rect);
         }
@@ -1154,8 +1251,8 @@ impl OutputNode {
     }
 
     fn update_btf_and_bcs(&self, btf: BackendEotfs, bcs: BackendColorSpace) {
-        let old_btf = self.global.btf.replace(btf);
-        let old_bcs = self.global.bcs.replace(bcs);
+        let old_btf = self.btf.replace(btf);
+        let old_bcs = self.bcs.replace(bcs);
         if (old_btf, old_bcs) == (btf, bcs) {
             return;
         }
@@ -1163,13 +1260,13 @@ impl OutputNode {
     }
 
     fn update_color_description(&self) {
-        if self.global.update_color_description() {
-            self.state.damage(self.global.position());
+        if self.update_color_description_() {
+            self.state.damage(self.pos.get());
             if let Some(hc) = self.hardware_cursor.get() {
                 self.hardware_cursor_needs_render.set(true);
                 hc.damage();
             }
-            for fb in self.global.color_description_listeners.lock().values() {
+            for fb in self.color_description_listeners.lock().values() {
                 fb.send_image_description_changed();
             }
             self.visit_children(&mut SurfaceSendPreferredColorDescription);
@@ -1224,7 +1321,7 @@ impl OutputNode {
     pub fn set_blend_space(&self, blend_space: BlendSpace) {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
-            self.state.damage(self.global.position());
+            self.state.damage(self.pos.get());
             self.global
                 .connector
                 .head_manager
@@ -1243,7 +1340,7 @@ impl OutputNode {
         if stack.definitely_has_no_visible() {
             return FindTreeResult::Other;
         }
-        let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
+        let (x_abs, y_abs) = self.pos.get().translate_inv(x, y);
         for stacked in stack.iter_visible_rev() {
             let ext = stacked.node_absolute_position();
             if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
@@ -1335,7 +1432,7 @@ impl OutputNode {
     pub fn fullscreen_changed(&self) {
         self.update_visible();
         if self.node_visible() {
-            self.state.damage(self.global.pos.get());
+            self.state.damage(self.pos.get());
         }
     }
 
@@ -1823,6 +1920,106 @@ impl OutputNode {
         self.flip_margin_ns.set(Some(margin_ns));
         self.state.trigger_cci(CCI_OUTPUTS);
     }
+
+    pub fn pixel_size(&self) -> (i32, i32) {
+        let mode = self.global.mode.get();
+        self.global
+            .persistent
+            .transform
+            .get()
+            .maybe_swap((mode.width, mode.height))
+    }
+
+    fn update_damage_matrix(&self) {
+        let pos = self.pos.get();
+        let mode = self.global.mode.get();
+        let matrix = DamageMatrix::new(
+            self.global.persistent.transform.get().inverse(),
+            1,
+            pos.width(),
+            pos.height(),
+            None,
+            mode.width,
+            mode.height,
+        );
+        self.damage_matrix.set(matrix);
+        self.global
+            .connector
+            .damage_intersect
+            .set(Rect::new_sized_saturating(0, 0, mode.width, mode.height));
+    }
+
+    pub fn add_damage_area(&self, area: &Rect) {
+        let pos = self.pos.get();
+        let rect = area.move_(-pos.x1(), -pos.y1());
+        let mut rect = self.damage_matrix.get().apply(0, 0, rect);
+        let damage = &mut *self.global.connector.damage.borrow_mut();
+        const MAX_CONNECTOR_DAMAGE: usize = 32;
+        if damage.len() >= MAX_CONNECTOR_DAMAGE {
+            rect = rect.union(damage.pop().unwrap());
+        }
+        damage.push(rect.intersect(self.global.connector.damage_intersect.get()));
+    }
+
+    pub fn add_visualizer_damage(&self) {
+        self.state.damage_visualizer.copy_damage(self);
+    }
+
+    fn update_color_description_(&self) -> bool {
+        let (mut luminance, tf) = match self.btf.get() {
+            BackendEotfs::Default => (Luminance::SRGB, Eotf::Gamma22),
+            BackendEotfs::Pq => (Luminance::ST2084_PQ, Eotf::St2084Pq),
+        };
+        if let Some(brightness) = self.global.persistent.brightness.get() {
+            luminance.white.0 = brightness;
+        }
+        let mut target_luminance = luminance.to_target();
+        let mut max_cll = None;
+        let mut max_fall = None;
+        if let Some(l) = self.global.luminance
+            && self.btf.get() == BackendEotfs::Pq
+        {
+            target_luminance.min = F64(l.min);
+            target_luminance.max = F64(l.max);
+            max_cll = Some(F64(l.max));
+            max_fall = Some(F64(l.max_fall));
+        }
+        let named_primaries;
+        let primaries;
+        let target_primaries;
+        match self.bcs.get() {
+            BackendColorSpace::Default => {
+                if self.global.persistent.use_native_gamut.get()
+                    && self.global.primaries != NamedPrimaries::Srgb.primaries()
+                {
+                    named_primaries = None;
+                    primaries = self.global.primaries;
+                } else {
+                    named_primaries = Some(NamedPrimaries::Srgb);
+                    primaries = NamedPrimaries::Srgb.primaries();
+                }
+                target_primaries = primaries;
+            }
+            BackendColorSpace::Bt2020 => {
+                named_primaries = Some(NamedPrimaries::Bt2020);
+                primaries = NamedPrimaries::Bt2020.primaries();
+                target_primaries = self.global.primaries;
+            }
+        }
+        let cd = self.state.color_manager.get_description(
+            named_primaries,
+            primaries,
+            luminance,
+            tf,
+            target_primaries,
+            target_luminance,
+            max_cll,
+            max_fall,
+        );
+        let cd_linear = self.state.color_manager.get_with_tf(&cd, Eotf::Linear);
+        self.linear_color_description.set(cd_linear.clone());
+        self.color_description.set(cd.clone()).id != cd.id
+    }
 }
 
 pub struct OutputTitle {
@@ -1910,7 +2107,7 @@ impl Node for OutputNode {
     }
 
     fn node_absolute_position(&self) -> Rect {
-        self.global.pos.get()
+        self.pos.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {

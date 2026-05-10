@@ -158,7 +158,7 @@ impl HeadManager {
 
     pub fn handle_position_size_change(&self, node: &OutputNode) {
         let state = &mut *self.state.borrow_mut();
-        let pos = node.global.pos.get();
+        let pos = node.pos.get();
         state.position = pos.position();
         state.size = pos.size();
     }

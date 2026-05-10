@@ -2001,7 +2001,7 @@ impl DeviceHandlerData {
 
     pub fn get_rect(&self, state: &State) -> Rect {
         if let Some(output) = self.output.get()
-            && let Some(output) = output.get()
+            && let Some(output) = output.node()
         {
             return output.pos.get();
         }

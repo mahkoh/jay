@@ -3,13 +3,12 @@ use {
         async_engine::AsyncEngine,
         cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
         fixed::Fixed,
-        ifs::wl_output::WlOutputGlobal,
         rect::{Rect, Region},
         renderer::renderer_base::RendererBase,
         state::State,
         theme::Color,
         time::Time,
-        tree::Transform,
+        tree::{OutputNode, Transform},
         utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt, timer::TimerFd},
     },
     isnt::std_1::primitive::IsntSliceExt,
@@ -182,7 +181,7 @@ impl DamageVisualizer {
         }
     }
 
-    pub fn copy_damage(&self, output: &WlOutputGlobal) {
+    pub fn copy_damage(&self, output: &OutputNode) {
         if !self.enabled.get() {
             return;
         }

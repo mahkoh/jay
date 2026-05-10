@@ -185,58 +185,7 @@ impl ConnectorHandler {
             name: self.state.globals.name(),
             output: global.opt.clone(),
         });
-        let on = Rc::new(OutputNode {
-            id: self.state.node_ids.next(),
-            workspaces: Default::default(),
-            workspace: Default::default(),
-            overlay: Default::default(),
-            seat_state: Default::default(),
-            global: global.clone(),
-            layers: Default::default(),
-            exclusive_zones: Default::default(),
-            workspace_rect: Default::default(),
-            workspace_rect_rel: Default::default(),
-            non_exclusive_rect: Default::default(),
-            non_exclusive_rect_rel: Default::default(),
-            bar_rect: Default::default(),
-            bar_rect_rel: Default::default(),
-            bar_rect_with_separator: Default::default(),
-            bar_rect_with_separator_rel: Default::default(),
-            bar_separator_rect: Default::default(),
-            bar_separator_rect_rel: Default::default(),
-            render_data: Default::default(),
-            state: self.state.clone(),
-            is_dummy: false,
-            status: self.state.status.clone(),
-            scroll: Default::default(),
-            pointer_positions: Default::default(),
-            pointer_down: Default::default(),
-            lock_surface: Default::default(),
-            hardware_cursor: Default::default(),
-            jay_outputs: Default::default(),
-            screencasts: Default::default(),
-            update_render_data_scheduled: Cell::new(false),
-            hardware_cursor_needs_render: Cell::new(false),
-            screencopies: Default::default(),
-            title_visible: Default::default(),
-            schedule,
-            latch_event: Default::default(),
-            vblank_event: Default::default(),
-            presentation_event: Default::default(),
-            render_margin_ns: Default::default(),
-            flip_margin_ns: Default::default(),
-            ext_copy_sessions: Default::default(),
-            before_latch_event: Default::default(),
-            tray_start_rel: Default::default(),
-            tray_items: Default::default(),
-            ext_workspace_groups: Default::default(),
-            pinned: Default::default(),
-            tearing: Default::default(),
-            active_zwlr_gamma_control: Default::default(),
-            cursor_users: Default::default(),
-        });
-        on.update_visible();
-        on.update_rects();
+        let on = OutputNode::new(self.state.node_ids.next(), &global, &schedule);
         self.state
             .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
@@ -297,7 +246,7 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        global.add_damage_area(&global.pos.get());
+        on.add_damage_area(&on.pos.get());
         self.data.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {

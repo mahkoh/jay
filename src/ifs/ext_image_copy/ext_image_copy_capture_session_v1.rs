@@ -94,7 +94,7 @@ impl ExtImageCopyCaptureSessionV1 {
                 let Some(node) = o.node() else {
                     return;
                 };
-                node.global.pixel_size()
+                node.pixel_size()
             }
             ImageCaptureSource::Toplevel(o) => {
                 let Some(node) = o.get() else {

@@ -1016,7 +1016,7 @@ impl State {
             + 2 * self.theme.sizes.border_width.get()
             + self.theme.title_plus_underline_height();
         let output = workspace.output.get();
-        let output_rect = output.global.pos.get();
+        let output_rect = output.pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
             x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
@@ -1226,11 +1226,11 @@ impl State {
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
-            if output.global.pos.get().intersects(&rect) {
+            if output.pos.get().intersects(&rect) {
                 if skip_hc && output.hardware_cursor.is_some() {
                     continue;
                 }
-                output.global.add_damage_area(&rect);
+                output.add_damage_area(&rect);
                 if cursor && output.schedule.defer_cursor_updates() {
                     output.schedule.software_cursor_changed();
                 } else {
@@ -1421,7 +1421,7 @@ impl State {
             cd,
             output,
             self,
-            Some(output.global.pos.get()),
+            Some(output.pos.get()),
             output.global.persistent.scale.get(),
             render_hw_cursor,
             true,
@@ -1579,6 +1579,7 @@ impl State {
     }
 
     pub fn create_seat(self: &Rc<Self>, name: &str) -> Rc<WlSeatGlobal> {
+        self.tree_changed_sent.set(false);
         let global_name = self.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, self);
         self.globals.add_global(self, &seat);
@@ -1601,7 +1602,7 @@ impl State {
         let mut optimal_output = None;
         let outputs = self.root.outputs.lock();
         for output in outputs.values() {
-            let pos = output.global.pos.get();
+            let pos = output.pos.get();
             let dist = pos.dist_squared(x, y);
             if dist == 0 {
                 if pos.contains(x, y) {
@@ -1614,7 +1615,7 @@ impl State {
             }
         }
         if let Some(output) = optimal_output {
-            let pos = output.global.pos.get();
+            let pos = output.pos.get();
             if pos.is_empty() {
                 return (output, pos.x1(), pos.y1());
             }
@@ -1803,7 +1804,7 @@ impl State {
 
         let outputs = self.root.outputs.lock();
 
-        let ref_box = source_output.global.pos.get();
+        let ref_box = source_output.pos.get();
         let ref_x1 = ref_box.x1();
         let ref_y1 = ref_box.y1();
         let ref_x2 = ref_box.x2();
@@ -1821,7 +1822,7 @@ impl State {
                 continue;
             }
 
-            let box_pos = output.global.pos.get();
+            let box_pos = output.pos.get();
             let box_x1 = box_pos.x1();
             let box_y1 = box_pos.y1();
             let box_x2 = box_pos.x2();
@@ -2192,7 +2193,7 @@ impl State {
             .outputs
             .lock()
             .values()
-            .map(|o| o.global.pos.get().x2())
+            .map(|o| o.pos.get().x2())
             .max()
             .unwrap_or(0);
         Rc::new(PersistentOutputState {
