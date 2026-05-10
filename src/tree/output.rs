@@ -202,6 +202,67 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn new(
+        id: OutputNodeId,
+        global: &Rc<WlOutputGlobal>,
+        schedule: &Rc<OutputSchedule>,
+    ) -> Rc<Self> {
+        let state = &global.state;
+        let on = Rc::new(OutputNode {
+            id,
+            workspaces: Default::default(),
+            workspace: Default::default(),
+            overlay: Default::default(),
+            seat_state: Default::default(),
+            global: global.clone(),
+            layers: Default::default(),
+            exclusive_zones: Default::default(),
+            workspace_rect: Default::default(),
+            workspace_rect_rel: Default::default(),
+            non_exclusive_rect: Default::default(),
+            non_exclusive_rect_rel: Default::default(),
+            bar_rect: Default::default(),
+            bar_rect_rel: Default::default(),
+            bar_rect_with_separator: Default::default(),
+            bar_rect_with_separator_rel: Default::default(),
+            bar_separator_rect: Default::default(),
+            bar_separator_rect_rel: Default::default(),
+            render_data: Default::default(),
+            state: state.clone(),
+            is_dummy: id == state.dummy_output_id,
+            status: state.status.clone(),
+            scroll: Default::default(),
+            pointer_positions: Default::default(),
+            pointer_down: Default::default(),
+            lock_surface: Default::default(),
+            hardware_cursor: Default::default(),
+            jay_outputs: Default::default(),
+            screencasts: Default::default(),
+            update_render_data_scheduled: Cell::new(false),
+            hardware_cursor_needs_render: Cell::new(false),
+            screencopies: Default::default(),
+            title_visible: Default::default(),
+            schedule: schedule.clone(),
+            latch_event: Default::default(),
+            vblank_event: Default::default(),
+            presentation_event: Default::default(),
+            render_margin_ns: Default::default(),
+            flip_margin_ns: Default::default(),
+            ext_copy_sessions: Default::default(),
+            before_latch_event: Default::default(),
+            tray_start_rel: Default::default(),
+            tray_items: Default::default(),
+            ext_workspace_groups: Default::default(),
+            pinned: Default::default(),
+            tearing: Default::default(),
+            active_zwlr_gamma_control: Default::default(),
+            cursor_users: Default::default(),
+        });
+        on.update_visible();
+        on.update_rects();
+        on
+    }
+
     pub async fn before_latch(&self, present: u64) {
         let mut res = BeforeLatchResult::None;
         for listener in self.before_latch_event.iter() {
