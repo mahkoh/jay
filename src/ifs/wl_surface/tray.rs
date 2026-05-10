@@ -15,11 +15,11 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, NodesStackElement, OutputNode, WorkspaceNode,
+            NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
         },
         utils::{
-            copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, linkedlist::LinkedNode,
-            numcell::NumCell,
+            cell_ext::CellExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
+            linkedlist::LinkedNode,
         },
         wire::{WlSeatId, XdgPopupId},
     },
@@ -44,8 +44,8 @@ pub struct TrayItemData {
     pub surface: Rc<WlSurface>,
     output: Rc<OutputGlobalOpt>,
     attached: Cell<bool>,
-    sent_serial: NumCell<u32>,
-    ack_serial: NumCell<u32>,
+    sent_serial: Cell<Option<TreeSerial>>,
+    applied_serial: Cell<Option<TreeSerial>>,
     linked_node: Cell<Option<LinkedNode<Rc<dyn DynTrayItem>>>>,
     abs_pos: Cell<Rect>,
     pub rel_pos: Cell<Rect>,
@@ -63,7 +63,7 @@ impl TrayItemData {
             output: output.clone(),
             attached: Default::default(),
             sent_serial: Default::default(),
-            ack_serial: Default::default(),
+            applied_serial: Default::default(),
             linked_node: Default::default(),
             abs_pos: Default::default(),
             rel_pos: Default::default(),
@@ -249,8 +249,8 @@ impl<T: TrayItem> SurfaceExt for T {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        if let Some(serial) = pending.tray_item_ack_serial.take() {
-            self.data().ack_serial.set(serial);
+        if let Some(serial) = pending.serial.take() {
+            self.data().applied_serial.set(Some(serial));
         }
         Ok(())
     }
@@ -262,7 +262,8 @@ impl<T: TrayItem> SurfaceExt for T {
                 self.destroy_node();
             }
         } else {
-            if data.ack_serial.get() != data.sent_serial.get() {
+            if data.applied_serial.is_none() || data.applied_serial.get() != data.sent_serial.get()
+            {
                 return;
             }
             if data.surface.buffer.is_some() {
@@ -380,12 +381,8 @@ fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
     Ok(())
 }
 
-fn ack_configure<T: TrayItem>(item: &T, serial: u32) {
-    item.data()
-        .surface
-        .pending
-        .borrow_mut()
-        .tray_item_ack_serial = Some(serial);
+fn ack_configure<T: TrayItem>(item: &T, serial: TreeSerial) {
+    item.data().surface.pending.borrow_mut().serial = Some(serial);
 }
 
 fn get_popup<T: TrayItem>(
