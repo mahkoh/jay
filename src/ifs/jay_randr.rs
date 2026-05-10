@@ -102,7 +102,7 @@ impl JayRandr {
             }
         };
         let global = &node.global;
-        let pos = global.pos.get();
+        let pos = node.pos.get();
         self.client.event(Output {
             self_id: self.id,
             scale: global.persistent.scale.get().to_wl(),
@@ -185,7 +185,7 @@ impl JayRandr {
             }
             self.client.event(CurrentEotf {
                 self_id: self.id,
-                eotf: node.global.btf.get().name(),
+                eotf: node.btf.get().name(),
             });
             for cs in &node.global.color_spaces {
                 self.client.event(SupportedColorSpace {
@@ -195,7 +195,7 @@ impl JayRandr {
             }
             self.client.event(CurrentColorSpace {
                 self_id: self.id,
-                color_space: node.global.bcs.get().name(),
+                color_space: node.bcs.get().name(),
             });
         }
         if self.version >= BRIGHTNESS_SINCE {

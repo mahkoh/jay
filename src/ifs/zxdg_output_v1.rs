@@ -60,10 +60,11 @@ impl ZxdgOutputV1 {
     }
 
     pub fn send_updates(&self) {
-        let Some(global) = self.output.global.get() else {
+        let Some(node) = self.output.global.node() else {
             return;
         };
-        let pos = global.position();
+        let global = &node.global;
+        let pos = node.pos.get();
         self.send_logical_position(pos.x1(), pos.y1());
         self.send_logical_size(pos.width(), pos.height());
         if self.version >= NAME_SINCE {

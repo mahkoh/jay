@@ -218,7 +218,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 re,
                 tree::Transform::None,
                 self.client.state.color_manager.srgb_gamma22(),
-                on.global.pos.get(),
+                on.pos.get(),
                 render_hardware_cursors,
                 x_off,
                 y_off,

@@ -96,7 +96,7 @@ impl ZwpInputPopupSurfaceV2 {
             log::warn!("Popup has no connection but is visible");
             return;
         };
-        let output = con.surface.output.get().global.pos.get();
+        let output = con.surface.output.get().pos.get();
         let surface_rect = con.surface.buffer_abs_pos.get();
         let cursor_rect = con
             .text_input

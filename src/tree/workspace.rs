@@ -155,7 +155,7 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
-            output.state.damage(output.global.pos.get());
+            output.state.damage(output.pos.get());
         }
     }
 
@@ -649,10 +649,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         source.schedule_update_render_data();
     }
     if source.node_visible() {
-        target.state.damage(source.global.pos.get());
+        target.state.damage(source.pos.get());
     }
     if target.node_visible() {
-        target.state.damage(target.global.pos.get());
+        target.state.damage(target.pos.get());
     }
 }
 

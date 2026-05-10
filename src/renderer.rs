@@ -53,7 +53,7 @@ impl Renderer<'_> {
         let ext = display.extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
-            let opos = output.global.pos.get();
+            let opos = output.pos.get();
             let (ox, oy) = ext.translate(opos.x1(), opos.y1());
             self.render_output(output, x + ox, y + oy);
         }
@@ -68,7 +68,7 @@ impl Renderer<'_> {
             }
             return;
         }
-        let opos = output.global.pos.get();
+        let opos = output.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {

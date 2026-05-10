@@ -738,7 +738,7 @@ impl WlSurface {
         if old.global.persistent.transform.get() != output.global.persistent.transform.get() {
             self.send_preferred_buffer_transform();
         }
-        if old.global.color_description.get().id != output.global.color_description.get().id {
+        if old.color_description.get().id != output.color_description.get().id {
             self.send_preferred_color_description();
         }
         let children = self.children.borrow_mut();
@@ -833,7 +833,7 @@ impl WlSurface {
         if self.version >= BUFFER_SCALE_SINCE {
             let factor = match self.client.wire_scale.is_some() {
                 true => 1,
-                false => self.output.get().global.legacy_scale.get() as _,
+                false => self.output.get().legacy_scale.get() as _,
             };
             self.client.event(PreferredBufferScale {
                 self_id: self.id,
@@ -1476,7 +1476,7 @@ impl WlSurface {
             } else if has_new_frame_requests && output.schedule.vrr_enabled() {
                 // Frame requests must be dispatched at the highest possible frame rate.
                 // Therefore we must trigger a vsync of the output as soon as possible.
-                let rect = output.global.pos.get();
+                let rect = output.pos.get();
                 self.client.state.damage(rect);
             }
         } else {
@@ -1780,7 +1780,7 @@ impl WlSurface {
         if self.color_management_feedback.is_empty() {
             return;
         }
-        let cd = self.output.get().global.color_description.get();
+        let cd = self.output.get().color_description.get();
         for fb in self.color_management_feedback.lock().values() {
             fb.send_preferred_changed(&cd);
         }

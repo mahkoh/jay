@@ -494,7 +494,7 @@ impl FloatNode {
             return;
         }
         let pos = self.position.get();
-        let opos = output.global.pos.get();
+        let opos = output.pos.get();
         if pos.intersects(&opos) {
             return;
         }

@@ -343,7 +343,7 @@ impl JayScreencast {
                     ReleaseSync::Implicit,
                     Transform::None,
                     self.client.state.color_manager.srgb_gamma22(),
-                    on.global.pos.get(),
+                    on.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,
@@ -475,7 +475,7 @@ impl JayScreencast {
     fn damage(&self) {
         if let Some(target) = self.target.get() {
             let rect = match target {
-                Target::Output(o) => o.global.pos.get(),
+                Target::Output(o) => o.pos.get(),
                 Target::Toplevel(t) => {
                     if !t.node_visible() {
                         return;
@@ -788,7 +788,7 @@ efrom!(JayScreencastError, ClientError);
 fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {
         return match target {
-            Target::Output(o) => o.global.pixel_size(),
+            Target::Output(o) => o.pixel_size(),
             Target::Toplevel(t) => t.tl_data().desired_pixel_size(),
         };
     }

@@ -1516,7 +1516,7 @@ impl ConfigProxyHandler {
 
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        let pos = connector.global.pos.get();
+        let pos = connector.pos.get();
         self.respond(Response::ConnectorSize {
             width: pos.width(),
             height: pos.height(),
