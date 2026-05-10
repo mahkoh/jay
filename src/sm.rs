@@ -491,7 +491,7 @@ impl ToplevelSession {
         self.state.workspace.set(Some(ws.name.clone()));
         self.state.workspace_ty.set(ty);
         self.state_changed();
-        self.set_output(&ws.output.get(), data);
+        self.set_output(&ws.node_state.output.get(), data);
     }
 
     pub fn set_output(self: &Rc<Self>, on: &OutputNode, data: &ToplevelData) {

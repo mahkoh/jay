@@ -734,11 +734,12 @@ impl WlSeatGlobal {
     }
 
     pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container().map(|c| c.mono_child.is_some())
+        self.kb_parent_container()
+            .map(|c| c.node_state.mono_child.is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container().map(|c| c.split.get())
+        self.kb_parent_container().map(|c| c.node_state.split.get())
     }
 
     pub fn set_mono(&self, mono: bool) {
@@ -828,7 +829,7 @@ impl WlSeatGlobal {
                 if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                     && let Some(target) = self
                         .state
-                        .find_output_in_direction(&ws.output.get(), direction)
+                        .find_output_in_direction(&ws.node_state.output.get(), direction)
                 {
                     target.take_keyboard_navigation_focus(self, direction);
                     self.maybe_schedule_warp_mouse_to_focus();
@@ -872,7 +873,7 @@ impl WlSeatGlobal {
             if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                 && let Some(target) = self
                     .state
-                    .find_output_in_direction(&ws.output.get(), direction)
+                    .find_output_in_direction(&ws.node_state.output.get(), direction)
             {
                 self.state.move_ws_to_output(&ws, &target);
             }
@@ -1145,15 +1146,16 @@ impl WlSeatGlobal {
             }};
         }
         let handle_tiled = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.container.get())
+            ws.and_then(|w| w.node_state.container.get())
                 .map(|n| n as Rc<dyn Node>)
         };
         let handle_fullscreen = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.fullscreen.get())
+            ws.and_then(|w| w.node_state.fullscreen.get())
                 .map(|n| n as Rc<dyn Node>)
         };
-        let ws = output.workspace.get();
-        let overlay = output.overlay.get();
+        let ons = &output.node_state;
+        let ws = ons.workspace.get();
+        let overlay = ons.overlay.get();
         let first = next_layer(current_layer.layer());
         let mut layer = first;
         loop {
@@ -1223,13 +1225,15 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        for layer in [&output.overlay, &output.workspace] {
+        let ons = &output.node_state;
+        for layer in [&ons.overlay, &ons.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            let node = match ws.fullscreen.get() {
+            let wns = &ws.node_state;
+            let node = match wns.fullscreen.get() {
                 Some(fs) => fs as Rc<dyn Node>,
-                _ => match ws.container.get() {
+                _ => match wns.container.get() {
                     Some(c) => c,
                     _ => continue,
                 },
@@ -2003,7 +2007,7 @@ impl DeviceHandlerData {
         if let Some(output) = self.output.get()
             && let Some(output) = output.node()
         {
-            return output.pos.get();
+            return output.node_state.pos.get();
         }
         state.root.extents.get()
     }

@@ -16,7 +16,10 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ws2 = setup.outputs[1].node.create_normal_workspace("2");
     let ws3 = setup.outputs[1].node.create_normal_workspace("3");
 
-    tassert_eq!(setup.outputs[1].node.workspace.id(), Some(ws2.id));
+    tassert_eq!(
+        setup.outputs[1].node.node_state.workspace.id(),
+        Some(ws2.id)
+    );
 
     let client = run.create_client().await?;
     let sm = client.registry.get_session_manager().await?;

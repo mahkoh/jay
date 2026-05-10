@@ -61,16 +61,10 @@ pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
     pub ty: WorkspaceType,
-    pub output: ObjAndId<Rc<OutputNode>>,
-    pub position: Cell<Rect>,
-    pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
     pub name: Rc<String>,
     pub name_hash: WorkspaceNameHash,
-    pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
-    pub visible: Cell<bool>,
-    pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
@@ -81,6 +75,24 @@ pub struct WorkspaceNode {
     pub render_highlight: NumCell<u32>,
     pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
     pub opt: Rc<Opt<WorkspaceNode>>,
+    pub node_state: WorkspaceNodeState,
+}
+
+pub struct WorkspaceNodeState {
+    pub output: ObjAndId<Rc<OutputNode>>,
+    pub position: Cell<Rect>,
+    pub container: CloneCell<Option<Rc<ContainerNode>>>,
+    pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
+    pub visible: Cell<bool>,
+    pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+}
+
+impl WorkspaceNodeState {
+    fn clear(&self) {
+        self.container.take();
+        self.output_link.take();
+        self.fullscreen.take();
+    }
 }
 
 impl ObjWithId for Rc<WorkspaceNode> {
@@ -97,16 +109,10 @@ impl WorkspaceNode {
             id: output.state.node_ids.next(),
             state: output.state.clone(),
             ty,
-            output: ObjAndId::new(output.clone()),
-            position: Default::default(),
-            container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
             name: Rc::new(name.to_string()),
             name_hash: WorkspaceNameHash::hash(name),
-            output_link: Default::default(),
-            visible: Default::default(),
-            fullscreen: Default::default(),
             visible_on_desired_output: Default::default(),
             desired_output: CloneCell::new(output.global.output_id.clone()),
             jay_workspaces: Default::default(),
@@ -117,6 +123,14 @@ impl WorkspaceNode {
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
             opt: Default::default(),
+            node_state: WorkspaceNodeState {
+                output: ObjAndId::new(output.clone()),
+                position: Default::default(),
+                container: Default::default(),
+                output_link: Default::default(),
+                visible: Default::default(),
+                fullscreen: Default::default(),
+            },
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -124,9 +138,7 @@ impl WorkspaceNode {
 
     pub fn clear(&self) {
         self.seat_state.destroy_node(self);
-        self.container.set(None);
-        *self.output_link.borrow_mut() = None;
-        self.fullscreen.set(None);
+        self.node_state.clear();
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
         self.opt.set(None);
@@ -138,7 +150,7 @@ impl WorkspaceNode {
             return;
         }
         let mut has_capture = false;
-        let output = self.output.get();
+        let output = self.node_state.output.get();
         'update: {
             if !self.may_capture.get() {
                 break 'update;
@@ -155,12 +167,12 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
-            output.state.damage(output.pos.get());
+            output.state.damage(output.node_state.pos.get());
         }
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
-        let old = self.output.set(output.clone());
+        let old = self.node_state.output.set(output.clone());
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);
         }
@@ -168,7 +180,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
-        self.change_extents(&output.workspace_rect.get(), output);
+        self.change_extents(&output.node_state.rects.workspace.get(), output);
         struct OutputSetter<'a> {
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
@@ -219,36 +231,41 @@ impl WorkspaceNode {
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
-        if let Some(prev) = self.container.get() {
+        let ns = &self.node_state;
+        if let Some(prev) = ns.container.get() {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**container);
-        let pos = self.position.get();
+        let pos = ns.position.get();
         container.clone().tl_change_extents(&pos);
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
-        self.container.set(Some(container.clone()));
-        self.state.damage(self.position.get());
+        ns.container.set(Some(container.clone()));
+        self.state.damage(ns.position.get());
     }
 
     pub fn is_empty(&self) -> bool {
-        self.stacked.is_empty() && self.fullscreen.is_none() && self.container.is_none()
+        let ns = &self.node_state;
+        self.stacked.is_empty() && ns.fullscreen.is_none() && ns.container.is_none()
     }
 
     pub fn container_visible(&self) -> bool {
-        self.visible.get() && self.fullscreen.is_none()
+        let ns = &self.node_state;
+        ns.visible.get() && ns.fullscreen.is_none()
     }
 
     pub fn float_visible(&self) -> bool {
-        self.visible.get() && (self.fullscreen.is_none() || self.state.float_above_fullscreen.get())
+        let ns = &self.node_state;
+        ns.visible.get() && (ns.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
     pub fn change_extents(&self, rect: &Rect, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
         }
-        let old = self.position.replace(*rect);
-        if let Some(c) = self.container.get() {
+        let ns = &self.node_state;
+        let old = ns.position.replace(*rect);
+        if let Some(c) = ns.container.get() {
             c.tl_change_extents(rect);
         }
         if old != *rect {
@@ -277,7 +294,8 @@ impl WorkspaceNode {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
+        let ns = &self.node_state;
+        ns.visible.set(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
@@ -287,10 +305,10 @@ impl WorkspaceNode {
         for stacked in self.stacked.iter() {
             stacked.stacked_prepare_set_visible();
         }
-        if let Some(fs) = self.fullscreen.get() {
+        if let Some(fs) = ns.fullscreen.get() {
             fs.tl_set_visible(visible);
         }
-        if let Some(container) = self.container.get() {
+        if let Some(container) = ns.container.get() {
             container.tl_set_visible(self.container_visible());
         }
         for stacked in self.stacked.iter() {
@@ -303,35 +321,37 @@ impl WorkspaceNode {
     }
 
     pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
-        if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
+        let ns = &self.node_state;
+        if let Some(prev) = ns.fullscreen.set(Some(node.clone())) {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**node);
-        if self.visible.get() {
-            self.output.get().fullscreen_changed();
+        if ns.visible.get() {
+            ns.output.get().fullscreen_changed();
         } else {
             node.tl_set_visible(false);
         }
         if let Some(surface) = node.tl_scanout_surface()
-            && let Some(fb) = self.output.get().global.connector.connector.drm_feedback()
+            && let Some(fb) = ns.output.get().global.connector.connector.drm_feedback()
         {
             surface.send_feedback(&fb);
         }
-        self.output.get().update_presentation_type();
+        ns.output.get().update_presentation_type();
     }
 
     pub fn remove_fullscreen_node(&self) {
-        if let Some(node) = self.fullscreen.take() {
+        let ns = &self.node_state;
+        if let Some(node) = ns.fullscreen.take() {
             self.discard_child_properties(&*node);
-            if self.visible.get() {
-                self.output.get().fullscreen_changed();
+            if ns.visible.get() {
+                ns.output.get().fullscreen_changed();
             }
             if let Some(surface) = node.tl_scanout_surface()
                 && let Some(fb) = surface.client.state.drm_feedback.get()
             {
                 surface.send_feedback(&fb);
             }
-            self.output.get().update_presentation_type();
+            ns.output.get().update_presentation_type();
         }
     }
 
@@ -353,12 +373,12 @@ impl WorkspaceNode {
             for wh in self.ext_workspaces.lock().values() {
                 wh.handle_urgent_changed();
             }
-            self.output.get().schedule_update_render_data();
+            self.node_state.output.get().schedule_update_render_data();
         }
     }
 
     pub fn location(&self) -> NodeLocation {
-        NodeLocation::Workspace(self.output.id(), self.id)
+        NodeLocation::Workspace(self.node_state.output.id(), self.id)
     }
 
     pub fn collect_kb_foci(self: &Rc<Self>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
@@ -375,19 +395,20 @@ impl WorkspaceNode {
     }
 
     pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
-        if let Some(fs) = self.fullscreen.get() {
+        let ns = &self.node_state;
+        if let Some(fs) = ns.fullscreen.get() {
             fs.node_do_focus(seat, direction);
         } else if self.stacked.is_not_empty()
             && let Some(last) = seat.get_last_focus_on_workspace(&self)
         {
             seat.focus_node(last);
-        } else if let Some(container) = self.container.get() {
+        } else if let Some(container) = ns.container.get() {
             container.node_do_focus(seat, direction);
         } else if let Some(child) = self
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
-            .find_map(|float| float.child.get())
+            .find_map(|float| float.node_state.child.get())
         {
             child.node_do_focus(seat, direction);
         } else if self.ty == WorkspaceType::Normal {
@@ -413,24 +434,25 @@ impl Node for WorkspaceNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(c) = self.container.get() {
+        let ns = &self.node_state;
+        if let Some(c) = ns.container.get() {
             visitor.visit_container(&c);
         }
-        if let Some(fs) = self.fullscreen.get() {
+        if let Some(fs) = ns.fullscreen.get() {
             fs.node_visit(visitor);
         }
     }
 
     fn node_visible(&self) -> bool {
-        self.visible.get()
+        self.node_state.visible.get()
     }
 
     fn node_absolute_position(&self) -> Rect {
-        self.position.get()
+        self.node_state.position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        Some(self.output.get())
+        Some(self.node_state.output.get())
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -453,8 +475,9 @@ impl Node for WorkspaceNode {
     }
 
     fn node_active_changed(&self, _active: bool) {
-        let output = self.output.get();
-        self.state.damage(output.bar_separator_rect.get());
+        let output = self.node_state.output.get();
+        self.state
+            .damage(output.node_state.rects.bar_separator.get());
     }
 
     fn node_find_tree_at(
@@ -464,7 +487,7 @@ impl Node for WorkspaceNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if let Some(n) = self.container.get() {
+        if let Some(n) = self.node_state.container.get() {
             tree.push(FoundNode {
                 node: n.clone(),
                 x,
@@ -483,7 +506,8 @@ impl Node for WorkspaceNode {
         if self.ty != WorkspaceType::Normal {
             return;
         }
-        self.state.show_workspace2(None, &self.output.get(), &self);
+        self.state
+            .show_workspace2(None, &self.node_state.output.get(), &self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -516,7 +540,7 @@ impl Node for WorkspaceNode {
 
 impl ContainingNode for WorkspaceNode {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        if let Some(container) = self.container.get()
+        if let Some(container) = self.node_state.container.get()
             && container.node_id() == old.node_id()
         {
             let new = match new.node_into_container() {
@@ -533,15 +557,16 @@ impl ContainingNode for WorkspaceNode {
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
-        if let Some(container) = self.container.get()
+        let ns = &self.node_state;
+        if let Some(container) = ns.container.get()
             && container.node_id() == child.node_id()
         {
             self.discard_child_properties(&*container);
-            self.container.set(None);
-            self.state.damage(self.position.get());
+            ns.container.set(None);
+            self.state.damage(ns.position.get());
             return;
         }
-        if let Some(fs) = self.fullscreen.get()
+        if let Some(fs) = ns.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
             self.remove_fullscreen_node();
@@ -579,18 +604,20 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         target.show_workspace(&ws);
         return;
     }
-    let ws = &match &*ws.output_link.borrow() {
+    let ns = &ws.node_state;
+    let ws = &match &*ns.output_link.borrow() {
         None => return,
         Some(l) => l.to_ref(),
     };
-    let source = ws.output.get();
-    if let Some(visible) = source.workspace.id()
+    let source = ns.output.get();
+    let sns = &source.node_state;
+    if let Some(visible) = sns.workspace.id()
         && visible == ws.id
     {
-        source.workspace.set(None);
+        sns.workspace.set(None);
     }
     let mut new_source_ws = None;
-    if !config.source_is_destroyed && !source.is_dummy && source.workspace.is_none() {
+    if !config.source_is_destroyed && !source.is_dummy && sns.workspace.is_none() {
         new_source_ws = source
             .workspaces
             .iter()
@@ -600,11 +627,11 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             new_source_ws = Some(source.generate_normal_workspace());
         }
     }
-    if source.overlay.is_none() {
+    if sns.overlay.is_none() {
         for user in source.cursor_users.lock().values() {
             user.workspace_changed(&source, new_source_ws.as_ref());
             if new_source_ws.is_none() {
-                new_source_ws = source.workspace.get();
+                new_source_ws = sns.workspace.get();
             }
         }
     }
@@ -623,16 +650,17 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     };
     'link: {
         if let Some(before) = before
-            && let Some(link) = &*before.output_link.borrow()
+            && let Some(link) = &*before.node_state.output_link.borrow()
         {
             link.prepend_existing(ws);
             break 'link;
         }
         target.workspaces.add_last_existing(&ws);
     }
+    let tns = &target.node_state;
     let make_visible = !target.is_dummy
         && (config.make_visible_always
-            || (config.make_visible_if_empty && target.workspace.is_none()));
+            || (config.make_visible_if_empty && tns.workspace.is_none()));
     if make_visible {
         ws.state.show_workspace2(None, target, &ws);
     } else {
@@ -649,10 +677,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         source.schedule_update_render_data();
     }
     if source.node_visible() {
-        target.state.damage(source.pos.get());
+        target.state.damage(sns.pos.get());
     }
     if target.node_visible() {
-        target.state.damage(target.pos.get());
+        target.state.damage(tns.pos.get());
     }
 }
 

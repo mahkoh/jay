@@ -174,10 +174,10 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             session.set_workspace(ws, data);
         }
         let prev_output = match &prev {
-            Some(n) => n.output.get(),
+            Some(n) => n.node_state.output.get(),
             _ => ws.state.dummy_output.get().unwrap(),
         };
-        let new_output = ws.output.get();
+        let new_output = ws.node_state.output.get();
         if prev.is_none() || prev_output.id != new_output.id {
             self.tl_workspace_output_changed(&prev_output, &new_output);
         }
@@ -538,7 +538,7 @@ impl ToplevelData {
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
-        let output = ws.output.get().pos.get();
+        let output = ws.node_state.output.get().node_state.pos.get();
         let mut width = self.float_width.get();
         let mut height = self.float_height.get();
         if width == 0 {
@@ -774,7 +774,8 @@ impl ToplevelData {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if ws.fullscreen.is_some() {
+        let wns = &ws.node_state;
+        if wns.fullscreen.is_some() {
             log::info!(
                 "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
             );
@@ -804,7 +805,7 @@ impl ToplevelData {
             Rc::new_cyclic(|weak| PlaceholderNode::new_for(state, node.clone(), weak));
         parent.cnode_replace_child(&*node, placeholder.clone());
         let mut kb_foci = Default::default();
-        if ws.visible.get() {
+        if wns.visible.get() {
             kb_foci = ws.collect_kb_foci();
         }
         *data = Some(FullscreenedData {
@@ -816,7 +817,8 @@ impl ToplevelData {
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
-        node.clone().tl_change_extents(&ws.output.get().pos.get());
+        node.clone()
+            .tl_change_extents(&wns.output.get().node_state.pos.get());
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -840,7 +842,7 @@ impl ToplevelData {
         };
         node.tl_mark_fullscreen(false);
         self.property_changed(TL_CHANGED_FULLSCREEN);
-        match fd.workspace.fullscreen.get() {
+        match fd.workspace.node_state.fullscreen.get() {
             None => {
                 log::error!(
                     "Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node."
@@ -926,13 +928,13 @@ impl ToplevelData {
     }
 
     pub fn output_opt(&self) -> Option<Rc<OutputNode>> {
-        self.workspace.get().map(|ws| ws.output.get())
+        self.workspace.get().map(|ws| ws.node_state.output.get())
     }
 
     pub fn desired_pixel_size(&self) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
         if let Some(ws) = self.workspace.get() {
-            let scale = ws.output.get().global.persistent.scale.get();
+            let scale = ws.node_state.output.get().global.persistent.scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)
@@ -1103,11 +1105,12 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     }
     let data = tl.tl_data();
     let fullscreen = data.is_fullscreen.get();
+    let wns = &ws.node_state;
     if fullscreen {
-        if let Some(old) = ws.fullscreen.get() {
+        if let Some(old) = wns.fullscreen.get() {
             old.tl_set_fullscreen(false, None);
         }
-        if ws.fullscreen.is_some() {
+        if wns.fullscreen.is_some() {
             return;
         }
         tl.clone().tl_set_fullscreen(false, None);
@@ -1121,7 +1124,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     };
     let kb_foci = collect_kb_foci(tl.clone());
     cn.cnode_remove_child2(&*tl, true);
-    if !ws.visible.get() {
+    if !wns.visible.get() {
         for focus in kb_foci {
             old_ws.do_focus(&focus, Direction::Unspecified);
         }

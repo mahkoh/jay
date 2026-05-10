@@ -187,7 +187,7 @@ impl JayScreencast {
         };
         let scale = match tl.tl_data().workspace.get() {
             None => Scale::default(),
-            Some(w) => w.output.get().global.persistent.scale.get(),
+            Some(w) => w.node_state.output.get().global.persistent.scale.get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -320,8 +320,9 @@ impl JayScreencast {
         if !self.running.get() {
             return;
         }
+        let ons = &on.node_state;
         if !self.show_all.get() {
-            let ws = match on.workspace.get() {
+            let ws = match ons.workspace.get() {
                 Some(ws) => ws,
                 _ => return,
             };
@@ -343,7 +344,7 @@ impl JayScreencast {
                     ReleaseSync::Implicit,
                     Transform::None,
                     self.client.state.color_manager.srgb_gamma22(),
-                    on.pos.get(),
+                    ons.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,
@@ -475,7 +476,7 @@ impl JayScreencast {
     fn damage(&self) {
         if let Some(target) = self.target.get() {
             let rect = match target {
-                Target::Output(o) => o.pos.get(),
+                Target::Output(o) => o.node_state.pos.get(),
                 Target::Toplevel(t) => {
                     if !t.node_visible() {
                         return;

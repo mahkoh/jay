@@ -49,15 +49,13 @@ tree_id!(FloatNodeId);
 pub struct FloatNode {
     pub id: FloatNodeId,
     pub state: Rc<State>,
-    pub visible: Cell<bool>,
-    pub position: Cell<Rect>,
+    pub node_state: FloatNodeState,
     pub display_link: RefCell<NodesStackElement>,
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub workspace_ty: Cell<WorkspaceType>,
     pub location: Cell<NodeLocation>,
-    pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
     pub layout_scheduled: Cell<bool>,
@@ -69,6 +67,12 @@ pub struct FloatNode {
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
     pub attention_requested: Cell<bool>,
+}
+
+pub struct FloatNodeState {
+    pub visible: Cell<bool>,
+    pub position: Cell<Rect>,
+    pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -141,15 +145,17 @@ impl FloatNode {
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
-            visible: Cell::new(ws.float_visible()),
-            position: Cell::new(position),
+            node_state: FloatNodeState {
+                visible: Cell::new(ws.float_visible()),
+                position: Cell::new(position),
+                child: CloneCell::new(Some(child.clone())),
+            },
             display_link: state.float_stack(ws.ty).element(),
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
             workspace_ty: Cell::new(ws.ty),
             location: Cell::new(ws.location()),
-            child: CloneCell::new(Some(child.clone())),
             active: Cell::new(false),
             seat_state: Default::default(),
             layout_scheduled: Cell::new(false),
@@ -172,10 +178,11 @@ impl FloatNode {
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
         child.tl_set_parent(floater.clone());
-        child.tl_set_visible(floater.visible.get());
+        let ns = &floater.node_state;
+        child.tl_set_visible(ns.visible.get());
         child.tl_restack_popups();
         floater.schedule_layout();
-        if floater.visible.get() {
+        if ns.visible.get() {
             state.damage(position);
             floater.display_link.borrow().invalidate();
         }
@@ -187,7 +194,7 @@ impl FloatNode {
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
         if self.icon.set_size(self.state.theme.title_icon_size())
-            && let Some(child) = self.child.get()
+            && let Some(child) = self.node_state.child.get()
         {
             child.tl_update_icon(&self.icon);
         }
@@ -205,11 +212,12 @@ impl FloatNode {
     }
 
     fn perform_layout(self: &Rc<Self>) {
-        let child = match self.child.get() {
+        let ns = &self.node_state;
+        let child = match ns.child.get() {
             Some(c) => c,
             _ => return,
         };
-        let pos = self.position.get();
+        let pos = ns.position.get();
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
         let th = theme.title_height();
@@ -307,8 +315,9 @@ impl FloatNode {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
             }
         }
-        let pos = self.position.get();
-        if self.visible.get() && pos.width() >= 2 * bw {
+        let ns = &self.node_state;
+        let pos = ns.position.get();
+        if ns.visible.get() && pos.width() >= 2 * bw {
             let tr =
                 Rect::new_sized_saturating(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th);
             self.state.damage(tr);
@@ -342,7 +351,8 @@ impl FloatNode {
         });
         seat_state.x = x;
         seat_state.y = y;
-        let pos = self.position.get();
+        let ns = &self.node_state;
+        let pos = ns.position.get();
         if seat_state.op_active {
             let mut x1 = pos.x1();
             let mut y1 = pos.y1();
@@ -399,8 +409,8 @@ impl FloatNode {
                 }
             }
             let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-            self.position.set(new_pos);
-            if self.visible.get() {
+            ns.position.set(new_pos);
+            if ns.visible.get() {
                 self.state.damage(pos);
                 self.state.damage(new_pos);
             }
@@ -460,7 +470,8 @@ impl FloatNode {
         update_pinned: bool,
         update_visible: bool,
     ) {
-        if let Some(c) = self.child.get() {
+        let ns = &self.node_state;
+        if let Some(c) = ns.child.get() {
             c.tl_set_workspace(ws);
         }
         self.workspace_link
@@ -470,8 +481,8 @@ impl FloatNode {
             self.display_link
                 .borrow_mut()
                 .restack_on(self.state.float_stack(ws.ty));
-            if self.visible.get() {
-                self.state.damage(self.position.get());
+            if ns.visible.get() {
+                self.state.damage(ns.position.get());
             }
         }
         self.location.set(ws.location());
@@ -479,7 +490,7 @@ impl FloatNode {
             self.stacked_set_visible(ws.float_visible());
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
-            ws.output.get().pinned.add_last_existing(pl);
+            ws.node_state.output.get().pinned.add_last_existing(pl);
         }
     }
 
@@ -493,8 +504,9 @@ impl FloatNode {
         if output.is_dummy {
             return;
         }
-        let pos = self.position.get();
-        let opos = output.pos.get();
+        let ns = &self.node_state;
+        let pos = ns.position.get();
+        let opos = output.node_state.pos.get();
         if pos.intersects(&opos) {
             return;
         }
@@ -524,8 +536,8 @@ impl FloatNode {
             y2 += y1 - pos.y1();
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-        self.position.set(new_pos);
-        if self.visible.get() {
+        ns.position.set(new_pos);
+        if ns.visible.get() {
             self.state.damage(pos);
             self.state.damage(new_pos);
         }
@@ -533,10 +545,11 @@ impl FloatNode {
     }
 
     pub fn move_(self: &Rc<Self>, dx: i32, dy: i32) {
-        let old_pos = self.position.get();
+        let ns = &self.node_state;
+        let old_pos = ns.position.get();
         let new_pos = old_pos.move_(dx, dy);
-        self.position.set(new_pos);
-        if self.visible.get() {
+        ns.position.set(new_pos);
+        if ns.visible.get() {
             self.state.damage(old_pos);
             self.state.damage(new_pos);
         }
@@ -559,7 +572,7 @@ impl FloatNode {
     }
 
     fn pull_child_properties(self: &Rc<Self>) {
-        let child = match self.child.get() {
+        let child = match self.node_state.child.get() {
             None => return,
             Some(c) => c,
         };
@@ -589,9 +602,10 @@ impl FloatNode {
             if link.next().is_none() {
                 return;
             }
-            self.state.damage(self.position.get());
+            let ns = &self.node_state;
+            self.state.damage(ns.position.get());
             dl.restack();
-            if let Some(tl) = self.child.get() {
+            if let Some(tl) = ns.child.get() {
                 tl.tl_restack_popups();
             }
             self.state.tree_changed();
@@ -603,10 +617,10 @@ impl FloatNode {
         *pl = if pl.is_some() {
             None
         } else {
-            let output = self.workspace.get().output.get();
+            let output = self.workspace.get().node_state.output.get();
             Some(output.pinned.add_last(self.clone()))
         };
-        if let Some(tl) = self.child.get() {
+        if let Some(tl) = self.node_state.child.get() {
             tl.tl_data().pinned.set(pl.is_some());
         }
         self.schedule_render_titles();
@@ -625,6 +639,7 @@ impl FloatNode {
             Some(s) => s,
             _ => return,
         };
+        let ns = &self.node_state;
         let bw = self.state.theme.sizes.border_width.get();
         let th = self.state.theme.title_height();
         let mut is_icon_press = false;
@@ -663,7 +678,7 @@ impl FloatNode {
                 return;
             }
             if cursor_data.op_type == OpType::Move
-                && let Some(tl) = self.child.get()
+                && let Some(tl) = ns.child.get()
             {
                 tl.node_do_focus(seat, Direction::Unspecified);
             }
@@ -674,14 +689,14 @@ impl FloatNode {
                 cursor_data.y,
             ) && cursor_data.op_type == OpType::Move
                 && !is_icon_press
-                && let Some(tl) = self.child.get()
+                && let Some(tl) = ns.child.get()
             {
                 drop(cursors);
                 toplevel_set_floating(&self.state, tl, false);
                 return;
             }
             cursor_data.op_active = true;
-            let pos = self.position.get();
+            let pos = ns.position.get();
             match cursor_data.op_type {
                 OpType::Move => {
                     self.restack();
@@ -722,11 +737,12 @@ impl FloatNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let child = self.child.get()?;
+        let ns = &self.node_state;
+        let child = ns.child.get()?;
         let theme = &self.state.theme.sizes;
         let bw = theme.border_width.get();
         let tpuh = self.state.theme.title_plus_underline_height();
-        let pos = self.position.get();
+        let pos = ns.position.get();
         let body = Rect::new(
             pos.x1() + bw,
             pos.y1() + bw + tpuh,
@@ -757,21 +773,21 @@ impl Node for FloatNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(c) = self.child.get() {
+        if let Some(c) = self.node_state.child.get() {
             c.node_visit(visitor);
         }
     }
 
     fn node_visible(&self) -> bool {
-        self.visible.get()
+        self.node_state.visible.get()
     }
 
     fn node_absolute_position(&self) -> Rect {
-        self.position.get()
+        self.node_state.position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        Some(self.workspace.get().output.get())
+        Some(self.workspace.get().node_state.output.get())
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -797,14 +813,14 @@ impl Node for FloatNode {
     }
 
     fn node_accepts_focus(&self) -> bool {
-        if let Some(c) = self.child.get() {
+        if let Some(c) = self.node_state.child.get() {
             return c.tl_accepts_keyboard_focus();
         }
         false
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(c) = self.child.get() {
+        if let Some(c) = self.node_state.child.get() {
             c.node_do_focus(seat, direction);
         }
     }
@@ -819,14 +835,15 @@ impl Node for FloatNode {
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height();
         let bw = theme.sizes.border_width.get();
-        let pos = self.position.get();
+        let ns = &self.node_state;
+        let pos = ns.position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
         }
         if y < bw + tpuh || y >= pos.height() - bw {
             return FindTreeResult::AcceptsInput;
         }
-        let child = match self.child.get() {
+        let child = match ns.child.get() {
             Some(c) => c,
             _ => return FindTreeResult::Other,
         };
@@ -849,7 +866,7 @@ impl Node for FloatNode {
     }
 
     fn node_make_visible(self: Rc<Self>) {
-        if self.visible.get() {
+        if self.node_state.visible.get() {
             return;
         }
         self.workspace.get().cnode_make_visible(&*self);
@@ -983,26 +1000,28 @@ impl Node for FloatNode {
 
 impl ContainingNode for FloatNode {
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+        let ns = &self.node_state;
         self.discard_child_properties();
-        self.child.set(Some(new.clone()));
+        ns.child.set(Some(new.clone()));
         new.tl_set_parent(self.clone());
         new.tl_update_icon(&self.icon);
         self.pull_child_properties();
-        new.tl_set_visible(self.visible.get());
+        new.tl_set_visible(ns.visible.get());
         self.schedule_layout();
-        if self.visible.get() {
-            self.state.damage(self.position.get());
+        if ns.visible.get() {
+            self.state.damage(ns.position.get());
         }
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
+        let ns = &self.node_state;
         self.discard_child_properties();
-        self.child.set(None);
+        ns.child.set(None);
         self.display_link.borrow_mut().clear();
         self.workspace_link.set(None);
         self.pinned_link.take();
-        if self.visible.get() {
-            self.state.damage(self.position.get());
+        if ns.visible.get() {
+            self.state.damage(ns.position.get());
         }
     }
 
@@ -1031,10 +1050,11 @@ impl ContainingNode for FloatNode {
         let tpuh = theme.title_plus_underline_height();
         let bw = theme.sizes.border_width.get();
         let (x, y) = (x - bw, y - tpuh - bw);
-        let pos = self.position.get();
+        let ns = &self.node_state;
+        let pos = ns.position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
-            self.position.set(new_pos);
+            ns.position.set(new_pos);
             self.state.damage(pos);
             self.state.damage(new_pos);
             self.schedule_layout();
@@ -1052,7 +1072,8 @@ impl ContainingNode for FloatNode {
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height();
         let bw = theme.sizes.border_width.get();
-        let pos = self.position.get();
+        let ns = &self.node_state;
+        let pos = ns.position.get();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -1071,8 +1092,8 @@ impl ContainingNode for FloatNode {
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         if new_pos != pos {
-            self.position.set(new_pos);
-            if self.visible.get() {
+            ns.position.set(new_pos);
+            if ns.visible.get() {
                 self.state.damage(pos);
                 self.state.damage(new_pos);
             }
@@ -1103,13 +1124,14 @@ impl ContainingNode for FloatNode {
 
 impl StackedNode for FloatNode {
     fn stacked_set_visible(&self, visible: bool) {
-        if self.visible.replace(visible) != visible {
-            self.state.damage(self.position.get());
+        let ns = &self.node_state;
+        if ns.visible.replace(visible) != visible {
+            self.state.damage(ns.position.get());
             if visible {
                 self.display_link.borrow().invalidate();
             }
         }
-        if let Some(child) = self.child.get() {
+        if let Some(child) = ns.child.get() {
             child.tl_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
@@ -1120,7 +1142,7 @@ impl StackedNode for FloatNode {
     }
 
     fn stacked_validate(self: Rc<Self>) {
-        if self.visible.get() {
+        if self.node_state.visible.get() {
             self.display_link.borrow_mut().add_last_visible(&self);
         }
     }

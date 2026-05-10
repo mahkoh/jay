@@ -243,7 +243,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(ws) = w.get() else {
                         continue;
                     };
-                    let output = ws.output.get();
+                    let output = ws.node_state.output.get();
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state

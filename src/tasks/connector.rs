@@ -246,7 +246,8 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        on.add_damage_area(&on.pos.get());
+        let ons = &on.node_state;
+        on.add_damage_area(&ons.pos.get());
         self.data.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
@@ -294,7 +295,7 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.state.output_extents_changed();
         self.state.outputs.remove(&self.id);
-        on.lock_surface.take();
+        ons.lock_surface.take();
         {
             let mut surfaces = vec![];
             for layer in &on.layers {
@@ -311,12 +312,13 @@ impl ConnectorHandler {
             _ => self.state.dummy_output.get().unwrap(),
         };
         for ws in on.workspaces.iter() {
+            let wns = &ws.node_state;
             if ws.desired_output.get() == output_id {
-                ws.visible_on_desired_output.set(ws.visible.get());
+                ws.visible_on_desired_output.set(wns.visible.get());
             }
             let config = WsMoveConfig {
                 make_visible_always: false,
-                make_visible_if_empty: ws.visible.get(),
+                make_visible_if_empty: wns.visible.get(),
                 source_is_destroyed: true,
                 before: None,
             };

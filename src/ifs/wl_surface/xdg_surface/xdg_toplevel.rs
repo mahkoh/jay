@@ -395,7 +395,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
                     }
                 }
             } else if let Some(ws) = self.xdg.workspace.get() {
-                ws.output.get()
+                ws.node_state.output.get()
             } else {
                 break 'set_fullscreen;
             };
@@ -555,7 +555,7 @@ impl XdgToplevel {
             self.map(self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
-                let output = workspace.output.get();
+                let output = workspace.node_state.output.get();
                 surface.set_output(&output, workspace.location());
             }
             // {

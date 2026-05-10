@@ -25,7 +25,7 @@ async fn test_bar(
     output: &OutputNode,
     separator_width: i32,
 ) -> Result<(), TestError> {
-    let output_rect = output.pos.get();
+    let output_rect = output.node_state.pos.get();
 
     run.cfg.set_bar_separator_width(separator_width)?;
     run.cfg.set_bar_position(BarPosition::Top)?;
@@ -35,8 +35,8 @@ async fn test_bar(
     tassert_eq!(run.state.theme.sizes.bar_separator_width(), separator_width);
 
     let bar_total_height = bar_height + separator_width;
-    let bar_rect = output.bar_rect_with_separator.get();
-    let ws_rect = output.workspace_rect.get();
+    let bar_rect = output.node_state.rects.bar_with_separator.get();
+    let ws_rect = output.node_state.rects.workspace.get();
 
     tassert_eq!(bar_rect.y1(), output_rect.y1());
     tassert_eq!(bar_rect.height(), bar_total_height);
@@ -46,8 +46,8 @@ async fn test_bar(
     run.cfg.set_bar_position(BarPosition::Bottom)?;
     run.sync().await;
 
-    let bar_rect = output.bar_rect_with_separator.get();
-    let ws_rect = output.workspace_rect.get();
+    let bar_rect = output.node_state.rects.bar_with_separator.get();
+    let ws_rect = output.node_state.rects.workspace.get();
     tassert_eq!(bar_rect.y2(), output_rect.y2());
     tassert_eq!(bar_rect.height(), bar_total_height);
     tassert_eq!(ws_rect.y2(), output_rect.y2() - bar_total_height);
@@ -57,8 +57,11 @@ async fn test_bar(
     run.sync().await;
 
     tassert_eq!(run.cfg.get_show_bar()?, false);
-    tassert_eq!(output.workspace_rect.get(), output_rect);
-    tassert_eq!(output.bar_rect_with_separator.get().is_empty(), true);
+    tassert_eq!(output.node_state.rects.workspace.get(), output_rect);
+    tassert_eq!(
+        output.node_state.rects.bar_with_separator.get().is_empty(),
+        true
+    );
 
     run.cfg.set_show_bar(true)?;
     run.sync().await;

@@ -978,7 +978,7 @@ impl ConfigProxyHandler {
             .outputs
             .lock()
             .values()
-            .filter(|o| o.overlay.is_some())
+            .filter(|o| o.node_state.overlay.is_some())
             .cloned()
             .collect();
         for output in outputs {
@@ -990,8 +990,9 @@ impl ConfigProxyHandler {
         let Some(ws) = self.get_existing_workspace(workspace)? else {
             return Ok(());
         };
-        if ws.ty == WorkspaceType::Overlay && ws.output.id() != self.state.dummy_output_id {
-            ws.output.get().hide_overlay();
+        let wns = &ws.node_state;
+        if ws.ty == WorkspaceType::Overlay && wns.output.id() != self.state.dummy_output_id {
+            wns.output.get().hide_overlay();
         }
         Ok(())
     }
@@ -1205,15 +1206,16 @@ impl ConfigProxyHandler {
                 seat = get_seat(&mut seat_opt)?;
             }
             if let Some(ws) = self.state.workspaces.get(&ws.name) {
+                let wns = &ws.node_state;
                 if ws.ty == WorkspaceType::Overlay {
-                    if ws.output.id() == self.state.dummy_output_id {
+                    if wns.output.id() == self.state.dummy_output_id {
                         move_to_connector = true;
                     } else if toggle {
-                        ws.output.get().hide_overlay();
+                        wns.output.get().hide_overlay();
                         return Ok(());
                     }
                 }
-                let mut output = ws.output.get();
+                let mut output = wns.output.get();
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
                 }
@@ -1222,7 +1224,7 @@ impl ConfigProxyHandler {
                     return Ok(());
                 }
                 break 'params Params {
-                    move_: move_to_connector && ws.output.id() != output.id,
+                    move_: move_to_connector && wns.output.id() != output.id,
                     ws,
                     output,
                     seat,
@@ -1516,7 +1518,7 @@ impl ConfigProxyHandler {
 
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        let pos = connector.pos.get();
+        let pos = connector.node_state.pos.get();
         self.respond(Response::ConnectorSize {
             width: pos.width(),
             height: pos.height(),
@@ -1843,6 +1845,7 @@ impl ConfigProxyHandler {
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
         let workspace = output
+            .node_state
             .workspace
             .get()
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
@@ -1865,7 +1868,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
         let connector = self
             .get_existing_workspace(workspace)?
-            .map(|ws| ws.output.get())
+            .map(|ws| ws.node_state.output.get())
             .filter(|o| !o.is_dummy)
             .map(|o| Connector(o.global.connector.id.raw() as _))
             .unwrap_or(Connector(0));
@@ -1933,7 +1936,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowMono {
             mono: toplevel_parent_container(&*window)
-                .map(|c| c.mono_child.is_some())
+                .map(|c| c.node_state.mono_child.is_some())
                 .unwrap_or(false),
         });
         Ok(())
@@ -1968,7 +1971,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowSplit {
             axis: toplevel_parent_container(&*window)
-                .map(|c| c.split.get())
+                .map(|c| c.node_state.split.get())
                 .unwrap_or(ContainerSplit::Horizontal)
                 .into(),
         });
@@ -2807,7 +2810,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {
         let window = self
             .get_existing_workspace(ws)?
-            .and_then(|ws| ws.container.get())
+            .and_then(|ws| ws.node_state.container.get())
             .map(|c| self.tl_to_window(&*c))
             .unwrap_or(Window(0));
         self.respond(Response::GetWorkspaceWindow { window });

@@ -368,7 +368,7 @@ impl WlOutput {
             return;
         };
         let global = &node.global;
-        let pos = node.pos.get();
+        let pos = node.node_state.pos.get();
         let mut x = pos.x1();
         let mut y = pos.y1();
         logical_to_client_wire_scale!(self.client, x, y);
@@ -408,7 +408,7 @@ impl WlOutput {
         };
         let factor = match self.client.wire_scale.is_some() {
             true => 1,
-            false => node.legacy_scale.get() as _,
+            false => node.node_state.legacy_scale.get() as _,
         };
         let event = Scale {
             self_id: self.id,
