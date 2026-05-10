@@ -311,13 +311,13 @@ impl ConnectorHandler {
             _ => self.state.dummy_output.get().unwrap(),
         };
         for ws in on.workspaces.iter() {
+            let wns = &ws.node_state;
             if ws.desired_output.get() == output_id {
-                ws.visible_on_desired_output
-                    .set(ws.node_state.visible.get());
+                ws.visible_on_desired_output.set(wns.visible.get());
             }
             let config = WsMoveConfig {
                 make_visible_always: false,
-                make_visible_if_empty: ws.node_state.visible.get(),
+                make_visible_if_empty: wns.visible.get(),
                 source_is_destroyed: true,
                 before: None,
             };

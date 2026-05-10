@@ -990,10 +990,9 @@ impl ConfigProxyHandler {
         let Some(ws) = self.get_existing_workspace(workspace)? else {
             return Ok(());
         };
-        if ws.ty == WorkspaceType::Overlay
-            && ws.node_state.output.id() != self.state.dummy_output_id
-        {
-            ws.node_state.output.get().hide_overlay();
+        let wns = &ws.node_state;
+        if ws.ty == WorkspaceType::Overlay && wns.output.id() != self.state.dummy_output_id {
+            wns.output.get().hide_overlay();
         }
         Ok(())
     }
@@ -1207,15 +1206,16 @@ impl ConfigProxyHandler {
                 seat = get_seat(&mut seat_opt)?;
             }
             if let Some(ws) = self.state.workspaces.get(&ws.name) {
+                let wns = &ws.node_state;
                 if ws.ty == WorkspaceType::Overlay {
-                    if ws.node_state.output.id() == self.state.dummy_output_id {
+                    if wns.output.id() == self.state.dummy_output_id {
                         move_to_connector = true;
                     } else if toggle {
-                        ws.node_state.output.get().hide_overlay();
+                        wns.output.get().hide_overlay();
                         return Ok(());
                     }
                 }
-                let mut output = ws.node_state.output.get();
+                let mut output = wns.output.get();
                 if move_to_connector && let Some(o) = get_output(&mut seat_opt)? {
                     output = o;
                 }
@@ -1224,7 +1224,7 @@ impl ConfigProxyHandler {
                     return Ok(());
                 }
                 break 'params Params {
-                    move_: move_to_connector && ws.node_state.output.id() != output.id,
+                    move_: move_to_connector && wns.output.id() != output.id,
                     ws,
                     output,
                     seat,

@@ -774,7 +774,8 @@ impl ToplevelData {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if ws.node_state.fullscreen.is_some() {
+        let wns = &ws.node_state;
+        if wns.fullscreen.is_some() {
             log::info!(
                 "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
             );
@@ -804,7 +805,7 @@ impl ToplevelData {
             Rc::new_cyclic(|weak| PlaceholderNode::new_for(state, node.clone(), weak));
         parent.cnode_replace_child(&*node, placeholder.clone());
         let mut kb_foci = Default::default();
-        if ws.node_state.visible.get() {
+        if wns.visible.get() {
             kb_foci = ws.collect_kb_foci();
         }
         *data = Some(FullscreenedData {
@@ -817,7 +818,7 @@ impl ToplevelData {
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
         node.clone()
-            .tl_change_extents(&ws.node_state.output.get().node_state.pos.get());
+            .tl_change_extents(&wns.output.get().node_state.pos.get());
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -1104,11 +1105,12 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     }
     let data = tl.tl_data();
     let fullscreen = data.is_fullscreen.get();
+    let wns = &ws.node_state;
     if fullscreen {
-        if let Some(old) = ws.node_state.fullscreen.get() {
+        if let Some(old) = wns.fullscreen.get() {
             old.tl_set_fullscreen(false, None);
         }
-        if ws.node_state.fullscreen.is_some() {
+        if wns.fullscreen.is_some() {
             return;
         }
         tl.clone().tl_set_fullscreen(false, None);
@@ -1122,7 +1124,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     };
     let kb_foci = collect_kb_foci(tl.clone());
     cn.cnode_remove_child2(&*tl, true);
-    if !ws.node_state.visible.get() {
+    if !wns.visible.get() {
         for focus in kb_foci {
             old_ws.do_focus(&focus, Direction::Unspecified);
         }

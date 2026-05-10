@@ -81,8 +81,9 @@ impl Renderer<'_> {
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
         if let Some(ws) = output.node_state.overlay.get() {
-            fullscreen = ws.node_state.fullscreen.get();
-            fullscreen_is_overlay = ws.node_state.fullscreen.is_some();
+            let wns = &ws.node_state;
+            fullscreen = wns.fullscreen.get();
+            fullscreen_is_overlay = wns.fullscreen.is_some();
         }
         if fullscreen.is_none()
             && let Some(ws) = output.node_state.workspace.get()

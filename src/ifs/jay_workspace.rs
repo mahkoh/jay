@@ -20,10 +20,11 @@ pub struct JayWorkspace {
 
 impl JayWorkspace {
     pub fn send_initial_properties(&self, workspace: &WorkspaceNode) {
+        let ns = &workspace.node_state;
         self.send_linear_id(workspace);
         self.send_name(workspace);
-        self.send_output(&workspace.node_state.output.get());
-        self.send_visible(workspace.node_state.visible.get());
+        self.send_output(&ns.output.get());
+        self.send_visible(ns.visible.get());
         self.send_done();
     }
 

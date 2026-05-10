@@ -231,39 +231,41 @@ impl WorkspaceNode {
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
-        if let Some(prev) = self.node_state.container.get() {
+        let ns = &self.node_state;
+        if let Some(prev) = ns.container.get() {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**container);
-        let pos = self.node_state.position.get();
+        let pos = ns.position.get();
         container.clone().tl_change_extents(&pos);
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
-        self.node_state.container.set(Some(container.clone()));
-        self.state.damage(self.node_state.position.get());
+        ns.container.set(Some(container.clone()));
+        self.state.damage(ns.position.get());
     }
 
     pub fn is_empty(&self) -> bool {
-        self.stacked.is_empty()
-            && self.node_state.fullscreen.is_none()
-            && self.node_state.container.is_none()
+        let ns = &self.node_state;
+        self.stacked.is_empty() && ns.fullscreen.is_none() && ns.container.is_none()
     }
 
     pub fn container_visible(&self) -> bool {
-        self.node_state.visible.get() && self.node_state.fullscreen.is_none()
+        let ns = &self.node_state;
+        ns.visible.get() && ns.fullscreen.is_none()
     }
 
     pub fn float_visible(&self) -> bool {
-        self.node_state.visible.get()
-            && (self.node_state.fullscreen.is_none() || self.state.float_above_fullscreen.get())
+        let ns = &self.node_state;
+        ns.visible.get() && (ns.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
     pub fn change_extents(&self, rect: &Rect, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
         }
-        let old = self.node_state.position.replace(*rect);
-        if let Some(c) = self.node_state.container.get() {
+        let ns = &self.node_state;
+        let old = ns.position.replace(*rect);
+        if let Some(c) = ns.container.get() {
             c.tl_change_extents(rect);
         }
         if old != *rect {
@@ -292,7 +294,8 @@ impl WorkspaceNode {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        self.node_state.visible.set(visible);
+        let ns = &self.node_state;
+        ns.visible.set(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
@@ -302,10 +305,10 @@ impl WorkspaceNode {
         for stacked in self.stacked.iter() {
             stacked.stacked_prepare_set_visible();
         }
-        if let Some(fs) = self.node_state.fullscreen.get() {
+        if let Some(fs) = ns.fullscreen.get() {
             fs.tl_set_visible(visible);
         }
-        if let Some(container) = self.node_state.container.get() {
+        if let Some(container) = ns.container.get() {
             container.tl_set_visible(self.container_visible());
         }
         for stacked in self.stacked.iter() {
@@ -318,42 +321,37 @@ impl WorkspaceNode {
     }
 
     pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
-        if let Some(prev) = self.node_state.fullscreen.set(Some(node.clone())) {
+        let ns = &self.node_state;
+        if let Some(prev) = ns.fullscreen.set(Some(node.clone())) {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**node);
-        if self.node_state.visible.get() {
-            self.node_state.output.get().fullscreen_changed();
+        if ns.visible.get() {
+            ns.output.get().fullscreen_changed();
         } else {
             node.tl_set_visible(false);
         }
         if let Some(surface) = node.tl_scanout_surface()
-            && let Some(fb) = self
-                .node_state
-                .output
-                .get()
-                .global
-                .connector
-                .connector
-                .drm_feedback()
+            && let Some(fb) = ns.output.get().global.connector.connector.drm_feedback()
         {
             surface.send_feedback(&fb);
         }
-        self.node_state.output.get().update_presentation_type();
+        ns.output.get().update_presentation_type();
     }
 
     pub fn remove_fullscreen_node(&self) {
-        if let Some(node) = self.node_state.fullscreen.take() {
+        let ns = &self.node_state;
+        if let Some(node) = ns.fullscreen.take() {
             self.discard_child_properties(&*node);
-            if self.node_state.visible.get() {
-                self.node_state.output.get().fullscreen_changed();
+            if ns.visible.get() {
+                ns.output.get().fullscreen_changed();
             }
             if let Some(surface) = node.tl_scanout_surface()
                 && let Some(fb) = surface.client.state.drm_feedback.get()
             {
                 surface.send_feedback(&fb);
             }
-            self.node_state.output.get().update_presentation_type();
+            ns.output.get().update_presentation_type();
         }
     }
 
@@ -397,13 +395,14 @@ impl WorkspaceNode {
     }
 
     pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
-        if let Some(fs) = self.node_state.fullscreen.get() {
+        let ns = &self.node_state;
+        if let Some(fs) = ns.fullscreen.get() {
             fs.node_do_focus(seat, direction);
         } else if self.stacked.is_not_empty()
             && let Some(last) = seat.get_last_focus_on_workspace(&self)
         {
             seat.focus_node(last);
-        } else if let Some(container) = self.node_state.container.get() {
+        } else if let Some(container) = ns.container.get() {
             container.node_do_focus(seat, direction);
         } else if let Some(child) = self
             .stacked
@@ -435,10 +434,11 @@ impl Node for WorkspaceNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(c) = self.node_state.container.get() {
+        let ns = &self.node_state;
+        if let Some(c) = ns.container.get() {
             visitor.visit_container(&c);
         }
-        if let Some(fs) = self.node_state.fullscreen.get() {
+        if let Some(fs) = ns.fullscreen.get() {
             fs.node_visit(visitor);
         }
     }
@@ -557,15 +557,16 @@ impl ContainingNode for WorkspaceNode {
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
-        if let Some(container) = self.node_state.container.get()
+        let ns = &self.node_state;
+        if let Some(container) = ns.container.get()
             && container.node_id() == child.node_id()
         {
             self.discard_child_properties(&*container);
-            self.node_state.container.set(None);
-            self.state.damage(self.node_state.position.get());
+            ns.container.set(None);
+            self.state.damage(ns.position.get());
             return;
         }
-        if let Some(fs) = self.node_state.fullscreen.get()
+        if let Some(fs) = ns.fullscreen.get()
             && fs.node_id() == child.node_id()
         {
             self.remove_fullscreen_node();
@@ -603,11 +604,12 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         target.show_workspace(&ws);
         return;
     }
-    let ws = &match &*ws.node_state.output_link.borrow() {
+    let ns = &ws.node_state;
+    let ws = &match &*ns.output_link.borrow() {
         None => return,
         Some(l) => l.to_ref(),
     };
-    let source = ws.node_state.output.get();
+    let source = ns.output.get();
     if let Some(visible) = source.node_state.workspace.id()
         && visible == ws.id
     {

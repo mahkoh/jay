@@ -1228,9 +1228,10 @@ impl WlSeatGlobal {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            let node = match ws.node_state.fullscreen.get() {
+            let wns = &ws.node_state;
+            let node = match wns.fullscreen.get() {
                 Some(fs) => fs as Rc<dyn Node>,
-                _ => match ws.node_state.container.get() {
+                _ => match wns.container.get() {
                     Some(c) => c,
                     _ => continue,
                 },

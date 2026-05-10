@@ -925,7 +925,8 @@ impl OutputNode {
             self.move_pinned_to_normal_workspace();
         }
         let mut seats = SmallVec::new();
-        ws.node_state.output.get().hide_overlay2(false, &mut seats);
+        let wns = &ws.node_state;
+        wns.output.get().hide_overlay2(false, &mut seats);
         let old = self.node_state.overlay.set(Some(ws.clone()));
         if let Some(old) = &old {
             old.collect_kb_foci2(&mut seats);
@@ -939,7 +940,7 @@ impl OutputNode {
         self.update_visible();
         self.update_presentation_type();
         ws.set_output(self);
-        if let Some(fs) = ws.node_state.fullscreen.get() {
+        if let Some(fs) = wns.fullscreen.get() {
             fs.tl_change_extents(&self.node_state.pos.get());
         }
         ws.change_extents(&self.node_state.rects.workspace.get(), self);
@@ -1665,12 +1666,13 @@ impl OutputNode {
             }
         }
         if let Some(ws) = self.node_state.overlay.get() {
-            if ws.node_state.fullscreen.is_some() {
+            let wns = &ws.node_state;
+            if wns.fullscreen.is_some() {
                 return None;
             }
             let rect = self.node_state.rects.workspace.get();
             if rect.contains(x_abs, y_abs) {
-                let Some(c) = ws.node_state.container.get() else {
+                let Some(c) = wns.container.get() else {
                     return Some(TileDragDestination {
                         highlight: rect,
                         ty: TddType::NewContainer { workspace: ws },
@@ -1691,7 +1693,8 @@ impl OutputNode {
                 },
             });
         };
-        if ws.node_state.fullscreen.is_some() {
+        let wns = &ws.node_state;
+        if wns.fullscreen.is_some() {
             return None;
         }
         let bar_rect_with_separator = self.node_state.rects.bar_with_separator.get();
@@ -1732,7 +1735,7 @@ impl OutputNode {
         if !rect.contains(x_abs, y_abs) {
             return None;
         }
-        let Some(c) = ws.node_state.container.get() else {
+        let Some(c) = wns.container.get() else {
             return Some(TileDragDestination {
                 highlight: rect,
                 ty: TddType::NewContainer { workspace: ws },
@@ -1902,12 +1905,13 @@ impl OutputNode {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            if let Some(fs) = ws.node_state.fullscreen.get() {
+            let wns = &ws.node_state;
+            if let Some(fs) = wns.fullscreen.get() {
                 if fs.node_visible() {
                     fs.node_do_focus(seat, direction);
                     return;
                 }
-            } else if let Some(c) = ws.node_state.container.get() {
+            } else if let Some(c) = wns.container.get() {
                 if c.node_visible() {
                     c.node_do_focus(seat, direction);
                     return;
