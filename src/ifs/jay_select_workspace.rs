@@ -90,7 +90,7 @@ object_base! {
 }
 
 impl Object for JaySelectWorkspace {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
     }
 }

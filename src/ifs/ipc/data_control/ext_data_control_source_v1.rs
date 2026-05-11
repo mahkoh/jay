@@ -89,8 +89,8 @@ object_base! {
 }
 
 impl Object for ExtDataControlSourceV1 {
-    fn break_loops(&self) {
-        logic::data_source_break_loops(self);
+    fn break_loops(self: Rc<Self>) {
+        logic::data_source_break_loops(&*self);
     }
 }
 

@@ -628,7 +628,7 @@ object_base! {
 }
 
 impl Object for XdgSurface {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         self.ext.take();
         self.popups.clear();
         self.workspace.set(None);

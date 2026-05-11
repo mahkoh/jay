@@ -381,7 +381,7 @@ object_base! {
 }
 
 impl Object for WlSubsurface {
-    fn break_loops(&self) {
+    fn break_loops(self: Rc<Self>) {
         *self.node.borrow_mut() = None;
         self.latest_node.take();
     }
