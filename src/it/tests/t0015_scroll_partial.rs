@@ -25,7 +25,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     let container = w_mono2.tl.container_parent()?;
-    let pos = container.tl_data().pos.get();
+    let pos = container.tl_data().content_size.get();
     let w_mono1_title = container.render_data.borrow_mut().title_rects[0].move_(pos.x1(), pos.y1());
     ds.mouse.abs(
         &ds.connector,
