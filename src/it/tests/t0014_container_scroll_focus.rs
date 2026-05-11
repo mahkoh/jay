@@ -47,7 +47,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(enter.surface, w_tiled.surface.id);
 
     let mono_container = w_mono2.tl.container_parent()?;
-    let container_pos = mono_container.tl_data().pos.get();
+    let container_pos = mono_container.tl_data().content_size.get();
     let w_mono1_title = mono_container.render_data.borrow_mut().title_rects[0]
         .move_(container_pos.x1(), container_pos.y1());
     ds.mouse.abs(
