@@ -1,9 +1,13 @@
 mod region;
+mod size;
 
 #[cfg(test)]
 mod tests;
 
-pub use region::{DamageQueue, RegionBuilder};
+pub use {
+    crate::rect::size::Size,
+    region::{DamageQueue, RegionBuilder},
+};
 use {
     jay_algorithms::rect::{NoTag, RectRaw, Tag},
     smallvec::SmallVec,
@@ -352,6 +356,11 @@ where
 
     pub fn size(&self) -> (i32, i32) {
         (self.width(), self.height())
+    }
+
+    #[expect(dead_code)]
+    pub fn size2(&self) -> Size {
+        Size::new_saturating(self.width(), self.height())
     }
 
     pub fn center(&self) -> (i32, i32) {
