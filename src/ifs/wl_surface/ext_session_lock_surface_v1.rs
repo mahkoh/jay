@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        configurable::{Configurable, ConfigurableData, ConfigurableExt},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
         fixed::Fixed,
         ifs::{
             wl_output::OutputGlobalOpt,
@@ -74,6 +74,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
         self.destroyed.set(true);
+        self.configurable_data.ready();
         self.surface.unset_ext();
         self.client.remove_obj(self)?;
         Ok(())
@@ -111,6 +112,10 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
         Some(self.surface.clone())
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(self.configurable_data.core())
     }
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -184,6 +189,7 @@ impl Object for ExtSessionLockSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.destroyed.set(true);
+        self.configurable_data.ready();
     }
 }
 
@@ -202,6 +208,10 @@ impl Configurable for ExtSessionLockSurfaceV1 {
 
     fn merge(first: &mut Self::T, second: Self::T) {
         *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.node_visible()
     }
 
     fn destroyed(&self) -> bool {

@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        configurable::{Configurable, ConfigurableData, ConfigurableExt},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -314,6 +314,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
+        self.configurable_data.ready();
         if self.popups.is_not_empty() {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
@@ -581,6 +582,7 @@ impl ZwlrLayerSurfaceV1 {
                 popup.popup.set_visible(false);
                 popup.popup.destroy_node();
             }
+            self.configurable_data.ready();
         }
     }
 }
@@ -601,6 +603,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
+        _serial: Option<TreeSerial>,
     ) -> Result<(), WlSurfaceError> {
         self.pre_commit(pending)?;
         Ok(())
@@ -666,6 +669,10 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         } else {
             None
         }
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(self.configurable_data.core())
     }
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -811,6 +818,7 @@ impl Object for ZwlrLayerSurfaceV1 {
         self.destroy_node();
         self.link.borrow_mut().take();
         self.destroyed.set(true);
+        self.configurable_data.ready();
     }
 }
 
@@ -830,6 +838,10 @@ impl Configurable for ZwlrLayerSurfaceV1 {
 
     fn merge(first: &mut Self::T, second: Self::T) {
         *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.surface.visible.get()
     }
 
     fn destroyed(&self) -> bool {

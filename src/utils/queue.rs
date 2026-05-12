@@ -38,7 +38,6 @@ impl<T> AsyncQueue<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn push_front(&self, t: T) {
         unsafe {
             self.data.get().deref_mut().push_front(t);
