@@ -358,7 +358,6 @@ where
         (self.width(), self.height())
     }
 
-    #[expect(dead_code)]
     pub fn size2(&self) -> Size {
         Size::new_saturating(self.width(), self.height())
     }

@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::ConfigurableData,
         ifs::wl_surface::ext_session_lock_surface_v1::{
             ExtSessionLockSurfaceV1, ExtSessionLockSurfaceV1Error,
         },
@@ -74,6 +75,9 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             output: output.global.clone(),
             seat_state: Default::default(),
             version: self.version,
+            destroyed: Cell::new(false),
+            configurable_data: ConfigurableData::new(&self.client.state),
+            desired_size: Default::default(),
         });
         track!(new.client, new);
         new.install()?;
