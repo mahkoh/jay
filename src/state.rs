@@ -19,6 +19,7 @@ use {
         },
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
+        configurable::ConfigureGroups,
         control_center::{
             CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
             CCI_OUTPUTS, CCI_WORKSPACES, CCI_XWAYLAND, ControlCenters,
@@ -315,6 +316,7 @@ pub struct State {
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree_serials: TreeSerials,
+    pub configure_groups: ConfigureGroups,
 }
 
 // impl Drop for State {
@@ -1350,6 +1352,7 @@ impl State {
         if let Some(sqlite) = &self.sqlite {
             sqlite.clear();
         }
+        self.configure_groups.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

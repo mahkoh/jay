@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        configurable::{handle_configurables_apply, handle_configurables_commit},
         control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
@@ -409,6 +410,7 @@ fn start_compositor2(
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
         tree_serials: Default::default(),
+        configure_groups: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -622,6 +624,16 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "flush toplevel sessions",
             flush_toplevel_sessions(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables commit",
+            Phase::PostLayout,
+            handle_configurables_commit(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables apply",
+            Phase::PostLayout,
+            handle_configurables_apply(state.clone()),
         ),
     ]
 }

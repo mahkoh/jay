@@ -76,7 +76,6 @@ impl<T> Default for AsyncStack<T> {
 }
 
 impl<T> AsyncStack<T> {
-    #[expect(dead_code)]
     pub fn push(&self, v: T) {
         self.stack.push(v);
         if let Some(waker) = self.waiter.take() {
@@ -84,17 +83,14 @@ impl<T> AsyncStack<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn non_empty(&self) -> AsyncStackNonEmpty<'_, T> {
         AsyncStackNonEmpty { stack: self }
     }
 
-    #[expect(dead_code)]
     pub fn swap(&self, vec: &mut Vec<T>) {
         self.stack.swap(vec);
     }
 
-    #[expect(dead_code)]
     pub fn clear(&self) {
         self.waiter.take();
         self.stack.take();
