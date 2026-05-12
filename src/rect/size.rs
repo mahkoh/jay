@@ -24,13 +24,11 @@ impl Size {
         }
     }
 
-    #[expect(dead_code)]
     #[inline(always)]
     pub fn width(self) -> i32 {
         self.width
     }
 
-    #[expect(dead_code)]
     #[inline(always)]
     pub fn height(self) -> i32 {
         self.height
