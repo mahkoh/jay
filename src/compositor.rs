@@ -38,10 +38,7 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
-            wl_surface::{
-                NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
-                zwp_input_popup_surface_v2::input_popup_positioning,
-            },
+            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -389,7 +386,6 @@ fn start_compositor2(
         head_names: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
-        xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
@@ -602,11 +598,6 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "position hint requests",
             handle_position_hint_requests(state.clone()),
-        ),
-        eng.spawn2(
-            "xdg_surface configure events",
-            Phase::PostLayout,
-            handle_xdg_surface_configure_events(state.clone()),
         ),
         eng.spawn(
             "lazy event sources",

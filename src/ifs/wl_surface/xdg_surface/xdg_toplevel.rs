@@ -3,6 +3,7 @@ use {
         bugs,
         bugs::Bugs,
         client::{Client, ClientError},
+        configurable::ConfigurableExt,
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
@@ -11,7 +12,8 @@ use {
             wl_surface::{
                 WlSurface,
                 xdg_surface::{
-                    XdgSurface, XdgSurfaceExt,
+                    InitialCommitState, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
+                    XdgToplevelConfigureData,
                     xdg_toplevel::{
                         xdg_dialog_v1::XdgDialogV1,
                         xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
@@ -202,50 +204,13 @@ impl XdgToplevel {
         self.toplevel_data.manager_send(self.clone(), manager);
     }
 
-    pub fn send_current_configure(&self) {
-        if self.drag.is_none() {
-            let rect = self.xdg.absolute_desired_extents.get();
-            self.send_configure_checked(rect.width(), rect.height());
-        }
-        self.xdg.schedule_configure();
-    }
-
-    fn send_configure_checked(&self, mut width: i32, mut height: i32) {
-        if self.extents_set.get() {
-            width = width.max(1);
-            height = height.max(1);
-        }
-        let bugs = self.bugs.get();
-        macro_rules! apply {
-            ($field:expr, $min:ident, $max:ident) => {
-                if $field != 0 {
-                    if let Some(min) = bugs.$min {
-                        $field = $field.max(min);
-                    }
-                    if bugs.respect_min_max_size {
-                        if let Some(min) = self.$min.get() {
-                            $field = $field.max(min);
-                        }
-                        if let Some(max) = self.$max.get() {
-                            $field = $field.min(max);
-                        }
-                    }
-                }
-            };
-        }
-        apply!(width, min_width, max_width);
-        apply!(height, min_height, max_height);
-        self.send_configure(width, height)
-    }
-
     fn send_close(&self) {
         self.xdg.surface.client.event(Close { self_id: self.id });
         // self.xdg.surface.client.flush();
     }
 
-    fn send_configure(&self, width: i32, height: i32) {
-        let mut state_bits = self.states.get();
-        let mut states = ArrayVec::<u32, 32>::new();
+    fn send_configure(&self, width: i32, height: i32, mut state_bits: u32) {
+        let mut states = ArrayVec::<u32, 24>::new();
         while state_bits != 0 {
             let ts = state_bits.trailing_zeros();
             states.push(ts + 1);
@@ -405,7 +370,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
                 &output.ensure_normal_workspace(),
             );
         }
-        self.send_current_configure();
+        self.xdg.schedule_configure();
         Ok(())
     }
 
@@ -413,7 +378,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         self.states.and_assign(!state_bits(STATE_FULLSCREEN));
         self.toplevel_data
             .unset_fullscreen(&self.state, slf.clone());
-        self.send_current_configure();
+        self.xdg.schedule_configure();
         Ok(())
     }
 
@@ -710,8 +675,6 @@ impl ToplevelNodeBase for XdgToplevel {
             old != self.states.get()
         };
         if changed {
-            let rect = self.xdg.absolute_desired_extents.get();
-            self.send_configure_checked(rect.width(), rect.height());
             self.xdg.schedule_configure();
         }
     }
@@ -729,12 +692,11 @@ impl ToplevelNodeBase for XdgToplevel {
         let nw = rect.width();
         let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.get();
+        self.xdg.set_absolute_desired_extents(rect);
         if de.width() != nw || de.height() != nh {
-            self.send_configure_checked(nw, nh);
             self.xdg.schedule_configure();
             // self.xdg.surface.client.flush();
         }
-        self.xdg.set_absolute_desired_extents(rect);
     }
 
     fn tl_close(self: Rc<Self>) {
@@ -753,7 +715,7 @@ impl ToplevelNodeBase for XdgToplevel {
             } else {
                 self.states.or_assign(state_bits(STATE_SUSPENDED));
             }
-            self.send_current_configure();
+            self.xdg.schedule_configure();
         }
     }
 
@@ -829,15 +791,6 @@ impl ToplevelNodeBase for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
-    fn initial_configure(self: Rc<Self>) {
-        let rect = self.xdg.absolute_desired_extents.get();
-        if rect.is_empty() {
-            self.send_configure(0, 0);
-        } else {
-            self.send_configure_checked(rect.width(), rect.height());
-        }
-    }
-
     fn commit_requested(&self) {
         self.committed.set(true);
     }
@@ -882,6 +835,56 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn node_layer(&self) -> NodeLayerLink {
         self.toplevel_data.node_layer()
+    }
+
+    fn configure_data(&self) -> XdgSurfaceConfigureData {
+        if self.drag.is_some() {
+            return XdgSurfaceConfigureData::Toplevel(None);
+        }
+        let initial = self.xdg.initial_commit_state.get() == InitialCommitState::Unmapped;
+        let size = self.xdg.absolute_desired_extents.get().size2();
+        let mut w = size.width();
+        let mut h = size.height();
+        if initial {
+            (w, h) = (0, 0);
+        } else {
+            if self.extents_set.get() {
+                w = w.max(1);
+                h = h.max(1);
+            }
+            let bugs = self.bugs.get();
+            macro_rules! apply {
+                ($field:expr, $min:ident, $max:ident) => {
+                    if $field != 0 {
+                        if let Some(min) = bugs.$min {
+                            $field = $field.max(min);
+                        }
+                        if bugs.respect_min_max_size {
+                            if let Some(min) = self.$min.get() {
+                                $field = $field.max(min);
+                            }
+                            if let Some(max) = self.$max.get() {
+                                $field = $field.min(max);
+                            }
+                        }
+                    }
+                };
+            }
+            apply!(w, min_width, max_width);
+            apply!(h, min_height, max_height);
+        }
+        XdgSurfaceConfigureData::Toplevel(Some(XdgToplevelConfigureData {
+            w,
+            h,
+            state: self.states.get(),
+        }))
+    }
+
+    fn send_configure(&self, data: XdgSurfaceConfigureData) {
+        let XdgSurfaceConfigureData::Toplevel(Some(data)) = data else {
+            return;
+        };
+        self.send_configure(data.w, data.h, data.state);
     }
 }
 

@@ -133,10 +133,11 @@ impl TestClient {
         Ok(())
     }
 
-    pub async fn create_surface_ext(&self) -> Result<TestSurfaceExt, TestError> {
+    pub async fn create_surface_ext(self: &Rc<Self>) -> Result<TestSurfaceExt, TestError> {
         let surface = self.comp.create_surface().await?;
         let viewport = self.viewporter.get_viewport(&surface)?;
         Ok(TestSurfaceExt {
+            client: self.clone(),
             surface,
             spbm: self.spbm.clone(),
             viewport,
@@ -144,14 +145,14 @@ impl TestClient {
         })
     }
 
-    pub async fn create_window_no_commit(&self) -> Result<Rc<TestWindow>, TestError> {
+    pub async fn create_window_no_commit(self: &Rc<Self>) -> Result<Rc<TestWindow>, TestError> {
         let surface = self.create_surface_ext().await?;
         let xdg = self.xdg.create_xdg_surface(surface.surface.id).await?;
         let tl = xdg.create_toplevel().await?;
         Ok(Rc::new(TestWindow { surface, xdg, tl }))
     }
 
-    pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
+    pub async fn create_window(self: &Rc<Self>) -> Result<Rc<TestWindow>, TestError> {
         let win = self.create_window_no_commit().await?;
         win.surface.surface.commit()?;
         self.sync().await;
@@ -159,7 +160,7 @@ impl TestClient {
     }
 
     pub async fn restore_window(
-        &self,
+        self: &Rc<Self>,
         session: &TestSession,
         name: &str,
     ) -> Result<(Rc<TestWindow>, Rc<TestToplevelSession>), TestError> {

@@ -1,6 +1,7 @@
 use {
     crate::{
         it::{
+            test_client::TestClient,
             test_error::TestError,
             test_ifs::{
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
@@ -13,6 +14,7 @@ use {
 };
 
 pub struct TestSurfaceExt {
+    pub client: Rc<TestClient>,
     pub surface: Rc<TestSurface>,
     pub spbm: Rc<TestSinglePixelBufferManager>,
     pub viewport: Rc<TestViewport>,
@@ -34,7 +36,7 @@ impl TestSurfaceExt {
         self.viewport.set_source(0, 0, 1, 1)?;
         self.viewport.set_destination(width, height)?;
         self.surface.commit()?;
-        self.surface.tran.sync().await;
+        self.client.sync().await;
         Ok(())
     }
 

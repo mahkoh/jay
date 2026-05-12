@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::ConfigurableExt,
         ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel},
         leaks::Tracker,
         object::{Object, Version},
@@ -50,7 +51,7 @@ impl ZxdgToplevelDecorationV1 {
             Decoration::Server => SERVER_SIDE,
         };
         self.send_configure(mode);
-        self.toplevel.send_current_configure();
+        self.toplevel.xdg.schedule_configure();
     }
 }
 
