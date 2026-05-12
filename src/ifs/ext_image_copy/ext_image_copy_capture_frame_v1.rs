@@ -9,7 +9,7 @@ use {
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            wl_buffer::WlBufferStorage,
+            wl_buffer::WlBufferStorage, wl_output::TF_NORMAL,
         },
         leaks::Tracker,
         object::Object,
@@ -258,6 +258,10 @@ impl ExtImageCopyCaptureFrameV1 {
         let Some((tv_sec, tv_nsec)) = self.session.presented.get() else {
             return;
         };
+        self.client.event(Transform {
+            self_id: self.id,
+            transform: TF_NORMAL as _,
+        });
         if let Some(buffer) = self.session.buffer.get() {
             self.client.event(Damage {
                 self_id: self.id,
