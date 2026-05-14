@@ -3,7 +3,7 @@ use {
     ahash::{AHashMap, AHashSet},
     ash::{
         Entry, Instance, LoadingError,
-        ext::{debug_utils, validation_features},
+        ext::{debug_utils, external_semaphore_drm_syncobj, validation_features},
         vk::{
             self, API_VERSION_1_3, ApplicationInfo, Bool32, DebugUtilsMessageSeverityFlagsEXT,
             DebugUtilsMessageTypeFlagsEXT, DebugUtilsMessengerCallbackDataEXT,
@@ -206,12 +206,43 @@ impl VulkanCoreInstance {
         false
     }
 
+    pub fn supports_syncobj_export(
+        &self,
+        phy_dev: PhysicalDevice,
+        features: &VulkanDeviceFeatures,
+        extensions: &Extensions,
+    ) -> bool {
+        if features.semaphore_features.timeline_semaphore != vk::TRUE {
+            return false;
+        }
+        if extensions.not_contains_key(external_semaphore_drm_syncobj::NAME) {
+            return false;
+        }
+        self.supports_semaphore_drm_syncobj_export(phy_dev)
+    }
+
     fn supports_semaphore_opaque_export(&self, phy_dev: PhysicalDevice) -> bool {
         let mut props = ExternalSemaphoreProperties::default();
         let mut type_info =
             SemaphoreTypeCreateInfo::default().semaphore_type(SemaphoreType::TIMELINE);
         let info = PhysicalDeviceExternalSemaphoreInfo::default()
             .handle_type(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD)
+            .push_next(&mut type_info);
+        unsafe {
+            self.instance
+                .get_physical_device_external_semaphore_properties(phy_dev, &info, &mut props);
+        }
+        props
+            .external_semaphore_features
+            .contains(ExternalSemaphoreFeatureFlags::EXPORTABLE)
+    }
+
+    fn supports_semaphore_drm_syncobj_export(&self, phy_dev: PhysicalDevice) -> bool {
+        let mut props = ExternalSemaphoreProperties::default();
+        let mut type_info =
+            SemaphoreTypeCreateInfo::default().semaphore_type(SemaphoreType::TIMELINE);
+        let info = PhysicalDeviceExternalSemaphoreInfo::default()
+            .handle_type(ExternalSemaphoreHandleTypeFlags::DRM_SYNCOBJ_EXT)
             .push_next(&mut type_info);
         unsafe {
             self.instance

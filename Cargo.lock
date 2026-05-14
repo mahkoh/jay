@@ -777,9 +777,8 @@ dependencies = [
 
 [[package]]
 name = "jay-ash"
-version = "0.5.0+1.4.349"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21e59d7646329ed7d1f5dddff45dcbb6e615d606c436b54b8c6aacccc445d0a8"
+version = "0.7.0+1.4.351"
+source = "git+https://github.com/mahkoh/jay-ash.git?branch=jorth%2Fsyncobj#b950bc024af561c55353a1da198fc14aa27707ae"
 dependencies = [
  "libloading",
 ]

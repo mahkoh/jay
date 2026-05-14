@@ -25,8 +25,9 @@ use {
     ash::{
         Device,
         ext::{
-            descriptor_buffer, descriptor_heap, external_memory_dma_buf, image_drm_format_modifier,
-            physical_device_drm, queue_family_foreign,
+            descriptor_buffer, descriptor_heap, external_memory_dma_buf,
+            external_semaphore_drm_syncobj, image_drm_format_modifier, physical_device_drm,
+            queue_family_foreign,
         },
         khr::{
             self, driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
@@ -42,12 +43,14 @@ use {
             PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDescriptorHeapFeaturesEXT,
             PhysicalDeviceDescriptorHeapPropertiesEXT, PhysicalDeviceDriverProperties,
             PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceMaintenance5Features, PhysicalDeviceProperties,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
-            PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
-            PushDataInfoEXT, Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
+            PhysicalDeviceDynamicRenderingFeatures,
+            PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceMaintenance5Features,
+            PhysicalDeviceProperties, PhysicalDeviceProperties2,
+            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures,
+            PhysicalDeviceType, PhysicalDeviceUniformBufferStandardLayoutFeatures,
+            PhysicalDeviceVulkan12Properties, PushDataInfoEXT, Queue, QueueFamilyProperties2,
+            QueueFlags, QueueGlobalPriorityKHR,
         },
     },
     isnt::std_1::collections::IsntHashMapExt,
@@ -89,6 +92,7 @@ pub struct VulkanDevice {
     pub(super) lost: Cell<bool>,
     pub(super) fast_ram_access: bool,
     pub(super) supports_timeline_opaque_export: bool,
+    pub(super) supports_syncobj_export: bool,
     pub(super) descriptor_buffer: Option<Rc<DescriptorBufferDevice>>,
     pub(super) descriptor_heap: Option<Rc<DescriptorHeapDevice>>,
 }
@@ -438,6 +442,7 @@ impl VulkanInstance {
         let features = self.get_features(phy_dev);
         let supports_timeline_opaque_export =
             self.supports_timeline_opaque_export(phy_dev, &features);
+        let supports_syncobj_export = self.supports_syncobj_export(phy_dev, &features, &extensions);
         if !self.supports_semaphore_import(phy_dev) {
             return Err(VulkanError::SyncFileImport);
         }
@@ -452,8 +457,13 @@ impl VulkanInstance {
         if supports_descriptor_buffer {
             enabled_extensions.push(descriptor_buffer::NAME.as_ptr());
         }
+        if supports_syncobj_export {
+            enabled_extensions.push(external_semaphore_drm_syncobj::NAME.as_ptr());
+        }
         let mut semaphore_features = PhysicalDeviceTimelineSemaphoreFeatures::default()
-            .timeline_semaphore(supports_timeline_opaque_export);
+            .timeline_semaphore(supports_timeline_opaque_export || supports_syncobj_export);
+        let mut syncobj_features = PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT::default()
+            .external_semaphore_drm_syncobj(supports_syncobj_export);
         let mut synchronization2_features =
             PhysicalDeviceSynchronization2Features::default().synchronization2(true);
         let mut dynamic_rendering_features =
@@ -497,6 +507,7 @@ impl VulkanInstance {
         }
         let mut device_create_info = DeviceCreateInfo::default()
             .push_next(&mut semaphore_features)
+            .push_next(&mut syncobj_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
             .push_next(&mut uniform_buffer_standard_layout_features)
@@ -685,6 +696,7 @@ impl VulkanInstance {
             lost: Cell::new(false),
             fast_ram_access,
             supports_timeline_opaque_export,
+            supports_syncobj_export,
             descriptor_buffer: descriptor_buffer.map(Rc::new),
             descriptor_heap: descriptor_heap.map(Rc::new),
         }))
@@ -766,6 +778,10 @@ impl VulkanDeviceInf for VulkanDevice {
 
     fn supports_timeline_opaque_export(&self) -> bool {
         self.supports_timeline_opaque_export
+    }
+
+    fn supports_syncobj_export(&self) -> bool {
+        self.supports_syncobj_export
     }
 
     fn sync_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
