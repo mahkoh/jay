@@ -1,6 +1,5 @@
 pub mod syncobj;
 mod sys;
-pub mod wait_for_syncobj;
 
 use {
     crate::{
@@ -124,28 +123,12 @@ pub enum DrmError {
     InFormats,
     #[error("Could not import a syncobj")]
     ImportSyncobj(#[source] OsError),
-    #[error("Could not create a syncobj")]
-    CreateSyncobj(#[source] OsError),
     #[error("Could not export a syncobj")]
     ExportSyncobj(#[source] OsError),
-    #[error("Could not query a syncobj")]
-    QuerySyncobj(#[source] OsError),
-    #[error("Could not register an eventfd with a syncobj")]
-    RegisterEventfd(#[source] OsError),
-    #[error("Could not create an eventfd")]
-    EventFd(#[source] OsError),
-    #[error("Could not read from an eventfd")]
-    ReadEventFd(#[source] IoUringError),
-    #[error("No syncobj context available")]
-    NoSyncobjContextAvailable,
-    #[error("Could not signal the syncobj")]
-    SignalSyncobj(#[source] OsError),
     #[error("Could not transfer a syncobj point")]
     TransferPoint(#[source] OsError),
     #[error("Could not merge two sync files")]
     Merge(#[source] OsError),
-    #[error("Could not import a sync file into a syncobj")]
-    ImportSyncFile(#[source] OsError),
     #[error("Could not export a sync file")]
     ExportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]

@@ -1,6 +1,7 @@
 use {
     crate::{
         gfx_api::SyncFile,
+        syncobj::SyncobjError,
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
@@ -88,13 +89,13 @@ struct Handles {
     links: CopyHashMap<SyncobjId, LinkedNode<Rc<Handles>>>,
 }
 
-pub struct SyncobjCtx {
+pub struct DrmSyncobjCtx {
     inner: Rc<Handles>,
     dummy: CloneCell<Option<Rc<Syncobj>>>,
     supports_timeline_import: OnceCell<bool>,
 }
 
-impl SyncobjCtx {
+impl DrmSyncobjCtx {
     pub fn new(drm: &Rc<OwnedFd>) -> Self {
         Self {
             inner: Rc::new(Handles {
@@ -107,7 +108,7 @@ impl SyncobjCtx {
         }
     }
 
-    pub fn from_dev_t(dev: c::dev_t) -> Result<Self, DrmError> {
+    pub fn from_dev_t(dev: c::dev_t) -> Result<Self, SyncobjError> {
         let nodes = get_drm_nodes_from_dev(uapi::major(dev), uapi::minor(dev))
             .map_err(DrmError::GetNodes)?;
         let path = nodes
@@ -133,8 +134,9 @@ impl SyncobjCtx {
         Ok(handle)
     }
 
-    pub fn create_syncobj(&self) -> Result<Syncobj, DrmError> {
-        let handle = syncobj_create(self.inner.drm.raw(), 0).map_err(DrmError::CreateSyncobj)?;
+    pub fn create_syncobj(&self) -> Result<Syncobj, SyncobjError> {
+        let handle =
+            syncobj_create(self.inner.drm.raw(), 0).map_err(SyncobjError::CreateSyncobj)?;
         let handle = SyncobjHandle(handle);
         let fd = syncobj_handle_to_fd(self.inner.drm.raw(), handle.0, 0, 0);
         if fd.is_err() {
@@ -148,9 +150,9 @@ impl SyncobjCtx {
         Ok(syncobj)
     }
 
-    pub fn create_signaled_sync_file(&self) -> Result<SyncFile, DrmError> {
+    pub fn create_signaled_sync_file(&self) -> Result<SyncFile, SyncobjError> {
         let handle = syncobj_create(self.inner.drm.raw(), DRM_SYNCOBJ_CREATE_SIGNALED)
-            .map_err(DrmError::CreateSyncobj)?;
+            .map_err(SyncobjError::CreateSyncobj)?;
         let handle = SyncobjHandle(handle);
         let fd = syncobj_handle_to_fd(
             self.inner.drm.raw(),
@@ -159,7 +161,7 @@ impl SyncobjCtx {
             0,
         );
         destroy(&self.inner.drm, handle);
-        fd.map_err(DrmError::ExportSyncobj)
+        fd.map_err(SyncobjError::ExportSyncFile)
             .map(Rc::new)
             .map(SyncFile)
     }
@@ -170,7 +172,7 @@ impl SyncobjCtx {
         syncobj: &Syncobj,
         point: SyncobjPoint,
         signaled: bool,
-    ) -> Result<(), DrmError> {
+    ) -> Result<(), SyncobjError> {
         let handle = self.get_handle(syncobj)?;
         let flags = match signaled {
             true => 0,
@@ -183,16 +185,16 @@ impl SyncobjCtx {
             point.0,
             flags,
         )
-        .map_err(DrmError::RegisterEventfd)
+        .map_err(SyncobjError::RegisterEventfd)
     }
 
     pub fn supports_async_wait(&self) -> bool {
         self.supports_async_wait_().is_ok()
     }
 
-    fn supports_async_wait_(&self) -> Result<(), DrmError> {
+    fn supports_async_wait_(&self) -> Result<(), SyncobjError> {
         let syncobj = self.create_syncobj()?;
-        let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(DrmError::EventFd)?;
+        let eventfd = uapi::eventfd(0, c::EFD_CLOEXEC).map_os_err(SyncobjError::EventFd)?;
         self.wait_for_point(&eventfd, &syncobj, SyncobjPoint(1), true)?;
         Ok(())
     }
@@ -215,7 +217,7 @@ impl SyncobjCtx {
             })
     }
 
-    fn test_timeline_import(&self) -> Result<(), DrmError> {
+    fn test_timeline_import(&self) -> Result<(), SyncobjError> {
         let syncobj = self.create_syncobj()?;
         let syncobj = self.get_handle(&syncobj)?;
         let sync_file = self.create_signaled_sync_file()?;
@@ -228,26 +230,20 @@ impl SyncobjCtx {
             123,
         )
         .map(drop)
-        .map_err(DrmError::ImportSyncFile)
+        .map_err(SyncobjError::ImportSyncFile)
     }
 
-    pub fn signal(&self, syncobj: &Syncobj, point: SyncobjPoint) -> Result<(), DrmError> {
+    pub fn signal(&self, syncobj: &Syncobj, point: SyncobjPoint) -> Result<(), SyncobjError> {
         let handle = self.get_handle(syncobj)?;
-        syncobj_signal(self.inner.drm.raw(), handle.0, point.0).map_err(DrmError::SignalSyncobj)
+        syncobj_signal(self.inner.drm.raw(), handle.0, point.0).map_err(SyncobjError::SignalSyncobj)
     }
 
-    pub fn import_sync_files<'a, I>(
+    pub fn import_sync_file(
         &self,
         syncobj: &Syncobj,
         point: SyncobjPoint,
-        sync_files: I,
-    ) -> Result<(), DrmError>
-    where
-        I: IntoIterator<Item = &'a SyncFile>,
-    {
-        let Some(fd) = merge_sync_files(sync_files)? else {
-            return self.signal(syncobj, point);
-        };
+        fd: &SyncFile,
+    ) -> Result<(), SyncobjError> {
         let import = |flags: u32, handle: SyncobjHandle| {
             syncobj_fd_to_handle(
                 self.inner.drm.raw(),
@@ -257,7 +253,7 @@ impl SyncobjCtx {
                 point.0,
             )
             .map(drop)
-            .map_err(DrmError::ImportSyncFile)
+            .map_err(SyncobjError::ImportSyncFile)
         };
         if self.supports_timeline_import() {
             return import(
@@ -274,7 +270,7 @@ impl SyncobjCtx {
         &self,
         syncobj: &Syncobj,
         point: SyncobjPoint,
-    ) -> Result<SyncFile, DrmError> {
+    ) -> Result<SyncFile, SyncobjError> {
         let export = |flags: u32, handle: SyncobjHandle, point: SyncobjPoint| {
             syncobj_handle_to_fd(
                 self.inner.drm.raw(),
@@ -294,7 +290,7 @@ impl SyncobjCtx {
             match res {
                 Ok(sf) => return Ok(sf),
                 Err(e) if e.0 == c::EINVAL => {}
-                Err(e) => return Err(DrmError::ExportSyncFile(e)),
+                Err(e) => return Err(SyncobjError::ExportSyncFile(e)),
             }
         }
         let dummy = self.get_dummy()?;
@@ -306,7 +302,7 @@ impl SyncobjCtx {
             zero,
             DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT,
         )?;
-        export(0, self.get_handle(&dummy)?, zero).map_err(DrmError::ExportSyncFile)
+        export(0, self.get_handle(&dummy)?, zero).map_err(SyncobjError::ExportSyncFile)
     }
 
     fn transfer(
@@ -316,7 +312,7 @@ impl SyncobjCtx {
         dst_syncobj: &Syncobj,
         dst_point: SyncobjPoint,
         flags: u32,
-    ) -> Result<(), DrmError> {
+    ) -> Result<(), SyncobjError> {
         let src_handle = self.get_handle(src_syncobj)?;
         let dst_handle = self.get_handle(dst_syncobj)?;
         syncobj_transfer(
@@ -328,9 +324,10 @@ impl SyncobjCtx {
             flags,
         )
         .map_err(DrmError::TransferPoint)
+        .map_err(Into::into)
     }
 
-    fn get_dummy(&self) -> Result<Rc<Syncobj>, DrmError> {
+    fn get_dummy(&self) -> Result<Rc<Syncobj>, SyncobjError> {
         match self.dummy.get() {
             Some(d) => Ok(d),
             None => {
@@ -341,13 +338,13 @@ impl SyncobjCtx {
         }
     }
 
-    pub fn query_last_signaled(&self, syncobj: &Syncobj) -> Result<u64, DrmError> {
+    pub fn query_last_signaled(&self, syncobj: &Syncobj) -> Result<u64, SyncobjError> {
         let handle = self.get_handle(syncobj)?;
-        syncobj_query(self.inner.drm.raw(), handle.0).map_err(DrmError::QuerySyncobj)
+        syncobj_query(self.inner.drm.raw(), handle.0).map_err(SyncobjError::QuerySyncobj)
     }
 }
 
-impl Drop for SyncobjCtx {
+impl Drop for DrmSyncobjCtx {
     fn drop(&mut self) {
         self.inner.links.clear();
         let mut map = self.inner.handles.lock();

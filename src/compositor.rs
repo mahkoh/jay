@@ -56,6 +56,7 @@ use {
         sm::{SessionManager, flush_toplevel_sessions},
         sqlite::{Sqlite, handle_sqlite_optimize},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
+        syncobj::wait_for_syncobj::WaitForSyncobj,
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
@@ -83,7 +84,6 @@ use {
             tri::Try,
         },
         version::VERSION,
-        video::drm::wait_for_syncobj::WaitForSyncobj,
         wheel::{Wheel, WheelError},
     },
     ahash::AHashSet,

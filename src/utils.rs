@@ -24,6 +24,7 @@ pub mod fdcloser;
 pub mod free_list;
 pub mod geometric_decay;
 pub mod hash_map_ext;
+pub mod ioctl;
 pub mod line_logger;
 pub mod linkedlist;
 pub mod log_on_drop;

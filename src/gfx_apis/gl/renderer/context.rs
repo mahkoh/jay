@@ -18,9 +18,10 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
         },
         rect::Rect,
+        syncobj::SyncobjCtx,
         video::{
             dmabuf::{DmaBuf, DmaBufIds},
-            drm::{Drm, syncobj::SyncobjCtx},
+            drm::Drm,
             gbm::GbmDevice,
         },
     },

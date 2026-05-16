@@ -1,9 +1,10 @@
 use {
     crate::{
         it::{test_error::TestResult, testrun::TestRun},
+        syncobj::{SyncobjError, wait_for_syncobj::SyncobjWaiter},
         theme::Color,
         utils::errorfmt::ErrorFmt,
-        video::drm::{DrmError, syncobj::SyncobjPoint, wait_for_syncobj::SyncobjWaiter},
+        video::drm::syncobj::SyncobjPoint,
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -15,7 +16,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     struct Waiter(Cell<bool>);
     impl SyncobjWaiter for Waiter {
-        fn done(self: Rc<Self>, result: Result<(), DrmError>) {
+        fn done(self: Rc<Self>, result: Result<(), SyncobjError>) {
             result.unwrap();
             self.0.set(true);
         }

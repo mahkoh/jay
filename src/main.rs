@@ -103,6 +103,7 @@ mod sighand;
 mod sm;
 mod sqlite;
 mod state;
+mod syncobj;
 mod tagged_acceptor;
 mod tasks;
 mod text;

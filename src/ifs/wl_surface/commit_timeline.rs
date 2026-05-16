@@ -10,6 +10,10 @@ use {
         io_uring::{
             IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
         },
+        syncobj::{
+            SyncobjError,
+            wait_for_syncobj::{SyncobjWaiter, WaitForSyncobj, WaitForSyncobjHandle},
+        },
         tree::BeforeLatchResult,
         utils::{
             copyhashmap::CopyHashMap,
@@ -20,11 +24,7 @@ use {
             oserror::OsError,
             queue::AsyncQueue,
         },
-        video::drm::{
-            DrmError,
-            syncobj::{Syncobj, SyncobjPoint},
-            wait_for_syncobj::{SyncobjWaiter, WaitForSyncobj, WaitForSyncobjHandle},
-        },
+        video::drm::syncobj::{Syncobj, SyncobjPoint},
     },
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     smallvec::SmallVec,
@@ -104,9 +104,9 @@ pub enum CommitTimelineError {
     #[error("Could not apply a delayed commit")]
     DelayedCommit(#[source] WlSurfaceError),
     #[error("Could not register a wait")]
-    RegisterWait(#[source] DrmError),
+    RegisterWait(#[source] SyncobjError),
     #[error("Syncobj wait failed")]
-    Wait(#[source] DrmError),
+    Wait(#[source] SyncobjError),
     #[error("The client has too many pending commits")]
     Depth,
     #[error("Could not upload a shm texture")]
@@ -359,7 +359,7 @@ impl CommitTimeline {
 }
 
 impl SyncobjWaiter for NodeRef<Entry> {
-    fn done(self: Rc<Self>, result: Result<(), DrmError>) {
+    fn done(self: Rc<Self>, result: Result<(), SyncobjError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
         };
