@@ -5,7 +5,7 @@ use {
     crate::{
         utils::{
             bitflags::BitflagsExt,
-            compat::IoctlNumber,
+            ioctl::ioctl,
             oserror::{OsError, OsErrorExt},
         },
         video::drm::{
@@ -27,20 +27,6 @@ use {
         pod_zeroed,
     },
 };
-
-pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
-    let mut ret;
-    loop {
-        ret = unsafe { c::ioctl(fd, request as IoctlNumber, &mut *t) };
-        if ret != -1 {
-            return Ok(ret);
-        }
-        let err = uapi::get_errno();
-        if not_matches!(err, c::EINTR | c::EAGAIN) {
-            return Err(OsError(err));
-        }
-    }
-}
 
 pub const DRM_IOCTL_BASE: u64 = b'd' as u64;
 
