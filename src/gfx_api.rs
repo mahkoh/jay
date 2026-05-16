@@ -16,6 +16,7 @@ use {
         renderer::{Renderer, renderer_base::RendererBase},
         scale::Scale,
         state::State,
+        syncobj::SyncobjCtx,
         theme::Color,
         tree::{Node, OutputNode, Transform},
         utils::{
@@ -25,7 +26,7 @@ use {
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
-            drm::syncobj::{Syncobj, SyncobjCtx, SyncobjPoint},
+            drm::syncobj::{Syncobj, SyncobjPoint},
         },
     },
     ahash::AHashMap,

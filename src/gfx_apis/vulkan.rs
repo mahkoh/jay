@@ -41,10 +41,11 @@ use {
         io_uring::IoUring,
         pr_caps::PrCapsThread,
         rect::Rect,
+        syncobj::SyncobjCtx,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::{DmaBuf, DmaBufIds},
-            drm::{Drm, DrmError, syncobj::SyncobjCtx},
+            drm::{Drm, DrmError},
             gbm::GbmError,
         },
         vulkan_core::{self, VulkanCoreError},

@@ -1,5 +1,5 @@
 use {
-    crate::{eventfd_cache::EventfdError, video::drm::DrmError},
+    crate::{eventfd_cache::EventfdError, syncobj::SyncobjError},
     ahash::{AHashMap, AHashSet},
     ash::{
         Entry, Instance, LoadingError,
@@ -68,13 +68,13 @@ pub enum VulkanCoreError {
     #[error("Could not signal the timeline semaphore")]
     SignalSemaphore(#[source] vk::Result),
     #[error("Could not query last signaled sync obj point")]
-    QueryLastSignaled(#[source] DrmError),
+    QueryLastSignaled(#[source] SyncobjError),
     #[error("Mapping between syncobj points and timeline semaphore points is unexpected")]
     UnsupportedPointMapping,
     #[error("Could not acquire an eventfd")]
     AcquireEventfd(#[source] EventfdError),
     #[error("Could not create a sync obj eventfd wait")]
-    CreateSyncobjWait(#[source] DrmError),
+    CreateSyncobjWait(#[source] SyncobjError),
     #[error("Device does not have a syncobj ctx")]
     NoSyncobjCtx,
 }

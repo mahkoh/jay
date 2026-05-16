@@ -1,7 +1,8 @@
 use {
     crate::{
+        syncobj::SyncobjCtx,
         utils::{errorfmt::ErrorFmt, numcell::NumCell},
-        video::drm::syncobj::{Syncobj, SyncobjCtx},
+        video::drm::syncobj::Syncobj,
         vulkan_core::{VulkanCoreError, device::VulkanDeviceInf},
     },
     ash::vk::{

@@ -9,10 +9,11 @@ use {
             format::{VulkanBlendBufferLimits, VulkanFormat},
             instance::VulkanInstance,
         },
+        syncobj::SyncobjCtx,
         utils::{bitflags::BitflagsExt, oserror::OsErrorExt2, page_alloc::PageAllocCtx},
         video::{
             dmabuf::DmaBufIds,
-            drm::{Drm, syncobj::SyncobjCtx},
+            drm::Drm,
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
         vulkan_core::{

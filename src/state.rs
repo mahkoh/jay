@@ -106,6 +106,7 @@ use {
         security_context_acceptor::SecurityContextAcceptors,
         sm::{SessionManager, SessionReason, ToplevelSession},
         sqlite::Sqlite,
+        syncobj::wait_for_syncobj::WaitForSyncobj,
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
@@ -135,10 +136,7 @@ use {
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::{
-            dmabuf::DmaBufIds,
-            drm::{Drm, wait_for_syncobj::WaitForSyncobj},
-        },
+        video::{dmabuf::DmaBufIds, drm::Drm},
         virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{

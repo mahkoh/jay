@@ -1,8 +1,5 @@
 use {
-    crate::{
-        eventfd_cache::EventfdCache, video::drm::syncobj::SyncobjCtx,
-        vulkan_core::VulkanCoreInstance,
-    },
+    crate::{eventfd_cache::EventfdCache, syncobj::SyncobjCtx, vulkan_core::VulkanCoreInstance},
     ash::{
         Device,
         khr::{external_fence_fd, external_semaphore_fd},

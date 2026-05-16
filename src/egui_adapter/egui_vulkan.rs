@@ -6,12 +6,13 @@ use {
         format::XRGB8888,
         gfx_api::{FdSync, SyncFile},
         io_uring::IoUring,
+        syncobj::SyncobjCtx,
         utils::{
             errorfmt::ErrorFmt,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
         },
-        video::{Modifier, dmabuf::PlaneVec, drm::syncobj::SyncobjCtx},
+        video::{Modifier, dmabuf::PlaneVec},
         vulkan_core::{
             VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, VulkanDeviceFeatures,
             device::VulkanDeviceInf,

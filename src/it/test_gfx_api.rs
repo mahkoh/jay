@@ -12,11 +12,11 @@ use {
             ShmGfxTexture, ShmMemory,
         },
         rect::{Rect, Region},
+        syncobj::SyncobjCtx,
         theme::Color,
         video::{
             LINEAR_MODIFIER,
             dmabuf::{DmaBuf, DmaBufIds},
-            drm::syncobj::SyncobjCtx,
         },
     },
     ahash::AHashMap,

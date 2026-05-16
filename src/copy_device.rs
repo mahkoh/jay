@@ -6,6 +6,7 @@ use {
         gfx_api::FdSync,
         io_uring::IoUring,
         rect::{Rect, Region},
+        syncobj::{SyncobjCtx, SyncobjError},
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -18,7 +19,6 @@ use {
         video::{
             LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::{DrmError, syncobj::SyncobjCtx},
         },
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
@@ -171,7 +171,7 @@ pub enum CopyDeviceError {
     #[error("Cannot blit between these formats")]
     BlitNotSupported,
     #[error("Could not create syncobj ctx")]
-    CreateSyncobjCtx(#[source] DrmError),
+    CreateSyncobjCtx(#[source] SyncobjError),
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
