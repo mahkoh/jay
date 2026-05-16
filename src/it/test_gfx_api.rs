@@ -55,6 +55,7 @@ impl From<TestGfxError> for GfxError {
 pub struct TestGfxCtx {
     formats: Rc<AHashMap<u32, GfxFormat>>,
     allocator: Rc<dyn Allocator>,
+    syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
 
 impl TestGfxCtx {
@@ -87,6 +88,7 @@ impl TestGfxCtx {
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
             allocator,
+            syncobj_ctx: SyncobjCtx::dev().map(Rc::new),
         }))
     }
 }
@@ -221,7 +223,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
-        None
+        self.syncobj_ctx.as_ref()
     }
 
     fn acquire_blend_buffer(
