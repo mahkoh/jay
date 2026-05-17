@@ -227,6 +227,20 @@ instead.
 split-reuses-container = false  # default
 ```
 
+## Flatten Tree
+
+When a window is removed from a container (e.g. moved to another workspace or
+floated), the container may end up with only one child. By default the
+container is kept, resulting in redundant nesting.
+
+Setting `flatten-tree` to `true` automatically collapses
+such containers by replacing them with their only remaining child, keeping the
+window tree flat.
+
+```toml
+flatten-tree = true
+```
+
 ## Middle-Click Paste
 
 Controls whether middle-clicking pastes the primary selection. Changing this
