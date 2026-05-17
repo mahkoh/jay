@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError, ClientId},
+        configurable::{Configurable, ConfigurableData, ConfigurableExt},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -13,6 +14,7 @@ use {
             },
         },
         rect::Rect,
+        theme::BarPosition,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
             NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
@@ -49,6 +51,8 @@ pub struct TrayItemData {
     linked_node: Cell<Option<LinkedNode<Rc<dyn DynTrayItem>>>>,
     abs_pos: Cell<Rect>,
     pub rel_pos: Cell<Rect>,
+    destroyed: Cell<bool>,
+    configurable: ConfigurableData<TrayItemConfigureData>,
 }
 
 impl TrayItemData {
@@ -67,6 +71,8 @@ impl TrayItemData {
             linked_node: Default::default(),
             abs_pos: Default::default(),
             rel_pos: Default::default(),
+            destroyed: Default::default(),
+            configurable: ConfigurableData::new(&surface.client.state),
         }
     }
 
@@ -76,7 +82,7 @@ impl TrayItemData {
 }
 
 pub trait DynTrayItem: Node {
-    fn send_current_configure(&self);
+    fn send_current_configure(self: Rc<Self>);
     fn data(&self) -> &TrayItemData;
     fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
@@ -85,8 +91,8 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
-    fn send_current_configure(&self) {
-        <Self as TrayItem>::send_current_configure(self)
+    fn send_current_configure(self: Rc<Self>) {
+        self.schedule_configure();
     }
 
     fn data(&self) -> &TrayItemData {
@@ -135,8 +141,12 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 }
 
-trait TrayItem: Sized + 'static {
-    fn send_current_configure(&self);
+pub struct TrayItemConfigureData {
+    pub size: i32,
+    pub bar_position: BarPosition,
+}
+
+trait TrayItem: Configurable<T = TrayItemConfigureData> + Sized + 'static {
     fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
@@ -366,7 +376,7 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if let Some(node) = data.output.node() {
         data.surface
             .set_output(&node, NodeLocation::Output(node.id));
-        item.send_current_configure();
+        item.clone().send_current_configure();
     }
     Ok(())
 }
@@ -378,6 +388,7 @@ fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
     item.destroy_node();
     item.tray_item_data().surface.unset_ext();
     item.tray_item_data().surface.set_visible(false);
+    item.tray_item_data().destroyed.set(true);
     Ok(())
 }
 

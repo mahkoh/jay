@@ -1,12 +1,13 @@
 use {
     crate::{
+        configurable::{Configurable, ConfigurableData},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_surface::{
                 WlSurface,
                 tray::{
-                    DynTrayItem, FocusHint, Popup, TrayItem, TrayItemData, TrayItemError,
-                    ack_configure, destroy, get_popup, install,
+                    DynTrayItem, FocusHint, Popup, TrayItem, TrayItemConfigureData, TrayItemData,
+                    TrayItemError, ack_configure, destroy, get_popup, install,
                 },
             },
             xdg_positioner::{
@@ -16,7 +17,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         theme::BarPosition,
-        tree::NodeVisitor,
+        tree::{NodeVisitor, TreeSerial},
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
@@ -61,8 +62,8 @@ impl JayTrayItemV1 {
         });
     }
 
-    fn send_preferred_anchor(&self) {
-        let anchor = match self.data.client.state.theme.bar_position.get() {
+    fn send_preferred_anchor(&self, bar_position: BarPosition) {
+        let anchor = match bar_position {
             BarPosition::Bottom => ANCHOR_TOP_RIGHT,
             BarPosition::Top => ANCHOR_BOTTOM_RIGHT,
         };
@@ -72,8 +73,8 @@ impl JayTrayItemV1 {
         });
     }
 
-    fn send_preferred_gravity(&self) {
-        let gravity = match self.data.client.state.theme.bar_position.get() {
+    fn send_preferred_gravity(&self, bar_position: BarPosition) {
+        let gravity = match bar_position {
             BarPosition::Bottom => ANCHOR_TOP_LEFT,
             BarPosition::Top => ANCHOR_BOTTOM_LEFT,
         };
@@ -83,8 +84,7 @@ impl JayTrayItemV1 {
         });
     }
 
-    fn send_configure(&self) {
-        let serial = self.data.client.state.next_tree_serial();
+    fn send_configure(&self, serial: TreeSerial) {
         self.data.sent_serial.set(Some(serial));
         self.data.client.event(Configure {
             self_id: self.id,
@@ -120,14 +120,6 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
 }
 
 impl TrayItem for JayTrayItemV1 {
-    fn send_current_configure(&self) {
-        self.send_preferred_anchor();
-        self.send_preferred_gravity();
-        let size = self.data.client.state.tray_icon_size().max(1);
-        self.send_configure_size(size, size);
-        self.send_configure();
-    }
-
     fn tray_item_data(&self) -> &TrayItemData {
         &self.data
     }
@@ -149,10 +141,41 @@ object_base! {
 impl Object for JayTrayItemV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
+        self.data.destroyed.set(true);
     }
 }
 
 simple_add_obj!(JayTrayItemV1);
+
+impl Configurable for JayTrayItemV1 {
+    type T = TrayItemConfigureData;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.data.configurable
+    }
+
+    fn configure_data(&self) -> Self::T {
+        let state = &self.tray_item_data().client.state;
+        let size = state.tray_icon_size().max(1);
+        let bar_position = state.theme.bar_position.get();
+        TrayItemConfigureData { size, bar_position }
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn destroyed(&self) -> bool {
+        self.data.destroyed.get()
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        self.send_preferred_anchor(data.bar_position);
+        self.send_preferred_gravity(data.bar_position);
+        self.send_configure_size(data.size, data.size);
+        self.send_configure(serial);
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum JayTrayItemV1Error {

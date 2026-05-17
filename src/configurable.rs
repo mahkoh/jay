@@ -26,7 +26,6 @@ pub trait Configurable: 'static {
     fn flush(&self, serial: TreeSerial, data: Self::T);
 }
 
-#[expect(dead_code)]
 pub trait ConfigurableExt: Configurable {
     fn schedule_configure(self: &Rc<Self>);
 }
@@ -91,7 +90,6 @@ where
 }
 
 impl<T> ConfigurableData<T> {
-    #[expect(dead_code)]
     pub fn new(state: &Rc<State>) -> Self {
         Self {
             core: ConfigurableDataCore {
