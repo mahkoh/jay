@@ -756,6 +756,9 @@ pub enum ClientMessage<'a> {
     SetMiddleClickPasteEnabled {
         enabled: bool,
     },
+    SetFlattenTree {
+        enabled: bool,
+    },
     SeatCreateMark {
         seat: Seat,
         kc: Option<u32>,

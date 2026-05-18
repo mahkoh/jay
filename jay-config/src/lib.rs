@@ -520,6 +520,16 @@ pub fn set_middle_click_paste_enabled(enabled: bool) {
     get!().set_middle_click_paste_enabled(enabled);
 }
 
+/// Enables or disables tree flattening.
+///
+/// When enabled, a container with only one child is automatically collapsed
+/// by replacing it with its child, keeping the tree tidy.
+///
+/// The default is `false`.
+pub fn set_flatten_tree(enabled: bool) {
+    get!().set_flatten_tree(enabled);
+}
+
 /// Opens the control center.
 pub fn open_control_center() {
     get!().open_control_center();

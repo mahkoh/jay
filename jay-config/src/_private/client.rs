@@ -1101,6 +1101,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }
 
+    pub fn set_flatten_tree(&self, enabled: bool) {
+        self.send(&ClientMessage::SetFlattenTree { enabled });
+    }
+
     pub fn open_control_center(&self) {
         self.send(&ClientMessage::OpenControlCenter);
     }

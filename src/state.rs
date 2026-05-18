@@ -284,6 +284,7 @@ pub struct State {
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
+    pub flatten_tree: Cell<bool>,
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: ClMatcherManager,
@@ -2094,6 +2095,10 @@ impl State {
             seat.trigger_tree_changed(false);
         }
         self.root.update_visible(self);
+    }
+
+    pub fn set_flatten_tree(&self, v: bool) {
+        self.flatten_tree.set(v);
     }
 
     pub fn reset_sizes(&self) {
