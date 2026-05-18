@@ -128,7 +128,7 @@ impl TrayItem for JayTrayItemV1 {
         self.send_configure();
     }
 
-    fn data(&self) -> &TrayItemData {
+    fn tray_item_data(&self) -> &TrayItemData {
         &self.data
     }
 
