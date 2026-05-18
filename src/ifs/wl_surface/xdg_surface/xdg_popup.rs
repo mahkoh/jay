@@ -3,6 +3,7 @@ pub mod jay_popup_ext_v1;
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::ConfigurableExt,
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
@@ -10,7 +11,8 @@ use {
             wl_surface::{
                 tray::TrayItemId,
                 xdg_surface::{
-                    XdgSurface, XdgSurfaceExt, xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
+                    XdgPopupConfigureData, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
+                    xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
                 },
             },
             xdg_positioner::{
@@ -72,6 +74,7 @@ pub struct XdgPopup {
     set_visible_prepared: Cell<bool>,
     jay_popup_ext: CloneCell<Option<Rc<JayPopupExtV1>>>,
     interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    reposition_token: Cell<Option<u32>>,
 }
 
 impl Debug for XdgPopup {
@@ -102,6 +105,7 @@ impl XdgPopup {
             set_visible_prepared: Cell::new(false),
             jay_popup_ext: Default::default(),
             interactive_moves: Default::default(),
+            reposition_token: Default::default(),
         })
     }
 
@@ -234,7 +238,6 @@ impl XdgPopup {
     fn set_relative_position(&self, rel: Rect) {
         self.relative_position.set(rel);
         self.update_absolute_position();
-        self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         self.xdg.schedule_configure();
     }
 
@@ -293,9 +296,7 @@ impl XdgPopupRequestHandler for XdgPopup {
         }
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_repositioned(req.token);
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
+            self.reposition_token.set(Some(req.token));
             self.xdg.schedule_configure();
         }
         Ok(())
@@ -503,8 +504,6 @@ impl XdgSurfaceExt for XdgPopup {
     fn initial_configure(self: Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);
-            let rel = self.relative_position.get();
-            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
     }
 
@@ -538,6 +537,28 @@ impl XdgSurfaceExt for XdgPopup {
             return NodeLayerLink::Display;
         };
         parent.node_layer()
+    }
+
+    fn configure_data(&self) -> XdgSurfaceConfigureData {
+        XdgSurfaceConfigureData::Popup(XdgPopupConfigureData {
+            repositioned: self.reposition_token.take(),
+            rect: self.relative_position.get(),
+        })
+    }
+
+    fn send_configure(&self, data: XdgSurfaceConfigureData) {
+        let XdgSurfaceConfigureData::Popup(data) = data else {
+            return;
+        };
+        if let Some(t) = data.repositioned {
+            self.send_repositioned(t);
+        }
+        self.send_configure(
+            data.rect.x1(),
+            data.rect.y1(),
+            data.rect.width(),
+            data.rect.height(),
+        );
     }
 }
 

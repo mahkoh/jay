@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::{Configurable, ConfigurableData, ConfigurableExt},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -15,7 +16,7 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        rect::Rect,
+        rect::{Rect, Size},
         renderer::Renderer,
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
@@ -29,7 +30,6 @@ use {
     },
     std::{
         cell::{Cell, RefCell, RefMut},
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -70,6 +70,8 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_size: Cell<ExclusiveSize>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     need_position_update: Cell<bool>,
+    configurable_data: ConfigurableData<Size>,
+    destroyed: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -175,6 +177,8 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_size: Default::default(),
             popups: Default::default(),
             need_position_update: Default::default(),
+            configurable_data: ConfigurableData::new(&surface.client.state),
+            destroyed: Cell::new(false),
         }
     }
 
@@ -309,6 +313,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
         if self.popups.is_not_empty() {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
@@ -393,7 +398,10 @@ impl ZwlrLayerSurfaceV1 {
         }
     }
 
-    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
+    fn pre_commit(
+        self: &Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
         if let Some(size) = pending.size.take() {
             self.size.set(size);
@@ -439,7 +447,7 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn configure(&self) {
+    fn configure(self: &Rc<Self>) {
         let Some(node) = self.output.node() else {
             return;
         };
@@ -472,8 +480,12 @@ impl ZwlrLayerSurfaceV1 {
         }
         height = height.min(available_height).max(1);
         if self.last_configure.replace((width, height)) != (width, height) {
-            let serial = self.client.state.next_tree_serial();
-            self.send_configure(serial, width as _, height as _);
+            let state = &self.client.state;
+            if self.shell.bugs.immediate_configure {
+                self.send_configure(state.next_tree_serial(), width as _, height as _);
+            } else {
+                self.schedule_configure();
+            }
         }
     }
 
@@ -531,12 +543,12 @@ impl ZwlrLayerSurfaceV1 {
         self.need_position_update.set(false);
     }
 
-    pub fn output_resized(&self) {
+    pub fn output_resized(self: &Rc<Self>) {
         self.configure();
         self.compute_position();
     }
 
-    pub fn exclusive_zones_changed(&self) {
+    pub fn exclusive_zones_changed(self: &Rc<Self>) {
         if self.exclusive_zone.get() != ExclusiveZone::MoveSelf {
             return;
         }
@@ -588,7 +600,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        self.deref().pre_commit(pending)?;
+        self.pre_commit(pending)?;
         Ok(())
     }
 
@@ -796,10 +808,36 @@ impl Object for ZwlrLayerSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.link.borrow_mut().take();
+        self.destroyed.set(true);
     }
 }
 
 simple_add_obj!(ZwlrLayerSurfaceV1);
+
+impl Configurable for ZwlrLayerSurfaceV1 {
+    type T = Size;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configurable_data
+    }
+
+    fn configure_data(&self) -> Self::T {
+        let (width, height) = self.last_configure.get();
+        Size::new_saturating(width, height)
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn destroyed(&self) -> bool {
+        self.destroyed.get()
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        self.send_configure(serial, data.width() as _, data.height() as _);
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerSurfaceV1Error {

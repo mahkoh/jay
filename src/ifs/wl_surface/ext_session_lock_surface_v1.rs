@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        configurable::{Configurable, ConfigurableData, ConfigurableExt},
         fixed::Fixed,
         ifs::{
             wl_output::OutputGlobalOpt,
@@ -9,14 +10,14 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        rect::Rect,
+        rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, WorkspaceNode,
+            NodeVisitor, OutputNode, TreeSerial, WorkspaceNode,
         },
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -29,6 +30,9 @@ pub struct ExtSessionLockSurfaceV1 {
     pub output: Rc<OutputGlobalOpt>,
     pub seat_state: NodeSeatState,
     pub version: Version,
+    pub destroyed: Cell<bool>,
+    pub configurable_data: ConfigurableData<Size>,
+    pub desired_size: Cell<Size>,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -43,15 +47,16 @@ impl ExtSessionLockSurfaceV1 {
         Ok(())
     }
 
-    pub fn change_extents(&self, rect: Rect) {
-        self.send_configure(rect.width(), rect.height());
+    pub fn change_extents(self: &Rc<Self>, rect: Rect) {
         self.surface.set_absolute_position(rect.x1(), rect.y1());
+        self.desired_size.set(rect.size2());
+        self.schedule_configure();
     }
 
-    fn send_configure(&self, width: i32, height: i32) {
+    fn send_configure(&self, serial: TreeSerial, width: i32, height: i32) {
         self.client.event(Configure {
             self_id: self.id,
-            serial: self.client.state.next_tree_serial().raw() as _,
+            serial: serial.raw() as _,
             width: width as _,
             height: height as _,
         });
@@ -68,6 +73,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
+        self.destroyed.set(true);
         self.surface.unset_ext();
         self.client.remove_obj(self)?;
         Ok(())
@@ -177,10 +183,35 @@ object_base! {
 impl Object for ExtSessionLockSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
+        self.destroyed.set(true);
     }
 }
 
 simple_add_obj!(ExtSessionLockSurfaceV1);
+
+impl Configurable for ExtSessionLockSurfaceV1 {
+    type T = Size;
+
+    fn data(&self) -> &ConfigurableData<Self::T> {
+        &self.configurable_data
+    }
+
+    fn configure_data(&self) -> Self::T {
+        self.desired_size.get()
+    }
+
+    fn merge(first: &mut Self::T, second: Self::T) {
+        *first = second;
+    }
+
+    fn destroyed(&self) -> bool {
+        self.destroyed.get()
+    }
+
+    fn flush(&self, serial: TreeSerial, data: Self::T) {
+        self.send_configure(serial, data.width(), data.height());
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockSurfaceV1Error {

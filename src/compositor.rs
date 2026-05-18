@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
+        configurable::{handle_configurables_apply, handle_configurables_commit},
         control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
@@ -37,10 +38,7 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
-            wl_surface::{
-                NoneSurfaceExt, xdg_surface::handle_xdg_surface_configure_events,
-                zwp_input_popup_surface_v2::input_popup_positioning,
-            },
+            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -388,7 +386,6 @@ fn start_compositor2(
         head_names: Default::default(),
         show_bar: Cell::new(true),
         enable_primary_selection: Cell::new(true),
-        xdg_surface_configure_events: Default::default(),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
         udmabuf: Default::default(),
@@ -409,6 +406,7 @@ fn start_compositor2(
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
         tree_serials: Default::default(),
+        configure_groups: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -601,11 +599,6 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "position hint requests",
             handle_position_hint_requests(state.clone()),
         ),
-        eng.spawn2(
-            "xdg_surface configure events",
-            Phase::PostLayout,
-            handle_xdg_surface_configure_events(state.clone()),
-        ),
         eng.spawn(
             "lazy event sources",
             handle_lazy_event_sources(state.clone()),
@@ -622,6 +615,16 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "flush toplevel sessions",
             flush_toplevel_sessions(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables commit",
+            Phase::PostLayout,
+            handle_configurables_commit(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables apply",
+            Phase::PostLayout,
+            handle_configurables_apply(state.clone()),
         ),
     ]
 }
