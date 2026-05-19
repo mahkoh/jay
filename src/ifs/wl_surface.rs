@@ -340,6 +340,8 @@ pub struct WlSurface {
     render_intent: Cell<RenderIntent>,
     color_representation_surface: CloneCell<Option<Rc<WpColorRepresentationSurfaceV1>>>,
     alpha_mode: Cell<AlphaMode>,
+    requested_serial: Cell<TreeSerial>,
+    flush_frame_requests: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -697,6 +699,8 @@ impl WlSurface {
             render_intent: Default::default(),
             color_representation_surface: Default::default(),
             alpha_mode: Default::default(),
+            requested_serial: Cell::new(TreeSerial::from_raw(0)),
+            flush_frame_requests: Default::default(),
         }
     }
 
@@ -1012,6 +1016,23 @@ impl WlSurface {
             pending.damage_full,
         )
     }
+
+    fn flush_frame_requests(&self, fr: &mut Vec<FrameRequest>) {
+        if fr.is_empty() {
+            return;
+        }
+        let now_msec = self.client.state.now_msec() as u32;
+        for fr in &mut *fr {
+            fr.now_msec = now_msec;
+        }
+        fr.clear();
+    }
+
+    pub fn set_requested_serial(&self, serial: TreeSerial) {
+        self.requested_serial.set(serial);
+        self.flush_frame_requests.set(true);
+        self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
@@ -1041,7 +1062,7 @@ impl WlSurfaceRequestHandler for WlSurface {
                 .surfaces_by_xwayland_serial
                 .remove(&xwayland_serial);
         }
-        self.frame_requests.borrow_mut().clear();
+        self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
         self.idle_inhibitors.clear();
@@ -1084,7 +1105,7 @@ impl WlSurfaceRequestHandler for WlSurface {
         self.pending
             .borrow_mut()
             .frame_request
-            .push(FrameRequest { now: 0, cb });
+            .push(FrameRequest { now_msec: 0, cb });
         Ok(())
     }
 
@@ -1187,6 +1208,11 @@ impl WlSurface {
             return Ok(());
         }
         let was_visible = self.visible.get();
+        if let Some(serial) = pending.serial
+            && serial >= self.requested_serial.get()
+        {
+            self.flush_frame_requests.set(false);
+        }
         self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
@@ -1382,6 +1408,9 @@ impl WlSurface {
                 damage_full = true;
                 buffer_abs_pos_size_changed = true;
             }
+        }
+        if self.flush_frame_requests.get() {
+            self.flush_frame_requests(&mut pending.frame_request);
         }
         let has_new_frame_requests = pending.frame_request.is_not_empty();
         {
@@ -2220,11 +2249,7 @@ efrom!(WlSurfaceError, CommitTimelineError);
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
         if self.visible.get() {
-            let now = self.client.state.now_msec() as u32;
-            for mut fr in self.frame_requests.borrow_mut().drain(..) {
-                fr.now = now;
-                drop(fr);
-            }
+            self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         }
         if self.clear_fifo_on_vblank.take() {
             self.commit_timeline.clear_fifo_barrier();
@@ -2286,13 +2311,13 @@ impl PresentationListener for WlSurface {
 }
 
 pub struct FrameRequest {
-    now: u32,
+    now_msec: u32,
     cb: Rc<WlCallback>,
 }
 
 impl Drop for FrameRequest {
     fn drop(&mut self) {
-        self.cb.send_done(self.now);
+        self.cb.send_done(self.now_msec);
         let _ = self.cb.client.remove_obj(&*self.cb);
     }
 }

@@ -732,6 +732,10 @@ impl Configurable for XdgSurface {
         self.destroyed.get() || self.ext.is_none()
     }
 
+    fn surface(&self) -> &WlSurface {
+        &self.surface
+    }
+
     fn flush(&self, serial: TreeSerial, data: Self::T) {
         if let Some(ext) = self.ext.get() {
             ext.send_configure(data);

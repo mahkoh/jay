@@ -208,6 +208,10 @@ impl Configurable for ExtSessionLockSurfaceV1 {
         self.destroyed.get()
     }
 
+    fn surface(&self) -> &WlSurface {
+        &self.surface
+    }
+
     fn flush(&self, serial: TreeSerial, data: Self::T) {
         self.send_configure(serial, data.width(), data.height());
     }

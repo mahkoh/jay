@@ -169,6 +169,10 @@ impl Configurable for JayTrayItemV1 {
         self.data.destroyed.get()
     }
 
+    fn surface(&self) -> &WlSurface {
+        &self.data.surface
+    }
+
     fn flush(&self, serial: TreeSerial, data: Self::T) {
         self.send_preferred_anchor(data.bar_position);
         self.send_preferred_gravity(data.bar_position);
