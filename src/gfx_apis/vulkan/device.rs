@@ -51,6 +51,7 @@ use {
             PushDataInfoEXT, Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
         },
     },
+    bstr::ByteSlice,
     isnt::std_1::collections::IsntHashMapExt,
     linearize::{StaticMap, static_map},
     run_on_drop::on_drop,
@@ -428,6 +429,10 @@ impl VulkanInstance {
             max_graphics_priority,
             max_transfer_priority,
         ) = self.find_queues(phy_dev)?;
+        if let Some((qf, _, _)) = transfer_queue_family {
+            let rn = render_node.as_bytes().as_bstr();
+            log::info!("Using queue family {qf} for transfers on {rn}");
+        }
         let mut distinct_transfer_queue_family_idx = None;
         let mut transfer_granularity_mask = (0, 0);
         if let Some((idx, width_mask, height_mask)) = transfer_queue_family {
