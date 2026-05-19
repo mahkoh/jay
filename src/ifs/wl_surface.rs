@@ -1012,6 +1012,17 @@ impl WlSurface {
             pending.damage_full,
         )
     }
+
+    fn flush_frame_requests(&self, fr: &mut Vec<FrameRequest>) {
+        if fr.is_empty() {
+            return;
+        }
+        let now_msec = self.client.state.now_msec() as u32;
+        for fr in &mut *fr {
+            fr.now_msec = now_msec;
+        }
+        fr.clear();
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
@@ -1041,7 +1052,7 @@ impl WlSurfaceRequestHandler for WlSurface {
                 .surfaces_by_xwayland_serial
                 .remove(&xwayland_serial);
         }
-        self.frame_requests.borrow_mut().clear();
+        self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
         self.idle_inhibitors.clear();
@@ -1084,7 +1095,7 @@ impl WlSurfaceRequestHandler for WlSurface {
         self.pending
             .borrow_mut()
             .frame_request
-            .push(FrameRequest { now: 0, cb });
+            .push(FrameRequest { now_msec: 0, cb });
         Ok(())
     }
 
@@ -2220,11 +2231,7 @@ efrom!(WlSurfaceError, CommitTimelineError);
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
         if self.visible.get() {
-            let now = self.client.state.now_msec() as u32;
-            for mut fr in self.frame_requests.borrow_mut().drain(..) {
-                fr.now = now;
-                drop(fr);
-            }
+            self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         }
         if self.clear_fifo_on_vblank.take() {
             self.commit_timeline.clear_fifo_barrier();
@@ -2286,13 +2293,13 @@ impl PresentationListener for WlSurface {
 }
 
 pub struct FrameRequest {
-    now: u32,
+    now_msec: u32,
     cb: Rc<WlCallback>,
 }
 
 impl Drop for FrameRequest {
     fn drop(&mut self) {
-        self.cb.send_done(self.now);
+        self.cb.send_done(self.now_msec);
         let _ = self.cb.client.remove_obj(&*self.cb);
     }
 }
