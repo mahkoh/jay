@@ -18,6 +18,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let window = client.create_window().await?;
     window.map().await?;
     client.sync().await;
+    window.map().await?;
 
     // Test 1: Basic frame callback functionality
     let surface = &window.surface.surface;

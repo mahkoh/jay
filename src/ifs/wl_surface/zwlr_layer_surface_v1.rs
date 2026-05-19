@@ -482,7 +482,9 @@ impl ZwlrLayerSurfaceV1 {
         if self.last_configure.replace((width, height)) != (width, height) {
             let state = &self.client.state;
             if self.shell.bugs.immediate_configure {
-                self.send_configure(state.next_tree_serial(), width as _, height as _);
+                let serial = state.next_tree_serial();
+                self.send_configure(serial, width as _, height as _);
+                self.surface.set_requested_serial(serial);
             } else {
                 self.schedule_configure();
             }
@@ -832,6 +834,10 @@ impl Configurable for ZwlrLayerSurfaceV1 {
 
     fn destroyed(&self) -> bool {
         self.destroyed.get()
+    }
+
+    fn surface(&self) -> &WlSurface {
+        &self.surface
     }
 
     fn flush(&self, serial: TreeSerial, data: Self::T) {

@@ -1,5 +1,6 @@
 use {
     crate::{
+        ifs::wl_surface::WlSurface,
         state::State,
         tree::TreeSerial,
         utils::{
@@ -23,6 +24,7 @@ pub trait Configurable: 'static {
     fn configure_data(&self) -> Self::T;
     fn merge(first: &mut Self::T, second: Self::T);
     fn destroyed(&self) -> bool;
+    fn surface(&self) -> &WlSurface;
     fn flush(&self, serial: TreeSerial, data: Self::T);
 }
 
@@ -177,6 +179,7 @@ where
         d.core.ready();
         if !self.destroyed() {
             self.flush(serial, data);
+            self.surface().set_requested_serial(serial);
         }
     }
 }
