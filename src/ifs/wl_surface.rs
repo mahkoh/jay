@@ -2337,11 +2337,12 @@ impl SyncobjRelease {
         let Some(syncobj) = self.syncobj.take() else {
             return;
         };
-        let Some(ctx) = self.state.render_ctx.get() else {
-            log::error!("Cannot signal release point because there is no render context");
-            return;
-        };
-        let Some(ctx) = ctx.syncobj_ctx() else {
+        let Some(ctx) = self
+            .state
+            .dev_syncobj_ctx
+            .clone()
+            .or_else(|| self.state.render_ctx.get()?.syncobj_ctx().cloned())
+        else {
             log::error!("Cannot signal release point because there is no syncobj context");
             return;
         };

@@ -832,6 +832,7 @@ impl EgvRenderer {
                     .inspect_err(|e| log::warn!("Could not create a syncobj ctx: {}", ErrorFmt(e)))
                     .ok()
             })
+            .or_else(SyncobjCtx::dev)
             .map(Rc::new);
         destroy_pipeline.forget();
         destroy_pool.forget();

@@ -2,6 +2,7 @@ use {
     crate::{
         gfx_api::SyncFile,
         io_uring::IoUringError,
+        syncobj::syncobj_dev::SyncobjDev,
         utils::oserror::OsError,
         video::drm::{
             DrmError,
@@ -13,6 +14,7 @@ use {
     uapi::{OwnedFd, c},
 };
 
+mod syncobj_dev;
 pub mod wait_for_syncobj;
 
 #[derive(Debug, Error)]
@@ -37,6 +39,8 @@ pub enum SyncobjError {
     EventFd(#[source] OsError),
     #[error("Could not read from an eventfd")]
     ReadEventFd(#[source] IoUringError),
+    #[error("Could not wait for syncobj point")]
+    WaitForPoint(#[source] OsError),
 }
 
 pub struct SyncobjCtx {
@@ -44,17 +48,30 @@ pub struct SyncobjCtx {
 }
 
 enum SyncobjBackend {
+    Dev(SyncobjDev),
     Drm(DrmSyncobjCtx),
 }
 
 impl SyncobjCtx {
+    pub fn dev() -> Option<Self> {
+        Some(Self {
+            backend: SyncobjBackend::Dev(SyncobjDev::get()?),
+        })
+    }
+
     pub fn new(drm: &Rc<OwnedFd>) -> Self {
+        if let Some(dev) = Self::dev() {
+            return dev;
+        }
         Self {
             backend: SyncobjBackend::Drm(DrmSyncobjCtx::new(drm)),
         }
     }
 
     pub fn from_dev_t(dev: c::dev_t) -> Result<Self, SyncobjError> {
+        if let Some(dev) = Self::dev() {
+            return Ok(dev);
+        }
         Ok(Self {
             backend: SyncobjBackend::Drm(DrmSyncobjCtx::from_dev_t(dev)?),
         })
@@ -64,12 +81,14 @@ impl SyncobjCtx {
     pub fn create_syncobj(&self) -> Result<Syncobj, SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.create_syncobj(),
+            SyncobjBackend::Dev(b) => b.create(),
         }
     }
 
     pub fn create_signaled_sync_file(&self) -> Result<SyncFile, SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.create_signaled_sync_file(),
+            SyncobjBackend::Dev(b) => b.create_signaled_sync_file(),
         }
     }
 
@@ -82,18 +101,21 @@ impl SyncobjCtx {
     ) -> Result<(), SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.wait_for_point(eventfd, syncobj, point, signaled),
+            SyncobjBackend::Dev(b) => b.wait_for_point(eventfd, syncobj, point, signaled),
         }
     }
 
     pub fn supports_async_wait(&self) -> bool {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.supports_async_wait(),
+            SyncobjBackend::Dev(_) => true,
         }
     }
 
     pub fn signal(&self, syncobj: &Syncobj, point: SyncobjPoint) -> Result<(), SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.signal(syncobj, point),
+            SyncobjBackend::Dev(b) => b.signal(syncobj, point),
         }
     }
 
@@ -111,6 +133,7 @@ impl SyncobjCtx {
         };
         match &self.backend {
             SyncobjBackend::Drm(b) => b.import_sync_file(syncobj, point, &fd),
+            SyncobjBackend::Dev(b) => b.import_sync_file(syncobj, point, &fd),
         }
     }
 
@@ -121,12 +144,14 @@ impl SyncobjCtx {
     ) -> Result<SyncFile, SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.export_sync_file_blocking(syncobj, point),
+            SyncobjBackend::Dev(b) => b.export_sync_file_blocking(syncobj, point),
         }
     }
 
     pub fn query_last_signaled(&self, syncobj: &Syncobj) -> Result<u64, SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.query_last_signaled(syncobj),
+            SyncobjBackend::Dev(b) => b.query_last_signaled(syncobj),
         }
     }
 }

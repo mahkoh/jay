@@ -54,7 +54,7 @@ use {
         sm::{SessionManager, flush_toplevel_sessions},
         sqlite::{Sqlite, handle_sqlite_optimize},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
-        syncobj::wait_for_syncobj::WaitForSyncobj,
+        syncobj::{SyncobjCtx, wait_for_syncobj::WaitForSyncobj},
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
         tree::{
@@ -230,6 +230,7 @@ fn start_compositor2(
         })
         .ok();
     let sm = sqlite.as_ref().map(SessionManager::new).map(Rc::new);
+    let wait_for_syncobj = Rc::new(WaitForSyncobj::new(&ring, &engine));
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -238,6 +239,7 @@ fn start_compositor2(
         default_keymap: kb_keymap,
         eng: engine.clone(),
         render_ctx: Default::default(),
+        dev_syncobj_ctx: SyncobjCtx::dev().map(Rc::new),
         drm_feedback: Default::default(),
         drm_feedback_consumers: Default::default(),
         render_ctx_version: NumCell::new(1),
@@ -338,9 +340,9 @@ fn start_compositor2(
         double_click_distance: Cell::new(5),
         create_default_seat: Cell::new(true),
         subsurface_ids: Default::default(),
-        wait_for_syncobj: Rc::new(WaitForSyncobj::new(&ring, &engine)),
+        explicit_sync_supported: Cell::new(wait_for_syncobj.supported()),
+        wait_for_syncobj,
         explicit_sync_enabled: Cell::new(true),
-        explicit_sync_supported: Default::default(),
         keyboard_state_ids: Default::default(),
         physical_keyboard_ids: Default::default(),
         security_context_acceptors: Default::default(),

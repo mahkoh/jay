@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::IoUring,
-        syncobj::{SyncobjCtx, SyncobjError},
+        syncobj::{SyncobjBackend, SyncobjCtx, SyncobjError},
         utils::{
             asyncevent::AsyncEvent, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsErrorExt2, stack::Stack,
@@ -75,7 +75,7 @@ impl WaitForSyncobj {
     pub fn new(ring: &Rc<IoUring>, eng: &Rc<AsyncEngine>) -> Self {
         Self {
             inner: Rc::new(Inner {
-                ctx: Default::default(),
+                ctx: CloneCell::new(SyncobjCtx::dev().map(Rc::new)),
                 next_id: Default::default(),
                 ring: ring.clone(),
                 busy: Default::default(),
@@ -91,7 +91,19 @@ impl WaitForSyncobj {
         self.inner.idle.take();
     }
 
+    pub fn supported(&self) -> bool {
+        if let Some(ctx) = self.inner.ctx.get() {
+            return ctx.supports_async_wait();
+        }
+        false
+    }
+
     pub fn set_ctx(&self, ctx: Option<Rc<SyncobjCtx>>) {
+        if let Some(old) = self.inner.ctx.get()
+            && let SyncobjBackend::Dev(_) = old.backend
+        {
+            return;
+        }
         self.inner.ctx.set(ctx);
         let busy_waiters: Vec<_> = self.inner.busy.lock().drain_values().collect();
         for waiter in busy_waiters {
