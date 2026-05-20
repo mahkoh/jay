@@ -250,17 +250,18 @@ impl DrmSyncobjCtx {
                 fd.raw(),
                 DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE | flags,
                 handle.0,
-                point.0,
+                0,
+                // point.0,
             )
             .map(drop)
             .map_err(SyncobjError::ImportSyncFile)
         };
-        if self.supports_timeline_import() {
-            return import(
-                DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
-                self.get_handle(syncobj)?,
-            );
-        }
+        // if self.supports_timeline_import() {
+        //     return import(
+        //         DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_TIMELINE,
+        //         self.get_handle(syncobj)?,
+        //     );
+        // }
         let dummy = self.get_dummy()?;
         import(0, self.get_handle(&dummy)?)?;
         self.transfer(&dummy, SyncobjPoint(0), syncobj, point, 0)
