@@ -29,6 +29,13 @@ static COMM_BUGS: LazyLock<AHashMap<&'static str, Bugs>> = LazyLock::new(|| {
             ..Default::default()
         },
     );
+    map.insert(
+        "wmenu-run",
+        Bugs {
+            immediate_configure: true,
+            ..Default::default()
+        },
+    );
     map
 });
 
