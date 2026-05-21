@@ -27,8 +27,8 @@ use {
     ash::{
         Device,
         ext::{
-            external_memory_dma_buf, image_drm_format_modifier, physical_device_drm,
-            queue_family_foreign,
+            external_memory_dma_buf, external_semaphore_drm_syncobj, image_drm_format_modifier,
+            physical_device_drm, queue_family_foreign,
         },
         khr::{external_fence_fd, external_memory_fd, external_semaphore_fd, push_descriptor},
         util::read_spv,
@@ -59,6 +59,7 @@ use {
             MemoryRequirements, MemoryRequirements2, Offset2D, Offset3D,
             PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
             PhysicalDeviceExternalFenceInfo, PhysicalDeviceExternalImageFormatInfoKHR,
+            PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT,
             PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
             PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
@@ -242,6 +243,7 @@ struct EgvRendererInner {
     sync_ctx: Option<Rc<SyncobjCtx>>,
     eventfd_cache: Rc<EventfdCache>,
     supports_timeline_opaque_export: bool,
+    supports_syncobj_export: bool,
     device: Device,
     queue: Queue,
     queue_family: u32,
@@ -619,6 +621,8 @@ impl EgvRenderer {
         };
         let supports_timeline_opaque_export =
             core_instance.supports_timeline_opaque_export(physical_device, &features);
+        let supports_syncobj_export =
+            core_instance.supports_syncobj_export(physical_device, &features, &device_extensions);
         let format_properties =
             unsafe { instance.get_physical_device_format_properties(physical_device, SRGB_FORMAT) };
         let required_features = FormatFeatureFlags::SAMPLED_IMAGE
@@ -655,18 +659,25 @@ impl EgvRenderer {
             let queue_create_info = DeviceQueueCreateInfo::default()
                 .queue_family_index(queue_family)
                 .queue_priorities(&[1.0]);
-            let extensions = DEVICE_EXTENSIONS.map(|e| e.as_ptr());
+            let mut extensions = DEVICE_EXTENSIONS.map(|e| e.as_ptr()).to_vec();
+            if supports_syncobj_export {
+                extensions.push(external_semaphore_drm_syncobj::NAME.as_ptr());
+            }
             let mut dynamic_rendering_features =
                 PhysicalDeviceDynamicRenderingFeatures::default().dynamic_rendering(true);
             let mut synchronization2_features =
                 PhysicalDeviceSynchronization2Features::default().synchronization2(true);
             let mut timeline_semaphore_features =
                 PhysicalDeviceTimelineSemaphoreFeatures::default()
-                    .timeline_semaphore(supports_timeline_opaque_export);
+                    .timeline_semaphore(supports_timeline_opaque_export || supports_syncobj_export);
+            let mut syncobj_features =
+                PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT::default()
+                    .external_semaphore_drm_syncobj(supports_syncobj_export);
             let info = DeviceCreateInfo::default()
                 .queue_create_infos(slice::from_ref(&queue_create_info))
                 .enabled_extension_names(&extensions)
                 .push_next(&mut synchronization2_features)
+                .push_next(&mut syncobj_features)
                 .push_next(&mut dynamic_rendering_features)
                 .push_next(&mut timeline_semaphore_features);
             unsafe {
@@ -845,6 +856,7 @@ impl EgvRenderer {
             sync_ctx,
             eventfd_cache: eventfd_cache.clone(),
             supports_timeline_opaque_export,
+            supports_syncobj_export,
             device,
             queue,
             queue_family,
@@ -2052,6 +2064,10 @@ impl VulkanDeviceInf for EgvRendererInner {
 
     fn supports_timeline_opaque_export(&self) -> bool {
         self.supports_timeline_opaque_export
+    }
+
+    fn supports_syncobj_export(&self) -> bool {
+        self.supports_syncobj_export
     }
 
     fn sync_ctx(&self) -> Option<&Rc<SyncobjCtx>> {

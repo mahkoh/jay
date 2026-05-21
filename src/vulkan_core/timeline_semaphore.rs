@@ -54,32 +54,49 @@ where
     fn create_timeline_semaphore(
         self: &Rc<Self>,
     ) -> Result<Rc<VulkanTimelineSemaphore<Self>>, VulkanCoreError> {
-        if !self.supports_timeline_opaque_export() {
-            return Err(VulkanCoreError::TimelineExportNotSupported);
-        }
         let Some(sync_ctx) = self.sync_ctx() else {
             return Err(VulkanCoreError::NoSyncobjCtx);
         };
-        let sem = {
-            let mut export_info = ExportSemaphoreCreateInfo::default()
-                .handle_types(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD);
-            let mut type_info =
-                SemaphoreTypeCreateInfo::default().semaphore_type(SemaphoreType::TIMELINE);
-            let info = SemaphoreCreateInfo::default()
-                .push_next(&mut export_info)
-                .push_next(&mut type_info);
-            let sem = unsafe { self.device().create_semaphore(&info, None) };
-            sem.map_err(VulkanCoreError::CreateSemaphore)?
+        let create = |ty: ExternalSemaphoreHandleTypeFlags| {
+            let sem = {
+                let mut export_info = ExportSemaphoreCreateInfo::default().handle_types(ty);
+                let mut type_info =
+                    SemaphoreTypeCreateInfo::default().semaphore_type(SemaphoreType::TIMELINE);
+                let info = SemaphoreCreateInfo::default()
+                    .push_next(&mut export_info)
+                    .push_next(&mut type_info);
+                let sem = unsafe { self.device().create_semaphore(&info, None) };
+                sem.map_err(VulkanCoreError::CreateSemaphore)?
+            };
+            let destroy_sem =
+                on_drop(move || unsafe { self.device().destroy_semaphore(sem, None) });
+            let syncobj = {
+                let info = SemaphoreGetFdInfoKHR::default()
+                    .semaphore(sem)
+                    .handle_type(ty);
+                let res = unsafe { self.external_semaphore_fd().get_semaphore_fd(&info) };
+                let fd = res.map_err(VulkanCoreError::ExportTimelineSemaphore)?;
+                Syncobj::new(&Rc::new(OwnedFd::new(fd)))
+            };
+            Ok((sem, destroy_sem, syncobj))
         };
-        let destroy_sem = on_drop(|| unsafe { self.device().destroy_semaphore(sem, None) });
-        let syncobj = {
-            let info = SemaphoreGetFdInfoKHR::default()
-                .semaphore(sem)
-                .handle_type(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD);
-            let res = unsafe { self.external_semaphore_fd().get_semaphore_fd(&info) };
-            let fd = res.map_err(VulkanCoreError::ExportTimelineSemaphore)?;
-            Syncobj::new(&Rc::new(OwnedFd::new(fd)))
-        };
+        let next_point = NumCell::new(1);
+        if self.supports_syncobj_export() {
+            let (sem, destroy_sem, sync_obj) =
+                create(ExternalSemaphoreHandleTypeFlags::DRM_SYNCOBJ_EXT)?;
+            destroy_sem.forget();
+            return Ok(Rc::new(VulkanTimelineSemaphore {
+                device: self.clone(),
+                semaphore: sem,
+                sync_ctx: sync_ctx.clone(),
+                syncobj: Rc::new(sync_obj),
+                next_point,
+            }));
+        }
+        if !self.supports_timeline_opaque_export() {
+            return Err(VulkanCoreError::TimelineExportNotSupported);
+        }
+        let (sem, destroy_sem, syncobj) = create(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD)?;
         let signal = |p| {
             let info = SemaphoreSignalInfo::default().semaphore(sem).value(p);
             unsafe {
@@ -88,7 +105,6 @@ where
                     .map_err(VulkanCoreError::SignalSemaphore)
             }
         };
-        let next_point = NumCell::new(1);
         for _ in 0..2 {
             let n = next_point.fetch_add(1);
             signal(n)?;
