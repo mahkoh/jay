@@ -1067,6 +1067,13 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         Some(pn) => pn,
         _ => return,
     };
+    if let Some(container) = pn.clone().node_into_container()
+        && container.num_children() == 1
+        && state.flatten_tree.get()
+    {
+        container.set_split(axis);
+        return;
+    }
     if let Some(pn) = pn.node_into_containing_node() {
         let cn = ContainerNode::new(state, &ws, tl.clone(), axis);
         pn.cnode_replace_child(&*tl, cn);

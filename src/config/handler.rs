@@ -2595,6 +2595,10 @@ impl ConfigProxyHandler {
         self.state.set_primary_selection_enabled(enabled);
     }
 
+    fn handle_set_flatten_tree(&self, enabled: bool) {
+        self.state.set_flatten_tree(enabled);
+    }
+
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         if let Some(kc) = kc {
@@ -3625,6 +3629,7 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled)
             }
+            ClientMessage::SetFlattenTree { enabled } => self.handle_set_flatten_tree(enabled),
             ClientMessage::SetWorkspaceDisplayOrder { order } => {
                 self.handle_set_workspace_display_order(order)
             }
