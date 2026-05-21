@@ -1086,13 +1086,19 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
         _ => return,
     };
     if !floating {
+        let Some(ws) = data.workspace.get() else {
+            return;
+        };
+        state.map_tiled_on(tl.clone(), &ws);
         parent.cnode_remove_child2(&*tl, true);
-        state.map_tiled(tl);
-    } else if let Some(ws) = data.workspace.get() {
-        parent.cnode_remove_child2(&*tl, true);
-        let (width, height) = data.float_size(&ws);
-        state.map_floating(tl, width, height, &ws, None);
+        return;
     }
+    let Some(ws) = data.workspace.get() else {
+        return;
+    };
+    let (width, height) = data.float_size(&ws);
+    state.map_floating(tl.clone(), width, height, &ws, None);
+    parent.cnode_remove_child2(&*tl, true);
 }
 
 pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {

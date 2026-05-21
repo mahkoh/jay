@@ -9,7 +9,7 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
-        tree::{TileState, ToplevelData, ToplevelIdentifier},
+        tree::{TileState, ToplevelData, ToplevelIdentifier, WorkspaceEmptyBehavior},
         utils::{
             clonecell::CloneCell,
             nice::{JAY_NO_REALTIME, dont_allow_unprivileged_config_so},
@@ -195,6 +195,10 @@ impl ConfigProxy {
 
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
         self.handler.get()?.initial_tile_state(data)
+    }
+
+    pub fn workspace_empty_behavior(&self, name: &str) -> Option<WorkspaceEmptyBehavior> {
+        self.handler.get()?.workspace_empty_behavior(name)
     }
 
     pub fn update_capabilities(

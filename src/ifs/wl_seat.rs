@@ -564,11 +564,7 @@ impl WlSeatGlobal {
         self.get_cursor_workspace()
     }
 
-    pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        let tl = match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => tl,
-            _ => return,
-        };
+    pub fn set_workspace(self: &Rc<Self>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
         toplevel_set_workspace(&self.state, tl, ws);
         self.maybe_schedule_warp_mouse_to_focus();
     }

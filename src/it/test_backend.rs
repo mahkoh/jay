@@ -106,18 +106,11 @@ impl TestBackend {
             eotf: Default::default(),
             gamma_lut: Default::default(),
         };
-        let default_connector = Rc::new(TestConnector {
-            id: state.connector_ids.next(),
-            kernel_id: ConnectorKernelId {
-                ty: ConnectorType::VGA,
-                idx: 1,
-            },
-            events: Default::default(),
-            feedback: Default::default(),
-            idle: Default::default(),
-            damage_calls: NumCell::new(0),
-            state: RefCell::new(bcs.clone()),
-        });
+        let default_connector = Rc::new(TestConnector::new(
+            state.connector_ids.next(),
+            1,
+            bcs.clone(),
+        ));
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
                 id: state.input_device_ids.next(),
@@ -332,6 +325,23 @@ pub struct TestConnector {
     pub idle: TEEH<bool>,
     pub damage_calls: NumCell<u32>,
     pub state: RefCell<BackendConnectorState>,
+}
+
+impl TestConnector {
+    pub fn new(id: ConnectorId, idx: u32, state: BackendConnectorState) -> Self {
+        Self {
+            id,
+            kernel_id: ConnectorKernelId {
+                ty: ConnectorType::VGA,
+                idx,
+            },
+            events: Default::default(),
+            feedback: Default::default(),
+            idle: Default::default(),
+            damage_calls: NumCell::new(0),
+            state: RefCell::new(state),
+        }
+    }
 }
 
 impl Connector for TestConnector {
