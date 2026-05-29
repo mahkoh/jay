@@ -366,7 +366,7 @@ impl WlOutput {
         }
         let xdg = self.xdg_outputs.lock();
         for xdg in xdg.values() {
-            xdg.send_updates();
+            xdg.send_updates(false);
         }
     }
 
