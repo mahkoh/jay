@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::{ConnectorData, State},
-        tree::{OutputNode, TearingMode, Transform, VrrMode},
+        tree::{Node, OutputNode, TearingMode, Transform, VrrMode},
         utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
@@ -316,6 +316,13 @@ impl WlOutputGlobal {
         for group in client.objects.ext_workspace_groups.lock().values() {
             if rc_eq(&group.output, &self.opt) {
                 group.handle_new_output(&obj);
+            }
+        }
+        if let Some(node) = self.opt.node() {
+            for surface in client.objects.surfaces.lock().values() {
+                if surface.node_output_id() == Some(node.id) {
+                    surface.send_enter(obj.id);
+                }
             }
         }
         Ok(())
