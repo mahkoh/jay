@@ -274,7 +274,6 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
-        global.clear();
         for jo in on.jay_outputs.lock().drain_values() {
             jo.send_destroyed();
         }
