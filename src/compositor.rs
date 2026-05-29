@@ -14,7 +14,9 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
-        configurable::{handle_configurables_apply, handle_configurables_commit},
+        configurable::{
+            handle_configurables_apply, handle_configurables_commit, handle_configurables_timeout,
+        },
         control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
@@ -625,6 +627,11 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "configurables apply",
             Phase::PostLayout,
             handle_configurables_apply(state.clone()),
+        ),
+        eng.spawn2(
+            "configurables timeout",
+            Phase::PostLayout,
+            handle_configurables_timeout(state.clone()),
         ),
     ]
 }

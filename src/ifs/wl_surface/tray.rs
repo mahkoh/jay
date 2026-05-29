@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError, ClientId},
-        configurable::{Configurable, ConfigurableData, ConfigurableExt},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -137,6 +137,7 @@ impl<T: TrayItem> DynTrayItem for T {
         data.surface.set_visible(visible);
         if !visible {
             self.destroy_popups();
+            data.configurable.ready();
         }
     }
 }
@@ -257,9 +258,10 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn before_apply_commit(
         self: Rc<Self>,
-        pending: &mut PendingState,
+        _pending: &mut PendingState,
+        serial: Option<TreeSerial>,
     ) -> Result<(), WlSurfaceError> {
-        if let Some(serial) = pending.serial.take() {
+        if let Some(serial) = serial {
             self.tray_item_data().applied_serial.set(Some(serial));
         }
         Ok(())
@@ -298,6 +300,10 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
         Some(self.tray_item_data().tray_item_id)
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(self.tray_item_data().configurable.core())
     }
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -389,6 +395,7 @@ fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
     item.tray_item_data().surface.unset_ext();
     item.tray_item_data().surface.set_visible(false);
     item.tray_item_data().destroyed.set(true);
+    item.tray_item_data().configurable.ready();
     Ok(())
 }
 

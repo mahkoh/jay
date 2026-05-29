@@ -4,7 +4,7 @@ pub mod xdg_toplevel;
 use {
     crate::{
         client::ClientError,
-        configurable::{Configurable, ConfigurableData, ConfigurableExt},
+        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
         ifs::{
             wl_surface::{
                 CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
@@ -361,6 +361,7 @@ impl XdgSurface {
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();
         }
+        self.configure_data.ready();
     }
 
     fn detach_node(&self) {
@@ -425,6 +426,7 @@ impl XdgSurface {
 
     fn unset_ext(&self) {
         self.ext.set(None);
+        self.configure_data.ready();
         self.surface.set_dummy_output();
     }
 }
@@ -434,6 +436,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
+        self.configure_data.ready();
         if self.ext.is_some() {
             return Err(XdgSurfaceError::RoleNotYetDestroyed(self.id));
         }
@@ -597,6 +600,9 @@ impl XdgSurface {
         for popup in self.popups.lock().values() {
             popup.popup.set_visible(visible);
         }
+        if !visible {
+            self.configure_data.ready();
+        }
     }
 
     fn restack_popups(&self) {
@@ -621,6 +627,8 @@ object_base! {
 
 impl Object for XdgSurface {
     fn break_loops(self: Rc<Self>) {
+        self.destroyed.set(true);
+        self.configure_data.ready();
         self.ext.take();
         self.popups.clear();
         self.workspace.set(None);
@@ -648,8 +656,8 @@ impl SurfaceExt for XdgSurface {
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
+        _serial: Option<TreeSerial>,
     ) -> Result<(), WlSurfaceError> {
-        pending.serial = None;
         if let Some(pending) = &mut pending.xdg_surface {
             if let Some(geometry) = pending.geometry.take() {
                 let prev = self.geometry.replace(Some(geometry));
@@ -699,6 +707,10 @@ impl SurfaceExt for XdgSurface {
         self.ext.get()?.tray_item()
     }
 
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
+        Some(self.configure_data.core())
+    }
+
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.workspace.get()
     }
@@ -726,6 +738,10 @@ impl Configurable for XdgSurface {
             new.repositioned = old.repositioned;
         }
         *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.surface.visible.get()
     }
 
     fn destroyed(&self) -> bool {

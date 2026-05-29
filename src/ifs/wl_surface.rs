@@ -27,6 +27,7 @@ use {
         backend::{ButtonState, KeyState},
         client::{Client, ClientError},
         cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
+        configurable::ConfigurableDataCore,
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         drm_feedback::DrmFeedback,
@@ -375,8 +376,10 @@ trait SurfaceExt {
     fn before_apply_commit(
         self: Rc<Self>,
         pending: &mut PendingState,
+        serial: Option<TreeSerial>,
     ) -> Result<(), WlSurfaceError> {
         let _ = pending;
+        let _ = serial;
         Ok(())
     }
 
@@ -432,6 +435,10 @@ trait SurfaceExt {
     }
 
     fn tray_item(self: Rc<Self>) -> Option<TrayItemId> {
+        None
+    }
+
+    fn configurable_data(&self) -> Option<&ConfigurableDataCore> {
         None
     }
 
@@ -1152,6 +1159,12 @@ impl WlSurfaceRequestHandler for WlSurface {
         if pending.sync_file_release.is_some() && not_matches!(pending.buffer, Some(Some(_))) {
             return Err(WlSurfaceError::SyncFileReleaseWithoutAttach);
         }
+        if let Some(serial) = pending.serial
+            && serial >= self.requested_serial.get()
+            && let Some(cd) = ext.configurable_data()
+        {
+            cd.ready();
+        }
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
             self.commit_timeline.commit(slf, pending)?;
         }
@@ -1208,12 +1221,13 @@ impl WlSurface {
             return Ok(());
         }
         let was_visible = self.visible.get();
-        if let Some(serial) = pending.serial
+        let serial = pending.serial.take();
+        if let Some(serial) = serial
             && serial >= self.requested_serial.get()
         {
             self.flush_frame_requests.set(false);
         }
-        self.ext.get().before_apply_commit(pending)?;
+        self.ext.get().before_apply_commit(pending, serial)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
             scale_changed = true;

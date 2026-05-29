@@ -142,6 +142,7 @@ impl Object for JayTrayItemV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.data.destroyed.set(true);
+        self.data.configurable.ready();
     }
 }
 
@@ -163,6 +164,10 @@ impl Configurable for JayTrayItemV1 {
 
     fn merge(first: &mut Self::T, second: Self::T) {
         *first = second;
+    }
+
+    fn visible(&self) -> bool {
+        self.data.visible.get()
     }
 
     fn destroyed(&self) -> bool {
