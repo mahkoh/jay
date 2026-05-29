@@ -435,6 +435,7 @@ struct drm_set_client_cap {
 const DRM_IOCTL_SET_CLIENT_CAP: u64 = drm_iow::<drm_set_client_cap>(0x0d);
 
 pub const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
+pub const DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE: u64 = 7;
 
 pub fn set_client_cap(fd: c::c_int, capability: u64, value: u64) -> Result<(), OsError> {
     let mut cap = drm_set_client_cap { capability, value };
