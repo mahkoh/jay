@@ -51,9 +51,9 @@ use {
 pub use {
     consts::*,
     sys::{
-        DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
-        DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT, drm_mode_modeinfo,
-        get_drm_nodes_from_dev,
+        DRM_CLIENT_CAP_ATOMIC, DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DRM_MODE_ATOMIC_ALLOW_MODESET,
+        DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
+        drm_mode_modeinfo, get_drm_nodes_from_dev,
     },
 };
 

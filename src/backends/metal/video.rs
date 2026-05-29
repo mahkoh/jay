@@ -43,10 +43,11 @@ use {
             INVALID_MODIFIER, Modifier,
             dmabuf::DmaBufId,
             drm::{
-                ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC, DrmBlob, DrmCardResources,
-                DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster,
-                DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
-                DrmPropertyType, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
+                ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC,
+                DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DrmBlob, DrmCardResources, DrmConnector,
+                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
+                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
+                DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
                 hdr_output_metadata,
             },
             gbm::GbmDevice,
@@ -1633,6 +1634,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
             ("alpha", DefaultValue::RangeMax),
             ("pixel blend mode", DefaultValue::Enum("Pre-multiplied")),
             ("rotation", DefaultValue::Bitmask(&["rotate-0"])),
+            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass")),
         ],
     );
     let fb_id = props.get("FB_ID")?.map(|v| DrmFb(v as _));
@@ -1985,6 +1987,9 @@ impl MetalBackend {
         if supports_kms {
             if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
                 return Err(MetalError::AtomicModesetting(e));
+            }
+            if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, 1) {
+                log::warn!("Could not enable color pipelines: {}", ErrorFmt(e));
             }
             resources = master.get_resources()?;
             (cursor_width, cursor_height) = master.get_cursor_size().unwrap_or_else(|e| {
