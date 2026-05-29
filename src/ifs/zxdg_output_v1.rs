@@ -59,7 +59,7 @@ impl ZxdgOutputV1 {
         });
     }
 
-    pub fn send_updates(&self) {
+    pub fn send_updates(&self, initial: bool) {
         let Some(node) = self.output.global.node() else {
             return;
         };
@@ -67,11 +67,13 @@ impl ZxdgOutputV1 {
         let pos = node.node_state.pos.get();
         self.send_logical_position(pos.x1(), pos.y1());
         self.send_logical_size(pos.width(), pos.height());
-        if self.version >= NAME_SINCE {
-            self.send_name(&global.connector.name);
-        }
-        if self.version >= DESCRIPTION_SINCE {
-            self.send_description(&global.connector.description.borrow());
+        if initial {
+            if self.version >= NAME_SINCE {
+                self.send_name(&global.connector.name);
+            }
+            if self.version >= DESCRIPTION_SINCE {
+                self.send_description(&global.connector.description.borrow());
+            }
         }
         if self.version >= NO_DONE_SINCE {
             if self.output.version >= SEND_DONE_SINCE {
