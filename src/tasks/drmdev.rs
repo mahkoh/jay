@@ -32,6 +32,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
             .ok()
     });
     let data = Rc::new(DrmDevData {
+        id,
         dev: dev.clone(),
         handler: Cell::new(None),
         connectors: Default::default(),

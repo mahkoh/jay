@@ -809,42 +809,7 @@ impl CopyDevice {
         if buf.planes.len() != format.planes {
             return Err(CopyDeviceError::WrongNumberOfPlanes);
         }
-        let mut fd_props = PlaneVec::new();
-        for plane in &buf.planes {
-            let mut props = MemoryFdPropertiesKHR::default();
-            unsafe {
-                self.dev
-                    .external_memory_fd
-                    .get_memory_fd_properties(
-                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                        plane.fd.raw(),
-                        &mut props,
-                    )
-                    .map_err(CopyDeviceError::GetMemoryFdProperties)?;
-            }
-            fd_props.push(props);
-            if buf.is_one_file() {
-                break;
-            }
-        }
-        let mut on_device = true;
-        for prop in &fd_props {
-            let mut plane_on_device = false;
-            for (idx, ty) in self.dev.phy.memory_types.iter().enumerate() {
-                if prop.memory_type_bits & (1 << idx) != 0
-                    && ty
-                        .property_flags
-                        .contains(MemoryPropertyFlags::DEVICE_LOCAL)
-                {
-                    plane_on_device = true;
-                    break;
-                }
-            }
-            if !plane_on_device {
-                on_device = false;
-                break;
-            }
-        }
+        let (on_device, fd_props) = self.is_on_device_(buf)?;
         let buffer_possible = buf.modifier == LINEAR_MODIFIER
             && buf.planes.len() == 1
             && buf.planes[0].stride % buf.format.bpp == 0
@@ -1260,6 +1225,53 @@ impl CopyDevice {
             memory,
             dmabuf,
         })
+    }
+
+    pub fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
+        self.is_on_device_(buf).map(|v| v.0)
+    }
+
+    fn is_on_device_(
+        &self,
+        buf: &DmaBuf,
+    ) -> Result<(bool, PlaneVec<MemoryFdPropertiesKHR<'static>>), CopyDeviceError> {
+        let mut fd_props = PlaneVec::new();
+        for plane in &buf.planes {
+            let mut props = MemoryFdPropertiesKHR::default();
+            unsafe {
+                self.dev
+                    .external_memory_fd
+                    .get_memory_fd_properties(
+                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                        plane.fd.raw(),
+                        &mut props,
+                    )
+                    .map_err(CopyDeviceError::GetMemoryFdProperties)?;
+            }
+            fd_props.push(props);
+            if buf.is_one_file() {
+                break;
+            }
+        }
+        let mut on_device = true;
+        for prop in &fd_props {
+            let mut plane_on_device = false;
+            for (idx, ty) in self.dev.phy.memory_types.iter().enumerate() {
+                if prop.memory_type_bits & (1 << idx) != 0
+                    && ty
+                        .property_flags
+                        .contains(MemoryPropertyFlags::DEVICE_LOCAL)
+                {
+                    plane_on_device = true;
+                    break;
+                }
+            }
+            if !plane_on_device {
+                on_device = false;
+                break;
+            }
+        }
+        Ok((on_device, fd_props))
     }
 }
 

@@ -464,6 +464,7 @@ pub struct OutputData {
 }
 
 pub struct DrmDevData {
+    pub id: DrmDeviceId,
     pub dev: Rc<dyn BackendDrmDevice>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
@@ -473,7 +474,6 @@ pub struct DrmDevData {
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
     pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
-    #[expect(dead_code)]
     pub copy_device: Option<Rc<CopyDevice>>,
 }
 

@@ -70,7 +70,8 @@ impl ZwpLinuxBufferParamsV1 {
         format: u32,
         _flags: u32,
     ) -> Result<WlBufferId, ZwpLinuxBufferParamsV1Error> {
-        let ctx = match self.parent.client.state.render_ctx.get() {
+        let state = &self.parent.client.state;
+        let ctx = match state.render_ctx.get() {
             Some(ctx) => ctx,
             None => return Err(ZwpLinuxBufferParamsV1Error::NoRenderContext),
         };
@@ -87,7 +88,7 @@ impl ZwpLinuxBufferParamsV1 {
             return Err(ZwpLinuxBufferParamsV1Error::InvalidModifier(modifier));
         }
         let mut dmabuf = DmaBuf {
-            id: self.parent.client.state.dma_buf_ids.next(),
+            id: state.dma_buf_ids.next(),
             width,
             height,
             format: format.format,
@@ -120,7 +121,7 @@ impl ZwpLinuxBufferParamsV1 {
                 size,
                 true,
                 Some(&self.parent.client),
-                Some(&self.parent.client.state.cpu_worker),
+                Some(&state.cpu_worker),
                 true,
             )
             .map(Rc::new)
