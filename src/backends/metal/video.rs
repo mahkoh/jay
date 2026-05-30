@@ -2033,7 +2033,7 @@ impl MetalBackend {
             dev: Default::default(),
         });
 
-        let gfx = match self.state.create_gfx_context(master, None) {
+        let gfx = match self.state.create_gfx_context(pending.id, master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };
@@ -2513,7 +2513,10 @@ impl MetalBackend {
         if old_ctx.gfx.gfx_api() == api {
             return;
         }
-        let gfx = match self.state.create_gfx_context(&dev.master, Some(api)) {
+        let gfx = match self
+            .state
+            .create_gfx_context(dev.id, &dev.master, Some(api))
+        {
             Ok(r) => r,
             Err(e) => {
                 log::error!(

@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
+        backend::DrmDeviceId,
         cmm::cmm_description::{ColorDescription, LinearColorDescription},
         cpu_worker::CpuWorker,
         format::{ARGB8888, Format, XRGB8888},
@@ -99,6 +100,10 @@ impl Debug for TestGfxCtx {
 
 impl GfxContext for TestGfxCtx {
     fn reset_status(&self) -> Option<ResetStatus> {
+        None
+    }
+
+    fn drm_device_id(&self) -> Option<DrmDeviceId> {
         None
     }
 

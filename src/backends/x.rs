@@ -186,7 +186,8 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
     };
     let drm_dev = drm.dev();
     let gbm = GbmDevice::new(&drm)?;
-    let ctx = match state.create_gfx_context(&drm, None) {
+    let drm_device_id = state.drm_dev_ids.next();
+    let ctx = match state.create_gfx_context(drm_device_id, &drm, None) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
@@ -245,7 +246,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         root,
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
-        drm_device_id: state.drm_dev_ids.next(),
+        drm_device_id,
         drm_dev,
     });
     data.add_output().await?;

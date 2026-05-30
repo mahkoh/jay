@@ -2,6 +2,7 @@ pub use vulkan::create_vulkan_allocator;
 use {
     crate::{
         async_engine::AsyncEngine,
+        backend::DrmDeviceId,
         eventfd_cache::EventfdCache,
         gfx_api::{GfxApi, GfxContext, GfxError},
         io_uring::IoUring,
@@ -19,6 +20,7 @@ pub fn create_gfx_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
+    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     api: GfxApi,
     caps_thread: Option<&PrCapsThread>,
@@ -28,8 +30,16 @@ pub fn create_gfx_context(
     let mut last_err = None;
     for software in [false, true] {
         for api in apis {
-            let res =
-                create_gfx_context_(eng, ring, eventfd_cache, drm, api, caps_thread, software);
+            let res = create_gfx_context_(
+                eng,
+                ring,
+                eventfd_cache,
+                drm_device_id,
+                drm,
+                api,
+                caps_thread,
+                software,
+            );
             match res {
                 Ok(_) => {
                     log::info!("Created a {api:?} renderer");
@@ -52,15 +62,22 @@ fn create_gfx_context_(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
+    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     api: GfxApi,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     match api {
-        GfxApi::OpenGl => gl::create_gfx_context(drm, software),
-        GfxApi::Vulkan => {
-            vulkan::create_graphics_context(eng, ring, eventfd_cache, drm, caps_thread, software)
-        }
+        GfxApi::OpenGl => gl::create_gfx_context(drm_device_id, drm, software),
+        GfxApi::Vulkan => vulkan::create_graphics_context(
+            eng,
+            ring,
+            eventfd_cache,
+            drm_device_id,
+            drm,
+            caps_thread,
+            software,
+        ),
     }
 }

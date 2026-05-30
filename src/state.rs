@@ -167,6 +167,7 @@ pub struct State {
     pub default_keymap: Rc<KbvmMap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
+    pub render_ctx_drm_device_id: Cell<Option<DrmDeviceId>>,
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub drm_feedback_consumers:
         CopyHashMap<(ClientId, ZwpLinuxDmabufFeedbackV1Id), Rc<ZwpLinuxDmabufFeedbackV1>>,
@@ -604,6 +605,7 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
 impl State {
     pub fn create_gfx_context(
         &self,
+        drm_device_id: DrmDeviceId,
         drm: &Drm,
         api: Option<GfxApi>,
     ) -> Result<Rc<dyn GfxContext>, GfxError> {
@@ -611,6 +613,7 @@ impl State {
             &self.eng,
             &self.ring,
             &self.eventfd_cache,
+            Some(drm_device_id),
             drm,
             api.unwrap_or(self.default_gfx_api.get()),
             self.caps_thread.as_ref(),
@@ -690,6 +693,8 @@ impl State {
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
+        self.render_ctx_drm_device_id
+            .set(ctx.as_ref().and_then(|c| c.drm_device_id()));
         self.cursors.set(None);
         self.drm_feedback.set(None);
         self.icons.clear();
@@ -1313,6 +1318,7 @@ impl State {
         }
         self.globals.clear();
         self.render_ctx.set(None);
+        self.render_ctx_drm_device_id.set(None);
         self.root.clear();
         if let Some(output) = self.dummy_output.set(None) {
             output.clear();

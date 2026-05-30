@@ -26,6 +26,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError},
         async_engine::AsyncEngine,
+        backend::DrmDeviceId,
         cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
         eventfd_cache::EventfdCache,
         format::Format,
@@ -237,6 +238,7 @@ pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
+    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -244,14 +246,16 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
+            match unsafe {
+                t.run(|| instance.create_device(drm_device_id, drm, eventfd_cache, true, software))
+            } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm, eventfd_cache, false, software)?
+        instance.create_device(drm_device_id, drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
@@ -262,7 +266,7 @@ pub fn create_vulkan_allocator(
     eventfd_cache: &Rc<EventfdCache>,
 ) -> Result<Rc<dyn Allocator>, AllocatorError> {
     let instance = VulkanInstance::new(Level::Debug)?;
-    let device = instance.create_device(drm, eventfd_cache, false, false)?;
+    let device = instance.create_device(None, drm, eventfd_cache, false, false)?;
     let allocator = device.create_bo_allocator(drm)?;
     Ok(Rc::new(allocator))
 }
@@ -273,6 +277,10 @@ struct Context(Rc<VulkanRenderer>);
 impl GfxContext for Context {
     fn reset_status(&self) -> Option<ResetStatus> {
         self.0.device.lost.get().then_some(ResetStatus::Unknown)
+    }
+
+    fn drm_device_id(&self) -> Option<DrmDeviceId> {
+        self.0.device.drm_device_id
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {
