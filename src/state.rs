@@ -24,7 +24,7 @@ use {
             CCI_COLOR_MANAGEMENT, CCI_COMPOSITOR, CCI_GPUS, CCI_IDLE, CCI_LOOK_AND_FEEL,
             CCI_OUTPUTS, CCI_WORKSPACES, CCI_XWAYLAND, ControlCenters,
         },
-        copy_device::CopyDeviceRegistry,
+        copy_device::{CopyDevice, CopyDeviceRegistry},
         cpu_worker::CpuWorker,
         criteria::{clm::ClMatcherManager, tlm::TlMatcherManager},
         cursor::{Cursor, ServerCursors},
@@ -473,6 +473,8 @@ pub struct DrmDevData {
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
     pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
+    #[expect(dead_code)]
+    pub copy_device: Option<Rc<CopyDevice>>,
 }
 
 impl ConnectorData {

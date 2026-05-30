@@ -4,20 +4,33 @@ use {
         ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
         state::{DrmDevData, State},
         tasks::udev_utils::udev_props,
-        utils::asyncevent::AsyncEvent,
+        utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt},
     },
     std::{cell::Cell, rc::Rc},
 };
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     let id = dev.id();
-    let props = udev_props(dev.dev_t(), 1);
+    let dev_t = dev.dev_t();
+    let props = udev_props(dev_t, 1);
     let lease_global = Rc::new(WpDrmLeaseDeviceV1Global {
         name: state.globals.name(),
         device: id,
         bindings: Default::default(),
     });
     state.add_global(&lease_global);
+    let copy_device = state.copy_device_registry.get(dev_t).and_then(|d| {
+        d.create_device()
+            .inspect_err(|e| {
+                let maj = uapi::major(dev_t);
+                let min = uapi::minor(dev_t);
+                log::warn!(
+                    "Could not create copy device for {maj}:{min}: {}",
+                    ErrorFmt(e),
+                );
+            })
+            .ok()
+    });
     let data = Rc::new(DrmDevData {
         dev: dev.clone(),
         handler: Cell::new(None),
@@ -28,6 +41,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         model: props.model,
         pci_id: props.pci_id,
         lease_global,
+        copy_device,
     });
     let oh = DrvDevHandler {
         id,
