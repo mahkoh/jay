@@ -104,7 +104,7 @@ use {
         security_context_acceptor::SecurityContextAcceptors,
         sm::{SessionManager, SessionReason, ToplevelSession},
         sqlite::Sqlite,
-        syncobj::wait_for_syncobj::WaitForSyncobj,
+        syncobj::{SyncobjCtx, wait_for_syncobj::WaitForSyncobj},
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
@@ -167,6 +167,7 @@ pub struct State {
     pub default_keymap: Rc<KbvmMap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
+    pub dev_syncobj_ctx: Option<Rc<SyncobjCtx>>,
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub drm_feedback_consumers:
         CopyHashMap<(ClientId, ZwpLinuxDmabufFeedbackV1Id), Rc<ZwpLinuxDmabufFeedbackV1>>,
@@ -687,7 +688,6 @@ impl State {
 
     pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
         self.egg_state.clear();
-        self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
@@ -695,6 +695,8 @@ impl State {
         self.icons.clear();
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
+        self.explicit_sync_supported
+            .set(self.wait_for_syncobj.supported());
         self.virtual_outputs.handle_render_ctx_change(self);
 
         'handle_new_feedback: {
@@ -780,17 +782,11 @@ impl State {
             cursor_user_groups.render_ctx_changed();
         }
 
-        if let Some(ctx) = &ctx {
-            if let Some(ctx) = ctx.syncobj_ctx()
-                && ctx.supports_async_wait()
-            {
-                self.explicit_sync_supported.set(true);
-            }
-            if !self.render_ctx_ever_initialized.replace(true)
-                && let Some(config) = self.config.get()
-            {
-                config.graphics_initialized();
-            }
+        if ctx.is_some()
+            && !self.render_ctx_ever_initialized.replace(true)
+            && let Some(config) = self.config.get()
+        {
+            config.graphics_initialized();
         }
 
         for watcher in self.render_ctx_watchers.lock().values() {
