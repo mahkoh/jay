@@ -32,13 +32,14 @@ pub struct EventfdCache {
 struct Inner {
     ring: Rc<IoUring>,
     fds: Stack<Rc<OwnedFd>>,
+    signaled: Stack<Rc<Cell<bool>>>,
     recycle: AsyncQueue<Rc<OwnedFd>>,
 }
 
 pub struct Eventfd {
     cache: Rc<Inner>,
     pub fd: Rc<OwnedFd>,
-    signaled: Cell<bool>,
+    signaled: Rc<Cell<bool>>,
 }
 
 impl EventfdCache {
@@ -46,6 +47,7 @@ impl EventfdCache {
         let inner = Rc::new(Inner {
             ring: ring.clone(),
             fds: Default::default(),
+            signaled: Default::default(),
             recycle: Default::default(),
         });
         let task = eng.spawn("eventfd-cache", inner.clone().recycle());
@@ -62,7 +64,7 @@ impl EventfdCache {
         Ok(Eventfd {
             cache: self.inner.clone(),
             fd,
-            signaled: Default::default(),
+            signaled: self.inner.signaled.pop().unwrap_or_default(),
         })
     }
 }
@@ -148,6 +150,15 @@ impl Inner {
             .await;
         }
     }
+
+    fn return_signaled(&self, signaled: &Rc<Cell<bool>>) -> bool {
+        let returned = Rc::strong_count(signaled) == 1;
+        if returned {
+            signaled.set(false);
+            self.signaled.push(signaled.clone());
+        }
+        returned
+    }
 }
 
 impl Drop for Eventfd {
@@ -155,5 +166,6 @@ impl Drop for Eventfd {
         if self.signaled.get() {
             self.cache.recycle.push(self.fd.clone());
         }
+        self.cache.return_signaled(&self.signaled);
     }
 }
