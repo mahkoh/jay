@@ -31,8 +31,8 @@ use {
     ash::{
         Device,
         ext::{
-            external_memory_dma_buf, image_drm_format_modifier, physical_device_drm,
-            queue_family_foreign,
+            external_memory_dma_buf, external_semaphore_drm_syncobj, image_drm_format_modifier,
+            physical_device_drm, queue_family_foreign,
         },
         khr::{external_fence_fd, external_memory_fd, external_semaphore_fd},
         vk::{
@@ -59,13 +59,14 @@ use {
             MemoryFdPropertiesKHR, MemoryGetFdInfoKHR, MemoryPropertyFlags, MemoryRequirements2,
             MemoryType, Offset3D, PhysicalDevice, PhysicalDeviceDrmPropertiesEXT,
             PhysicalDeviceExternalBufferInfo, PhysicalDeviceExternalFenceInfo,
-            PhysicalDeviceExternalImageFormatInfoKHR, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceFeatures2, PhysicalDeviceImageDrmFormatModifierInfoEXT,
-            PhysicalDeviceImageFormatInfo2, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures,
-            PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue, QueueFlags, SampleCountFlags,
-            SemaphoreCreateInfo, SemaphoreImportFlags, SemaphoreSubmitInfo, SharingMode,
-            SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
+            PhysicalDeviceExternalImageFormatInfoKHR,
+            PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
+            PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
+            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
+            PhysicalDeviceTimelineSemaphoreFeatures, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
+            Queue, QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
+            SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
         },
     },
     bstr::ByteSlice,
@@ -189,6 +190,7 @@ pub struct PhysicalCopyDevice {
     queues: KeyedCopy<QueueIndex>,
     supports_dmabuf_export: bool,
     supports_timeline_opaque_export: bool,
+    supports_syncobj_export: bool,
     memory_types: Vec<MemoryType>,
     rects: RefCell<Vec<(i32, i32, u32, u32)>>,
     buffer_copy_2: RefCell<Vec<BufferCopy2<'static>>>,
@@ -632,6 +634,8 @@ impl PhysicalCopyDevice {
         let features = core_instance.get_features(physical_device);
         let supports_timeline_opaque_export =
             core_instance.supports_timeline_opaque_export(physical_device, &features);
+        let supports_syncobj_export =
+            core_instance.supports_syncobj_export(physical_device, &features, &device_extensions);
         let dev = Rc::new(PhysicalCopyDevice {
             ring: ring.clone(),
             eng: eng.clone(),
@@ -644,6 +648,7 @@ impl PhysicalCopyDevice {
             queues: queue_indices,
             supports_dmabuf_export,
             supports_timeline_opaque_export,
+            supports_syncobj_export,
             memory_types: memory_info.memory_types_as_slice().to_vec(),
             rects: Default::default(),
             buffer_copy_2: Default::default(),
@@ -682,15 +687,24 @@ impl PhysicalCopyDevice {
                         .queue_priorities(&priorities[..q.num])
                 })
                 .collect();
-            let extensions = DEVICE_EXTENSIONS.map(|e| e.as_ptr());
+            let mut extensions = DEVICE_EXTENSIONS.map(|e| e.as_ptr()).to_vec();
+            if self.supports_syncobj_export {
+                extensions.push(external_semaphore_drm_syncobj::NAME.as_ptr());
+            }
             let mut semaphore_features = PhysicalDeviceTimelineSemaphoreFeatures::default()
-                .timeline_semaphore(self.supports_timeline_opaque_export);
+                .timeline_semaphore(
+                    self.supports_timeline_opaque_export || self.supports_syncobj_export,
+                );
+            let mut syncobj_features =
+                PhysicalDeviceExternalSemaphoreDrmSyncobjFeaturesEXT::default()
+                    .external_semaphore_drm_syncobj(self.supports_syncobj_export);
             let mut synchronization2_features =
                 PhysicalDeviceSynchronization2Features::default().synchronization2(true);
             let info = DeviceCreateInfo::default()
                 .queue_create_infos(&queue_create_info)
                 .enabled_extension_names(&extensions)
                 .push_next(&mut semaphore_features)
+                .push_next(&mut syncobj_features)
                 .push_next(&mut synchronization2_features);
             unsafe {
                 instance
@@ -2097,6 +2111,10 @@ impl VulkanDeviceInf for CopyDeviceInner {
 
     fn supports_timeline_opaque_export(&self) -> bool {
         self.phy.supports_timeline_opaque_export
+    }
+
+    fn supports_syncobj_export(&self) -> bool {
+        self.phy.supports_syncobj_export
     }
 
     fn sync_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
