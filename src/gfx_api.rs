@@ -12,7 +12,7 @@ use {
         eventfd_cache::Eventfd,
         fixed::Fixed,
         format::Format,
-        io_uring::{IoUring, IoUringError},
+        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         rect::{Rect, Region},
         renderer::{Renderer, renderer_base::RendererBase},
         scale::Scale,
@@ -1224,6 +1224,18 @@ impl FdSync {
                     })
                     .as_ref()
             }
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn signaled_external(
+        &self,
+        ring: &Rc<IoUring>,
+        cb: Rc<dyn PollCallback>,
+    ) -> Result<Option<PendingPoll>, IoUringError> {
+        match self {
+            FdSync::SyncFile(f) => ring.readable_external(&f.0, cb).map(Some),
+            FdSync::Syncobj(obj) => obj.signaled.signaled_external(cb),
         }
     }
 }

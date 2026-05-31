@@ -110,7 +110,6 @@ impl Eventfd {
         Ok(())
     }
 
-    #[expect(dead_code)]
     pub fn signaled_external(
         &self,
         cb: Rc<dyn PollCallback>,
