@@ -302,20 +302,6 @@ impl TestGfxImage {
         }
         Ok(())
     }
-
-    fn width(&self) -> i32 {
-        match self {
-            TestGfxImage::Shm(v) => v.width,
-            TestGfxImage::DmaBuf(v) => v.buf.width,
-        }
-    }
-
-    fn height(&self) -> i32 {
-        match self {
-            TestGfxImage::Shm(v) => v.height,
-            TestGfxImage::DmaBuf(v) => v.buf.height,
-        }
-    }
 }
 
 impl Debug for TestGfxImage {
